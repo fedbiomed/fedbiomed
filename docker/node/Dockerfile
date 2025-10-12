@@ -9,16 +9,18 @@ COPY docker/node/supervisord-node.conf.template /etc/supervisor/supervisord.conf
 
 USER root:root
 
-# Create node directory
-RUN mkdir -p /fbm-node /home/$FEDBIOMED_USER/log
-RUN chgrp -R $FEDBIOMED_GROUP /home/$FEDBIOMED_USER /fbm-node
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fbm-node
+# Create node directory - ownership will be set at runtime to support dynamic user mapping
+# Note: /fbm-node ownership will be set in entrypoint.bash to support runtime user mapping
+RUN mkdir -p /fbm-node
 
 # Change working directory to fedbiomed
 WORKDIR /fedbiomed
 
 # Globally install fedbiomed
 RUN pip install '.[node]'
+
+# Restore ownership of /fedbiomed after pip install (which runs as root)
+RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed
 
 WORKDIR /
 # Run node

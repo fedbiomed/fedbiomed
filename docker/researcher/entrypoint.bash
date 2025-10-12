@@ -20,23 +20,32 @@ EOF
 chmod +x /tmp/fbm-env.sh
 source /tmp/fbm-env.sh 
 
+# Function to handle cleanup on exit
+cleanup() {
+  echo "Shutting down researcher container..."
+  kill $(jobs -p) 2>/dev/null
+  exit 0
+}
+
+# Set up signal handlers
+trap cleanup SIGTERM SIGINT
+
 su -l -c \
   "source /tmp/fbm-env.sh && \
    fedbiomed component create -c researcher --path /fbm-researcher  --exist-ok && \
    echo 'Server port: $FBM_SERVER_PORT' && jupyter notebook /fbm-researcher/notebooks \
-      --ip=0.0.0.0 --no-browser --allow-root \
-      --NotebookApp.token=''" $CONTAINER_USER &
+    --ip=0.0.0.0 --no-browser --allow-root \
+    --NotebookApp.token=''" $CONTAINER_USER &
 
 # proxy port for TensorBoard
 # enables launching TB without `--host` option (thus listening only on `localhost`)
 # + `watch` for easy respawn in case of failure
 while true ; do \
-    socat TCP-LISTEN:6007,fork,reuseaddr,su=$CONTAINER_USER TCP4:127.0.0.1:6006 ; \
-    sleep 1 ; \
+  socat TCP-LISTEN:6007,fork,reuseaddr,su=$CONTAINER_USER TCP4:127.0.0.1:6006 ; \
+  sleep 1 ; \
 done &
 
 echo "Researcher container is ready"
-sleep infinity &
 
-wait $!
-
+# Wait for any background job to finish
+wait

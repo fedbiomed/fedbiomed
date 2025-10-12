@@ -45,6 +45,9 @@ WORKDIR /fedbiomed
 # Install only GUI dependencies
 RUN pip install '.[gui]'
 
+# Restore ownership of /fedbiomed after pip install (which runs as root)
+RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed
+
 WORKDIR /
 
 # Run researcher

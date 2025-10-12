@@ -1,8 +1,9 @@
 #!/bin/bash
 
-new_run_time_user() {
+# Global variable to track if a new account was created at runtime
+USING_NEW_ACCOUNT=false
 
-    USING_NEW_ACCOUNT=false
+new_run_time_user() {
 
     # Handle group creation -------------------------------------
     if [ -n "$CONTAINER_GID" ] && [ -n "$CONTAINER_GROUP" ]; then
@@ -24,7 +25,7 @@ new_run_time_user() {
             exit 1
         fi
     else
-        echo "info: CONTAINER_GROUP or CONTAINER_GID not set — skipping group creation"
+        echo "info: CONTAINER_GROUP or CONTAINER_GID not set — using default group"
         CONTAINER_GROUP=$(id -gn "$FEDBIOMED_USER")
     fi
 
@@ -53,6 +54,7 @@ new_run_time_user() {
     else
         echo "info: CONTAINER_USER or CONTAINER_UID not set — using default user"
         CONTAINER_USER=$FEDBIOMED_USER
+        CONTAINER_GROUP=$(id -gn "$FEDBIOMED_USER")
     fi
 
     # If a new user is created, add it to the default user's group ===
@@ -69,37 +71,38 @@ new_run_time_user() {
             echo "WARNING: Default user group $FEDBIOMED_GROUP not found"
         fi
     fi
+    
+    # Export CONTAINER_USER and CONTAINER_GROUP for use in other functions
+    export CONTAINER_USER
+    export CONTAINER_GROUP
 }
 
 change_path_owner() {
     local path_nocross=$1
     local path_full=$2
 
-    if [ "$USING_NEW_ACCOUNT" = true ]; then
-        echo "Using run-time defined user: $CONTAINER_USER"
+    # Always ensure the container user has access, regardless of whether it's a new account
+    echo "Setting ownership for container user: $CONTAINER_USER"
 
-        for path in $path_nocross; do
-            if [ -e "$path" ]; then
-                find "$path" -mount -exec chown -h "$CONTAINER_USER:$CONTAINER_GROUP" {} \; || {
-                    echo "CRITICAL: Failed to change ownership of $path"
-                    exit 1
-                }
-                echo "info: Changed ownership of $path (no-cross)"
-            fi
-        done
+    for path in $path_nocross; do
+        if [ -e "$path" ]; then
+            find "$path" -mount -exec chown -h "$CONTAINER_USER:$CONTAINER_GROUP" {} \; || {
+                echo "CRITICAL: Failed to change ownership of $path"
+                exit 1
+            }
+            echo "info: Changed ownership of $path (no-cross)"
+        fi
+    done
 
-        for path in $path_full; do
-            if [ -e "$path" ]; then
-                chown -R "$CONTAINER_USER:$CONTAINER_GROUP" "$path" || {
-                    echo "CRITICAL: Failed to change ownership of $path"
-                    exit 1
-                }
-                echo "info: Changed ownership of $path (full)"
-            fi
-        done
-    else
-        CONTAINER_USER=$FEDBIOMED_USER
-    fi
+    for path in $path_full; do
+        if [ -e "$path" ]; then
+            chown -R "$CONTAINER_USER:$CONTAINER_GROUP" "$path" || {
+                echo "CRITICAL: Failed to change ownership of $path"
+                exit 1
+            }
+            echo "info: Changed ownership of $path (full)"
+        fi
+    done
 }
 
 
