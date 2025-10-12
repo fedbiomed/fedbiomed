@@ -15,15 +15,18 @@ USER root:root
 # Install socat
 RUN apt-get update && apt-get install -y socat
 
-# Create node directory
+# Create researcher directory - ownership will be set at runtime to support dynamic user mapping
 RUN mkdir -p /fbm-researcher
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed /fbm-researcher
+# Note: /fbm-researcher ownership will be set in entrypoint.bash to support runtime user mapping
 
 # Change working directory to fedbiomed
 WORKDIR /fedbiomed
 
 # Globally install fedbiomed
 RUN pip install '.[researcher]'
+
+# Restore ownership of /fedbiomed after pip install (which runs as root)
+RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed
 
 WORKDIR /
 
