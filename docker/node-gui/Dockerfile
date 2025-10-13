@@ -3,6 +3,18 @@ ARG FBM_IMAGE_VERSION
 # Start from Fed-BioMed base image
 FROM fedbiomed/node:${FBM_IMAGE_VERSION:-latest} AS fedbiomed-node
 
+# Redeclare ARGs from base image to make them available at build time
+ARG FEDBIOMED_USER=fedbiomed
+ARG FEDBIOMED_GROUP=fedbiomed
+ARG FEDBIOMED_UID=1001
+ARG FEDBIOMED_GID=101
+
+# Set environment variables to make them available at runtime
+ENV FEDBIOMED_USER=${FEDBIOMED_USER}
+ENV FEDBIOMED_GROUP=${FEDBIOMED_GROUP}
+ENV FEDBIOMED_UID=${FEDBIOMED_UID}
+ENV FEDBIOMED_GID=${FEDBIOMED_GID}
+
 ARG NGINX_PORT_SSL=8483
 ARG NGINX_PORT_NOSSL=8484
 
@@ -46,7 +58,7 @@ WORKDIR /fedbiomed
 RUN pip install '.[gui]'
 
 # Restore ownership of /fedbiomed after pip install (which runs as root)
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed
+RUN chown -R ${FEDBIOMED_USER}:${FEDBIOMED_GROUP} /fedbiomed
 
 WORKDIR /
 

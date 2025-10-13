@@ -8,7 +8,7 @@ source /functions.bash
 new_run_time_user
 
 # Change path owner to new container user defined in the run time
-change_path_owner "/fedbiomed" "/fbm-node /certs /home/$FEDBIOMED_USER"
+change_path_owner "/fedbiomed /fbm-node /certs /home/$FEDBIOMED_USER"
 
 
 # To avoid envsubst to over write default nginx variables

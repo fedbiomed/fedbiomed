@@ -78,29 +78,21 @@ new_run_time_user() {
 }
 
 change_path_owner() {
-    local path_nocross=$1
-    local path_full=$2
+    local paths=$1
 
     # Always ensure the container user has access, regardless of whether it's a new account
     echo "Setting ownership for container user: $CONTAINER_USER"
 
-    for path in $path_nocross; do
+    for path in $paths; do
         if [ -e "$path" ]; then
-            find "$path" -mount -exec chown -h "$CONTAINER_USER:$CONTAINER_GROUP" {} \; || {
-                echo "CRITICAL: Failed to change ownership of $path"
-                exit 1
-            }
-            echo "info: Changed ownership of $path (no-cross)"
-        fi
-    done
-
-    for path in $path_full; do
-        if [ -e "$path" ]; then
-            chown -R "$CONTAINER_USER:$CONTAINER_GROUP" "$path" || {
-                echo "CRITICAL: Failed to change ownership of $path"
-                exit 1
-            }
-            echo "info: Changed ownership of $path (full)"
+            if chown -R "$CONTAINER_USER:$CONTAINER_GROUP" "$path" 2>/dev/null; then
+                echo "info: Changed ownership of $path (full)"
+            else
+                echo "WARNING: Failed to change ownership of $path - continuing anyway"
+                echo "This may happen on cluster environments with restricted permissions"
+                # Try to ensure the directory is at least readable/writable by the user if possible
+                chmod -R u+rw "$path" 2>/dev/null || echo "WARNING: Could not adjust permissions for $path"
+            fi
         fi
     done
 }
