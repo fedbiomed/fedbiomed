@@ -4,7 +4,7 @@ source /functions.bash
 new_run_time_user
 
 # This functions changes path owner to new container user if it defined in run time
-change_path_owner /fedbiomed "/fbm-researcher /home/$FEDBIOMED_USER/log"
+change_path_owner "/fedbiomed /fbm-researcher /home/$FEDBIOMED_USER/log"
 
 # Server host/port configuration
 cat <<EOF > /tmp/fbm-env.sh
