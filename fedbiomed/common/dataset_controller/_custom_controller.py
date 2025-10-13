@@ -1,16 +1,16 @@
 from fedbiomed.common.dataset_controller._controller import Controller
 
-"""
-
-- Override the len in CustomDataset (An abstract len method)
-- 
-
-
-"""
-
 
 class CustomController(Controller):
     """Custom dataset controller for MNIST dataset"""
+
+    def __init__(self, root, **kwargs):
+        self.root = root
+
+        self._controller_kwargs = {
+            "root": str(self.root),
+            **kwargs,
+        }
 
     def shape(self):
         """Len and shape should never be used, as the dataset implements it specifically.

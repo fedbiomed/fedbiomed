@@ -199,7 +199,14 @@ def add_database(
         description = str(description)
 
         data_type = str(data_type).lower()
-        if data_type not in ["csv", "default", "mednist", "images", "medical-folder"]:
+        if data_type not in [
+            "csv",
+            "default",
+            "mednist",
+            "images",
+            "medical-folder",
+            "custom",
+        ]:
             data_type = "default"
 
         if not os.path.exists(path):

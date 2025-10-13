@@ -14,9 +14,17 @@ def validated_data_type_input() -> str:
     """Picks data type to use from user input on command line.
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby').
+            ('csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby', 'custom').
     """
-    valid_options = ["csv", "default", "mednist", "images", "medical-folder", "flamby"]
+    valid_options = [
+        "csv",
+        "default",
+        "mednist",
+        "images",
+        "medical-folder",
+        "flamby",
+        "custom",
+    ]
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -95,6 +103,36 @@ def validated_path_input(type: str) -> str:
                     logger.critical("No python file was selected. Exiting")
                     exit(1)
                 assert os.path.isfile(path)
+            elif type == "custom":
+                msg = "Custom dataset selected. Please indicate whether the dataset is a file or a directory.\n"
+                options = ["file", "directory"]
+                options = {i: val for i, val in enumerate(options, 1)}
+                msg += "\n".join([f"\t{i}) {val}" for i, val in options.items()])
+                msg += "\nselect: "
+
+                while True:
+                    try:
+                        t = int(input(msg))
+                        assert t in options.keys()
+                        break
+                    except Exception:
+                        warnings.warn(
+                            "\n[ERROR] Please, enter a valid option", stacklevel=1
+                        )
+                if options[t] == "file":
+                    path = pick_with_tkinter(mode="file")
+                    logger.debug(path)
+                    if not path:
+                        logger.critical("No file was selected. Exiting")
+                        exit(1)
+                    assert os.path.isfile(path)
+                else:
+                    path = pick_with_tkinter(mode="dir")
+                    logger.debug(path)
+                    if not path:
+                        logger.critical("No directory was selected. Exiting")
+                        exit(1)
+                    assert os.path.isdir(path)
             else:
                 path = pick_with_tkinter(mode="dir")
                 logger.debug(path)
