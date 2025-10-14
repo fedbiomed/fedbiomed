@@ -133,7 +133,13 @@ class CustomDataset(Dataset):
         self._to_format = to_format
 
         # Call user defined read function to read the dataset
-        self.read()
+        try:
+            self.read()
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to read "
+                f"from dataset using read method. Please see error: {e}"
+            ) from e
 
         # Following line is just to check that dataset is well implemented
         # and it return correct data type respecting to to_format
