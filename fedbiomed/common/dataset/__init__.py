@@ -33,4 +33,5 @@ __all__ = [
     "MedNistDataset",
     "MnistDataset",
     "TabularDataset",
+    "CustomDataset",
 ]
