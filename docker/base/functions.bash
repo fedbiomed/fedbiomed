@@ -3,6 +3,15 @@
 # Global variable to track if a new account was created at runtime
 USING_NEW_ACCOUNT=false
 
+# Check if current user is root
+if [ "$(id -u)" -eq 0 ]; then
+    IS_ROOT=true
+else
+    IS_ROOT=false
+fi
+
+export IS_ROOT
+
 new_run_time_user() {
 
     # Handle group creation -------------------------------------
@@ -80,19 +89,31 @@ new_run_time_user() {
 change_path_owner() {
     local paths=$1
 
-    # Always ensure the container user has access, regardless of whether it's a new account
-    echo "Setting ownership for container user: $CONTAINER_USER"
+    echo "Checking ownership for container user: $CONTAINER_USER"
 
     for path in $paths; do
         if [ -e "$path" ]; then
-            if chown -R "$CONTAINER_USER:$CONTAINER_GROUP" "$path" 2>/dev/null; then
-                echo "info: Changed ownership of $path (full)"
+            # Get current owner and group of the path
+            current_owner=$(stat -c '%U' "$path" 2>/dev/null)
+            current_group=$(stat -c '%G' "$path" 2>/dev/null)
+            
+            # Check if ownership change is needed
+            if [ "$current_owner" != "$CONTAINER_USER" ] || [ "$current_group" != "$CONTAINER_GROUP" ]; then
+                echo "info: Current ownership of $path is $current_owner:$current_group, changing to $CONTAINER_USER:$CONTAINER_GROUP"
+                
+                if chown -R "$CONTAINER_USER:$CONTAINER_GROUP" "$path" 2>/dev/null; then
+                    echo "info: Changed ownership of $path (full)"
+                else
+                    echo "WARNING: Failed to change ownership of $path - continuing anyway"
+                    echo "This may happen on cluster environments with restricted permissions"
+                    # Try to ensure the directory is at least readable/writable by the user if possible
+                    chmod -R u+rw "$path" 2>/dev/null || echo "WARNING: Could not adjust permissions for $path"
+                fi
             else
-                echo "WARNING: Failed to change ownership of $path - continuing anyway"
-                echo "This may happen on cluster environments with restricted permissions"
-                # Try to ensure the directory is at least readable/writable by the user if possible
-                chmod -R u+rw "$path" 2>/dev/null || echo "WARNING: Could not adjust permissions for $path"
+                echo "info: Ownership of $path is already correct ($current_owner:$current_group), skipping"
             fi
+        else
+            echo "WARNING: Path $path does not exist, skipping ownership change"
         fi
     done
 }
