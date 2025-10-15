@@ -19,8 +19,6 @@ new_run_time_user
 # This functions changes path owner to new container user if it defined in run time
 change_path_owner "/fedbiomed /fbm-node /home/$FEDBIOMED_USER/log"
 
-ls -la /home/$FEDBIOMED_USER
-
 cat <<EOF > /tmp/fbm-env.sh
 export FBM_NODE_START_OPTIONS=${FBM_NODE_START_OPTIONS}
 export FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=${FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS:-True}
@@ -64,11 +62,6 @@ su -l -c "echo \"$FBM_NODE_START_OPTIONS\" >/fbm-node/FBM_NODE_START_OPTIONS" $C
 
 # Keep follwing implementation for non su[ervisord case
 # su -l -c "source /tmp/fbm-env.sh && fedbiomed node -p /fbm-node start $FBM_NODE_START_OPTIONS &" $CONTAINER_USER
-
-# echo "Node container is ready"
-# sleep infinity &
-
-# wait $!
 
 # Drop privileges and launch supervisord
 exec su -s /bin/bash "$CONTAINER_USER" -c "supervisord -c /etc/supervisor/supervisord.conf"
