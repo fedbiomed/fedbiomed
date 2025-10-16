@@ -121,15 +121,15 @@ class DatasetTable(BaseTable):
         # Check that there are not existing dataset with conflicting tags
         if "tags" in modified_dataset:
             # the dataset to modify is ignored (can conflict with its previous tags)
-            conflicting_ids = [
-                _["dataset_id"]
+            conflicting_datasets = [
+                _
                 for _ in self.search_conflicting_tags(modified_dataset["tags"])
                 if _["dataset_id"] != dataset_id
             ]
-            if len(conflicting_ids) > 0:
+            if len(conflicting_datasets) > 0:
                 msg = (
                     f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: "
-                    f" {' '.join([_['name'] for _ in conflicting_ids])}"
+                    f" {' '.join([_['name'] for _ in conflicting_datasets])}"
                 )
                 logger.critical(msg)
                 raise FedbiomedError(msg)
