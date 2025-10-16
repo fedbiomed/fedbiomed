@@ -7,7 +7,6 @@ import numpy as np
 import torch
 import torchvision.transforms as T
 from PIL import Image
-from torch.utils.data import Dataset as TorchDataset
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset._dataset import Dataset
@@ -40,7 +39,6 @@ class NativeDataset(Dataset):
             )
 
         self._dataset = dataset
-        self._is_torch_dataset = isinstance(dataset, TorchDataset)
 
         # Probe one sample to determine supervised/unsupervised shape
         try:
@@ -95,11 +93,11 @@ class NativeDataset(Dataset):
             data, target = self._dataset[idx]
         else:
             data = self._dataset[idx]
-            target = self._target[idx]
+            target = self._target[idx] if self._target is not None else None
 
         # Convert on-the-fly
         data_cvt = self._converter(data)
-        target_cvt = self._converter(target)
+        target_cvt = self._converter(target) if target is not None else None
         return data_cvt, target_cvt
 
     def __len__(self) -> int:
