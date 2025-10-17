@@ -67,8 +67,6 @@ class DataManager(object):
                     f"`Dataset` argument"
                 )
         else:
-            # TODO: implement native dataset
-            # dataset = NativeDataset(dataset, target)
             try:
                 dataset = NativeDataset(dataset, target)
             except Exception as e:

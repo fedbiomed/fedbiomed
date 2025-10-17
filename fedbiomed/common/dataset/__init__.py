@@ -12,6 +12,7 @@ from fedbiomed.common.constants import DataLoadingBlockTypes
 from ._custom_dataset import CustomDataset
 from ._dataset import Dataset
 from ._medical_folder_dataset import MedicalFolderDataset
+from ._native_dataset import NativeDataset
 from ._simple_dataset import (
     ImageFolderDataset,
     MedNistDataset,
@@ -32,5 +33,6 @@ __all__ = [
     "MedicalFolderDataset",
     "MedNistDataset",
     "MnistDataset",
+    "NativeDataset",
     "TabularDataset",
 ]
