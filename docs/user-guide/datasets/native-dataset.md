@@ -15,7 +15,8 @@ It is designed for cases such as you have a pre-determined dataset, such as a To
   - If your data source returns `(data, target)` pairs (e.g., most Torch datasets), it's treated as **supervised**.
   - If your source returns only `data` **(unsupervised)**, you should also provide a separate `target/label` sequence if your model needs labels.
 
-!!! Important Note: In the **unsupervised** scenario, each item still return a tuple of `(data, None)`. Make sure your Model and your `training_step` function handles accordingly/
+!!! warning "Unsupervised scenario"
+    In the **unsupervised** scenario, each item still return a tuple of `(data, None)`. Make sure your Model and your `training_step` function handles accordingly/
 
 
 ## Where `NativeDataset` fits in your workflow
@@ -95,7 +96,7 @@ def training_data(self):
 - **Unsupervised training:** Ensure that your model and training step expects a tuple of `(data, None)` as a sample. 
 - **Item access failures:** If your Torch-style dataset raises an error on indexing, fix it locally before integrating.
 
-!!! tip "Develop locally, then federate"
+!!! note "Develop locally, then federate"
     Validate your native data object (and a small training loop) locally to catch shape, dtype, and batching issues early.
     Once it runs end-to-end, integrate it into your `TrainingPlan` and node workflow.
 
