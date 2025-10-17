@@ -9,7 +9,6 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetManager
 
 from ..config import config
-from ..db import node_database
 from ..middlewares import common, middleware
 from ..schemas import (
     AddDataSetRequest,
@@ -53,16 +52,16 @@ def list_datasets():
     """
     req = request.json
     search = req.get("search", None)
-    table = node_database.table_datasets()
-    query = node_database.query()
 
     if search is not None and search != "":
-        res = table.search(
-            query.name.search(search + "+") | query.description.search(search + "+")
+        res = dataset_manager._dataset_table.get_all_by_condition(
+            "name", lambda x: search.lower() in x.lower()
+        ) + dataset_manager._dataset_table.get_all_by_condition(
+            "description", lambda x: search.lower() in x.lower()
         )
     else:
         try:
-            res = table.all()
+            res = dataset_manager.list_my_datasets()
         except Exception as e:
             return error(str(e)), 400
 
@@ -92,12 +91,10 @@ def remove_dataset():
     req = request.json
 
     if req["dataset_id"]:
-        table = node_database.table_datasets()
-        query = node_database.query()
-        dataset = table.get(query.dataset_id == req["dataset_id"])
+        dataset = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
 
         if dataset:
-            table.remove(doc_ids=[dataset.doc_id])
+            dataset_manager.dataset_table.delete_by_id(req["dataset_id"])
             return success("Dataset has been removed successfully"), 200
 
         else:
@@ -143,20 +140,17 @@ def add_dataset():
 
     try:
         dataset_manager.add_database(
-            req["name"],
-            req["type"],
-            req["tags"],
-            req["desc"],
-            data_path_save,
-            dataset_id,
+            name=req["name"],
+            data_type=req["type"],
+            tags=req["tags"],
+            description=req["desc"],
+            path=data_path_save,
+            dataset_id=dataset_id,
         )
     except Exception as e:
         return error(str(e)), 400
 
-    # Get saved dataset document
-    table = node_database.table_datasets()
-    query = node_database.query()
-    res = table.get(query.dataset_id == dataset_id)
+    res = dataset_manager.dataset_table.get_by_id(dataset_id)
 
     return response(res), 200
 
@@ -186,17 +180,14 @@ def update_dataset():
     """
     req = request.json
     try:
-        dataset_manager.modify_database_info(
+        dataset_manager.dataset_table.update_by_id(
             req["dataset_id"],
             {"tags": req["tags"], "description": req["desc"], "name": req["name"]},
         )
     except Exception as e:
         return error(str(e)), 400
 
-    # Get saved dataset document
-    table = node_database.table_datasets()
-    query = node_database.query()
-    res = table.get(query.dataset_id == req["dataset_id"])
+    res = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
 
     return response(res), 200
 
@@ -224,9 +215,7 @@ def get_preview_dataset():
     """
 
     req = request.json
-    table = node_database.table_datasets()
-    query = node_database.query()
-    dataset = table.get(query.dataset_id == req["dataset_id"])
+    dataset = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
 
     # Extract data path where the files are saved in the local repository
     rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])
@@ -283,9 +272,7 @@ def add_default_dataset():
 
     """
     req = request.json
-    table = node_database.table_datasets()
-    query = node_database.query()
-    dataset = table.get(query.tags == req["tags"])
+    dataset = dataset_manager.dataset_table.get_all_by_value("tags", req["tags"])
 
     if dataset:
         return error(
@@ -312,26 +299,17 @@ def add_default_dataset():
         # This is the path will be written in DB
         data_path = os.path.join(config["DATA_PATH_SAVE"], "defaults", "mnist")
 
-    try:
-        shape = dataset_manager.load_default_database(
-            name="MNIST", path=path, as_dataset=False
-        )
-    except Exception as e:
-        return error(str(e)), 400
-
     # Create unique id for the dataset
     dataset_id = "dataset_" + str(uuid.uuid4())
 
     try:
-        table.insert(
+        dataset_manager.add_database(
             {
                 "name": req["name"],
-                "path": data_path,
                 "data_type": "default",
-                "dtypes": [],
-                "shape": shape,
                 "tags": req["tags"],
                 "description": req["desc"],
+                "path": data_path,
                 "dataset_id": dataset_id,
             }
         )
@@ -339,7 +317,7 @@ def add_default_dataset():
     except Exception as e:
         return error(str(e)), 400
 
-    res = table.get(query.dataset_id == dataset_id)
+    res = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
 
     return response(res), 200
 
@@ -383,7 +361,9 @@ def list_data_loading_plans():
     target_dataset_type = (
         req["target_dataset_type"] if "target_dataset_type" in req else None
     )
-    dlps = dataset_manager.list_dlp(target_dataset_type=target_dataset_type)
+    dlps = dataset_manager.dlp_table.list_by_target_dataset_type(
+        target_dataset_type=target_dataset_type
+    )
     index = list(range(len(dlps)))
     columns = ["name", "id"]
     data = [[dlp["dlp_name"], dlp["dlp_id"]] for dlp in dlps]

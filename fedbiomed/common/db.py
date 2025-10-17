@@ -5,7 +5,7 @@
 Interfaces with a tinyDB database for converting search results to dict.
 """
 
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
@@ -72,25 +72,25 @@ class TinyDBConnector:
     """Singleton TinyDB connector"""
 
     _instance = None
-    _db = None
 
     def __new__(cls, db_path: str):
         # Ensure only one instance of TinyDBConnector
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             # Use DBTable as the default table class for this TinyDB instance
-            cls._db = TinyDB(db_path, table_class=DBTable)
+            cls._instance._db = TinyDB(db_path)
         return cls._instance
 
     @property
-    def db(self):
+    def db(self) -> TinyDB:
         """Return the shared TinyDB instance"""
         return self._db
 
     def table(self, name: str) -> DBTable:
         """Return a table with the given name, ensuring it is a DBTable instance."""
         # Get the table from the underlying DB instance, forcing cache_size=0
-        return self._db.table(name, cache_size=0)
+        table = self._db.table(name, cache_size=0)
+        return DBTable(table.storage, table.name)
 
 
 class TinyTableConnector:
@@ -106,7 +106,7 @@ class TinyTableConnector:
         self._query = Query()
         self._table = TinyDBConnector(db_path=path).table(self._table_name)
 
-    def get_by_id(self, id_value: str) -> Union[dict, None]:
+    def get_by_id(self, id_value: str) -> Optional[dict]:
         """Get a document by its ID.
 
         Args:
@@ -122,7 +122,7 @@ class TinyTableConnector:
         )
         return response[0] if response else None
 
-    def create(self, entry: dict) -> int:
+    def insert(self, entry: dict) -> int:
         """Insert a new document.
 
         Args:
@@ -139,7 +139,8 @@ class TinyTableConnector:
             raise KeyError(
                 f"Entry with {self._id_name}={entry[self._id_name]} already exists."
             )
-        return self._table.insert(entry)
+        _ = self._table.insert(entry)
+        return entry[self._id_name]
 
     def all(self) -> List[dict]:
         """Get all entries (or empty list if none found).

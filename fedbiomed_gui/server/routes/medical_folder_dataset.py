@@ -9,7 +9,8 @@ from fedbiomed.node.dataset_manager import DatasetManager
 
 from ..cache import cached
 from ..config import config
-from ..db import node_database
+
+# from ..db import node_database
 from ..middlewares import common, medical_folder_dataset, middleware
 from ..schemas import (
     PreviewDatasetRequest,
@@ -27,10 +28,6 @@ dataset_manager = DatasetManager(config["NODE_DB_PATH"])
 
 # Path to write and read the datafiles
 DATA_PATH_RW = config["DATA_PATH_RW"]
-
-# Database table (default datasets table of TinyDB) and query object
-table = node_database.table_datasets()
-query = node_database.query()
 
 
 @api.route(
@@ -111,7 +108,7 @@ def add_medical_folder_dataset():
         return error("Unexpected error: " + str(e)), 400
 
     # Get saved dataset document
-    res = table.get(query.dataset_id == dataset_id)
+    res = dataset_manager.dataset_table.get_by_id(dataset_id)
     if not res:
         return error(
             "Medical Folder Dataset is not properly deployed. Please try again."
@@ -144,7 +141,7 @@ def remove_data_loading_plan():
     req = request.json
 
     try:
-        dataset_manager.remove_dlp_by_id(req["dlp_id"], True)
+        dataset_manager.remove_dlp_by_id(req["dlp_id"])
     except FedbiomedError as e:
         return error(f"Cannot remove data loading plan for customizations: {e}"), 400
 
@@ -160,7 +157,7 @@ def medical_folder_preview():
     # Request object as JSON
     req = request.json
 
-    dataset = table.get(query.dataset_id == req["dataset_id"])
+    dataset = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
 
     # Extract data path where the files are saved in the local GUI repository
     rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])

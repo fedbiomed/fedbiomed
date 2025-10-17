@@ -87,8 +87,8 @@ def validate_all_modalities():
     if req["dlp_id"]:
         try:
             dlp = DataLoadingPlan()
-            dlp_and_dlbs_dict = dataset_manager.get_dlp_by_id(req["dlp_id"])
-            dlp.deserialize(*dlp_and_dlbs_dict)
+            dlp_and_dlbs_tuple = dataset_manager.get_dlp_by_id(req["dlp_id"])
+            dlp.deserialize(*dlp_and_dlbs_tuple)
         except FedbiomedError as e:
             return error(
                 f"Cannot instantiate data loading plan of MedicalFolder: {e}"

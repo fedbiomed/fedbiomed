@@ -26,6 +26,9 @@ class TabularController(Controller):
         """
         self.root = root
         self._reader = CsvReader(self.root)
+        self._controller_kwargs = {
+            "root": str(self.root),
+        }
 
     def get_sample(self, index: int) -> pl.DataFrame:
         """Retrieve a data sample without applying transforms"""
@@ -55,3 +58,10 @@ class TabularController(Controller):
     # TODO: Change it with the accurate return type
     def shape(self) -> Dict:
         return self._reader.shape()
+
+    def get_types(self):
+        """Get dtypes of the columns in the Tabular dataset"""
+        return {
+            col: dtype.__class__.__name__
+            for col, dtype in self._reader.data.schema.items()
+        }

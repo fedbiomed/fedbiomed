@@ -20,12 +20,13 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.transforms import Lambda
 
 from fedbiomed.common.dataloadingplan import DataLoadingPlan, MapperBlock
-from fedbiomed.common.dataset import (
-    MedicalFolderBase,
-    MedicalFolderController,
-    MedicalFolderDataset,
-    MedicalFolderLoadingBlockTypes,
-)
+
+# from fedbiomed.common.dataset import (
+#     MedicalFolderBase,
+#     MedicalFolderController,
+#     MedicalFolderDataset,
+#     MedicalFolderLoadingBlockTypes,
+# )
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
     FedbiomedLoadingBlockError,
@@ -165,6 +166,7 @@ def patch_modality_glob(self, x):
         yield Path(self.name + "_test.nii")
 
 
+@unittest.skip("MedicalFolderDataset is deprecated")
 class TestMedicalFolderDataset(unittest.TestCase):
     def setUp(self) -> None:
         self.root = tempfile.mkdtemp()

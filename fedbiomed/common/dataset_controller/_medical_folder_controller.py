@@ -88,6 +88,7 @@ class MedicalFolderController(Controller):
         if dlp is not None:
             self.set_dlp(dlp)
 
+        # Function 'validate' instantiates self._controller_kwargs
         if validate is True:
             self.validate()
 
@@ -405,9 +406,11 @@ class MedicalFolderController(Controller):
 
         self._controller_kwargs = {
             "root": str(self.root),
-            "tabular_file": str(self.tabular_file),
-            "index_col": str(None) if self.index_col is None else self.index_col,
-            "dlp": str(None) if self._dlp is None else self._dlp.serialize(),
+            "tabular_file": (
+                None if self.tabular_file is None else str(self.tabular_file)
+            ),
+            "index_col": self.index_col,
+            "dlp": self._dlp,
         }
 
     def subject_modality_status(self, index: Union[list, pd.Series] = None) -> Dict:
