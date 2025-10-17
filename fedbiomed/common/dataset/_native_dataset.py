@@ -31,7 +31,16 @@ class NativeDataset(Dataset):
     }
 
     def __init__(self, dataset, target: Optional[Any] = None):
-        """Initialize with basic checks, without loading data to memory."""
+        """Initialize with basic checks, without loading data to memory.
+
+        Args:
+            dataset: Native dataset object from a ML library (e.g., PyTorch, scikit-learn).
+            target: Optional target data if not included in the dataset.
+        Raises:
+            FedbiomedError: if dataset does not implement collection interface,
+                or if target length does not match dataset length,
+                or if both dataset and argument provide targets.
+        """
         # Check collection interface
         if not hasattr(dataset, "__len__") or not hasattr(dataset, "__getitem__"):
             raise FedbiomedError(
@@ -47,6 +56,7 @@ class NativeDataset(Dataset):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to get a sample item from dataset. Details: {e}"
             ) from e
+
         self._is_supervised = isinstance(sample, tuple)
 
         # If both dataset and argument provide targets -> conflict
@@ -69,7 +79,14 @@ class NativeDataset(Dataset):
         controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,
     ) -> None:
-        """Select data and target, and check if they can be converted to requested format."""
+        """Select data and target, and check if they can be converted to requested format.
+
+        Args:
+            controller_kwargs: keyword arguments for controller (not used here).
+            to_format: format associated to expected return format.
+        Raises:
+            FedbiomedError: if there is a problem converting dataset items to requested format.
+        """
 
         self._to_format = to_format
         self._converter = self._get_format_conversion_callable()
@@ -83,12 +100,33 @@ class NativeDataset(Dataset):
             data = self._dataset[0]
             target = None
 
-        self._validate_format_conversion(data)
+        try:
+            self._validate_format_conversion(data)
+        except FedbiomedError as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to convert dataset items to "
+                f"requested format {to_format}. Details: {e}"
+            ) from e
+
         if target is not None:
-            self._validate_format_conversion(target)
+            try:
+                self._validate_format_conversion(target)
+            except FedbiomedError as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to convert dataset items to "
+                    f"requested format {to_format}. Details: {e}"
+                ) from e
 
     def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
-        """Fetch one item and convert to requested framework format."""
+        """Fetch one item and convert to requested framework format.
+
+        Args:
+            idx: index of the item to fetch.
+        Returns:
+            A tuple (data, target) converted to the requested format.
+        Raises:
+            FedbiomedError: if there is a problem converting data or target to requested format.
+        """
         if self._is_supervised:
             data, target = self._dataset[idx]
         else:
@@ -96,10 +134,25 @@ class NativeDataset(Dataset):
             target = self._target[idx] if self._target is not None else None
 
         # Convert on-the-fly
-        data_cvt = self._converter(data)
-        target_cvt = self._converter(target) if target is not None else None
+        try:
+            data_cvt = self._converter(data)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to convert data item at index {idx}. Details: {e}"
+            ) from e
+        try:
+            target_cvt = self._converter(target) if target is not None else None
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to convert target item at index {idx}. Details: {e}"
+            ) from e
+
         return data_cvt, target_cvt
 
     def __len__(self) -> int:
-        """Get the length of the dataset."""
+        """Get the length of the dataset.
+
+        Returns:
+            The number of samples in the dataset.
+        """
         return len(self._dataset)
