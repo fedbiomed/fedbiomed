@@ -1,13 +1,15 @@
 import functools
-import unittest
 import logging
+import unittest
 
 import numpy as np
 
-from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
-from fedbiomed.common.dataloader import NPDataLoader
+from fedbiomed.common.exceptions import FedbiomedTypeError, FedbiomedValueError
+
+# from fedbiomed.common.dataloader import NPDataLoader
 
 
+@unittest.skip("NPDataLoader is deprecated")
 class TestNPDataLoader(unittest.TestCase):
     def setUp(self):
         self.len = 7

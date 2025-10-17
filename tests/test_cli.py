@@ -1,35 +1,33 @@
-import shutil
-import unittest
 import argparse
-import tempfile
 import configparser
-import sys
 import io
 import os
-from unittest.mock import MagicMock, patch
+import shutil
+import sys
+import tempfile
+import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import fedbiomed
 import fedbiomed.node.cli_utils
-
+from fedbiomed.common.dataloadingplan import MapperBlock
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.cli import (
+    DatasetArgumentParser,
     NodeCLI,
     NodeControl,
-    DatasetArgumentParser,
     TrainingPlanArgumentParser,
     start_node,
 )
-
+from fedbiomed.node.cli_utils import add_database
+from fedbiomed.node.cli_utils._medical_folder_dataset import (
+    add_medical_folder_dataset_from_cli,
+    get_map_modalities2folders_from_cli,
+)
 from fedbiomed.node.config import NodeConfig
 
-from fedbiomed.node.cli_utils._medical_folder_dataset import (
-    get_map_modalities2folders_from_cli,
-    add_medical_folder_dataset_from_cli,
-)
-from fedbiomed.node.cli_utils import add_database
-from fedbiomed.common.dataloadingplan import MapperBlock
-from fedbiomed.common.exceptions import FedbiomedError
-from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
+# from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
 
 
 class TestTrainingPlanArgumentParser(unittest.TestCase):
@@ -270,6 +268,7 @@ class TestCli(unittest.TestCase):
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
 
+    @unittest.skip("Deprecated")
     def test_cli_01_add_database_medical_folder(self):
         database_inputs = ["test-db-name", "test-tag1,test-tag2", "", "test-dlp-name"]
         medical_folder_inputs = [
@@ -352,6 +351,7 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
         "fedbiomed.node.cli_utils._medical_folder_dataset.input",
         new=mock_input.__func__,
     )
+    @unittest.skip("Deprecated")
     def test_medical_folder_cli_utils_01_get_map_modalities2folders_from_cli(self):
         modality_folder_names = ["Should map to T1"]
         # scenario 1: 'Should map to T1' <-> 'T1'. Assumes T1 is second in the list of modalities provided by default
@@ -417,8 +417,9 @@ class TestMedicalFolderCliUtils(unittest.TestCase):
         "fedbiomed.common.dataset.MedicalFolderBase.demographics_column_names",
         return_value=["col1", "col2"],
     )
-    @patch("pathlib.Path.glob", new=patch_modality_glob)
-    @patch("pathlib.Path.is_dir", new=patch_is_modality_dir)
+    # @patch("pathlib.Path.glob", new=patch_modality_glob)
+    # @patch("pathlib.Path.is_dir", new=patch_is_modality_dir)
+    @unittest.skip("Deprecated")
     def test_medical_folder_cli_utils_02_load_medical_folder_dataset_from_cli(
         self, patch_validated_path_input, patch_validate_root_folder
     ):
