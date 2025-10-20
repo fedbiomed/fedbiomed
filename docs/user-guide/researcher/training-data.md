@@ -109,23 +109,36 @@ import pandas as pd
 from torch.utils.data import Dataset
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.datamanager import DataManager
+from fedbiomed.common.dataset import CustomDataset
 
 class MyTrainingPlan(TorchTrainingPlan):
 
-    class CSVDataset(Dataset):
-        """ Cusotm PyTorch Dataset """
-        def __init__(self, dataset_path, features):
+    class CelebaDataset(CustomDataset):
+        """Any custom dataset should inherit from the CustomDataset class"""
+
+        # we dont load the full data of the images, we retrieve the image with the get item.
+        # in our case, each image is 218*178 * 3colors. there is 67533 images. this take at least 7G of ram
+        # loading images when needed takes more time during training but it won't impact the ram usage as much as loading everything
+
+        def read(self):
             self.input_file = pd.read_csv(dataset_path,sep=',',index_col=False)
             x_train = self.input_file.iloc[:,0:features].values
             y_train = self.input_file.iloc[:,features].values
             self.X_train = torch.from_numpy(x_train).float()
             self.Y_train = torch.from_numpy(y_train).float()
-
-        def __len__(self):            
+    
+        def get_item(self, index):
+            return self.X_train[idx], self.Y_train[idx]
+    
+        def __len__(self):
             return len(self.Y_train)
 
-        def __getitem__(self, idx):
-            return self.X_train[idx], self.Y_train[idx]
+    def init_dependencies(self):
+        """Custom dataset and other dependencies"""
+        deps = [
+            "from fedbiomed.common.dataset import CustomDataset"
+        ]
+        return deps
 
     def training_data(self): 
         feature_cols = self.model_args()["feature_cols"]    
@@ -166,11 +179,12 @@ Since the method `training_data` is defined by the user, it is possible to do pr
 `DataManager` object. In the code snippet below, a preprocess for normalization is shown for the dataset MNIST.
 
 ```python
+from fedbiomed.common.dataset import MnistDataset
+
 def training_data(self):
     # Custom torch Dataloader for MNIST data
-    transform = transforms.Compose([transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,))])
-    dataset_mnist = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
+    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
+    dataset_mnist = MnistDataset(transform=transform, target_transform=transform)
     train_kwargs = {'batch_size': batch_size, 'shuffle': True}
     return DataManager(dataset=dataset_mnist, **train_kwargs)
 ```
@@ -207,7 +221,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     def training_data(self):
         dataset = MyDataset()
         return DataManager(dataset, shuffle=True)
-    
+
 training_args = {
     'loader_args': {
         'batch_size': 5,
