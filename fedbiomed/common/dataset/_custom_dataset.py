@@ -107,6 +107,14 @@ class CustomDataset(Dataset):
                 f"from dataset using read method. Please see error: {e}"
             ) from e
 
+        sample = self.get_item(0)
+        if not isinstance(sample, tuple) or len(sample) != 2:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: get_item method must return a tuple of two elements"
+                f" (data, target), but got {type(sample).__name__} with"
+                f" length {len(sample) if isinstance(sample, (list, tuple)) else 'N/A'}"
+            )
+
         # Following line is just to check that dataset is well implemented
         # and it return correct data type respecting to to_format
         try:
@@ -116,26 +124,21 @@ class CustomDataset(Dataset):
                 f"{ErrorNumbers.FB632.value}: Failed to retrieve item "
                 f"from dataset using get_item method. Please see error: {e}"
             ) from e
-        if not isinstance(sample, tuple) or len(sample) != 2:
+
+    def _check_type(self, sample: Any, type_) -> None:
+        """Check if sample is of expected type"""
+        if not isinstance(sample, self._to_format.value):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: get_item method must return a tuple of two elements"
-                f" (data, target), but got {type(sample).__name__} with length {len(sample) if isinstance(sample, (list, tuple)) else 'N/A'}"
-            )
+                f"{ErrorNumbers.FB632.value}: "
+                f"Expected return type for the {type_} is {self._to_format.value}, "
+                f"but got {type(sample).__name__} "
+            )  # Applies transformations if any
 
     def __getitem__(self, idx) -> Tuple[Any, Any]:
         """Retrieves a sample and its target by index."""
         data, target = self.get_item(idx)
 
-        def check_type(sample: Any, type_) -> None:
-            """Check if sample is of expected type"""
-            if not isinstance(sample, self._to_format.value):
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: "
-                    f"Expected return type for the {type_} is {self._to_format.value}, "
-                    f"but got {type(sample).__name__} "
-                )  # Applies transformations if any
-
-        check_type(data, "data")
-        check_type(target, "target")
+        self._check_type(data, "data")
+        self._check_type(target, "target")
 
         return data, target
