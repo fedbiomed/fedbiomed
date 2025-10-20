@@ -30,6 +30,8 @@ def add_medical_folder_dataset_from_cli(
         print("\nHere are all the columns contained in demographics file:\n")
         for i, col in enumerate(column_values):
             print(f"{i:3} : {col}")
+        # by default, index_col is 0
+        index_col = 0
         if interactive:
             keep_asking_for_input = True
             while keep_asking_for_input:
@@ -44,6 +46,7 @@ def add_medical_folder_dataset_from_cli(
                     warnings.warn(
                         "Please input a numeric value (integer)", stacklevel=1
                     )
+
         dataset_parameters["tabular_file"] = tabular_file_path
         dataset_parameters["index_col"] = index_col
 
