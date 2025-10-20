@@ -63,6 +63,10 @@ considers that the `dataset` is an object that includes both input and target va
 the dataset is an instance of the PyTorch dataset. **If `dataset` is an instance of Numpy `Array` or Pandas `DataFrame`, 
 it is mandatory to provide the `target` variable.** 
 
+A user is also allowed to define a `CustomDataset`, where the user directly writes how to `read` and `get_item` from the dataset.
+In this case, it is upto the user to whether to pass the targets through the `dataset` object, `target` variable or to not
+give targets (unsupervised) at all.
+
 As it is mentioned, `DataManager` is capable of managing/configuring datasets/data-loaders based on the training plans 
 that are going to be used for training. This configuration is necessary since each training plan requires different 
 types of data loader/batch iterator. 
