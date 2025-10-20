@@ -100,7 +100,7 @@ def add_database(
             if data_type == "medical-folder":
                 path, dataset_parameters, data_loading_plan = (
                     add_medical_folder_dataset_from_cli(
-                        interactive, dataset_parameters, data_loading_plan
+                        dataset_parameters, data_loading_plan
                     )
                 )
             elif data_type == "flamby":
