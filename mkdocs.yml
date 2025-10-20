@@ -65,6 +65,9 @@ nav:
           - 'Brain image segmentation using IXI dataset': './tutorials/medical/medical-image-segmentation-unet-library.ipynb'
     - 'User Guide':
       - Glossary: './user-guide/glossary.md'
+      - 'Datasets':
+        - "Adding your Custom Dataset": './user-guide/datasets/custom-dataset.md'
+        - "Directly Adding a Native Dataset": './user-guide/datasets/native-dataset.md'
       - Deployment:
           - "Introduction": './user-guide/deployment/deployment.md'
           - "VPN Deployment": './user-guide/deployment/deployment-vpn.md'
