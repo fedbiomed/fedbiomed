@@ -1,8 +1,5 @@
-import ast
-import inspect
-import textwrap
 from abc import abstractmethod
-from typing import Any, Tuple
+from typing import Any, Dict, Tuple
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
@@ -66,33 +63,6 @@ class CustomDataset(Dataset):
                 "defined in your subclass."
             )
 
-        # Ensure get_item returns a tuple
-        get_item_method = cls.__dict__.get("get_item", None)
-        if get_item_method is not None:
-
-            def returns_tuple_from_ast(method):
-                source = inspect.getsource(method)
-                # Requires to be unindented to be parsed correctly
-                source = textwrap.dedent(source)
-                tree = ast.parse(source)
-                for node in ast.walk(tree):
-                    if isinstance(node, ast.Return):
-                        if (
-                            isinstance(node.value, ast.Tuple)
-                            and len(node.value.elts) == 2
-                        ):
-                            return True
-                return False
-
-            if get_item_method is not None and not returns_tuple_from_ast(
-                get_item_method
-            ):
-                raise FedbiomedError(
-                    "CustomDataset subclass must implement get_item to "
-                    "return a tuple of two elements for respectively data and "
-                    "target e.g. 'return data, target'"
-                )
-
     @abstractmethod
     def read(self) -> None:
         """Reads the dataset from the specified path.
@@ -111,7 +81,9 @@ class CustomDataset(Dataset):
         """
         pass
 
-    def complete_initialization(self, path: str, to_format: DataReturnFormat) -> None:
+    def complete_initialization(
+        self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
+    ) -> None:
         """Finalize initialization of object to be able to recover items
 
         Args:
@@ -119,21 +91,36 @@ class CustomDataset(Dataset):
             to_format: format associated to expected return format
         """
 
-        self.path = path
+        self.path = controller_kwargs.get("root", None)
+        if self.path is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Custom Dataset ERROR: 'root' must be provided in controller_kwargs to specify dataset location."
+            )
         self._to_format = to_format
 
         # Call user defined read function to read the dataset
-        self.read()
+        try:
+            self.read()
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to read "
+                f"from dataset using read method. Please see error: {e}"
+            ) from e
 
         # Following line is just to check that dataset is well implemented
         # and it return correct data type respecting to to_format
         try:
-            _ = self[0]
+            sample = self[0]
         except Exception as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to retrieve item"
+                f"{ErrorNumbers.FB632.value}: Failed to retrieve item "
                 f"from dataset using get_item method. Please see error: {e}"
             ) from e
+        if not isinstance(sample, tuple) or len(sample) != 2:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: get_item method must return a tuple of two elements"
+                f" (data, target), but got {type(sample).__name__} with length {len(sample) if isinstance(sample, (list, tuple)) else 'N/A'}"
+            )
 
     def __getitem__(self, idx) -> Tuple[Any, Any]:
         """Retrieves a sample and its target by index."""
