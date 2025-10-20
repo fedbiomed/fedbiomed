@@ -6,7 +6,8 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from fedbiomed.common.dataset._simple_dataset import ImageFolderDataset, _SimpleDataset
+from fedbiomed.common.dataset import ImageFolderDataset
+from fedbiomed.common.dataset._simple_dataset import _SimpleDataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 

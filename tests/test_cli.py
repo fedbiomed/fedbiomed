@@ -9,9 +9,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 import fedbiomed
 import fedbiomed.node.cli_utils
-from fedbiomed.common.dataloadingplan import MapperBlock
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.cli import (
     DatasetArgumentParser,
@@ -20,14 +21,75 @@ from fedbiomed.node.cli import (
     TrainingPlanArgumentParser,
     start_node,
 )
-from fedbiomed.node.cli_utils import add_database
 from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
     get_map_modalities2folders_from_cli,
 )
 from fedbiomed.node.config import NodeConfig
 
-# from test_medical_datasets import patch_modality_glob, patch_is_modality_dir
+# ============================================================================
+# SHARED FIXTURES AND HELPERS
+# ============================================================================
+
+
+@pytest.fixture
+def temp_medical_data():
+    """Fixture to create temporary test data."""
+    temp_dir = tempfile.mkdtemp()
+    test_path = Path(temp_dir) / "medical_data"
+    test_path.mkdir()
+
+    # Create a mock CSV file path
+    csv_path = Path(temp_dir) / "demographics.csv"
+    csv_path.touch()
+
+    yield temp_dir, str(test_path), str(csv_path)
+
+    # Cleanup
+    shutil.rmtree(temp_dir)
+
+
+@pytest.fixture
+def mock_stdio():
+    """Fixture to capture stdout/stderr."""
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    sys.stdout = io.StringIO()
+    sys.stderr = io.StringIO()
+
+    yield
+
+    sys.stdout = old_stdout
+    sys.stderr = old_stderr
+
+
+@pytest.fixture
+def mock_medical_folder_controller():
+    """Fixture for common MedicalFolderController mock setup."""
+    mock_controller = MagicMock()
+    mock_controller.df_dir = {"modality": MagicMock()}
+    mock_controller.df_dir["modality"].unique.return_value = ["T1", "T2", "label"]
+    mock_controller.demographics_column_names.return_value = [
+        "subject_id",
+        "age",
+        "gender",
+    ]
+    return mock_controller
+
+
+class MockInputHelper:
+    """Helper class to manage mock inputs for get_map_modalities2folders_from_cli tests."""
+
+    inputs = []
+
+    @staticmethod
+    def mock_input(x):
+        return MockInputHelper.inputs.pop(0)
+
+
+# ============================================================================
+# UNITTEST TESTCASES (Legacy - Consider converting to pytest)
+# ============================================================================
 
 
 class TestTrainingPlanArgumentParser(unittest.TestCase):
@@ -150,8 +212,8 @@ class TestDatasetArgumentParser(unittest.TestCase):
         args = self.parser.parse_args(["dataset", "list"])
         self.dataset_arg_pars.list(args)
 
-        self.node.dataset_manager.list_my_data.return_value = []
-        self.node.dataset_manager.list_my_data.assert_called_once_with(verbose=True)
+        self.node.dataset_manager.list_my_datasets.return_value = []
+        self.node.dataset_manager.list_my_datasets.assert_called_once_with(verbose=True)
 
 
 class TestNodeControl(unittest.TestCase):
@@ -188,8 +250,8 @@ class TestNodeControl(unittest.TestCase):
         self.control.start(args)
         process.assert_called_once()
 
-        process.return_value.join.side_effect = KeyboardInterrupt
-        process.return_value.is_alive.side_effect = [True, False]
+        process.return_value.join.side_effect = [KeyboardInterrupt, None]
+        process.return_value.is_alive.side_effect = [True, False, True, True, False]
         with self.assertRaises(SystemExit):
             self.control.start(args)
 
@@ -244,246 +306,247 @@ class TestNodeCLI(unittest.TestCase):
         # sys.argv.remove('-y')
 
 
-class TestCli(unittest.TestCase):
-    @staticmethod
-    def mock_cli_input(x):
-        """Requires that each test defines TestCli.inputs as a list"""
-        return TestCli.inputs.pop(0)
-
-    @staticmethod
-    def patch_modality_glob(x, y):
-        # We are globbing all subject folders
-        for f in (
-            [Path("T1philips"), Path("T2"), Path("label")]
-            + [Path("T1siemens"), Path("T2"), Path("label")]
-            + [Path("non-existing-modality")]
-        ):
-            yield f
-
-    def setUp(self) -> None:
-        sys.stdout = io.StringIO()
-        sys.stderr = io.StringIO()
-
-    def tearDown(self) -> None:
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-
-    @unittest.skip("Deprecated")
-    def test_cli_01_add_database_medical_folder(self):
-        database_inputs = ["test-db-name", "test-tag1,test-tag2", "", "test-dlp-name"]
-        medical_folder_inputs = [
-            "y",
-            "0",
-            "y",
-            "1",
-            "1",
-            "2",
-            "3",
-            "0",
-            "Tnon-exist",
-            "y",
-            "4",
-        ]
-
-        with (
-            patch("pathlib.Path.glob", new=TestCli.patch_modality_glob) as patched_glob,
-            patch("pathlib.Path.is_dir", return_value=True) as patched_dir,
-            patch(
-                "fedbiomed.common.dataset.MedicalFolderBase.demographics_column_names",
-                return_value=["col1", "col2"],
-            ) as patched_column_names,
-            patch(
-                "fedbiomed.common.dataset.MedicalFolderBase.validate_MedicalFolder_root_folder",
-                return_value=Path("some/valid/path"),
-            ) as patched_validate_root,
-            patch(
-                "fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input",
-                return_value="some/valid/path",
-            ) as patched_val_path_in,
-            patch(
-                "fedbiomed.node.cli_utils._io.input", return_value="5"
-            ) as patched_cli_input,
-            patch(
-                "fedbiomed.node.cli_utils._database.input",
-                new=lambda x: database_inputs.pop(0),
-            ) as patched_db_input,
-            patch(
-                "fedbiomed.node.cli_utils._medical_folder_dataset.input",
-                new=lambda x: medical_folder_inputs.pop(0),
-            ) as patched_medical_folder_input,
-        ):
-            # Need to override equality test to enable assert_called_once_with to function properly
-            def test_mapper_eq(self, other):
-                return self.map == other.map
-
-            MapperBlock.__eq__ = test_mapper_eq
-
-            fedbiomed.node.cli_utils.add_database = MagicMock()
-            add_database(MagicMock())
-
-            dlb = MapperBlock()
-            dlb.map = {
-                "T1": ["T1philips", "T1siemens"],
-                "T2": ["T2"],
-                "label": ["label"],
-                "Tnon-exist": ["non-existing-modality"],
-            }
+# ============================================================================
+# PYTEST TESTS FOR MEDICAL FOLDER DATASET CLI UTILITIES
+# ============================================================================
 
 
-class TestMedicalFolderCliUtils(unittest.TestCase):
-    @staticmethod
-    def mock_input(x):
-        return TestMedicalFolderCliUtils.inputs.pop(0)
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
+@patch("builtins.input")
+def test_add_medical_folder_dataset_no_demographics(
+    mock_input,
+    mock_controller_class,
+    mock_validated_path,
+    temp_medical_data,
+    mock_medical_folder_controller,
+):
+    """Test adding medical folder dataset without demographics file."""
+    temp_dir, test_path, csv_path = temp_medical_data
 
-    @staticmethod
-    def mock_validated_input(type):
-        return "some/valid/path"
+    # Setup mocks
+    mock_validated_path.return_value = test_path
+    mock_input.return_value = "n"  # No demographics file
+    mock_controller_class.return_value = mock_medical_folder_controller
 
-    def setUp(self) -> None:
-        sys.stdout = io.StringIO()
-        sys.stderr = io.StringIO()
-
-    def tearDown(self) -> None:
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-
-    @patch(
-        "fedbiomed.node.cli_utils._medical_folder_dataset.input",
-        new=mock_input.__func__,
+    # Call function
+    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
+        dataset_parameters=None, dlp=None
     )
-    @unittest.skip("Deprecated")
-    def test_medical_folder_cli_utils_01_get_map_modalities2folders_from_cli(self):
+
+    # Assertions
+    assert result_path == test_path
+    assert result_params == {}
+    assert result_dlp is None
+
+    # Verify mocks were called correctly
+    mock_validated_path.assert_called_once_with(type="dir")
+    mock_controller_class.assert_called_once_with(test_path)
+    mock_input.assert_called_once_with(
+        "\nWould you like to select a demographics csv file? [y/N]\n"
+    )
+
+
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
+@patch("builtins.input")
+def test_add_medical_folder_dataset_demographics(
+    mock_input,
+    mock_controller_class,
+    mock_validated_path,
+    temp_medical_data,
+    mock_medical_folder_controller,
+):
+    """Test adding medical folder dataset with demographics file"""
+    temp_dir, test_path, csv_path = temp_medical_data
+
+    # Setup mocks
+    mock_validated_path.side_effect = [test_path, csv_path]
+    mock_input.side_effect = ["y", "1"]  # Yes to demographics, index column 1
+    mock_controller_class.return_value = mock_medical_folder_controller
+
+    # Call function
+    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
+        dataset_parameters={"existing_param": "value"}, dlp=None
+    )
+
+    # Assertions
+    assert result_path == test_path
+    assert result_params == {
+        "existing_param": "value",
+        "tabular_file": csv_path,
+        "index_col": 1,
+    }
+    assert result_dlp is None
+
+    # Verify mocks were called correctly
+    assert mock_validated_path.call_count == 2
+    mock_medical_folder_controller.demographics_column_names.assert_called_once_with(
+        csv_path
+    )
+
+
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
+@patch("builtins.input")
+@patch("warnings.warn")
+def test_add_medical_folder_dataset_invalid_index_then_valid(
+    mock_warn, mock_input, mock_controller_class, mock_validated_path, temp_medical_data
+):
+    """Test handling invalid index input followed by valid input."""
+    temp_dir, test_path, csv_path = temp_medical_data
+
+    # Setup mocks
+    mock_validated_path.side_effect = [test_path, csv_path]
+    mock_input.side_effect = [
+        "y",
+        "invalid",
+        "2",
+    ]  # Yes, invalid input, then valid index
+
+    mock_controller = MagicMock()
+    mock_controller.df_dir = {"modality": MagicMock()}
+    mock_controller.df_dir["modality"].unique.return_value = ["T1"]
+    mock_controller.demographics_column_names.return_value = ["id", "age", "status"]
+    mock_controller_class.return_value = mock_controller
+
+    # Call function
+    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
+        dataset_parameters=None, dlp=None
+    )
+
+    # Assertions
+    assert result_params["index_col"] == 2
+    mock_warn.assert_called_once_with(
+        "Please input a numeric value (integer)", stacklevel=1
+    )
+
+
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
+@patch("builtins.input")
+def test_add_medical_folder_dataset_with_existing_dlp(
+    mock_input, mock_controller_class, mock_validated_path, temp_medical_data
+):
+    """Test function with existing DataLoadingPlan."""
+    from fedbiomed.common.dataloadingplan import DataLoadingPlan
+
+    temp_dir, test_path, csv_path = temp_medical_data
+
+    # Setup mocks
+    mock_validated_path.return_value = test_path
+    mock_input.return_value = "n"  # No demographics
+
+    mock_controller = MagicMock()
+    mock_controller.df_dir = {"modality": MagicMock()}
+    mock_controller.df_dir["modality"].unique.return_value = ["T1"]
+    mock_controller_class.return_value = mock_controller
+
+    # Create existing DLP
+    existing_dlp = DataLoadingPlan()
+
+    # Call function
+    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
+        dataset_parameters=None, dlp=existing_dlp
+    )
+
+    # Assertions
+    assert result_dlp == existing_dlp
+
+
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
+@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
+@patch("builtins.input")
+def test_add_medical_folder_dataset_preserves_existing_parameters(
+    mock_input, mock_controller_class, mock_validated_path, temp_medical_data
+):
+    """Test that existing dataset parameters are preserved."""
+    temp_dir, test_path, csv_path = temp_medical_data
+
+    # Setup mocks
+    mock_validated_path.return_value = test_path
+    mock_input.return_value = "n"  # No demographics
+
+    mock_controller = MagicMock()
+    mock_controller.df_dir = {"modality": MagicMock()}
+    mock_controller.df_dir["modality"].unique.return_value = ["T1", "T2"]
+    mock_controller_class.return_value = mock_controller
+
+    existing_params = {"custom_param": "value", "another_param": 123}
+
+    # Call function
+    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
+        dataset_parameters=existing_params, dlp=None
+    )
+
+    # Assertions
+    assert result_params["custom_param"] == "value"
+    assert result_params["another_param"] == 123
+    assert len(result_params) == 2  # No additional params added
+
+
+# Test scenarios for modality mapping with parametrization
+@pytest.mark.parametrize(
+    "scenario,inputs,expected_map,expect_warnings",
+    [
+        ("basic_mapping", ["1"], {"T1": ["Should map to T1"]}, False),
+        (
+            "wrong_inputs_then_correct",
+            ["wrong", "5", "1"],
+            {"T1": ["Should map to T1"]},
+            True,
+        ),
+        (
+            "add_new_modality",
+            ["1", "0", "Tnew", "y", "4"],
+            {"T1": ["Should map to T1"], "Tnew": ["Should map to Tnew"]},
+            False,
+        ),
+        (
+            "complex_scenario",
+            ["1", "0", "Tmistake", "n", "Tnew", "", "4", "5", "1", "2"],
+            {
+                "T1": ["Should map to T1", "Should also map to T1"],
+                "Tnew": ["Should map to Tnew"],
+                "T2": ["Should map to T2"],
+            },
+            True,
+        ),
+    ],
+)
+@patch(
+    "fedbiomed.node.cli_utils._medical_folder_dataset.input",
+    new=MockInputHelper.mock_input,
+)
+def test_get_map_modalities2folders_from_cli_scenarios(
+    mock_stdio, scenario, inputs, expected_map, expect_warnings
+):
+    """Test various scenarios for modality to folder mapping."""
+    if expect_warnings:
+        pytest.mark.filterwarnings("ignore::UserWarning")
+
+    # Set up test data based on scenario
+    if scenario == "basic_mapping" or scenario == "wrong_inputs_then_correct":
         modality_folder_names = ["Should map to T1"]
-        # scenario 1: 'Should map to T1' <-> 'T1'. Assumes T1 is second in the list of modalities provided by default
-        TestMedicalFolderCliUtils.inputs = ["1"]
-        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
-        self.assertDictEqual(dlb.map, {"T1": ["Should map to T1"]})
-
-        # scenario 2: wrong inputs first, then same as above
-        TestMedicalFolderCliUtils.inputs = ["wrong", "5", "1"]
-        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
-        self.assertDictEqual(dlb.map, {"T1": ["Should map to T1"]})
-
-        # scenario 3: add new name
+    elif scenario == "add_new_modality":
         modality_folder_names = ["Should map to T1", "Should map to Tnew"]
-        TestMedicalFolderCliUtils.inputs = ["1", "0", "Tnew", "y", "4"]
-        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
-        self.assertDictEqual(
-            dlb.map, {"T1": ["Should map to T1"], "Tnew": ["Should map to Tnew"]}
-        )
-
-        # scenario 4: More complexity with some mistakes added in
+    else:  # complex_scenario
         modality_folder_names = [
             "Should map to T1",
             "Should map to Tnew",
             "Should also map to T1",
             "Should map to T2",
         ]
-        TestMedicalFolderCliUtils.inputs = [
-            "1",
-            "0",
-            "Tmistake",
-            "n",
-            "Tnew",
-            "",
-            "4",
-            "5",
-            "1",
-            "2",
-        ]
+
+    MockInputHelper.inputs = inputs.copy()
+
+    if expect_warnings:
+        with pytest.warns(UserWarning):
+            dlb = get_map_modalities2folders_from_cli(modality_folder_names)
+    else:
         dlb = get_map_modalities2folders_from_cli(modality_folder_names)
-        self.assertDictEqual(
-            dlb.map,
-            {
-                "T1": ["Should map to T1", "Should also map to T1"],
-                "Tnew": ["Should map to Tnew"],
-                "T2": ["Should map to T2"],
-            },
-        )
 
-    @patch(
-        "fedbiomed.node.cli_utils._medical_folder_dataset.input",
-        new=mock_input.__func__,
-    )
-    @patch(
-        "fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input",
-        new=mock_validated_input.__func__,
-    )
-    @patch(
-        "fedbiomed.common.dataset.MedicalFolderBase.validate_MedicalFolder_root_folder",
-        return_value=Path("some/valid/path"),
-    )
-    @patch(
-        "fedbiomed.common.dataset.MedicalFolderBase.demographics_column_names",
-        return_value=["col1", "col2"],
-    )
-    # @patch("pathlib.Path.glob", new=patch_modality_glob)
-    # @patch("pathlib.Path.is_dir", new=patch_is_modality_dir)
-    @unittest.skip("Deprecated")
-    def test_medical_folder_cli_utils_02_load_medical_folder_dataset_from_cli(
-        self, patch_validated_path_input, patch_validate_root_folder
-    ):
-        # Scenario 1:
-        #    - no pre-existing dataset parameters or data loading plan
-        #    - user selects a demographics file
-        #    - user wants to configure a data loading plan
-        TestMedicalFolderCliUtils.inputs = [
-            "y",
-            "0",
-            "y",
-            "1",
-            "1",
-            "2",
-            "3",
-            "0",
-            "Tnon-exist",
-            "y",
-            "4",
-        ]
-
-        path, dataset_parameters, dlp = add_medical_folder_dataset_from_cli(
-            True, None, None
-        )
-        self.assertEqual(path, "some/valid/path")
-        self.assertDictEqual(
-            dataset_parameters, {"tabular_file": "some/valid/path", "index_col": 0}
-        )
-        # TODO : test with DLP, when CLI DLP supported by future version
-        # self.assertIn(MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS, dlp)
-        # self.assertDictEqual(dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map, {
-        #    'T1': ['T1philips', 'T1siemens'],
-        #    'T2': ['T2'],
-        #    'Tnon-exist': ['non-existing-modality'],
-        #    'label': ['label']
-        # })
-
-        # Scenario 2:
-        #    - no pre-existing dataset parameters or data loading plan
-        #    - user selects a demographics file
-        #    - user does not configure a data loading plan
-        TestMedicalFolderCliUtils.inputs = ["y", "0", ""]
-
-        path, dataset_parameters, dlp = add_medical_folder_dataset_from_cli(
-            True, None, None
-        )
-        self.assertEqual(path, "some/valid/path")
-        self.assertDictEqual(
-            dataset_parameters, {"tabular_file": "some/valid/path", "index_col": 0}
-        )
-        self.assertIsNone(dlp)
-
-        # Scenario 2:
-        #    - no pre-existing dataset parameters or data loading plan
-        #    - user does not select a demographics file
-        #    - user does not configure a data loading plan
-        TestMedicalFolderCliUtils.inputs = ["n", ""]
-
-        path, dataset_parameters, dlp = add_medical_folder_dataset_from_cli(
-            True, None, None
-        )
-        self.assertEqual(path, "some/valid/path")
-        self.assertDictEqual(dataset_parameters, {})
-        self.assertIsNone(dlp)
+    assert dlb.map == expected_map
 
 
 if __name__ == "__main__":
