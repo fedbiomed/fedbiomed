@@ -67,14 +67,7 @@ class DataManager(object):
                     f"`Dataset` argument"
                 )
         else:
-            try:
-                dataset = NativeDataset(dataset, target)
-            except Exception as e:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}:"
-                    f" Init DataManager fails to initialize Native Dataset"
-                    f" with error message {str(e)}"
-                ) from e
+            dataset = NativeDataset(dataset, target)
 
         self._dataset = dataset
 
