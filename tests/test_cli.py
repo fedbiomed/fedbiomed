@@ -331,7 +331,7 @@ def test_add_medical_folder_dataset_no_demographics(
 
     # Call function
     result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        interactive=True, dataset_parameters=None, dlp=None
+        dataset_parameters=None, dlp=None
     )
 
     # Assertions
@@ -350,14 +350,14 @@ def test_add_medical_folder_dataset_no_demographics(
 @patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
 @patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
 @patch("builtins.input")
-def test_add_medical_folder_dataset_with_demographics_interactive(
+def test_add_medical_folder_dataset_demographics(
     mock_input,
     mock_controller_class,
     mock_validated_path,
     temp_medical_data,
     mock_medical_folder_controller,
 ):
-    """Test adding medical folder dataset with demographics file in interactive mode."""
+    """Test adding medical folder dataset with demographics file"""
     temp_dir, test_path, csv_path = temp_medical_data
 
     # Setup mocks
@@ -367,7 +367,7 @@ def test_add_medical_folder_dataset_with_demographics_interactive(
 
     # Call function
     result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        interactive=True, dataset_parameters={"existing_param": "value"}, dlp=None
+        dataset_parameters={"existing_param": "value"}, dlp=None
     )
 
     # Assertions
@@ -412,7 +412,7 @@ def test_add_medical_folder_dataset_invalid_index_then_valid(
 
     # Call function
     result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        interactive=True, dataset_parameters=None, dlp=None
+        dataset_parameters=None, dlp=None
     )
 
     # Assertions
@@ -420,35 +420,6 @@ def test_add_medical_folder_dataset_invalid_index_then_valid(
     mock_warn.assert_called_once_with(
         "Please input a numeric value (integer)", stacklevel=1
     )
-
-
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
-@patch("builtins.input")
-def test_add_medical_folder_dataset_non_interactive_with_demographics(
-    mock_input, mock_controller_class, mock_validated_path, temp_medical_data
-):
-    """Test non-interactive mode with demographics file."""
-    temp_dir, test_path, csv_path = temp_medical_data
-
-    # Setup mocks
-    mock_validated_path.side_effect = [test_path, csv_path]
-    mock_input.side_effect = ["y", "0"]  # Yes to demographics, index 0
-
-    mock_controller = MagicMock()
-    mock_controller.df_dir = {"modality": MagicMock()}
-    mock_controller.df_dir["modality"].unique.return_value = ["flair", "t1ce"]
-    mock_controller.demographics_column_names.return_value = ["patient_id", "diagnosis"]
-    mock_controller_class.return_value = mock_controller
-
-    # Call function in non-interactive mode
-    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        interactive=False, dataset_parameters=None, dlp=None
-    )
-
-    # Assertions
-    assert result_params["index_col"] == 0
-    assert result_params["tabular_file"] == csv_path
 
 
 @patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
@@ -476,7 +447,7 @@ def test_add_medical_folder_dataset_with_existing_dlp(
 
     # Call function
     result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        interactive=True, dataset_parameters=None, dlp=existing_dlp
+        dataset_parameters=None, dlp=existing_dlp
     )
 
     # Assertions
@@ -505,7 +476,7 @@ def test_add_medical_folder_dataset_preserves_existing_parameters(
 
     # Call function
     result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        interactive=True, dataset_parameters=existing_params, dlp=None
+        dataset_parameters=existing_params, dlp=None
     )
 
     # Assertions

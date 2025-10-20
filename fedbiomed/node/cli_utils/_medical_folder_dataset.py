@@ -11,7 +11,6 @@ from fedbiomed.node.cli_utils._io import validated_path_input
 
 
 def add_medical_folder_dataset_from_cli(
-    interactive: bool,
     dataset_parameters: Optional[dict],
     dlp: Optional[DataLoadingPlan],
 ) -> Tuple[str, dict, DataLoadingPlan]:
@@ -19,7 +18,7 @@ def add_medical_folder_dataset_from_cli(
     path = validated_path_input(type="dir")
     controller = MedicalFolderController(path)
     dataset_parameters = {} if dataset_parameters is None else dataset_parameters
-
+    print(dataset_parameters)
     choice = input("\nWould you like to select a demographics csv file? [y/N]\n")
     if choice.lower() == "y":
         # get tabular file
@@ -31,21 +30,17 @@ def add_medical_folder_dataset_from_cli(
         for i, col in enumerate(column_values):
             print(f"{i:3} : {col}")
         # by default, index_col is 0
-        index_col = 0
-        if interactive:
-            keep_asking_for_input = True
-            while keep_asking_for_input:
-                try:
-                    index_col = input(
-                        "\nPlease input the (numerical) index of the column containing "
-                        "the subject ids corresponding to image folder names \n"
-                    )
-                    index_col = int(index_col)
-                    keep_asking_for_input = False
-                except ValueError:
-                    warnings.warn(
-                        "Please input a numeric value (integer)", stacklevel=1
-                    )
+        keep_asking_for_input = True
+        while keep_asking_for_input:
+            try:
+                index_col = input(
+                    "\nPlease input the (numerical) index of the column containing "
+                    "the subject ids corresponding to image folder names \n"
+                )
+                index_col = int(index_col)
+                keep_asking_for_input = False
+            except ValueError:
+                warnings.warn("Please input a numeric value (integer)", stacklevel=1)
 
         dataset_parameters["tabular_file"] = tabular_file_path
         dataset_parameters["index_col"] = index_col
