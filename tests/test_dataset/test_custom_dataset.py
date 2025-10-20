@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import torch
 
-from fedbiomed.common.dataset._custom_dataset import CustomDataset
+from fedbiomed.common.dataset import CustomDataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 

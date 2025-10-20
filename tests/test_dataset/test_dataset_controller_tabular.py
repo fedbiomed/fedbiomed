@@ -3,7 +3,7 @@ from typing import Union
 
 import pytest
 
-from fedbiomed.common.dataset_controller._tabular_controller import TabularController
+from fedbiomed.common.dataset_controller import TabularController
 from fedbiomed.common.exceptions import FedbiomedError
 
 # ---------- init / wiring ----------
