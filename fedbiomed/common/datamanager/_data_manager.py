@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, Optional, Union
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.dataset._native_dataset import NativeDataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -66,9 +67,7 @@ class DataManager(object):
                     f"`Dataset` argument"
                 )
         else:
-            # TODO: implement native dataset
-            # dataset = NativeDataset(dataset, target)
-            raise FedbiomedError(f"{ErrorNumbers.FB632.value}: not implemented yet")
+            dataset = NativeDataset(dataset, target)
 
         self._dataset = dataset
 
