@@ -162,8 +162,15 @@ class Dataset(ABC):
         Returns:
             Transformed data
         """
-        data = self._validate_format_conversion(data, extra_info=extra_info)
-        data = self._validate_transformation(data, transform, extra_info=extra_info)
+        data = self._validate_format_conversion(
+            data,
+            extra_info=extra_info + " in format conversion step.",
+        )
+        data = self._validate_transformation(
+            data,
+            transform,
+            extra_info=extra_info + " when applying associated transform",
+        )
         return data
 
     # === Functions ===
