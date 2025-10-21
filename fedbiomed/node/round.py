@@ -899,28 +899,18 @@ class Round:
             raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}"
             ) from e
-        # Get dataset property
-        if hasattr(data_manager.dataset, "set_dataset_parameters"):
-            dataset_parameters = self.dataset.get("dataset_parameters", {})
-            data_manager.dataset.set_dataset_parameters(dataset_parameters)
-
-        if self._dlp_and_loading_block_metadata is not None:
-            if hasattr(data_manager.dataset, "set_dlp"):
-                dlp = DataLoadingPlan().deserialize(
-                    *self._dlp_and_loading_block_metadata
-                )
-                data_manager.dataset.set_dlp(dlp)
-            else:
-                raise FedbiomedRoundError(
-                    f"{ErrorNumbers.FB314.value}: Attempting to set DataLoadingPlan "
-                    f"{self._dlp_and_loading_block_metadata['name']} on dataset of type "
-                    f"{data_manager.dataset.__class__.__name__} which is not enabled."
-                )
 
         # Info: controller_kwargs not yet implemented in DatasetManager
         # so they are empty for now
         controller_kwargs = self.dataset.get("controller_kwargs", {})
         controller_kwargs["root"] = self.dataset.get("path")
+
+        controller_kwargs |= self.dataset.get("dataset_parameters", {})
+
+        if self._dlp_and_loading_block_metadata is not None:
+            controller_kwargs["dlp"] = DataLoadingPlan().deserialize(
+                *self._dlp_and_loading_block_metadata
+            )
 
         try:
             data_manager.complete_dataset_initialization(controller_kwargs)

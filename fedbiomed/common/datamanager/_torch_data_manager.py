@@ -56,6 +56,25 @@ class _DatasetWrapper(TorchDataset):
         """
         return self._d.__len__()
 
+    def _more_info(self, data) -> str:
+        """Generates more info about bad data sample type
+        Args:
+            data: data sample
+        Returns:
+            More info string
+        """
+        if not isinstance(data, dict):
+            more_info = f" type {str(type(data))}"
+        else:
+            more_info = "dict with modalities " + ", ".join(
+                [
+                    f"`{k}` type `{str(type(v))}`"
+                    for k, v in data.items()
+                    if not isinstance(v, torch.Tensor)
+                ]
+            )
+        return more_info
+
     def __getitem__(self, index) -> PytorchDataLoaderSample:
         """Gets one sample from dataset
 
@@ -83,8 +102,8 @@ class _DatasetWrapper(TorchDataset):
         else:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Bad data sample type for dataset "
-                f"{self._d.__class__.__name__} (index={index}). Must be `dict` or `torch.Tensor` "
-                f"not {type(data)}"
+                f"{self._d.__class__.__name__} (index={index}). Must be `dict of torch.Tensor` or `torch.Tensor` "
+                f"not: {self._more_info(data)}"
             )
 
         if isinstance(target, torch.Tensor):
@@ -96,8 +115,8 @@ class _DatasetWrapper(TorchDataset):
         else:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Bad target sample type for dataset "
-                f"{self._d.__class__.__name__} (index={index}). Must be `dict` or `torch.Tensor` "
-                f"not {type(target)}"
+                f"{self._d.__class__.__name__} (index={index}). Must be `dict of torch.Tensor` or `torch.Tensor` "
+                f"not: {self._more_info(target)}"
             )
 
         return data, target
