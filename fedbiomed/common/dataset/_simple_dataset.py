@@ -60,9 +60,15 @@ class _SimpleDataset(Dataset):
         self._init_controller(controller_kwargs=controller_kwargs)
 
         sample = self._controller.get_sample(0)
-        self._validate_format_and_transformations(sample["data"], self._transform)
         self._validate_format_and_transformations(
-            sample["target"], self._target_transform
+            sample["data"],
+            self._transform,
+            extra_info="Error raised by 'data'",
+        )
+        self._validate_format_and_transformations(
+            sample["target"],
+            self._target_transform,
+            extra_info="Error raised by 'target'",
         )
 
     def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:

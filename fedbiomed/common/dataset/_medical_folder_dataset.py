@@ -158,11 +158,20 @@ class MedicalFolderDataset(Dataset):
         # Apply and validate transforms
         if isinstance(transform, dict):
             for modality in modalities:
-                self._validate_transformation(
-                    data=data[modality],
-                    transform=transform[modality],
-                    extra_info=f"Modality: '{modality}'",
-                )
+                if modality != "demographics":
+                    self._validate_transformation(
+                        data=data[modality],
+                        transform=transform[modality],
+                        extra_info=f"Error raised by modality: '{modality}'",
+                    )
+                else:
+                    try:
+                        _ = transform["demographics"](data["demographics"])
+                    except Exception as e:
+                        raise FedbiomedError(
+                            f"{ErrorNumbers.FB632.value}: Failed to apply transform "
+                            f"to 'demographics' in {self._to_format.value} format."
+                        ) from e
         else:
             # transform: apply to the entire data dict
             try:
