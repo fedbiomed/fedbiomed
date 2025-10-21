@@ -18,7 +18,7 @@ class TabularDataset(Dataset):
 
     _native_to_framework = {
         DataReturnFormat.SKLEARN: lambda x: x.to_numpy(),
-        DataReturnFormat.TORCH: lambda x: x.to_torch(),
+        DataReturnFormat.TORCH: lambda x: x.to_torch().float(),
     }
 
     def __init__(

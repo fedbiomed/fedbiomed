@@ -18,7 +18,7 @@ class MedicalFolderDataset(Dataset):
 
     _native_to_framework = {
         DataReturnFormat.SKLEARN: lambda x: x.get_fdata(),
-        DataReturnFormat.TORCH: lambda x: torch.from_numpy(x.get_fdata()),
+        DataReturnFormat.TORCH: lambda x: torch.from_numpy(x.get_fdata()).float(),
     }
 
     def __init__(
