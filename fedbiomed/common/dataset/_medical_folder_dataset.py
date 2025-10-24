@@ -178,7 +178,7 @@ class MedicalFolderDataset(Dataset):
                 data = transform(data)
             except Exception as e:
                 raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: Failed to apply"
+                    f"{ErrorNumbers.FB632.value}: Failed to apply "
                     f"{'target_transform' if is_target else 'transform'} to entire data dict"
                 ) from e
 

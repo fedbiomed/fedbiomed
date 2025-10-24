@@ -5,7 +5,7 @@
 Class for data loader in PyTorch training plans
 """
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -213,6 +213,30 @@ class _SkLearnBatchIterator:
                         f"of 1 modality, got Dict of {len(self._target_keys)} modalities"
                     )
 
+    def _more_info_bad_data_type(self, data: DatasetDataItem, data_keys: List) -> str:
+        """Returns a string with more information about a bad data sample type.
+
+        Args:
+            data: a data sample read from the dataset
+            data_keys: expected data keys if data is a dict
+
+        Returns:
+            A string with more information about the bad data sample type.
+        """
+        data_type = type(data).__name__
+        if self._is_simple_sample and isinstance(data, np.ndarray):
+            data_type = f"`np.ndarray` with {data.ndim} dimensions"
+        elif not self._is_simple_sample and isinstance(data, dict):
+            if len(data) != 1:
+                data_type = f"`Dict` with {len(data)} modalities"
+            elif list(data.keys()) != data_keys:
+                data_type = f"`Dict` with non-matching keys {list(set(data.keys()) ^ set(data_keys))}"
+            elif not isinstance(list(data.values())[0], np.ndarray):
+                data_type = f"`Dict[str, {type(list(data.values())[0]).__name__}]`"
+            else:
+                data_type = f"`Dict[str, np.ndarray]` with {list(data.values())[0].ndim} dimensions"
+        return data_type
+
     def _check_sample_format(
         self,
         data: DatasetDataItem,
@@ -243,11 +267,12 @@ class _SkLearnBatchIterator:
         ):
             pass
         else:
+            data_type = self._more_info_bad_data_type(data, self._data_keys)
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Bad data sample type for dataset "
                 f"{self._loader.dataset.__class__.__name__} (index={sample_index}). "
-                f"Expected `np.ndarray` or `Dict[str, np.ndarray]` of 1 modality and 1 dimension."
-                f"got {type(data).__name__}"
+                f"Expected `np.ndarray` or `Dict[str, np.ndarray]` of 1 modality and 1 dimension. "
+                f"Got {data_type}"
             )
 
         if self._has_target is not None:
@@ -267,11 +292,12 @@ class _SkLearnBatchIterator:
             ):
                 pass
             else:
+                data_type = self._more_info_bad_data_type(target, self._target_keys)
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Bad target sample type for "
-                    f"dataset {self._loader.dataset.__class__.__name__} "
-                    f"(index={sample_index}). Expected `np.ndarray` or `Dict[str, np.ndarray]` of 1 modality and 1 dimension."
-                    f"got {type(target).__name__}"
+                    f"dataset {self._loader.dataset.__class__.__name__} (index={sample_index}). "
+                    f"Expected `np.ndarray` or `Dict[str, np.ndarray]` of 1 modality and 1 dimension. "
+                    f"got {data_type}"
                 )
         elif target is not None:
             raise FedbiomedError(
