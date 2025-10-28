@@ -28,7 +28,7 @@ class _SimpleDataset(Dataset):
         DataReturnFormat.TORCH: lambda x: (
             T.ToTensor()(x)  # In case the target is a PIL Image
             if isinstance(x, (Image.Image, np.ndarray))
-            else torch.tensor(x)
+            else torch.tensor(x).float()
         ),
     }
 
