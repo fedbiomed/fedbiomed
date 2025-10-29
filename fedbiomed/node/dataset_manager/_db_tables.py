@@ -71,12 +71,12 @@ class DatasetTable(BaseTable):
 
     def insert(self, entry: dict) -> int:
         """Insert a dataset entry with validation"""
-        conflicting_tags = self.search_conflicting_tags(entry["tags"])
-        if conflicting_tags:
+        conflicting_datasets = self.search_conflicting_tags(entry["tags"])
+        if conflicting_datasets:
             _msg = (
-                f"{ErrorNumbers.FB322.value}: "
-                "One or more registered dataset has conflicting tags: "
-                f" {' '.join([c['name'] for c in conflicting_tags])}"
+                f"{ErrorNumbers.FB322.value}: One or more registered datasets present "
+                f"tags conflicting with your entry. Conflicting dataset names: "
+                f"{', '.join([_['name'] for _ in conflicting_datasets])}."
             )
             logger.critical(_msg)
             raise FedbiomedError(_msg)
@@ -128,8 +128,9 @@ class DatasetTable(BaseTable):
             ]
             if len(conflicting_datasets) > 0:
                 msg = (
-                    f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: "
-                    f" {' '.join([_['name'] for _ in conflicting_datasets])}"
+                    f"{ErrorNumbers.FB322.value}, : One or more registered datasets "
+                    f"are conflicting with your new tags. Conflicting dataset names: "
+                    f"{', '.join([_['name'] for _ in conflicting_datasets])}."
                 )
                 logger.critical(msg)
                 raise FedbiomedError(msg)
