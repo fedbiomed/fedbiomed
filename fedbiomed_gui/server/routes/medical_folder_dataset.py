@@ -165,7 +165,10 @@ def medical_folder_preview():
     mf_controller = MedicalFolderController(root=data_path)
     modalities = mf_controller.modalities
 
-    if "index_col" in dataset["dataset_parameters"]:
+    if (
+        "index_col" in dataset["dataset_parameters"]
+        and dataset["dataset_parameters"]["index_col"] is not None
+    ):
         # Extract data path where the files are saved in the local GUI repository
         rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])
         reference_path = dataset["dataset_parameters"]["tabular_file"].replace(

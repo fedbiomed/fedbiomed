@@ -159,7 +159,7 @@ class DlpTable(BaseTable):
             logger.critical(_msg)
             raise FedbiomedError(_msg)
 
-        if len(entry["name"]) < 4:
+        if len(entry["dlp_name"]) < 4:
             _msg = (
                 f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
                 "DLP name needs to have at least 4 characters."
@@ -167,7 +167,7 @@ class DlpTable(BaseTable):
             logger.error(_msg)
             raise FedbiomedError(_msg)
 
-        if self.get_all_by_value("name", entry["name"]):
+        if self.get_all_by_value("dlp_name", entry["dlp_name"]):
             _msg = (
                 f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
                 "DLP name needs to be unique."
