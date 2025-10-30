@@ -174,7 +174,7 @@ class DatasetManager:
 
         # Do not display dtypes
         for doc in my_data:
-            doc.pop("dtypes")
+            doc.pop("dtypes", None)
 
         if verbose:
             print(tabulate(my_data, headers="keys"))

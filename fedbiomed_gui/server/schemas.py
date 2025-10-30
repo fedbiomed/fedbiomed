@@ -258,7 +258,7 @@ class AddDataSetRequest(Validator):
                 "tags": datasetTags,
                 "type": {
                     "type": "string",
-                    "oneOf": [{"enum": ["csv", "images"]}],
+                    "oneOf": [{"enum": ["csv", "images", "custom"]}],
                     "errorMessages": {"oneOf": ' "%s" dataset type is not supported'},
                 },
                 "desc": datasetDesc,

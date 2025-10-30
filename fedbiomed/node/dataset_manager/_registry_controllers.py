@@ -12,6 +12,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset_controller import (
     Controller,
+    CustomController,
     ImageFolderController,
     MedicalFolderController,
     MedNistController,
@@ -50,6 +51,7 @@ REGISTRY_CONTROLLERS = {
     "images": (ImageFolderController, ControllerParametersBase),
     "default": (MnistController, ControllerParametersBase),
     "mednist": (MedNistController, ControllerParametersBase),
+    "custom": (CustomController, ControllerParametersBase),
 }
 
 

@@ -5,6 +5,7 @@ import os
 import tkinter.messagebox
 import warnings
 from importlib import import_module
+from pathlib import Path
 from typing import Union
 
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
@@ -194,8 +195,16 @@ def add_database(
                         dataset_parameters, data_loading_plan
                     )
                 )
+
             elif data_type == "flamby":
                 path, data_loading_plan = _handle_flamby_dataset_input()
+        
+            elif data_type == "custom":
+                path = Path(input("Path to the dataset: ")).resolve()
+                # Existence check
+                if not path.exists():
+                    raise FedbiomedDatasetError(f"Path not found: {path}")
+
             else:
                 path = validated_path_input(data_type)
 
@@ -224,7 +233,14 @@ def add_database(
 
         # Validate data type
         data_type = str(data_type).lower()
-        if data_type not in ["csv", "default", "mednist", "images", "medical-folder"]:
+        if data_type not in [
+            "csv",
+            "default",
+            "mednist",
+            "images",
+            "medical-folder",
+            "custom",
+        ]:
             data_type = "default"
 
         # Validate path
