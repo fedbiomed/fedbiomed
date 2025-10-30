@@ -71,12 +71,12 @@ class DatasetTable(BaseTable):
 
     def insert(self, entry: dict) -> int:
         """Insert a dataset entry with validation"""
-        conflicting_tags = self.search_conflicting_tags(entry["tags"])
-        if conflicting_tags:
+        conflicting_datasets = self.search_conflicting_tags(entry["tags"])
+        if conflicting_datasets:
             _msg = (
-                f"{ErrorNumbers.FB322.value}: "
-                "One or more registered dataset has conflicting tags: "
-                f" {' '.join([c['name'] for c in conflicting_tags])}"
+                f"{ErrorNumbers.FB322.value}: One or more registered datasets present "
+                f"tags conflicting with your entry. Conflicting dataset names: "
+                f"{', '.join([_['name'] for _ in conflicting_datasets])}."
             )
             logger.critical(_msg)
             raise FedbiomedError(_msg)
@@ -128,8 +128,9 @@ class DatasetTable(BaseTable):
             ]
             if len(conflicting_datasets) > 0:
                 msg = (
-                    f"{ErrorNumbers.FB322.value}, one or more registered dataset has conflicting tags: "
-                    f" {' '.join([_['name'] for _ in conflicting_datasets])}"
+                    f"{ErrorNumbers.FB322.value}, : One or more registered datasets "
+                    f"are conflicting with your new tags. Conflicting dataset names: "
+                    f"{', '.join([_['name'] for _ in conflicting_datasets])}."
                 )
                 logger.critical(msg)
                 raise FedbiomedError(msg)
@@ -158,7 +159,7 @@ class DlpTable(BaseTable):
             logger.critical(_msg)
             raise FedbiomedError(_msg)
 
-        if len(entry["name"]) < 4:
+        if len(entry["dlp_name"]) < 4:
             _msg = (
                 f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
                 "DLP name needs to have at least 4 characters."
@@ -166,7 +167,7 @@ class DlpTable(BaseTable):
             logger.error(_msg)
             raise FedbiomedError(_msg)
 
-        if self.get_all_by_value("name", entry["name"]):
+        if self.get_all_by_value("dlp_name", entry["dlp_name"]):
             _msg = (
                 f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
                 "DLP name needs to be unique."

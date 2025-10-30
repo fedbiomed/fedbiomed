@@ -58,10 +58,10 @@ class DlpEntry(TableEntry):
     """Data Loading Plan entry"""
 
     dlp_id: str
-    name: str
+    dlp_name: str
     target_dataset_type: str
-    loading_plan_path: str
-    desc: Optional[str] = None
+    loading_blocks: Dict[str, str]
+    key_paths: Dict[str, List[str]]
 
 
 @dataclass
@@ -69,8 +69,6 @@ class DlbEntry(TableEntry):
     """Data Loading Block entry"""
 
     dlb_id: str
-    name: str
-    dataset_id: str
-    dlp_id: str
-    loading_block_path: str
-    desc: Optional[str] = None
+    loading_block_class: str
+    loading_block_module: str
+    map: Dict[str, List[str]]

@@ -5,10 +5,6 @@
 Classes that simplify imports from fedbiomed.common.dataloadingplan
 """
 
-from enum import Enum
-
-from fedbiomed.common.constants import DataLoadingBlockTypes
-
 from ._data_loading_plan import (
     DataLoadingBlock,
     DataLoadingPlan,
@@ -16,12 +12,6 @@ from ._data_loading_plan import (
     MapperBlock,
     SerializationValidation,  # keep it for documentation
 )
-
-
-# TODO - DATASET-REDESIGN: This loading block is removed and need to be added somewhere in medcial folder dataset definition
-class MedicalFolderLoadingBlockTypes(DataLoadingBlockTypes, Enum):
-    MODALITIES_TO_FOLDERS: str = "modalities_to_folders"
-
 
 __all__ = [
     "DataLoadingBlock",

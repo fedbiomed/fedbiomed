@@ -1,6 +1,5 @@
 import os
 import re
-import uuid
 
 from flask import request
 
@@ -135,22 +134,16 @@ def add_dataset():
     # Data path that will be saved in the DB
     data_path_save = os.path.join(config["DATA_PATH_SAVE"], *req["path"])
 
-    # Create unique id for the dataset
-    dataset_id = "dataset_" + str(uuid.uuid4())
-
     try:
-        dataset_manager.add_database(
+        res = dataset_manager.add_database(
             name=req["name"],
             data_type=req["type"],
             tags=req["tags"],
             description=req["desc"],
             path=data_path_save,
-            dataset_id=dataset_id,
         )
     except Exception as e:
         return error(str(e)), 400
-
-    res = dataset_manager.dataset_table.get_by_id(dataset_id)
 
     return response(res), 200
 
@@ -299,25 +292,17 @@ def add_default_dataset():
         # This is the path will be written in DB
         data_path = os.path.join(config["DATA_PATH_SAVE"], "defaults", "mnist")
 
-    # Create unique id for the dataset
-    dataset_id = "dataset_" + str(uuid.uuid4())
-
     try:
-        dataset_manager.add_database(
-            {
-                "name": req["name"],
-                "data_type": "default",
-                "tags": req["tags"],
-                "description": req["desc"],
-                "path": data_path,
-                "dataset_id": dataset_id,
-            }
+        res = dataset_manager.add_database(
+            name=req["name"],
+            data_type="default",
+            tags=req["tags"],
+            description=req["desc"],
+            path=data_path,
         )
 
     except Exception as e:
         return error(str(e)), 400
-
-    res = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
 
     return response(res), 200
 
