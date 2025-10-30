@@ -44,34 +44,6 @@ class DatasetManager:
     def dlb_table(self) -> DlbTable:
         return self._dlb_table
 
-    # Calls to be replaced
-    """
-    DM.get_by_id(dataset_id) -> DM.dataset_table.get_by_id(dataset_id)
-    DM.list_dlp(target_dataset_type) -> DM.dlp_table.list_by_target_dataset_type(target_dataset_type)   
-    * DM.list_dlp() -> DM.dlp_table.all()
-    DM.get_dlp_by_id(dlp_id) -> DM.get_dlp_by_id(dlp_id)
-    DM.get_data_loading_blocks_by_ids(dlb_ids) -> DM.dlb_table.get_all_by_value("dlb_id", dlb_ids)
-    DM.search_by_tags(tags) -> DM.dataset_table.search_by_tags(tags)
-    DM.search_conflicting_tags(tags) -> DM.dataset_table.search_conflicting_tags(tags)
-    DM.read_csv -> DOES NOT CHANGE
-    DM.get_torch_dataset_shape -> DEPRECATED
-    DM.get_csv_data_types -> DEPRECATED
-    DM.load_default_database -> DEPRECATED
-    DM.load_mednist_database -> DEPRECATED
-    DM.load_images_dataset -> DEPRECATED
-    DM.load_csv_dataset -> DEPRECATED
-    DM.add_database -> CALL REMAINS THE SAME
-    DM.remove_dlp_by_id(dlp_id) -> DOES NOT CHANGE
-    DM.remove_database(dataset_id) -> DM.dataset_table.delete_by_id(dataset_id)
-    * DOES NOT RAISE ERROR IF 'ID' DO NOT EXIST
-    DM.modify_database_info(dataset_id, modified_dataset) -> TODO DM.dataset_table.update_by_id(dataset_id, modified_dataset)
-    DM.list_my_data(verbose) -> DM.list_my_datasets(verbose)
-    DM.load_as_dataloader(dataset) -> DEPRECATED
-    DM.save_data_loading_plan(data_loading_plan) -> DOES NOT CHANGE
-    DM.save_data_loading_block(dlb) -> UNUSED
-    DM.obfuscate_private_information(database_metadata) -> DOES NOT CHANGE
-    """
-
     def get_dlp_by_id(self, dlp_id: str) -> Tuple[Optional[dict], List[dict]]:
         """Get data loading plan by ID and its associated data loading blocks."""
         dlp_metadata = self.dlp_table.get_by_id(dlp_id)

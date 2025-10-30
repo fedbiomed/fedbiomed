@@ -305,16 +305,10 @@ class MedicalFolderController(Controller):
         Returns:
             tuple composed of modalities and filtered df_dir
         """
-        my_dlb = [
-            dlb
-            for dlb in dlp.keys()
-            if dlb.value == MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS.value
-        ]
         modalities_to_folders = (
-            dlp[my_dlb[0]].map
+            dlp[MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS].map
             if dlp is not None
-            and MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS.value
-            in [k.value for k in dlp.keys()]
+            and MedicalFolderLoadingBlockTypes.MODALITIES_TO_FOLDERS in dlp
             else {_mod: [_mod] for _mod in df_dir["modality"].unique()}
         )
 

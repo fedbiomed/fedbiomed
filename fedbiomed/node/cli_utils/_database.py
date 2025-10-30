@@ -20,6 +20,101 @@ from fedbiomed.node.cli_utils._medical_folder_dataset import (
 from fedbiomed.node.dataset_manager import DatasetManager
 
 
+def _confirm_predefined_dataset_tags(dataset_name: str, default_tags: list) -> list:
+    """Interactively confirm or customize tags for predefined datasets.
+
+    Args:
+        dataset_name: Name of the predefined dataset
+        default_tags: Default tags for the dataset
+
+    Returns:
+        list: Final tags for the dataset (either default or user-provided)
+    """
+    while True:
+        response = input(f"{dataset_name} will be added with tags {default_tags} [Y/n]")
+        response = response.lower().strip()
+        # default to yes on empty input
+        if response in ["y", "yes", ""]:
+            return default_tags
+        elif response in ["n", "no"]:
+            tags = input("Tags (separate them by comma and no spaces): ")
+            return tags.replace(" ", "").split(",")
+        else:
+            print("Please enter 'y' for yes or 'n' for no.")
+
+
+def _handle_flamby_dataset_input():
+    """Helper function to handle FLamby dataset input collection.
+
+    Returns:
+        tuple: (path, data_loading_plan) for the FLamby dataset
+    """
+    from fedbiomed.common.dataset.flamby_dataset import (
+        FlambyDatasetMetadataBlock,
+        FlambyLoadingBlockTypes,
+        discover_flamby_datasets,
+    )
+
+    # Select the type of dataset (fed_ixi, fed_heart, etc...)
+    available_flamby_datasets = discover_flamby_datasets()
+    msg = "Please select the FLamby dataset that you're configuring:\n"
+    msg += "\n".join([f"\t{i}) {val}" for i, val in available_flamby_datasets.items()])
+    msg += "\nselect: "
+    keep_asking_for_input = True
+    while keep_asking_for_input:
+        try:
+            flamby_dataset_index = input(msg)
+            flamby_dataset_index = int(flamby_dataset_index)
+            # check that the user inserted a number within the valid range
+            if flamby_dataset_index in available_flamby_datasets.keys():
+                keep_asking_for_input = False
+            else:
+                warnings.warn(
+                    f"Please pick a number in the range {list(available_flamby_datasets.keys())}",
+                    stacklevel=1,
+                )
+        except ValueError:
+            warnings.warn(
+                "Please input a numeric value (integer)",
+                stacklevel=1,
+            )
+
+    path = available_flamby_datasets[
+        flamby_dataset_index
+    ]  # flamby datasets not identified by their path
+
+    # Select the center id
+    module = import_module(
+        f".{available_flamby_datasets[flamby_dataset_index]}",
+        package="flamby.datasets",
+    )
+    n_centers = module.NUM_CLIENTS
+    keep_asking_for_input = True
+    while keep_asking_for_input:
+        try:
+            center_id = int(
+                input(f"Give a center id between 0 and {str(n_centers - 1)}: ")
+            )
+            if 0 <= center_id < n_centers:
+                keep_asking_for_input = False
+        except ValueError:
+            warnings.warn(
+                f"Please input a numeric value (integer) between 0 and {str(n_centers - 1)}",
+                stacklevel=1,
+            )
+
+    # Build the DataLoadingPlan with the selected dataset type and center id
+    data_loading_plan = DataLoadingPlan()
+    metadata_dlb = FlambyDatasetMetadataBlock()
+    metadata_dlb.metadata = {
+        "flamby_dataset_name": available_flamby_datasets[flamby_dataset_index],
+        "flamby_center_id": center_id,
+    }
+    data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA] = metadata_dlb
+
+    return path, data_loading_plan
+
+
 def add_database(
     dataset_manager: DatasetManager,
     interactive: bool = True,
@@ -46,55 +141,51 @@ def add_database(
         data_type: Keyword for the data type of the dataset.
         dataset_parameters: Parameters for the dataset manager
     """
-
-    dataset_parameters = dataset_parameters or None
     data_loading_plan = None
 
     # if all args are provided, just try to load the data
     # if not, ask the user more information
-    if (
-        interactive
+    need_interactive_input = (
+        interactive is True
         or path is None
         or name is None
         or tags is None
         or description is None
         or data_type is None
-    ):
+    )
+
+    if need_interactive_input:
+        # Interactive mode: collect dataset parameters from user
         print("Welcome to the Fed-BioMed CLI data manager")
 
+        # Determine data type
         if interactive is True:
             data_type = validated_data_type_input()
         else:
             data_type = "default"
 
         if data_type == "default":
-            tags = ["#MNIST", "#dataset"]
-            if interactive is True:
-                while (
-                    input(f"MNIST will be added with tags {tags} [y/N]").lower() != "y"
-                ):
-                    pass
-                path = validated_path_input(data_type)
             name = "MNIST"
             description = "MNIST database"
+            tags = ["#MNIST", "#dataset"]
+            if interactive is True:
+                tags = _confirm_predefined_dataset_tags(name, tags)
+                path = validated_path_input(data_type)
 
         elif data_type == "mednist":
-            tags = ["#MEDNIST", "#dataset"]
-            if interactive is True:
-                while (
-                    input(f"MEDNIST will be added with tags {tags} [y/N]").lower()
-                    != "y"
-                ):
-                    pass
-                path = validated_path_input(data_type)
             name = "MEDNIST"
             description = "MEDNIST dataset"
-        else:
-            name = input("Name of the database: ")
+            tags = ["#MEDNIST", "#dataset"]
+            if interactive is True:
+                tags = _confirm_predefined_dataset_tags(name, tags)
+                path = validated_path_input(data_type)
 
+        # Handle custom datasets
+        else:
+            # Collect dataset metadata
+            name = input("Name of the database: ")
             tags = input("Tags (separate them by comma and no spaces): ")
             tags = tags.replace(" ", "").split(",")
-
             description = input("Description: ")
 
             if data_type == "medical-folder":
@@ -104,79 +195,12 @@ def add_database(
                     )
                 )
             elif data_type == "flamby":
-                from fedbiomed.common.dataset.flamby_dataset import (
-                    FlambyDatasetMetadataBlock,
-                    FlambyLoadingBlockTypes,
-                    discover_flamby_datasets,
-                )
-
-                # Select the type of dataset (fed_ixi, fed_heart, etc...)
-                available_flamby_datasets = discover_flamby_datasets()
-                msg = "Please select the FLamby dataset that you're configuring:\n"
-                msg += "\n".join(
-                    [f"\t{i}) {val}" for i, val in available_flamby_datasets.items()]
-                )
-                msg += "\nselect: "
-                keep_asking_for_input = True
-                while keep_asking_for_input:
-                    try:
-                        flamby_dataset_index = input(msg)
-                        flamby_dataset_index = int(flamby_dataset_index)
-                        # check that the user inserted a number within the valid range
-                        if flamby_dataset_index in available_flamby_datasets.keys():
-                            keep_asking_for_input = False
-                        else:
-                            warnings.warn(
-                                f"Please pick a number in the range {list(available_flamby_datasets.keys())}",
-                                stacklevel=1,
-                            )
-                    except ValueError:
-                        warnings.warn(
-                            "Please input a numeric value (integer)",
-                            stacklevel=1,
-                        )
-                path = available_flamby_datasets[
-                    flamby_dataset_index
-                ]  # flamby datasets not identified by their path
-                # Select the center id
-                module = import_module(
-                    f".{available_flamby_datasets[flamby_dataset_index]}",
-                    package="flamby.datasets",
-                )
-                n_centers = module.NUM_CLIENTS
-                keep_asking_for_input = True
-                while keep_asking_for_input:
-                    try:
-                        center_id = int(
-                            input(
-                                f"Give a center id between 0 and {str(n_centers - 1)}: "
-                            )
-                        )
-                        if 0 <= center_id < n_centers:
-                            keep_asking_for_input = False
-                    except ValueError:
-                        warnings.warn(
-                            f"Please input a numeric value (integer) between 0 and {str(n_centers - 1)}",
-                            stacklevel=1,
-                        )
-
-                # Build the DataLoadingPlan with the selected dataset type and center id
-                data_loading_plan = DataLoadingPlan()
-                metadata_dlb = FlambyDatasetMetadataBlock()
-                metadata_dlb.metadata = {
-                    "flamby_dataset_name": available_flamby_datasets[
-                        flamby_dataset_index
-                    ],
-                    "flamby_center_id": center_id,
-                }
-                data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA] = (
-                    metadata_dlb
-                )
+                path, data_loading_plan = _handle_flamby_dataset_input()
             else:
                 path = validated_path_input(data_type)
 
         # if a data loading plan was specified, we now ask for the description
-        if interactive and data_loading_plan is not None:
+        if interactive is True and data_loading_plan is not None:
             keep_asking_for_input = True
             while keep_asking_for_input:
                 desc = input(
@@ -189,24 +213,25 @@ def add_database(
             data_loading_plan.desc = desc
 
     else:
+        # Non-interactive mode:
         # all data have been provided at call
         # check few things
 
         # transform a string with comma(s) as a string list
         tags = str(tags).split(",")
-
         name = str(name)
         description = str(description)
 
+        # Validate data type
         data_type = str(data_type).lower()
         if data_type not in ["csv", "default", "mednist", "images", "medical-folder"]:
             data_type = "default"
 
+        # Validate path
         if not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
 
-        path = os.path.abspath(path)
-
+    # Ensure path is absolute
     path = os.path.abspath(path)
     logger.info(f"Dataset absolute path: {path}")
 
@@ -235,6 +260,8 @@ def add_database(
             "\nHint: are you sure you have selected the correct index in Demographic file?",
             stacklevel=1,
         )
+
+    # Display success message
     print("\nGreat! Take a look at your data:")
     dataset_manager.list_my_datasets(verbose=True)
 
@@ -307,5 +334,3 @@ def delete_all_database(dataset_manager: DatasetManager) -> None:
         d_id = ds["dataset_id"]
         dataset_manager.dataset_table.delete_by_id(d_id)
         logger.info("Dataset removed for dataset_id:" + str(d_id))
-
-    return

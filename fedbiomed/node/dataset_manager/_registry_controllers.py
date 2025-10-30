@@ -38,9 +38,9 @@ class ControllerParametersBase:
 
 @dataclass
 class MedicalFolderParameters(ControllerParametersBase):
-    tabular_file: Optional[str]
-    index_col: Optional[str]
-    dlp: Optional[DataLoadingPlan]
+    tabular_file: Optional[str] = None
+    index_col: Optional[str] = None
+    dlp: Optional[DataLoadingPlan] = None
 
 
 # Registry mapping data types to corresponding controller and expected parameters
