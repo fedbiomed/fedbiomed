@@ -141,13 +141,12 @@ def add_database(
         data_type: Keyword for the data type of the dataset.
         dataset_parameters: Parameters for the dataset manager
     """
-
     data_loading_plan = None
 
     # if all args are provided, just try to load the data
     # if not, ask the user more information
     need_interactive_input = (
-        interactive
+        interactive is True
         or path is None
         or name is None
         or tags is None
@@ -160,7 +159,7 @@ def add_database(
         print("Welcome to the Fed-BioMed CLI data manager")
 
         # Determine data type
-        if interactive:
+        if interactive is True:
             data_type = validated_data_type_input()
         else:
             data_type = "default"
@@ -201,7 +200,7 @@ def add_database(
                 path = validated_path_input(data_type)
 
         # if a data loading plan was specified, we now ask for the description
-        if interactive and data_loading_plan is not None:
+        if interactive is True and data_loading_plan is not None:
             keep_asking_for_input = True
             while keep_asking_for_input:
                 desc = input(
