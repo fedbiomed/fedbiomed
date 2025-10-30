@@ -4,11 +4,12 @@
 
 `MedicalFolderDataset` handles medical imaging data in structured folder hierarchies. It supports multi-modal medical data in NIfTI format (.nii, .nii.gz) with optional demographic/clinical information from CSV files, ideal for medical imaging research in federated environments.
 
-**Key Features:**
+## Key Features
+
 - Structured medical data: `root/subject/modality/file.nii.gz`
 - Multi-modal support (T1, T2, FLAIR, DWI, etc.)
 - NIfTI format (.nii, .nii.gz)
-- Demographics integration from CSV
+- Demographics integration from CSV that matches patient folders by 'subject ID column'.
 - Data Loading Plans (DLP) for cross-site compatibility
 - Framework compatibility (PyTorch and scikit-learn)
 - Per-modality and global transformations
@@ -38,34 +39,39 @@ root/
 - **Modality level**: Each modality has its own folder within the subject directory (e.g., `T1`, `T2`). Modality folder names should be identical across all subjects.
 - **File level**: Each modality folder contains exactly **one** NIfTI file (`.nii` or `.nii.gz`)
 
-**Important**: Must be exactly 3 levels deep. Files at wrong levels are ignored.
+!!! warning "Important"
+    Must be exactly 3 levels deep. Files at wrong levels are ignored.
 
-**Flexibility**: Use Data Loading Plans (DLP) to map different folder names (like `T1_MPRAGE`, `T1w`) to the same modality. See [Data Loading Plans section](#data-loading-plans-dlp) for more details.
+!!! note "Flexibility"
+    Use Data Loading Plans (DLP) to map different folder names (like `T1_MPRAGE`, `T1w`) to the same modality. See [Data Loading Plans section](#data-loading-plans-dlp) for more details.
 
-
-## Data Preparation Guidelines
+### Data Preparation Guidelines
 
 Follow these steps to prepare your medical imaging dataset for Fed-BioMed:
 
-1. **Organize folder hierarchy**
-   - Create a root directory that will contain all subject data
-   - Each subject must have its own subdirectory
-   - Within each subject directory, create modality-specific subdirectories
+**Organize folder hierarchy**
 
-2. **Place NIfTI files correctly**
-   - Each modality folder should contain exactly one NIfTI file per subject
-   - Files must have either `.nii` or `.nii.gz` extension
-   - Avoid placing files directly in subject folders or the root directory
+- Create a root directory that will contain all subject data
+- Each subject must have its own subdirectory
+- Within each subject directory, create modality-specific subdirectories
 
-3. **Ensure modality consistency**
-   - Modality names must be identical across subjects (case-sensitive) unless using Data Loading Plans (DLP). 
-   - If using DLP to map multiple folder names to a single modality, ensure no subject has multiple folders that map to the same final modality.
-   - Check that each required modality is present for all subjects. Subjects with missing modalities will be ignored.
+**Place NIfTI files correctly**
 
-4. **Prepare demographics file (optional)**
-   - Create a CSV file with subject-level information
-   - There must exist a column that matches your subject folder names
-   - Include relevant clinical variables and keep sensitive information de-identified and compliant with privacy regulations
+- Each modality folder should contain exactly one NIfTI file per subject
+- Files must have either `.nii` or `.nii.gz` extension
+- Avoid placing files directly in subject folders or the root directory
+
+**Ensure modality consistency**
+
+- Modality names must be identical across subjects (case-sensitive) unless using Data Loading Plans (DLP). 
+- If using DLP to map multiple folder names to a single modality, ensure no subject has multiple folders that map to the same final modality.
+- Check that each required modality is present for all subjects. Subjects with missing modalities will be ignored.
+
+**Prepare demographics file (optional)**
+
+- Create a CSV file with subject-level information
+- There must exist a column that matches your subject folder names
+- Include relevant clinical variables and keep sensitive information de-identified and compliant with privacy regulations
 
 ## Deployment
 
@@ -73,7 +79,7 @@ Follow these steps to prepare your medical imaging dataset for Fed-BioMed:
 
 Medical imaging datasets can be registered on nodes using either the command-line interface (CLI) or the graphical user interface (GUI).
 
-#### Using the Command-Line Interface
+**Command-Line Interface**
 
 Register using the Fed-BioMed node CLI:
 
@@ -86,24 +92,26 @@ fedbiomed node dataset add
 # 4. Unique tags and description
 ```
 
-#### Using the Graphical User Interface
+**Graphical User Interface**
 
 Alternatively, datasets can be added through the Fed-BioMed Node GUI, which provides a user-friendly web interface:
 
-1. **Start the Node GUI**:
-   ```bash
-   fedbiomed node gui start
-   ```
-   Access the GUI at `http://localhost:8484` (default login: `admin@fedbiomed.gui` / `admin`)
+**1. Start the Node GUI**
 
-2. **Add Dataset**:
-   - Navigate to the dataset management section
-   - Select "medical-folder" as the dataset type
-   - Provide the path to your medical imaging data
-   - Optionally specify demographics file and index column
-   - Add descriptive tags and description
-   - Add DLP (mapping of folders to modalities)
-   - Save the dataset configuration
+```bash
+fedbiomed node gui start
+```
+Access the GUI at `http://localhost:8484` (default login: `admin@fedbiomed.gui` / `admin`)
+
+**2. Add Dataset**
+
+- Navigate to the dataset management section
+- Select "medical-folder" as the dataset type
+- Provide the path to your medical imaging data
+- Optionally specify demographics file and index column
+- Add descriptive tags and description
+- Add DLP (mapping of folders to modalities)
+- Save the dataset configuration
 
 **Note**: The Node GUI requires additional dependencies. Install them with:
 ```bash
@@ -114,7 +122,7 @@ pip install fedbiomed[gui]
 
 ### Researcher-Side
 
-Access medical imaging datasets through experiment configuration:
+Access medical imaging datasets through [experiment configuration](../researcher/experiment.md):
 
 ```python
 from fedbiomed.researcher.experiment import Experiment
@@ -128,60 +136,14 @@ experiment = Experiment(
 )
 ```
 
-## Sample Structure
-
-### What You Get
-
-Accessing `dataset[index]` returns `(data, target)`:
-
-```python
-data = {
-    'T1': torch.Tensor([256, 256, 180]),      # Brain scan data
-    'T2': torch.Tensor([256, 256, 180]),      # Brain scan data
-    'demographics': {'age': 45, 'gender': 'M'} # Optional patient info
-}
-target = {'label': torch.Tensor([256, 256, 180])}  # Optional target data
-```
-
-### How to Configure Modalities
-
-`MedicalFolderDataset` allows you to specify which modalities to use for data and which for targets:
-
-```python
-from fedbiomed.common.dataset import MedicalFolderDataset
-
-dataset = MedicalFolderDataset(
-    data_modalities=['T1', 'T2'],
-    target_modalities=['label'],
-)
-
-# Use multiple modalities for data, no specific target
-dataset = MedicalFolderDataset(
-    data_modalities=['T1', 'T2', 'FLAIR', 'DWI'],
-    target_modalities=None,
-)
-```
-
-### Adding Patient Information
-
-Optional demographic/clinical data can be integrated from CSV files:
-
-```csv
-subject_id,age,gender,diagnosis
-subject-01,45,M,healthy
-subject-02,38,F,patient
-...
-```
-
-The dataset automatically matches patient data to scan folders by subject ID.
-
 ## Data Loading Plans (DLP)
 
 Data Loading Plans solve the common challenge of varying modality folder naming conventions. They provide a standardized way to map different folder names to unified modality names. DLP operates at the **node level** - each node configures its own mapping based on its local folder structure. When researchers query datasets, they see the standardized modality names (the mapping target names) rather than the original folder names. This abstraction allows researchers to write consistent training plans while nodes handle their specific naming variations automatically.
 
-**The Problem DLP Solves:**
+### Motivation
 
 In medical imaging, different clinical centers, time periods, or protocols often use different naming conventions for the same imaging modalities. For example:
+
 - Site A uses `T1_MPRAGE`, Site B uses `T1w`, Site C uses `T1_weighted`
 - Within a single site: older scans use `T1_MPRAGE`, newer scans use `T1w`
 - All represent the same T1-weighted MRI modality but have different folder names
@@ -194,7 +156,7 @@ This mapping works both **across different nodes** (different clinical sites) an
 
 **Directory Structure Examples:**
 
-**Scenario 1: Cross-Site Variation (Different Nodes)**
+- Scenario 1: Cross-Site Variation (Different Nodes):
 ```
 Site A:                    Site B:
 root/                      root/
@@ -204,7 +166,7 @@ root/                      root/
 └── subject-02/...         └── patient-02/...
 ```
 
-**Scenario 2: Within-Site Variation (Single Node)**
+- Scenario 2: Within-Site Variation (Single Node):
 ```
 Single Site with Mixed Naming Conventions:
 root/
@@ -236,6 +198,7 @@ root/
 ### Constraints and Error Conditions
 
 **✅ Valid Scenarios:**
+
 - Subject has `T1_MPRAGE/` folder (maps to `T1`) ✓
 - Different subjects use different folder names that map to the same final modality ✓
 - Subject has some modalities missing → subject will be **ignored** (not an error) ✓
@@ -243,6 +206,7 @@ root/
 - Subject has `T1_MPRAGE/` folder with non-NIfTI files → folder will be **ignored** (not an error) ✓
 
 **❌ Error Scenario:**
+
 - Subject has both `T1_MPRAGE/` and `T1w/` folders (both map to `T1`)
 - Each subject must have **exactly one folder** that maps to each final modality name
 - One file per subject per final modality
@@ -255,22 +219,28 @@ When using DLP, the system applies the following logic to determine which subjec
 - **Incomplete subjects**: Missing one or more required modalities → **Automatically ignored**
 - **Ambiguous subjects**: Have multiple folders mapping to the same final modality → **Error (dataset fails to load)**
 
-**Example with T1 and T2 requirements:**
+Example with T1 and T2 requirements:
+
 - Subject-01: has `T1_MPRAGE/` and `T2_FLAIR/` → **Included** (both T1 and T2 available)
 - Subject-02: has only `T1w/` → **Ignored** (missing T2)
 - Subject-03: has `T1_MPRAGE/` and empty `T2w/` folder → **Ignored** (T2 folder invalid)
 - Subject-04: has both `T1_MPRAGE/` and `T1w/` → **Error** (ambiguous T1 mapping)
 
-## Checking Available Modalities
+
+## Samples Structure
+
+Once your medical imaging dataset is registered, you need to understand how to configure and access the data in your training plans. This section explains how to query available modalities and specify which modalities to use for training and targets.
+
+### Available Modalities
 
 After adding a dataset, you can check what modalities are available, querying the datasets available.
 
-**From the node side:**
+- From the node side:
 ```bash
 fedbiomed node dataset list
 ```
 
-**From the researcher side:**
+- From the researcher side:
 ```python
 from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.config import config
@@ -281,10 +251,41 @@ datasets = req.list(verbose=True)
 
 Both commands show all registered datasets with their available modalities. The modalities listed are the names you should use when specifying `data_modalities` and `target_modalities` in your dataset configuration.
 
-## Basic Usage Examples
+**What You Get**
 
-### Single Modality Dataset
+Accessing `dataset[index]` returns `(data, target)`:
 
+```python
+data = {
+    'T1': torch.Tensor([256, 256, 180]),      # Brain scan data
+    'T2': torch.Tensor([256, 256, 180]),      # Brain scan data
+    'demographics': {'age': 45, 'gender': 'M'} # Optional patient info
+}
+target = {'label': torch.Tensor([256, 256, 180])}  # Optional target data
+```
+
+**How to Configure Modalities**
+
+`MedicalFolderDataset` allows you to specify which modalities to use for data and which for targets:
+
+```python
+from fedbiomed.common.dataset import MedicalFolderDataset
+
+dataset = MedicalFolderDataset(
+    data_modalities=['T1', 'T2'],
+    target_modalities=['label'],
+)
+
+# Use multiple modalities for data, no specific target
+dataset = MedicalFolderDataset(
+    data_modalities=['T1', 'T2', 'FLAIR', 'DWI'],
+    target_modalities=None,
+)
+```
+
+### Basic Usage Examples
+
+- Single Modality Dataset:
 ```python
 # Simple T1-weighted MRI dataset
 dataset = MedicalFolderDataset(
@@ -293,8 +294,7 @@ dataset = MedicalFolderDataset(
 )
 ```
 
-### Multi-Modal Analysis
-
+- Multi-Modal Analysis:
 ```python
 # Multi-modal brain tumor segmentation
 dataset = MedicalFolderDataset(
@@ -312,22 +312,11 @@ dataset = MedicalFolderDataset(
 )
 ```
 
-## Error Handling and Validation
-
-The dataset provides comprehensive error handling:
-
-- **Folder structure validation**: Ensures the required `subject/modality/file` structure
-- **File format validation**: Checks for valid NIfTI files (.nii, .nii.gz)
-- **Modality consistency**: Validates that all subjects have the required modalities
-- **Demographics matching**: Ensures demographic data matches available subjects
-- **Transform validation**: Validates transform compatibility with specified modalities
-
-## Transform Example
+### Transforms Example
 
 Medical datasets support sophisticated transformation systems tailored for medical imaging workflows:
 
-### Per-Modality Medical Transform
-
+**Per-Modality Medical Transform**
 ```python
     # Example inside a TorchTrainingPlan:
     ...
@@ -361,24 +350,31 @@ Medical datasets support sophisticated transformation systems tailored for medic
 
 For comprehensive transformation documentation, see [Applying Transformations](applying-transformations.md).
 
+## Error Handling and Validation
+
+The dataset provides comprehensive error handling:
+
+- **Folder structure validation**: Ensures the required `subject/modality/file` structure
+- **File format validation**: Checks for valid NIfTI files (.nii, .nii.gz)
+- **Modality consistency**: Validates that all subjects have the required modalities
+- **Demographics matching**: Ensures demographic data matches available subjects
+- **Transform validation**: Validates transform compatibility with specified modalities
+
 ## Best Practices
 
-### Cross-Site Federated Deployment
+Cross-Site Federated Deployment
+
 - **Use Data Loading Plans**: Handle modality naming variations across different clinical sites
 - **Standardize preprocessing**: Ensure consistent image preprocessing across all nodes
 - **Consider scanner differences**: Account for variations in MRI scanners and acquisition protocols
 
-### Performance and Memory Management
+Performance and Memory Management
+
 - **Optimize batch sizes**: Medical images are large; use appropriate batch sizes (typically 1-4)
 - **Efficient transforms**: Implement preprocessing efficiently to avoid memory bottlenecks
 - **Consider resolution**: Balance image resolution with computational constraints
 
-### Clinical Considerations
+Clinical Considerations
+
 - **Privacy compliance**: Ensure all medical data handling complies with regulations
 - **De-identification**: Verify that all patient identifiers are properly removed
-
-## Next Steps
-
-- **Learn about transformations**: See [Applying Transformations](applying-transformations.md) for detailed medical imaging preprocessing
-- **Deployment details**: Read [Deploying Datasets](../nodes/deploying-datasets.md) for comprehensive setup instructions
-- **Other dataset types**: Explore [Image Datasets](image-dataset.md) for general computer vision or [Custom Datasets](custom-dataset.md) for specialized medical data formats

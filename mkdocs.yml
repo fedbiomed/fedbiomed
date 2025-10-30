@@ -66,8 +66,14 @@ nav:
     - 'User Guide':
       - Glossary: './user-guide/glossary.md'
       - 'Datasets':
+        - "Introduction": './user-guide/datasets/index.md'
+        - "Default Datasets": './user-guide/datasets/default-datasets.md'
+        - "Image Datasets": './user-guide/datasets/image-dataset.md'
+        - "Tabular Datasets": './user-guide/datasets/tabular-dataset.md'
+        - "Medical Datasets": './user-guide/datasets/medical-folder-dataset.md'
         - "Adding your Custom Dataset": './user-guide/datasets/custom-dataset.md'
-        - "Directly Adding a Native Dataset": './user-guide/datasets/native-dataset.md'
+        - "Adding a Native Dataset": './user-guide/datasets/native-dataset.md'
+        - "Applying Transformations": './user-guide/datasets/applying-transformations.md'
       - Deployment:
           - "Introduction": './user-guide/deployment/deployment.md'
           - "VPN Deployment": './user-guide/deployment/deployment-vpn.md'
