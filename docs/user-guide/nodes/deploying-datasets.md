@@ -35,10 +35,11 @@ Please select the data type that you're configuring:
 	4) images
 	5) medical-folder
 	6) flamby
+	7) custom
 select:
 ```
 
-The interface prompts you to select the type of dataset you would like to add. The `default` and `mednist` options are preconfigured to automatically download and add the MNIST and MedNIST datasets. To deploy your own data, you can select one of the following options: `csv`, `image`, `medical-folder`, or `flamby`, based on your requirements. After selecting an option, you will be prompted to provide additional details, covering both common and option-specific attributes.
+The interface prompts you to select the type of dataset you would like to add. The `default` and `mednist` options are preconfigured to automatically download and add the MNIST and MedNIST datasets. To deploy your own data, you can select one of the following options: `csv`, `image`, `medical-folder`, `flamby` or `custom`, based on your requirements. After selecting an option, you will be prompted to provide additional details, covering both common and option-specific attributes.
 
 For example, suppose you want to add a CSV dataset. To do this, type `1` and press Enter. The interface will then ask you to provide the common attributes: dataset name, tags, and description.
 
