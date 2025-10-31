@@ -41,6 +41,21 @@ Here are the packages that you may need to install to follow the tutorials under
 pip install wget nibabel
 ```
 
+## Understanding FLamby Dataset Structure
+
+Each FLamby dataset follows a consistent structure:
+
+```
+flamby/datasets/[dataset_name]/
+├── dataset_creation_scripts/
+│   ├── download.py          # Main download script
+│   └── update_config.py     # Configuration update script
+├── README.md               # Dataset documentation
+└── other dataset files...
+```
+
+The `download.py` script in each dataset's `dataset_creation_scripts` folder is responsible for downloading the actual data.
+
 ### Download Scripts
 
 FLamby datasets come with scripts located within the library to download datasets. However, these scripts are not exposed through a CLI utility. Therefore, users should locate the dataset directory and find the download script to download the datasets.
@@ -158,12 +173,8 @@ respect the conditions and guidelines for `TorchTrainingPlan`.
 
 ## Implementing the `training_data` function
 
-Fed-BioMed provides a `FlambyDataset` class that enables simple integration with FLamby datasets. This class requires 
-an associated `DataLoadingPlan` to be properly configured in order to work correctly on the node side. If you follow
-the data adding process through either the CLI or the GUI, the configuration of the `DataLoadingPlan` will be done
-automatically for you. 
+Fed-BioMed provides a (`CustomDataset`)[../../user-guide/datasets/custom-dataset.md] class that can be used for integrating and using FLamby datasets in Fed-BioMed. This class requires to be extended by providing special methods such as `read`: to read the dataset, and `get_item` to get a single item from the datast. You need to create a custom FLamby dataset  class in your training plan and use it int the `training_data` function as it is shown in the example below:
 
-To use Flamby, you need to create a FLamby dataset in your `training_data` function following the example below:
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.datasets import CustomDataset

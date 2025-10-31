@@ -10,7 +10,6 @@ logger.warning(
     "package has been deprecated. "
     "Please use the following import statements instead:\n"
     "`from fedbiomed.common.datamanager import DataManager`\n"
-    "`from fedbiomed.common.dataset.flamby_dataset import FlambyDataset`\n"
     "`from fedbiomed.common.dataset import MedicalFolderDataset`"
 )
 

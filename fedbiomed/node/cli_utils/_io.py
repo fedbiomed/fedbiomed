@@ -14,7 +14,7 @@ def validated_data_type_input() -> str:
     """Picks data type to use from user input on command line.
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby', 'custom').
+            ('csv', 'default', 'mednist', 'images', 'medical-folder', 'custom').
     """
     valid_options = [
         "csv",
@@ -22,7 +22,6 @@ def validated_data_type_input() -> str:
         "mednist",
         "images",
         "medical-folder",
-        "flamby",
         "custom",
     ]
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}

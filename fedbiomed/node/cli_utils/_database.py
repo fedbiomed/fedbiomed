@@ -4,11 +4,9 @@
 import os
 import tkinter.messagebox
 import warnings
-from importlib import import_module
 from pathlib import Path
 from typing import Union
 
-from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
     FedbiomedDatasetManagerError,
@@ -42,78 +40,6 @@ def _confirm_predefined_dataset_tags(dataset_name: str, default_tags: list) -> l
             return tags.replace(" ", "").split(",")
         else:
             print("Please enter 'y' for yes or 'n' for no.")
-
-
-def _handle_flamby_dataset_input():
-    """Helper function to handle FLamby dataset input collection.
-
-    Returns:
-        tuple: (path, data_loading_plan) for the FLamby dataset
-    """
-    from fedbiomed.common.dataset.flamby_dataset import (
-        FlambyDatasetMetadataBlock,
-        FlambyLoadingBlockTypes,
-        discover_flamby_datasets,
-    )
-
-    # Select the type of dataset (fed_ixi, fed_heart, etc...)
-    available_flamby_datasets = discover_flamby_datasets()
-    msg = "Please select the FLamby dataset that you're configuring:\n"
-    msg += "\n".join([f"\t{i}) {val}" for i, val in available_flamby_datasets.items()])
-    msg += "\nselect: "
-    keep_asking_for_input = True
-    while keep_asking_for_input:
-        try:
-            flamby_dataset_index = input(msg)
-            flamby_dataset_index = int(flamby_dataset_index)
-            # check that the user inserted a number within the valid range
-            if flamby_dataset_index in available_flamby_datasets.keys():
-                keep_asking_for_input = False
-            else:
-                warnings.warn(
-                    f"Please pick a number in the range {list(available_flamby_datasets.keys())}",
-                    stacklevel=1,
-                )
-        except ValueError:
-            warnings.warn(
-                "Please input a numeric value (integer)",
-                stacklevel=1,
-            )
-
-    path = available_flamby_datasets[
-        flamby_dataset_index
-    ]  # flamby datasets not identified by their path
-
-    # Select the center id
-    module = import_module(
-        f".{available_flamby_datasets[flamby_dataset_index]}",
-        package="flamby.datasets",
-    )
-    n_centers = module.NUM_CLIENTS
-    keep_asking_for_input = True
-    while keep_asking_for_input:
-        try:
-            center_id = int(
-                input(f"Give a center id between 0 and {str(n_centers - 1)}: ")
-            )
-            if 0 <= center_id < n_centers:
-                keep_asking_for_input = False
-        except ValueError:
-            warnings.warn(
-                f"Please input a numeric value (integer) between 0 and {str(n_centers - 1)}",
-                stacklevel=1,
-            )
-
-    # Build the DataLoadingPlan with the selected dataset type and center id
-    data_loading_plan = DataLoadingPlan()
-    metadata_dlb = FlambyDatasetMetadataBlock()
-    metadata_dlb.metadata = {
-        "flamby_dataset_name": available_flamby_datasets[flamby_dataset_index],
-        "flamby_center_id": center_id,
-    }
-    data_loading_plan[FlambyLoadingBlockTypes.FLAMBY_DATASET_METADATA] = metadata_dlb
-
-    return path, data_loading_plan
 
 
 def add_database(
@@ -196,9 +122,6 @@ def add_database(
                     )
                 )
 
-            elif data_type == "flamby":
-                path, data_loading_plan = _handle_flamby_dataset_input()
-        
             elif data_type == "custom":
                 path = Path(input("Path to the dataset: ")).resolve()
                 # Existence check
