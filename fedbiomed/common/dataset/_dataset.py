@@ -139,7 +139,6 @@ class Dataset(ABC):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Unable to apply transform "
                 f"{extra_info if extra_info else ''}"
-                f"Additional info: {e}"
             ) from e
 
         if not isinstance(data, self._to_format.value):

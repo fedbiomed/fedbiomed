@@ -5,7 +5,9 @@ import shutil
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.db import TinyDBConnector
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedError
 
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.config import NodeComponent
@@ -104,42 +106,38 @@ class MedNISTDataset(DatasetManager):
             folder_path: folder path of the dataset
             random_seed: _description_. Defaults to None.
         """
-        super().__init__(db=db)
+
+        super().__init__(path=db)
+        print(db)
+
         self._random_seed: int = random_seed
 
         self._folder_path: str = folder_path
 
         if not os.path.exists(folder_path):
-            # download ednist dataset
-            self.load_mednist_database(path=folder_path)
+            # download Mednist dataset
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: MedNIST dataset not found in {folder_path}. Please download it before running this script."
+            )
+        
         self.directories = os.listdir(path=folder_path)
         if random_seed is not None:
             # setting random seed
             random.seed(random_seed)
-        self.img_paths_collection: Dict[str, List] = {
-            dir: os.listdir(os.path.join(self._folder_path, dir))
-            for dir in self.directories
-            if os.path.isdir(os.path.join(self._folder_path, dir))
+        
+        self.img_paths_collection: Dict[str, List[str]] = {
+            d: [
+                name
+                for name in sorted(os.listdir(os.path.join(self._folder_path, d)))
+                if os.path.isfile(os.path.join(self._folder_path, d, name))
+            ]
+            for d in self.directories
+            if os.path.isdir(os.path.join(self._folder_path, d))
         }
-        self._old_idx: List[int] = [0 for dir in self.directories]
+        self._old_idx: List[int] = [0 for _ in self.directories]
 
         for item in self.img_paths_collection.values():
             random.shuffle(item)
-
-    def load_mednist_database(
-        self, path: str, as_dataset: bool = False
-    ) -> Tuple[List[int] | Any]:
-        # little hack that download MedNIST dataset if it is not located in directory and save in the database
-        # the sampled values
-
-        val, download_path = super().load_mednist_database(
-            Path(path).parent, as_dataset
-        )
-
-        dataset = datasets.ImageFolder(path, transform=transforms.ToTensor())
-
-        val = self.get_torch_dataset_shape(dataset)
-        return val, path
 
     def sample_image_dataset(
         self, n_samples: int, n_classes: int, new_sampled_dataset_name: str = ""
@@ -203,6 +201,7 @@ class MedNISTDataset(DatasetManager):
                     )
 
                 self._old_idx[i] += _idx_max
+
             while rest > 0:  # here rest < n_classes
                 directory = dirs[rest]
                 images_path = os.listdir(os.path.join(self._folder_path, directory))
@@ -221,6 +220,8 @@ class MedNISTDataset(DatasetManager):
 
 
 if __name__ == "__main__":
+
+    
     args = parse_args()
     root_folder = os.path.abspath(os.path.expanduser(args.root_folder))
     assert os.path.isdir(root_folder), f"Folder does not exist: {root_folder}"
@@ -238,6 +239,10 @@ if __name__ == "__main__":
 
         if n_sample != "":
             config = manage_config_file(_name)  # _name, config_files)
+            print("config created: ")
+            print(config.get("default", "db"))
+            print(config.root)
+
             dataset = MedNISTDataset(
                 os.path.join(config.root, "etc", config.get("default", "db")),
                 os.path.join(data_folder, "MedNIST"),
@@ -260,11 +265,13 @@ if __name__ == "__main__":
                 "mednist",
                 ["#MEDNIST", "#dataset"],
                 description="MedNIST dataset for transfer learning",
-                path=d_path,
+                path=data_folder,
             )
         except FedbiomedDatasetManagerError as e:
             errors_coll.append((_name, e))
         config_files.append(config)
+        TinyDBConnector._instance = None  # reset singleton for next node
+
     if errors_coll:
         print("Cannot generate dataset because a dataset has been peviously created.")
         for wrong_conf, e in errors_coll:
