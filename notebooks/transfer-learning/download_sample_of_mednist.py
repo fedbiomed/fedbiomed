@@ -1,17 +1,15 @@
 import argparse
-from pathlib import Path
+import os
 import random
 import shutil
-import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.db import TinyDBConnector
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedError
-
-from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.config import NodeComponent
-from torchvision import transforms, datasets
+from fedbiomed.node.dataset_manager import DatasetManager
 
 
 def parse_args():
@@ -108,7 +106,6 @@ class MedNISTDataset(DatasetManager):
         """
 
         super().__init__(path=db)
-        print(db)
 
         self._random_seed: int = random_seed
 
@@ -119,12 +116,12 @@ class MedNISTDataset(DatasetManager):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: MedNIST dataset not found in {folder_path}. Please download it before running this script."
             )
-        
+
         self.directories = os.listdir(path=folder_path)
         if random_seed is not None:
             # setting random seed
             random.seed(random_seed)
-        
+
         self.img_paths_collection: Dict[str, List[str]] = {
             d: [
                 name
@@ -186,8 +183,6 @@ class MedNISTDataset(DatasetManager):
                     # remove the tarball file copied by mistake (if any)
                     dirs.remove(directory)
                     continue
-                # images_path = os.listdir(label_img_path)
-                # random.shuffle(images_path)
 
                 _new_dir_label_name = os.path.join(new_image_folder_path, directory)
                 os.makedirs(_new_dir_label_name, exist_ok=True)
@@ -220,8 +215,6 @@ class MedNISTDataset(DatasetManager):
 
 
 if __name__ == "__main__":
-
-    
     args = parse_args()
     root_folder = os.path.abspath(os.path.expanduser(args.root_folder))
     assert os.path.isdir(root_folder), f"Folder does not exist: {root_folder}"
@@ -278,8 +271,8 @@ if __name__ == "__main__":
             print(
                 f"please run:\n fedbiomed node --path=./node_{wrong_conf} dataset delete\nand remove the dataset tagged as {wrong_conf}"
             )
-        print("\n\n\n")
-        raise e
+            print("\n\n\n")
+            raise e
     print("Done ! please find below your config files:")
 
     for entry in config_files:
