@@ -2,12 +2,16 @@ import argparse
 import os
 import random
 import shutil
+import tarfile
 from pathlib import Path
 from typing import Dict, List, Optional, Union
+from urllib.error import ContentTooShortError, HTTPError, URLError
+from urllib.request import urlretrieve
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.db import TinyDBConnector
-from fedbiomed.common.exceptions import FedbiomedDatasetManagerError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
+from fedbiomed.common.logger import logger
 from fedbiomed.node.config import NodeComponent
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -108,14 +112,11 @@ class MedNISTDataset(DatasetManager):
         super().__init__(path=db)
 
         self._random_seed: int = random_seed
-
         self._folder_path: str = folder_path
 
-        if not os.path.exists(folder_path):
+        if not os.path.exists(folder_path + "/MedNIST"):
             # download Mednist dataset
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: MedNIST dataset not found in {folder_path}. Please download it before running this script."
-            )
+            self.load_mednist_database(path=Path(folder_path).parent)
 
         self.directories = os.listdir(path=folder_path)
         if random_seed is not None:
@@ -135,6 +136,46 @@ class MedNISTDataset(DatasetManager):
 
         for item in self.img_paths_collection.values():
             random.shuffle(item)
+
+    def load_mednist_database(self, path: str):
+        """Loads the MedNist dataset.
+        Args:
+            path: Pathfile to save a local copy of the MedNist dataset.
+
+        Raises:
+            FedbiomedDatasetManagerError: One of the following cases:
+                - tarfile cannot be downloaded
+                - downloaded tarfile cannot
+                    be extracted
+                - MedNIST path is empty
+                - one of the classes path is empty
+        """
+        url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
+        filepath = os.path.join(path, "MedNIST.tar.gz")
+        try:
+            logger.info("Now downloading MEDNIST...")
+            urlretrieve(url, filepath)
+            with tarfile.open(filepath) as tar_file:
+                logger.info("Now extracting MEDNIST...")
+                tar_file.extractall(path)
+            os.remove(filepath)
+
+        except (
+            URLError,
+            HTTPError,
+            ContentTooShortError,
+            OSError,
+            tarfile.TarError,
+            MemoryError,
+        ) as e:
+            _msg = (
+                ErrorNumbers.FB315.value
+                + "\nThe following error was raised while downloading MedNIST dataset "
+                + "from the MONAI repo:  "
+                + str(e)
+            )
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg) from e
 
     def sample_image_dataset(
         self, n_samples: int, n_classes: int, new_sampled_dataset_name: str = ""
@@ -232,10 +273,6 @@ if __name__ == "__main__":
 
         if n_sample != "":
             config = manage_config_file(_name)  # _name, config_files)
-            print("config created: ")
-            print(config.get("default", "db"))
-            print(config.root)
-
             dataset = MedNISTDataset(
                 os.path.join(config.root, "etc", config.get("default", "db")),
                 os.path.join(data_folder, "MedNIST"),
