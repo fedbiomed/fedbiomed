@@ -1,0 +1,80 @@
+---
+name: Tests and Publish Fed-BioMed Docker Images
+description: |
+  Builds for testing and deployment of Fed-BioMed docker images. Deployment is done if
+  a new tag is pushed, or a new commit is pushed to develop. It is to keep "dev" version
+  pushed in docker hub. 
+
+on:
+  push:
+    branches:
+      - 'feature/1335-*'
+      - 'develop'
+      - 'master'
+    tags:
+      - 'v*.*.*'  # Triggers on tags like v1.2.3
+  workflow_dispatch:
+
+
+jobs:
+  build-and-push:
+    name: Build docker images and push to docker-hub
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.FBM_DOCKER_USERNAME }}
+          password: ${{ secrets.FBM_DOCKER_TOKEN }}
+     
+      - name: Check if image has to be pushed
+        id: test  
+        run: | 
+          if [[ ( "${GITHUB_REF_NAME}" == "master" && "${GITHUB_EVENT_NAME}" == "push" ) || \
+                 "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "TEST_BUILD=true" >> $GITHUB_OUTPUT
+          else
+            echo "TEST_BUILD=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and Publish/Test Fed-BioMed Base Image
+        uses: ./.github/actions/docker-build-and-push
+        with:
+          image-names: fedbiomed/base
+          file: docker/base/Dockerfile
+          test: ${{ steps.test.outputs.TEST_BUILD }}
+
+      - name: Build and Publish/Test Fed-BioMed Node Image
+        uses: ./.github/actions/docker-build-and-push
+        with:
+          image-names: fedbiomed/node
+          file: docker/node/Dockerfile
+          test: ${{ steps.test.outputs.TEST_BUILD }}
+      
+      - name: Build and Publish/Test Node GUI Image
+        uses: ./.github/actions/docker-build-and-push
+        with:
+          image-names: fedbiomed/node-gui
+          file: docker/node-gui/Dockerfile
+          test: ${{ steps.test.outputs.TEST_BUILD }}
+
+      - name: Build and Publish/Test Node GPU Image
+        uses: ./.github/actions/docker-build-and-push
+        with:
+          image-names: fedbiomed/node-gpu
+          file: docker/node-gpu/Dockerfile
+          test: ${{ steps.test.outputs.TEST_BUILD }}
+
+      - name: Build and Publish/Test Researcher Image
+        uses: ./.github/actions/docker-build-and-push
+        with:
+          image-names: fedbiomed/researcher
+          file: docker/researcher/Dockerfile
+          test: ${{ steps.test.outputs.TEST_BUILD }}
