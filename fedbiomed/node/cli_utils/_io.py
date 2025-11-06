@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import tkinter.filedialog
-import tkinter.messagebox
 import warnings
-from tkinter import _tkinter
+from pathlib import Path
 
 from fedbiomed.common.logger import logger
+
+from ._tkinter_utils import TclError, filedialog, messagebox
 
 
 def validated_data_type_input() -> str:
@@ -52,28 +52,38 @@ def pick_with_tkinter(mode: str = "file") -> str:
     Returns:
         The selected path.
     """
-    try:
-        # root = TK()
-        # root.withdraw()
-        # root.attributes("-topmost", True)
-        if mode == "file":
-            return tkinter.filedialog.askopenfilename(
-                filetypes=[("CSV files", "*.csv")]
-            )
-        elif mode == "txt":
-            return tkinter.filedialog.askopenfilename(
-                filetypes=[("Text files", "*.txt")]
-            )
-        else:
-            return tkinter.filedialog.askdirectory()
+    # Try GUI first if available
+    if filedialog is not None:
+        try:
+            if mode == "file":
+                return filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+            elif mode == "txt":
+                return filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
+            else:
+                return filedialog.askdirectory()
 
-    except (ModuleNotFoundError, RuntimeError, _tkinter.TclError):
-        # handling case where tkinter package cannot be found on system
-        # or if tkinter crashes
-        if mode == "file" or mode == "txt":
-            return input("Insert the path of the file: ")
+        except (RuntimeError, TclError):
+            # GUI failed, fall back to CLI input
+            pass
+
+    # Fallback to CLI input with validation
+    is_file_mode = mode in ("file", "txt")
+    prompt = f"Insert the path of the {'file' if is_file_mode else 'folder'}: "
+
+    while True:
+        path = input(prompt)
+        if not path.strip():
+            warnings.warn("[ERROR] Path cannot be empty", stacklevel=1)
+            continue
+
+        path_obj = Path(path).expanduser()
+
+        if is_file_mode and path_obj.is_file():
+            return str(path_obj)
+        elif not is_file_mode and path_obj.is_dir():
+            return str(path_obj)
         else:
-            return input("Insert the path of the folder: ")
+            warnings.warn("[ERROR] Please enter a valid path", stacklevel=1)
 
 
 def validated_path_input(type: str) -> str:
@@ -112,9 +122,9 @@ def validated_path_input(type: str) -> str:
             break
         except Exception:
             error_msg = "[ERROR] Invalid path. Please enter a valid path."
-            try:
-                tkinter.messagebox.showerror(title="Error", message=error_msg)
-            except ModuleNotFoundError:
+            if messagebox is not None:
+                messagebox.showerror(title="Error", message=error_msg)
+            else:
                 warnings.warn(error_msg, stacklevel=1)
 
     return path

@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import tkinter.messagebox
 import warnings
 from pathlib import Path
 from typing import Union
@@ -17,6 +16,8 @@ from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
 )
 from fedbiomed.node.dataset_manager import DatasetManager
+
+from ._tkinter_utils import messagebox
 
 
 def _confirm_predefined_dataset_tags(dataset_name: str, default_tags: list) -> list:
@@ -185,11 +186,8 @@ def add_database(
             data_loading_plan=data_loading_plan,
         )
     except (AssertionError, FedbiomedDatasetManagerError) as e:
-        if interactive is True:
-            try:
-                tkinter.messagebox.showwarning(title="Warning", message=str(e))
-            except ModuleNotFoundError:
-                warnings.warn(f"[ERROR]: {e}", stacklevel=1)
+        if interactive is True and messagebox is not None:
+            messagebox.showwarning(title="Warning", message=str(e))
         else:
             warnings.warn(f"[ERROR]: {e}", stacklevel=1)
         exit(1)
