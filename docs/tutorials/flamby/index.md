@@ -38,7 +38,7 @@ Here are the packages that you may need to install to follow the tutorials under
 
 ```bash
 # Use the python environment for development (see docs/developer/development-environment.md)
-pip install wget nibabel
+pip install wget
 ```
 
 ## Understanding FLamby Dataset Structure
