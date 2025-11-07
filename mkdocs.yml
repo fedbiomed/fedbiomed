@@ -48,9 +48,9 @@ nav:
         - 'More Scikit-Learn models': './tutorials/scikit-learn/03-other-scikit-learn-models.ipynb'
       - Optimizers:
         - 'Advanced Optimizers': './tutorials/optimizers/01-fedopt-and-scaffold.ipynb'
-      - FLamby:
-        - 'General Concepts': "./tutorials/flamby/flamby.md"
-        - 'FLamby examples': "./tutorials/flamby/flamby-integration-into-fedbiomed.ipynb"
+      - FLamby: 
+        - 'Introduction': './tutorials/flamby/index.md'
+        - 'FLamby Federated Heart Disease Example': "./tutorials/flamby/flamby-integration-into-fedbiomed.ipynb"
       - Advanced:
         - 'In Depth Experiment Configuration': './tutorials/advanced/in-depth-experiment-configuration.ipynb'
         - 'Training with GPU' : './tutorials/advanced/training-with-gpu.ipynb'
@@ -342,6 +342,7 @@ plugins:
       redirect_maps:
         'getting-started/getting-started.md': 'getting-started/basic-example.md'
         'tutorials/installation/0-basic-software-installation.md': 'getting-started/installation.md'
+        'tutorials/flamby/flamby-dataset-download-tutorial.ipynb': 'tutorials/flamby/index.md'
         # 'old/file.md': 'new/file.md'
 
 extra_javascript:
