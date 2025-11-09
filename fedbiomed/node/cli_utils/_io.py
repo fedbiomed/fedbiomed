@@ -1,7 +1,6 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import warnings
 from pathlib import Path
 
@@ -41,49 +40,51 @@ def validated_data_type_input() -> str:
     return valid_options[t]
 
 
-def pick_with_tkinter(mode: str = "file") -> str:
+def pick_with_tkinter(type: str = "csv") -> str:
     """Opens a tkinter graphical user interface to select dataset.
 
     Args:
-        mode: type of file to select. Can be `txt` (for .txt files)
-            or `file` (for .csv files)
-            Defaults to `file`.
+        type: type of file to select. Can be `txt` (for .txt files)
+            or `csv` (for .csv files)
+            Defaults to `csv`.
 
     Returns:
         The selected path.
     """
-    # Try GUI first if available
-    if filedialog is not None:
-        try:
-            if mode == "file":
-                return filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
-            elif mode == "txt":
-                return filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
-            else:
-                return filedialog.askdirectory()
+    match type:
+        case "csv":
+            is_file_mode = True
+            filetypes = [("CSV files", "*.csv")]
+            error_msg_empty = "No file was selected. Exiting"
+        case "txt":
+            is_file_mode = True
+            filetypes = [("Text files", "*.txt")]
+            error_msg_empty = "No python file was selected. Exiting"
+        case _:
+            is_file_mode = False
+            filetypes = None
+            error_msg_empty = "No directory was selected. Exiting"
 
-        except (RuntimeError, TclError):
-            # GUI failed, fall back to CLI input
-            pass
+    try:
+        path = (
+            filedialog.askopenfilename(filetypes=filetypes)
+            if is_file_mode
+            else filedialog.askdirectory()
+        )
 
-    # Fallback to CLI input with validation
-    is_file_mode = mode in ("file", "txt")
-    prompt = f"Insert the path of the {'file' if is_file_mode else 'folder'}: "
+        # Window was closed or cancelled
+        if not path:
+            logger.critical(error_msg_empty)
+            exit(1)
 
-    while True:
-        path = input(prompt)
-        if not path.strip():
-            warnings.warn("[ERROR] Path cannot be empty", stacklevel=1)
-            continue
+        logger.debug(path)
 
-        path_obj = Path(path).expanduser()
+    except (RuntimeError, TclError):
+        path = None
+        error_msg = "[ERROR] GUI failed. Falling back to CLI"
+        messagebox.showerror(title="Error", message=error_msg)
 
-        if is_file_mode and path_obj.is_file():
-            return str(path_obj)
-        elif not is_file_mode and path_obj.is_dir():
-            return str(path_obj)
-        else:
-            warnings.warn("[ERROR] Please enter a valid path", stacklevel=1)
+    return path
 
 
 def validated_path_input(type: str) -> str:
@@ -95,36 +96,30 @@ def validated_path_input(type: str) -> str:
     Returns:
         The selected path.
     """
+    if filedialog is None:
+        warnings.warn("[WARNING] GUI not available. Falling back to CLI", stacklevel=1)
+
+    # Try GUI first if available
+    path = None if filedialog is None else pick_with_tkinter(type=type)
+
+    # Determine if we are in file mode
+    is_file_mode = type in ("csv", "txt")
+
     while True:
-        try:
-            if type == "csv":
-                path = pick_with_tkinter(mode="file")
-                logger.debug(path)
-                if not path:
-                    logger.critical("No file was selected. Exiting")
-                    exit(1)
-                assert os.path.isfile(path)
+        # CLI fallback
+        if path is None:
+            prompt = f"Insert the path of the {'file' if is_file_mode else 'folder'}: "
+            path = input(prompt)
 
-            elif type == "txt":  # for registering python model
-                path = pick_with_tkinter(mode="txt")
-                logger.debug(path)
-                if not path:
-                    logger.critical("No python file was selected. Exiting")
-                    exit(1)
-                assert os.path.isfile(path)
-            else:
-                path = pick_with_tkinter(mode="dir")
-                logger.debug(path)
-                if not path:
-                    logger.critical("No directory was selected. Exiting")
-                    exit(1)
-                assert os.path.isdir(path)
-            break
-        except Exception:
-            error_msg = "[ERROR] Invalid path. Please enter a valid path."
-            if messagebox is not None:
-                messagebox.showerror(title="Error", message=error_msg)
-            else:
-                warnings.warn(error_msg, stacklevel=1)
+            if not path.strip():
+                warnings.warn("[ERROR] Path cannot be empty", stacklevel=1)
+                continue
 
-    return path
+            path_obj = Path(path).expanduser()
+            valid_path = path_obj.is_file() if is_file_mode else path_obj.is_dir()
+            if not valid_path:
+                warnings.warn("[ERROR] Please enter a valid path", stacklevel=1)
+                continue
+            path = str(path_obj)
+
+        return path
