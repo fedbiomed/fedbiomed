@@ -34,7 +34,9 @@ class WrongFormatDataset(CustomDataset):
 
 def test_valid_dataset_creation():
     dataset = ValidCustomDataset()
-    dataset.complete_initialization(path="dummy_path", to_format=DataReturnFormat.TORCH)
+    dataset.complete_initialization(
+        controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
+    )
     assert len(dataset) == 10
     data, target = dataset[0]
     assert isinstance(data, torch.Tensor)
@@ -74,6 +76,7 @@ def test_missing_len_method():
                 return None, None
 
 
+# NOTE: alitolga: Do we support unsupervised learning? If so, this test seems redundant.
 def test_non_tuple_return():
     with pytest.raises(FedbiomedError):
 
@@ -93,7 +96,7 @@ def test_wrong_format():
     dataset = WrongFormatDataset()
     with pytest.raises(FedbiomedError):
         dataset.complete_initialization(
-            path="dummy_path", to_format=DataReturnFormat.TORCH
+            controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
         )
 
     with pytest.raises(FedbiomedError):
@@ -136,14 +139,18 @@ def test_override_init():
 def test_initialization_parameters():
     dataset = ValidCustomDataset()
     path = "test_path"
-    dataset.complete_initialization(path=path, to_format=DataReturnFormat.TORCH)
+    dataset.complete_initialization(
+        controller_kwargs={"root": path}, to_format=DataReturnFormat.TORCH
+    )
     assert dataset.path == path
     assert dataset._to_format == DataReturnFormat.TORCH
 
 
 def test_data_access():
     dataset = ValidCustomDataset()
-    dataset.complete_initialization(path="dummy_path", to_format=DataReturnFormat.TORCH)
+    dataset.complete_initialization(
+        controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
+    )
 
     # Test multiple indices
     for i in range(len(dataset)):
