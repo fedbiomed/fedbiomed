@@ -226,14 +226,14 @@ def training_data(self):
 **Key Considerations**
 
 - PyTorch Transforms:
-    - ✅ Input: `torch.Tensor` or `Dict[str, torch.Tensor]`
-    - ❗ Output: Must return `torch.Tensor` or `Dict[str, torch.Tensor]` 
-    - ❗ Ensure `float32` dtype for features
+    - Input: `torch.Tensor` or `Dict[str, torch.Tensor]`
+    - Output: Must return `torch.Tensor` or `Dict[str, torch.Tensor]` 
+    - Ensure `float32` dtype for features
 
 - Scikit-learn Transforms:
-    - ✅ Input: `numpy.ndarray` or `Dict[str, numpy.ndarray]`
-    - ❗ Output: Must return **flattened** `numpy.ndarray` only
-    - ❗ Use `.flatten()` or `.reshape(-1)` for sklearn compatibility
+    - Input: `numpy.ndarray` or `Dict[str, numpy.ndarray]`
+    - Output: Must return **flattened** `numpy.ndarray` only
+    - Use `.flatten()` or `.reshape(-1)` for sklearn compatibility
 
 ## Best Practices
 
