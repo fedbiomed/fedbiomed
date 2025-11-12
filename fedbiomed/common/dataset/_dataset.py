@@ -164,6 +164,7 @@ class Dataset(ABC):
         Returns:
             Transformed data
         """
+        extra_info = "" if extra_info is None else extra_info
         data = self._validate_format_conversion(
             data,
             extra_info=extra_info + " in format conversion step.",

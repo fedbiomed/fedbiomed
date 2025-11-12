@@ -6,6 +6,7 @@ from fedbiomed.common.datamanager import (
     TorchDataManager,
 )
 from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.dataset._native_dataset import NativeDataset
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -40,16 +41,26 @@ class TestDataManager(unittest.TestCase):
         with self.assertRaises(FedbiomedError):
             data_manager = DataManager(dataset="invalid-argument")
             data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+            data_manager.complete_dataset_initialization(
+                controller_kwargs={"root": "dummy_path"}
+            )
 
         # Test passing another invalid argument
         with self.assertRaises(FedbiomedError):
             DataManager(dataset=12)
             data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+            data_manager.complete_dataset_initialization(
+                controller_kwargs={"root": "dummy_path"}
+            )
 
-        # Test passing dataset as list
-        with self.assertRaises(FedbiomedError):
-            data_manager = DataManager(dataset=[12, 12, 12, 12])
-            data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+        # Test Native Dataset Scenario
+        data_manager = DataManager(dataset=[12, 12, 12, 12])
+        data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
+        data_manager.complete_dataset_initialization(
+            controller_kwargs={"root": "dummy_path"}
+        )
+        self.assertIsInstance(data_manager._data_manager_instance, TorchDataManager)
+        self.assertIsInstance(data_manager._dataset, NativeDataset)
 
         # Test Torch Dataset Scenario
         data_manager = DataManager(dataset=TestDataManager.CustomDataset())

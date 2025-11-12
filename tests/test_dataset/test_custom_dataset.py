@@ -76,22 +76,6 @@ def test_missing_len_method():
                 return None, None
 
 
-# NOTE: alitolga: Do we support unsupervised learning? If so, this test seems redundant.
-def test_non_tuple_return():
-    with pytest.raises(FedbiomedError):
-
-        class NonTupleReturnDataset(CustomDataset):
-            def read(self):
-                self.data = torch.randn(10, 5)
-                self.targets = torch.randint(0, 2, (10,))
-
-            def __len__(self):
-                return len(self.data)
-
-            def get_item(self, idx):
-                return self.data[idx]  # Not returning a tuple
-
-
 def test_wrong_format():
     dataset = WrongFormatDataset()
     with pytest.raises(FedbiomedError):
@@ -159,3 +143,56 @@ def test_data_access():
         assert isinstance(target, torch.Tensor)
         assert data.shape == (5,)  # Check expected shape
         assert target.shape == ()  # Single target value
+
+
+def test_read_exception_is_wrapped(tmp_path):
+    class DS(CustomDataset):
+        def read(self):
+            raise ValueError("boom")
+
+        def get_item(self, idx):
+            return ([], [])
+
+        def __len__(self):
+            return 1
+
+    ds = DS()
+    with pytest.raises(FedbiomedError):
+        ds.complete_initialization(
+            controller_kwargs={"root": str(tmp_path)},
+            to_format=DataReturnFormat.TORCH,
+        )
+
+
+def test_get_item_exception_is_wrapped(tmp_path):
+    class DS(CustomDataset):
+        def read(self): ...
+        def get_item(self, idx):
+            raise RuntimeError("cannot get")
+
+        def __len__(self):
+            return 1
+
+    ds = DS()
+    with pytest.raises(FedbiomedError):
+        ds.complete_initialization(
+            controller_kwargs={"root": str(tmp_path)},
+            to_format=DataReturnFormat.TORCH,
+        )
+
+
+def test_get_item_must_return_tuple_of_len_2(tmp_path):
+    class DSWrongTuple(CustomDataset):
+        def read(self): ...
+        def get_item(self, idx):
+            return [1, 2, 3]  # not a (data, target) tuple
+
+        def __len__(self):
+            return 1
+
+    ds = DSWrongTuple()
+    with pytest.raises(FedbiomedError):
+        ds.complete_initialization(
+            controller_kwargs={"root": str(tmp_path)},
+            to_format=DataReturnFormat.TORCH,
+        )
