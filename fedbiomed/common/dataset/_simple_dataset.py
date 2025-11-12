@@ -63,12 +63,12 @@ class _SimpleDataset(Dataset):
         self._validate_format_and_transformations(
             sample["data"],
             self._transform,
-            extra_info="Error raised by 'data'",
+            label="data",
         )
         self._validate_format_and_transformations(
             sample["target"],
             self._target_transform,
-            extra_info="Error raised by 'target'",
+            label="target",
         )
 
     def __getitem__(self, idx: int) -> Tuple[DatasetDataItem, DatasetDataItem]:
