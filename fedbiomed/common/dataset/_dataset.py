@@ -164,11 +164,7 @@ class Dataset(ABC):
         Returns:
             Transformed data
         """
-<<<<<<< HEAD
-        extra_info = "" if extra_info is None else extra_info
-=======
         by = " " if label is None else f" by '{label}' "
->>>>>>> 45a157ee (Correct and rename param extra_info to handle None properly (#1480))
         data = self._validate_format_conversion(
             data,
             extra_info=f"Error raised{by}in format conversion step.",
