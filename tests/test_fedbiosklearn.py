@@ -119,6 +119,7 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         training_plan.set_data_loaders(loader, loader)
         training_plan.training_routine()  # assert this works without failure
 
+        # NOTE: alitolga: Should this test be failing? We don't seem to directly use the training_data_loader inside the training_routine function.
         # Data loader is not of the correct type
         with patch.object(training_plan, "training_data_loader"):
             with self.assertRaises(FedbiomedTrainingPlanError):
@@ -294,7 +295,7 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
             patch.object(training_plan, "model", return_value=training_plan._model),
         ):
             num_samples_observed = training_plan._training_routine(history_monitor=None)
-            self.assertEqual(mocked_train.call_count, 4)
+            self.assertEqual(mocked_train.call_count, 10)
             self.assertEqual(
                 num_samples_observed,
                 len(test_x) / batch_size * training_plan._training_args["epochs"],
@@ -565,8 +566,8 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
                 test=True,
                 test_on_local_updates=False,
                 test_on_global_updates=True,
-                total_samples=4,
-                batch_samples=4,
+                total_samples=10,
+                batch_samples=10,
                 num_batches=1,
             )
             history_monitor.add_scalar.reset_mock()
@@ -692,14 +693,14 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
             # to something like assert_called_once() in the future if the models default to
             # different values.
             history_monitor.add_scalar.assert_called_once_with(
-                metric={"MEAN_SQUARE_ERROR": 0.5},
+                metric={"MEAN_SQUARE_ERROR": 256.5},
                 iteration=1,
                 epoch=None,
                 test=True,
                 test_on_local_updates=False,
                 test_on_global_updates=True,
-                total_samples=4,
-                batch_samples=4,
+                total_samples=10,
+                batch_samples=10,
                 num_batches=1,
             )
             history_monitor.add_scalar.reset_mock()
