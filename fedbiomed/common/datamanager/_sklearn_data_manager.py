@@ -125,7 +125,7 @@ class SkLearnDataManager(FrameworkDataManager):
         """
         # No need to check types and lengths, already done in split()
 
-        indices = np.arange(len(dataset))
+        indices = np.arange(len(dataset)).tolist()
         np.random.shuffle(indices)
 
         return (
