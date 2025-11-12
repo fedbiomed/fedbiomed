@@ -152,26 +152,27 @@ class Dataset(ABC):
         return data
 
     def _validate_format_and_transformations(
-        self, data: Any, transform: Optional[Callable], extra_info: Optional[str] = None
+        self, data: Any, transform: Optional[Callable], label: Optional[str] = None
     ) -> Any:
         """Validates and applies format conversion and `transform`
 
         Args:
             data: from `self._controller.get_sample`
             transform: `Callable` given at instantiation of cls
-            extra_info: info to add to error message to indicate concerned variables
+            label: to add to error message to indicate concerned variables
 
         Returns:
             Transformed data
         """
+        by = " " if label is None else f" by '{label}' "
         data = self._validate_format_conversion(
             data,
-            extra_info=extra_info + " in format conversion step.",
+            extra_info=f"Error raised{by}in format conversion step.",
         )
         data = self._validate_transformation(
             data,
             transform,
-            extra_info=extra_info + " when applying associated transform",
+            extra_info=f"Error raised{by}when applying associated transform",
         )
         return data
 
