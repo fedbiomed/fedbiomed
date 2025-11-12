@@ -23,12 +23,16 @@ class TestDataManager(unittest.TestCase):
         def __getitem__(self, idx):
             return self.X_train[idx], self.Y_train[idx]
 
+        def complete_initialization(self):
+            return None
+
     def setUp(self):
         pass
 
     def tearDown(self):
         pass
 
+    # NOTE: alitolga: Which data types we support for NativeDataset? Depending on that some cases in this test become invalid.
     def test_data_manager_01_load(self):
         """Testing __getattr__ method of DataManager"""
 
