@@ -34,7 +34,9 @@ class WrongFormatDataset(CustomDataset):
 
 def test_valid_dataset_creation():
     dataset = ValidCustomDataset()
-    dataset.complete_initialization(path="dummy_path", to_format=DataReturnFormat.TORCH)
+    dataset.complete_initialization(
+        controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
+    )
     assert len(dataset) == 10
     data, target = dataset[0]
     assert isinstance(data, torch.Tensor)
@@ -74,26 +76,11 @@ def test_missing_len_method():
                 return None, None
 
 
-def test_non_tuple_return():
-    with pytest.raises(FedbiomedError):
-
-        class NonTupleReturnDataset(CustomDataset):
-            def read(self):
-                self.data = torch.randn(10, 5)
-                self.targets = torch.randint(0, 2, (10,))
-
-            def __len__(self):
-                return len(self.data)
-
-            def get_item(self, idx):
-                return self.data[idx]  # Not returning a tuple
-
-
 def test_wrong_format():
     dataset = WrongFormatDataset()
     with pytest.raises(FedbiomedError):
         dataset.complete_initialization(
-            path="dummy_path", to_format=DataReturnFormat.TORCH
+            controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
         )
 
     with pytest.raises(FedbiomedError):
@@ -136,14 +123,18 @@ def test_override_init():
 def test_initialization_parameters():
     dataset = ValidCustomDataset()
     path = "test_path"
-    dataset.complete_initialization(path=path, to_format=DataReturnFormat.TORCH)
+    dataset.complete_initialization(
+        controller_kwargs={"root": path}, to_format=DataReturnFormat.TORCH
+    )
     assert dataset.path == path
     assert dataset._to_format == DataReturnFormat.TORCH
 
 
 def test_data_access():
     dataset = ValidCustomDataset()
-    dataset.complete_initialization(path="dummy_path", to_format=DataReturnFormat.TORCH)
+    dataset.complete_initialization(
+        controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
+    )
 
     # Test multiple indices
     for i in range(len(dataset)):
@@ -152,3 +143,56 @@ def test_data_access():
         assert isinstance(target, torch.Tensor)
         assert data.shape == (5,)  # Check expected shape
         assert target.shape == ()  # Single target value
+
+
+def test_read_exception_is_wrapped(tmp_path):
+    class DS(CustomDataset):
+        def read(self):
+            raise ValueError("boom")
+
+        def get_item(self, idx):
+            return ([], [])
+
+        def __len__(self):
+            return 1
+
+    ds = DS()
+    with pytest.raises(FedbiomedError):
+        ds.complete_initialization(
+            controller_kwargs={"root": str(tmp_path)},
+            to_format=DataReturnFormat.TORCH,
+        )
+
+
+def test_get_item_exception_is_wrapped(tmp_path):
+    class DS(CustomDataset):
+        def read(self): ...
+        def get_item(self, idx):
+            raise RuntimeError("cannot get")
+
+        def __len__(self):
+            return 1
+
+    ds = DS()
+    with pytest.raises(FedbiomedError):
+        ds.complete_initialization(
+            controller_kwargs={"root": str(tmp_path)},
+            to_format=DataReturnFormat.TORCH,
+        )
+
+
+def test_get_item_must_return_tuple_of_len_2(tmp_path):
+    class DSWrongTuple(CustomDataset):
+        def read(self): ...
+        def get_item(self, idx):
+            return [1, 2, 3]  # not a (data, target) tuple
+
+        def __len__(self):
+            return 1
+
+    ds = DSWrongTuple()
+    with pytest.raises(FedbiomedError):
+        ds.complete_initialization(
+            controller_kwargs={"root": str(tmp_path)},
+            to_format=DataReturnFormat.TORCH,
+        )
