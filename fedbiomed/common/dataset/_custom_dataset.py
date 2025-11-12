@@ -107,7 +107,13 @@ class CustomDataset(Dataset):
                 f"from dataset using read method. Please see error: {e}"
             ) from e
 
-        sample = self.get_item(0)
+        try:
+            sample = self.get_item(0)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to retrieve item "
+                f"from dataset using get_item method. Please see error: {e}"
+            ) from e
         if not isinstance(sample, tuple) or len(sample) != 2:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: get_item method must return a tuple of two elements"
