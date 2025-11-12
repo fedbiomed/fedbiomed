@@ -279,7 +279,7 @@ class _SkLearnBatchIterator:
             if (
                 self._is_simple_sample
                 and isinstance(target, np.ndarray)
-                and target.ndim == 1
+                and (target.ndim == 1 or target.ndim == 0)
             ):
                 pass
             elif (
@@ -288,7 +288,10 @@ class _SkLearnBatchIterator:
                 and len(target) == 1
                 and list(target.keys()) == self._target_keys
                 and isinstance(list(target.values())[0], np.ndarray)
-                and list(target.values())[0].ndim == 1
+                and (
+                    list(target.values())[0].ndim == 1
+                    or list(target.values())[0].ndim == 0
+                )
             ):
                 pass
             else:

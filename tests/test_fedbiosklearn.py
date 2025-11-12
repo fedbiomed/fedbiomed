@@ -25,6 +25,7 @@ from sklearn.linear_model import Perceptron, SGDClassifier
 import fedbiomed.node.history_monitor
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.dataloader import SkLearnDataLoader
+from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.models import (
@@ -70,6 +71,21 @@ class FakeTrainingArgs(dict):
         return {"batch_size": 1}
 
 
+class TestDataset(Dataset):
+    def __init__(self):
+        self._data = [np.array((i, i * 2)) for i in range(10)]  # simple data
+        self._target = [np.array(i * 3) for i in range(10)]  # corresponding target
+
+    def complete_initialization(self) -> None:
+        pass
+
+    def __getitem__(self, idx: int) -> tuple:
+        return self._data[idx], self._target[idx]
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+
 class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
     def setUp(self):
         logging.disable(logging.CRITICAL)
@@ -84,8 +100,8 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         self.abstract_methods_patcher.stop()
 
     def test_sklearntrainingplanbasicinheritance_01_dataloaders(self):
-        X = np.array([])
-        loader = SkLearnDataLoader(dataset=X, target=X)
+        X = TestDataset()
+        loader = SkLearnDataLoader(dataset=X)
 
         training_plan = SKLearnTrainingPlan()
         training_plan.set_data_loaders(loader, loader)
@@ -96,8 +112,8 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
     def test_sklearntrainingplanbasicinheritance_02_training_testing_routine(self):
         training_plan = SKLearnTrainingPlan()
 
-        X = np.array([])
-        loader = SkLearnDataLoader(dataset=X, target=X)
+        X = TestDataset()
+        loader = SkLearnDataLoader(dataset=X)
         training_plan._model = MagicMock(spec=BaseSkLearnModel, is_classification=True)
         training_plan._optimizer = MagicMock(spec=NativeSkLearnOptimizer)
         training_plan.set_data_loaders(loader, loader)
@@ -147,8 +163,8 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
             self.assertListEqual([x for x in training_plan.model().classes_], [0, 1])
 
         # Inferring the classes works correctly
-        X = np.array([0, 1, 2, 3, 0, 1, 2])
-        loader = SkLearnDataLoader(dataset=X, target=X)
+        X = TestDataset()
+        loader = SkLearnDataLoader(dataset=X)
         training_plan.set_data_loaders(loader, loader)
         classes = training_plan._classes_from_concatenated_train_test()
         self.assertListEqual([x for x in classes], [x for x in np.unique(X)])
@@ -249,10 +265,9 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
 
     def test_sklearntrainingplanpartialfit_02_training_routine(self):
         training_plan = SKLearnTrainingPlanPartialFit()
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
+        test_x = TestDataset()
         train_data_loader = test_data_loader = SkLearnDataLoader(
-            dataset=test_x, target=test_y, batch_size=1
+            dataset=test_x, batch_size=1
         )
         training_plan.set_data_loaders(
             train_data_loader=train_data_loader, test_data_loader=test_data_loader
@@ -473,10 +488,9 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         self,
     ):
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
+        test_x = TestDataset()
         train_data_loader = test_data_loader = SkLearnDataLoader(
-            dataset=test_x, target=test_y, batch_size=len(test_x)
+            dataset=test_x, batch_size=len(test_x)
         )
         for training_plan in self.training_plans:
             training_plan.set_data_loaders(
@@ -519,10 +533,9 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         history_monitor.add_scalar = MagicMock(return_value=None)
 
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
+        test_x = TestDataset()
         train_data_loader = test_data_loader = SkLearnDataLoader(
-            dataset=test_x, target=test_y, batch_size=len(test_x)
+            dataset=test_x, batch_size=len(test_x)
         )
 
         for training_plan in self.training_plans:
@@ -641,10 +654,9 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
         history_monitor.add_scalar = MagicMock(return_value=None)
 
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
+        test_x = TestDataset()
         train_data_loader = test_data_loader = SkLearnDataLoader(
-            dataset=test_x, target=test_y, batch_size=len(test_x)
+            dataset=test_x, batch_size=len(test_x)
         )
 
         for training_plan in self.training_plans:
@@ -750,10 +762,9 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
         history_monitor.add_scalar = MagicMock(return_value=None)
 
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
+        test_x = TestDataset()
         train_data_loader = test_data_loader = SkLearnDataLoader(
-            dataset=test_x, target=test_y, batch_size=len(test_x)
+            dataset=test_x, batch_size=len(test_x)
         )
 
         for training_plan in self.training_plans:
@@ -783,14 +794,14 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
             # to something like assert_called_once() in the future if the models default to
             # different values.
             history_monitor.add_scalar.assert_called_once_with(
-                metric={"ACCURACY": 0.5},
+                metric={"ACCURACY": 0.1},
                 iteration=1,
                 epoch=None,
                 test=True,
                 test_on_local_updates=False,
                 test_on_global_updates=True,
-                total_samples=4,
-                batch_samples=4,
+                total_samples=10,
+                batch_samples=10,
                 num_batches=1,
             )
 
@@ -820,14 +831,14 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
             # to something like assert_called_once() in the future if the models default to
             # different values.
             history_monitor.add_scalar.assert_called_once_with(
-                metric={"ACCURACY": 0.5},
+                metric={"ACCURACY": 0.1},
                 iteration=1,
                 epoch=None,
                 test=True,
                 test_on_local_updates=False,
                 test_on_global_updates=True,
-                total_samples=4,
-                batch_samples=4,
+                total_samples=10,
+                batch_samples=10,
                 num_batches=1,
             )
 
