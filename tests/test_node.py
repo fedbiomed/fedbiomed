@@ -155,10 +155,10 @@ class TestNode(unittest.TestCase):
         model_manager_mock.return_value = self.model_manager_mock
 
         # mocks
-        self.mock_dataset_manager.return_value.search_by_tags = MagicMock(
+        self.mock_dataset_manager.return_value.dataset_table.search_by_tags = MagicMock(
             return_value=self.database_val
         )
-        self.mock_dataset_manager.return_value.list_my_data = MagicMock(
+        self.mock_dataset_manager.return_value.list_my_datasets = MagicMock(
             return_value=self.database_list
         )
         self.mock_dataset_manager.return_value.reply_training_plan_status_request = (
@@ -167,7 +167,7 @@ class TestNode(unittest.TestCase):
         self.mock_dataset_manager.return_value.obfuscate_private_information.side_effect = (
             lambda x: x
         )
-        self.mock_dataset_manager.return_value.get_by_id = MagicMock(
+        self.mock_dataset_manager.return_value.dataset_table.get_by_id = MagicMock(
             return_value=self.database_id
         )
 
@@ -318,7 +318,7 @@ class TestNode(unittest.TestCase):
         round_init.return_value = None
 
         mock_dataset_manager = MagicMock()
-        mock_dataset_manager.get_by_id = MagicMock(return_value=None)
+        mock_dataset_manager.dataset_table.get_by_id = MagicMock(return_value=None)
         self.n1.dataset_manager = mock_dataset_manager
         self.n1.parser_task_train(self.train_request)
 
