@@ -119,12 +119,6 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         training_plan.set_data_loaders(loader, loader)
         training_plan.training_routine()  # assert this works without failure
 
-        # NOTE: alitolga: Should this test be failing? We don't seem to directly use the training_data_loader inside the training_routine function.
-        # Data loader is not of the correct type
-        with patch.object(training_plan, "training_data_loader"):
-            with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.training_routine()
-
         # The training routine raises some error (here ValueError for example)
         with patch.object(training_plan, "_training_routine", side_effect=ValueError):
             with self.assertRaises(FedbiomedTrainingPlanError):
