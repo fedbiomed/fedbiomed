@@ -185,25 +185,47 @@ class FrameworkDataManager(ABC):
         _is_loading_failed: bool = False
         # Calculate number of samples for train and validation subsets
         test_samples = math.floor(samples * test_ratio)
+        train_samples = samples - test_samples
+
         if self._testing_index and not is_shuffled_testing_dataset:
             try:
                 self._load_indexes(
                     framework_dataset, self._training_index, self._testing_index
                 )
+                _is_loading_failed = False
             except IndexError:
                 _is_loading_failed = True
-        if (
-            not self._testing_index or is_shuffled_testing_dataset
-        ) or _is_loading_failed:
-            train_samples = samples - test_samples
 
-            self._subset_train, self._subset_test = self._random_split(
-                framework_dataset,
-                [train_samples, test_samples],
-            )
+        need_new_split = (
+            not self._testing_index or is_shuffled_testing_dataset or _is_loading_failed
+        )
 
-            self._testing_index = list(self._subset_test.indices)
+        if need_new_split:
+            if self._loader_arguments.get("shuffle", True):
+                # Random split (shuffled)
+                self._subset_train, self._subset_test = self._random_split(
+                    framework_dataset,
+                    [train_samples, test_samples],
+                )
+            else:
+                # Deterministic split (no shuffle) — preserve original order
+                all_indices = list(range(samples))
+                train_indices = all_indices[:train_samples]
+                test_indices = all_indices[train_samples : train_samples + test_samples]
+
+                self._subset_train = self._subset_class(
+                    framework_dataset, train_indices
+                )
+                self._subset_test = (
+                    self._subset_class(framework_dataset, test_indices)
+                    if test_samples > 0
+                    else None
+                )
+
             self._training_index = list(self._subset_train.indices)
+            self._testing_index = (
+                list(self._subset_test.indices) if self._subset_test is not None else []
+            )
 
         if not test_batch_size and self._subset_test is not None:
             test_batch_size = len(self._subset_test)
