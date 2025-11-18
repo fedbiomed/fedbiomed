@@ -20,7 +20,7 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 from ._dataset import Dataset
 
 
-class _SimpleDataset(Dataset):
+class _ImageLabelDataset(Dataset):
     "Dataset where data and target are implicitly predefined by the controller"
 
     _native_to_framework = {
@@ -28,7 +28,7 @@ class _SimpleDataset(Dataset):
         DataReturnFormat.TORCH: lambda x: (
             T.ToTensor()(x)  # In case the target is a PIL Image
             if isinstance(x, (Image.Image, np.ndarray))
-            else torch.tensor(x).float()
+            else torch.tensor(x)
         ),
     }
 
@@ -37,10 +37,10 @@ class _SimpleDataset(Dataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
     ):
-        if type(self) is _SimpleDataset:
+        if type(self) is _ImageLabelDataset:
             raise FedbiomedValueError(
                 f"{ErrorNumbers.FB632.value}: "
-                "`SimpleDataset` cannot be instantiated directly"
+                "`_ImageLabelDataset` cannot be instantiated directly"
             )
         self._transform = self._validate_transform(transform)
         self._target_transform = self._validate_transform(target_transform)
@@ -84,13 +84,13 @@ class _SimpleDataset(Dataset):
         return sample["data"], sample["target"]
 
 
-class ImageFolderDataset(_SimpleDataset):
+class ImageFolderDataset(_ImageLabelDataset):
     _controller_cls = ImageFolderController
 
 
-class MedNistDataset(_SimpleDataset):
+class MedNistDataset(_ImageLabelDataset):
     _controller_cls = MedNistController
 
 
-class MnistDataset(_SimpleDataset):
+class MnistDataset(_ImageLabelDataset):
     _controller_cls = MnistController
