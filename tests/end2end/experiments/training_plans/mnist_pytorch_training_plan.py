@@ -1,10 +1,13 @@
 import torch
 import torch.nn as nn
-from fedbiomed.common.training_plans import TorchTrainingPlan
+import torch.nn.functional as F
+from torchvision import transforms
+
 from fedbiomed.common.datamanager import DataManager
-from torchvision import datasets, transforms
-from fedbiomed.common.optimizers.optimizer import Optimizer
+from fedbiomed.common.dataset import MnistDataset
 from fedbiomed.common.optimizers.declearn import ScaffoldClientModule
+from fedbiomed.common.optimizers.optimizer import Optimizer
+from fedbiomed.common.training_plans import TorchTrainingPlan
 
 
 # Here we define the model to be used.
@@ -20,7 +23,10 @@ class MyTrainingPlan(TorchTrainingPlan):
 
     # Declares and return dependencies
     def init_dependencies(self):
-        deps = ["from torchvision import datasets, transforms"]
+        deps = [
+            "from torchvision import transforms",
+            "from fedbiomed.common.dataset import MnistDataset",
+        ]
         return deps
 
     class Net(nn.Module):
@@ -51,12 +57,8 @@ class MyTrainingPlan(TorchTrainingPlan):
 
     def training_data(self):
         # Custom torch Dataloader for MNIST data
-        transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
-        dataset1 = datasets.MNIST(
-            self.dataset_path, train=True, download=False, transform=transform
-        )
+        transform = transforms.Normalize((0.1307,), (0.3081,))
+        dataset1 = MnistDataset(transform=transform)
         train_kwargs = {"shuffle": True}
         return DataManager(dataset=dataset1, **train_kwargs)
 
@@ -79,7 +81,10 @@ class BigModelMyTrainingPlan(TorchTrainingPlan):
 
     # Declares and return dependencies
     def init_dependencies(self):
-        deps = ["from torchvision import datasets, transforms"]
+        deps = [
+            "from torchvision import transforms",
+            "from fedbiomed.common.dataset import MnistDataset",
+        ]
         return deps
 
     class Net(nn.Module):
@@ -113,12 +118,8 @@ class BigModelMyTrainingPlan(TorchTrainingPlan):
 
     def training_data(self):
         # Custom torch Dataloader for MNIST data
-        transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
-        dataset1 = datasets.MNIST(
-            self.dataset_path, train=True, download=False, transform=transform
-        )
+        transform = transforms.Normalize((0.1307,), (0.3081,))
+        dataset1 = MnistDataset(transform=transform)
         train_kwargs = {"shuffle": True}
         return DataManager(dataset=dataset1, **train_kwargs)
 
@@ -141,7 +142,8 @@ class MnistModelScaffoldDeclearn(TorchTrainingPlan):
     # Declares and return dependencies
     def init_dependencies(self):
         deps = [
-            "from torchvision import datasets, transforms",
+            "from torchvision import transforms",
+            "from fedbiomed.common.dataset import MnistDataset",
             "from fedbiomed.common.optimizers.optimizer import Optimizer",
             "from fedbiomed.common.optimizers.declearn import ScaffoldClientModule, AdamModule, FedProxRegularizer",
         ]
@@ -175,12 +177,8 @@ class MnistModelScaffoldDeclearn(TorchTrainingPlan):
 
     def training_data(self):
         # Custom torch Dataloader for MNIST data
-        transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
-        dataset1 = datasets.MNIST(
-            self.dataset_path, train=True, download=False, transform=transform
-        )
+        transform = transforms.Normalize((0.1307,), (0.3081,))
+        dataset1 = MnistDataset(transform=transform)
         train_kwargs = {"shuffle": True}
         return DataManager(dataset=dataset1, **train_kwargs)
 
