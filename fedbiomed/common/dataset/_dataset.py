@@ -137,7 +137,7 @@ class Dataset(ABC):
             data = transform(data)
         except Exception as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Unable to apply transform "
+                f"{ErrorNumbers.FB632.value}: Unable to apply transform. "
                 f"{extra_info if extra_info else ''}"
             ) from e
 
