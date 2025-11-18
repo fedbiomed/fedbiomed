@@ -137,9 +137,10 @@ class TestDlpTable(unittest.TestCase):
     def test_insert_invalid_target_type(self):
         entry = {
             "dlp_id": "dlp_123",
-            "name": "dlp_invalid",
+            "dlp_name": "dlp_invalid",
             "target_dataset_type": "not_a_type",
-            "loading_plan_path": "/path/to/plan",
+            "key_paths": "/path/to/plan",
+            "loading_blocks": {"block1": "block_id1"},
         }
         with self.assertRaises(FedbiomedError):
             self.table.insert(entry)
@@ -147,9 +148,10 @@ class TestDlpTable(unittest.TestCase):
     def test_insert_short_name(self):
         entry = {
             "dlp_id": "dlp_124",
-            "name": "abc",
+            "dlp_name": "abc",
             "target_dataset_type": DatasetTypes.IMAGES.value,
-            "loading_plan_path": "/path/to/plan",
+            "key_paths": "/path/to/plan",
+            "loading_blocks": {"block1": "block_id1"},
         }
         with self.assertRaises(FedbiomedError):
             self.table.insert(entry)
@@ -157,16 +159,18 @@ class TestDlpTable(unittest.TestCase):
     def test_insert_non_unique_name(self):
         entry = {
             "dlp_id": "dlp_125",
-            "name": "unique_name",
+            "dlp_name": "unique_name",
             "target_dataset_type": DatasetTypes.TABULAR.value,
-            "loading_plan_path": "/plan1",
+            "key_paths": "/plan1",
+            "loading_blocks": {"block1": "block_id1"},
         }
         self.table.insert(entry)
         duplicate = {
             "dlp_id": "dlp_999",
-            "name": "unique_name",
+            "dlp_name": "unique_name",
             "target_dataset_type": DatasetTypes.MEDNIST.value,
-            "loading_plan_path": "/plan2",
+            "key_paths": "/plan2",
+            "loading_blocks": {"block1": "block_id1"},
         }
         with self.assertRaises(FedbiomedError):
             self.table.insert(duplicate)
@@ -174,24 +178,26 @@ class TestDlpTable(unittest.TestCase):
     def test_insert_success(self):
         entry = {
             "dlp_id": "dlp_100",
-            "name": "valid_dlp",
+            "dlp_name": "valid_dlp",
             "target_dataset_type": DatasetTypes.MEDICAL_FOLDER.value,
-            "loading_plan_path": "/planX",
+            "key_paths": "/planX",
+            "loading_blocks": {"block1": "block_id1"},
         }
         self.table.insert(entry)
 
     def test_list_by_target_dataset_type(self):
         entry = {
             "dlp_id": "dlp_101",
-            "name": "dlp_listed",
+            "dlp_name": "dlp_listed",
             "target_dataset_type": DatasetTypes.TABULAR.value,
-            "loading_plan_path": "/planY",
+            "key_paths": "/planY",
+            "loading_blocks": {"block1": "block_id1"},
         }
         self.table.insert(entry)
         with self.assertRaises(FedbiomedError):
             self.table.list_by_target_dataset_type("invalid")
         result = self.table.list_by_target_dataset_type(DatasetTypes.TABULAR.value)
-        self.assertTrue(any(d["name"] == "dlp_listed" for d in result))
+        self.assertTrue(any(d["dlp_name"] == "dlp_listed" for d in result))
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMixin
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
@@ -463,6 +464,17 @@ class TestRound(unittest.TestCase):
             def get_dataset_type() -> DatasetTypes:
                 return DatasetTypes.TEST
 
+        def complete_dataset_initialization_side_effect(controller_kwargs):
+            """
+            Mimic what the real DataManager.complete_dataset_initialization() would do in this test:
+            Attach the deserialized DLP to the dataset.
+            """
+            dlp = controller_kwargs.get("dlp")
+            if dlp is not None:
+                # MyDataset inherits DataLoadingPlanMixin, which uses self._dlp internally
+                # in apply_dlb(). Setting this is enough for the test.
+                my_dataset._dlp = dlp
+
         patch_inspect_signature.return_value = inspect.Signature(parameters={})
 
         my_dataset = MyDataset()
@@ -473,6 +485,10 @@ class TestRound(unittest.TestCase):
         data_manager_mock.split = MagicMock()
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
+
+        data_manager_mock.complete_dataset_initialization.side_effect = (
+            complete_dataset_initialization_side_effect
+        )
 
         data_manager_mock.save_state = MagicMock()
         data_manager_mock.load_state = MagicMock()
@@ -1080,7 +1096,7 @@ class TestRound(unittest.TestCase):
         # data_manager._training_index = PropertyMock(return_value=None)
         # data_manager.
 
-        class CustomDataset(Dataset):
+        class TestDataset(Dataset):
             """Create PyTorch Dataset for test purposes"""
 
             def __init__(self):
@@ -1101,10 +1117,15 @@ class TestRound(unittest.TestCase):
             def __getitem__(self, idx):
                 return self.X_train[idx], self.Y_train[idx]
 
+            def complete_initialization(
+                self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
+            ):
+                pass
+
         # for pytorch: mimicking the process of saving and re-loading testing
         # and training datasets
 
-        data_manager = DataManager(dataset=CustomDataset())
+        data_manager = DataManager(dataset=TestDataset())
         training_plan_mock.training_data = MagicMock(return_value=data_manager)
         training_plan_mock.type = MagicMock(
             return_value=TrainingPlans.TorchTrainingPlan
@@ -1141,7 +1162,7 @@ class TestRound(unittest.TestCase):
         )
         data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
 
-        data_manager = DataManager(dataset=CustomDataset())
+        data_manager = DataManager(dataset=TestDataset())
         training_plan_mock.training_data = MagicMock(return_value=data_manager)
         training_plan_mock.type = MagicMock(
             return_value=TrainingPlans.SkLearnTrainingPlan

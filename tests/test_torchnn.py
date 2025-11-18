@@ -6,28 +6,27 @@ import re
 import tempfile
 import types
 import unittest
-from fedbiomed.common.models import TorchModel
-
 from unittest.mock import MagicMock, patch
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
-
-from torch.utils.data import DataLoader, Dataset
-from torch.optim import Adam
-from torch.nn import Module
-
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
+from torch.autograd import Variable
+from torch.nn import Module
+from torch.optim import Adam
+from torch.utils.data import DataLoader, Dataset
+
+from fedbiomed.common.dataloader._pytorch_dataloader import PytorchDataLoader
 from fedbiomed.common.exceptions import (
+    FedbiomedModelError,
     FedbiomedOptimizerError,
     FedbiomedTrainingPlanError,
-    FedbiomedModelError,
 )
-from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.models import TorchModel
 from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.common.training_plans import TorchTrainingPlan
 
 
 # define TP outside of test class to avoid indentation problems when exporting class to file
@@ -562,8 +561,9 @@ class TestTorchnn(unittest.TestCase):
         mock_dataset = MagicMock(spec=Dataset)
 
         tp.training_data_loader = MagicMock(
-            spec=DataLoader(mock_dataset), batch_size=batch_size
+            spec=PytorchDataLoader(mock_dataset), batch_size=batch_size
         )
+
         tp._training_args = {
             "optimizer_args": {},
             "epochs": 1,
@@ -654,7 +654,7 @@ class TestTorchnn(unittest.TestCase):
             tp._optimizer.optimizer.step.reset_mock()
             num_batches_per_epoch = num_samples // batch_size
             tp.training_data_loader = MagicMock(
-                spec=DataLoader(MagicMock(spec=Dataset)),
+                spec=PytorchDataLoader(MagicMock(spec=Dataset)),
                 dataset=[1, 2],
                 batch_size=batch_size,
             )
@@ -731,10 +731,16 @@ class TestTorchnn(unittest.TestCase):
             tp = TorchTrainingPlan()
             tp._set_device = MagicMock()
 
+            custom_dataset = self.CustomDataset()
+
             model = copy.deepcopy(model)
             tp._model = TorchModel(model)
             tp._log_interval = 1
-            tp.training_data_loader = MagicMock()
+
+            tp.training_data_loader = MagicMock(
+                spec=PytorchDataLoader(MagicMock(spec=custom_dataset)),
+            )
+
             tp._log_interval = 1000  # essentially disable logging
             tp._dry_run = False
 
@@ -748,7 +754,6 @@ class TestTorchnn(unittest.TestCase):
 
             tp.training_step = types.MethodType(training_step, tp)
 
-            custom_dataset = self.CustomDataset()
             x_train = torch.Tensor(custom_dataset.X_train)
             y_train = torch.Tensor(custom_dataset.Y_train)
             num_batches = 1
@@ -1032,7 +1037,9 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp._loader_args = {"batch_size": batch_size}
 
         tp.training_data_loader = MagicMock(
-            spec=DataLoader(MagicMock(spec=Dataset)), batch_size=2, dataset=[1, 2]
+            spec=PytorchDataLoader(MagicMock(spec=Dataset)),
+            batch_size=2,
+            dataset=[1, 2],
         )
         gen_load_data_as_tuples = (
             TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
@@ -1069,7 +1076,9 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         tp._loader_args = {"batch_size": batch_size}
 
         mock_dataset = MagicMock(spec=Dataset())
-        tp.training_data_loader = MagicMock(spec=DataLoader(mock_dataset), batch_size=3)
+        tp.training_data_loader = MagicMock(
+            spec=PytorchDataLoader(mock_dataset), batch_size=3
+        )
         gen_load_data_as_tuples = (
             TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(
                 ((torch.Tensor([0]), torch.Tensor([1])), torch.Tensor([2]))
@@ -1111,7 +1120,7 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         # Set training data loader
         mock_dataset = MagicMock(spec=Dataset())
         tp.training_data_loader = MagicMock(
-            spec=DataLoader(mock_dataset), batch_size=batch_size, dataset=[1, 2]
+            spec=PytorchDataLoader(mock_dataset), batch_size=batch_size, dataset=[1, 2]
         )
         gen_load_data_as_tuples = (
             TestTorchNNTrainingRoutineDataloaderTypes.iterate_once(

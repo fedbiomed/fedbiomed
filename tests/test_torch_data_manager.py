@@ -220,7 +220,9 @@ class TestTorchDataManager(unittest.TestCase):
             "Did not properly get loader for all samples",
         )
 
-    @patch("fedbiomed.common.datamanager._torch_data_manager.PytorchDataLoader")
+    @patch(
+        "fedbiomed.common.datamanager._torch_data_manager.TorchDataManager._loader_class"
+    )
     def test_torch_data_manager_06_create_torch_data_loader(self, data_loader):
         """Test function create torch data loader"""
 
@@ -229,7 +231,7 @@ class TestTorchDataManager(unittest.TestCase):
 
         data_loader.side_effect = TypeError()
         with self.assertRaises(FedbiomedError):
-            self.torch_data_manager._create_torch_data_loader(s)
+            self.torch_data_manager._create_data_loader(s)
 
         data_loader.side_effect = AttributeError()
         with self.assertRaises(FedbiomedError):
