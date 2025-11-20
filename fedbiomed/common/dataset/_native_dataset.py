@@ -147,6 +147,26 @@ class NativeDataset(Dataset):
                 f"{ErrorNumbers.FB632.value}: Failed to convert target item at index {idx}. Details: {e}"
             ) from e
 
+        # Apply default types for training plan framework
+        try:
+            data_cvt = self._get_default_types_callable()(data_cvt)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply default types for data item "
+                f"at index {idx}. Details: {e}"
+            ) from e
+        try:
+            target_cvt = (
+                self._get_default_types_callable()(target_cvt)
+                if target_cvt is not None
+                else None
+            )
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply default types for target item "
+                "at index {idx}. Details: {e}"
+            ) from e
+
         return data_cvt, target_cvt
 
     def __len__(self) -> int:

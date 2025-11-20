@@ -131,7 +131,7 @@ class CustomDataset(Dataset):
                 f"from dataset using get_item method. Please see error: {e}"
             ) from e
 
-    def _check_type(self, sample: Any, type_) -> None:
+    def _check_type(self, sample: Any, type_: str) -> None:
         """Check if sample is of expected type"""
         if not isinstance(sample, self._to_format.value):
             raise FedbiomedError(
@@ -140,11 +140,33 @@ class CustomDataset(Dataset):
                 f"but got {type(sample).__name__} "
             )  # Applies transformations if any
 
+    def _apply_default_types(self, data: Any, _type: str) -> Any:
+        """Applies default types for training plan framework to data
+
+        Args:
+            data: data to convert
+
+        Returns:
+            Converted data
+        """
+        try:
+            data = self._get_default_types_callable()(data)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types "
+                f"to `{_type}` in {self._to_format.value} format."
+            ) from e
+        return data
+
     def __getitem__(self, idx) -> Tuple[Any, Any]:
         """Retrieves a sample and its target by index."""
         data, target = self.get_item(idx)
 
         self._check_type(data, "data")
         self._check_type(target, "target")
+
+        # Apply default types for training plan framework
+        data = self._apply_default_types(data, "data")
+        target = self._apply_default_types(target, "target")
 
         return data, target
