@@ -4,6 +4,8 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, Type, Union
 
+import torch
+
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import Controller
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
@@ -51,7 +53,7 @@ class Dataset(ABC):
         pass
 
     def _get_format_conversion_callable(self) -> Callable:
-        """Get conversion function from data to expected format
+        """Gets conversion function from data to expected format
 
         Returns:
             Callable function to convert data to expected format
@@ -64,6 +66,53 @@ class Dataset(ABC):
             )
 
         return self._native_to_framework[self._to_format]
+
+    def _default_types_torch(self, x: torch.Tensor) -> torch.Tensor:
+        """Performs default type conversion for a torch.Tensor
+
+        Args:
+            x: data to convert
+
+        Returns:
+            Converted torch Tensor with default types
+        """
+        if not isinstance(x, torch.Tensor):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Expected input to be of type "
+                f"torch.Tensor, got {type(x).__name__}"
+            )
+
+        if x.is_floating_point():
+            return x.to(torch.get_default_dtype())
+        elif x.dtype in (
+            torch.int8,
+            torch.uint8,
+            torch.int16,
+            torch.int32,
+            torch.int64,
+        ):
+            return x.long()
+        else:
+            return x
+
+    def _get_default_types_callable(self) -> Callable:
+        """Gets function to set default types according to expected format
+
+        Returns:
+            Callable function to set default types for expected format
+        """
+        if not self._to_format:
+            raise AttributeError(
+                f"{ErrorNumbers.FB632.value}: `to_format` is not set. "
+                "Please set it before using the dataset. E.g., `dataset.to_format = "
+                "fedbiomed.common.dataset_types.DataReturnFormat.TORCH`"
+            )
+
+        self._default_types: Dict[DataReturnFormat, Callable] = {
+            DataReturnFormat.SKLEARN: lambda x: x,
+            DataReturnFormat.TORCH: self._default_types_torch,
+        }
+        return self._default_types[self._to_format]
 
     def _validate_transform(self, transform: Optional[Callable]) -> Callable:
         """Validates `transform` input
@@ -220,6 +269,14 @@ class Dataset(ABC):
             ) from e
 
         try:
+            sample["data"] = self._get_default_types_callable()(sample["data"])
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types to `data` "
+                f"in sample in {self._to_format.value} format."
+            ) from e
+
+        try:
             sample["target"] = self._target_transform(
                 self._get_format_conversion_callable()(sample["target"])
             )
@@ -227,6 +284,14 @@ class Dataset(ABC):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform` to "
                 f"`target` in sample in {self._to_format.value} format."
+            ) from e
+
+        try:
+            sample["target"] = self._get_default_types_callable()(sample["target"])
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types to `target` "
+                f"in sample in {self._to_format.value} format."
             ) from e
 
         return sample
