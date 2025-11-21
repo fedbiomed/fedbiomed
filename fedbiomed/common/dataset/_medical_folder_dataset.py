@@ -18,7 +18,7 @@ class MedicalFolderDataset(Dataset):
 
     _native_to_framework = {
         DataReturnFormat.SKLEARN: lambda x: x.get_fdata(),
-        DataReturnFormat.TORCH: lambda x: torch.from_numpy(x.get_fdata()).float(),
+        DataReturnFormat.TORCH: lambda x: torch.from_numpy(x.get_fdata()),
     }
 
     def __init__(
@@ -241,6 +241,15 @@ class MedicalFolderDataset(Dataset):
                         f"`{transform_type}` to modality '{modality}' from sample "
                         f"(index={idx}) in {self._to_format.value} format."
                     ) from e
+
+                try:
+                    data[modality] = self._get_default_types_callable()(data[modality])
+                except Exception as e:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB632.value}: Failed to apply "
+                        f"`default training plan types to modality '{modality}' from sample "
+                        f"(index={idx}) in {self._to_format.value} format."
+                    ) from e
         else:
             try:
                 data = transform(data)
@@ -250,6 +259,13 @@ class MedicalFolderDataset(Dataset):
                     f"to sample (index={idx}) in {self._to_format.value} format."
                 ) from e
 
+            try:
+                data = self._get_default_types_callable()(data)
+            except Exception as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types "
+                    f"to sample (index={idx}) in {self._to_format.value} format."
+                ) from e
         return data
 
     def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:

@@ -26,7 +26,7 @@ class NativeDataset(Dataset):
         DataReturnFormat.TORCH: lambda x: (
             T.ToTensor()(x)  # In case the input is a PIL image or ndarray image
             if isinstance(x, (Image.Image, np.ndarray))
-            else torch.tensor(x).float()
+            else torch.tensor(x)
         ),
     }
 
@@ -145,6 +145,26 @@ class NativeDataset(Dataset):
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to convert target item at index {idx}. Details: {e}"
+            ) from e
+
+        # Apply default types for training plan framework
+        try:
+            data_cvt = self._get_default_types_callable()(data_cvt)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply default types for data item "
+                f"at index {idx}. Details: {e}"
+            ) from e
+        try:
+            target_cvt = (
+                self._get_default_types_callable()(target_cvt)
+                if target_cvt is not None
+                else None
+            )
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply default types for target item "
+                "at index {idx}. Details: {e}"
             ) from e
 
         return data_cvt, target_cvt
