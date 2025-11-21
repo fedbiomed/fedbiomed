@@ -162,7 +162,7 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         loader = SkLearnDataLoader(dataset=X)
         training_plan.set_data_loaders(loader, loader)
         classes = training_plan._classes_from_concatenated_train_test()
-        self.assertListEqual([x for x in classes], [x for x in np.unique(X)])
+        self.assertListEqual([x for x in classes], [x for x in np.unique(X._target)])
 
     def test_sklearntrainingplanbasicinheritance_03_export_model(self):
         training_plan = SKLearnTrainingPlan()
