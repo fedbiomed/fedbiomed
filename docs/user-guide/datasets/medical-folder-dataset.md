@@ -290,7 +290,7 @@ dataset = MedicalFolderDataset(
 # Simple T1-weighted MRI dataset
 dataset = MedicalFolderDataset(
     data_modalities='T1',
-    target_modalities=None
+    target_modalities=None,
 )
 ```
 
@@ -298,17 +298,9 @@ dataset = MedicalFolderDataset(
 ```python
 # Multi-modal brain tumor segmentation
 dataset = MedicalFolderDataset(
-    data_modalities=['T1', 'T2', 'demographics'],
+    data_modalities=['T1', 'T2'],
     target_modalities=['label'],  # Segmentation mask as target
-    transform={
-        'T1': lambda x: torch.from_numpy(x.get_fdata()).float(),
-        'T1ce': lambda x: torch.from_numpy(x.get_fdata()).float(), 
-        'T2': lambda x: torch.from_numpy(x.get_fdata()).float(),
-        'FLAIR': lambda x: torch.from_numpy(x.get_fdata()).float()
-    },
-    target_transform={
-        'seg': lambda x: torch.from_numpy(x.get_fdata()).long()
-    }
+    ...
 )
 ```
 
