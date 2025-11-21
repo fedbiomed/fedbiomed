@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 if TYPE_CHECKING:
-    import numpy as np
     import torch
 
+import numpy as np
 import polars as pl
 
 from fedbiomed.common.constants import ErrorNumbers
