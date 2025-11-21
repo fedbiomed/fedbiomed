@@ -93,7 +93,7 @@ target       # tensor(7) - digit class 0-9
 - For scikit-learn TrainingPlan - data comes as numpy.ndarray:
 ```python
 data.shape   # (28, 28) - can be flattened to (784,)
-data.dtype   # uint8
+data.dtype   # uint64
 data.min()   # 0 (black pixels)
 data.max()   # 255 (white pixels)
 target       # array(7) - digit class 0-9
@@ -157,7 +157,7 @@ target       # tensor(3) - medical modality class 0-5
 - For scikit-learn TrainingPlan - data comes as numpy.ndarray:
 ```python
 data.shape   # (64, 64, 3)
-data.dtype   # uint8
+data.dtype   # uint64
 target       # array(3) - medical modality class 0-5
 ```
 
