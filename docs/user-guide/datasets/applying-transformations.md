@@ -9,10 +9,10 @@ Transformations are custom functions that preprocess your data before training. 
 Fed-BioMed's transformation pipeline consists of distinct stages, with **user transforms** being the primary customization point:
 
 ```
-Raw Data → Node Processing → Framework Conversion → 🎯 User Transforms → ML Framework
-    │            │                   │                    │                │
-Files/DB    Standardized       Framework-Ready        Customized         Training
-            Format             Types                  Processing         Ready
+Raw Data → Node Processing → Framework Conversion → Default Format → 🎯 User Transforms → Default Format → ML Framework
+    │            │                   │                    │                    │                │              │
+Files/DB    Standardized       Framework-Ready      Framework-Ready       Customized      Framework-Ready    Training
+            Format             Types                Type Formats          Processing      Type Formats       Ready
 ```
 
 !!! note "Key Points"
@@ -26,9 +26,9 @@ Files/DB    Standardized       Framework-Ready        Customized         Trainin
 
 This section details what data the node provides and what your transforms should expect as input/output for each framework.
 
-**Node Data → Framework Conversion → Transform Input**
+**Node Data → Framework Conversion → Default Format → Transform Input**
 
-The table below illustrates Fed-BioMed's automatic data conversion pipeline. **Before your custom transform function is called**, Fed-BioMed automatically converts the node-provided data into framework-appropriate types. Your transform function then receives this pre-converted data as input.
+The table below illustrates Fed-BioMed's automatic data conversion pipeline. **Before your custom transform function is called**, Fed-BioMed automatically converts the node-provided data into framework-appropriate types. Then the default formats are applied to data.
 
 | Dataset Type | Node Data Format | **Fed-BioMed converts to →** PyTorch Input | **Fed-BioMed converts to →** Scikit-learn Input |
 |--------------|------------------|---------------------------------------------|--------------------------------------------------|
@@ -37,9 +37,26 @@ The table below illustrates Fed-BioMed's automatic data conversion pipeline. **B
 | **Image** | `PIL.Image.Image` | `torch.Tensor (C, H, W) [0-1]` | `numpy.ndarray (H, W, C) [0-255]` |
 | **Native/Custom** | Variable | `torch.Tensor` (best-effort conversion) | `numpy.ndarray` (best-effort conversion) |
 
+
+After converting data to framework-appropriate types, Fed-BioMed changes data type formats.
+Each framework has a preferred format (`dtype`) for each data type (floats, integers). For example, PyTorch usually handles floats as `torch.float32`.
+The default format step converts data to the preferred format for this type, in the framework used by the training plan. For example, for
+a PyTorch training plan, integers are converted to `torch.long` integers. The data type is not changed (eg: floats remain some format of floats).
+This ensures your transform receives the data in some predictable format, adapted to the training plan framework used.
+Your transform function then receives this default typed and formatted data as input.
+
+| Framework | Data type | Source `dtype` | **Fed-BioMed  changes to** `dtype` |
+| --------- | ------------------- | -------------- | ------------------------------------- | 
+| PyTorch   | `torch.Tensor`      | any floating point | `torch.get_default_dtype()` usually `torch.float32` |
+| PyTorch   | `torch.Tensor`      | any integer        | `torch.long` |
+| scikit-learn | `np.ndarray`     | any `np.floating`  | `np.float64` |
+| scikit-learn | `np.ndarray`     | any `np.integer`   | `np.int64`   | 
+
+Default format conversion does effective data conversion only if the source format changes, so it avoid the memory and computing cost of useless conversions.
+
 !!! note "Understanding the conversion process"
     - **Node Data Format**: The data format provided by Fed-BioMed nodes after loading and initial processing
-    - **Fed-BioMed Auto-Conversion**: Fed-BioMed automatically applies framework-specific conversions before calling your transform (e.g., `DataFrame.to_torch().float()` for PyTorch, `DataFrame.to_numpy()` for scikit-learn)  
+    - **Fed-BioMed Auto-Conversion**: Fed-BioMed automatically applies framework-specific conversions before calling your transform (e.g., `DataFrame.to_torch()` for PyTorch, `DataFrame.to_numpy()` for scikit-learn), plus the default format conversions.
     - **Your Transform Input**: The converted data type that your custom transform function will receive and must handle
 
 **Transform Output Requirements**
@@ -49,6 +66,9 @@ The output format of your custom transform function is **crucial** and differs s
 !!! warning "Framework Output Requirements"
     - **PyTorch**: Can handle flexible output structures (`torch.Tensor` or `Dict[str, torch.Tensor]`) because the model's method `training_step` can organize data as needed.
     - **Scikit-learn**: Requires **flattened arrays only** (`numpy.ndarray`) - the exact format the ML model will consume. No dictionaries or complex structures are allowed.
+
+
+The default format conversion step (see above) is applied again after the custom transform function, to ensure the training plan receives data in the preferred format. Yet, unless needed, it is a good practice to keep the `dtype` of data. 
 
 ## Common Transform Operations
 
@@ -228,7 +248,6 @@ def training_data(self):
 - PyTorch Transforms:
     - Input: `torch.Tensor` or `Dict[str, torch.Tensor]`
     - Output: Must return `torch.Tensor` or `Dict[str, torch.Tensor]` 
-    - Ensure `float32` dtype for features
 
 - Scikit-learn Transforms:
     - Input: `numpy.ndarray` or `Dict[str, numpy.ndarray]`
