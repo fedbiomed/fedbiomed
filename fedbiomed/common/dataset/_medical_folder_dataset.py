@@ -262,7 +262,8 @@ class MedicalFolderDataset(Dataset):
                 ) from e
 
             try:
-                data = self._get_default_types_callable()(data)
+                for modality in modalities:
+                    data[modality] = self._get_default_types_callable()(data[modality])
             except Exception as e:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types "

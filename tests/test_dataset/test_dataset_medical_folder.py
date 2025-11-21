@@ -220,7 +220,7 @@ def test_demographics_transform(monkeypatch, sample_dict):
     def demo_transform(demo):
         dict_transform = {"M": 0, "F": 1, "O": 2}
         demo["sex"] = dict_transform[demo["sex"]]
-        return demo
+        return np.array(demo["sex"])
 
     monkeypatch.setattr(
         MedicalFolderDataset,
@@ -235,12 +235,13 @@ def test_demographics_transform(monkeypatch, sample_dict):
         transform={"T1": lambda x: x, "demographics": demo_transform},
         target_transform=None,
     )
+
     ds._to_format = DataReturnFormat.SKLEARN
     ds._controller = DummyController(sample_dict)
     for idx in range(3):
         data, _ = ds.__getitem__(idx)
         assert "demographics" in data
-        assert data["demographics"]["sex"] in {0, 1, 2}
+        assert data["demographics"] in [0, 1, 2]
 
 
 @pytest.mark.parametrize(
@@ -383,10 +384,13 @@ def test_process_sample_data(monkeypatch, sample_dict):
         ),
     )
 
+    def demo_transform(demo):
+        return np.array(demo["age"])
+
     ds = MedicalFolderDataset(
         data_modalities=["T1", "demographics"],
         target_modalities=None,
-        transform={"T1": lambda x: x * 2, "demographics": lambda x: x},
+        transform={"T1": lambda x: x * 2, "demographics": demo_transform},
         target_transform=None,
     )
     ds._to_format = DataReturnFormat.SKLEARN
@@ -401,7 +405,8 @@ def test_process_sample_data(monkeypatch, sample_dict):
     assert "T1" in result
     assert "demographics" in result
     assert isinstance(result["T1"], np.ndarray)
-    assert isinstance(result["demographics"], dict)
+    assert isinstance(result["demographics"], np.ndarray)
+    assert result["demographics"] in [30, 40, 50]
     # Check transform was applied (doubled)
     expected_t1 = np.ones((3, 4, 5)) * 2
     np.testing.assert_array_equal(result["T1"], expected_t1)
@@ -501,7 +506,7 @@ def test_whole_dict_transforms(monkeypatch, sample_dict):
 
     def data_transform(data_dict):
         # Transform that uses entire dict and returns a single array
-        result = data_dict["T1"] + data_dict["T2"]  # Sum T1 and T2
+        result = {"T1": 2 * data_dict["T1"], "T2": 2 * data_dict["T2"]}
         return result
 
     def target_transform(target_dict):
@@ -531,14 +536,17 @@ def test_whole_dict_transforms(monkeypatch, sample_dict):
     data, target = ds.__getitem__(0)
 
     # Check that whole-dict transforms were applied
-    assert isinstance(data, np.ndarray)
+    assert isinstance(data, dict)
+    assert isinstance(data["T1"], np.ndarray)
+    assert isinstance(data["T2"], np.ndarray)
     assert "label" in target
 
     # Verify transforms were applied (doubled for data, +1 for target)
-    expected_data = np.ones((3, 4, 5)) + np.full((3, 4, 5), 2)
+    expected_data = {"T1": 2 * np.ones((3, 4, 5)), "T2": 2 * np.full((3, 4, 5), 2)}
     expected_label = np.zeros((3, 4, 5)) + 1  # Original + 1
 
-    np.testing.assert_array_equal(data, expected_data)
+    np.testing.assert_array_equal(data["T1"], expected_data["T1"])
+    np.testing.assert_array_equal(data["T2"], expected_data["T2"])
     np.testing.assert_array_equal(target["label"], expected_label)
 
 
