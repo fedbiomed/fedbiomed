@@ -16,16 +16,8 @@ from fedbiomed.common.exceptions import FedbiomedError
 class TabularDataset(Dataset):
     _controller_cls: type = TabularController
 
-    @staticmethod
-    def _to_sklearn(x: pl.DataFrame) -> "np.ndarray":
-        arr = x.to_numpy()
-        # if it's a single row [[A1, B1, C1]], make it [A1, B1, C1]
-        if arr.ndim == 2 and arr.shape[0] == 1:
-            return arr[0]
-        return arr
-
     _native_to_framework = {
-        DataReturnFormat.SKLEARN: _to_sklearn.__func__,
+        DataReturnFormat.SKLEARN: lambda x: np.squeeze(np.array(x)),
         DataReturnFormat.TORCH: lambda x: x.to_torch(),
     }
 
