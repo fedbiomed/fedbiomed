@@ -133,7 +133,6 @@ Reviewers, Team Developers and Core Developers receive:
 
 Current list of Core Developers listed by alphabetical order:
 
-- Yannick Bouillard
 - Sergen Cansiz
 - Francesco Cremonesi
 - Ali Tolga Dinçer
@@ -339,16 +338,20 @@ We sort labels in several categories:
   - **done**: The entry is completed, closed, and not anymore in the *sprint backlog*
 
 
-#### *status* labels:
+#### *status* information:
 
-All sprint backlog issues have one status label. Other issues only have a status label when they are active (eg: a developer not participating to a sprint, a developer working during intersprint).
+**IMPORTANT: status information now uses the []`Fed-BioMed Dev`](https://github.com/orgs/fedbiomed/projects/2)**. Labels are not used anymore for status information (*todo*, *doing*, *in review* *done*). **Don't use anymore these labels**.
+
+All sprint backlog issues have one status information in the board.
+
+Other issues only have a status information in the board when they are active (eg: a developer not participating to a sprint, a developer working during intersprint).
 
   - **todo** : Issue not started yet (but intention to start soon)
   - **doing** : Issue implementation in progress
   - **in review** : Issue implementation is finished, a pull request open and is ready for review (or under review)
   - **done** : Issue is completed, it meets the DoD and **was merged to the next release integration branch**, but it still belongs to the *sprint backlog*
 
-For a sprint backlog issue, please set the `Fed-BioMed Dev` board status accordingly (in the `Projects` field on the right side of the issue).
+FThe `Fed-BioMed Dev` board can be found in the `Projects` field on the right side of the issue.
 
 
 #### *misc* labels
@@ -366,7 +369,7 @@ Note: some previously existing tags are now removed - *postponed*, *feature*, *i
 
 #### Example
 
-* an issue with labels *sprint backlog* + *todo* + *bug* means that this issue is in the current sprint's backlog, that it is not yet started, and that it solves a bug.
+* an issue with labels *sprint backlog* + *bug* + information *todo* means that this issue is in the current sprint's backlog, that it is not yet started, and that it solves a bug.
 
 * summary :
 
