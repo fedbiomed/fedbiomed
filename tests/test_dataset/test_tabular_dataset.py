@@ -267,11 +267,8 @@ def test_apply_transforms_happy_path_uses_conversion_and_transform():
         def __init__(self, arr):
             self._arr = np.asarray(arr)
 
-        def to_numpy(self):
+        def __array__(self):
             return self._arr
-
-        def to_torch(self):  # not used in this test, but present to mirror mapping
-            return ("torch", tuple(self._arr.tolist()))
 
     # Transform applied AFTER conversion
     def transform(x):
