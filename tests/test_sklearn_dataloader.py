@@ -225,7 +225,7 @@ class TestSkLearnDataLoader(unittest.TestCase):
         with self.assertRaises(FedbiomedError):
             next(it)
 
-    def test_inconsistent_shapes_raise_fedbiomederror(self):
+    def test_inconsistent_shapes(self):
         bad_dataset = InconsistentShapeDataset()
         loader = SkLearnDataLoader(
             bad_dataset, batch_size=2, shuffle=False, drop_last=False
@@ -235,7 +235,7 @@ class TestSkLearnDataLoader(unittest.TestCase):
         with self.assertRaises(FedbiomedError):
             next(it)
 
-    def test_bad_target_dict_keys_raise_fedbiomederror(self):
+    def test_bad_target_dict(self):
         bad_target_dataset = BadTargetDictDataset()
         loader = SkLearnDataLoader(
             bad_target_dataset, batch_size=1, shuffle=False, drop_last=False
@@ -248,7 +248,7 @@ class TestSkLearnDataLoader(unittest.TestCase):
         with self.assertRaises(FedbiomedError):
             next(it)
 
-    def test_dataset_getitem_exception_wrapped_in_fedbiomederror(self):
+    def test_dataset_getitem_exception(self):
         failing_dataset = FailingGetItemDataset()
         loader = SkLearnDataLoader(
             failing_dataset, batch_size=1, shuffle=False, drop_last=False

@@ -281,7 +281,7 @@ def test_apply_transforms_happy_path_uses_conversion_and_transform():
     np.testing.assert_array_equal(data["target"], np.array([3]))
 
 
-def test_apply_transforms_wraps_errors_in_FedbiomedError(mocker):
+def test_apply_transforms_error_cases(mocker):
     ds = TabularDataset(
         input_columns=["a"], target_columns=["y"], transform=lambda x: x
     )
@@ -298,3 +298,91 @@ def test_apply_transforms_wraps_errors_in_FedbiomedError(mocker):
 
     with pytest.raises(FedbiomedError) as _exc:
         _ = ds.apply_transforms(sample)
+
+    # One reusable sample
+    sample = {"data": 1, "target": 2}
+
+    # -------- Scenario: transform/data conversion fails --------
+
+    def transform_fail(_):
+        raise ValueError("boom")
+
+    ds = TabularDataset(
+        input_columns=["a"], target_columns=["y"], transform=transform_fail
+    )
+    ds.to_format = DataReturnFormat.SKLEARN
+
+    mocker.patch.object(ds, "_get_format_conversion_callable", return_value=lambda x: x)
+    mocker.patch.object(ds, "_get_default_types_callable", return_value=lambda x: x)
+
+    with pytest.raises(FedbiomedError) as exc1:
+        ds.apply_transforms(sample)
+
+    assert "Failed to apply `transform` to `data`" in str(exc1.value)
+
+    # -------- Scenario: default types for data fails --------
+    ds = TabularDataset(
+        input_columns=["a"], target_columns=["y"], transform=lambda x: x
+    )
+    ds.to_format = DataReturnFormat.SKLEARN
+
+    mocker.patch.object(ds, "_get_format_conversion_callable", return_value=lambda x: x)
+
+    # First call OK (inside transform), second call fails (default-types block)
+    mocker.patch.object(
+        ds,
+        "_get_default_types_callable",
+        side_effect=[lambda x: x, lambda x: (_ for _ in ()).throw(ValueError("boom"))],
+    )
+
+    with pytest.raises(FedbiomedError) as exc2:
+        ds.apply_transforms(sample)
+
+    assert "Failed to apply default training plan types to `data`" in str(exc2.value)
+
+    # -------- Scenario: target_transform fails --------
+    def target_fail(_):
+        raise ValueError("boom")
+
+    ds = TabularDataset(
+        input_columns=["a"],
+        target_columns=["y"],
+        transform=lambda x: x,
+        target_transform=target_fail,
+    )
+    ds.to_format = DataReturnFormat.SKLEARN
+
+    mocker.patch.object(ds, "_get_format_conversion_callable", return_value=lambda x: x)
+    mocker.patch.object(ds, "_get_default_types_callable", return_value=lambda x: x)
+
+    with pytest.raises(FedbiomedError) as exc3:
+        ds.apply_transforms(sample)
+
+    assert "Failed to apply `target_transform` to `target`" in str(exc3.value)
+
+    # -------- Scenario: default types for target fails --------
+    ds = TabularDataset(
+        input_columns=["a"],
+        target_columns=["y"],
+        transform=lambda x: x,
+        target_transform=lambda x: x,
+    )
+    ds.to_format = DataReturnFormat.SKLEARN
+
+    mocker.patch.object(ds, "_get_format_conversion_callable", return_value=lambda x: x)
+
+    # default types called multiple times → fail only at the last call
+    call_counter = {"n": 0}
+
+    def default_types(x):
+        call_counter["n"] += 1
+        if call_counter["n"] == 4:  # last call = target default-types
+            raise ValueError("boom")
+        return x
+
+    mocker.patch.object(ds, "_get_default_types_callable", return_value=default_types)
+
+    with pytest.raises(FedbiomedError) as exc4:
+        ds.apply_transforms(sample)
+
+    assert "Failed to apply default training plan types to `target`" in str(exc4.value)
