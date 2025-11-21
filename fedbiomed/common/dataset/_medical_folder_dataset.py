@@ -223,7 +223,9 @@ class MedicalFolderDataset(Dataset):
         # Format conversion
         data = {
             modality: (
-                self._get_format_conversion_callable()(sample[modality])
+                self._get_default_types_callable()(
+                    self._get_format_conversion_callable()(sample[modality])
+                )
                 if modality != "demographics"
                 else sample[modality]
             )

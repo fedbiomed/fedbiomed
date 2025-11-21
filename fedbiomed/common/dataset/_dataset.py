@@ -4,6 +4,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, Type, Union
 
+import numpy as np
 import torch
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -70,6 +71,8 @@ class Dataset(ABC):
     def _default_types_torch(self, x: torch.Tensor) -> torch.Tensor:
         """Performs default type conversion for a torch.Tensor
 
+        Torch makes a copy if the type changes.
+
         Args:
             x: data to convert
 
@@ -95,6 +98,30 @@ class Dataset(ABC):
         else:
             return x
 
+    def _default_types_sklearn(self, x: np.ndarray) -> np.ndarray:
+        """Performs default type conversion for a np.ndarray
+
+        Sklearn makes a copy if the type changes.
+
+        Args:
+            x: data to convert
+
+        Returns:
+            Converted Numpy array with default types
+        """
+        if not isinstance(x, np.ndarray):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Expected input to be of type "
+                f"np.ndarray, got {type(x).__name__}"
+            )
+
+        if np.issubdtype(x.dtype, np.floating):
+            return x.astype(np.float64, copy=False)
+        elif np.issubdtype(x.dtype, np.integer):
+            return x.astype(np.int64, copy=False)
+        else:
+            return x
+
     def _get_default_types_callable(self) -> Callable:
         """Gets function to set default types according to expected format
 
@@ -109,7 +136,7 @@ class Dataset(ABC):
             )
 
         self._default_types: Dict[DataReturnFormat, Callable] = {
-            DataReturnFormat.SKLEARN: lambda x: x,
+            DataReturnFormat.SKLEARN: self._default_types_sklearn,
             DataReturnFormat.TORCH: self._default_types_torch,
         }
         return self._default_types[self._to_format]
@@ -260,7 +287,9 @@ class Dataset(ABC):
         """
         try:
             sample["data"] = self._transform(
-                self._get_format_conversion_callable()(sample["data"])
+                self._get_default_types_callable()(
+                    self._get_format_conversion_callable()(sample["data"])
+                )
             )
         except Exception as e:
             raise FedbiomedError(
@@ -278,7 +307,9 @@ class Dataset(ABC):
 
         try:
             sample["target"] = self._target_transform(
-                self._get_format_conversion_callable()(sample["target"])
+                self._get_default_types_callable()(
+                    self._get_format_conversion_callable()(sample["target"])
+                )
             )
         except Exception as e:
             raise FedbiomedError(
