@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import numpy as np
 import torch
-from declearn.optimizer import Optimizer
 from declearn.model.sklearn import NumpyVector
 from declearn.model.torch import TorchVector
+from declearn.optimizer import Optimizer
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 
@@ -585,9 +585,8 @@ class TestTorchModel(unittest.TestCase):
     def fake_training_step(self, data, targets):
         output = self.model.model.forward(data)
 
-        output = torch.squeeze(output, dim=1)
-
-        loss = torch.nn.functional.nll_loss(torch.squeeze(output), targets)
+        output = torch.squeeze(output)
+        loss = torch.nn.functional.mse_loss(output, targets.float())
         return loss
 
     def test_torchmodel_01_get_gradients_method(self):
