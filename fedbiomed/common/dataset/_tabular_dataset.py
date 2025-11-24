@@ -16,9 +16,10 @@ from fedbiomed.common.exceptions import FedbiomedError
 class TabularDataset(Dataset):
     _controller_cls: type = TabularController
 
+    # Input from controller is Polars Series
     _native_to_framework = {
-        DataReturnFormat.SKLEARN: lambda x: np.squeeze(np.array(x)),
-        DataReturnFormat.TORCH: lambda x: x.to_torch(),
+        DataReturnFormat.SKLEARN: lambda x: x.to_numpy().reshape(-1),
+        DataReturnFormat.TORCH: lambda x: x.to_torch().reshape(-1),
     }
 
     def __init__(
@@ -63,6 +64,14 @@ class TabularDataset(Dataset):
         self._init_controller(controller_kwargs=controller_kwargs)
 
         sample = self._controller.get_sample(0)  # type: ignore
+
+        n_rows, _ = sample.shape
+        if n_rows > 1:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB633.value}: TabularDataset currently only supports "
+                "row-wise samples. Sample obtained from controller has multiple rows."
+            )
+
         self._validate_format_and_transformations(
             self._get_inputs_from_sample(sample), transform=self._transform
         )

@@ -83,8 +83,8 @@ def test_get_format_conversion_callable_raises_for_unknown_format():
 def test_getitem_happy_path_with_transform_and_conversion(mocker):
     # transform multiplies numeric inputs
     ds = TabularDataset(
-        input_columns=[1],
-        target_columns=[2],
+        input_columns=["col1", "col2"],
+        target_columns="col3",
         transform=lambda x: x * 10,
         target_transform=lambda x: x * 10,
     )
@@ -103,8 +103,8 @@ def test_getitem_happy_path_with_transform_and_conversion(mocker):
 
     # Conversion function is identity for this test
     data, target = ds[7]
-    assert data == [[10]]
-    assert target == [[20]]
+    assert np.array_equal(data, np.array([10, 20]))
+    assert np.array_equal(target, np.array([30]))
 
 
 def test_getitem_raises_if_not_initialized():
@@ -262,26 +262,23 @@ def test_validate_pipeline_raises_when_transform_returns_wrong_type(mocker):
 
 
 def test_apply_transforms_happy_path_uses_conversion_and_transform():
-    # Dummy carrier that supports both conversions used by the mapping
-    class Carrier:
-        def __init__(self, arr):
-            self._arr = np.asarray(arr)
-
-        def __array__(self):
-            return self._arr
-
     # Transform applied AFTER conversion
     def transform(x):
         # For SKLEARN this will receive a numpy array
         return x * 2
 
-    ds = TabularDataset(input_columns=["a"], target_columns=["y"], transform=transform)
+    ds = TabularDataset(
+        input_columns=["col1"], target_columns=["col3"], transform=transform
+    )
     ds.to_format = DataReturnFormat.SKLEARN
 
-    sample = {"data": Carrier([1, 2]), "target": Carrier([3, 4])}
-    data = ds.apply_transforms(sample)
+    dummy_sample = {
+        "data": pl.DataFrame({"col1": [1], "col2": [2]}),
+        "target": pl.DataFrame({"col3": [3]}),
+    }
+    data = ds.apply_transforms(dummy_sample)
     np.testing.assert_array_equal(data["data"], np.array([2, 4]))
-    np.testing.assert_array_equal(data["target"], np.array([3, 4]))
+    np.testing.assert_array_equal(data["target"], np.array([3]))
 
 
 def test_apply_transforms_wraps_errors_in_FedbiomedError(mocker):
