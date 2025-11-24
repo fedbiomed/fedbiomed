@@ -327,8 +327,8 @@ class _SkLearnBatchIterator:
             sample_index: index of the sample in the dataset
         """
 
-        def _extract_array(sample, keys):
-            """Extract numpy array from sample (either simple array or dict)"""
+        def _extract_array(sample: DatasetDataItem, keys: Optional[List]) -> np.ndarray:
+            """Extract numpy array from sample and ensure at least 1D shape."""
             return np.atleast_1d(sample if self._is_simple_sample else sample[keys[0]])
 
         # Extract arrays from samples
