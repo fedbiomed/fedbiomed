@@ -15,7 +15,7 @@ export const setUsePreExistingDlp = (data) => {
         if(data.target.value === 'true' && state.dataLoadingPlan.existing_dlps === null) {
             dispatch({type:'SET_LOADING', payload: {status: true, text: "Fetching existing Data Loading Plans..."}})
             axios.post(EP_LIST_DATA_LOADING_PLANS, {'target_dataset_type': 'medical-folder'}).then(response => {
-                dispatch({type: "SET_EXISTING_DLPS", payload: response.data.result})
+                dispatch({type: "SET_EXISTING_DLPS", payload: response})
                 dispatch({type:'SET_LOADING', payload: {status: false}})
                 dispatch(setChangeDlpMedicalFolderDataset(use_dlp, state))
             }).catch(error => {
