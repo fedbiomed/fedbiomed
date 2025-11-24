@@ -255,7 +255,7 @@ class _SkLearnBatchIterator:
         Raises:
             FedbiomedError: sample is different from expected format
         """
-        if self._is_simple_sample and isinstance(data, np.ndarray) and data.ndim == 1:
+        if self._is_simple_sample and isinstance(data, np.ndarray) and data.ndim <= 1:
             pass
         elif (
             not self._is_simple_sample
@@ -263,7 +263,7 @@ class _SkLearnBatchIterator:
             and len(data) == 1
             and list(data.keys()) == self._data_keys
             and isinstance(list(data.values())[0], np.ndarray)
-            and list(data.values())[0].ndim == 1
+            and list(data.values())[0].ndim <= 1
         ):
             pass
         else:
@@ -279,7 +279,7 @@ class _SkLearnBatchIterator:
             if (
                 self._is_simple_sample
                 and isinstance(target, np.ndarray)
-                and (target.ndim == 1 or target.ndim == 0)
+                and (target.ndim <= 1)
             ):
                 pass
             elif (
@@ -288,10 +288,7 @@ class _SkLearnBatchIterator:
                 and len(target) == 1
                 and list(target.keys()) == self._target_keys
                 and isinstance(list(target.values())[0], np.ndarray)
-                and (
-                    list(target.values())[0].ndim == 1
-                    or list(target.values())[0].ndim == 0
-                )
+                and list(target.values())[0].ndim <= 1
             ):
                 pass
             else:
@@ -329,68 +326,44 @@ class _SkLearnBatchIterator:
             is_first_from_batch: True if this is the first sample added to this batch
             sample_index: index of the sample in the dataset
         """
+
+        def _extract_array(sample, keys):
+            """Extract numpy array from sample (either simple array or dict)"""
+            return np.atleast_1d(sample if self._is_simple_sample else sample[keys[0]])
+
+        # Extract arrays from samples
+        data_array = _extract_array(data, self._data_keys)
+        target_array = (
+            _extract_array(target, self._target_keys) if self._has_target else None
+        )
+
+        # Handle first sample in batch
         if is_first_from_batch:
-            if self._is_simple_sample:
-                # The ... vs : syntax is needed to handle samples with 0 dimensions (scalars)
-                batch_data = data[np.newaxis, ...]
-                if self._has_target:
-                    batch_target = target[np.newaxis, ...]
-            else:
-                batch_data = data[self._data_keys[0]][np.newaxis, ...]
-                if self._has_target:
-                    batch_target = target[self._target_keys[0]][np.newaxis, ...]
-        else:
-            if self._is_simple_sample:
-                try:
-                    batch_data = np.vstack((batch_data, data[np.newaxis, ...]))  # type: ignore
-                except ValueError as e:
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: cannot batch data samples "
-                        f"from dataset {self._loader.dataset.__class__.__name__} "
-                        f"(index={sample_index}). This may be due to inconsistent sample shapes. "
-                        f"Details: {e}"
-                    ) from e
-                if self._has_target:
-                    try:
-                        batch_target = np.vstack(
-                            (batch_target, target[np.newaxis, ...])
-                        )  # type: ignore
-                    except ValueError as e:
-                        raise FedbiomedError(
-                            f"{ErrorNumbers.FB632.value}: cannot batch target samples "
-                            f"from dataset {self._loader.dataset.__class__.__name__} "
-                            f"(index={sample_index}). This may be due to inconsistent sample shapes. "
-                            f"Details: {e}"
-                        ) from e
-                else:
-                    batch_target = None
-            else:
-                try:
-                    batch_data = np.vstack(
-                        (batch_data, data[self._data_keys[0]][np.newaxis, ...])
-                    )  # type: ignore
-                except ValueError as e:
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: cannot batch data samples "
-                        f"from dataset {self._loader.dataset.__class__.__name__} "
-                        f"(index={sample_index}). This may be due to inconsistent sample shapes. "
-                        f"Details: {e}"
-                    ) from e
-                if self._has_target:
-                    try:
-                        batch_target = np.vstack(
-                            (
-                                batch_target,
-                                target[self._target_keys[0]][np.newaxis, ...],
-                            )
-                        )  # type: ignore
-                    except ValueError as e:
-                        raise FedbiomedError(
-                            f"{ErrorNumbers.FB632.value}: cannot batch target samples "
-                            f"from dataset {self._loader.dataset.__class__.__name__} "
-                            f"(index={sample_index}). This may be due to inconsistent sample shapes. "
-                            f"Details: {e}"
-                        ) from e
+            batch_data = data_array[np.newaxis, ...]
+            batch_target = target_array[np.newaxis, ...] if self._has_target else None
+            return batch_data, batch_target
+
+        # Add subsequent samples to batch
+        try:
+            batch_data = np.vstack((batch_data, data_array[np.newaxis, ...]))  # type: ignore
+        except ValueError as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: cannot batch data samples "
+                f"from dataset {self._loader.dataset.__class__.__name__} "
+                f"(index={sample_index}). This may be due to inconsistent sample shapes. "
+                f"Details: {e}"
+            ) from e
+
+        if self._has_target:
+            try:
+                batch_target = np.vstack((batch_target, target_array[np.newaxis, ...]))  # type: ignore
+            except ValueError as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: cannot batch target samples "
+                    f"from dataset {self._loader.dataset.__class__.__name__} "
+                    f"(index={sample_index}). This may be due to inconsistent sample shapes. "
+                    f"Details: {e}"
+                ) from e
 
         return batch_data, batch_target
 
@@ -419,6 +392,7 @@ class _SkLearnBatchIterator:
             # Cannot slice on a Dataset, so we get each sample one by one
             batch_data: SkLearnDataLoaderItemBatch = None
             batch_target: SkLearnDataLoaderItemBatch = None
+
             for i in indices:
                 try:
                     data, target = self._loader.dataset[i]
