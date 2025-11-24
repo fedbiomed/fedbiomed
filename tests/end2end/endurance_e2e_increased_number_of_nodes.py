@@ -5,21 +5,20 @@ with 200 rounds of training using also secure aggregation
 import time
 
 import pytest
-
+from experiments.training_plans.sklearn import PerceptronTraining
 from helpers import (
     add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
-    clear_experiment_data,
     clear_component_data,
-    create_researcher,
+    clear_experiment_data,
     create_multiple_nodes,
+    create_researcher,
     generate_sklearn_classification_dataset,
+    kill_subprocesses,
+    start_nodes,
 )
 
-from experiments.training_plans.sklearn import PerceptronTraining
-from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.federated_workflows import Experiment
 
 
 # Set up nodes and start
@@ -32,7 +31,7 @@ def setup(port, post_session, request):
 
         dataset = {
             "name": "Classification dataset",
-            "description": "ddesc",
+            "description": "desc",
             "tags": "#csv-dataset-classification",
             "data_type": "csv",
             "path": p1,

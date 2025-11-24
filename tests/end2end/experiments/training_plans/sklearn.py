@@ -2,32 +2,32 @@
 Sklearn training plans
 """
 
-from fedbiomed.common.training_plans import (
-    FedSGDClassifier,
-    FedPerceptron,
-    FedSGDRegressor,
-)
+import numpy as np
+import pandas as pd
+from sklearn.metrics import hinge_loss
+from torchvision import datasets, transforms
+
 from fedbiomed.common.datamanager import DataManager
-
-
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.optimizers.declearn import (
     AdamModule,
     FedProxRegularizer,
     ScaffoldClientModule,
 )
-
-import numpy as np
-from sklearn.metrics import hinge_loss
+from fedbiomed.common.training_plans import (
+    FedPerceptron,
+    FedSGDClassifier,
+    FedSGDRegressor,
+)
 
 
 class PerceptronTraining(FedPerceptron):
     def training_data(self):
-        NUMBER_COLS = 20
         dataset = pd.read_csv(self.dataset_path, header=None, delimiter=",")
-        X = dataset.iloc[:, 0:NUMBER_COLS].values
-        y = dataset.iloc[:, NUMBER_COLS]
-        return DataManager(dataset=X, target=y.values, shuffle=True)
+        _, n_cols = dataset.shape
+        X = dataset.iloc[:, : n_cols - 1].values
+        y = dataset.iloc[:, n_cols - 1].values
+        return DataManager(dataset=X, target=y, shuffle=True)
 
 
 class SkLearnClassifierTrainingPlanCustomTesting(FedPerceptron):
@@ -39,29 +39,30 @@ class SkLearnClassifierTrainingPlanCustomTesting(FedPerceptron):
         ]
 
     def compute_accuracy_for_specific_digit(self, data, target, digit: int):
-        idx_data_equal_to_digit = target.squeeze() == digit
-
-        predicted = self.model().predict(data[idx_data_equal_to_digit])
-        well_predicted_label = np.sum(predicted == digit) / np.sum(
-            idx_data_equal_to_digit
-        )
-        return well_predicted_label
+        # Filter samples where true label equals the specified digit
+        digit_mask = target.squeeze() == digit
+        # Get predictions for samples with the target digit
+        predictions = self.model().predict(data[digit_mask])
+        # Calculate accuracy: correct predictions / total instances of the digit
+        accuracy = (predictions == digit).sum() / digit_mask.sum()
+        return accuracy
 
     def training_data(self):
         # Custom torch Dataloader for MNIST data
-        transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
         dataset = datasets.MNIST(
-            self.dataset_path, train=True, download=False, transform=transform
+            self.dataset_path,
+            train=True,
+            download=False,
+            transform=transforms.Compose(
+                [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+            ),
         )
 
         train_kwargs = {"shuffle": True}  # number of data passed to classifier
-        X_train = dataset.data.numpy()
-        X_train = X_train.reshape(-1, 28 * 28)
+        X_train = dataset.data.numpy().reshape(-1, 28 * 28)
         Y_train = dataset.targets.numpy()
 
-        return DataManager(dataset=X_train, target=Y_train)
+        return DataManager(dataset=X_train, target=Y_train, **train_kwargs)
 
     def testing_step(self, data, target):
         # hinge loss
@@ -96,17 +97,17 @@ class SGDRegressorTrainingPlan(FedSGDRegressor):
         scaling_sd = np.array([7.3e00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
 
         X = (dataset[regressors_col].values - scaling_mean) / scaling_sd
-        y = dataset[target_col]
-        return DataManager(dataset=X, target=y.values.ravel(), shuffle=True)
+        y = dataset[target_col].values
+        return DataManager(dataset=X, target=y, shuffle=True)
 
 
 class SGDClassifierTrainingPlan(FedSGDClassifier):
     def training_data(self):
-        NUMBER_COLS = 20
         dataset = pd.read_csv(self.dataset_path, header=None, delimiter=",")
-        X = dataset.iloc[:, 0:NUMBER_COLS].values
-        y = dataset.iloc[:, NUMBER_COLS]
-        return DataManager(dataset=X, target=y.values, shuffle=True)
+        _, n_cols = dataset.shape
+        X = dataset.iloc[:, : n_cols - 1].values
+        y = dataset.iloc[:, n_cols - 1].values
+        return DataManager(dataset=X, target=y, shuffle=True)
 
 
 class SkLearnClassifierTrainingPlanDeclearn(FedPerceptron):
@@ -135,8 +136,7 @@ class SkLearnClassifierTrainingPlanDeclearn(FedPerceptron):
             self.dataset_path, train=True, download=False, transform=transform
         )
 
-        X_train = dataset.data.numpy()
-        X_train = X_train.reshape(-1, 28 * 28)
+        X_train = dataset.data.numpy().reshape(-1, 28 * 28)
         Y_train = dataset.targets.numpy()
         return DataManager(dataset=X_train, target=Y_train, shuffle=False)
 
@@ -176,8 +176,8 @@ class SGDRegressorTrainingPlanDeclearn(FedSGDRegressor):
         scaling_sd = np.array([7.3e00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
 
         X = (dataset[regressors_col].values - scaling_mean) / scaling_sd
-        y = dataset[target_col]
-        return DataManager(dataset=X, target=y.values.ravel(), shuffle=True)
+        y = dataset[target_col].values
+        return DataManager(dataset=X, target=y, shuffle=True)
 
     # Defines and return a declearn optimizer
     def init_optimizer(self, optimizer_args):
@@ -215,8 +215,8 @@ class SGDRegressorTrainingPlanDeclearnScaffold(FedSGDRegressor):
         scaling_sd = np.array([7.3e00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
 
         X = (dataset[regressors_col].values - scaling_mean) / scaling_sd
-        y = dataset[target_col]
-        return DataManager(dataset=X, target=y.values.ravel(), shuffle=True)
+        y = dataset[target_col].values
+        return DataManager(dataset=X, target=y, shuffle=True)
 
     # Defines and return a declearn optimizer
     def init_optimizer(self, optimizer_args):
