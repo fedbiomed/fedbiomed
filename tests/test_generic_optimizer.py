@@ -1206,19 +1206,19 @@ class TestOptimizerBuilder(unittest.TestCase):
                 self.assertIsInstance(optim_wrapper, DeclearnOptimizer)
 
     def test_02_get_parent_class(self):
-        def check_type(obj, parent_obj):
+        def check_type(obj, parent_class):
             """Tests that function `get_parent_class` returns
             the appropriate type of the highest parent class (just after `object`)
 
             Args:
                 obj : sub-calss or class of the object from which to guess the parent class type
-                parent_obj : highest parent class from which `obj` object has been built
+                parent_class : highest parent class from which `obj` object has been built
 
             Raises:
                 AssertionError: raised if function `get_parent_class` doesn't return the expected type
             """
             res = optim_builder.get_parent_class(obj)
-            self.assertEqual(res, type(parent_obj))
+            self.assertEqual(res, parent_class)
 
         class A:
             pass
@@ -1235,11 +1235,11 @@ class TestOptimizerBuilder(unittest.TestCase):
         class E(C, A):
             pass
 
-        objects = [A, B, C, D, E]
+        objects = [A(), B(), C(), D(), E()]
 
         optim_builder = OptimizerBuilder()
         # test with `object`
-        check_type(object, object)
+        check_type(object(), object)
 
         # test with `None`
         res = optim_builder.get_parent_class(None)

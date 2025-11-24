@@ -601,7 +601,7 @@ class OptimizerBuilder:
             The parent class type, or the class itself, if class is just under `object`
         """
         if hasattr(type_optimizer, "__bases__"):
-            if type_optimizer.__bases__[0] is object:
+            if type_optimizer is object or type_optimizer.__bases__[0] is object:
                 # in this case, `type_optimizer` is already the parent class
                 # (it only has `object`as parent class)
                 return type_optimizer
