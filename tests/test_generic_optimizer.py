@@ -1,22 +1,23 @@
 import copy
 import random
-from typing import Any, Dict, List, Tuple
 import unittest
+from typing import Any, Dict, List, Tuple
 from unittest.mock import MagicMock, patch
 
 import declearn
 import numpy as np
 import torch
+from declearn.model.sklearn import NumpyVector
+from declearn.model.torch import TorchVector
+from declearn.optimizer import Optimizer as DecOptimizer
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from torch import nn
 from torch.optim.lr_scheduler import LambdaLR
-from declearn.optimizer import Optimizer as DecOptimizer
-from declearn.model.torch import TorchVector
-from declearn.model.sklearn import NumpyVector
 
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
+from fedbiomed.common.models import BaseSkLearnModel, Model, SkLearnModel, TorchModel
 from fedbiomed.common.optimizers.declearn import (
     AdaGradModule,
     AdamModule,
@@ -38,7 +39,6 @@ from fedbiomed.common.optimizers.generic_optimizers import (
     OptimizerBuilder,
 )
 from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
-from fedbiomed.common.models import SkLearnModel, Model, TorchModel, BaseSkLearnModel
 
 
 class TestDeclearnOptimizer(unittest.TestCase):
@@ -1141,6 +1141,7 @@ class TestOptimizerBuilder(unittest.TestCase):
             torch.optim.SGD(torch_model.parameters(), lr=0.12345),
             torch.optim.Adam(torch_model.parameters(), lr=0.12345),
             torch.optim.Adagrad(torch_model.parameters(), lr=0.12345),
+            torch.optim.AdamW(torch_model.parameters(), lr=0.12345),
         )
 
         self.modules = [
