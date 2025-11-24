@@ -1,7 +1,5 @@
-import unittest
-from unittest.mock import patch
-
 import numpy as np
+import pytest
 
 from fedbiomed.common.dataloader import SkLearnDataLoader
 from fedbiomed.common.dataset import Dataset
@@ -145,115 +143,123 @@ class FailingGetItemDataset(Dataset):
         raise RuntimeError("Synthetic failure in __getitem__")
 
 
-class TestSkLearnDataLoader(unittest.TestCase):
-    def setUp(self):
-        self.dataset = SimpleDataset(length=5)
+def test_init_invalid_arguments():
+    # bad batch_size type
+    with pytest.raises(FedbiomedError):
+        SkLearnDataLoader(SimpleDataset(), batch_size="2")
 
-    def test_init_invalid_arguments(self):
-        # bad batch_size type
-        with self.assertRaises(FedbiomedError):
-            SkLearnDataLoader(self.dataset, batch_size="2")
+    # non-positive batch_size
+    with pytest.raises(FedbiomedError):
+        SkLearnDataLoader(SimpleDataset(), batch_size=0)
 
-        # non-positive batch_size
-        with self.assertRaises(FedbiomedError):
-            SkLearnDataLoader(self.dataset, batch_size=0)
+    # bad shuffle type
+    with pytest.raises(FedbiomedError):
+        SkLearnDataLoader(SimpleDataset(), shuffle="yes")
 
-        # bad shuffle type
-        with self.assertRaises(FedbiomedError):
-            SkLearnDataLoader(self.dataset, shuffle="yes")
+    # bad drop_last type
+    with pytest.raises(FedbiomedError):
+        SkLearnDataLoader(SimpleDataset(), drop_last="no")
 
-        # bad drop_last type
-        with self.assertRaises(FedbiomedError):
-            SkLearnDataLoader(self.dataset, drop_last="no")
 
-    def test_len_and_remainder_no_drop_last(self):
-        loader = SkLearnDataLoader(self.dataset, batch_size=2, drop_last=False)
-        # 5 samples, batch_size 2 -> 3 batches (2 + 2 + 1)
-        self.assertEqual(loader.n_remainder_samples(), 1)
-        self.assertEqual(len(loader), 3)
+def test_len_and_remainder_no_drop_last():
+    loader = SkLearnDataLoader(SimpleDataset(), batch_size=2, drop_last=False)
+    # 5 samples, batch_size 2 -> 3 batches (2 + 2 + 1)
+    assert loader.n_remainder_samples() == 1
+    assert len(loader) == 3
 
-    def test_len_and_remainder_drop_last(self):
-        loader = SkLearnDataLoader(self.dataset, batch_size=2, drop_last=True)
-        # 5 samples, batch_size 2, drop_last -> 2 full batches only
-        self.assertEqual(loader.n_remainder_samples(), 1)
-        self.assertEqual(len(loader), 2)
 
-    def test_iteration_simple_dataset(self):
-        batch_size = 2
-        loader = SkLearnDataLoader(
-            self.dataset, batch_size=batch_size, shuffle=False, drop_last=False
-        )
+def test_len_and_remainder_drop_last():
+    loader = SkLearnDataLoader(SimpleDataset(), batch_size=2, drop_last=True)
+    # 5 samples, batch_size 2, drop_last -> 2 full batches only
+    assert loader.n_remainder_samples() == 1
+    assert len(loader) == 2
 
-        seen_indices = []
-        for batch_data, batch_target in loader:
-            self.assertIsInstance(batch_data, np.ndarray)
-            self.assertIsInstance(batch_target, np.ndarray)
-            self.assertEqual(batch_data.ndim, 2)
 
-            for i in range(batch_data.shape[0]):
-                seen_indices.append(int(batch_data[i, 0]))
+def test_iteration_simple_dataset():
+    batch_size = 2
+    loader = SkLearnDataLoader(
+        SimpleDataset(), batch_size=batch_size, shuffle=False, drop_last=False
+    )
 
-        self.assertListEqual(seen_indices, list(range(5)))
+    seen_indices = []
 
-    @patch("fedbiomed.common.dataloader.SkLearnDataLoader.shuffle")
-    def test_shuffle_calls_numpy_shuffle(self, mock_shuffle):
-        loader = SkLearnDataLoader(
-            self.dataset, batch_size=2, shuffle=True, drop_last=False
-        )
+    for batch_data, batch_target in loader:
+        assert isinstance(batch_data, np.ndarray)
+        assert isinstance(batch_target, np.ndarray)
+        assert batch_data.ndim == 2
 
-        _ = iter(loader)
-        mock_shuffle.assert_called_once()
+        for i in range(batch_data.shape[0]):
+            seen_indices.append(int(batch_data[i, 0]))
 
-    def test_iteration_dict_dataset(self):
-        dict_dataset = DictDataset(length=4)
-        loader = SkLearnDataLoader(
-            dict_dataset, batch_size=2, shuffle=False, drop_last=False
-        )
+    assert seen_indices == list(range(5))
 
-        for batch_data, batch_target in loader:
-            self.assertIsInstance(batch_data, np.ndarray)
-            self.assertIsInstance(batch_target, np.ndarray)
-            self.assertEqual(batch_data.ndim, 2)
 
-    def test_initialize_raises_on_multiple_modalities(self):
-        bad_dataset = BadModalityDataset()
-        loader = SkLearnDataLoader(
-            bad_dataset, batch_size=1, shuffle=False, drop_last=False
-        )
+def test_shuffle_calls_numpy_shuffle(mocker):
+    mock_shuffle = mocker.patch("fedbiomed.common.dataloader.SkLearnDataLoader.shuffle")
 
-        it = iter(loader)
-        with self.assertRaises(FedbiomedError):
-            next(it)
+    loader = SkLearnDataLoader(
+        SimpleDataset(), batch_size=2, shuffle=True, drop_last=False
+    )
 
-    def test_inconsistent_shapes(self):
-        bad_dataset = InconsistentShapeDataset()
-        loader = SkLearnDataLoader(
-            bad_dataset, batch_size=2, shuffle=False, drop_last=False
-        )
+    iter(loader)
 
-        it = iter(loader)
-        with self.assertRaises(FedbiomedError):
-            next(it)
+    mock_shuffle.assert_called_once()
 
-    def test_bad_target_dict(self):
-        bad_target_dataset = BadTargetDictDataset()
-        loader = SkLearnDataLoader(
-            bad_target_dataset, batch_size=1, shuffle=False, drop_last=False
-        )
 
-        it = iter(loader)
-        # first batch should be fine
-        _ = next(it)
-        # second batch should fail due to mismatching target keys
-        with self.assertRaises(FedbiomedError):
-            next(it)
+def test_iteration_dict_dataset():
+    dict_dataset = DictDataset(length=4)
+    loader = SkLearnDataLoader(
+        dict_dataset, batch_size=2, shuffle=False, drop_last=False
+    )
 
-    def test_dataset_getitem_exception(self):
-        failing_dataset = FailingGetItemDataset()
-        loader = SkLearnDataLoader(
-            failing_dataset, batch_size=1, shuffle=False, drop_last=False
-        )
+    for batch_data, batch_target in loader:
+        assert isinstance(batch_data, np.ndarray)
+        assert isinstance(batch_target, np.ndarray)
+        assert batch_data.ndim == 2
 
-        it = iter(loader)
-        with self.assertRaises(FedbiomedError):
-            next(it)
+
+def test_initialize_raises_on_multiple_modalities():
+    bad_dataset = BadModalityDataset()
+    loader = SkLearnDataLoader(
+        bad_dataset, batch_size=1, shuffle=False, drop_last=False
+    )
+
+    it = iter(loader)
+    with pytest.raises(FedbiomedError):
+        next(it)
+
+
+def test_inconsistent_shapes():
+    bad_dataset = InconsistentShapeDataset()
+    loader = SkLearnDataLoader(
+        bad_dataset, batch_size=2, shuffle=False, drop_last=False
+    )
+
+    it = iter(loader)
+    with pytest.raises(FedbiomedError):
+        next(it)
+
+
+def test_bad_target_dict():
+    bad_target_dataset = BadTargetDictDataset()
+    loader = SkLearnDataLoader(
+        bad_target_dataset, batch_size=1, shuffle=False, drop_last=False
+    )
+
+    it = iter(loader)
+    # first batch should be fine
+    _ = next(it)
+    # second batch should fail due to mismatching target keys
+    with pytest.raises(FedbiomedError):
+        next(it)
+
+
+def test_dataset_getitem_exception():
+    failing_dataset = FailingGetItemDataset()
+    loader = SkLearnDataLoader(
+        failing_dataset, batch_size=1, shuffle=False, drop_last=False
+    )
+
+    it = iter(loader)
+    with pytest.raises(FedbiomedError):
+        next(it)
