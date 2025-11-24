@@ -5,18 +5,35 @@ from fedbiomed.common.training_plans import SKLearnTrainingPlan
 from fedbiomed.common.datamanager import DataManager
 from sklearn.linear_model import SGDRegressor
 from fedbiomed.common.training_plans import FedSGDRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
+from fedbiomed.common.dataset import TabularDataset
 class SGDRegressorTrainingPlan(FedSGDRegressor):
-    def training_data(self):
-        dataset = pd.read_csv(self.dataset_path, delimiter=',')
-        regressors_col = ['AGE', 'WholeBrain.bl',
-                          'Ventricles.bl', 'Hippocampus.bl', 'MidTemp.bl', 'Entorhinal.bl']
-        target_col = ['MMSE.bl']
+    def init_dependencies(self):
+        """Define additional dependencies."""
+        return ["from sklearn.pipeline import Pipeline",
+                "from sklearn.preprocessing import FunctionTransformer",
+                "from fedbiomed.common.dataset import TabularDataset",
+                "import numpy as np"]
         
+    def training_data(self):
         # mean and standard deviation for normalizing dataset
         # it has been computed over the whole dataset
         scaling_mean = np.array([72.3, 0.7, 0.0, 0.0, 0.0, 0.0])
         scaling_sd = np.array([7.3e+00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
+
+        scaler_function = lambda x: (x - scaling_mean) / scaling_sd
+        flatten_function = lambda x: np.ascontiguousarray(x.reshape(-1)).astype(float)
         
-        X = (dataset[regressors_col].values-scaling_mean)/scaling_sd
-        y = dataset[target_col]
-        return DataManager(dataset=X, target=y.values.ravel(),  shuffle=True)
+        pipeline = Pipeline([
+            ('scaler', FunctionTransformer(scaler_function, validate=False)),
+            ('flatten', FunctionTransformer(flatten_function, validate=False))
+        ])
+        
+        dataset = TabularDataset(input_columns=['AGE', 'WholeBrain.bl', 'Ventricles.bl', 'Hippocampus.bl', 'MidTemp.bl', 'Entorhinal.bl'], 
+                                 target_columns=['MMSE.bl'],
+                                 transform=pipeline.transform,
+                                 target_transform=flatten_function
+                                )
+
+        return DataManager(dataset=dataset)
