@@ -4,8 +4,9 @@ import torch.nn.functional as F
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.constants import ProcessTypes
-from torch.utils.data import DataLoader
+from fedbiomed.common.dataloader import PytorchDataLoader
 from torchvision import datasets, transforms
+from fedbiomed.common.dataset import MnistDataset
 class MyTrainingPlan(TorchTrainingPlan):
     
     # Defines and return model 
@@ -18,7 +19,8 @@ class MyTrainingPlan(TorchTrainingPlan):
     
     # Declares and return dependencies
     def init_dependencies(self):
-        deps = ["from torchvision import datasets, transforms"]
+        deps = ["from torchvision import datasets, transforms",
+               "from fedbiomed.common.dataset import MnistDataset"]
         return deps
     
     class Net(nn.Module):
@@ -49,12 +51,14 @@ class MyTrainingPlan(TorchTrainingPlan):
             return output
 
     def training_data(self):
-        # Custom torch Dataloader for MNIST data
+        ## Custom torch Dataloader for MNIST data
         transform = transforms.Compose([transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))])
         dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
         train_kwargs = { 'shuffle': True}
-        return DataManager(dataset=dataset1, **train_kwargs)
+        #return DataManager(dataset=dataset1, **train_kwargs)
+        md = MnistDataset()
+        return DataManager(dataset=md, **train_kwargs)
     
     def training_step(self, data, target):
         output = self.model().forward(data)
