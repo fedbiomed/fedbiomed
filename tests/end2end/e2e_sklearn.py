@@ -14,7 +14,6 @@ import time
 
 import pytest
 from experiments.training_plans.sklearn import (
-    CelebaTrainingPlan,
     NativePerceptronTraining,
     NativeSGDClassifierTrainingPlan,
     NativeSGDRegressorTrainingPlan,
@@ -24,6 +23,8 @@ from experiments.training_plans.sklearn import (
     SGDRegressorTrainingPlanDeclearn,
     SGDRegressorTrainingPlanDeclearnScaffold,
     SkLearnClassifierTrainingPlanDeclearn,
+    SklearnCSVTrainingPlan,
+    SkLearnMedNistTrainingPlan,
 )
 from helpers import (
     add_dataset_to_node,
@@ -45,7 +46,7 @@ from fedbiomed.common.optimizers.declearn import (
     YogiModule as FedYogi,
 )
 from fedbiomed.common.optimizers.optimizer import Optimizer
-from fedbiomed.common.utils import ROOT_DIR, SHARE_DIR
+from fedbiomed.common.utils import SHARE_DIR
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.federated_workflows import Experiment
 
@@ -62,7 +63,10 @@ def setup(port, post_session, request):
 
         # Create researcher component
         researcher = create_researcher(port=port)
+
         # Generate datasets
+
+        # Add CSV Dataset
         p1, p2, p3 = generate_sklearn_classification_dataset()
         dataset = {
             "name": "MNIST",
@@ -92,6 +96,21 @@ def setup(port, post_session, request):
         add_dataset_to_node(node_2, dataset)
         add_dataset_to_node(node_3, dataset)
 
+        # Add MedNIST dataset
+        datafolder = get_data_folder("MedNIST-e2e-test")
+
+        dataset = {
+            "name": "MedNIST",
+            "description": "MedNIST DATASET",
+            "tags": "#MEDNIST,#dataset",
+            "data_type": "mednist",
+            "path": datafolder,
+        }
+        add_dataset_to_node(node_1, dataset)
+        add_dataset_to_node(node_2, dataset)
+        add_dataset_to_node(node_3, dataset)
+
+        # Add Adni dataset
         data_path = os.path.join(
             SHARE_DIR, "notebooks", "data", "CSV", "pseudo_adni_mod.csv"
         )
@@ -105,44 +124,6 @@ def setup(port, post_session, request):
 
         add_dataset_to_node(node_1, dataset)
         add_dataset_to_node(node_2, dataset)
-        add_dataset_to_node(node_3, dataset)
-
-        data_path1 = os.path.join(
-            ROOT_DIR,
-            "tests",
-            "test-data",
-            "Celeba",
-            "celeba_preprocessed",
-            "data_node_1",
-        )
-        data_path2 = os.path.join(
-            ROOT_DIR,
-            "tests",
-            "test-data",
-            "Celeba",
-            "celeba_preprocessed",
-            "data_node_2",
-        )
-        data_path3 = os.path.join(
-            ROOT_DIR,
-            "tests",
-            "test-data",
-            "Celeba",
-            "celeba_preprocessed",
-            "data_node_3",
-        )
-        dataset = {
-            "name": "Celeba dataset",
-            "description": "Celeba DATASET",
-            "tags": "#celeba",
-            "data_type": "image",
-        }
-
-        dataset["path"] = data_path1
-        add_dataset_to_node(node_1, dataset)
-        dataset["path"] = data_path2
-        add_dataset_to_node(node_2, dataset)
-        dataset["path"] = data_path3
         add_dataset_to_node(node_3, dataset)
 
         # Starts the nodes
@@ -481,36 +462,56 @@ def test_09_sklearn_adni_regressor_with_secureaggregation():
     clear_experiment_data(exp)
 
 
-def test_10_sklearn_celeba_classifier_with_declearn_optimizer():
-    """Tests celeba classifier with Declearn optimizers"""
-
-    celeba_model_args = {
+def test_10_sklearn_mednist_classifier():
+    model_args = {
         "n_features": 64 * 64 * 3,
-        "n_classes": 2,
+        "n_classes": 6,
         "eta0": 1e-4,
         "alpha": 0.1,
     }
 
-    celeba_training_args = {
-        "epochs": 3,
-        "batch_maxnum": 20,
+    training_args = {
+        "epochs": 2,
+        "batch_maxnum": 10,
         "optimizer_args": {"lr": 1e-3},
-        "loader_args": {
-            "batch_size": 4,
-        },
+        "loader_args": {"batch_size": 8},
         "random_seed": 1234,
     }
 
-    # select nodes participating in this experiment
     exp = Experiment(
-        tags=["#celeba"],
-        model_args=celeba_model_args,
-        training_plan_class=CelebaTrainingPlan,
-        training_args=celeba_training_args,
-        round_limit=4,
+        tags=["#MEDNIST", "#dataset"],
+        model_args=model_args,
+        training_plan_class=SkLearnMedNistTrainingPlan,
+        training_args=training_args,
+        round_limit=2,
         aggregator=FedAverage(),
-        node_selection_strategy=None,
-        save_breakpoints=True,
+    )
+
+    exp.run()
+    clear_experiment_data(exp)
+
+
+def test_11_sklearn_csv_customdataset():
+    model_args = {
+        "n_features": 20,
+        "n_classes": 2,
+        "eta0": 1e-3,
+        "alpha": 0.1,
+    }
+
+    training_args = {
+        "epochs": 3,
+        "loader_args": {"batch_size": 8},
+        "random_seed": 1234,
+    }
+
+    exp = Experiment(
+        tags=["#csv-dataset-classification"],
+        model_args=model_args,
+        training_plan_class=SklearnCSVTrainingPlan,
+        training_args=training_args,
+        round_limit=2,
+        aggregator=FedAverage(),
     )
 
     exp.run()
