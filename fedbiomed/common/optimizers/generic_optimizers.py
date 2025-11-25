@@ -568,12 +568,29 @@ class OptimizerBuilder:
 
     @staticmethod
     def get_parent_class(optimizer: Union[None, Any]) -> Union[None, Type]:
-        """Gets parent class type of the instance of the class passed (class just after `object` class)
+        """Gets top parent class type of the object passed (class just after `object` class)
         If class is already at top level, returns the class itself.
 
         Args:
-            optimizer: child class from which we want to extract the parent class.
+            optimizer: object of child class from which we want to extract the parent class.
                 If None is passed, returns None.
+
+        Returns:
+            The parent class type, or the class of the object itself,
+                if class is just under `object`
+        """
+        if optimizer is None:
+            return None
+        else:
+            return __class__._get_parent_class(type(optimizer))
+
+    @staticmethod
+    def _get_parent_class(type_optimizer: Type[Any]) -> Type[Any]:
+        """Gets top parent class type of the class type passed (class just after `object` class)
+        If class is already at top level, returns the class type itself.
+
+        Args:
+            type_optimizer: child class from which we want to extract the top parent class.
 
         Raises:
             FedbiomedOptimizerError: raised when failing to retrieve parent class. This could
@@ -581,17 +598,16 @@ class OptimizerBuilder:
                 magic method.
 
         Returns:
-            Union[None, Type]: the parent class type, or the class itself, if class is just under `object`
+            The parent class type, or the class itself, if class is just under `object`
         """
-        if optimizer is None:
-            return None
-        if hasattr(type(optimizer), "__bases__"):
-            if type(optimizer).__bases__[0] is object:
-                # in this case, `optimizer` is already the parent class (it only has `object`as parent class)
-                return type(optimizer)
+        if hasattr(type_optimizer, "__bases__"):
+            if type_optimizer is object or type_optimizer.__bases__[0] is object:
+                # in this case, `type_optimizer` is already the parent class
+                # (it only has `object`as parent class)
+                return type_optimizer
             else:
-                return type(optimizer).__bases__[0]
+                return __class__._get_parent_class(type_optimizer.__bases__[0])
         else:
             raise FedbiomedOptimizerError(
-                f"{ErrorNumbers.FB626.value} Cannot find parent class of Optimizer {optimizer}"
+                f"{ErrorNumbers.FB626.value} Cannot find parent class of Optimizer {type_optimizer}"
             )
