@@ -133,7 +133,6 @@ Reviewers, Team Developers and Core Developers receive:
 
 Current list of Core Developers listed by alphabetical order:
 
-- Yannick Bouillard
 - Sergen Cansiz
 - Francesco Cremonesi
 - Ali Tolga Dinçer
