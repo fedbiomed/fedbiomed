@@ -18,6 +18,7 @@ In federated learning, training occurs across multiple distributed nodes, each w
 **Fed-BioMed Solution:**
 
 Dataset classes provide an **abstraction layer** that:
+
 - Standardizes data loading regardless of underlying format
 - Automatically converts data to the required framework format
 - Enables preprocessing and augmentation at the data source
@@ -39,11 +40,11 @@ Researchers can write training plans once and deploy them across nodes with dive
 
 All Fed-BioMed datasets share these core concepts:
 
-1. **Node registration**: Nodes deploy datasets with **unique** tags 
+1. **Node registration**: Nodes deploy datasets with **unique** tags
 2. **Researcher selection**: Researchers can list and select datasets using tags
 3. **Automatic resolution**: Fed-BioMed nodes resolve tags to local paths
 4. **Format conversion**: Data converted to appropriate framework format
-5. **Custom transformations**: Flexible transformations supported for data preprocessing and augmentation. 
+5. **Custom transformations**: Flexible transformations supported for data preprocessing and augmentation.
 
 ## Using Datasets
 
