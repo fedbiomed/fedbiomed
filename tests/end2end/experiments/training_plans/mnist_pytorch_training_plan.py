@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import transforms
+from torchvision import datasets, transforms
 
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import MnistDataset
@@ -24,8 +24,7 @@ class MyTrainingPlan(TorchTrainingPlan):
     # Declares and return dependencies
     def init_dependencies(self):
         deps = [
-            "from torchvision import transforms",
-            "from fedbiomed.common.dataset import MnistDataset",
+            "from torchvision import datasets, transforms",
         ]
         return deps
 
@@ -56,9 +55,14 @@ class MyTrainingPlan(TorchTrainingPlan):
             return output
 
     def training_data(self):
-        # Custom torch Dataloader for MNIST data
-        transform = transforms.Normalize((0.1307,), (0.3081,))
-        dataset1 = MnistDataset(transform=transform)
+        # MNIST from torchvision.datasets and NativeDataset are used.
+        # The dataset is passed without separating data and target.
+        transform = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+        )
+        dataset1 = datasets.MNIST(
+            self.dataset_path, train=True, download=False, transform=transform
+        )
         train_kwargs = {"shuffle": True}
         return DataManager(dataset=dataset1, **train_kwargs)
 
@@ -82,8 +86,7 @@ class BigModelMyTrainingPlan(TorchTrainingPlan):
     # Declares and return dependencies
     def init_dependencies(self):
         deps = [
-            "from torchvision import transforms",
-            "from fedbiomed.common.dataset import MnistDataset",
+            "from torchvision import datasets, transforms",
         ]
         return deps
 
@@ -117,11 +120,18 @@ class BigModelMyTrainingPlan(TorchTrainingPlan):
             return output
 
     def training_data(self):
-        # Custom torch Dataloader for MNIST data
-        transform = transforms.Normalize((0.1307,), (0.3081,))
-        dataset1 = MnistDataset(transform=transform)
+        # MNIST from torchvision.datasets and NativeDataset are used.
+        # The dataset is passed separating data and target.
+        transform = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+        )
+        dataset1 = datasets.MNIST(
+            self.dataset_path, train=True, download=False, transform=transform
+        )
         train_kwargs = {"shuffle": True}
-        return DataManager(dataset=dataset1, **train_kwargs)
+        return DataManager(
+            dataset=dataset1.data, target=dataset1.targets, **train_kwargs
+        )
 
     def training_step(self, data, target):
         output = self.model().forward(data)
@@ -176,7 +186,7 @@ class MnistModelScaffoldDeclearn(TorchTrainingPlan):
             return output
 
     def training_data(self):
-        # Custom torch Dataloader for MNIST data
+        # Mnist Dataset from fedbiomed.common.dataset is used.
         transform = transforms.Normalize((0.1307,), (0.3081,))
         dataset1 = MnistDataset(transform=transform)
         train_kwargs = {"shuffle": True}
