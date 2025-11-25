@@ -351,7 +351,7 @@ Then each `data` or `target` entry needs to be:
 | SkLearn   | `np.ndarray` | `Dict[str, np.ndarray]` with 1 modality |
 
 !!! info "SkLearn is monomodal in Fed-BioMed"
-    SkLearn support in Fed-BioMed is monomodal, to match the behaviour of most SkLean functions.
+    SkLearn support in Fed-BioMed is monomodal, to match the behaviour of most SkLearn functions.
     The `Dict` syntax is supported for convenience, but
     only **one** modality can exist in the `Dict`. To handle multimodal data in SkLearn,
     use a transformation to merge inputs from multiple modalities in a single entry.
