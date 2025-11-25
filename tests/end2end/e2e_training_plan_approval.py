@@ -1,22 +1,21 @@
 import time
-import pytest
 
+import pytest
+from experiments.training_plans.mnist_model_approval import TrainingPlanApprovalTP
 from helpers import (
-    clear_component_data,
     add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
+    clear_component_data,
     clear_experiment_data,
-    training_plan_operation,
     create_node,
     create_researcher,
     get_data_folder,
+    kill_subprocesses,
+    start_nodes,
+    training_plan_operation,
 )
 
-from experiments.training_plans.mnist_model_approval import TrainingPlanApprovalTP
-
-from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.experiment import Experiment
 
 
 # Set up nodes and start
@@ -31,7 +30,7 @@ def setup_components(port, post_session, request):
         "path": get_data_folder("MNIST-e2e-test"),
     }
 
-    print(f"USING PORT {port} for researcher erver")
+    print(f"USING PORT {port} for researcher server")
     print("Creating§ components ---------------------------------------------")
     node_1 = create_node(
         port=port, config_sections={"security": {"training_plan_approval": "True"}}

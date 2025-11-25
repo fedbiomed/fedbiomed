@@ -14,6 +14,10 @@ import time
 
 import pytest
 from experiments.training_plans.sklearn import (
+    CelebaTrainingPlan,
+    NativePerceptronTraining,
+    NativeSGDClassifierTrainingPlan,
+    NativeSGDRegressorTrainingPlan,
     PerceptronTraining,
     SGDClassifierTrainingPlan,
     SGDRegressorTrainingPlan,
@@ -41,7 +45,7 @@ from fedbiomed.common.optimizers.declearn import (
     YogiModule as FedYogi,
 )
 from fedbiomed.common.optimizers.optimizer import Optimizer
-from fedbiomed.common.utils import SHARE_DIR
+from fedbiomed.common.utils import ROOT_DIR, SHARE_DIR
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.federated_workflows import Experiment
 
@@ -103,6 +107,44 @@ def setup(port, post_session, request):
         add_dataset_to_node(node_2, dataset)
         add_dataset_to_node(node_3, dataset)
 
+        data_path1 = os.path.join(
+            ROOT_DIR,
+            "tests",
+            "test-data",
+            "Celeba",
+            "celeba_preprocessed",
+            "data_node_1",
+        )
+        data_path2 = os.path.join(
+            ROOT_DIR,
+            "tests",
+            "test-data",
+            "Celeba",
+            "celeba_preprocessed",
+            "data_node_2",
+        )
+        data_path3 = os.path.join(
+            ROOT_DIR,
+            "tests",
+            "test-data",
+            "Celeba",
+            "celeba_preprocessed",
+            "data_node_3",
+        )
+        dataset = {
+            "name": "Celeba dataset",
+            "description": "Celeba DATASET",
+            "tags": "#celeba",
+            "data_type": "image",
+        }
+
+        dataset["path"] = data_path1
+        add_dataset_to_node(node_1, dataset)
+        dataset["path"] = data_path2
+        add_dataset_to_node(node_2, dataset)
+        dataset["path"] = data_path3
+        add_dataset_to_node(node_3, dataset)
+
         # Starts the nodes
         node_processes, thread = start_nodes([node_1, node_2, node_3])
         # Good to wait 3 second to give time to nodes start
@@ -154,7 +196,20 @@ def test_01_sklearn_perceptron():
 
     exp.run()
 
+    exp2 = Experiment(
+        tags=["#csv-dataset-classification"],
+        model_args=per_model_args,
+        training_plan_class=NativePerceptronTraining,
+        training_args=per_training_args,
+        round_limit=2,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+    )
+
+    exp2.run()
+
     clear_experiment_data(exp)
+    clear_experiment_data(exp2)
 
 
 def test_02_sklearn_perceptron_custom_testing():
@@ -183,7 +238,7 @@ def test_02_sklearn_perceptron_custom_testing():
     clear_experiment_data(exp)
 
 
-def test_03_sklean_sgdregressor():
+def test_03_sklearn_sgdregressor():
     """Test SGDRegressor using Adni dataset"""
 
     training_args = {
@@ -218,8 +273,22 @@ def test_03_sklean_sgdregressor():
     loaded_exp = Experiment.load_breakpoint(os.path.join(exp_folder, "breakpoint_0002"))
     loaded_exp.run_once(increase=True)
 
+    exp2 = Experiment(
+        tags=tags,
+        model_args=regressor_model_args,
+        training_plan_class=NativeSGDRegressorTrainingPlan,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        save_breakpoints=True,
+    )
+
+    exp2.run()
+
     clear_experiment_data(exp)
     clear_experiment_data(loaded_exp)
+    clear_experiment_data(exp2)
 
 
 def test_04_sklearn_sgdclassfier():
@@ -256,7 +325,20 @@ def test_04_sklearn_sgdclassfier():
         save_breakpoints=True,
     )
     exp.run()
+
+    exp2 = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=NativeSGDClassifierTrainingPlan,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        save_breakpoints=True,
+    )
+    exp2.run()
+
     clear_experiment_data(exp)
+    clear_experiment_data(exp2)
 
 
 declearn_model_args = {
@@ -380,7 +462,7 @@ def test_08_sklearn_adni_regressor_with_scaffold():
     clear_experiment_data(exp)
 
 
-def test_09_seklearn_adni_regressor_with_secureaggregation():
+def test_09_sklearn_adni_regressor_with_secureaggregation():
     """Test SGDRegressor by activating secure aggregation"""
 
     # select nodes participating to this experiment
@@ -393,6 +475,42 @@ def test_09_seklearn_adni_regressor_with_secureaggregation():
         aggregator=FedAverage(),
         secagg=True,
         node_selection_strategy=None,
+    )
+
+    exp.run()
+    clear_experiment_data(exp)
+
+
+def test_10_sklearn_celeba_classifier_with_declearn_optimizer():
+    """Tests celeba classifier with Declearn optimizers"""
+
+    celeba_model_args = {
+        "n_features": 64 * 64 * 3,
+        "n_classes": 2,
+        "eta0": 1e-4,
+        "alpha": 0.1,
+    }
+
+    celeba_training_args = {
+        "epochs": 3,
+        "batch_maxnum": 20,
+        "optimizer_args": {"lr": 1e-3},
+        "loader_args": {
+            "batch_size": 4,
+        },
+        "random_seed": 1234,
+    }
+
+    # select nodes participating in this experiment
+    exp = Experiment(
+        tags=["#celeba"],
+        model_args=celeba_model_args,
+        training_plan_class=CelebaTrainingPlan,
+        training_args=celeba_training_args,
+        round_limit=4,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        save_breakpoints=True,
     )
 
     exp.run()
