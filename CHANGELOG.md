@@ -1,5 +1,24 @@
 # Fed-BioMed changelog
 
+## 2025-11-26 version 6.2.0
+
+- Support Python 3.11 + release requirements on package dependencies
+- Add support for user friendly names for nodes
+- CI: add support for codespell
+- Update issue status labels in the developer documentation
+- Corrects several errors in the documentation
+- Bugfix: Correct CSV read operation in `MedicalFolderDataset`
+- Redesign dataset layer (#Milestone: Datasets – new design and implementation)
+- Introduce `TabularDataset` for CSV and TSV datasets
+- Introduce `ImageDataset` for classification-based image data structures (based on PyTorch’s `ImageFolder`)
+- Introduce `CustomDataset` to allow users to define their own datasets
+- Introduce `NativeDataset` to use native framework-defined datasets/objects for training
+- Remove `FLamby` dependencies and make installation its usage external
+- Add a new user guide describing dataset usage and transformations
+- Update all tutorials to use the new dataset classes in the training plans
+- Add more end to end tests covering most dataset types
+
+
 ## 2025-09-11 version 6.1.1
 
 - fix medical folder dataset not accepting numeric value for image folder name in demographics file
