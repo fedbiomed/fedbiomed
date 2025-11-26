@@ -23,17 +23,14 @@ class SGDRegressorTrainingPlan(FedSGDRegressor):
         scaling_sd = np.array([7.3e+00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
 
         scaler_function = lambda x: (x - scaling_mean) / scaling_sd
-        flatten_function = lambda x: np.ascontiguousarray(x.reshape(-1)).astype(float)
         
         pipeline = Pipeline([
-            ('scaler', FunctionTransformer(scaler_function, validate=False)),
-            ('flatten', FunctionTransformer(flatten_function, validate=False))
+            ('scaler', FunctionTransformer(scaler_function, validate=False))
         ])
         
         dataset = TabularDataset(input_columns=['AGE', 'WholeBrain.bl', 'Ventricles.bl', 'Hippocampus.bl', 'MidTemp.bl', 'Entorhinal.bl'], 
                                  target_columns=['MMSE.bl'],
                                  transform=pipeline.transform,
-                                 target_transform=flatten_function
                                 )
 
         return DataManager(dataset=dataset)

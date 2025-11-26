@@ -5,41 +5,16 @@ from fedbiomed.common.training_plans import SKLearnTrainingPlan
 from fedbiomed.common.datamanager import DataManager
 from sklearn.linear_model import SGDClassifier
 from fedbiomed.common.training_plans import FedPerceptron
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer
-from fedbiomed.common.dataset import MnistDataset
-class SkLearnClassifierTrainingPlan(FedPerceptron):
+from fedbiomed.common.dataset import TabularDataset
+class PerceptronTrainingPlan(FedPerceptron):
+
     def init_dependencies(self):
-        """Define additional dependencies."""
-        return ["from sklearn.pipeline import Pipeline",
-                "from sklearn.preprocessing import FunctionTransformer",
-                "from fedbiomed.common.dataset import MnistDataset",
-                "import numpy as np"]
-                
-    # def MNISTNormalizer(self, im):
-    #     return (np.asarray(im, dtype=np.float32) / 255.0 - 0.1307) / 0.308
-
+        return ["from fedbiomed.common.dataset import TabularDataset"]
+    
     def training_data(self):
-        """Prepare data for training.
-        
-        This function loads a MNIST dataset from the node's filesystem, applies some
-        preprocessing and converts the full dataset to a numpy array. 
-        Finally, it returns a DataManager created with these numpy arrays.
-        """
-
-        pipeline = Pipeline([
-                ("norm", FunctionTransformer(
-                    lambda im: (np.asarray(im, dtype=np.float64) / 255.0 - 0.1307) / 0.3081,
-                    validate=False
-                )),
-                ("flatten", FunctionTransformer(
-                    lambda x: np.ascontiguousarray(x.reshape(-1), dtype=np.float64),
-                    validate=False
-                )),
-            ])
-
-        y_transform = lambda y: np.asarray([y], dtype=np.int64)
-
-        dataset = MnistDataset(transform=pipeline.transform, target_transform=y_transform)
-        
-        return DataManager(dataset=dataset, shuffle=False)
+        NUMBER_COLS = 20
+        dataset = TabularDataset(
+            input_columns = list(range(0,NUMBER_COLS)), 
+            target_columns = [20]
+        )
+        return DataManager(dataset=dataset, shuffle=True)
