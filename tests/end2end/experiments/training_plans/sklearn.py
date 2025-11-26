@@ -2,11 +2,8 @@
 Sklearn training plans
 """
 
-import os
-
 import numpy as np
 import pandas as pd
-from PIL import Image
 from sklearn.metrics import hinge_loss
 from sklearn.pipeline import FunctionTransformer, Pipeline
 from torchvision import transforms
@@ -309,67 +306,6 @@ class SGDRegressorTrainingPlanDeclearnScaffold(FedSGDRegressor):
     # Defines and return a declearn optimizer
     def init_optimizer(self, optimizer_args):
         return Optimizer(lrate=optimizer_args["lr"], modules=[ScaffoldClientModule()])
-
-
-class CelebaTrainingPlan(FedSGDClassifier):
-    # Here we define the custom dependencies that will be needed by our custom Dataloader
-    def init_dependencies(self):
-        deps = [
-            "from fedbiomed.common.dataset import CustomDataset",
-            "import pandas as pd",
-            "from PIL import Image",
-            "import os",
-            "import numpy as np",
-        ]
-        return deps
-
-    class CelebaDataset(CustomDataset):
-        """Custom Dataset for loading CelebA face images"""
-
-        # we dont load the full data of the images, we retrieve the image with the get item.
-        # in our case, each image is 218*178 * 3colors. there is 67533 images. this take at least 7G of ram
-        # loading images when needed takes more time during training but it won't impact the ram usage as much as loading everything
-
-        def read(self):
-            self.csv_path = self.path + "/" + "target.csv"
-            self.img_dir = self.path + "/" + "data"
-
-            # Read the CSV file that contains labels for each image
-            df = pd.read_csv(self.csv_path, sep="\t", names=["line"])
-
-            # Split on the actual tab
-            df[["img_name", "Smiling"]] = df["line"].str.split("\t", expand=True)
-
-            # Drop the combined column
-            df = df.drop(columns=["line"])
-
-            # Remove the header row ("\tSmiling")
-            df = df[df["Smiling"] != "Smiling"]
-
-            # Convert labels to int safely
-            df["Smiling"] = df["Smiling"].astype(int)
-
-            self.img_names = df["img_name"].values
-            self.y = df["Smiling"].values
-
-        def get_item(self, index):
-            img = np.asarray(
-                Image.open(os.path.join(self.img_dir, self.img_names[index])).resize(
-                    (64, 64)
-                )
-            ).reshape(-1)
-            label = np.asarray(self.y[index])
-            return img, label
-
-        def __len__(self):
-            return self.y.shape[0]
-
-    # The training_data creates the Dataloader to be used for training in the
-    # general class Torchnn of fedbiomed
-    def training_data(self):
-        dataset = self.CelebaDataset()
-        loader_arguments = {"shuffle": True}
-        return DataManager(dataset, **loader_arguments)
 
 
 class SkLearnMedNistTrainingPlan(FedSGDClassifier):
