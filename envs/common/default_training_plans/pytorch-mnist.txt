@@ -7,22 +7,9 @@ from fedbiomed.common.constants import ProcessTypes
 from fedbiomed.common.dataloader import PytorchDataLoader
 from torchvision import datasets, transforms
 from fedbiomed.common.dataset import MnistDataset
+from torchvision import transforms
+from torch.optim import Adam
 class MyTrainingPlan(TorchTrainingPlan):
-    
-    # Defines and return model 
-    def init_model(self, model_args):
-        return self.Net(model_args = model_args)
-    
-    # Defines and return optimizer
-    def init_optimizer(self, optimizer_args):
-        return torch.optim.Adam(self.model().parameters(), lr = optimizer_args["lr"])
-    
-    # Declares and return dependencies
-    def init_dependencies(self):
-        deps = ["from torchvision import datasets, transforms",
-               "from fedbiomed.common.dataset import MnistDataset"]
-        return deps
-    
     class Net(nn.Module):
         def __init__(self, model_args):
             super().__init__()
@@ -45,21 +32,26 @@ class MyTrainingPlan(TorchTrainingPlan):
             x = F.relu(x)
             x = self.dropout2(x)
             x = self.fc2(x)
-
-
             output = F.log_softmax(x, dim=1)
             return output
 
+    def init_model(self, model_args):
+        return self.Net(model_args = model_args)
+
+    def init_optimizer(self, optimizer_args):
+        return Adam(self.model().parameters(), lr = optimizer_args["lr"])
+
+    def init_dependencies(self):
+        return ["from fedbiomed.common.dataset import MnistDataset",
+                "from torchvision import transforms",
+                "from torch.optim import Adam"]
+
     def training_data(self):
-        ## Custom torch Dataloader for MNIST data
-        transform = transforms.Compose([transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))])
-        dataset1 = datasets.MNIST(self.dataset_path, train=True, download=False, transform=transform)
-        train_kwargs = { 'shuffle': True}
-        #return DataManager(dataset=dataset1, **train_kwargs)
-        md = MnistDataset()
-        return DataManager(dataset=md, **train_kwargs)
-    
+        transform = transforms.Normalize((0.1307,), (0.3081,))
+        dataset1 = MnistDataset(transform=transform)
+        loader_arguments = {'shuffle': True}
+        return DataManager(dataset1, **loader_arguments)
+
     def training_step(self, data, target):
         output = self.model().forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
