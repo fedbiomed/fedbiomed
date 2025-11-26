@@ -1,7 +1,6 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import tkinter.messagebox
 import warnings
 from typing import Optional
 
@@ -13,6 +12,8 @@ from fedbiomed.common.constants import TrainingPlanApprovalStatus, TrainingPlanS
 from fedbiomed.common.logger import logger
 from fedbiomed.node.cli_utils._io import validated_path_input
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+
+from ._tkinter_utils import messagebox
 
 
 def register_training_plan(tp_security_manager: TrainingPlanSecurityManager):
@@ -38,9 +39,9 @@ def register_training_plan(tp_security_manager: TrainingPlanSecurityManager):
         )
 
     except AssertionError as e:
-        try:
-            tkinter.messagebox.showwarning(title="Warning", message=str(e))
-        except ModuleNotFoundError:
+        if messagebox is not None:
+            messagebox.showwarning(title="Warning", message=str(e))
+        else:
             warnings.warn(f"[ERROR]: {e}", stacklevel=1)
         exit(1)
 

@@ -2,52 +2,76 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Data Management classes
+Data Management factory class
 """
 
-from typing import Dict, Optional, Union
-
-import numpy as np
-import pandas as pd
-from torch.utils.data import Dataset
+from typing import Any, Callable, Dict, Optional, Union
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
-from fedbiomed.common.dataset import LegacyTabularDataset
-from fedbiomed.common.exceptions import FedbiomedDataManagerError
+from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.dataset._native_dataset import NativeDataset
+from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.exceptions import FedbiomedError
 
+from ._framework_data_manager import FrameworkDataManager
 from ._sklearn_data_manager import SkLearnDataManager
 from ._torch_data_manager import TorchDataManager
 
+_tp_to_datamanager: dict[TrainingPlans, type[FrameworkDataManager]] = {
+    TrainingPlans.TorchTrainingPlan: TorchDataManager,
+    TrainingPlans.SkLearnTrainingPlan: SkLearnDataManager,
+}
+
+_dm_to_format: dict[Callable, DataReturnFormat] = {
+    TorchDataManager: DataReturnFormat.TORCH,
+    SkLearnDataManager: DataReturnFormat.SKLEARN,
+}
+
 
 class DataManager(object):
-    """Factory class that build different data loader/datasets based on the type of `dataset`.
-    The argument `dataset` should be provided as `torch.utils.data.Dataset` object for to be used in
-    PyTorch training.
+    """Factory class that builds different data loaders
+
+    Data loader type is based on the framework of the training plan.
+
+    If `dataset` is not yet a `Dataset`, it also wraps it in a `NativeDataset` object.
     """
 
+    _loader_arguments: Dict
+    _dataset: Dataset
+    _data_manager_instance: Optional[FrameworkDataManager] = None
+
     def __init__(
-        self,
-        dataset: Union[np.ndarray, pd.DataFrame, pd.Series, Dataset],
-        target: Union[np.ndarray, pd.DataFrame, pd.Series] = None,
-        **kwargs: dict,
+        self, dataset: Union[Dataset, Any], target: Optional[Any] = None, **kwargs: dict
     ) -> None:
         """Constructor of DataManager,
 
         Args:
-            dataset: Dataset object. It can be an instance, PyTorch Dataset or Tuple.
-            target: Target variable or variables.
+            dataset: Either an already structured `Dataset` or the data component of
+                unformatted dataset
+            target: Target component of unformatted dataset, or `None` for an already
+                structured dataset
             **kwargs: Additional parameters that are going to be used for data loader
-        """
 
-        # TODO: Improve datamanager for auto loading by given dataset_path and other information
-        # such as inputs variable indexes and target variables indexes
+        Raises:
+            FedbiomedError: using targets with structured dataset
+            FedbiomedError: cannot create a native dataset from unformatted data
+        """
+        # no type check needed, kwargs are dict
+        self._loader_arguments = kwargs
+
+        if isinstance(dataset, Dataset):
+            if target is not None:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: cannot use `target` argument "
+                    f"when using a formatted dataset. Targets are already part of the "
+                    f"`Dataset` argument"
+                )
+        else:
+            dataset = NativeDataset(dataset, target)
 
         self._dataset = dataset
-        self._target = target
-        self._loader_arguments: Dict = kwargs
-        self._data_manager_instance = None
 
-    def extend_loader_args(self, extension: Optional[Dict]):
+    def extend_loader_args(self, extension: Optional[Dict]) -> None:
         """Extends the class' loader arguments
 
         Extends the class's `_loader_arguments` attribute with additional key-values from
@@ -66,7 +90,7 @@ class DataManager(object):
                 }
             )
 
-    def load(self, tp_type: TrainingPlans):
+    def load(self, tp_type: TrainingPlans) -> None:
         """Loads proper DataManager based on given TrainingPlan and
         `dataset`, `target` attributes.
 
@@ -74,77 +98,60 @@ class DataManager(object):
             tp_type: Enumeration instance of TrainingPlans that stands for type of training plan.
 
         Raises:
-            FedbiomedDataManagerError: If requested DataManager does not match with given arguments.
+            FedbiomedError: unknown training plan type
 
         """
-
-        # Training plan is type of TorcTrainingPlan
-        if tp_type == TrainingPlans.TorchTrainingPlan:
-            if self._target is None and isinstance(self._dataset, Dataset):
-                # Create Dataset for pytorch
-                self._data_manager_instance = TorchDataManager(
-                    dataset=self._dataset, **self._loader_arguments
-                )
-            elif isinstance(
-                self._dataset, (pd.DataFrame, pd.Series, np.ndarray)
-            ) and isinstance(self._target, (pd.DataFrame, pd.Series, np.ndarray)):
-                # If `dataset` and `target` attributes are array-like object
-                # create LegacyTabularDataset object to instantiate a TorchDataManager
-                torch_dataset = LegacyTabularDataset(
-                    inputs=self._dataset, target=self._target
-                )
-                self._data_manager_instance = TorchDataManager(
-                    dataset=torch_dataset, **self._loader_arguments
-                )
-            else:
-                raise FedbiomedDataManagerError(
-                    f"{ErrorNumbers.FB607.value}: Invalid arguments for torch based "
-                    f"training plan, either provide the argument  `dataset` as PyTorch "
-                    f"Dataset instance, or provide `dataset` and `target` arguments as "
-                    f"an instance one of pd.DataFrame, pd.Series or np.ndarray "
-                )
-
-        elif tp_type == TrainingPlans.SkLearnTrainingPlan:
-            # Try to convert `torch.utils.Data.Dataset` to SkLearnBased dataset/datamanager
-            if self._target is None and isinstance(self._dataset, Dataset):
-                torch_data_manager = TorchDataManager(dataset=self._dataset)
-                try:
-                    self._data_manager_instance = torch_data_manager.to_sklearn()
-                except Exception as e:
-                    raise FedbiomedDataManagerError(
-                        f"{ErrorNumbers.FB607.value}: PyTorch based `Dataset` object "
-                        "has been instantiated with DataManager. An error occurred while"
-                        "trying to convert torch.utils.data.Dataset to numpy based "
-                        f"dataset: {str(e)}"
-                    ) from e
-
-            # For scikit-learn based training plans, the arguments `dataset` and `target` should be an instance
-            # one of `pd.DataFrame`, `pd.Series`, `np.ndarray`
-            elif isinstance(
-                self._dataset, (pd.DataFrame, pd.Series, np.ndarray)
-            ) and isinstance(self._target, (pd.DataFrame, pd.Series, np.ndarray)):
-                # Create Dataset for SkLearn training plans
-                self._data_manager_instance = SkLearnDataManager(
-                    inputs=self._dataset, target=self._target, **self._loader_arguments
-                )
-            else:
-                raise FedbiomedDataManagerError(
-                    f"{ErrorNumbers.FB607.value}: The argument `dataset` and `target` "
-                    f"should be instance of pd.DataFrame, pd.Series or np.ndarray "
-                )
+        if tp_type in _tp_to_datamanager:
+            self._data_manager_instance = _tp_to_datamanager[tp_type](
+                dataset=self._dataset, **self._loader_arguments
+            )
         else:
-            raise FedbiomedDataManagerError(
-                f"{ErrorNumbers.FB607.value}: Undefined training plan"
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Unknown training plan type, "
+                "cannot instantiate data manager."
             )
 
-    def __getattr__(self, item: str):
+    def complete_dataset_initialization(
+        self, controller_kwargs: Dict[str, Any]
+    ) -> None:
+        """Finalizes initialization of the DataManager's dataset controller
+
+        Args:
+            controller_kwargs: arguments for the controller
+
+        Raises:
+            FedbiomedError: if `_data_manager_instance` is not initialized
+            FedbiomedError: if there is a problem completing dataset initialization
+        """
+        if not self._data_manager_instance:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Data manager instance is not initialized. "
+                f"Please call `load()` first."
+            )
+
+        try:
+            self._dataset.complete_initialization(
+                controller_kwargs,
+                _dm_to_format[self._data_manager_instance.__class__],
+            )
+        except FedbiomedError as e:
+            raise e
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Unable to complete dataset initialization."
+            ) from e
+
+    def __getattr__(self, item: str) -> Any:
         """Wraps all functions/attributes of factory class members.
 
         Args:
-             item: Requested item from class
+            item: Requested item from class
+
+        Returns:
+            Depends on the item
 
         Raises:
-            FedbiomedDataManagerError: If the attribute is not implemented
+            FedbiomedError: the attribute is not implemented
 
         """
 
@@ -155,7 +162,7 @@ class DataManager(object):
         try:
             return self._data_manager_instance.__getattribute__(item)
         except AttributeError as e:
-            raise FedbiomedDataManagerError(
-                f"{ErrorNumbers.FB607.value}: method {str(item)} not "
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: method {str(item)} not "
                 f"implemented for class: {str(self._data_manager_instance)}"
             ) from e

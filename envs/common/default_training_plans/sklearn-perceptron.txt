@@ -5,10 +5,16 @@ from fedbiomed.common.training_plans import SKLearnTrainingPlan
 from fedbiomed.common.datamanager import DataManager
 from sklearn.linear_model import SGDClassifier
 from fedbiomed.common.training_plans import FedPerceptron
+from fedbiomed.common.dataset import TabularDataset
 class PerceptronTrainingPlan(FedPerceptron):
+
+    def init_dependencies(self):
+        return ["from fedbiomed.common.dataset import TabularDataset"]
+    
     def training_data(self):
         NUMBER_COLS = 20
-        dataset = pd.read_csv(self.dataset_path,header=None,delimiter=',')
-        X = dataset.iloc[:,0:NUMBER_COLS].values
-        y = dataset.iloc[:,NUMBER_COLS]
-        return DataManager(dataset=X,target=y.values,  shuffle=True)
+        dataset = TabularDataset(
+            input_columns = list(range(0,NUMBER_COLS)), 
+            target_columns = [20]
+        )
+        return DataManager(dataset=dataset, shuffle=True)

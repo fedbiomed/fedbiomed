@@ -16,7 +16,6 @@ from testsupport.testing_data_loading_block import (
     LoadingBlockTypesForTesting,
     ModifyGetItemDP,
 )
-from torch.utils.data import Dataset
 
 from fedbiomed.common.constants import (
     DatasetTypes,
@@ -25,6 +24,8 @@ from fedbiomed.common.constants import (
 )
 from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMixin
 from fedbiomed.common.datamanager import DataManager
+from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
@@ -248,6 +249,7 @@ class TestRound(unittest.TestCase):
         # and we will check if there are called when running
         # `run_model_training`
         with (
+            patch.object(FakeModel, "set_dataset_path"),
             patch.object(FakeModel, "training_routine") as mock_training_routine,
             patch.object(
                 self.r1, "_split_train_and_test_data"
@@ -462,6 +464,17 @@ class TestRound(unittest.TestCase):
             def get_dataset_type() -> DatasetTypes:
                 return DatasetTypes.TEST
 
+        def complete_dataset_initialization_side_effect(controller_kwargs):
+            """
+            Mimic what the real DataManager.complete_dataset_initialization() would do in this test:
+            Attach the deserialized DLP to the dataset.
+            """
+            dlp = controller_kwargs.get("dlp")
+            if dlp is not None:
+                # MyDataset inherits DataLoadingPlanMixin, which uses self._dlp internally
+                # in apply_dlb(). Setting this is enough for the test.
+                my_dataset._dlp = dlp
+
         patch_inspect_signature.return_value = inspect.Signature(parameters={})
 
         my_dataset = MyDataset()
@@ -472,6 +485,10 @@ class TestRound(unittest.TestCase):
         data_manager_mock.split = MagicMock()
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
+
+        data_manager_mock.complete_dataset_initialization.side_effect = (
+            complete_dataset_initialization_side_effect
+        )
 
         data_manager_mock.save_state = MagicMock()
         data_manager_mock.load_state = MagicMock()
@@ -1025,6 +1042,7 @@ class TestRound(unittest.TestCase):
 
         uuid_patch.return_value = FakeUuid()
         experiment_id = _id = FakeUuid.VALUE
+        # state_id = f"node_state_{_id}"
 
         # first create state
         self.r1.training_plan = training_plan_mock
@@ -1074,11 +1092,11 @@ class TestRound(unittest.TestCase):
         #                         [7, 8, 9],
         #                         [10, 11, 12]]
 
-        # data_manager.testing_index = PropertyMock(return_value=None)
-        # data_manager.training_index = PropertyMock(return_value=None)
+        # data_manager._testing_index = PropertyMock(return_value=None)
+        # data_manager._training_index = PropertyMock(return_value=None)
         # data_manager.
 
-        class CustomDataset(Dataset):
+        class TestDataset(Dataset):
             """Create PyTorch Dataset for test purposes"""
 
             def __init__(self):
@@ -1099,10 +1117,15 @@ class TestRound(unittest.TestCase):
             def __getitem__(self, idx):
                 return self.X_train[idx], self.Y_train[idx]
 
+            def complete_initialization(
+                self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
+            ):
+                pass
+
         # for pytorch: mimicking the process of saving and re-loading testing
         # and training datasets
 
-        data_manager = DataManager(dataset=CustomDataset())
+        data_manager = DataManager(dataset=TestDataset())
         training_plan_mock.training_data = MagicMock(return_value=data_manager)
         training_plan_mock.type = MagicMock(
             return_value=TrainingPlans.TorchTrainingPlan
@@ -1139,7 +1162,7 @@ class TestRound(unittest.TestCase):
         )
         data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
 
-        data_manager = DataManager(dataset=CustomDataset())
+        data_manager = DataManager(dataset=TestDataset())
         training_plan_mock.training_data = MagicMock(return_value=data_manager)
         training_plan_mock.type = MagicMock(
             return_value=TrainingPlans.SkLearnTrainingPlan

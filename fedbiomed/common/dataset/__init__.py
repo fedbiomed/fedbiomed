@@ -5,18 +5,24 @@
 Classes that simplify imports from fedbiomed.common.dataset
 """
 
-from ._legacy_tabular_dataset import LegacyTabularDataset
-from ._medical_datasets import (
-    MedicalFolderBase,
-    MedicalFolderController,
-    MedicalFolderDataset,
-    MedicalFolderLoadingBlockTypes,
+from ._custom_dataset import CustomDataset
+from ._dataset import Dataset
+from ._medical_folder_dataset import MedicalFolderDataset
+from ._native_dataset import NativeDataset
+from ._simple_dataset import (
+    ImageFolderDataset,
+    MedNistDataset,
+    MnistDataset,
 )
+from ._tabular_dataset import TabularDataset
 
 __all__ = [
-    "LegacyTabularDataset",
-    "MedicalFolderBase",
-    "MedicalFolderController",
+    "Dataset",
+    "CustomDataset",
+    "ImageFolderDataset",
     "MedicalFolderDataset",
-    "MedicalFolderLoadingBlockTypes",
+    "MedNistDataset",
+    "MnistDataset",
+    "NativeDataset",
+    "TabularDataset",
 ]

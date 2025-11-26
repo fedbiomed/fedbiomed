@@ -59,7 +59,7 @@ runs:
       if: steps.is-brew.outputs.brew_install == 'true'
       run: |
           V=${{ inputs.python-version }}
-          brew install python@$V
+          arch -arm64 brew install python@$V
           sudo ln -sf $(brew --prefix)/opt/python@$V/bin/python$V /usr/local/bin/python
 
           if ! command -v pip &> /dev/null; then

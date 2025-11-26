@@ -1,3 +1,16 @@
+from monai.losses.dice import DiceLoss
+from monai.networks.nets import UNet
+from monai.transforms import (
+    AsDiscrete,
+    Compose,
+    EnsureChannelFirst,
+    NormalizeIntensity,
+    Resize,
+)
+from torch.optim import AdamW
+
+from fedbiomed.common.datamanager import DataManager
+from fedbiomed.common.dataset import MedicalFolderDataset
 from fedbiomed.common.training_plans import TorchTrainingPlan
 
 
@@ -38,33 +51,35 @@ class UNetTrainingPlan(TorchTrainingPlan):
         common_shape = (48, 64, 48)
         training_transform = Compose(
             [
-                EnsureChannelFirst(),
+                EnsureChannelFirst(channel_dim="no_channel"),
                 Resize(common_shape),
                 NormalizeIntensity(),
             ]
         )
         target_transform = Compose(
-            [EnsureChannelFirst(), Resize(common_shape), AsDiscrete(to_onehot=2)]
+            [
+                EnsureChannelFirst(channel_dim="no_channel"),
+                Resize(common_shape),
+                AsDiscrete(to_onehot=2),
+            ]
         )
         dataset = MedicalFolderDataset(
-            root=self.dataset_path,
             data_modalities="T1",
             target_modalities="label",
-            transform=training_transform,
-            target_transform=target_transform,
-            demographics_transform=lambda x: {},
+            transform={"T1": training_transform},
+            target_transform={"label": target_transform},
         )
         return DataManager(dataset)
 
     def training_step(self, data, target):
         # this function must return the loss to backward it
-        img = data[0]["T1"]
+        img = data["T1"]
         output = self.model().forward(img)
         loss = self.loss_fn(output, target["label"])
         return loss
 
     def testing_step(self, data, target):
-        img = data[0]["T1"]
+        img = data["T1"]
         target = target["label"]
         prediction = self.model().forward(img)
         loss = self.loss_fn(prediction, target)

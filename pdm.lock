@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs", "gui", "node", "researcher", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:e7892475ebbec9b9137b8e7ad86109a830b0090463360d08eb36d2baf70ef36e"
+content_hash = "sha256:124acbbe030544d8abbe69a3298dae11d05e4df3f7359548326fc0514d68147f"
 
 [[metadata.targets]]
 requires_python = ">=3.10,<3.12"
@@ -967,6 +967,21 @@ groups = ["default", "docs", "researcher"]
 files = [
     {file = "idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3"},
     {file = "idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9"},
+]
+
+[[package]]
+name = "importlib-resources"
+version = "6.5.2"
+requires_python = ">=3.9"
+summary = "Read resources from Python packages"
+groups = ["default"]
+marker = "python_version < \"3.12\""
+dependencies = [
+    "zipp>=3.1.0; python_version < \"3.10\"",
+]
+files = [
+    {file = "importlib_resources-6.5.2-py3-none-any.whl", hash = "sha256:789cfdc3ed28c78b67a06acb8126751ced69a3d5f79c095a98298cd8a760ccec"},
+    {file = "importlib_resources-6.5.2.tar.gz", hash = "sha256:185f87adef5bcc288449d98fb4fba07cea78bc036455dd44c5fc4a2fe78fed2c"},
 ]
 
 [[package]]
@@ -2147,6 +2162,23 @@ files = [
 ]
 
 [[package]]
+name = "nibabel"
+version = "5.3.2"
+requires_python = ">=3.9"
+summary = "Access a multitude of neuroimaging data formats"
+groups = ["default"]
+dependencies = [
+    "importlib-resources>=5.12; python_version < \"3.12\"",
+    "numpy>=1.22",
+    "packaging>=20",
+    "typing-extensions>=4.6; python_version < \"3.13\"",
+]
+files = [
+    {file = "nibabel-5.3.2-py3-none-any.whl", hash = "sha256:52970a5a8a53b1b55249cba4d9bcfaa8cc57e3e5af35a29d7352237e8680a6f8"},
+    {file = "nibabel-5.3.2.tar.gz", hash = "sha256:0bdca6503b1c784b446c745a4542367de7756cfba0d72143b91f9ffb78be569b"},
+]
+
+[[package]]
 name = "nodeenv"
 version = "1.9.1"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
@@ -2626,6 +2658,22 @@ files = [
 ]
 
 [[package]]
+name = "polars"
+version = "1.32.2"
+requires_python = ">=3.9"
+summary = "Blazingly fast DataFrame library"
+groups = ["default"]
+files = [
+    {file = "polars-1.32.2-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:f21da6a5210898ec800b7e9e667fb53eb9161b7ceb812ee6555ff5661a00e517"},
+    {file = "polars-1.32.2-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:d3f4e061312ef6c2a907378ce407a6132734fe1a13f261a1984a1a9ca2f6febc"},
+    {file = "polars-1.32.2-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a711a750cfc19f1f883d2b46895dd698abf4d446ca41c3bf510ced0ff1178057"},
+    {file = "polars-1.32.2-cp39-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:d1c53a828eedc215fb0dabc7cef02c6f4ad042157512ddb99840fd42b8da1e8a"},
+    {file = "polars-1.32.2-cp39-abi3-win_amd64.whl", hash = "sha256:5e1660a584e89e1d60cd89984feca38a695e491a966581fefe8be99c230ea154"},
+    {file = "polars-1.32.2-cp39-abi3-win_arm64.whl", hash = "sha256:cd390364f6f3927474bd0aed255103195b9d2b3eef0f0c5bb429db5e6311615e"},
+    {file = "polars-1.32.2.tar.gz", hash = "sha256:b4c5cefc7cf7a2461f8800cf2c09976c47cb1fd959c6ef3024d5618b497f05d3"},
+]
+
+[[package]]
 name = "pre-commit"
 version = "4.2.0"
 requires_python = ">=3.9"
@@ -2720,6 +2768,30 @@ groups = ["researcher"]
 files = [
     {file = "pure_eval-0.2.3-py3-none-any.whl", hash = "sha256:1db8e35b67b3d218d818ae653e27f06c3aa420901fa7b081ca98cbedc874e0d0"},
     {file = "pure_eval-0.2.3.tar.gz", hash = "sha256:5f4e983f40564c576c7c8635ae88db5956bb2229d7e9237d03b3c0b0190eaf42"},
+]
+
+[[package]]
+name = "pyarrow"
+version = "21.0.0"
+requires_python = ">=3.9"
+summary = "Python library for Apache Arrow"
+groups = ["default"]
+files = [
+    {file = "pyarrow-21.0.0-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:e563271e2c5ff4d4a4cbeb2c83d5cf0d4938b891518e676025f7268c6fe5fe26"},
+    {file = "pyarrow-21.0.0-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:fee33b0ca46f4c85443d6c450357101e47d53e6c3f008d658c27a2d020d44c79"},
+    {file = "pyarrow-21.0.0-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:7be45519b830f7c24b21d630a31d48bcebfd5d4d7f9d3bdb49da9cdf6d764edb"},
+    {file = "pyarrow-21.0.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:26bfd95f6bff443ceae63c65dc7e048670b7e98bc892210acba7e4995d3d4b51"},
+    {file = "pyarrow-21.0.0-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:bd04ec08f7f8bd113c55868bd3fc442a9db67c27af098c5f814a3091e71cc61a"},
+    {file = "pyarrow-21.0.0-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:9b0b14b49ac10654332a805aedfc0147fb3469cbf8ea951b3d040dab12372594"},
+    {file = "pyarrow-21.0.0-cp310-cp310-win_amd64.whl", hash = "sha256:9d9f8bcb4c3be7738add259738abdeddc363de1b80e3310e04067aa1ca596634"},
+    {file = "pyarrow-21.0.0-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:c077f48aab61738c237802836fc3844f85409a46015635198761b0d6a688f87b"},
+    {file = "pyarrow-21.0.0-cp311-cp311-macosx_12_0_x86_64.whl", hash = "sha256:689f448066781856237eca8d1975b98cace19b8dd2ab6145bf49475478bcaa10"},
+    {file = "pyarrow-21.0.0-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:479ee41399fcddc46159a551705b89c05f11e8b8cb8e968f7fec64f62d91985e"},
+    {file = "pyarrow-21.0.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:40ebfcb54a4f11bcde86bc586cbd0272bac0d516cfa539c799c2453768477569"},
+    {file = "pyarrow-21.0.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:8d58d8497814274d3d20214fbb24abcad2f7e351474357d552a8d53bce70c70e"},
+    {file = "pyarrow-21.0.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:585e7224f21124dd57836b1530ac8f2df2afc43c861d7bf3d58a4870c42ae36c"},
+    {file = "pyarrow-21.0.0-cp311-cp311-win_amd64.whl", hash = "sha256:555ca6935b2cbca2c0e932bedd853e9bc523098c39636de9ad4693b5b1df86d6"},
+    {file = "pyarrow-21.0.0.tar.gz", hash = "sha256:5051f2dccf0e283ff56335760cbc8622cf52264d67e359d5569541ac11b6d5bc"},
 ]
 
 [[package]]

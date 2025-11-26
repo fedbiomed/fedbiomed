@@ -11,38 +11,44 @@ End to End test module for testing  Sklearn training plans using:
 
 import os
 import time
+
 import pytest
-
-from helpers import (
-    add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
-    clear_experiment_data,
-    clear_component_data,
-    create_researcher,
-    get_data_folder,
-    create_multiple_nodes,
-    generate_sklearn_classification_dataset,
-)
-
 from experiments.training_plans.sklearn import (
+    NativePerceptronTraining,
+    NativeSGDClassifierTrainingPlan,
+    NativeSGDRegressorTrainingPlan,
     PerceptronTraining,
-    SGDRegressorTrainingPlan,
     SGDClassifierTrainingPlan,
-    SkLearnClassifierTrainingPlanDeclearn,
+    SGDRegressorTrainingPlan,
     SGDRegressorTrainingPlanDeclearn,
     SGDRegressorTrainingPlanDeclearnScaffold,
+    SkLearnClassifierTrainingPlanDeclearn,
+    SklearnCSVTrainingPlan,
+    SkLearnMedNistTrainingPlan,
+)
+from helpers import (
+    add_dataset_to_node,
+    clear_component_data,
+    clear_experiment_data,
+    create_multiple_nodes,
+    create_researcher,
+    generate_sklearn_classification_dataset,
+    get_data_folder,
+    kill_subprocesses,
+    start_nodes,
 )
 
-from fedbiomed.researcher.federated_workflows import Experiment
-from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.optimizers.declearn import (
-    YogiModule as FedYogi,
     ScaffoldServerModule,
 )
+from fedbiomed.common.optimizers.declearn import (
+    YogiModule as FedYogi,
+)
+from fedbiomed.common.optimizers.optimizer import Optimizer
 from fedbiomed.common.utils import SHARE_DIR
+from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.federated_workflows import Experiment
 
 
 # Set up nodes and start
@@ -57,7 +63,10 @@ def setup(port, post_session, request):
 
         # Create researcher component
         researcher = create_researcher(port=port)
+
         # Generate datasets
+
+        # Add CSV Dataset
         p1, p2, p3 = generate_sklearn_classification_dataset()
         dataset = {
             "name": "MNIST",
@@ -87,6 +96,21 @@ def setup(port, post_session, request):
         add_dataset_to_node(node_2, dataset)
         add_dataset_to_node(node_3, dataset)
 
+        # Add MedNIST dataset
+        datafolder = get_data_folder("MedNIST-e2e-test")
+
+        dataset = {
+            "name": "MedNIST",
+            "description": "MedNIST DATASET",
+            "tags": "#MEDNIST,#dataset",
+            "data_type": "mednist",
+            "path": datafolder,
+        }
+        add_dataset_to_node(node_1, dataset)
+        add_dataset_to_node(node_2, dataset)
+        add_dataset_to_node(node_3, dataset)
+
+        # Add Adni dataset
         data_path = os.path.join(
             SHARE_DIR, "notebooks", "data", "CSV", "pseudo_adni_mod.csv"
         )
@@ -124,12 +148,17 @@ regressor_model_args = {
     "tol": 1e-5,
     "eta0": 0.05,
     "n_features": 6,
-    "random_state": RANDOM_SEED,
 }
 
 per_model_args = {"max_iter": 1000, "tol": 1e-3, "n_features": 20, "n_classes": 2}
 
-per_training_args = {"epochs": 5, "loader_args": {"batch_size": 1}}
+per_training_args = {
+    "epochs": 5,
+    "loader_args": {
+        "batch_size": 1,
+    },
+    "random_seed": RANDOM_SEED,
+}
 
 
 def test_01_sklearn_perceptron():
@@ -148,7 +177,20 @@ def test_01_sklearn_perceptron():
 
     exp.run()
 
+    exp2 = Experiment(
+        tags=["#csv-dataset-classification"],
+        model_args=per_model_args,
+        training_plan_class=NativePerceptronTraining,
+        training_args=per_training_args,
+        round_limit=2,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+    )
+
+    exp2.run()
+
     clear_experiment_data(exp)
+    clear_experiment_data(exp2)
 
 
 def test_02_sklearn_perceptron_custom_testing():
@@ -177,7 +219,7 @@ def test_02_sklearn_perceptron_custom_testing():
     clear_experiment_data(exp)
 
 
-def test_03_sklean_sgdregressor():
+def test_03_sklearn_sgdregressor():
     """Test SGDRegressor using Adni dataset"""
 
     training_args = {
@@ -212,8 +254,22 @@ def test_03_sklean_sgdregressor():
     loaded_exp = Experiment.load_breakpoint(os.path.join(exp_folder, "breakpoint_0002"))
     loaded_exp.run_once(increase=True)
 
+    exp2 = Experiment(
+        tags=tags,
+        model_args=regressor_model_args,
+        training_plan_class=NativeSGDRegressorTrainingPlan,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+        save_breakpoints=True,
+    )
+
+    exp2.run()
+
     clear_experiment_data(exp)
     clear_experiment_data(loaded_exp)
+    clear_experiment_data(exp2)
 
 
 def test_04_sklearn_sgdclassfier():
@@ -250,14 +306,26 @@ def test_04_sklearn_sgdclassfier():
         save_breakpoints=True,
     )
     exp.run()
+
+    exp2 = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=NativeSGDClassifierTrainingPlan,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        save_breakpoints=True,
+    )
+    exp2.run()
+
     clear_experiment_data(exp)
+    clear_experiment_data(exp2)
 
 
 declearn_model_args = {
     "n_features": 28 * 28,
     "n_classes": 10,
     "eta0": 1e-6,
-    "random_state": 1234,
     "alpha": 0.1,
 }
 
@@ -268,6 +336,7 @@ declearn_training_args = {
     "loader_args": {
         "batch_size": 4,
     },
+    "random_seed": 1234,
 }
 
 
@@ -374,7 +443,7 @@ def test_08_sklearn_adni_regressor_with_scaffold():
     clear_experiment_data(exp)
 
 
-def test_09_seklearn_adni_regressor_with_secureaggregation():
+def test_09_sklearn_adni_regressor_with_secureaggregation():
     """Test SGDRegressor by activating secure aggregation"""
 
     # select nodes participating to this experiment
@@ -387,6 +456,62 @@ def test_09_seklearn_adni_regressor_with_secureaggregation():
         aggregator=FedAverage(),
         secagg=True,
         node_selection_strategy=None,
+    )
+
+    exp.run()
+    clear_experiment_data(exp)
+
+
+def test_10_sklearn_mednist_classifier():
+    model_args = {
+        "n_features": 64 * 64 * 3,
+        "n_classes": 6,
+        "eta0": 1e-4,
+        "alpha": 0.1,
+    }
+
+    training_args = {
+        "epochs": 2,
+        "batch_maxnum": 10,
+        "optimizer_args": {"lr": 1e-3},
+        "loader_args": {"batch_size": 8},
+        "random_seed": 1234,
+    }
+
+    exp = Experiment(
+        tags=["#MEDNIST", "#dataset"],
+        model_args=model_args,
+        training_plan_class=SkLearnMedNistTrainingPlan,
+        training_args=training_args,
+        round_limit=2,
+        aggregator=FedAverage(),
+    )
+
+    exp.run()
+    clear_experiment_data(exp)
+
+
+def test_11_sklearn_csv_customdataset():
+    model_args = {
+        "n_features": 20,
+        "n_classes": 2,
+        "eta0": 1e-3,
+        "alpha": 0.1,
+    }
+
+    training_args = {
+        "epochs": 3,
+        "loader_args": {"batch_size": 8},
+        "random_seed": 1234,
+    }
+
+    exp = Experiment(
+        tags=["#csv-dataset-classification"],
+        model_args=model_args,
+        training_plan_class=SklearnCSVTrainingPlan,
+        training_args=training_args,
+        round_limit=2,
+        aggregator=FedAverage(),
     )
 
     exp.run()

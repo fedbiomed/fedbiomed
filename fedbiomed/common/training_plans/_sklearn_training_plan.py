@@ -12,11 +12,10 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator
-from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
-from fedbiomed.common.dataloader import NPDataLoader
+from fedbiomed.common.dataloader import SkLearnDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -44,7 +43,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
       - sets and assigns the model's initial trainable weights attributes.
       - populates the `_param_list` attribute with names of these attributes.
     - Implement a `_training_routine` method that performs a training round
-      based on `self.train_data_loader` (which is a `NPDataLoader`).
+      based on `self.train_data_loader` (which is a `SkLearnDataLoader`).
 
     Attributes:
         dataset_path: The path that indicates where dataset has been stored
@@ -67,7 +66,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         super().__init__()
         self._model: Union[SkLearnModel, None] = None
         self._training_args = {}  # type: Dict[str, Any]
-        self.__type = TrainingPlans.SkLearnTrainingPlan
+        self._type = TrainingPlans.SkLearnTrainingPlan
         self._batch_maxnum = 0
         self.dataset_path: Optional[str] = None
         self._optimizer: Optional[BaseOptimizer] = None
@@ -125,8 +124,8 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
     def set_data_loaders(
         self,
-        train_data_loader: Union[DataLoader, NPDataLoader, None],
-        test_data_loader: Union[DataLoader, NPDataLoader, None],
+        train_data_loader: Union[SkLearnDataLoader, None],
+        test_data_loader: Union[SkLearnDataLoader, None],
     ) -> None:
         """Sets data loaders
 
@@ -134,18 +133,27 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             train_data_loader: Data loader for training routine/loop
             test_data_loader: Data loader for validation routine
         """
-        args = (train_data_loader, test_data_loader)
-        if not all(isinstance(data, NPDataLoader) for data in args):
+        if not isinstance(train_data_loader, SkLearnDataLoader):
             msg = (
                 f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan expects "
-                "NPDataLoader instances as training and testing data "
-                f"loaders, but received {type(train_data_loader)} "
-                f"and {type(test_data_loader)} respectively."
+                "SkLearnDataLoader instance as training data "
+                f"loader, but received {type(train_data_loader)}."
             )
             logger.error(msg)
             raise FedbiomedTrainingPlanError(msg)
-        self.training_data_loader = train_data_loader
-        self.testing_data_loader = test_data_loader
+        if (
+            not isinstance(test_data_loader, SkLearnDataLoader)
+            and test_data_loader is not None
+        ):
+            msg = (
+                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan expects "
+                "SkLearnDataLoader instance or None as testing data "
+                f"loader, but received {type(test_data_loader)}."
+            )
+            logger.error(msg)
+            raise FedbiomedTrainingPlanError(msg)
+
+        super().set_data_loaders(train_data_loader, test_data_loader)
 
     def model(self) -> Optional[BaseEstimator]:
         """Retrieve the wrapped scikit-learn model instance.
@@ -200,7 +208,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         optim_builder = OptimizerBuilder()
 
         # then build optimizer wrapper given model and optimizer
-        self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
+        self._optimizer = optim_builder.build(self._type, self._model, optimizer)
 
     def init_optimizer(self) -> Optional[FedOptimizer]:
         """Creates and configures optimizer. By default, returns None (meaning native inner scikit
@@ -231,14 +239,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Run preprocesses
         self._preprocess()
-
-        if not isinstance(self.training_data_loader, NPDataLoader):
-            msg = (
-                f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot "
-                "be trained without a NPDataLoader as `training_data_loader`."
-            )
-            logger.critical(msg)
-            raise FedbiomedTrainingPlanError(msg)
 
         # Warn if GPU-use was expected (as it is not supported).
         if node_args is not None and node_args.get("gpu_only", False):
@@ -297,10 +297,10 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 reported back through `history_monitor`.
         """
         # Check that the testing data loader is of proper type.
-        if not isinstance(self.testing_data_loader, NPDataLoader):
+        if not isinstance(self.testing_data_loader, SkLearnDataLoader):
             msg = (
                 f"{ErrorNumbers.FB310.value}: SKLearnTrainingPlan cannot be "
-                "evaluated without a NPDataLoader as `testing_data_loader`."
+                "evaluated without a SkLearnDataLoader as `testing_data_loader`."
             )
             logger.error(msg)
             raise FedbiomedTrainingPlanError(msg)
@@ -323,19 +323,15 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         Returns:
             Numpy array containing the unique values from the targets wrapped
-            in the training and testing NPDataLoader instances.
+            in the training and testing SkLearnDataLoader instances.
         """
         return np.unique(
             [
                 t
                 for loader in (self.training_data_loader, self.testing_data_loader)
-                for d, t in loader
+                for _, t in loader
             ]
         )
-
-    def type(self) -> TrainingPlans:
-        """Getter for training plan type"""
-        return self.__type
 
     def _warn_about_training_args(self):
         if self._training_args["share_persistent_buffers"]:

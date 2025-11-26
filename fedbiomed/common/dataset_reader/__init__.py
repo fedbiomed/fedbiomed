@@ -1,0 +1,15 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+Classes that simplify imports from fedbiomed.common.dataset_reader
+"""
+
+from ._csv_reader import CsvReader
+from ._nifti_reader import NiftiReader
+
+__all__ = [
+    "CsvReader",
+    "NiftiReader",
+    "MnistReader",
+]

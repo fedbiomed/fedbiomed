@@ -835,7 +835,6 @@ class Round:
         # Setting validation and train subsets based on test_ratio
         training_data_loader, testing_data_loader = self._split_train_and_test_data(
             test_ratio=test_ratio,
-            # random_seed=rand_seed
         )
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(
@@ -900,23 +899,27 @@ class Round:
             raise FedbiomedRoundError(
                 f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}"
             ) from e
-        # Get dataset property
-        if hasattr(data_manager.dataset, "set_dataset_parameters"):
-            dataset_parameters = self.dataset.get("dataset_parameters", {})
-            data_manager.dataset.set_dataset_parameters(dataset_parameters)
+
+        # Info: controller_kwargs not yet implemented in DatasetManager
+        # so they are empty for now
+        controller_kwargs = self.dataset.get("controller_kwargs", {})
+        controller_kwargs["root"] = self.dataset.get("path")
+
+        controller_kwargs |= self.dataset.get("dataset_parameters", {})
 
         if self._dlp_and_loading_block_metadata is not None:
-            if hasattr(data_manager.dataset, "set_dlp"):
-                dlp = DataLoadingPlan().deserialize(
-                    *self._dlp_and_loading_block_metadata
-                )
-                data_manager.dataset.set_dlp(dlp)
-            else:
-                raise FedbiomedRoundError(
-                    f"{ErrorNumbers.FB314.value}: Attempting to set DataLoadingPlan "
-                    f"{self._dlp_and_loading_block_metadata['name']} on dataset of type "
-                    f"{data_manager.dataset.__class__.__name__} which is not enabled."
-                )
+            controller_kwargs["dlp"] = DataLoadingPlan().deserialize(
+                *self._dlp_and_loading_block_metadata
+            )
+
+        try:
+            data_manager.complete_dataset_initialization(controller_kwargs)
+        except FedbiomedError as e:
+            raise e
+        except Exception as e:
+            raise FedbiomedRoundError(
+                f"{ErrorNumbers.FB314.value}: Error while initializing dataset; {repr(e)}"
+            ) from e
 
         # All Framework based data managers have the same methods
         # If testing ratio is 0,

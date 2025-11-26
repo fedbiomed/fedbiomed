@@ -307,6 +307,7 @@ The `random_seed` argument allows to set a random seed at the beginning of each 
 Setting the `random_seed` affects:
 
 - the random initialization of model parameters at the beginning of the experiment
+- the random splitting of data between training and testing subset
 - the random shuffling of data in the `DataLoader`
 - any other random effect on the node and researcher side.
 

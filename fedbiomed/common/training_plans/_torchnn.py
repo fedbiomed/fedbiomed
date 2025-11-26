@@ -19,6 +19,7 @@ from typing import (
 import torch
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
+from fedbiomed.common.dataloader import PytorchDataLoader
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import MetricTypes
@@ -80,7 +81,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         super().__init__()
 
-        self.__type = TrainingPlans.TorchTrainingPlan
+        self._type = TrainingPlans.TorchTrainingPlan
 
         # Differential privacy support
         self._dp_controller: Optional[DPController] = None
@@ -100,10 +101,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self.correction_state: OrderedDict = OrderedDict()
         self.aggregator_name: str = None
 
-        # TODO : add random seed init
-        # self.random_seed_params = None
-        # self.random_seed_shuffling_data = None
-
         # device to use: cpu/gpu
         # - all operations except training only use cpu
         # - researcher doesn't request to use gpu by default
@@ -119,7 +116,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 "from fedbiomed.common.training_plans import TorchTrainingPlan",
                 "from fedbiomed.common.datamanager import DataManager",
                 "from fedbiomed.common.constants import ProcessTypes",
-                "from torch.utils.data import DataLoader",
+                "from fedbiomed.common.dataloader import PytorchDataLoader",
                 "from torchvision import datasets, transforms",
             ]
         )
@@ -165,7 +162,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             "share_persistent_buffers", True
         )
         # Set random seed (Pytorch-specific)
-        rseed = training_args["random_seed"]
+        rseed = training_args.get("random_seed")
 
         if rseed is not None:
             torch.manual_seed(rseed)
@@ -248,10 +245,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         return self._optimizer
 
-    def type(self) -> TrainingPlans.TorchTrainingPlan:
-        """Gets training plan type"""
-        return self.__type
-
     def _configure_model_and_optimizer(self, initialize_optimizer: bool = True):
         """Configures model and optimizer before training
 
@@ -315,7 +308,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             # Validate optimizer
             optim_builder = OptimizerBuilder()
             #  build the optimizer wrapper
-            self._optimizer = optim_builder.build(self.__type, self._model, optimizer)
+            self._optimizer = optim_builder.build(self._type, self._model, optimizer)
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -441,9 +434,20 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                     GPU device if this GPU device is available. Default None.
                 - `gpu_only (bool)`: force use of a GPU device if any available, even if researcher
                     doesn't request for using a GPU. Default False.
+
+        Raises:
+            FedbiomedTrainingPlanError: if training_data_loader is not a torch PytorchDataLoader
+
         Returns:
             Total number of samples observed during the training.
         """
+        if not isinstance(self.training_data_loader, PytorchDataLoader):
+            msg = (
+                f"{ErrorNumbers.FB310.value}: TorchTrainingPlan cannot "
+                "be trained without a PytorchDataLoader as `training_data_loader`."
+            )
+            logger.critical(msg)
+            raise FedbiomedTrainingPlanError(msg)
 
         # self.model().train()  # pytorch switch for training
         self._optimizer.init_training()

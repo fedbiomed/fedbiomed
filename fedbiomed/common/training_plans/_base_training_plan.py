@@ -10,11 +10,10 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypedDict
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
-from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
-from fedbiomed.common.dataloader import NPDataLoader
+from fedbiomed.common.constants import ErrorNumbers, ProcessTypes, TrainingPlans
+from fedbiomed.common.dataloader import DataLoader
 from fedbiomed.common.exceptions import (
     FedbiomedError,
     FedbiomedModelError,
@@ -63,13 +62,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     _model: Optional[Model]
     _optimizer: Optional[BaseOptimizer]
 
+    # Training plan type needs to be defined for every framework
+    _type = TrainingPlans.NoneTrainingPlan
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
         self.dataset_path: Union[str, None] = None
         self.pre_processes: Dict[str, PreProcessDict] = OrderedDict()
-        self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
-        self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
+        self.training_data_loader: Union[DataLoader, None] = None
+        self.testing_data_loader: Union[DataLoader, None] = None
 
         # Arguments provided by the researcher; they will be populated by post_init
         self._model_args: Dict[str, Any] = None
@@ -99,6 +101,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             if model is not instantiated.
         """
         return self._model
+
+    def type(self) -> TrainingPlans:
+        """Getter for training plan type"""
+        return self._type
 
     @property
     def dependencies(self):
@@ -149,7 +155,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         # Set random seed: the seed can be either None or an int provided by the researcher.
         # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
-        rseed = training_args["random_seed"]
+        rseed = training_args.get("random_seed")
         random.seed(rseed)
         np.random.seed(rseed)
 
@@ -178,8 +184,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     def set_data_loaders(
         self,
-        train_data_loader: Union[DataLoader, NPDataLoader, None],
-        test_data_loader: Union[DataLoader, NPDataLoader, None],
+        train_data_loader: Union[DataLoader, None],
+        test_data_loader: Union[DataLoader, None],
     ) -> None:
         """Sets data loaders
 

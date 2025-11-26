@@ -1,15 +1,19 @@
 import argparse
-from pathlib import Path
+import os
 import random
 import shutil
-import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+import tarfile
+from pathlib import Path
+from typing import Dict, List, Optional, Union
+from urllib.error import ContentTooShortError, HTTPError, URLError
+from urllib.request import urlretrieve
 
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.db import TinyDBConnector
 from fedbiomed.common.exceptions import FedbiomedDatasetManagerError
-
-from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.common.logger import logger
 from fedbiomed.node.config import NodeComponent
-from torchvision import transforms, datasets
+from fedbiomed.node.dataset_manager import DatasetManager
 
 
 def parse_args():
@@ -104,42 +108,74 @@ class MedNISTDataset(DatasetManager):
             folder_path: folder path of the dataset
             random_seed: _description_. Defaults to None.
         """
-        super().__init__(db=db)
-        self._random_seed: int = random_seed
 
+        super().__init__(path=db)
+
+        self._random_seed: int = random_seed
         self._folder_path: str = folder_path
 
-        if not os.path.exists(folder_path):
-            # download ednist dataset
-            self.load_mednist_database(path=folder_path)
+        if not os.path.exists(folder_path + "/MedNIST"):
+            # download Mednist dataset
+            self.load_mednist_database(path=Path(folder_path).parent)
+
         self.directories = os.listdir(path=folder_path)
         if random_seed is not None:
             # setting random seed
             random.seed(random_seed)
-        self.img_paths_collection: Dict[str, List] = {
-            dir: os.listdir(os.path.join(self._folder_path, dir))
-            for dir in self.directories
-            if os.path.isdir(os.path.join(self._folder_path, dir))
+
+        self.img_paths_collection: Dict[str, List[str]] = {
+            d: [
+                name
+                for name in sorted(os.listdir(os.path.join(self._folder_path, d)))
+                if os.path.isfile(os.path.join(self._folder_path, d, name))
+            ]
+            for d in self.directories
+            if os.path.isdir(os.path.join(self._folder_path, d))
         }
-        self._old_idx: List[int] = [0 for dir in self.directories]
+        self._old_idx: List[int] = [0 for _ in self.directories]
 
         for item in self.img_paths_collection.values():
             random.shuffle(item)
 
-    def load_mednist_database(
-        self, path: str, as_dataset: bool = False
-    ) -> Tuple[List[int] | Any]:
-        # little hack that download MedNIST dataset if it is not located in directory and save in the database
-        # the sampled values
+    def load_mednist_database(self, path: str):
+        """Loads the MedNist dataset.
+        Args:
+            path: Pathfile to save a local copy of the MedNist dataset.
 
-        val, download_path = super().load_mednist_database(
-            Path(path).parent, as_dataset
-        )
+        Raises:
+            FedbiomedDatasetManagerError: One of the following cases:
+                - tarfile cannot be downloaded
+                - downloaded tarfile cannot
+                    be extracted
+                - MedNIST path is empty
+                - one of the classes path is empty
+        """
+        url = "https://github.com/Project-MONAI/MONAI-extra-test-data/releases/download/0.8.1/MedNIST.tar.gz"
+        filepath = os.path.join(path, "MedNIST.tar.gz")
+        try:
+            logger.info("Now downloading MEDNIST...")
+            urlretrieve(url, filepath)
+            with tarfile.open(filepath) as tar_file:
+                logger.info("Now extracting MEDNIST...")
+                tar_file.extractall(path)
+            os.remove(filepath)
 
-        dataset = datasets.ImageFolder(path, transform=transforms.ToTensor())
-
-        val = self.get_torch_dataset_shape(dataset)
-        return val, path
+        except (
+            URLError,
+            HTTPError,
+            ContentTooShortError,
+            OSError,
+            tarfile.TarError,
+            MemoryError,
+        ) as e:
+            _msg = (
+                ErrorNumbers.FB315.value
+                + "\nThe following error was raised while downloading MedNIST dataset "
+                + "from the MONAI repo:  "
+                + str(e)
+            )
+            logger.error(_msg)
+            raise FedbiomedDatasetManagerError(_msg) from e
 
     def sample_image_dataset(
         self, n_samples: int, n_classes: int, new_sampled_dataset_name: str = ""
@@ -188,8 +224,6 @@ class MedNISTDataset(DatasetManager):
                     # remove the tarball file copied by mistake (if any)
                     dirs.remove(directory)
                     continue
-                # images_path = os.listdir(label_img_path)
-                # random.shuffle(images_path)
 
                 _new_dir_label_name = os.path.join(new_image_folder_path, directory)
                 os.makedirs(_new_dir_label_name, exist_ok=True)
@@ -203,6 +237,7 @@ class MedNISTDataset(DatasetManager):
                     )
 
                 self._old_idx[i] += _idx_max
+
             while rest > 0:  # here rest < n_classes
                 directory = dirs[rest]
                 images_path = os.listdir(os.path.join(self._folder_path, directory))
@@ -260,19 +295,21 @@ if __name__ == "__main__":
                 "mednist",
                 ["#MEDNIST", "#dataset"],
                 description="MedNIST dataset for transfer learning",
-                path=d_path,
+                path=data_folder,
             )
         except FedbiomedDatasetManagerError as e:
             errors_coll.append((_name, e))
         config_files.append(config)
+        TinyDBConnector._instance = None  # reset singleton for next node
+
     if errors_coll:
         print("Cannot generate dataset because a dataset has been peviously created.")
         for wrong_conf, e in errors_coll:
             print(
                 f"please run:\n fedbiomed node --path=./node_{wrong_conf} dataset delete\nand remove the dataset tagged as {wrong_conf}"
             )
-        print("\n\n\n")
-        raise e
+            print("\n\n\n")
+            raise e
     print("Done ! please find below your config files:")
 
     for entry in config_files:

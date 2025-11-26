@@ -3,11 +3,13 @@ import re
 
 from flask import request
 
-from .api import api
+from fedbiomed.node.dataset_manager import DatasetManager
+
 from ..config import config
-from ..schemas import ListDataFolder
-from ..utils import error, validate_request_data, response, file_stats
 from ..db import node_database
+from ..schemas import ListDataFolder
+from ..utils import error, file_stats, response, validate_request_data
+from .api import api
 
 
 @api.route("/repository/list", methods=["POST"])
@@ -57,8 +59,8 @@ def list_data_path():
 
         files = files if len(files) <= 1000 else files[0:1000]
 
-        table = node_database.table_datasets()
-        all_datasets = table.all()
+        dataset_manager = DatasetManager(config["NODE_DB_PATH"])
+        all_datasets = dataset_manager.list_my_datasets()
 
         for file in files:
             if not file.startswith("."):

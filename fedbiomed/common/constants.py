@@ -219,6 +219,7 @@ class TrainingPlanApprovalStatus(_BaseEnum):
 class TrainingPlans(_BaseEnum):
     """Enumeration class for Training plans"""
 
+    NoneTrainingPlan = "NoneTrainingPlan"
     TorchTrainingPlan = "TorchTrainingPlan"
     SkLearnTrainingPlan = "SkLearnTrainingPlan"
 
@@ -279,7 +280,6 @@ class DatasetTypes(_BaseEnum):
     DEFAULT = "default"
     MEDNIST = "mednist"
     MEDICAL_FOLDER = "medical-folder"
-    FLAMBY = "flamby"
     TEST = "test"
     NONE = "none"
 
@@ -374,9 +374,6 @@ class ErrorNumbers(_BaseEnum):
     FB603 = "FB603: task queue error"
     FB605 = "FB605: training plan error"
     FB606 = "FB606: model manager error"
-    FB607 = "FB607: data manager error"
-    FB608 = "FB608: torch data manager error"
-    FB609 = "FB609: scikit-learn data manager error"
     FB610 = "FB610: Torch based tabular dataset creation error"
     FB611 = "FB611: Error while trying to evaluate using the specified metric"
     FB612 = "FB612: Torch based NIFTI dataset error"
@@ -399,6 +396,7 @@ class ErrorNumbers(_BaseEnum):
     FB629 = "FB629: Diffie-Hellman KA error"
     FB630 = "FB630: Additive Secret Sharing error"
     FB631 = "FB631: Node to node channels database error"
+    FB632 = "FB632: Data handling error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 

@@ -1,22 +1,28 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import tkinter.filedialog
-import tkinter.messagebox
 import warnings
-from tkinter import _tkinter
+from pathlib import Path
 
 from fedbiomed.common.logger import logger
+
+from ._tkinter_utils import TclError, filedialog, messagebox
 
 
 def validated_data_type_input() -> str:
     """Picks data type to use from user input on command line.
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images', 'medical-folder', 'flamby').
+            ('csv', 'default', 'mednist', 'images', 'medical-folder', 'custom').
     """
-    valid_options = ["csv", "default", "mednist", "images", "medical-folder", "flamby"]
+    valid_options = [
+        "csv",
+        "default",
+        "mednist",
+        "images",
+        "medical-folder",
+        "custom",
+    ]
     valid_options = {i: val for i, val in enumerate(valid_options, 1)}
 
     msg = "Please select the data type that you're configuring:\n"
@@ -34,39 +40,51 @@ def validated_data_type_input() -> str:
     return valid_options[t]
 
 
-def pick_with_tkinter(mode: str = "file") -> str:
+def pick_with_tkinter(type: str = "csv") -> str:
     """Opens a tkinter graphical user interface to select dataset.
 
     Args:
-        mode: type of file to select. Can be `txt` (for .txt files)
-            or `file` (for .csv files)
-            Defaults to `file`.
+        type: type of file to select. Can be `txt` (for .txt files)
+            or `csv` (for .csv files)
+            Defaults to `csv`.
 
     Returns:
         The selected path.
     """
-    try:
-        # root = TK()
-        # root.withdraw()
-        # root.attributes("-topmost", True)
-        if mode == "file":
-            return tkinter.filedialog.askopenfilename(
-                filetypes=[("CSV files", "*.csv")]
-            )
-        elif mode == "txt":
-            return tkinter.filedialog.askopenfilename(
-                filetypes=[("Text files", "*.txt")]
-            )
-        else:
-            return tkinter.filedialog.askdirectory()
+    match type:
+        case "csv":
+            is_file_mode = True
+            filetypes = [("CSV files", "*.csv")]
+            error_msg_empty = "No file was selected. Exiting"
+        case "txt":
+            is_file_mode = True
+            filetypes = [("Text files", "*.txt")]
+            error_msg_empty = "No python file was selected. Exiting"
+        case _:
+            is_file_mode = False
+            filetypes = None
+            error_msg_empty = "No directory was selected. Exiting"
 
-    except (ModuleNotFoundError, RuntimeError, _tkinter.TclError):
-        # handling case where tkinter package cannot be found on system
-        # or if tkinter crashes
-        if mode == "file" or mode == "txt":
-            return input("Insert the path of the file: ")
-        else:
-            return input("Insert the path of the folder: ")
+    try:
+        path = (
+            filedialog.askopenfilename(filetypes=filetypes)
+            if is_file_mode
+            else filedialog.askdirectory()
+        )
+
+        # Window was closed or cancelled
+        if not path:
+            logger.critical(error_msg_empty)
+            exit(1)
+
+        logger.debug(path)
+
+    except (RuntimeError, TclError):
+        path = None
+        error_msg = "[ERROR] GUI failed. Falling back to CLI"
+        messagebox.showerror(title="Error", message=error_msg)
+
+    return path
 
 
 def validated_path_input(type: str) -> str:
@@ -78,36 +96,30 @@ def validated_path_input(type: str) -> str:
     Returns:
         The selected path.
     """
+    if filedialog is None:
+        warnings.warn("[WARNING] GUI not available. Falling back to CLI", stacklevel=1)
+
+    # Try GUI first if available
+    path = None if filedialog is None else pick_with_tkinter(type=type)
+
+    # Determine if we are in file mode
+    is_file_mode = type in ("csv", "txt")
+
     while True:
-        try:
-            if type == "csv":
-                path = pick_with_tkinter(mode="file")
-                logger.debug(path)
-                if not path:
-                    logger.critical("No file was selected. Exiting")
-                    exit(1)
-                assert os.path.isfile(path)
+        # CLI fallback
+        if path is None:
+            prompt = f"Insert the path of the {'file' if is_file_mode else 'folder'}: "
+            path = input(prompt)
 
-            elif type == "txt":  # for registering python model
-                path = pick_with_tkinter(mode="txt")
-                logger.debug(path)
-                if not path:
-                    logger.critical("No python file was selected. Exiting")
-                    exit(1)
-                assert os.path.isfile(path)
-            else:
-                path = pick_with_tkinter(mode="dir")
-                logger.debug(path)
-                if not path:
-                    logger.critical("No directory was selected. Exiting")
-                    exit(1)
-                assert os.path.isdir(path)
-            break
-        except Exception:
-            error_msg = "[ERROR] Invalid path. Please enter a valid path."
-            try:
-                tkinter.messagebox.showerror(title="Error", message=error_msg)
-            except ModuleNotFoundError:
-                warnings.warn(error_msg, stacklevel=1)
+            if not path.strip():
+                warnings.warn("[ERROR] Path cannot be empty", stacklevel=1)
+                continue
 
-    return path
+            path_obj = Path(path).expanduser()
+            valid_path = path_obj.is_file() if is_file_mode else path_obj.is_dir()
+            if not valid_path:
+                warnings.warn("[ERROR] Please enter a valid path", stacklevel=1)
+                continue
+            path = str(path_obj)
+
+        return path
