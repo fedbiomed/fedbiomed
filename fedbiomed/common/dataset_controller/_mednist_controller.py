@@ -59,7 +59,7 @@ def download_mednist(root: Path) -> None:
 class MedNistController(Controller):
     """Generic data controller where the data is arranged in this way:
     root
-    └── MEDNIST
+    └── MedNIST
         ├── AbdomenCT
         │   ├── 000000.jpeg
         │   └── ...

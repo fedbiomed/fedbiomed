@@ -2,6 +2,7 @@ import time
 
 import pytest
 from experiments.training_plans.mnist_pytorch_training_plan import (
+    CustomTrainingPlan,
     MnistModelScaffoldDeclearn,
     MyTrainingPlan,
 )
@@ -36,19 +37,34 @@ def setup(port, post_session, request):
     node_2 = create_node(port=port)
     researcher = create_researcher(port=port)
 
-    data = get_data_folder("MNIST-e2e-test")
-    dataset = {
+    path_data = get_data_folder("MNIST-e2e-test")
+    dataset1 = {
         "name": "MNIST",
         "description": "MNIST DATASET",
         "tags": "#MNIST,#dataset",
         "data_type": "default",
-        "path": data,
+        "path": path_data,
     }
 
     print("Adding first dataset --------------------------------------------")
-    add_dataset_to_node(node_1, dataset)
+    add_dataset_to_node(node_1, dataset1)
     print("adding second dataset")
-    add_dataset_to_node(node_2, dataset)
+    add_dataset_to_node(node_2, dataset1)
+
+    time.sleep(1)
+
+    dataset2 = {
+        "name": "CustomMNIST",
+        "description": "MNIST DATASET using custom dataset class",
+        "tags": "#Custom-MNIST,#dataset",
+        "data_type": "custom",
+        "path": path_data,
+    }
+
+    print("Adding first custom dataset -------------------------------------")
+    add_dataset_to_node(node_1, dataset2)
+    print("adding second custom dataset")
+    add_dataset_to_node(node_2, dataset2)
 
     time.sleep(1)
 
@@ -147,7 +163,7 @@ def test_03_mnist_pytorch_experiment_scaffold():
     """Test but with more advanced configuration & Scaffold"""
 
     model_args = {}
-    tags = ["#MNIST", "#dataset"]
+    tags = ["#Custom-MNIST", "#dataset"]
     rounds = 2
     training_args = {
         "loader_args": {
@@ -163,7 +179,7 @@ def test_03_mnist_pytorch_experiment_scaffold():
     exp = Experiment(
         tags=tags,
         model_args=model_args,
-        training_plan_class=MyTrainingPlan,
+        training_plan_class=CustomTrainingPlan,
         training_args=training_args,
         round_limit=rounds,
         aggregator=Scaffold(),
