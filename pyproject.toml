@@ -20,6 +20,7 @@ authors = [
 	{name = "Paul Andrey", email = "paul.andrey@inria.fr"},
 	{name = "Lucie Chambon", email = "lucie.chambon@inria.fr"},
 	{name = "Erwan Demairy", email = "erwan.demairy@inria.fr"},
+	{name = "Ali Tolga Dincer", email = "ali-tolga.dincer@inria.fr"},
 	{name = "Thibaud Kloczko", email = "thibaud.kloczko@inria.fr"},
 	{name = "Côme Le Breton", email = "come.le-breton@inria.fr"},
 	{name = "Jean-Luc Szpyrka", email = "jean-luc@szpyrka.fr"},
@@ -94,8 +95,8 @@ dependencies = [
 	"python-minifier  ~=2.11",
 	"declearn[torch]  ~=2.6.0",
 	"gmpy2  >=2.1.2,<2.2",
-	"grpcio  ~=1.66",
-	"grpcio-tools  ~=1.66",
+	"grpcio  ~=1.72",
+	"grpcio-tools  ~=1.72",
 	"unet  >=0.7.7,<0.8.0",
 	"pygments ~=2.18.0",
 	"nibabel ~=5.3",
@@ -281,4 +282,4 @@ skip = '.git*,*.pdf,*.svg,*.lock,*.css,assets'
 check-hidden = true
 # ignore images in notebooks and regex specifications
 ignore-regex = '^\s*"image/\S+": ".*|\(^\S+\)|\bOT\b'
-ignore-words-list = 'ser,infor,te,opps'
+ignore-words-list = 'ser,infor,te,opps,nd'
