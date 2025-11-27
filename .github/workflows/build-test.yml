@@ -1,5 +1,4 @@
 ---
-
 name: Fed-BioMed Build test
 run-name: Fed-BioMed Build test
 on:
@@ -45,14 +44,14 @@ jobs:
         if: steps.filter.outputs.docs == 'true'
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v4
 
       - name: Install Dependencies
         if: steps.filter.outputs.docs == 'true'
-        run: pdm install -G docs -G dev
+        run: pdm install --no-default -G docs -G dev
 
       - name: Build documentation
         if: steps.filter.outputs.docs == 'true'
@@ -77,7 +76,7 @@ jobs:
           - macos-latest
           - macos-m1
         python-version:
-          - '3.11'
+          - "3.11"
     runs-on: ${{ matrix.os }}
     if: github.event.pull_request.draft == false
     steps:
@@ -110,7 +109,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          cache: "pip"
 
       - name: Install Dependencies
         if: steps.filter.outputs.module == 'true'
@@ -126,7 +125,7 @@ jobs:
       - name: Run tests
         if: steps.filter.outputs.module == 'true'
         run: |
-            tox -r -e py${{ matrix.python-version }}-unit
+          tox -r -e py${{ matrix.python-version }}-unit
         shell: bash -l {0}
 
       - name: Upload coverage reports to Codecov
@@ -135,10 +134,10 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: tests/coverage.xml
-          flags: unittests-${{ matrix.os }}  # optional
-          name: codecov-umbrella  # optional
-          fail_ci_if_error: true  # optional (default = false)
-          verbose: true  # optional (default = false)
+          flags: unittests-${{ matrix.os }} # optional
+          name: codecov-umbrella # optional
+          fail_ci_if_error: true # optional (default = false)
+          verbose: true # optional (default = false)
 
       - name: Notify upload impossible on m1
         if: steps.filter.outputs.module == 'true' && matrix.os == 'macosx-m1'
@@ -159,7 +158,7 @@ jobs:
           - macos-latest
           - macos-m1
         python-version:
-          - '3.11'
+          - "3.11"
     runs-on: ${{ matrix.os }}
     continue-on-error: true
     needs: unit-test
