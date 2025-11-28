@@ -24,6 +24,7 @@ Each author can mention his/her name only or give more information in the follow
 - Gaurav D. Chaudary
 - Francesco Cremonesi
 - Erwan Demairy
+- Ali Tolga Dincer
 - Nejma El Kourdachi
 - Yann Fraboni
 - Thibaud Kloczko

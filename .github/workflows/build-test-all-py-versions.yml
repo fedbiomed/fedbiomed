@@ -1,5 +1,4 @@
 ---
-
 name: Fed-BioMed Build test -- all python versions
 run-name: Fed-BioMed Build test -- py{3.10,3.11}
 on:
@@ -14,7 +13,7 @@ on:
     branches:
       - master
   schedule:
-    - cron: '0 20 * * 6'  # run every Saturday night
+    - cron: "0 20 * * 6" # run every Saturday night
   workflow_dispatch:
 
 jobs:
@@ -44,14 +43,14 @@ jobs:
         if: steps.filter.outputs.docs == 'true'
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v4
 
       - name: Install Dependencies
         if: steps.filter.outputs.docs == 'true'
-        run: pdm install -G docs -G dev
+        run: pdm install --no-default -G docs -G dev
 
       - name: Build documentation
         if: steps.filter.outputs.docs == 'true'
@@ -76,8 +75,8 @@ jobs:
           - macos-latest
           - macos-m1
         python-version:
-          - '3.10'
-          - '3.11'
+          - "3.10"
+          - "3.11"
 
     runs-on: ${{ matrix.os }}
     if: github.event.pull_request.draft == false
@@ -111,7 +110,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          cache: "pip"
 
       - name: Install Dependencies
         if: steps.filter.outputs.module == 'true'
@@ -127,7 +126,7 @@ jobs:
       - name: Run tests
         if: steps.filter.outputs.module == 'true'
         run: |
-            tox -r -e py${{ matrix.python-version }}-unit
+          tox -r -e py${{ matrix.python-version }}-unit
         shell: bash -l {0}
 
       - name: Upload coverage reports to Codecov
@@ -136,10 +135,10 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: tests/coverage.xml
-          flags: unittests-${{ matrix.os }}  # optional
-          name: codecov-umbrella  # optional
-          fail_ci_if_error: true  # optional (default = false)
-          verbose: true  # optional (default = false)
+          flags: unittests-${{ matrix.os }} # optional
+          name: codecov-umbrella # optional
+          fail_ci_if_error: true # optional (default = false)
+          verbose: true # optional (default = false)
 
       - name: Notify upload impossible on m1
         if: steps.filter.outputs.module == 'true' && matrix.os == 'macosx-m1'
@@ -160,8 +159,8 @@ jobs:
           - macos-latest
           - macos-m1
         python-version:
-          - '3.10'
-          - '3.11'
+          - "3.10"
+          - "3.11"
     runs-on: ${{ matrix.os }}
     continue-on-error: true
     needs: unit-test
@@ -219,7 +218,7 @@ jobs:
           - macos-latest
           - macos-m1
         python-version:
-          - '3.10'
+          - "3.10"
     runs-on: ${{ matrix.os }}
     needs: unit-test
     if: github.event.pull_request.draft == false
