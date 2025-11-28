@@ -11,6 +11,9 @@ Researcher component is the RPC server that provides RPC services for the nodes.
 
 Protocol files should be compiled to be able to create corresponding message and service objects in Python. Compilation can be done by executing `{FEDBIOMED_DIR}/scripts/protoc.py`. The script will generate RPC service and protocol buffer for Python in the directory `{FEDBIOMED_DIR}/fedbiomed/transport/protocols`. 
 
+The protocol files need to be compiled using **the lowest supported version of `grpcio`** because they only provide ascending compatibility.
+For example, you can run `protoc.py` from a development environment installed with this minimal version (eg `pdm lock -G :all --strategy direct_minimal_versions ; pdm install`)
+
 
 ### Example protocol messages and corresponding data classes in the application layer
 

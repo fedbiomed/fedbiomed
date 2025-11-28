@@ -1,33 +1,28 @@
 import os
 import tempfile
 import unittest
-from copy import deepcopy
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
-from fedbiomed.common.exceptions import FedbiomedSecaggError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecaggError
 from fedbiomed.common.message import (
     AdditiveSSharingReply,
     ErrorMessage,
     KeyReply,
 )
 from fedbiomed.common.synchro import EventWaitExchange
-
-from fedbiomed.transport.controller import GrpcController
-
+from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.secagg import (
     SecaggDHSetup,
     SecaggServkeySetup,
     SecaggSetup,
 )
-from fedbiomed.node.requests import NodeToNodeRouter
+from fedbiomed.transport.controller import GrpcController
 
 
 class SecaggTestCase(unittest.TestCase):
-
     def setUp(self) -> None:
-
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.db = os.path.join(self.temp_dir.name, 'test.json')
+        self.db = os.path.join(self.temp_dir.name, "test.json")
 
         unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
             return_value=self.temp_dir
@@ -36,8 +31,8 @@ class SecaggTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-class TestSecaggServkeySetup(SecaggTestCase):
 
+class TestSecaggServkeySetup(SecaggTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.mock_controller_data = MagicMock(spec=EventWaitExchange)
@@ -47,6 +42,7 @@ class TestSecaggServkeySetup(SecaggTestCase):
         self.args = {
             "db": self.db,
             "node_id": "test-node-id",
+            "node_name": "test-node-name",
             "researcher_id": "my-researcher",
             "secagg_id": "my secagg",
             "experiment_id": "my_experiment_id",
@@ -74,7 +70,7 @@ class TestSecaggServkeySetup(SecaggTestCase):
         self.args["grpc_client"] = self.mock_grpc_controller
         self.args["pending_requests"] = self.mock_pending_requests
         self.args["controller_data"] = self.mock_controller_data
-        self.args['n2n_router'] = self.mock_n2n_router
+        self.args["n2n_router"] = self.mock_n2n_router
 
     def tearDown(self) -> None:
         pass
@@ -114,7 +110,11 @@ class TestSecaggServkeySetup(SecaggTestCase):
     def test_secagg_key_02_setup(self, skmanager_add):
         """Tests key setup for additive key"""
         secagg_addss = SecaggServkeySetup(**self.args)
-        self.mock_n2n_router.format_outgoing_overlay.return_value = b'overlay', b'salt', b'nonce'
+        self.mock_n2n_router.format_outgoing_overlay.return_value = (
+            b"overlay",
+            b"salt",
+            b"nonce",
+        )
 
         self.mock_pending_requests.wait.side_effect = FedbiomedError
         reply = secagg_addss.setup()
@@ -161,7 +161,7 @@ class TestSecaggServkeySetup(SecaggTestCase):
         ) in get_rand_values.values():
             messages = []
             self.args["parties"] = [
-                'my-researcher',
+                "my-researcher",
             ]
             for i, val in enumerate(node_shares_val):
                 messages.append(
@@ -176,7 +176,11 @@ class TestSecaggServkeySetup(SecaggTestCase):
                 self.args["parties"].append(f"node{i}")
 
             send_nodes_mock.return_value = True, messages
-            self.mock_n2n_router.format_outgoing_overlay.return_value = b'overlay', b'salt', b'nonce'
+            self.mock_n2n_router.format_outgoing_overlay.return_value = (
+                b"overlay",
+                b"salt",
+                b"nonce",
+            )
 
             with (
                 patch(
@@ -205,7 +209,6 @@ class TestSecaggServkeySetup(SecaggTestCase):
 
 
 class TestSecaggDHSetup(SecaggTestCase):
-
     def setUp(self) -> None:
         super().setUp()
         self.mock_controller_data = MagicMock(spec=EventWaitExchange)
@@ -215,12 +218,13 @@ class TestSecaggDHSetup(SecaggTestCase):
         self.args = {
             "db": self.db,
             "node_id": "test_node_id",
+            "node_name": "test_node_name",
             "researcher_id": "my researcher",
             "secagg_id": "my secagg",
             "experiment_id": "my_experiment_id",
             "parties": [
                 "my researcher",
-                'test-node-id',
+                "test-node-id",
                 "my node2",
                 "my node3",
                 "my_node4",
@@ -229,7 +233,7 @@ class TestSecaggDHSetup(SecaggTestCase):
         self.args["grpc_client"] = self.mock_grpc_controller
         self.args["pending_requests"] = self.mock_pending_requests
         self.args["controller_data"] = self.mock_controller_data
-        self.args['n2n_router'] = self.mock_n2n_router
+        self.args["n2n_router"] = self.mock_n2n_router
 
     def tearDown(self) -> None:
         pass
@@ -245,7 +249,6 @@ class TestSecaggDHSetup(SecaggTestCase):
         dh_key_export_public_key,
         dhmanager_add_mock,
     ):
-
         received_msg_with_all_nodes = []
 
         for n in self.args["parties"][1:]:
@@ -289,13 +292,12 @@ class TestSecaggDHSetup(SecaggTestCase):
 
 
 class TestSecaggSetup(SecaggTestCase):
-
-
     def test_secagg_setup_01_initialization(self):
         # Raise element type
         args = {
             "db": self.db,
             "node_id": "test-node-id",
+            "node_name": "test-node-name",
             "experiment_id": "experiment-id",
             "element": 0,
             "secagg_id": "secagg-id",
@@ -311,11 +313,10 @@ class TestSecaggSetup(SecaggTestCase):
         with self.assertRaises(FedbiomedSecaggError):
             SecaggSetup(**args)()
 
-        args['element'] = 0
+        args["element"] = 0
         args["parties"] = []
         with self.assertRaises(FedbiomedSecaggError):
             SecaggSetup(**args)()
-
 
         args["parties"] = ["node-1", "node-2"]
         secagg_setup = SecaggSetup(

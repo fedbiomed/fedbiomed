@@ -1,9 +1,8 @@
 name: Deploy Fed-BioMed Package
-description: This workflow deploys fedbiomed pacakge
 on:
   push:
     tags:
-      - '*'
+      - "*"
 
 permissions:
   contents: write
@@ -22,7 +21,7 @@ jobs:
         run: ls -la
 
       - name: Install Fed-BioMed
-        run: pdm install
+        run: pdm install --no-default
 
       - name: Build
         run: pdm build

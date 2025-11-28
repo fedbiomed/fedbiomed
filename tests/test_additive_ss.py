@@ -1,10 +1,14 @@
 import unittest
 from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
-from fedbiomed.common.secagg._additive_ss import AdditiveSecret, AdditiveShare, AdditiveShares
+from fedbiomed.common.secagg._additive_ss import (
+    AdditiveSecret,
+    AdditiveShare,
+    AdditiveShares,
+)
 import random
 
-class TestAdditiveSecret(unittest.TestCase):
 
+class TestAdditiveSecret(unittest.TestCase):
     def test_secret_initialization_valid_int(self):
         """Test initializing AdditiveSecret with a valid integer."""
         secret = AdditiveSecret(123)
@@ -19,7 +23,9 @@ class TestAdditiveSecret(unittest.TestCase):
         """Test initializing AdditiveSecret with an invalid type."""
         with self.assertRaises(FedbiomedValueError) as context:
             AdditiveSecret("invalid_secret")
-        self.assertIn("AdditiveSecret must be an int or a list of int", str(context.exception))
+        self.assertIn(
+            "AdditiveSecret must be an int or a list of int", str(context.exception)
+        )
 
     def test_split_invalid_num_shares(self):
         """Test splitting with invalid number of shares."""
@@ -36,17 +42,25 @@ class TestAdditiveSecret(unittest.TestCase):
 
         # Ensure all shares are within the specified bit length range
         for share in shares:
-            self.assertTrue(-2**10 <= share.value <=2**10)
+            self.assertTrue(-(2**10) <= share.value <= 2**10)
 
     def test_reconstruct_secret_int(self):
         """Test reconstructing an integer secret."""
-        shares = AdditiveShares([AdditiveShare(10), AdditiveShare(20), AdditiveShare(15)])
+        shares = AdditiveShares(
+            [AdditiveShare(10), AdditiveShare(20), AdditiveShare(15)]
+        )
         reconstructed = shares.reconstruct()
         self.assertEqual(reconstructed, 45)
 
     def test_reconstruct_secret_list(self):
         """Test reconstructing a list secret."""
-        shares = AdditiveShares([AdditiveShare([1, 2, 3]), AdditiveShare([4, 5, 6]), AdditiveShare([5, 13, 21])])
+        shares = AdditiveShares(
+            [
+                AdditiveShare([1, 2, 3]),
+                AdditiveShare([4, 5, 6]),
+                AdditiveShare([5, 13, 21]),
+            ]
+        )
         reconstructed = shares.reconstruct()
         self.assertEqual(reconstructed, [10, 20, 30])
 
@@ -58,7 +72,6 @@ class TestAdditiveSecret(unittest.TestCase):
 
 
 class TestAdditiveShare(unittest.TestCase):
-
     def test_share_initialization_valid_int(self):
         """Test initializing AdditiveShare with a valid integer."""
         share = AdditiveShare(123)
@@ -122,7 +135,9 @@ class TestAdditiveShare(unittest.TestCase):
         server_key_shares_3 = shares_3[2] + user_1_to_3 + user_2_to_3
 
         # reseacher reconstruct the server key
-        server_key = AdditiveShares([server_key_shares_1,server_key_shares_2,server_key_shares_3]).reconstruct()
+        server_key = AdditiveShares(
+            [server_key_shares_1, server_key_shares_2, server_key_shares_3]
+        ).reconstruct()
 
         original_key = user_key_1 + user_key_2 + user_key_3
 
@@ -157,13 +172,16 @@ class TestAdditiveShare(unittest.TestCase):
         server_key_shares_3 = shares_3[2] + user_1_to_3 + user_2_to_3
 
         # reseacher reconstruct the server key
-        server_key = AdditiveShares([server_key_shares_1,server_key_shares_2,server_key_shares_3]).reconstruct()
+        server_key = AdditiveShares(
+            [server_key_shares_1, server_key_shares_2, server_key_shares_3]
+        ).reconstruct()
 
-        original_key = [user_key_1[i] + user_key_2[i] + user_key_3[i] for i in range(10)]
+        original_key = [
+            user_key_1[i] + user_key_2[i] + user_key_3[i] for i in range(10)
+        ]
 
         self.assertEqual(server_key, original_key)
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -37,8 +37,8 @@ nav:
         - 'MNIST Basic Example': './tutorials/pytorch/01_PyTorch_MNIST_Single_Node_Tutorial.ipynb'
         - 'Create Your Custom Training Plan': './tutorials/pytorch/02_Create_Your_Custom_Training_Plan.ipynb'
         - 'Regression Example with Used Cars Dataset': './tutorials/pytorch/03_PyTorch_Used_Cars_Dataset_Example.ipynb'
-        - 'Aggregators in Fed-BioMed': './tutorials/pytorch/04-Aggregation_in_Fed-BioMed.ipynb'
         - 'Transfer-Learning in Fed-BioMed': './tutorials/pytorch/05_Transfer-learning_tutorial_usingDenseNet-121.ipynb'
+        - 'Aggregators in Fed-BioMed': './tutorials/pytorch/04-Aggregation_in_Fed-BioMed.ipynb'
       - MONAI:
         - '2D Image Classification with MedNIST': './tutorials/monai/01_monai-2d-image-classification.ipynb'
         - '2D Image Registration with MedNIST': './tutorials/monai/02_monai-2d-image-registration.ipynb'
@@ -48,9 +48,9 @@ nav:
         - 'More Scikit-Learn models': './tutorials/scikit-learn/03-other-scikit-learn-models.ipynb'
       - Optimizers:
         - 'Advanced Optimizers': './tutorials/optimizers/01-fedopt-and-scaffold.ipynb'
-      - FLamby:
-        - 'General Concepts': "./tutorials/flamby/flamby.md"
-        - 'FLamby examples': "./tutorials/flamby/flamby-integration-into-fedbiomed.ipynb"
+      - FLamby: 
+        - 'Introduction': './tutorials/flamby/index.md'
+        - 'FLamby Federated Heart Disease Example': "./tutorials/flamby/flamby-integration-into-fedbiomed.ipynb"
       - Advanced:
         - 'In Depth Experiment Configuration': './tutorials/advanced/in-depth-experiment-configuration.ipynb'
         - 'Training with GPU' : './tutorials/advanced/training-with-gpu.ipynb'
@@ -65,6 +65,15 @@ nav:
           - 'Brain image segmentation using IXI dataset': './tutorials/medical/medical-image-segmentation-unet-library.ipynb'
     - 'User Guide':
       - Glossary: './user-guide/glossary.md'
+      - 'Datasets':
+        - "Introduction": './user-guide/datasets/index.md'
+        - "Default Datasets": './user-guide/datasets/default-datasets.md'
+        - "Image Datasets": './user-guide/datasets/image-dataset.md'
+        - "Tabular Datasets": './user-guide/datasets/tabular-dataset.md'
+        - "Medical Datasets": './user-guide/datasets/medical-folder-dataset.md'
+        - "Adding your Custom Dataset": './user-guide/datasets/custom-dataset.md'
+        - "Adding a Native Dataset": './user-guide/datasets/native-dataset.md'
+        - "Applying Transformations": './user-guide/datasets/applying-transformations.md'
       - Deployment:
           - "Introduction": './user-guide/deployment/deployment.md'
           - "VPN Deployment": './user-guide/deployment/deployment-vpn.md'
@@ -339,6 +348,7 @@ plugins:
       redirect_maps:
         'getting-started/getting-started.md': 'getting-started/basic-example.md'
         'tutorials/installation/0-basic-software-installation.md': 'getting-started/installation.md'
+        'tutorials/flamby/flamby-dataset-download-tutorial.ipynb': 'tutorials/flamby/index.md'
         # 'old/file.md': 'new/file.md'
 
 extra_javascript:

@@ -1,23 +1,26 @@
-import unittest
 import configparser
-from unittest.mock import MagicMock, patch, ANY
-import tempfile
 import os
+import tempfile
+import unittest
+from unittest.mock import ANY, MagicMock, patch
 
-from testsupport.fake_secagg_manager import FakeSecaggServkeyManager
-
-from fedbiomed.common.constants import (ErrorNumbers, SecaggElementTypes,
-                                        TrainingPlans,
-                                        __messaging_protocol_version__,
-                                        _BaseEnum)
-from fedbiomed.common.message import (ApprovalRequest, ErrorMessage,
-                                      ListRequest, Message, PingReply,
-                                      PingRequest, SearchRequest,
-                                      SecaggDeleteReply, SecaggDeleteRequest,
-                                      SecaggReply, SecaggRequest,
-                                      TrainingPlanStatusRequest, TrainRequest)
-from fedbiomed.node.dataset_manager import DatasetManager
-
+from fedbiomed.common.constants import (
+    ErrorNumbers,
+    __messaging_protocol_version__,
+)
+from fedbiomed.common.message import (
+    ApprovalRequest,
+    ErrorMessage,
+    ListRequest,
+    Message,
+    PingReply,
+    PingRequest,
+    SearchRequest,
+    SecaggDeleteRequest,
+    SecaggRequest,
+    TrainingPlanStatusRequest,
+    TrainRequest,
+)
 from fedbiomed.node.node import Node, NodeConfig
 from fedbiomed.node.round import Round
 
@@ -25,7 +28,6 @@ from fedbiomed.node.round import Round
 
 
 class TestNode(unittest.TestCase):
-
     train_request = TrainRequest(
         researcher_id="researcher-id",
         experiment_id="experiment-1",
@@ -139,7 +141,6 @@ class TestNode(unittest.TestCase):
         )
         self.n2n_router_patcher = self.n2n_router_patch.start()
 
-
         self.dataset_manager_patch = patch(
             "fedbiomed.node.node.DatasetManager", autospec=True
         )
@@ -154,36 +155,34 @@ class TestNode(unittest.TestCase):
         model_manager_mock.return_value = self.model_manager_mock
 
         # mocks
-        self.mock_dataset_manager.return_value.search_by_tags = MagicMock(return_value=self.database_val)
-        self.mock_dataset_manager.return_value.list_my_data = MagicMock(return_value=self.database_list)
-        self.mock_dataset_manager.return_value.reply_training_plan_status_request = MagicMock(
-            return_value=None
+        self.mock_dataset_manager.return_value.dataset_table.search_by_tags = MagicMock(
+            return_value=self.database_val
         )
-        self.mock_dataset_manager.return_value.obfuscate_private_information.side_effect = \
+        self.mock_dataset_manager.return_value.list_my_datasets = MagicMock(
+            return_value=self.database_list
+        )
+        self.mock_dataset_manager.return_value.reply_training_plan_status_request = (
+            MagicMock(return_value=None)
+        )
+        self.mock_dataset_manager.return_value.obfuscate_private_information.side_effect = (
             lambda x: x
-        self.mock_dataset_manager.return_value.get_by_id = MagicMock(return_value=self.database_id)
-
-
+        )
+        self.mock_dataset_manager.return_value.dataset_table.get_by_id = MagicMock(
+            return_value=self.database_id
+        )
 
         self.temp_dir = tempfile.TemporaryDirectory()
         # use temp_dir, and when done:
-        self.db = os.path.join(self.temp_dir.name, 'test-db.json')
+        self.db = os.path.join(self.temp_dir.name, "test-db.json")
         # creating Node objects
         self.node_config = NodeConfig(self.temp_dir.name)
         self.config = configparser.ConfigParser()
-        self.config["default"] = {
-            "id": "test-id",
-            "db": self.db
-        }
-        self.config["researcher"] = {
-            "ip": "test",
-            "port": "5151"
-        }
+        self.config["default"] = {"id": "test-id", "name": "test-name", "db": self.db}
+        self.config["researcher"] = {"ip": "test", "port": "5151"}
         self.config["security"] = {
             "hashing_algorithm": "SHA256",
-            "training_plan_approval": "True"
+            "training_plan_approval": "True",
         }
-
 
         self.node_config._cfg = self.config
         self.n1 = Node(self.node_config)
@@ -271,7 +270,7 @@ class TestNode(unittest.TestCase):
     def test_node_08_on_message_unknown_command(self):
         """Tests Exception is handled if command is not a known command
         (in `on_message` method)"""
-        ping_reply = PingReply(researcher_id="r1", node_id="n1")
+        ping_reply = PingReply(researcher_id="r1", node_id="n1", node_name="n1_name")
 
         # action
         self.n1.on_message(ping_reply.to_dict())
@@ -319,7 +318,7 @@ class TestNode(unittest.TestCase):
         round_init.return_value = None
 
         mock_dataset_manager = MagicMock()
-        mock_dataset_manager.get_by_id = MagicMock(return_value=None)
+        mock_dataset_manager.dataset_table.get_by_id = MagicMock(return_value=None)
         self.n1.dataset_manager = mock_dataset_manager
         self.n1.parser_task_train(self.train_request)
 
@@ -349,10 +348,10 @@ class TestNode(unittest.TestCase):
                 "secagg_clipping_range": None,
             },
             "round": 1,
-            'researcher_id': 'researcher_id_1234',
-            'dataset_id': 'dataset_id_1234',
-            'training': True,
-            'aggregator_args': {},
+            "researcher_id": "researcher_id_1234",
+            "dataset_id": "dataset_id_1234",
+            "training": True,
+            "aggregator_args": {},
             "optim_aux_var": None,
         }
         # we convert this dataset into a string
@@ -370,24 +369,25 @@ class TestNode(unittest.TestCase):
         # checks
         round_patch.assert_called_once_with(
             root_dir=self.node_config.root,
-            db=self.node_config.get('default', 'db'),
-            node_id=self.node_config.get('default', 'id'),
+            db=self.node_config.get("default", "db"),
+            node_id=self.node_config.get("default", "id"),
+            node_name=self.node_config.get("default", "name"),
             training_plan=dict_msg_1_dataset["training_plan"],
             training_plan_class=dict_msg_1_dataset["training_plan_class"],
             model_kwargs=dict_msg_1_dataset["model_args"],
             training_kwargs=dict_msg_1_dataset["training_args"],
             training=True,
             dataset=self.database_id,
-            params=dict_msg_1_dataset['params'],
-            experiment_id=dict_msg_1_dataset['experiment_id'],
-            researcher_id=dict_msg_1_dataset['researcher_id'],
+            params=dict_msg_1_dataset["params"],
+            experiment_id=dict_msg_1_dataset["experiment_id"],
+            researcher_id=dict_msg_1_dataset["researcher_id"],
             history_monitor=unittest.mock.ANY,
             aggregator_args=None,
             node_args=None,
             tp_security_manager=ANY,
             round_number=1,
             dlp_and_loading_block_metadata=None,
-            aux_vars=dict_msg_1_dataset['optim_aux_var']
+            aux_vars=dict_msg_1_dataset["optim_aux_var"],
         )
 
     @patch("fedbiomed.node.node.Round", autospec=True)
@@ -412,8 +412,8 @@ class TestNode(unittest.TestCase):
             "secagg_arguments": None,
             "dataset_id": "dataset_id_1234",
             "round": 0,
-            'aggregator_args': {},
-            "optim_aux_var": None
+            "aggregator_args": {},
+            "optim_aux_var": None,
         }
 
         #
@@ -431,24 +431,25 @@ class TestNode(unittest.TestCase):
         # checks
         round_patch.assert_called_once_with(
             root_dir=self.node_config.root,
-            db=self.node_config.get('default', 'db'),
-            node_id=self.node_config.get('default', 'id'),
-            training_plan=dict_msg_1_dataset['training_plan'],
-            training_plan_class=dict_msg_1_dataset['training_plan_class'],
+            db=self.node_config.get("default", "db"),
+            node_id=self.node_config.get("default", "id"),
+            node_name=self.node_config.get("default", "name"),
+            training_plan=dict_msg_1_dataset["training_plan"],
+            training_plan_class=dict_msg_1_dataset["training_plan_class"],
             model_kwargs=dict_msg_1_dataset["model_args"],
             training_kwargs=dict_msg_1_dataset["training_args"],
             tp_security_manager=ANY,
             training=True,
             dataset=self.database_id,
-            params=dict_msg_1_dataset['params'],
-            experiment_id=dict_msg_1_dataset['experiment_id'],
-            researcher_id=dict_msg_1_dataset['researcher_id'],
+            params=dict_msg_1_dataset["params"],
+            experiment_id=dict_msg_1_dataset["experiment_id"],
+            researcher_id=dict_msg_1_dataset["researcher_id"],
             history_monitor=unittest.mock.ANY,
             node_args=None,
             aggregator_args=None,
             round_number=0,
             dlp_and_loading_block_metadata=None,
-            aux_vars=dict_msg_1_dataset['optim_aux_var']
+            aux_vars=dict_msg_1_dataset["optim_aux_var"],
         )
 
     @patch("fedbiomed.common.tasks_queue.TasksQueue.get")

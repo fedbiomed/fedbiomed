@@ -6,7 +6,7 @@ keywords: training data,training plan,fedbiomed
 
 # The Training Plan
 
-A training plan is a class that defines the four main components of federated model training: the data, the model, the loss and the optimizer. It is responsible for providing custom methods allowing every node to perform the training.  In Fed-BioMed, you will be required to define a training plan class before submitting a federated training experiment.  You will do so by sub-classing one of the base training plan classes provided by the library, and overriding certain methods to suit your needs as explained below. The code of the whole training plan class is shipped to the nodes, meaning that you may define custom classes and functions inside it, and re-use them within the training routine.
+A training plan is a class that defines the four main components of federated model training: the data, the model, the loss and the optimizer. It is responsible for providing custom methods allowing every node to perform the training.  In Fed-BioMed, you will be required to define a training plan class before submitting a federated training experiment.  You will do so by sub-classing one of the base training plan classes provided by the library, and overriding certain methods to suit your needs as explained below. The code of the whole training plan class is shipped to the nodes, meaning that you may define custom classes and functions inside it, and reuse them within the training routine.
 
 !!! abstract "Training Plans"
     A Training Plan contains the recipe for executing the training loop on the nodes. It defines: the data, the model,
@@ -124,9 +124,9 @@ In both PyTorch and scikit-learn training plans, you are required to define a `t
 specs:
 
 1. takes as input a `batch_size` parameter
-2. returns a `fedbiomed.common.data.DataManager` object
+2. returns a `fedbiomed.common.datamanager.DataManager` object
 3. inside the method, a dataset is instantiated according to the data type that you wish to use (one of `torch.Dataset`,
-   `numpy.ndarray` or a `*Dataset` class from the `fedbiomed.common.data` module)
+   `numpy.ndarray` or a `*Dataset` class from the `fedbiomed.common.dataset` module)
 4. the dataset is used to initialize a `DataManager` class to be returned
 
 The signature of the `training_data` function is then:
@@ -160,7 +160,7 @@ the use of `model_args`.
 ```python
 import torch.nn as nn
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 
 
 # Here we define the model to be used.

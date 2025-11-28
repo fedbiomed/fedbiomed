@@ -9,11 +9,11 @@ from declearn.model.api import Vector
 from declearn.optimizer import Optimizer as DeclearnOptimizer
 from declearn.optimizer.modules import AuxVar, OptiModule
 from declearn.optimizer.regularizers import Regularizer
-from fedbiomed.common.optimizers.declearn import set_device_policy
 from typing_extensions import Self
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
+from fedbiomed.common.optimizers.declearn import set_device_policy
 
 
 class Optimizer:
@@ -40,7 +40,7 @@ class Optimizer:
                 the updates right before the learning rate is applied and model
                 weights are effectively updated.
             modules: Optional list of plug-in modules implementing gradients'
-                alteration into model weights' udpates. Modules will be applied
+                alteration into model weights' updates. Modules will be applied
                 to gradients following this list's ordering.
                 See `declearn.optimizer.modules.OptiModule` for details.
                 See Notes section below for details on the "specs" format.
@@ -145,7 +145,7 @@ class Optimizer:
             for mod in self._optimizer.modules:
                 grads = mod.run(grads)
             # Apply the base learning rate.
-            updates = - self._optimizer.lrate * grads
+            updates = -self._optimizer.lrate * grads
             # Optionally add the decoupled weight decay term.
             if self._optimizer.w_decay:
                 updates -= self._optimizer.w_decay * weights

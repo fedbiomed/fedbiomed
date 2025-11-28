@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from unittest.mock import patch
 
-from fedbiomed.common.metrics import Metrics, MetricTypes, _MetricCategory # noqa
+from fedbiomed.common.metrics import Metrics, MetricTypes, _MetricCategory  # noqa
 from fedbiomed.common.exceptions import FedbiomedMetricError
 
 
@@ -18,7 +18,7 @@ class TestMetrics(unittest.TestCase):
             MetricTypes.ACCURACY,
             MetricTypes.F1_SCORE,
             MetricTypes.RECALL,
-            MetricTypes.PRECISION
+            MetricTypes.PRECISION,
         ]
 
     # after the tests
@@ -26,167 +26,193 @@ class TestMetrics(unittest.TestCase):
         pass
 
     def _check_metrics_resuls(
-            self,
-            y_true,
-            y_pred,
-            metrics: list,
-            expected_value: int,
-            error_indication: str
+        self, y_true, y_pred, metrics: list, expected_value: int, error_indication: str
     ):
         # check for each metric: metrics(y_true, y_pred) = expected_value
 
         for metric in metrics:
             result = self.metrics.evaluate(y_true, y_pred, metric=metric)
-            self.assertEqual(result, expected_value, f'{error_indication}: Could not calculate  {metric} correctly')
+            self.assertEqual(
+                result,
+                expected_value,
+                f"{error_indication}: Could not calculate  {metric} correctly",
+            )
 
     def test_metrics_01_evaluate_base_errors(self):
         """Testing exceptions for evaluate method of metrics"""
 
         # Test invalid y_pred
         with self.assertRaises(FedbiomedMetricError):
-            y_true = 'toto'
+            y_true = "toto"
             y_pred = [1, 2, 3]
-            self.metrics.evaluate(y_true=y_true, y_pred=y_pred, metric=MetricTypes.ACCURACY)
+            self.metrics.evaluate(
+                y_true=y_true, y_pred=y_pred, metric=MetricTypes.ACCURACY
+            )
 
         # Test invalid y_true
         with self.assertRaises(FedbiomedMetricError):
             y_true = [1, 2, 3]
-            y_pred = 'toto'
-            self.metrics.evaluate(y_true=y_true, y_pred=y_pred, metric=MetricTypes.ACCURACY)
+            y_pred = "toto"
+            self.metrics.evaluate(
+                y_true=y_true, y_pred=y_pred, metric=MetricTypes.ACCURACY
+            )
 
         # Test invalid metric type
         with self.assertRaises(FedbiomedMetricError):
             y_true = [0, 0, 1, 0]
             y_pred = [0, 1, 1, 1]
-            self.metrics.evaluate(y_true=y_true, y_pred=y_pred, metric='DDD')
+            self.metrics.evaluate(y_true=y_true, y_pred=y_pred, metric="DDD")
 
     def test_metrics_02_evaluate_binary_classification_1D_array(self):
         """Testing evaluate method of metrics"""
 
         # Test both are 1D array with labels
 
-        examples = {'batch_size_normal': ([0, 1, 0, 1],  # y_true
-                                          [0, 1, 0, 1] ),  #  y_pred,
-                    'batch_size_1': ([0],  # y_true
-                                      [0])  # y_pred
-                                          }
-        
+        examples = {
+            "batch_size_normal": (
+                [0, 1, 0, 1],  # y_true
+                [0, 1, 0, 1],
+            ),  #  y_pred,
+            "batch_size_1": (
+                [0],  # y_true
+                [0],
+            ),  # y_pred
+        }
+
         for y_true, y_pred in examples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, "Binary")
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "Binary"
+            )
 
     def test_metrics_03_evaluate_binary_classification_1D_aray_string(self):
         # Test both are 1D array with labels as string
-        y_true = ['0', '1', '0', '1']
-        y_pred = ['0', '1', '0', '1']
-        self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, "Binary")
+        y_true = ["0", "1", "0", "1"]
+        y_pred = ["0", "1", "0", "1"]
+        self._check_metrics_resuls(
+            y_true, y_pred, self._classification_metrics, 1, "Binary"
+        )
 
     def test_metrics_04_evaluate_binary_classification_2D_1D_array(self):
         """Test where y_true is one-hot encoded while y_pred is not."""
         # Test y_true is 2D array and y_pred 1D array with num labels
 
         examples = {
-            'batch_size_normal': (
-                [[1, 0], [0, 1], [1, 0], [0, 1]], # y_true
-                [0, 1, 0, 1] # y_pred
+            "batch_size_normal": (
+                [[1, 0], [0, 1], [1, 0], [0, 1]],  # y_true
+                [0, 1, 0, 1],  # y_pred
             ),
-            'batch_size_1': (
-                [[1, 0]], # y_true
-                [0] # y_pred
+            "batch_size_1": (
+                [[1, 0]],  # y_true
+                [0],  # y_pred
             ),
-            'batch_size_2': ([[1, 0], [0, 1]], # y_true
-                [0, 1, ] # y_pred
+            "batch_size_2": (
+                [[1, 0], [0, 1]],  # y_true
+                [
+                    0,
+                    1,
+                ],  # y_pred
             ),
-            'batch_size_3':  ([[1, 0], [0, 1], [0, 0]], # y_true
-                [0, 1, 0] # y_pred
-            )
+            "batch_size_3": (
+                [[1, 0], [0, 1], [0, 0]],  # y_true
+                [0, 1, 0],  # y_pred
+            ),
         }
         for y_true, y_pred in examples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, "Binary")
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "Binary"
+            )
 
     def test_metrics_05_evaluate_binary_classification_2D_2D_array(self):
         # Test y_true and y_pred are 2D arrays
         examples = {
-            'batch_size_normal': (
+            "batch_size_normal": (
                 [[1, 0], [0, 1], [1, 0], [0, 1]],
-                [[1, 0], [0, 1], [1, 0], [0, 1]]
+                [[1, 0], [0, 1], [1, 0], [0, 1]],
             ),
-            'batch_size_1': (
-                [[1, 0]],
-                [[1, 0]]
-            ),
-             'batch_size_2': (
-                [[1, 0], [0, 1]],
-                [[1, 0], [0, 1]]
-            ),
-            'batch_size_3': (
-                [[1, 0], [0, 1], [1, 0]],
-                [[1, 0], [0, 1], [1, 0]]
-            ),
+            "batch_size_1": ([[1, 0]], [[1, 0]]),
+            "batch_size_2": ([[1, 0], [0, 1]], [[1, 0], [0, 1]]),
+            "batch_size_3": ([[1, 0], [0, 1], [1, 0]], [[1, 0], [0, 1], [1, 0]]),
         }
         for y_true, y_pred in examples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, "Binary")
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "Binary"
+            )
 
     def test_metrics_06_evaluate_binary_classification_1D_2D_array(self):
-      # Test y_true is 1D and y_pred is 2D array
+        # Test y_true is 1D and y_pred is 2D array
         examples = {
-            'batch_size_normal': (
-                [0, 1, 0, 1], # y_true
-                [[1, 0], [0, 1], [1, 0], [0, 1]] # y_pred
+            "batch_size_normal": (
+                [0, 1, 0, 1],  # y_true
+                [[1, 0], [0, 1], [1, 0], [0, 1]],  # y_pred
             ),
-            'batch_size_1': (
-                [0], # y_true
-                [[1, 0]] # y_pred
+            "batch_size_1": (
+                [0],  # y_true
+                [[1, 0]],  # y_pred
             ),
-            'batch_size_2': (
-                [0, 1, ], # y_true
-                [[1, 0], [0, 1]] # y_pred
+            "batch_size_2": (
+                [
+                    0,
+                    1,
+                ],  # y_true
+                [[1, 0], [0, 1]],  # y_pred
             ),
         }
         for y_true, y_pred in examples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, 'Binary')
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "Binary"
+            )
 
     def test_metrics_07_evaluate_binary_classification_1D_array_with_probs(self):
         # Binary: test y_true is 1D and y_pred is 1D array with probs
         examples = {
-            'batch_size_normal': (
-                [[0], [1], [0], [1]], # y_true
-                [[0.2], [0.6], [0.01], [0.8]] # y_pred
+            "batch_size_normal": (
+                [[0], [1], [0], [1]],  # y_true
+                [[0.2], [0.6], [0.01], [0.8]],  # y_pred
             ),
-            'batch_size_1': (
-                [[0]],
-                [[0.2]]
+            "batch_size_1": ([[0]], [[0.2]]),
+            "other_batch_size_4": (
+                [[0], [1], [0], [1]],  # y_true
+                [[0.8, 0.2], [0.4, 0.6], [0.99, 0.01], [0.2, 0.8]],  # y_pred
             ),
-            'other_batch_size_4': (
-                [[0], [1], [0], [1]], # y_true
-                [[0.8, 0.2], [.4, 0.6], [.99, 0.01], [.2, 0.8]] # y_pred
+            "other_batch_size_1": (
+                [
+                    [0],
+                ],  # y_true
+                [
+                    [0.8, 0.2],
+                ],  # y_pred
             ),
-            'other_batch_size_1': (
-                [[0],], # y_true
-                [[0.8, 0.2],] # y_pred
-            ), 
         }
         for y_true, y_pred in examples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, 'Binary')
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "Binary"
+            )
 
-    def test_metrics_08_evaluate_binary_classification_1D_array_multiclass_with_probs(self):
+    def test_metrics_08_evaluate_binary_classification_1D_array_multiclass_with_probs(
+        self,
+    ):
         # Multiclass: test y_true is 1D and y_pred is 1D array with probs
         examples = {
-            'batch_size_4': (
-                [[0], [1], [2], [1]], # y_true
-                [[0.8, .1, .1], [0.3, .6, .1], [0.4, .1, .5], [0.1, .8, .1]] # y_pred
+            "batch_size_4": (
+                [[0], [1], [2], [1]],  # y_true
+                [
+                    [0.8, 0.1, 0.1],
+                    [0.3, 0.6, 0.1],
+                    [0.4, 0.1, 0.5],
+                    [0.1, 0.8, 0.1],
+                ],  # y_pred
             ),
-            'batch_size_1': (
-                [[0]],
-                [[0.8, .1, .1]]
-            ),
-
+            "batch_size_1": ([[0]], [[0.8, 0.1, 0.1]]),
         }
         for y_true, y_pred in examples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, "Multiclass")
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "Multiclass"
+            )
 
-
-    def test_metrics_09_evaluate_multiclass_classification_1D_1D_array_if_continuous(self):
-        """ Multiclass: test y_true is 1D and y_pred is 1D array """
+    def test_metrics_09_evaluate_multiclass_classification_1D_1D_array_if_continuous(
+        self,
+    ):
+        """Multiclass: test y_true is 1D and y_pred is 1D array"""
 
         # Raises error since, metric is classification metric and y_true is continues
 
@@ -210,10 +236,10 @@ class TestMetrics(unittest.TestCase):
         r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
         self.assertEqual(r, 1)
 
-        y_true = [12.5, 11.5, 0., 1e1]
+        y_true = [12.5, 11.5, 0.0, 1e1]
         y_pred = [12.5, 11.5, 10.5, 19.5]
         r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
-        self.assertEqual(r, .5)
+        self.assertEqual(r, 0.5)
 
         # F1 SCORE -----------------------------------------------------------------------------
         y_true = [2.5, 0.1, 1.1, 2.2]
@@ -282,136 +308,192 @@ class TestMetrics(unittest.TestCase):
         """Multiclass: test y_true is 2D and y_pred is 2D array"""
 
         examples = {
-            'batch_size_normal': (
-                [[1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1]], # y_true
-                [[1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1]] # y_pred
+            "batch_size_normal": (
+                [[1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1]],  # y_true
+                [[1, 0, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1]],  # y_pred
             ),
-            'batch_size_1': (
-                [[1, 0, 0]],
-                [[1, 0, 0]]
-            )
+            "batch_size_1": ([[1, 0, 0]], [[1, 0, 0]]),
         }
         for y_true, y_pred in examples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, "muticlass")
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "muticlass"
+            )
 
     def test_metrics_11_evaluate_multiclass_classification_2D_2D_array_probs(self):
         """Multiclass: test y_true is 2D and y_pred is 2D array as float values"""
 
-
         examples = {
-            'batch_size_normal': (
-                [[0.5, -2, 2], [0.1, 1.5, 0.1], [-1.5, 1.2, 0.4], [-2.5, 1, 2.6]], # y_true
-                [[0.5, -2, 2], [0.1, 1.5, 0.1], [-1.5, 1.2, 0.4], [-2.5, 1, 2.6]] # y_pred
+            "batch_size_normal": (
+                [
+                    [0.5, -2, 2],
+                    [0.1, 1.5, 0.1],
+                    [-1.5, 1.2, 0.4],
+                    [-2.5, 1, 2.6],
+                ],  # y_true
+                [
+                    [0.5, -2, 2],
+                    [0.1, 1.5, 0.1],
+                    [-1.5, 1.2, 0.4],
+                    [-2.5, 1, 2.6],
+                ],  # y_pred
             ),
-            'batch_size_1': (
-                [[0.5, -2, 2]],
-                [[0.5, -2, 2]]
-            )
+            "batch_size_1": ([[0.5, -2, 2]], [[0.5, -2, 2]]),
         }
         for y_true, y_pred in examples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, 'Multiclass')
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "Multiclass"
+            )
 
     def test_metrics_12_evaluate_multiclass_classification_1D_2D_array_probs(self):
-        """ Multiclass: test y_true is 1D and y_pred is 2D array as float values"""
+        """Multiclass: test y_true is 1D and y_pred is 2D array as float values"""
 
-        examples = {'batch_size_4': ([2, 0, 1, 2],  # y_true
-                                     [[0.5, -2, 2], [2.1, 1.5, 0.1], [-1.5, 1.2, 0.4], [-2.5, 1, 2.6]]
-                                     #  y_pred
-                                     ),
-                    'batch_size_1': ([2],
-                                     [[.5, -2, 2]])}
+        examples = {
+            "batch_size_4": (
+                [2, 0, 1, 2],  # y_true
+                [[0.5, -2, 2], [2.1, 1.5, 0.1], [-1.5, 1.2, 0.4], [-2.5, 1, 2.6]],
+                #  y_pred
+            ),
+            "batch_size_1": ([2], [[0.5, -2, 2]]),
+        }
 
         for y_true, y_pred in examples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, "muticlass")
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "muticlass"
+            )
 
     def test_metrics_13_evaluate_multiclass_classification_1D_1D_array(self):
         """Multiclass: test y_true is 1D and y_pred is 1D array"""
-        exemples = {'batch_size_4': ([2, 0, 1, 2],  # y_true
-                                     [2, 0, 1, 2] ),  # y_pred
-                    'batch_size_1': ([2], 
-                                     [2])
-                                     }
-        for y_true, y_pred in exemples.values():
-            self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, "muticlass")
+        examples = {
+            "batch_size_4": (
+                [2, 0, 1, 2],  # y_true
+                [2, 0, 1, 2],
+            ),  # y_pred
+            "batch_size_1": ([2], [2]),
+        }
+        for y_true, y_pred in examples.values():
+            self._check_metrics_resuls(
+                y_true, y_pred, self._classification_metrics, 1, "muticlass"
+            )
 
     def test_metrics_14_evaluate_multiclass_classification_1D_1D_array_strings(self):
-        """ Multiclass: Test both are 1D array with labels as string """
+        """Multiclass: Test both are 1D array with labels as string"""
 
-        y_true = ['0', '1', '2', '1']
-        y_pred = ['0', '1', '2', '1']
-        self._check_metrics_resuls(y_true, y_pred, self._classification_metrics, 1, "multiclass")
+        y_true = ["0", "1", "2", "1"]
+        y_pred = ["0", "1", "2", "1"]
+        self._check_metrics_resuls(
+            y_true, y_pred, self._classification_metrics, 1, "multiclass"
+        )
 
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE, average='samples')
-        self.assertEqual(result, 1, 'Multiclass: Could not compute F1 Score correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL, average='samples')
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Recall correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION, average='samples')
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Precision correctly')
+        result = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.F1_SCORE, average="samples"
+        )
+        self.assertEqual(result, 1, "Multiclass: Could not compute F1 Score correctly")
+        result = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.RECALL, average="samples"
+        )
+        self.assertEqual(result, 1, "Multiclass: Could not compute Recall correctly")
+        result = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.PRECISION, average="samples"
+        )
+        self.assertEqual(result, 1, "Multiclass: Could not compute Precision correctly")
 
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.F1_SCORE, average='macro')
-        self.assertEqual(result, 1, 'Multiclass: Could not compute F1 Score correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.RECALL, average='macro')
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Recall correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION, average='macro')
-        self.assertEqual(result, 1, 'Multiclass: Could not compute Precision correctly')
+        result = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.F1_SCORE, average="macro"
+        )
+        self.assertEqual(result, 1, "Multiclass: Could not compute F1 Score correctly")
+        result = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.RECALL, average="macro"
+        )
+        self.assertEqual(result, 1, "Multiclass: Could not compute Recall correctly")
+        result = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.PRECISION, average="macro"
+        )
+        self.assertEqual(result, 1, "Multiclass: Could not compute Precision correctly")
 
     def test_metrics_15_evaluate_regression_1D_1D_array_strings(self):
-        """ Multiclass: Test both are 1D array with labels as string """
+        """Multiclass: Test both are 1D array with labels as string"""
 
         # Test exception if y_true and y_pred is in string type and metric is one of regression metrics
-        y_true = ['0', '1', '2', '1']
-        y_pred = ['0', '1', '2', '1']
+        y_true = ["0", "1", "2", "1"]
+        y_pred = ["0", "1", "2", "1"]
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.MEAN_SQUARE_ERROR)
 
         with self.assertRaises(FedbiomedMetricError):
-            self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.MEAN_ABSOLUTE_ERROR)
+            self.metrics.evaluate(
+                y_true, y_pred, metric=MetricTypes.MEAN_ABSOLUTE_ERROR
+            )
 
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.EXPLAINED_VARIANCE)
 
         y_true = [12, 13, 14, 15]
         y_pred = [11, 12, 13, 14]
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.MEAN_SQUARE_ERROR)
-        self.assertEqual(result, 1, 'Could not compute MEAN_SQUARE_ERROR correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.MEAN_ABSOLUTE_ERROR)
-        self.assertEqual(result, 1, 'Could not compute MEAN_ABSOLUTE_ERROR correctly')
-        result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.EXPLAINED_VARIANCE)
-        self.assertEqual(result, 1, 'Could not compute EXPLAINED_VARIANCE correctly')
+        result = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.MEAN_SQUARE_ERROR
+        )
+        self.assertEqual(result, 1, "Could not compute MEAN_SQUARE_ERROR correctly")
+        result = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.MEAN_ABSOLUTE_ERROR
+        )
+        self.assertEqual(result, 1, "Could not compute MEAN_ABSOLUTE_ERROR correctly")
+        result = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.EXPLAINED_VARIANCE
+        )
+        self.assertEqual(result, 1, "Could not compute EXPLAINED_VARIANCE correctly")
 
         # Should also calculate classification based metrics
         result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
-        self.assertEqual(result, 0, 'Could not compute ACCURACY for regression input correctly')
+        self.assertEqual(
+            result, 0, "Could not compute ACCURACY for regression input correctly"
+        )
 
         # Test multi output
-        examples = {'test_batch_size_4': ([[12, 12], [13, 13], [14, 14], [15, 15]],  # y_true
-                                          [[11, 11], [12, 12], [13, 13], [14, 14]],  # y_pred
-                                          ),
-                    'test_batch_size_1': ([[12, 12]],
-                                          [[11, 11]])}
+        examples = {
+            "test_batch_size_4": (
+                [[12, 12], [13, 13], [14, 14], [15, 15]],  # y_true
+                [[11, 11], [12, 12], [13, 13], [14, 14]],  # y_pred
+            ),
+            "test_batch_size_1": ([[12, 12]], [[11, 11]]),
+        }
         for y_true, y_pred in examples.values():
-            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.MEAN_SQUARE_ERROR)
-            self.assertListEqual(list(result), [1, 1], 'Could not compute MEAN_SQUARE_ERROR correctly')
-            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.MEAN_ABSOLUTE_ERROR)
-            self.assertListEqual(list(result), [1, 1], 'Could not compute MEAN_ABSOLUTE_ERROR correctly')
-            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.EXPLAINED_VARIANCE)
-            self.assertListEqual(list(result), [1, 1], 'Could not compute EXPLAINED_VARIANCE correctly')
+            result = self.metrics.evaluate(
+                y_true, y_pred, metric=MetricTypes.MEAN_SQUARE_ERROR
+            )
+            self.assertListEqual(
+                list(result), [1, 1], "Could not compute MEAN_SQUARE_ERROR correctly"
+            )
+            result = self.metrics.evaluate(
+                y_true, y_pred, metric=MetricTypes.MEAN_ABSOLUTE_ERROR
+            )
+            self.assertListEqual(
+                list(result), [1, 1], "Could not compute MEAN_ABSOLUTE_ERROR correctly"
+            )
+            result = self.metrics.evaluate(
+                y_true, y_pred, metric=MetricTypes.EXPLAINED_VARIANCE
+            )
+            self.assertListEqual(
+                list(result), [1, 1], "Could not compute EXPLAINED_VARIANCE correctly"
+            )
 
-        # Test missmatch shape for regression metrics should raise exception
+        # Test mismatch shape for regression metrics should raise exception
         y_true = [[12, 12], [13, 13], [14, 14], [15, 15]]
         y_pred = [11, 12, 13, 14]
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.MEAN_SQUARE_ERROR)
 
     def test_metrics_16_evaluate_shape_errors(self):
-        """ Multiclass: Testing error due to y_true and y_pred shapes """
+        """Multiclass: Testing error due to y_true and y_pred shapes"""
 
         y_true = [[0, 1], [0, 1], [0, 1], [0, 1]]
         y_pred = [[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]]
         with self.assertRaises(FedbiomedMetricError):
             result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
 
-        y_true = [[0, 1], [0, 1], ]
+        y_true = [
+            [0, 1],
+            [0, 1],
+        ]
         y_pred = [[[0, 1], [0, 1]], [[0, 1], [0, 1]]]
         with self.assertRaises(FedbiomedMetricError):
             result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
@@ -426,29 +508,33 @@ class TestMetrics(unittest.TestCase):
         with self.assertRaises(FedbiomedMetricError):
             self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
 
-    def test_metrics_16_evaluate_multiclass_classification_1D_1D_array_strings_errors(self):
+    def test_metrics_16_evaluate_multiclass_classification_1D_1D_array_strings_errors(
+        self,
+    ):
         """Test if predicted values and true values are not of same type"""
 
-        y_true = ['0', '1', '2', '1']
+        y_true = ["0", "1", "2", "1"]
         y_pred = [0, 1, 2, 1]
         with self.assertRaises(FedbiomedMetricError):
             result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
 
-    @patch('fedbiomed.common.metrics.metrics.accuracy_score')
-    @patch('fedbiomed.common.metrics.metrics.precision_score')
-    @patch('fedbiomed.common.metrics.metrics.recall_score')
-    @patch('fedbiomed.common.metrics.metrics.f1_score')
-    @patch('fedbiomed.common.metrics.metrics.mean_squared_error')
-    @patch('fedbiomed.common.metrics.metrics.mean_absolute_error')
-    @patch('fedbiomed.common.metrics.metrics.explained_variance_score')
-    def test_metrics_17_try_expect_blocks_of_eval_functions(self,
-                                                            patch_exp_variance,
-                                                            patch_mean_abs,
-                                                            patch_mean_sq,
-                                                            patch_f1_score,
-                                                            patch_recall_score,
-                                                            patch_precision_score,
-                                                            patch_accuracy):
+    @patch("fedbiomed.common.metrics.metrics.accuracy_score")
+    @patch("fedbiomed.common.metrics.metrics.precision_score")
+    @patch("fedbiomed.common.metrics.metrics.recall_score")
+    @patch("fedbiomed.common.metrics.metrics.f1_score")
+    @patch("fedbiomed.common.metrics.metrics.mean_squared_error")
+    @patch("fedbiomed.common.metrics.metrics.mean_absolute_error")
+    @patch("fedbiomed.common.metrics.metrics.explained_variance_score")
+    def test_metrics_17_try_expect_blocks_of_eval_functions(
+        self,
+        patch_exp_variance,
+        patch_mean_abs,
+        patch_mean_sq,
+        patch_f1_score,
+        patch_recall_score,
+        patch_precision_score,
+        patch_accuracy,
+    ):
         patch_accuracy.side_effect = Exception
         patch_precision_score.side_effect = Exception
         patch_recall_score.side_effect = Exception
@@ -483,7 +569,8 @@ class TestMetrics(unittest.TestCase):
 
 
 class TestMetricTypes(unittest.TestCase):
-    """ Testing Enum Class MetricTypes """
+    """Testing Enum Class MetricTypes"""
+
     def setUp(self) -> None:
         pass
 
@@ -491,7 +578,7 @@ class TestMetricTypes(unittest.TestCase):
         pass
 
     def test_metric_type_01_metric_category(self):
-        """ Testing the method metric category """
+        """Testing the method metric category"""
 
         mc = MetricTypes.ACCURACY.metric_category()
         self.assertEqual(mc, _MetricCategory.CLASSIFICATION_LABELS)
@@ -515,40 +602,47 @@ class TestMetricTypes(unittest.TestCase):
         self.assertEqual(mc, _MetricCategory.REGRESSION)
 
     def test_metric_type_02_get_all_metrics(self):
-        """ Testing method getting all metrics in MetricTypes """
+        """Testing method getting all metrics in MetricTypes"""
 
         all = MetricTypes.get_all_metrics()
-        expected = ['ACCURACY', 'F1_SCORE', 'PRECISION', 'RECALL', 'MEAN_SQUARE_ERROR',
-                    'MEAN_ABSOLUTE_ERROR', 'EXPLAINED_VARIANCE']
+        expected = [
+            "ACCURACY",
+            "F1_SCORE",
+            "PRECISION",
+            "RECALL",
+            "MEAN_SQUARE_ERROR",
+            "MEAN_ABSOLUTE_ERROR",
+            "EXPLAINED_VARIANCE",
+        ]
         self.assertListEqual(expected, all)
 
     def test_metric_type_02_get_metric_type_by_name(self):
-        """ Testing method getting all metrics in MetricTypes """
+        """Testing method getting all metrics in MetricTypes"""
 
-        mtype = MetricTypes.get_metric_type_by_name('ACCURACY')
+        mtype = MetricTypes.get_metric_type_by_name("ACCURACY")
         self.assertEqual(mtype, MetricTypes.ACCURACY)
 
-        mtype = MetricTypes.get_metric_type_by_name('PRECISION')
+        mtype = MetricTypes.get_metric_type_by_name("PRECISION")
         self.assertEqual(mtype, MetricTypes.PRECISION)
 
-        mtype = MetricTypes.get_metric_type_by_name('RECALL')
+        mtype = MetricTypes.get_metric_type_by_name("RECALL")
         self.assertEqual(mtype, MetricTypes.RECALL)
 
-        mtype = MetricTypes.get_metric_type_by_name('F1_SCORE')
+        mtype = MetricTypes.get_metric_type_by_name("F1_SCORE")
         self.assertEqual(mtype, MetricTypes.F1_SCORE)
 
-        mtype = MetricTypes.get_metric_type_by_name('EXPLAINED_VARIANCE')
+        mtype = MetricTypes.get_metric_type_by_name("EXPLAINED_VARIANCE")
         self.assertEqual(mtype, MetricTypes.EXPLAINED_VARIANCE)
 
-        mtype = MetricTypes.get_metric_type_by_name('MEAN_SQUARE_ERROR')
+        mtype = MetricTypes.get_metric_type_by_name("MEAN_SQUARE_ERROR")
         self.assertEqual(mtype, MetricTypes.MEAN_SQUARE_ERROR)
 
-        mtype = MetricTypes.get_metric_type_by_name('MEAN_ABSOLUTE_ERROR')
+        mtype = MetricTypes.get_metric_type_by_name("MEAN_ABSOLUTE_ERROR")
         self.assertEqual(mtype, MetricTypes.MEAN_ABSOLUTE_ERROR)
 
-        mtype = MetricTypes.get_metric_type_by_name('WRONG_NAME')
+        mtype = MetricTypes.get_metric_type_by_name("WRONG_NAME")
         self.assertIsNone(mtype)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

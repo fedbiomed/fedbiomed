@@ -2,28 +2,31 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Base class defining the shared API of all training plans."""
+
 import random
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypedDict, Union
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 
 from fedbiomed.common import utils
-from fedbiomed.common.constants import ErrorNumbers, ProcessTypes
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.constants import ErrorNumbers, ProcessTypes, TrainingPlans
+from fedbiomed.common.dataloader import DataLoader
 from fedbiomed.common.exceptions import (
-    FedbiomedError, FedbiomedModelError, FedbiomedTrainingPlanError
+    FedbiomedError,
+    FedbiomedModelError,
+    FedbiomedTrainingPlanError,
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.common.metrics import Metrics, MetricTypes
 from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers.generic_optimizers import BaseOptimizer
-from fedbiomed.common.utils import get_class_source
-from fedbiomed.common.utils import get_method_spec
-from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
+from fedbiomed.common.utils import get_class_source, get_method_spec
+
+if TYPE_CHECKING:
+    from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 class PreProcessDict(TypedDict):
@@ -59,13 +62,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     _model: Optional[Model]
     _optimizer: Optional[BaseOptimizer]
 
+    # Training plan type needs to be defined for every framework
+    _type = TrainingPlans.NoneTrainingPlan
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
         self.dataset_path: Union[str, None] = None
         self.pre_processes: Dict[str, PreProcessDict] = OrderedDict()
-        self.training_data_loader: Union[DataLoader, NPDataLoader, None] = None
-        self.testing_data_loader: Union[DataLoader, NPDataLoader, None] = None
+        self.training_data_loader: Union[DataLoader, None] = None
+        self.testing_data_loader: Union[DataLoader, None] = None
 
         # Arguments provided by the researcher; they will be populated by post_init
         self._model_args: Dict[str, Any] = None
@@ -74,9 +80,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
 
-        self._error_msg_import_model: str = f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n" +\
-                                            "To %s a model, you should do it through `fedbiomed.researcher.federated_workflows.Experiment`'s interface" +\
-                                            " and not directly from Training Plan"
+        self._error_msg_import_model: str = (
+            f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n"
+            + "To %s a model, you should do it through `fedbiomed.researcher.federated_workflows.Experiment`'s interface"
+            + " and not directly from Training Plan"
+        )
 
     @abstractmethod
     def model(self):
@@ -93,6 +101,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             if model is not instantiated.
         """
         return self._model
+
+    def type(self) -> TrainingPlans:
+        """Getter for training plan type"""
+        return self._type
 
     @property
     def dependencies(self):
@@ -115,12 +127,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     @abstractmethod
     def post_init(
-            self,
-            model_args: Dict[str, Any],
-            training_args: Dict[str, Any],
-            aggregator_args: Optional[Dict[str, Any]] = None,
-            initialize_optimizer: bool = True
-        ) -> None:
+        self,
+        model_args: Dict[str, Any],
+        training_args: Dict[str, Any],
+        aggregator_args: Optional[Dict[str, Any]] = None,
+        initialize_optimizer: bool = True,
+    ) -> None:
         """Process model, training and optimizer arguments.
 
         Args:
@@ -143,7 +155,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         # Set random seed: the seed can be either None or an int provided by the researcher.
         # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
-        rseed = training_args['random_seed']
+        rseed = training_args.get("random_seed")
         random.seed(rseed)
         np.random.seed(rseed)
 
@@ -171,10 +183,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         logger.debug(f"Dataset path has been set as {self.dataset_path}")
 
     def set_data_loaders(
-            self,
-            train_data_loader: Union[DataLoader, NPDataLoader, None],
-            test_data_loader: Union[DataLoader, NPDataLoader, None]
-        ) -> None:
+        self,
+        train_data_loader: Union[DataLoader, None],
+        test_data_loader: Union[DataLoader, None],
+    ) -> None:
         """Sets data loaders
 
         Args:
@@ -193,7 +205,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         return []
 
     def _configure_dependencies(self) -> None:
-        """ Configures dependencies """
+        """Configures dependencies"""
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:
             raise FedbiomedTrainingPlanError(
@@ -209,7 +221,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._add_dependency(dependencies)
 
     def source(self) -> str:
-
         try:
             class_source = get_class_source(self.__class__)
         except FedbiomedError as exc:
@@ -238,8 +249,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             content = self.source()
         else:
             if not isinstance(from_code, str):
-                raise FedbiomedTrainingPlanError(f"{ErrorNumbers.FB605}: Expected type str for `from_code`, "
-                                                 "got: {type(from_code)}")
+                raise FedbiomedTrainingPlanError(
+                    f"{ErrorNumbers.FB605}: Expected type str for `from_code`, "
+                    "got: {type(from_code)}"
+                )
             content = from_code
 
         try:
@@ -248,16 +261,25 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 file.write(content)
             logger.debug("Model file has been saved: " + filepath)
         except PermissionError as exc:
-            _msg = ErrorNumbers.FB605.value + f" : Unable to read {filepath} due to unsatisfactory privileges" + \
-                   ", can't write the model content into it"
+            _msg = (
+                ErrorNumbers.FB605.value
+                + f" : Unable to read {filepath} due to unsatisfactory privileges"
+                + ", can't write the model content into it"
+            )
             logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg) from exc
         except MemoryError as exc:
-            _msg = ErrorNumbers.FB605.value + f" : Can't write model file on {filepath}: out of memory!"
+            _msg = (
+                ErrorNumbers.FB605.value
+                + f" : Can't write model file on {filepath}: out of memory!"
+            )
             logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg) from exc
         except OSError as exc:
-            _msg = ErrorNumbers.FB605.value + f" : Can't open file {filepath} to write model content"
+            _msg = (
+                ErrorNumbers.FB605.value
+                + f" : Can't open file {filepath} to write model content"
+            )
             logger.critical(_msg)
             raise FedbiomedTrainingPlanError(_msg) from exc
 
@@ -272,9 +294,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         logger.critical(msg)
         raise FedbiomedTrainingPlanError(msg)
 
-    def get_model_params(self,
-                         only_trainable: bool = False,
-                         exclude_buffers: bool = True) -> Dict[str, Any]:
+    def get_model_params(
+        self, only_trainable: bool = False, exclude_buffers: bool = True
+    ) -> Dict[str, Any]:
         """Return a copy of the model's trainable weights.
 
         The type of data structure used to store weights depends on the actual
@@ -290,7 +312,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
         """
-        return self._model.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers)
+        return self._model.get_weights(
+            only_trainable=only_trainable, exclude_buffers=exclude_buffers
+        )
 
     def set_model_params(self, params: Dict[str, Any]) -> None:
         """Assign new values to the model's trainable parameters.
@@ -325,11 +349,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return {}
 
-    def add_preprocess(
-            self,
-            method: Callable,
-            process_type: ProcessTypes
-        ) -> None:
+    def add_preprocess(self, method: Callable, process_type: ProcessTypes) -> None:
         """Register a pre-processing method to be executed on training data.
 
         Args:
@@ -355,15 +375,15 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
         # NOTE: this may be revised into a list rather than OrderedDict
         self.pre_processes[method.__name__] = {
-            'method': method,
-            'process_type': process_type
+            "method": method,
+            "process_type": process_type,
         }
 
     def _preprocess(self) -> None:
         """Executes registered data pre-processors."""
         for name, process in self.pre_processes.items():
-            method = process['method']
-            process_type = process['process_type']
+            method = process["method"]
+            process_type = process["process_type"]
             if process_type == ProcessTypes.DATA_LOADER:
                 self._process_data_loader(method=method)
             else:
@@ -372,10 +392,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"Preprocessor '{name}' will therefore be ignored."
                 )
 
-    def _process_data_loader(
-            self,
-            method: Callable[..., Any]
-        ) -> None:
+    def _process_data_loader(self, method: Callable[..., Any]) -> None:
         """Handle a data-loader pre-processing action.
 
         Args:
@@ -393,7 +410,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         if len(argspec) != 1:
             msg = (
                 f"{ErrorNumbers.FB605.value}: preprocess method of type "
-                "`PreprocessType.DATA_LOADER` sould expect one argument: "
+                "`PreprocessType.DATA_LOADER` should expect one argument: "
                 "the data loader wrapping the training dataset."
             )
             logger.critical(msg)
@@ -408,9 +425,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             )
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg) from exc
-        logger.debug(
-            f"The process `{method.__name__}` has been successfully executed."
-        )
+        logger.debug(f"The process `{method.__name__}` has been successfully executed.")
         # Verify that the output is of proper type and assign it.
         if isinstance(data_loader, type(self.training_data_loader)):
             self.training_data_loader = data_loader
@@ -430,9 +445,16 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     @staticmethod
     def _create_metric_result_dict(
-            metric: Union[Dict[str, float], List[float], float, np.ndarray, torch.Tensor, List[torch.Tensor]],
-            metric_name: str = 'Custom'
-        ) -> Dict[str, float]:
+        metric: Union[
+            Dict[str, float],
+            List[float],
+            float,
+            np.ndarray,
+            torch.Tensor,
+            List[torch.Tensor],
+        ],
+        metric_name: str = "Custom",
+    ) -> Dict[str, float]:
         """Create a metrics result dictionary, feedable to a HistoryMonitor.
 
         Args:
@@ -459,16 +481,15 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             metric = list(metric) if metric.shape else float(metric)
 
         # If `metric` is a single value, including [val], return a {name: value} dict.
-        if isinstance(metric, (int, float, np.integer, np.floating)) and not \
-                isinstance(metric, bool):
+        if isinstance(metric, (int, float, np.integer, np.floating)) and not isinstance(
+            metric, bool
+        ):
             return {metric_name: float(metric)}
 
         # If `metric` is a collection.
         if isinstance(metric, (dict, list)):
             if isinstance(metric, list):
-                metric_names = [
-                    f"{metric_name}_{i + 1}" for i in range(len(metric))
-                ]
+                metric_names = [f"{metric_name}_{i + 1}" for i in range(len(metric))]
             elif isinstance(metric, dict):
                 metric_names = list(metric)
 
@@ -477,20 +498,22 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             except FedbiomedError as exc:
                 raise FedbiomedTrainingPlanError(
                     f"{ErrorNumbers.FB605.value}: error when converting "
-                    f"metric values to float - {exc}") from exc
-            return dict(zip(metric_names, values))
+                    f"metric values to float - {exc}"
+                ) from exc
+            return dict(zip(metric_names, values, strict=False))
 
         raise FedbiomedTrainingPlanError(
             f"{ErrorNumbers.FB605.value}: metric value should be one of type "
             "int, float, numpy scalar, numpy.ndarray, torch.Tensor, or list "
-            f"or dict wrapping such values; but received {type(metric)}")
+            f"or dict wrapping such values; but received {type(metric)}"
+        )
 
     @abstractmethod
     def training_routine(
-            self,
-            history_monitor: Optional['HistoryMonitor'] = None,
-            node_args: Optional[Dict[str, Any]] = None
-        ) -> None:
+        self,
+        history_monitor: Optional["HistoryMonitor"] = None,
+        node_args: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Training routine, to be called once per round.
 
         Args:
@@ -503,12 +526,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         return None
 
     def testing_routine(
-            self,
-            metric: Optional[MetricTypes],
-            metric_args: Dict[str, Any],
-            history_monitor: Optional['HistoryMonitor'],
-            before_train: bool,
-        ) -> None:
+        self,
+        metric: Optional[MetricTypes],
+        metric_args: Dict[str, Any],
+        history_monitor: Optional["HistoryMonitor"],
+        before_train: bool,
+    ) -> None:
         """Evaluation routine, to be called once per round.
 
         !!! info "Note"
@@ -519,7 +542,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             metric: The metric used for validation.
                 If None, use MetricTypes.ACCURACY.
-            metric_args: dicitonary containing additinal arguments for setting up metric,
+            metric_args: dictionary containing additional arguments for setting up metric,
                 that maps <argument_name; argument_value> ad that will be passed to the
                 metric function as positinal arguments.
             history_monitor: HistoryMonitor instance,
@@ -536,18 +559,19 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             raise FedbiomedTrainingPlanError(msg)
 
         n_samples = len(self.testing_data_loader.dataset)
-        n_batches = max(len(self.testing_data_loader) , 1)
+        n_batches = max(len(self.testing_data_loader), 1)
 
         # Set up a batch-wise metrics-computation function.
         # Either use an optionally-implemented custom training routine.
         if hasattr(self, "testing_step"):
-            evaluate = getattr(self, "testing_step")
+            evaluate = self.testing_step
             metric_name = "Custom"
         # Or use the provided `metric` (or its default value).
         else:
             if metric is None:
                 metric = MetricTypes.ACCURACY
             metric_controller = Metrics()
+
             def evaluate(data, target):
                 nonlocal metric, metric_args, metric_controller
                 output = self._model.predict(data)
@@ -557,13 +581,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 return metric_controller.evaluate(
                     target, output, metric=metric, **metric_args
                 )
+
             metric_name = metric.name
         # Iterate over the validation dataset and run the defined routine.
         num_samples_observed_till_now: int = 0
 
-
         for idx, (data, target) in enumerate(self.testing_data_loader, 1):
-
             num_samples_observed_till_now += self._infer_batch_size(data)
             # Run the evaluation step; catch and raise exceptions.
             try:
@@ -578,7 +601,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             # Log the computed value.
             # Reporting
 
-            if idx % self.training_args()['log_interval'] == 0 or idx == 1 or idx == n_batches:
+            if (
+                idx % self.training_args()["log_interval"] == 0
+                or idx == 1
+                or idx == n_batches
+            ):
                 logger.debug(
                     f"Validation: Batch {idx}/{n_batches} "
                     f"| Samples {num_samples_observed_till_now}/{n_samples} "
@@ -596,12 +623,13 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                         test_on_global_updates=before_train,
                         total_samples=n_samples,
                         batch_samples=num_samples_observed_till_now,
-                        num_batches=n_batches
+                        num_batches=n_batches,
                     )
 
-
     @staticmethod
-    def _infer_batch_size(data: Union[dict, list, tuple, 'torch.Tensor', 'np.ndarray']) -> int:
+    def _infer_batch_size(
+        data: Union[dict, list, tuple, "torch.Tensor", "np.ndarray"],
+    ) -> int:
         """Utility function to guess batch size from data.
 
         This function is a temporary fix needed to handle the case where
@@ -640,7 +668,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Returns:
             The trained parameters to aggregate.
         """
-        exclude_buffers = not self._training_args['share_persistent_buffers']
+        exclude_buffers = not self._training_args["share_persistent_buffers"]
         if flatten:
             return self._model.flatten(exclude_buffers=exclude_buffers)
         return self.get_model_params(exclude_buffers=exclude_buffers)
@@ -658,7 +686,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         !!! info "Notes":
             This method is designed to save the model to a local dump
-            file for easy re-use by the same user, possibly outside of
+            file for easy reuse by the same user, possibly outside of
             Fed-BioMed. It is not designed to produce trustworthy data
             dumps and is not used to exchange models and their weights
             as part of the federated learning process.
@@ -731,12 +759,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return self._loader_args
 
-    def optimizer_args(self) -> Dict[str, Any]:
+    def optimizer_args(self) -> Dict[str, Any]:  # noqa: F811
         """Retrieves optimizer arguments
 
         Returns:
             Optimizer arguments
         """
         return self._optimizer_args
-
-

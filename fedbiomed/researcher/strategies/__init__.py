@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-from .strategy import Strategy
 from .default_strategy import DefaultStrategy
+from .strategy import Strategy
 
 __all__ = [
     "DefaultStrategy",

@@ -1,6 +1,7 @@
 """
 Test module to test a big model (60MB) using dry run training
 """
+
 import pytest
 
 from helpers import (
@@ -11,12 +12,13 @@ from helpers import (
     clear_component_data,
     get_data_folder,
     create_researcher,
-    create_multiple_nodes
+    create_multiple_nodes,
 )
 
-from experiments.training_plans.mnist_pytorch_training_plan import BigModelMyTrainingPlan
+from experiments.training_plans.mnist_pytorch_training_plan import (
+    BigModelMyTrainingPlan,
+)
 
-from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
@@ -26,14 +28,14 @@ from fedbiomed.researcher.aggregators.scaffold import Scaffold
 @pytest.fixture(scope="module", autouse=True)
 def setup(port, post_session, request):
     """Setup fixture for the module"""
-    data_folder = get_data_folder('MNIST-e2e-test')
+    data_folder = get_data_folder("MNIST-e2e-test")
     with create_multiple_nodes(port, 3) as nodes:
         dataset = {
             "name": "MNIST",
             "description": "MNIST DATASET",
             "tags": "#MNIST,#dataset",
             "data_type": "default",
-            "path": data_folder
+            "path": data_folder,
         }
 
         for node in nodes:
@@ -49,26 +51,25 @@ def setup(port, post_session, request):
         print("Clearing component data")
         clear_component_data(researcher)
 
+
 #############################################
 ### Start writing tests
 ### Nodes will stay up till end of the tests
 #############################################
 
 
-
 def test_01_mnist_pytorch_big_model_training_dry_run():
     """Tests running training mnist with basic configuration"""
     model_args = {}
-    tags = ['#MNIST', '#dataset']
+    tags = ["#MNIST", "#dataset"]
     rounds = 30
     training_args = {
-        'loader_args': { 'batch_size': 48, },
-        'optimizer_args': {
-            "lr" : 1e-3
+        "loader_args": {
+            "batch_size": 48,
         },
-        'num_updates': 100,
-        'dry_run': True,
-
+        "optimizer_args": {"lr": 1e-3},
+        "num_updates": 100,
+        "dry_run": True,
     }
 
     exp = Experiment(
@@ -79,25 +80,26 @@ def test_01_mnist_pytorch_big_model_training_dry_run():
         round_limit=rounds,
         aggregator=FedAverage(),
         node_selection_strategy=None,
-        retain_full_history=False)
+        retain_full_history=False,
+    )
 
     exp.run()
 
     clear_experiment_data(exp)
 
+
 def test_02_mnist_pytorch_big_model_training_dry_run_native_scaffold():
     """Tests running training mnist with basic configuration"""
     model_args = {}
-    tags = ['#MNIST', '#dataset']
+    tags = ["#MNIST", "#dataset"]
     rounds = 30
     training_args = {
-        'loader_args': { 'batch_size': 48, },
-        'optimizer_args': {
-            "lr" : 1e-3
+        "loader_args": {
+            "batch_size": 48,
         },
-        'num_updates': 100,
-        'dry_run': True,
-
+        "optimizer_args": {"lr": 1e-3},
+        "num_updates": 100,
+        "dry_run": True,
     }
 
     exp = Experiment(
@@ -108,7 +110,8 @@ def test_02_mnist_pytorch_big_model_training_dry_run_native_scaffold():
         round_limit=rounds,
         aggregator=Scaffold(),
         node_selection_strategy=None,
-        retain_full_history=False)
+        retain_full_history=False,
+    )
 
     exp.run()
 

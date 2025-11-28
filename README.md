@@ -24,7 +24,7 @@ Develop branch is WIP branch for next release. It may not be fully usable, teste
 
 ## Install and run in development environment
 
-Fed-BioMed is developped under Linux Ubuntu & Fedora (should be easily ported to other Linux distributions) and MacOS X.
+Fed-BioMed is developed under Linux Ubuntu & Fedora (should be easily ported to other Linux distributions) and MacOS X.
 It is also ported on Windows WSL2.
 
 This README.md file provide a quick start/installation guide for Linux.
@@ -58,7 +58,7 @@ Fed-BioMed can be installed using `pip` with the following command:
 pip install fedbiomed[node, gui, researcher]
 ```
 
-If you prefer to use Fed-BioMed in development mode, please refer to the [Developer Environment Installation Documentation](https://fedbiomed.org/latest/developer/development-environment.md).
+If you prefer to use Fed-BioMed in development mode, please refer to the [Developer Environment Installation Documentation](https://fedbiomed.org/latest/developer/development-environment).
 
 ### Quick Start: Running Fed-BioMed
 

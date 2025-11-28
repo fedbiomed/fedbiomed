@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.constants import ProcessTypes
-from torch.utils.data import DataLoader
+from fedbiomed.common.dataloader import PytorchDataLoader
 from torchvision import datasets, transforms
-from monai.transforms import (Compose, NormalizeIntensity, AddChannel, Resize, AsDiscrete)
-from fedbiomed.common.data import MedicalFolderDataset
+from monai.transforms import (Compose, NormalizeIntensity, EnsureChannelFirst, Resize, AsDiscrete)
+from fedbiomed.common.dataset import MedicalFolderDataset
 import numpy as np
 from torch.optim import AdamW
 from unet import UNet
@@ -24,10 +24,10 @@ class UNetTrainingPlan(TorchTrainingPlan):
 
     def init_dependencies(self):
         # Here we define the custom dependencies that will be needed by our custom Dataloader
-        deps = ["from monai.transforms import (Compose, NormalizeIntensity, AddChannel, Resize, AsDiscrete)",
+        deps = ["from monai.transforms import (Compose, NormalizeIntensity, EnsureChannelFirst, Resize, AsDiscrete)",
                "import torch.nn as nn",
                'import torch.nn.functional as F',
-               "from fedbiomed.common.data import MedicalFolderDataset",
+               "from fedbiomed.common.dataset import MedicalFolderDataset",
                'import numpy as np',
                'from torch.optim import AdamW',
                'from unet import UNet']
@@ -101,10 +101,8 @@ class UNetTrainingPlan(TorchTrainingPlan):
         keys_to_keep = ['HEIGHT', 'WEIGHT']
         out = np.array([float(val) for key, val in demographics.items() if key in keys_to_keep])
 
-        # more complex: generate dummy variables for site name
-        # not ideal as it requires knowing the site names in advance
-        # could be better implemented with some preprocess
         site_names = ['Guys', 'IOP', 'HH']
+        
         len_dummy_vars = len(site_names) + 1
         dummy_vars = np.zeros(shape=(len_dummy_vars,))
         site_name = demographics['SITE_NAME']
@@ -114,38 +112,42 @@ class UNetTrainingPlan(TorchTrainingPlan):
             site_idx = len_dummy_vars - 1
         dummy_vars[site_idx] = 1.
 
-        return np.concatenate((out, dummy_vars))
+        return torch.from_numpy(np.concatenate((out, dummy_vars)))
+        
 
-
+    def _id_function(self, x):
+        return x
+    
     def training_data(self):
-    # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
+        # The training_data creates the Dataloader to be used for training in the general class Torchnn of fedbiomed
         common_shape = (48, 60, 48)
-        training_transform = Compose([AddChannel(), Resize(common_shape), NormalizeIntensity(),])
-        target_transform = Compose([AddChannel(), Resize(common_shape), AsDiscrete(to_onehot=2)])
 
-        dataset = MedicalFolderDataset(
-            root=self.dataset_path,
-            data_modalities='T1',
+        training_transform = Compose([EnsureChannelFirst(channel_dim="no_channel"), Resize(common_shape), NormalizeIntensity(),])
+        target_transform = Compose([EnsureChannelFirst(channel_dim="no_channel"), Resize(common_shape), AsDiscrete(to_onehot=2)])
+        
+        loader_arguments = { 'shuffle': True}
+
+        mf = MedicalFolderDataset(
+            data_modalities=['T1', 'demographics'],
             target_modalities='label',
-            transform=training_transform,
-            target_transform=target_transform,
-            demographics_transform=UNetTrainingPlan.demographics_transform)
-        loader_arguments = {'shuffle': True}
-        return DataManager(dataset, **loader_arguments)
-
+            transform={'T1': training_transform, 'demographics': UNetTrainingPlan.demographics_transform },
+            target_transform={ 'label': target_transform },
+        )
+        return DataManager(mf, **loader_arguments)
+        
 
     def training_step(self, data, target):
         #this function must return the loss to backward it
-        img = data[0]['T1']
-        demographics = data[1]
+        img = data['T1']
+        demographics = data['demographics']
         output = self.model().forward(img)
         loss = UNetTrainingPlan.get_dice_loss(output, target['label'])
         avg_loss = loss.mean()
         return avg_loss
 
     def testing_step(self, data, target):
-        img = data[0]['T1']
-        demographics = data[1]
+        img = data['T1']
+        demographics = data['demographics']
         target = target['label']
         prediction = self.model().forward(img)
         loss = UNetTrainingPlan.get_dice_loss(prediction, target)

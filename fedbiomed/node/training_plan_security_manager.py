@@ -1,33 +1,33 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Manages training plan approval for a node.
-"""
+"""Manages training plan approval for a node."""
 
-from datetime import datetime
 import hashlib
 import os
 import re
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Tuple, Union
+
 from python_minifier import minify
 from tabulate import tabulate
-from tinydb import TinyDB, Query
-from typing import Any, Dict, List, Tuple, Union
-import uuid
+from tinydb import Query, TinyDB
 
 from fedbiomed.common.constants import (
+    ErrorNumbers,
     HashingAlgorithms,
     TrainingPlanApprovalStatus,
     TrainingPlanStatus,
-    ErrorNumbers,
 )
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
-    ApprovalRequest,
     ApprovalReply,
-    TrainingPlanStatusRequest,
+    ApprovalRequest,
     TrainingPlanStatusReply,
+    TrainingPlanStatusRequest,
 )
 from fedbiomed.common.utils import SHARE_DIR
 
@@ -51,8 +51,9 @@ class TrainingPlanSecurityManager:
         self,
         db: str,
         node_id: str,
+        node_name: str,
         hashing: str,
-        tp_approval: bool = False
+        tp_approval: bool = False,
     ) -> None:
         """Class constructor for TrainingPlanSecurityManager.
 
@@ -67,8 +68,12 @@ class TrainingPlanSecurityManager:
         """
 
         self._node_id = node_id
+        self._node_name = node_name
+
         self._tp_approval = tp_approval
-        self._default_tps = os.path.join(SHARE_DIR, 'envs', 'common', 'default_training_plans')
+        self._default_tps = os.path.join(
+            SHARE_DIR, "envs", "common", "default_training_plans"
+        )
         self._tinydb = TinyDB(db)
         self._tinydb.table_class = DBTable
         # dont use DB read cache for coherence when updating from multiple sources (eg: GUI and CLI)
@@ -135,8 +140,7 @@ class TrainingPlanSecurityManager:
         except Exception as err:
             # minify doesn't provide any specific exception
             raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value + f": cannot minify source code "
-                f"details: {err}"
+                ErrorNumbers.FB606.value + f": cannot minify source code details: {err}"
             ) from err
         # Hash training plan content based on active hashing algorithm
         if hash_algo in HashingAlgorithms.list():
@@ -290,7 +294,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + " : database insertion failed with"
                 f" following error: {str(err)}"
-            )
+            ) from err
         return training_plan_id
 
     def check_hashes_for_registered_training_plans(self):
@@ -314,16 +318,16 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
                 + f"database search operation failed, with following error: {str(e)}"
-            )
+            ) from e
         logger.info("Checking hashes for registered training plans")
         if not training_plans:
             logger.info("There are no training plans registered")
         else:
-            for training_plan, doc in zip(training_plans, docs):
+            for training_plan, _doc in zip(training_plans, docs, strict=False):
                 # If training plan file is exists
                 if training_plan["algorithm"] != self._hashing:
                     logger.info(
-                        f'Recreating hashing for : {training_plan["name"]} \t {training_plan["training_plan_id"]}'
+                        f"Recreating hashing for : {training_plan['name']} \t {training_plan['training_plan_id']}"
                     )
                     hashing, algorithm, _ = self._create_hash(
                         training_plan["training_plan"], from_string=True
@@ -349,7 +353,7 @@ class TrainingPlanSecurityManager:
                             ErrorNumbers.FB606.value
                             + ": database update failed, with error "
                             f" {str(err)}"
-                        )
+                        ) from err
 
     def check_training_plan_status(
         self,
@@ -513,6 +517,7 @@ class TrainingPlanSecurityManager:
             "researcher_id": request.researcher_id,
             "request_id": request.request_id,
             "node_id": self._node_id,
+            "node_name": self._node_name,
             "message": "",
             "status": 0,  # HTTP status (set by default to 0, non-existing HTTP status code)
         }
@@ -565,7 +570,6 @@ class TrainingPlanSecurityManager:
                     training_plan_object, self._database.hash == training_plan_hash
                 )
             except Exception as err:
-
                 logger.error(
                     f"Cannot add training plan in database due to error : {err}"
                 )
@@ -626,6 +630,7 @@ class TrainingPlanSecurityManager:
             "researcher_id": request.researcher_id,
             "request_id": request.request_id,
             "node_id": self._node_id,
+            "node_name": self._node_name,
             "experiment_id": request.experiment_id,
             "approval_obligation": True,
             "training_plan": request.training_plan,
@@ -704,7 +709,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
                 + f"database search operation failed, with following error: {str(e)}"
-            )
+            ) from e
 
         # Get training plan names from list of training plans
         training_plans_dict = {
@@ -749,7 +754,7 @@ class TrainingPlanSecurityManager:
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     ErrorNumbers.FB606.value + ": failed to update database, "
                     f" with error {str(err)}"
-                )
+                ) from err
         # Update training plans
         for training_plan in training_plans_exists:
             path = os.path.join(self._default_tps, training_plan)
@@ -761,7 +766,7 @@ class TrainingPlanSecurityManager:
                     ErrorNumbers.FB606.value
                     + f": failed to get training_plan info for training plan {training_plan}"
                     f"Details : {str(err)}"
-                )
+                ) from err
 
             # Check if hashing algorithm has changed
             try:
@@ -773,7 +778,7 @@ class TrainingPlanSecurityManager:
                     # Verify no such training plan already exists in DB
                     self._check_training_plan_not_existing(None, hash, algorithm)
                     logger.info(
-                        f'Recreating hashing for : {training_plan_info["name"]} \t'
+                        f"Recreating hashing for : {training_plan_info['name']} \t"
                         '{training_plan_info["training_plan_id"]}'
                     )
 
@@ -821,7 +826,7 @@ class TrainingPlanSecurityManager:
                     ErrorNumbers.FB606.value
                     + ": Failed to update database, with error: "
                     f"{str(err)}"
-                )
+                ) from err
 
     def update_training_plan_hash(self, training_plan_id: str, path: str) -> True:
         """Updates an existing training plan entry in training plan database.
@@ -852,7 +857,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + ": get request on database failed."
                 f" Details: {str(err)}"
-            )
+            ) from err
         if training_plan["training_plan_type"] != TrainingPlanStatus.DEFAULT.value:
             hash, algorithm, source = self._create_hash(path)
             # Verify no such training plan already exists in DB
@@ -881,7 +886,7 @@ class TrainingPlanSecurityManager:
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     ErrorNumbers.FB606.value + ": update database failed. Details :"
                     f"{str(err)}"
-                )
+                ) from err
         else:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
@@ -1007,7 +1012,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + ": cannot get training plan from database."
                 f"Details: {str(err)}"
-            )
+            ) from err
 
         if training_plan is None:
             raise FedbiomedTrainingPlanSecurityManagerError(
@@ -1022,7 +1027,7 @@ class TrainingPlanSecurityManager:
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     ErrorNumbers.FB606.value
                     + f": cannot remove training plan from database. Details: {str(err)}"
-                )
+                ) from err
         else:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
@@ -1047,7 +1052,7 @@ class TrainingPlanSecurityManager:
             select_status: filter list by training plan status or list of training plan statuses
             verbose: When it is True, print list of training plan in tabular format.
                 Default is True.
-            search: Dictionary that contains `text` property to declare the text that wil be search and `by`
+            search: Dictionary that contains `text` property to declare the text that will be search and `by`
                 property to declare text will be search on which field
 
         Returns:
@@ -1089,7 +1094,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 f"{ErrorNumbers.FB606.value}: request failed when looking for a training plan into database with "
                 f"error: {err}"
-            )
+            ) from err
 
         # Drop some keys for security reasons
         for doc in training_plans:

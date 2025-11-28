@@ -2,26 +2,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.data import DataManager
+from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.constants import ProcessTypes
-from torch.utils.data import DataLoader
+from fedbiomed.common.dataloader import PytorchDataLoader
 from torchvision import datasets, transforms
-from torch.utils.data import Dataset
+from fedbiomed.common.dataset import CustomDataset
 from torchvision import transforms
 import pandas as pd
 from PIL import Image
 import os
 import numpy as np
 class CelebaTrainingPlan(TorchTrainingPlan):
-         
-    # Defines model 
+
+    # Defines model
     def init_model(self):
         model = self.Net()
-        return model 
-    
+        return model
+
     # Here we define the custom dependencies that will be needed by our custom Dataloader
     def init_dependencies(self):
-        deps = ["from torch.utils.data import Dataset",
+        deps = ["from fedbiomed.common.dataset import CustomDataset",
                 "from torchvision import transforms",
                 "import pandas as pd",
                 "from PIL import Image",
@@ -31,7 +31,7 @@ class CelebaTrainingPlan(TorchTrainingPlan):
 
     # Torch modules class
     class Net(nn.Module):
-        
+
         def __init__(self):
             super().__init__()
             #convolution layers
@@ -73,41 +73,41 @@ class CelebaTrainingPlan(TorchTrainingPlan):
             return output
 
 
-    class CelebaDataset(Dataset):
+    class CelebaDataset(CustomDataset):
         """Custom Dataset for loading CelebA face images"""
-        
-        # we dont load the full data of the images, we retrieve the image with the get item. 
-        # in our case, each image is 218*178 * 3colors. there is 67533 images. this take at leas 7G of ram
-        # loading images when needed takes more time during training but it wont impact the ram usage as much as loading everything
-        def __init__(self, txt_path, img_dir, transform=None):
-            df = pd.read_csv(txt_path, sep="\t", index_col=0)
-            self.img_dir = img_dir
-            self.txt_path = txt_path
+
+        # we dont load the full data of the images, we retrieve the image with the get item.
+        # in our case, each image is 218*178 * 3colors. there is 67533 images. this take at least 7G of ram
+        # loading images when needed takes more time during training but it won't impact the ram usage as much as loading everything
+
+        def read(self):
+            self.csv_path = self.path + '/' + 'target.csv'
+            self.img_dir = self.path + '/' + 'data'
+    
+            # Read the CSV file that contains labels for each image
+            df = pd.read_csv(self.csv_path, sep="\t", index_col=0)
             self.img_names = df.index.values
             self.y = df['Smiling'].values
-            self.transform = transform
-            print("celeba dataset finished")
-
-        def __getitem__(self, index):
-            img = np.asarray(Image.open(os.path.join(self.img_dir,
-                                        self.img_names[index])))
+    
+        def get_item(self, index):
+            img = np.asarray(Image.open(os.path.join(self.img_dir, self.img_names[index])))
             img = transforms.ToTensor()(img)
-            label = self.y[index]
+            label = torch.tensor(self.y[index])
             return img, label
-
+    
         def __len__(self):
             return self.y.shape[0]
-    
-    # The training_data creates the Dataloader to be used for training in the 
+            
+    # The training_data creates the Dataloader to be used for training in the
     # general class Torchnn of fedbiomed
     def training_data(self):
-        dataset = self.CelebaDataset(self.dataset_path + "/target.csv", self.dataset_path + "/data/")
-        train_kwargs = {'shuffle': True}
-        return DataManager(dataset, **train_kwargs)
-    
-    # This function must return the loss to backward it 
+        dataset = self.CelebaDataset()
+        loader_arguments = { 'shuffle': True}
+        return DataManager(dataset, **loader_arguments)
+
+    # This function must return the loss to backward it
     def training_step(self, data, target):
-        
+
         output = self.model().forward(data)
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss

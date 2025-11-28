@@ -8,14 +8,13 @@ inputs:
   python-version:
     description: 'Python version to install'
     required: true
-    default: '3.10'
 
 runs:
   using: 'composite'
   steps:
         # Set up Pyenv on Linux and macOS permanently
-    - name: Set up Node.js
-      uses: ./.github/actions/setup-node-env
+    # - name: Set up Node.js
+    #   uses: ./.github/actions/setup-node-env
 
     - name: Is Fedora
       id: is-fedora
@@ -34,8 +33,7 @@ runs:
       shell: bash -l {0}
       run: |
         brew_install=false
-        if [[ "${{ inputs.python-version }}" == "3.10" && \
-              "${{ runner.environment }}" == "self-hosted" && \
+        if [[ "${{ runner.environment }}" == "self-hosted" && \
               "${{ runner.os }}" == "macOS" ]]; then
           brew_install=true
         fi
@@ -61,7 +59,7 @@ runs:
       if: steps.is-brew.outputs.brew_install == 'true'
       run: |
           V=${{ inputs.python-version }}
-          brew install python@$V
+          arch -arm64 brew install python@$V
           sudo ln -sf $(brew --prefix)/opt/python@$V/bin/python$V /usr/local/bin/python
 
           if ! command -v pip &> /dev/null; then

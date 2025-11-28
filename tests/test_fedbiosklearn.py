@@ -11,59 +11,87 @@ To add a new sklearn model for testing, you should include its name in the `impl
 specialized class).
 """
 
+import logging
 import os
 import tempfile
 import unittest
-import logging
-import numpy as np
 from copy import deepcopy
-from unittest.mock import MagicMock, patch
 from unittest.mock import MagicMock, create_autospec, patch
 
-from sklearn.linear_model import SGDClassifier, Perceptron
+import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.linear_model import Perceptron, SGDClassifier
 
 import fedbiomed.node.history_monitor
-from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.constants import TrainingPlans
+from fedbiomed.common.dataloader import SkLearnDataLoader
+from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.data import NPDataLoader
+from fedbiomed.common.models import (
+    BaseSkLearnModel,
+    SGDClassifierSKLearnModel,
+    SkLearnModel,
+)
 from fedbiomed.common.optimizers.generic_optimizers import NativeSkLearnOptimizer
-from fedbiomed.common.training_plans import SKLearnTrainingPlan, FedPerceptron, FedSGDRegressor, FedSGDClassifier
-from fedbiomed.common.training_plans._sklearn_models import SKLearnTrainingPlanPartialFit
-from fedbiomed.common.models import SkLearnModel, BaseSkLearnModel, SGDClassifierSKLearnModel
-
-
+from fedbiomed.common.training_plans import (
+    FedPerceptron,
+    FedSGDClassifier,
+    FedSGDRegressor,
+    SKLearnTrainingPlan,
+)
+from fedbiomed.common.training_plans._sklearn_models import (
+    SKLearnTrainingPlanPartialFit,
+)
 
 
 class Custom:
     def testing_step(mydata, mytarget):
-        return {'Metric': 42.0}
+        return {"Metric": 42.0}
 
 
 class FakeTrainingArgs(dict):
-    """Mimics TrainingArgs class
-    """
+    """Mimics TrainingArgs class"""
+
     def __init__(self):
-        self['random_seed'] = 42
+        self["random_seed"] = 42
 
     def optimizer_arguments(self):
-        return {'lr': 1e-2}
+        return {"lr": 1e-2}
 
     def pure_training_arguments(self):
-        return {"epochs": 1,
-                "batch_maxnum": 2,
-                'share_persistent_buffers' : True,
-                'log_interval':10}
+        return {
+            "epochs": 1,
+            "batch_maxnum": 2,
+            "share_persistent_buffers": True,
+            "log_interval": 10,
+        }
 
     def loader_arguments(self):
-        return {'batch_size': 1}
+        return {"batch_size": 1}
+
+
+class TestDataset(Dataset):
+    def __init__(self):
+        self._data = [np.array((i, i * 2)) for i in range(10)]  # simple data
+        self._target = [np.array(i * 3) for i in range(10)]  # corresponding target
+
+    def complete_initialization(self) -> None:
+        pass
+
+    def __getitem__(self, idx: int) -> tuple:
+        return self._data[idx], self._target[idx]
+
+    def __len__(self) -> int:
+        return len(self._data)
 
 
 class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
     def setUp(self):
         logging.disable(logging.CRITICAL)
-        self.abstract_methods_patcher = patch.multiple(SKLearnTrainingPlan, __abstractmethods__=set())
+        self.abstract_methods_patcher = patch.multiple(
+            SKLearnTrainingPlan, __abstractmethods__=set()
+        )
         self.abstract_methods_patcher.start()
         SKLearnTrainingPlan._model_cls = FedPerceptron._model_cls  # just for testing
 
@@ -72,64 +100,69 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         self.abstract_methods_patcher.stop()
 
     def test_sklearntrainingplanbasicinheritance_01_dataloaders(self):
-        X = np.array([])
-        loader = NPDataLoader(dataset=X, target=X)
+        X = TestDataset()
+        loader = SkLearnDataLoader(dataset=X)
 
         training_plan = SKLearnTrainingPlan()
         training_plan.set_data_loaders(loader, loader)
 
         with self.assertRaises(FedbiomedTrainingPlanError):
-            training_plan.set_data_loaders('wrong-type', 'wrong-type')
+            training_plan.set_data_loaders("wrong-type", "wrong-type")
 
     def test_sklearntrainingplanbasicinheritance_02_training_testing_routine(self):
         training_plan = SKLearnTrainingPlan()
 
-        X = np.array([])
-        loader = NPDataLoader(dataset=X, target=X)
+        X = TestDataset()
+        loader = SkLearnDataLoader(dataset=X)
         training_plan._model = MagicMock(spec=BaseSkLearnModel, is_classification=True)
         training_plan._optimizer = MagicMock(spec=NativeSkLearnOptimizer)
         training_plan.set_data_loaders(loader, loader)
         training_plan.training_routine()  # assert this works without failure
 
-        # Data loader is not of the correct type
-        with patch.object(training_plan, 'training_data_loader'):
-            with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.training_routine()
-
         # The training routine raises some error (here ValueError for example)
-        with patch.object(training_plan, '_training_routine', side_effect=ValueError):
+        with patch.object(training_plan, "_training_routine", side_effect=ValueError):
             with self.assertRaises(FedbiomedTrainingPlanError):
                 training_plan.training_routine()
 
         # Node requests GPU, but sklearn does not support it
-        logging.disable(logging.NOTSET)  # Temporarily re-enable logging to capture warning output
-        with self.assertLogs('fedbiomed', logging.DEBUG) as captured:
-            training_plan.training_routine(node_args={'gpu_only': True})
-            self.assertIn('Node would like to force GPU usage, but sklearn training '
-                          'plan does not support it. Training on CPU.',
-                          captured.output[0])
+        logging.disable(
+            logging.NOTSET
+        )  # Temporarily re-enable logging to capture warning output
+        with self.assertLogs("fedbiomed", logging.DEBUG) as captured:
+            training_plan.training_routine(node_args={"gpu_only": True})
+            self.assertIn(
+                "Node would like to force GPU usage, but sklearn training "
+                "plan does not support it. Training on CPU.",
+                captured.output[0],
+            )
         logging.disable(logging.CRITICAL)
 
         # testing_routine for classification tasks should create classes on the fly if they don't exist
         with (
-                patch.object(training_plan, 'model') as model_method_patch,
-                patch.object(training_plan, '_classes_from_concatenated_train_test', return_value=np.array([0, 1])),
-                patch('fedbiomed.common.training_plans.BaseTrainingPlan.testing_routine', return_value=None)
-               ):
+            patch.object(training_plan, "model") as model_method_patch,
+            patch.object(
+                training_plan,
+                "_classes_from_concatenated_train_test",
+                return_value=np.array([0, 1]),
+            ),
+            patch(
+                "fedbiomed.common.training_plans.BaseTrainingPlan.testing_routine",
+                return_value=None,
+            ),
+        ):
             model_method_patch.return_value = MagicMock(spec=BaseEstimator)
-            training_plan.testing_routine(metric=None, metric_args={}, history_monitor=None, before_train=True)
-            self.assertTrue(hasattr(training_plan.model(), 'classes_'))
+            training_plan.testing_routine(
+                metric=None, metric_args={}, history_monitor=None, before_train=True
+            )
+            self.assertTrue(hasattr(training_plan.model(), "classes_"))
             self.assertListEqual([x for x in training_plan.model().classes_], [0, 1])
 
         # Inferring the classes works correctly
-        X = np.array([0, 1, 2, 3, 0, 1, 2])
-        loader = NPDataLoader(dataset=X, target=X)
+        X = TestDataset()
+        loader = SkLearnDataLoader(dataset=X)
         training_plan.set_data_loaders(loader, loader)
         classes = training_plan._classes_from_concatenated_train_test()
-        self.assertListEqual(
-            [x for x in classes],
-            [x for x in np.unique(X)]
-        )
+        self.assertListEqual([x for x in classes], [x for x in np.unique(X._target)])
 
     def test_sklearntrainingplanbasicinheritance_03_export_model(self):
         training_plan = SKLearnTrainingPlan()
@@ -137,15 +170,15 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         # first test export_model when model hasnot been created
 
         with self.assertRaises(FedbiomedTrainingPlanError):
-            training_plan.import_model('model_file.pt')
+            training_plan.import_model("model_file.pt")
 
-        # then test when modle has been created (eg through Experiment)
-        training_plan._model = create_autospec(spec=fedbiomed.common.models._sklearn.BaseSkLearnModel,
-                                               instance=True)
+        # then test when model has been created (eg through Experiment)
+        training_plan._model = create_autospec(
+            spec=fedbiomed.common.models._sklearn.BaseSkLearnModel, instance=True
+        )
 
-        training_plan.export_model('filename')
-        training_plan._model.export.assert_called_once_with('filename')
-
+        training_plan.export_model("filename")
+        training_plan._model.export.assert_called_once_with("filename")
 
     def test_sklearntrainingplanbasicinheritance_04_import_model(self):
         training_plan = SKLearnTrainingPlan()
@@ -155,17 +188,15 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanError):
             training_plan.import_model(temp)
 
-        # then test when modle has been created (eg through Experiment)
+        # then test when model has been created (eg through Experiment)
         training_plan._model = SGDClassifierSKLearnModel(SGDClassifier())
 
         # Saved object is not of the correct type
         with patch(
-            'fedbiomed.common.models.BaseSkLearnModel._reload',
-            return_value=MagicMock()
+            "fedbiomed.common.models.BaseSkLearnModel._reload", return_value=MagicMock()
         ):
-
             with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.import_model('filename')
+                training_plan.import_model("filename")
 
         # Option to retrieve model parameters instead of full model from load function
 
@@ -173,19 +204,22 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
 
         model = create_autospec(SGDClassifier, instance=True)
         with patch(
-            'fedbiomed.common.models.BaseSkLearnModel._reload',
-            return_value=model
+            "fedbiomed.common.models.BaseSkLearnModel._reload", return_value=model
         ):
-            training_plan.import_model('filename')
+            training_plan.import_model("filename")
             self.assertIs(training_plan._model.model, model)
 
 
 class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
     def setUp(self):
         logging.disable(logging.CRITICAL)
-        self.abstract_methods_patcher = patch.multiple(SKLearnTrainingPlanPartialFit, __abstractmethods__=set())
+        self.abstract_methods_patcher = patch.multiple(
+            SKLearnTrainingPlanPartialFit, __abstractmethods__=set()
+        )
         self.abstract_methods_patcher.start()
-        SKLearnTrainingPlanPartialFit._model_cls = FedPerceptron._model_cls  # just for testing
+        SKLearnTrainingPlanPartialFit._model_cls = (
+            FedPerceptron._model_cls
+        )  # just for testing
 
     def tearDown(self) -> None:
         logging.disable(logging.NOTSET)
@@ -193,79 +227,100 @@ class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
 
     def test_sklearntrainingplanpartialfit_01_losses(self):
         training_plan = SKLearnTrainingPlanPartialFit()
-        logging.disable(logging.NOTSET)  # Temporarily re-enable logging to capture warning output
-        with self.assertLogs('fedbiomed', logging.ERROR) as captured:
-            losses = training_plan._parse_sample_losses(['loss: 1.0',
-                                                         'no loss',
-                                                         'loss: \n 4.2',
-                                                         'loss: inf',
-                                                         'loss: nan',
-                                                         'loss: over 9000'])
+        logging.disable(
+            logging.NOTSET
+        )  # Temporarily re-enable logging to capture warning output
+        with self.assertLogs("fedbiomed", logging.ERROR) as captured:
+            losses = training_plan._parse_sample_losses(
+                [
+                    "loss: 1.0",
+                    "no loss",
+                    "loss: \n 4.2",
+                    "loss: inf",
+                    "loss: nan",
+                    "loss: over 9000",
+                ]
+            )
             self.assertEqual(len(captured.output), 1)
-            self.assertIn('over 9000', captured.output[0])
-            self.assertIn('Value error during monitoring', captured.output[0])
+            self.assertIn("over 9000", captured.output[0])
+            self.assertIn("Value error during monitoring", captured.output[0])
         self.assertListEqual(losses[:-1], [1.0, 4.2, np.inf])
         self.assertTrue(np.isnan(losses[-1]))
 
         # test a pretty common loss output
-        losses = training_plan._parse_sample_losses([
-            '-- Epoch 1',
-            'Norm: 0.00, NNZs: 0, Bias: 0.000000, T: 1, Avg. loss: 0.000000',
-            'Total training time: 0.00 seconds.'
-        ])
-        self.assertEqual(losses[0], 0.)
+        losses = training_plan._parse_sample_losses(
+            [
+                "-- Epoch 1",
+                "Norm: 0.00, NNZs: 0, Bias: 0.000000, T: 1, Avg. loss: 0.000000",
+                "Total training time: 0.00 seconds.",
+            ]
+        )
+        self.assertEqual(losses[0], 0.0)
         logging.disable(logging.CRITICAL)
 
     def test_sklearntrainingplanpartialfit_02_training_routine(self):
         training_plan = SKLearnTrainingPlanPartialFit()
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=1)
-        training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
+        test_x = TestDataset()
+        train_data_loader = test_data_loader = SkLearnDataLoader(
+            dataset=test_x, batch_size=1
+        )
+        training_plan.set_data_loaders(
+            train_data_loader=train_data_loader, test_data_loader=test_data_loader
+        )
         training_plan._optimizer = MagicMock(spec=NativeSkLearnOptimizer)
-        training_plan._training_args['epochs'] = 1
-        training_plan._training_args['num_updates'] = None
+        training_plan._training_args["epochs"] = 1
+        training_plan._training_args["num_updates"] = None
         batch_size = train_data_loader.batch_size()
-        training_plan._loader_args = {'batch_size':batch_size }
+        training_plan._loader_args = {"batch_size": batch_size}
 
         # First scenario: assert that number of training iterations is correct
-        training_plan._training_args['batch_maxnum'] = None
-       
-        #base_estimator.get_params = MagicMock(spec=dict, return_value=1)
+        training_plan._training_args["batch_maxnum"] = None
+
+        # base_estimator.get_params = MagicMock(spec=dict, return_value=1)
         training_plan._model = MagicMock(spec=SkLearnModel)
         training_plan._model.get_params = MagicMock(spec=dict, return_value=1)
         training_plan._model.set_params = MagicMock()
-        
+
         training_plan._model.verbose = True
-        with (patch.object(training_plan, '_train_over_batch', return_value=0.) as mocked_train,
-                patch.object(training_plan, 'model', return_value=training_plan._model)):
+        with (
+            patch.object(
+                training_plan, "_train_over_batch", return_value=0.0
+            ) as mocked_train,
+            patch.object(training_plan, "model", return_value=training_plan._model),
+        ):
             num_samples_observed = training_plan._training_routine(history_monitor=None)
-            self.assertEqual(mocked_train.call_count, 4)
-            self.assertEqual(num_samples_observed,
-                             len(test_x) / batch_size * training_plan._training_args['epochs'],
-                             "Training routine for SkLearnTrainingPlan"
-                             " did not return correct number of samples "
-                             "observed during the training")
+            self.assertEqual(mocked_train.call_count, 10)
+            self.assertEqual(
+                num_samples_observed,
+                len(test_x) / batch_size * training_plan._training_args["epochs"],
+                "Training routine for SkLearnTrainingPlan"
+                " did not return correct number of samples "
+                "observed during the training",
+            )
 
         # Second scenario: assert that history monitor is given the correct reporting values
-        training_plan._training_args['batch_maxnum'] = 1
-        training_plan._training_args['log_interval'] = 1
+        training_plan._training_args["batch_maxnum"] = 1
+        training_plan._training_args["log_interval"] = 1
 
         history_monitor = MagicMock(spec=fedbiomed.node.history_monitor.HistoryMonitor)
-        with (patch.object(training_plan, '_train_over_batch', return_value=0.) as mocked_train, 
-              patch.object(training_plan, 'model', return_value=training_plan._model)):
+        with (
+            patch.object(
+                training_plan, "_train_over_batch", return_value=0.0
+            ) as mocked_train,
+            patch.object(training_plan, "model", return_value=training_plan._model),
+        ):
             training_plan._training_routine(history_monitor=history_monitor)
             self.assertEqual(mocked_train.call_count, 1)
             self.assertEqual(history_monitor.add_scalar.call_count, 1)
             history_monitor.add_scalar.assert_called_with(
                 train=True,
-                metric={'Loss': 0.0},
+                metric={"Loss": 0.0},
                 iteration=1,
                 epoch=1,
                 num_samples_trained=1,
                 num_batches=1,
                 total_samples=1,
-                batch_samples=1
+                batch_samples=1,
             )
 
 
@@ -281,16 +336,34 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         training_plans: (list) instances of subclasses of each class in `implemented_models`
         subclass_types: (list) types of the instances in `training_plans`
     """
+
     implemented_models = [FedPerceptron, FedSGDRegressor, FedSGDClassifier]
     model_args = {
-        FedPerceptron: {'max_iter': 4242, 'alpha': 0.999, 'n_classes': 2, 'n_features': 2, 'key_not_in_model': None},
-        FedSGDRegressor: {'max_iter': 4242, 'alpha': 0.999, 'n_features': 2, 'key_not_in_model': None},
-        FedSGDClassifier: {'max_iter': 4242, 'alpha': 0.999, 'n_classes': 2, 'n_features': 2, 'key_not_in_model': None},
+        FedPerceptron: {
+            "max_iter": 4242,
+            "alpha": 0.999,
+            "n_classes": 2,
+            "n_features": 2,
+            "key_not_in_model": None,
+        },
+        FedSGDRegressor: {
+            "max_iter": 4242,
+            "alpha": 0.999,
+            "n_features": 2,
+            "key_not_in_model": None,
+        },
+        FedSGDClassifier: {
+            "max_iter": 4242,
+            "alpha": 0.999,
+            "n_classes": 2,
+            "n_features": 2,
+            "key_not_in_model": None,
+        },
     }
     expected_params_list = {
-        FedPerceptron: ['intercept_', 'coef_'],
-        FedSGDRegressor: ['intercept_', 'coef_'],
-        FedSGDClassifier: ['intercept_', 'coef_']
+        FedPerceptron: ["intercept_", "coef_"],
+        FedSGDRegressor: ["intercept_", "coef_"],
+        FedSGDClassifier: ["intercept_", "coef_"],
     }
 
     def setUp(self):
@@ -302,17 +375,25 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         """
         self.subclass_types = dict()
         self.training_plans = list()
-        for sklearn_model_type in TestSklearnTrainingPlansCommonFunctionalities.implemented_models:
-            new_subclass_type = type(sklearn_model_type.__name__ + 'TrainingPlan',
-                                     (sklearn_model_type,),
-                                     {'parent_type': sklearn_model_type})
+        for (
+            sklearn_model_type
+        ) in TestSklearnTrainingPlansCommonFunctionalities.implemented_models:
+            new_subclass_type = type(
+                sklearn_model_type.__name__ + "TrainingPlan",
+                (sklearn_model_type,),
+                {"parent_type": sklearn_model_type},
+            )
             self.subclass_types[sklearn_model_type] = new_subclass_type
             m = new_subclass_type()
-            m.post_init(TestSklearnTrainingPlansCommonFunctionalities.model_args[sklearn_model_type],
-                        FakeTrainingArgs())
+            m.post_init(
+                TestSklearnTrainingPlansCommonFunctionalities.model_args[
+                    sklearn_model_type
+                ],
+                FakeTrainingArgs(),
+            )
             self.training_plans.append(m)
 
-        logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
+        logging.disable("CRITICAL")  # prevent flood of messages about missing datasets
 
     def tearDown(self):
         logging.disable(logging.NOTSET)
@@ -322,17 +403,28 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             # training plan type
             self.assertEqual(training_plan.type(), TrainingPlans.SkLearnTrainingPlan)
             # ensure that the model args passed by the researcher are correctly stored in the class
-            self.assertDictEqual(training_plan._model_args,
-                                 TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type])
+            self.assertDictEqual(
+                training_plan._model_args,
+                TestSklearnTrainingPlansCommonFunctionalities.model_args[
+                    training_plan.parent_type
+                ],
+            )
             for key, val in training_plan.model().get_params().items():
                 # ensure that the model args passed by the researcher are correctly passed to the sklearn model
-                if key in TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type]:
+                if (
+                    key
+                    in TestSklearnTrainingPlansCommonFunctionalities.model_args[
+                        training_plan.parent_type
+                    ]
+                ):
                     self.assertEqual(
                         val,
-                        TestSklearnTrainingPlansCommonFunctionalities.model_args[training_plan.parent_type][key]
+                        TestSklearnTrainingPlansCommonFunctionalities.model_args[
+                            training_plan.parent_type
+                        ][key],
                     )
             # ensure that invalid keys from researcher's model args are not passed to the sklearn model
-            self.assertNotIn('key_not_in_model', training_plan.model().get_params())
+            self.assertNotIn("key_not_in_model", training_plan.model().get_params())
 
             # --------- Check that model's param_list is correctly populated after initialization
             # check that param_list is a list
@@ -350,20 +442,24 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             orig_params = deepcopy(training_plan.get_model_params())
 
             # ensure file has been created and has size > 0
-            self.assertTrue(os.path.exists(randomfile.name) and os.path.getsize(randomfile.name) > 0)
+            self.assertTrue(
+                os.path.exists(randomfile.name) and os.path.getsize(randomfile.name) > 0
+            )
 
             new_tp = self.subclass_types[training_plan.parent_type]()
-            new_tp.post_init({'n_classes': 2, 'n_features': 1}, FakeTrainingArgs())
+            new_tp.post_init({"n_classes": 2, "n_features": 1}, FakeTrainingArgs())
             new_tp.import_model(randomfile.name)
             # Ensure the imported model has the same weights as the exported one.
             load_params = new_tp.get_model_params()
             self.assertEqual(load_params.keys(), orig_params.keys())
-            self.assertTrue(all(
-                np.all(load_params[k] == orig_params[k]) for k in load_params
-            ))
+            self.assertTrue(
+                all(np.all(load_params[k] == orig_params[k]) for k in load_params)
+            )
             # Ensure the import model has the same hyper-parameters as the exported one.
             # Note: here `get_params` is `sklearn.base.BaseEstimator.get_params`.
-            self.assertDictEqual(training_plan.model().get_params(), new_tp.model().get_params())
+            self.assertDictEqual(
+                training_plan.model().get_params(), new_tp.model().get_params()
+            )
 
     @patch.multiple(SKLearnTrainingPlan, __abstractmethods__=set())
     def test_sklearntrainingplancommonfunctionalities_03_getters(self):
@@ -374,7 +470,7 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         training_plan._model_cls = SGDClassifier
         _tr_args = FakeTrainingArgs()
         tr_args = _tr_args.pure_training_arguments()
-        m_args = {'n_classes': 2, 'n_features': 1}
+        m_args = {"n_classes": 2, "n_features": 1}
         training_plan.post_init(m_args, _tr_args)
 
         model_args = training_plan.model_args()
@@ -383,110 +479,142 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
         self.assertDictEqual(m_args, model_args)
         self.assertDictEqual(training_args, tr_args)
 
-    def test_sklearntrainingplancommonfunctionalities_03_exceptions_are_correctly_converted(self):
+    def test_sklearntrainingplancommonfunctionalities_03_exceptions_are_correctly_converted(
+        self,
+    ):
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=len(test_x))
+        test_x = TestDataset()
+        train_data_loader = test_data_loader = SkLearnDataLoader(
+            dataset=test_x, batch_size=len(test_x)
+        )
         for training_plan in self.training_plans:
-            training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
+            training_plan.set_data_loaders(
+                train_data_loader=train_data_loader, test_data_loader=test_data_loader
+            )
 
-            with patch.object(training_plan.model(), 'predict') as patch_predict:
+            with patch.object(training_plan.model(), "predict") as patch_predict:
                 patch_predict.side_effect = Exception
                 with self.assertRaises(FedbiomedTrainingPlanError):
-                    training_plan.testing_routine(metric=MetricTypes.MEAN_SQUARE_ERROR,
-                                                  metric_args={},
-                                                  history_monitor=None,
-                                                  before_train=True)
+                    training_plan.testing_routine(
+                        metric=MetricTypes.MEAN_SQUARE_ERROR,
+                        metric_args={},
+                        history_monitor=None,
+                        before_train=True,
+                    )
 
-            training_plan.testing_step = lambda data, target: {'MyMetric': 0.}
-            with patch.object(training_plan, 'testing_step') as patch_testing_step:
+            training_plan.testing_step = lambda data, target: {"MyMetric": 0.0}
+            with patch.object(training_plan, "testing_step") as patch_testing_step:
                 patch_testing_step.side_effect = Exception
                 with self.assertRaises(FedbiomedTrainingPlanError):
-                    training_plan.testing_routine(metric=MetricTypes.ACCURACY,
-                                                  metric_args={},
-                                                  history_monitor=None,
-                                                  before_train=True)
+                    training_plan.testing_routine(
+                        metric=MetricTypes.ACCURACY,
+                        metric_args={},
+                        history_monitor=None,
+                        before_train=True,
+                    )
 
                 # Ensure FedbiomedTrainingPlanError is raised when metric returns None
                 patch_testing_step.return_value = None
                 with self.assertRaises(FedbiomedTrainingPlanError):
-                    training_plan.testing_routine(metric=MetricTypes.ACCURACY,
-                                                  metric_args={},
-                                                  history_monitor=None,
-                                                  before_train=True)
+                    training_plan.testing_routine(
+                        metric=MetricTypes.ACCURACY,
+                        metric_args={},
+                        history_monitor=None,
+                        before_train=True,
+                    )
 
     def test_sklearntrainingplancommonfunctionalities_04_custom_testing_step(self):
         history_monitor = MagicMock()
         history_monitor.add_scalar = MagicMock(return_value=None)
 
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=len(test_x))
+        test_x = TestDataset()
+        train_data_loader = test_data_loader = SkLearnDataLoader(
+            dataset=test_x, batch_size=len(test_x)
+        )
 
         for training_plan in self.training_plans:
             # case where the researcher defines a custom testing step
             training_plan.testing_step = Custom.testing_step
-            training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
+            training_plan.set_data_loaders(
+                train_data_loader=train_data_loader, test_data_loader=test_data_loader
+            )
 
             # call testing routine again
-            training_plan.testing_routine(metric=None,  # ignored when custom testing_step is defined
-                                          metric_args={},
-                                          history_monitor=history_monitor,
-                                          before_train=True)
+            training_plan.testing_routine(
+                metric=None,  # ignored when custom testing_step is defined
+                metric_args={},
+                history_monitor=history_monitor,
+                before_train=True,
+            )
 
             # ensure that the history monitor was called with the correct parameters
             # note that this requires knowing the actual value of the mean square error metric
             # for this specific case. For now it works but we may have to relax the constraint
             # to something like assert_called_once() in the future if the models default to
             # different values.
-            history_monitor.add_scalar.assert_called_once_with(metric={'Metric': 42.0},
-                                                               iteration=1,
-                                                               epoch=None,
-                                                               test=True,
-                                                               test_on_local_updates=False,
-                                                               test_on_global_updates=True,
-                                                               total_samples=4,
-                                                               batch_samples=4,
-                                                               num_batches=1)
+            history_monitor.add_scalar.assert_called_once_with(
+                metric={"Metric": 42.0},
+                iteration=1,
+                epoch=None,
+                test=True,
+                test_on_local_updates=False,
+                test_on_global_updates=True,
+                total_samples=10,
+                batch_samples=10,
+                num_batches=1,
+            )
             history_monitor.add_scalar.reset_mock()
 
     def test_sklearntrainingplancommonfunctionalities_05_train_over_batch(self):
         for training_plan in self.training_plans:
-            inputs = np.array([[0., 0.]])  # one batch of a 2-feature array
-            target = np.array([[0.]])
+            inputs = np.array([[0.0, 0.0]])  # one batch of a 2-feature array
+            target = np.array([[0.0]])
             loss = training_plan._train_over_batch(inputs, target, report=True)
             # Assert loss values are within reasonable ranges
             # Since different models handle loss differently, we cannot assert that loss == 0.
             # Instead, we check it lies within [-1., 1.]
-            self.assertGreaterEqual(loss, -1.,
-                                    f"{training_plan.__class__.__name__} unexpected loss value")
-            self.assertLessEqual(loss, 1.,
-                                 f"{training_plan.__class__.__name__} unexpected loss value")
+            self.assertGreaterEqual(
+                loss, -1.0, f"{training_plan.__class__.__name__} unexpected loss value"
+            )
+            self.assertLessEqual(
+                loss, 1.0, f"{training_plan.__class__.__name__} unexpected loss value"
+            )
             # Test that coefs are not updated.
             # Cannot test intercept because classes are internally converted to [-1, 1], and therefore intercept_
             # is updated even after a single iteration
-            self.assertTrue(np.all(training_plan._model.get_weights()['coef_'] == 0),
-                            f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
+            self.assertTrue(
+                np.all(training_plan._model.get_weights()["coef_"] == 0),
+                f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.",
+            )
             self.assertEqual(training_plan._model.model.n_iter_, 1)
 
             # When report is False, expected return value is NaN
             loss = training_plan._train_over_batch(inputs, target, report=False)
-            self.assertTrue(np.isnan(loss),
-                            f"{training_plan.__class__.__name__} loss should be NaN")
-            self.assertTrue(np.all(training_plan._model.get_weights()['coef_'] == 0),
-                            f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.")
-            self.assertEqual(training_plan._model.model.n_iter_, 1)  # n_iter_ == 1 always after calling _train_over_batch
+            self.assertTrue(
+                np.isnan(loss), f"{training_plan.__class__.__name__} loss should be NaN"
+            )
+            self.assertTrue(
+                np.all(training_plan._model.get_weights()["coef_"] == 0),
+                f"{training_plan.__class__.__name__} incorrectly computed non-zero gradients for coef_.",
+            )
+            self.assertEqual(
+                training_plan._model.model.n_iter_, 1
+            )  # n_iter_ == 1 always after calling _train_over_batch
 
 
 class TestSklearnTrainingPlansRegression(unittest.TestCase):
     implemented_models = [FedSGDRegressor]
     model_args = {
-        FedSGDRegressor: {'max_iter': 4242, 'alpha': 0.999, 'n_features': 2, 'key_not_in_model': None},
+        FedSGDRegressor: {
+            "max_iter": 4242,
+            "alpha": 0.999,
+            "n_features": 2,
+            "key_not_in_model": None,
+        },
     }
     expected_params_list = {
-        FedSGDRegressor: ['intercept_', 'coef_'],
+        FedSGDRegressor: ["intercept_", "coef_"],
     }
 
     def setUp(self):
@@ -497,73 +625,102 @@ class TestSklearnTrainingPlansRegression(unittest.TestCase):
         self.subclass_types = dict()
         self.training_plans = list()
         for sklearn_model_type in TestSklearnTrainingPlansRegression.implemented_models:
-            new_subclass_type = type(sklearn_model_type.__name__ + 'TrainingPlan',
-                                     (sklearn_model_type,),
-                                     {'parent_type': sklearn_model_type})
+            new_subclass_type = type(
+                sklearn_model_type.__name__ + "TrainingPlan",
+                (sklearn_model_type,),
+                {"parent_type": sklearn_model_type},
+            )
             self.subclass_types[sklearn_model_type] = new_subclass_type
             m = new_subclass_type()
-            m.post_init(TestSklearnTrainingPlansRegression.model_args[sklearn_model_type], FakeTrainingArgs())
+            m.post_init(
+                TestSklearnTrainingPlansRegression.model_args[sklearn_model_type],
+                FakeTrainingArgs(),
+            )
             self.training_plans.append(m)
 
-        logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
+        logging.disable("CRITICAL")  # prevent flood of messages about missing datasets
 
     def tearDown(self):
         logging.disable(logging.NOTSET)
 
     def test_sklearnregression_02_testing_routine(self):
-        """ Testing `testing_routine` of SKLearnModel training plan"""
+        """Testing `testing_routine` of SKLearnModel training plan"""
         history_monitor = MagicMock()
         history_monitor.add_scalar = MagicMock(return_value=None)
 
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=len(test_x))
+        test_x = TestDataset()
+        train_data_loader = test_data_loader = SkLearnDataLoader(
+            dataset=test_x, batch_size=len(test_x)
+        )
 
         for training_plan in self.training_plans:
             # first initialize model and optimizer for the training plan
-            training_plan.post_init(model_args={'n_features': 2, 'n_classes': 2}, training_args=FakeTrainingArgs())
+            training_plan.post_init(
+                model_args={"n_features": 2, "n_classes": 2},
+                training_args=FakeTrainingArgs(),
+            )
             # Test testing routine without setting testing_data_loader
             with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.testing_routine(metric=None,
-                                              metric_args={},
-                                              history_monitor=history_monitor,
-                                              before_train=True)
+                training_plan.testing_routine(
+                    metric=None,
+                    metric_args={},
+                    history_monitor=history_monitor,
+                    before_train=True,
+                )
 
             # set data loader and call testing routine
 
-            training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
-            training_plan.testing_routine(metric=MetricTypes.MEAN_SQUARE_ERROR,
-                                          metric_args={},
-                                          history_monitor=history_monitor,
-                                          before_train=True)
+            training_plan.set_data_loaders(
+                train_data_loader=train_data_loader, test_data_loader=test_data_loader
+            )
+            training_plan.testing_routine(
+                metric=MetricTypes.MEAN_SQUARE_ERROR,
+                metric_args={},
+                history_monitor=history_monitor,
+                before_train=True,
+            )
 
             # ensure that the history monitor was called with the correct parameters
             # note that this requires knowing the actual value of the mean square error metric
             # for this specific case. For now it works but we may have to relax the constraint
             # to something like assert_called_once() in the future if the models default to
             # different values.
-            history_monitor.add_scalar.assert_called_once_with(metric={'MEAN_SQUARE_ERROR': 0.5},
-                                                               iteration=1,
-                                                               epoch=None,
-                                                               test=True,
-                                                               test_on_local_updates=False,
-                                                               test_on_global_updates=True,
-                                                               total_samples=4,
-                                                               batch_samples=4,
-                                                               num_batches=1)
+            history_monitor.add_scalar.assert_called_once_with(
+                metric={"MEAN_SQUARE_ERROR": 256.5},
+                iteration=1,
+                epoch=None,
+                test=True,
+                test_on_local_updates=False,
+                test_on_global_updates=True,
+                total_samples=10,
+                batch_samples=10,
+                num_batches=1,
+            )
             history_monitor.add_scalar.reset_mock()
 
 
 class TestSklearnTrainingPlansClassification(unittest.TestCase):
     implemented_models = [FedPerceptron, FedSGDClassifier]
     model_args = {
-        FedPerceptron: {'max_iter': 4242, 'alpha': 0.999, 'n_classes': 2, 'n_features': 2, 'key_not_in_model': None},
-        FedSGDClassifier: {'max_iter': 4242, 'alpha': 0.999, 'n_classes': 2, 'n_features': 2, 'key_not_in_model': None},
+        FedPerceptron: {
+            "max_iter": 4242,
+            "alpha": 0.999,
+            "n_classes": 2,
+            "n_features": 2,
+            "key_not_in_model": None,
+        },
+        FedSGDClassifier: {
+            "max_iter": 4242,
+            "alpha": 0.999,
+            "n_classes": 2,
+            "n_features": 2,
+            "key_not_in_model": None,
+        },
     }
     expected_params_list = {
-        FedPerceptron: ['intercept_', 'coef_'],
-        FedSGDClassifier: ['intercept_', 'coef_']
+        FedPerceptron: ["intercept_", "coef_"],
+        FedSGDClassifier: ["intercept_", "coef_"],
     }
 
     def setUp(self):
@@ -573,121 +730,156 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
         # e.g. FedPerceptron, to create their own Training Plan
         self.subclass_types = dict()
         self.training_plans = list()
-        for sklearn_model_type in TestSklearnTrainingPlansClassification.implemented_models:
-            new_subclass_type = type(sklearn_model_type.__name__ + 'TrainingPlan',
-                                     (sklearn_model_type,),
-                                     {'parent_type': sklearn_model_type})
+        for (
+            sklearn_model_type
+        ) in TestSklearnTrainingPlansClassification.implemented_models:
+            new_subclass_type = type(
+                sklearn_model_type.__name__ + "TrainingPlan",
+                (sklearn_model_type,),
+                {"parent_type": sklearn_model_type},
+            )
             self.subclass_types[sklearn_model_type] = new_subclass_type
             m = new_subclass_type()
-            m.post_init(TestSklearnTrainingPlansClassification.model_args[sklearn_model_type], FakeTrainingArgs())
+            m.post_init(
+                TestSklearnTrainingPlansClassification.model_args[sklearn_model_type],
+                FakeTrainingArgs(),
+            )
             self.training_plans.append(m)
 
-        logging.disable('CRITICAL')  # prevent flood of messages about missing datasets
+        logging.disable("CRITICAL")  # prevent flood of messages about missing datasets
 
     def tearDown(self):
         logging.disable(logging.NOTSET)
 
     def test_sklearnclassification_02_testing_routine(self):
-        """ Testing `testing_routine` of SKLearnModel training plan"""
+        """Testing `testing_routine` of SKLearnModel training plan"""
         history_monitor = MagicMock()
         history_monitor.add_scalar = MagicMock(return_value=None)
 
         # Dataset
-        test_x = np.array([[1, 1], [1, 1], [1, 1], [1, 1]])
-        test_y = np.array([1, 0, 1, 0])
-        train_data_loader = test_data_loader = NPDataLoader(dataset=test_x, target=test_y, batch_size=len(test_x))
+        test_x = TestDataset()
+        train_data_loader = test_data_loader = SkLearnDataLoader(
+            dataset=test_x, batch_size=len(test_x)
+        )
 
         for training_plan in self.training_plans:
             # Test testing routine without setting testing_data_loader
             with self.assertRaises(FedbiomedTrainingPlanError):
-                training_plan.testing_routine(metric=None,
-                                              metric_args={},
-                                              history_monitor=history_monitor,
-                                              before_train=True)
+                training_plan.testing_routine(
+                    metric=None,
+                    metric_args={},
+                    history_monitor=history_monitor,
+                    before_train=True,
+                )
 
-            training_plan.set_data_loaders(train_data_loader=train_data_loader, test_data_loader=test_data_loader)
+            training_plan.set_data_loaders(
+                train_data_loader=train_data_loader, test_data_loader=test_data_loader
+            )
 
-            training_plan.testing_routine(metric=MetricTypes.ACCURACY,
-                                          metric_args={},
-                                          history_monitor=history_monitor,
-                                          before_train=True)
+            training_plan.testing_routine(
+                metric=MetricTypes.ACCURACY,
+                metric_args={},
+                history_monitor=history_monitor,
+                before_train=True,
+            )
 
             # ensure that the history monitor was called with the correct parameters
             # note that this requires knowing the actual value of the mean square error metric
             # for this specific case. For now it works but we may have to relax the constraint
             # to something like assert_called_once() in the future if the models default to
             # different values.
-            history_monitor.add_scalar.assert_called_once_with(metric={'ACCURACY': 0.5},
-                                                               iteration=1,
-                                                               epoch=None,
-                                                               test=True,
-                                                               test_on_local_updates=False,
-                                                               test_on_global_updates=True,
-                                                               total_samples=4,
-                                                               batch_samples=4,
-                                                               num_batches=1)
+            history_monitor.add_scalar.assert_called_once_with(
+                metric={"ACCURACY": 0.1},
+                iteration=1,
+                epoch=None,
+                test=True,
+                test_on_local_updates=False,
+                test_on_global_updates=True,
+                total_samples=10,
+                batch_samples=10,
+                num_batches=1,
+            )
 
             # check if `classes_` attribute of classifier has been created
-            self.assertTrue(hasattr(training_plan.model(), 'classes_'),
-                            msg=training_plan.parent_type.__name__ + ' does not automatically create the classes_ attribute')
-            self.assertTrue(np.array_equal(training_plan.model().classes_, np.array([0, 1])))
+            self.assertTrue(
+                hasattr(training_plan.model(), "classes_"),
+                msg=training_plan.parent_type.__name__
+                + " does not automatically create the classes_ attribute",
+            )
+            self.assertTrue(
+                np.array_equal(training_plan.model().classes_, np.array([0, 1]))
+            )
 
             history_monitor.add_scalar.reset_mock()
 
             # Ensure that ACCURACY is used when metric=None
-            training_plan.testing_routine(metric=None,
-                                          metric_args={},
-                                          history_monitor=history_monitor,
-                                          before_train=True)
+            training_plan.testing_routine(
+                metric=None,
+                metric_args={},
+                history_monitor=history_monitor,
+                before_train=True,
+            )
 
             # ensure that the history monitor was called with the correct parameters
             # note that this requires knowing the actual value of the mean square error metric
             # for this specific case. For now it works but we may have to relax the constraint
             # to something like assert_called_once() in the future if the models default to
             # different values.
-            history_monitor.add_scalar.assert_called_once_with(metric={'ACCURACY': 0.5},
-                                                               iteration=1,
-                                                               epoch=None,
-                                                               test=True,
-                                                               test_on_local_updates=False,
-                                                               test_on_global_updates=True,
-                                                               total_samples=4,
-                                                               batch_samples=4,
-                                                               num_batches=1)
+            history_monitor.add_scalar.assert_called_once_with(
+                metric={"ACCURACY": 0.1},
+                iteration=1,
+                epoch=None,
+                test=True,
+                test_on_local_updates=False,
+                test_on_global_updates=True,
+                total_samples=10,
+                batch_samples=10,
+                num_batches=1,
+            )
 
             # check if `classes_` attribute of classifier has been created
             self.assertTrue(
-                hasattr(training_plan.model(), 'classes_'),
-                msg=training_plan.parent_type.__name__ + ' does not automatically create the classes_ attribute')
-            self.assertTrue(np.array_equal(training_plan.model().classes_, np.array([0, 1])))
+                hasattr(training_plan.model(), "classes_"),
+                msg=training_plan.parent_type.__name__
+                + " does not automatically create the classes_ attribute",
+            )
+            self.assertTrue(
+                np.array_equal(training_plan.model().classes_, np.array([0, 1]))
+            )
 
             history_monitor.add_scalar.reset_mock()
 
     def test_sklearnclassification_03_losses(self):
         for training_plan in self.training_plans:
             batch_losses_stdout = [
-                ['loss: 1.0'],
-                ['loss: 0.0'],
+                ["loss: 1.0"],
+                ["loss: 0.0"],
             ]
             loss = training_plan._parse_batch_loss(batch_losses_stdout, None, None)
             self.assertEqual(loss, 0.5)
 
-            batch_losses_stdout.append(['loss: inf'])
+            batch_losses_stdout.append(["loss: inf"])
             loss = training_plan._parse_batch_loss(batch_losses_stdout, None, None)
             self.assertEqual(loss, np.inf)
 
-            batch_losses_stdout.append(['loss: nan'])
+            batch_losses_stdout.append(["loss: nan"])
             loss = training_plan._parse_batch_loss(batch_losses_stdout, None, None)
             self.assertTrue(np.isnan(loss))
 
-            with patch.object(training_plan, '_model_args', {'n_classes': 3}), \
-                    patch.object(training_plan._model.model, 'classes_', np.array([0, 1, 2])):
+            with (
+                patch.object(training_plan, "_model_args", {"n_classes": 3}),
+                patch.object(
+                    training_plan._model.model, "classes_", np.array([0, 1, 2])
+                ),
+            ):
                 batch_losses_stdout = [
-                    ['loss: 1.0', 'loss: 0.0', 'loss: 2.0'],
-                    ['loss: 0.0', 'loss: 1.0', 'epoch', 'loss: 0.0'],
+                    ["loss: 1.0", "loss: 0.0", "loss: 2.0"],
+                    ["loss: 0.0", "loss: 1.0", "epoch", "loss: 0.0"],
                 ]
                 target = np.array([[0], [2]])
-                loss = training_plan._parse_batch_loss(batch_losses_stdout, None, target)
+                loss = training_plan._parse_batch_loss(
+                    batch_losses_stdout, None, target
+                )
                 # batch-average losses for each class are: [0.5, 0.5, 1.0]
                 # since we should have guessed once the first class, and once the last class, the final loss
                 # is the mean of 0.5 and 1.0, i.e. it should be 0.75
@@ -696,35 +888,36 @@ class TestSklearnTrainingPlansClassification(unittest.TestCase):
 
 class TestSklearnFedPerceptron(unittest.TestCase):
     """Specific tests for Federated Perceptron model"""
+
     def setUp(self) -> None:
         pass
-    
+
     def tearDown(self) -> None:
         pass
-    
+
     def test_sklearnperceptron_01_defaultvalues(self):
         """Test for bug related to issue #498: Incorrect Perceptron defaultvalues for sklearn models
-        
+
         Purpose of the test is to make sure default values of Perceptron are the same for FedPerceptron and for the regular sklearn
         Perceptron model
         """
         # with default values
         fed_perp = FedPerceptron()
-        fed_perp.post_init({'n_classes': 2, 'n_features': 2}, FakeTrainingArgs())
+        fed_perp.post_init({"n_classes": 2, "n_features": 2}, FakeTrainingArgs())
         sk_perceptron = Perceptron()
-        
-        for (fed_name_param, fed_value) in sk_perceptron.get_params().items():
-            if fed_name_param != 'verbose':
+
+        for fed_name_param, fed_value in sk_perceptron.get_params().items():
+            if fed_name_param != "verbose":
                 self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))
 
         # with a few values set by end-user
-        
+
         values_sets = (
-            {'penalty': None, 'shuffle': True, 'tol': .03},
-            {'penalty': 'l1', 'fit_intercept': True, 'tol': .06, 'eta0': .01},
+            {"penalty": None, "shuffle": True, "tol": 0.03},
+            {"penalty": "l1", "fit_intercept": True, "tol": 0.06, "eta0": 0.01},
         )
 
-        additional_inputs_for_fed_model = {'n_classes': 2, 'n_features': 2}
+        additional_inputs_for_fed_model = {"n_classes": 2, "n_features": 2}
         for values_set in values_sets:
             sk_perceptron = Perceptron(**values_set)
 
@@ -732,12 +925,14 @@ class TestSklearnFedPerceptron(unittest.TestCase):
             fed_perp = FedPerceptron()
             fed_perp.post_init(values_set, FakeTrainingArgs())
 
-            for (fed_name_param, fed_value) in sk_perceptron.get_params().items():
-                if fed_name_param != 'verbose':
-                    self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))
+            for fed_name_param, fed_value in sk_perceptron.get_params().items():
+                if fed_name_param != "verbose":
+                    self.assertEqual(
+                        fed_value, fed_perp._model.get_params(fed_name_param)
+                    )
 
 
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()
 
 # Test init params

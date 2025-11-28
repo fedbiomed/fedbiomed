@@ -4,20 +4,19 @@
 import inspect
 from typing import Optional
 
-from fedbiomed.common.constants import ErrorNumbers, TIMEOUT_NODE_TO_NODE_REQUEST
+from fedbiomed.common.constants import TIMEOUT_NODE_TO_NODE_REQUEST, ErrorNumbers
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     AdditiveSSharingReply,
     AdditiveSSharingRequest,
-    ChannelSetupRequest,
     ChannelSetupReply,
+    ChannelSetupRequest,
     InnerMessage,
     KeyReply,
     KeyRequest,
     OverlayMessage,
 )
 from fedbiomed.common.synchro import EventWaitExchange
-
 from fedbiomed.transport.controller import GrpcController
 
 from ._overlay import OverlayChannel
@@ -47,12 +46,12 @@ class NodeToNodeController:
     """
 
     def __init__(
-            self,
-            node_id: str,
-            grpc_controller: GrpcController,
-            overlay_channel: OverlayChannel,
-            pending_requests: EventWaitExchange,
-            controller_data: EventWaitExchange,
+        self,
+        node_id: str,
+        grpc_controller: GrpcController,
+        overlay_channel: OverlayChannel,
+        pending_requests: EventWaitExchange,
+        controller_data: EventWaitExchange,
     ) -> None:
         """Constructor of the class.
 
@@ -151,7 +150,9 @@ class NodeToNodeController:
             f"{inner_msg.__class__.__name__}. Do nothing."
         )
 
-    async def _HandlerChannelRequest(self, overlay_msg: OverlayMessage, inner_msg: InnerMessage) -> dict:
+    async def _HandlerChannelRequest(
+        self, overlay_msg: OverlayMessage, inner_msg: InnerMessage
+    ) -> dict:
         """Handler called for ChannelSetupRequest message.
 
         Args:
@@ -166,12 +167,13 @@ class NodeToNodeController:
             request_id=inner_msg.request_id,
             node_id=self._node_id,
             dest_node_id=inner_msg.node_id,
-            public_key=await self._overlay_channel.get_local_public_key(inner_msg.node_id))
+            public_key=await self._overlay_channel.get_local_public_key(
+                inner_msg.node_id
+            ),
+        )
 
         overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(
-            inner_resp,
-            overlay_msg.researcher_id,
-            True
+            inner_resp, overlay_msg.researcher_id, True
         )
         overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
@@ -180,9 +182,10 @@ class NodeToNodeController:
             overlay=overlay,
             setup=True,
             salt=salt,
-            nonce=nonce)
+            nonce=nonce,
+        )
 
-        return { 'overlay_resp': overlay_resp }
+        return {"overlay_resp": overlay_resp}
 
     async def _FinalChannelReply(self, inner_msg: InnerMessage) -> None:
         """Final handler called for ChannelSetupReply message.
@@ -216,8 +219,7 @@ class NodeToNodeController:
         """
         # Wait until node has generated its DH keypair
         all_received, data = self._controller_data.wait(
-            [inner_msg.secagg_id],
-            TIMEOUT_NODE_TO_NODE_REQUEST
+            [inner_msg.secagg_id], TIMEOUT_NODE_TO_NODE_REQUEST
         )
 
         # Don't send reply message if the public key is not available after a timeout
@@ -233,7 +235,9 @@ class NodeToNodeController:
             secagg_id=inner_msg.secagg_id,
         )
 
-        overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
+        overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(
+            inner_resp, overlay_msg.researcher_id
+        )
         overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
             node_id=self._node_id,
@@ -241,9 +245,10 @@ class NodeToNodeController:
             overlay=overlay,
             setup=False,
             salt=salt,
-            nonce=nonce)
+            nonce=nonce,
+        )
 
-        return { 'overlay_resp': overlay_resp }
+        return {"overlay_resp": overlay_resp}
 
     async def _FinalKeyRequest(  # pylint: disable=C0103
         self, overlay_resp: Optional[OverlayMessage]
@@ -284,7 +289,9 @@ class NodeToNodeController:
             share=share,
         )
 
-        overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(inner_resp, overlay_msg.researcher_id)
+        overlay, salt, nonce = await self._overlay_channel.format_outgoing_overlay(
+            inner_resp, overlay_msg.researcher_id
+        )
         overlay_resp = OverlayMessage(
             researcher_id=overlay_msg.researcher_id,
             node_id=self._node_id,

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Secure Aggregation setup on the node"""
+
 import random
 import uuid
 from abc import ABC, abstractmethod
@@ -32,7 +33,7 @@ from fedbiomed.common.secagg import (
 )
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.utils import get_default_biprime
-from fedbiomed.node.requests import send_nodes, NodeToNodeRouter
+from fedbiomed.node.requests import NodeToNodeRouter, send_nodes
 from fedbiomed.node.secagg_manager import SecaggManager
 from fedbiomed.transport.controller import GrpcController
 
@@ -41,6 +42,7 @@ class SecaggBaseSetup(ABC):
     """
     Sets up a Secure Aggregation context element on the node side.
     """
+
     _element: SecaggElementTypes
     _REPLY_CLASS: Message = SecaggReply
     _min_num_parties: int = 3
@@ -49,6 +51,7 @@ class SecaggBaseSetup(ABC):
         self,
         db: str,
         node_id: str,
+        node_name: str,
         researcher_id: str,
         secagg_id: str,
         parties: List[str],
@@ -77,9 +80,7 @@ class SecaggBaseSetup(ABC):
             )
 
         if researcher_id is None:
-            errmess = (
-                f"{ErrorNumbers.FB318.value}: argument `researcher_id` must be a non-None value"
-            )
+            errmess = f"{ErrorNumbers.FB318.value}: argument `researcher_id` must be a non-None value"
 
         if errmess:
             # if one of the above condition is met, raise error
@@ -89,6 +90,7 @@ class SecaggBaseSetup(ABC):
         # assign argument values
         self._secagg_manager = SecaggManager(db, self._element.value)()
         self._node_id = node_id
+        self._node_name = node_name
         self._researcher_id = researcher_id
         self._secagg_id = secagg_id
         self._experiment_id = experiment_id
@@ -142,7 +144,11 @@ class SecaggBaseSetup(ABC):
         Returns:
             message to return to the researcher
         """
-        common = {"node_id": self._node_id, "researcher_id": self._researcher_id}
+        common = {
+            "node_id": self._node_id,
+            "node_name": self._node_name,
+            "researcher_id": self._researcher_id,
+        }
         # If round is not successful log error message
         if not success:
             logger.error(message)
@@ -180,15 +186,14 @@ class SecaggBaseSetup(ABC):
 
 
 class _SecaggNN(SecaggBaseSetup):
-
     def __init__(
-            self,
-            *args,
-            n2n_router: NodeToNodeRouter,
-            grpc_client: GrpcController,
-            pending_requests: EventWaitExchange,
-            controller_data: EventWaitExchange,
-            **kwargs,
+        self,
+        *args,
+        n2n_router: NodeToNodeRouter,
+        grpc_client: GrpcController,
+        pending_requests: EventWaitExchange,
+        controller_data: EventWaitExchange,
+        **kwargs,
     ):
         """Constructor of the class.
 
@@ -236,7 +241,6 @@ class SecaggServkeySetup(_SecaggNN):
     # def __init__(self, share, *args, **kwargs):
     #     super().__init__(*args, **kwargs)
     def _setup_specific(self) -> Message:
-
         other_nodes = list(filter(lambda x: x != self._node_id, self._parties))
         # Create secret user key and its shares
         seed = random.SystemRandom()
@@ -246,7 +250,7 @@ class SecaggServkeySetup(_SecaggNN):
 
         # The last share is the share for the node who executes the request
         my_share = AdditiveShare(shares.pop(-1))
-        party_shares = dict(zip(other_nodes, shares))
+        party_shares = dict(zip(other_nodes, shares, strict=False))
         self._controller_data.event(self._secagg_id, {"shares": party_shares})
 
         requests = [

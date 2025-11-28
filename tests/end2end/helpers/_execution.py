@@ -1,6 +1,5 @@
 """Contains execution helpers"""
 
-import os
 import subprocess
 import multiprocessing
 
@@ -8,6 +7,7 @@ from typing import Optional, Callable, List
 
 import psutil
 import pytest
+
 
 # TODO: When it is raised should exit from
 # subprocess and parent process
@@ -35,23 +35,27 @@ def collect(process, on_failure: Optional[Callable] = None) -> bool:
             if on_failure:
                 on_failure(process)
             # Other exceptions are caught by pytest
-            pytest.exit(f"Error: Processes failed {process}. Args: {process.args} "
-                         "Please check the outputs.")
+            pytest.exit(
+                f"Error: Processes failed {process}. Args: {process.args} "
+                "Please check the outputs."
+            )
 
     return True
+
 
 def execute_in_paralel(
     processes: List[subprocess.Popen],
     on_failure: Callable | None = None,
-    interrupt_all_on_fail: bool = True
+    interrupt_all_on_fail: bool = True,
 ):
     """Execute commands in parallel"""
 
     print(f"\n ##### Starting executing process for num: {len(processes)}")
+
     def error_callback(err):
         if interrupt_all_on_fail:
             kill_subprocesses(processes)
-        print(f"##### Error: One of the parallel processes has faild. {err}")
+        print(f"##### Error: One of the parallel processes has failed. {err}")
 
     def collect_result(process):
         collect(process, on_failure)
@@ -61,9 +65,8 @@ def execute_in_paralel(
         try:
             r.get()
         except Exception as e:
-            raise End2EndErrorExit(
-                f'Exception raised in one of subprocess. {e}'
-            ) from e
+            raise End2EndErrorExit(f"Exception raised in one of subprocess. {e}") from e
+
 
 def kill_subprocesses(processes):
     """Kills given processes
@@ -75,11 +78,12 @@ def kill_subprocesses(processes):
         print(f"\n ##### Killing subprocess: {p}")
         kill_process(p)
 
+
 def kill_process(process):
     """Kills single process"""
 
     if not psutil.pid_exists(process.pid):
-        cmdl = process.cmdline() if hasattr(process, 'cmdline') else process
+        cmdl = process.cmdline() if hasattr(process, "cmdline") else process
         print(f"\n ###### Process is no longer available {cmdl}")
         return
 
@@ -92,15 +96,18 @@ def kill_process(process):
     try:
         parent.kill()
     except psutil.ZombieProcess:
-        print('\n Parent process has became zombie process after killing child procesess')
+        print(
+            "\n Parent process has became zombie process after killing child procesess"
+        )
     except psutil.NoSuchProcess:
-        print('\n Parent process no longer existing after killing child procesess')
+        print("\n Parent process no longer existing after killing child procesess")
+
 
 def shell_process(
     command: list,
     wait: bool = False,
     pipe: bool = True,
-    on_failure: Callable | None = None
+    on_failure: Callable | None = None,
 ):
     """Executes shell process
 
@@ -120,14 +127,15 @@ def shell_process(
         pipe_ = False
 
     print(f"Executing command: {' '.join(command)}")
-    process = subprocess.Popen( " ".join(command),
-                                shell=True,
-                                stdout=subprocess.PIPE if pipe_ else None,
-                                stderr=subprocess.STDOUT if pipe_ else None,
-                                bufsize=1,
-                                close_fds=True,
-                                universal_newlines=True
-        )
+    process = subprocess.Popen(
+        " ".join(command),
+        shell=True,
+        stdout=subprocess.PIPE if pipe_ else None,
+        stderr=subprocess.STDOUT if pipe_ else None,
+        bufsize=1,
+        close_fds=True,
+        universal_newlines=True,
+    )
 
     if wait:
         return collect(process, on_failure)
@@ -139,7 +147,7 @@ def fedbiomed_run(
     command: list[str],
     wait: bool = False,
     pipe: bool = True,
-    on_failure: Callable | None = None
+    on_failure: Callable | None = None,
 ) -> subprocess.Popen:
     """Executes given command using `fedbiomed`
 
@@ -149,5 +157,3 @@ def fedbiomed_run(
     """
     command.insert(0, "fedbiomed")
     return shell_process(command=command, wait=wait, pipe=pipe, on_failure=on_failure)
-
-

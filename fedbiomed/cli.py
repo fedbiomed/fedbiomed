@@ -1,19 +1,20 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import os
-import sys
 import argparse
 import importlib
+import os
+import sys
 
-from fedbiomed.common.constants import DEFAULT_NODE_NAME, DEFAULT_RESEARCHER_NAME
-from fedbiomed.common.config import docker_special_case
 from fedbiomed.common.cli import CLIArgumentParser, CommonCLI
+from fedbiomed.common.config import docker_special_case
+from fedbiomed.common.constants import DEFAULT_NODE_NAME, DEFAULT_RESEARCHER_NAME
 
 
 class UniqueStore(argparse.Action):
     """Argparse action for avoiding having several time the same optional
-      argument"""
+    argument"""
+
     def __call__(self, parser, namespace, values, option_string):
         if getattr(namespace, self.dest, self.default) is not self.default:
             parser.error(option_string + " appears several times.")
@@ -44,7 +45,7 @@ class ComponentParser(CLIArgumentParser):
             type=str,
             nargs="?",
             required=False,
-            help="Path to specificy where Fed-BioMed component will be intialized.",
+            help="Path to specify where Fed-BioMed component will be initialized.",
         )
 
         common_parser.add_argument(
@@ -55,6 +56,15 @@ class ComponentParser(CLIArgumentParser):
             nargs="?",
             required=True,
             help="Component type NODE or RESEARCHER",
+        )
+
+        common_parser.add_argument(
+            "-n",
+            "--name",
+            type=str,
+            nargs="?",
+            default="Default Node Name",
+            help="Name of the node (required for identification)",
         )
 
         # Create sub parser under `configuration` command
@@ -83,9 +93,7 @@ class ComponentParser(CLIArgumentParser):
             _component = config_node.node_component
         elif component.lower() == "researcher":
             os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = path
-            config_researcher = importlib.import_module(
-                "fedbiomed.researcher.config"
-            )
+            config_researcher = importlib.import_module("fedbiomed.researcher.config")
             _component = config_researcher.researcher_component
         else:
             print(f"Undefined component type {component}")
@@ -94,8 +102,7 @@ class ComponentParser(CLIArgumentParser):
         return _component
 
     def create(self, args):
-        """CLI Handler for creating configuration file and assets for given component
-        """
+        """CLI Handler for creating configuration file and assets for given component"""
         if args.component is None:
             CommonCLI.error("Error: bad command line syntax")
 
@@ -110,9 +117,11 @@ class ComponentParser(CLIArgumentParser):
         # Researcher specific case ----------------------------------------------------
         # This is a special case since researcher import
         if args.component.lower() == "researcher":
-            if DEFAULT_RESEARCHER_NAME in component_path and \
-                os.path.isdir(component_path) and \
-                not docker_special_case(component_path):
+            if (
+                DEFAULT_RESEARCHER_NAME in component_path
+                and os.path.isdir(component_path)
+                and not docker_special_case(component_path)
+            ):
                 if not args.exist_ok:
                     CommonCLI.error(
                         f"Default component is already existing. In the directory {component_path} "
@@ -133,18 +142,17 @@ class ComponentParser(CLIArgumentParser):
                 if not args.exist_ok:
                     CommonCLI.error(
                         f"Component is already existing in the directory `{component_path}`. To ignore "
-                       "this error please execute component creation using `--exist-ok`"
-                )
+                        "this error please execute component creation using `--exist-ok`"
+                    )
                 else:
                     CommonCLI.success(
                         "Component is already existing. Using existing component."
                     )
                     return
 
-            component.initiate(component_path)
+            component.initiate(alias=args.name, root=component_path)
 
         CommonCLI.success(f"Component has been initialized in {component_path}")
-
 
 
 cli = CommonCLI()
@@ -194,5 +202,6 @@ def run():
     else:
         cli.parse_args(["--help"])
 
+
 if __name__ == "__main__":
-        run()
+    run()

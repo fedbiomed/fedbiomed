@@ -1,5 +1,24 @@
 # Fed-BioMed changelog
 
+## 2025-11-26 version 6.2.0
+
+- Support Python 3.11 + release requirements on package dependencies
+- Add support for user friendly names for nodes
+- CI: add support for codespell
+- Update issue status labels in the developer documentation
+- Corrects several errors in the documentation
+- Bugfix: Correct CSV read operation in `MedicalFolderDataset`
+- Redesign dataset layer (#Milestone: Datasets – new design and implementation)
+- Introduce `TabularDataset` for CSV and TSV datasets
+- Introduce `ImageDataset` for classification-based image data structures (based on PyTorch’s `ImageFolder`)
+- Introduce `CustomDataset` to allow users to define their own datasets
+- Introduce `NativeDataset` to use native framework-defined datasets/objects for training
+- Remove `FLamby` dependencies and make installation its usage external
+- Add a new user guide describing dataset usage and transformations
+- Update all tutorials to use the new dataset classes in the training plans
+- Add more end to end tests covering most dataset types
+
+
 ## 2025-09-11 version 6.1.1
 
 - fix medical folder dataset not accepting numeric value for image folder name in demographics file
@@ -157,7 +176,7 @@
 - fix unit tests failure, when launched from root directory, due to missing mocking facility
 - fix `fedbiomed_run` error: prevent launching researcher when no config file exists
 - misc improve make sure only one dataset per Node is selected during the training
-- misc remove uncorrect warning about `optimizer_args` when using SKlearn training plan
+- misc remove incorrect warning about `optimizer_args` when using SKlearn training plan
 
 ## 2023-01-05 version 4.1
 
@@ -231,7 +250,7 @@
 - fix mqtt logger loop then mqqt not reachable
 - replace @property getters/setters by proper getters() setters(), still in progress
 - a lot of new unit tests and increase test coverage
-- refactor of Message() class, simplication of Messages description (purely declarative now)
+- refactor of Message() class, simplification of Messages description (purely declarative now)
 - add more ErrorNumbers + associated messages
 - check user input (mainly in Experiment() for now)
 - rename Exceptions as Errors, add FedbiomedError as top class of our errors
@@ -262,7 +281,7 @@
 - fix the way the tests deal with fedbiomed.common.environ
 - refactor strategy (moved some methods in upper classes)
 - add command **run_integration_test** to easily run an integration test from a single .py or .ipynb
-- add an automatized method to add a dataset in nodes's db from a JSON dataset description file
+- add an automated method to add a dataset in nodes's db from a JSON dataset description file
 - add error numbering as an enum, impact on error messages serialization
 - more example notebooks, update existing notebooks
 - more unittests

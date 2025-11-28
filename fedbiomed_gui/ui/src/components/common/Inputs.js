@@ -92,8 +92,8 @@ export const Tag = (props) => {
                 setTags((prevTags) => {return [...prevTags, currentTagText] });
                 setCurrentTagText('');
                 
-                // Let parent componenet know that the 
-                // tags has been chaged or new one added
+                // Let parent component know that the 
+                // tags has been changed or new one added
                 if(props.onTagsChange){
                     props.onTagsChange(props.name, tags_update)
                 }

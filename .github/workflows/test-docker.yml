@@ -1,18 +1,12 @@
 ---
-
 name: Fed-BioMed VPN Docker Image and Container Test
 run-name: fedbiomed-docker-container-test
-description: |
-  Workflow to test if docker images are build correctly. This workflow
-  also validates a federated learning experiment on built images using
-  VPN network locally.
-
 
 on:
   push:
     branches:
-      - 'develop'
-      - 'master'
+      - "develop"
+      - "master"
   workflow_dispatch:
 
 jobs:
@@ -22,10 +16,10 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - [self-hosted, ubuntu-22.04]
-          - [self-hosted, fedora-38]
+          - [self-hosted, ubuntu-24-04]
         python-version:
-          - '3.10'
+          - "3.10"
+          - "3.11"
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout to repository
@@ -56,4 +50,3 @@ jobs:
           ./scripts/fedbiomed_vpn clean image
           docker system prune -af
         shell: bash -l {0}
-

@@ -7,17 +7,22 @@
 
 import functools
 from abc import ABCMeta
-from typing import Any, Dict, Iterator, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional
 
 import numpy as np
-from sklearn.linear_model import SGDClassifier, SGDRegressor, Perceptron
+from sklearn.linear_model import Perceptron, SGDClassifier, SGDRegressor
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.training_plans import SKLearnTrainingPlan
-from fedbiomed.common.training_plans._training_iterations import MiniBatchTrainingIterationsAccountant
+from fedbiomed.common.training_plans._training_iterations import (
+    MiniBatchTrainingIterationsAccountant,
+)
 
+from ._sklearn_training_plan import SKLearnTrainingPlan
+
+if TYPE_CHECKING:
+    from fedbiomed.node.history_monitor import HistoryMonitor
 
 __all__ = [
     "FedPerceptron",
@@ -31,7 +36,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
 
     def __init__(self) -> None:
         super().__init__()
-        if not hasattr(self._model_cls, 'partial_fit'):
+        if not hasattr(self._model_cls, "partial_fit"):
             raise FedbiomedTrainingPlanError(
                 f"{ErrorNumbers.FB302.value}: SKLearnTrainingPlanPartialFit"
                 "requires the target scikit-learn model class to expose a"
@@ -39,9 +44,8 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             )
 
     def _training_routine(
-            self,
-            history_monitor: Optional['HistoryMonitor'] = None
-        ) -> int:
+        self, history_monitor: Optional["HistoryMonitor"] = None
+    ) -> int:
         """Backend training routine for scikit-learn models with `partial_fit`.
 
         Args:
@@ -55,7 +59,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             instance, [FedAverage][fedbiomed.researcher.aggregators.fedavg.FedAverage] needs this piece of information
             before aggregating model parameters).
         """
-        
+
         # set number of training loop iterations
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
         # Gather reporting parameters.
@@ -68,38 +72,52 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 history_monitor.add_scalar,
                 train=True,
             )
-            verbose = self._model.get_params("verbose")  # force verbose = 1 to print losses
+            verbose = self._model.get_params(
+                "verbose"
+            )  # force verbose = 1 to print losses
             self._model.set_params(verbose=1)
         # Iterate over epochs.
         with self._optimizer.optimizer_processing():
             # this context manager is used to disable and then enable the sklearn internal optimizer (in case we
             # are using declern optimizer)
-            for epoch in iterations_accountant.iterate_epochs():
-
+            for _epoch in iterations_accountant.iterate_epochs():
                 training_data_iter: Iterator = iter(self.training_data_loader)
                 # Iterate over data batches.
-                for batch in iterations_accountant.iterate_batches():
+                for _batch in iterations_accountant.iterate_batches():
                     inputs, target = next(training_data_iter)
                     batch_size = self._infer_batch_size(inputs)
                     iterations_accountant.increment_sample_counters(batch_size)
                     loss = self._train_over_batch(inputs, target, report)
                     # Optionally report on the batch training loss.
-                    if report and not np.isnan(loss) and iterations_accountant.should_log_this_batch():
+                    if (
+                        report
+                        and not np.isnan(loss)
+                        and iterations_accountant.should_log_this_batch()
+                    ):
                         # Retrieve reporting information: semantics differ whether num_updates or epochs were specified
-                        num_samples, num_samples_max = iterations_accountant.reporting_on_num_samples()
-                        num_iter, num_iter_max = iterations_accountant.reporting_on_num_iter()
+                        num_samples, num_samples_max = (
+                            iterations_accountant.reporting_on_num_samples()
+                        )
+                        num_iter, num_iter_max = (
+                            iterations_accountant.reporting_on_num_iter()
+                        )
                         epoch_to_report = iterations_accountant.reporting_on_epoch()
 
-                        logger.debug('Train {}| '
-                                    'Iteration {}/{} | '
-                                    'Samples {}/{} ({:.0f}%)\tLoss: {:.6f}'.format(
-                                        f'Epoch: {epoch_to_report} ' if epoch_to_report is not None else '',
-                                        num_iter,
-                                        num_iter_max,
-                                        num_samples,
-                                        num_samples_max,
-                                        100. * num_iter / num_iter_max,
-                                        loss))
+                        logger.debug(
+                            "Train {}| "
+                            "Iteration {}/{} | "
+                            "Samples {}/{} ({:.0f}%)\tLoss: {:.6f}".format(
+                                f"Epoch: {epoch_to_report} "
+                                if epoch_to_report is not None
+                                else "",
+                                num_iter,
+                                num_iter_max,
+                                num_samples,
+                                num_samples_max,
+                                100.0 * num_iter / num_iter_max,
+                                loss,
+                            )
+                        )
 
                         record_loss(
                             metric={loss_name: loss},
@@ -108,7 +126,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                             num_samples_trained=num_samples,
                             num_batches=num_iter_max,
                             total_samples=num_samples_max,
-                            batch_samples=batch_size
+                            batch_samples=batch_size,
                         )
         # Reset model verbosity to its initial value.
         if report:
@@ -117,11 +135,8 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         return iterations_accountant.num_samples_observed_in_total
 
     def _train_over_batch(
-            self,
-            inputs: np.ndarray,
-            target: np.ndarray,
-            report: bool
-        ) -> float:
+        self, inputs: np.ndarray, target: np.ndarray, report: bool
+    ) -> float:
         """Perform gradient descent over a single data batch.
 
         This method also resets the n_iter_ attribute of the
@@ -155,14 +170,11 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                 )
                 logger.error(msg)
         # Otherwise, return nan as a fill-in value.
-        return float('nan')
+        return float("nan")
 
     def _parse_batch_loss(
-            self,
-            stdout: List[List[str]],
-            inputs: np.ndarray,
-            target: np.ndarray
-        ) -> float:
+        self, stdout: List[List[str]], inputs: np.ndarray, target: np.ndarray
+    ) -> float:
         """Parse logged loss values from captured stdout lines.
 
         Args:
@@ -176,9 +188,7 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
         return float(np.mean(losses))
 
     @staticmethod
-    def _parse_sample_losses(
-            stdout: List[str]
-        ) -> List[float]:
+    def _parse_sample_losses(stdout: List[str]) -> List[float]:
         """Parse logged loss values from captured stdout lines."""
         losses = []  # type: List[float]
         for row in stdout:
@@ -198,7 +208,7 @@ class FedSGDRegressor(SKLearnTrainingPlanPartialFit):
     _model_cls = SGDRegressor
     _model_dep = (
         "from sklearn.linear_model import SGDRegressor",
-        "from fedbiomed.common.training_plans import FedSGDRegressor"
+        "from fedbiomed.common.training_plans import FedSGDRegressor",
     )
 
     def __init__(self) -> None:
@@ -212,7 +222,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
     _model_cls = SGDClassifier
     _model_dep = (
         "from sklearn.linear_model import SGDClassifier",
-        "from fedbiomed.common.training_plans import FedSGDClassifier"
+        "from fedbiomed.common.training_plans import FedSGDClassifier",
     )
 
     def __init__(self) -> None:
@@ -220,11 +230,8 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         super().__init__()
 
     def _parse_batch_loss(
-            self,
-            stdout: List[List[str]],
-            inputs: np.ndarray,
-            target: np.ndarray
-        ) -> float:
+        self, stdout: List[List[str]], inputs: np.ndarray, target: np.ndarray
+    ) -> float:
         """Parse logged loss values from captured stdout lines."""
         # Delegate binary classification case to parent class.
         if self.model_args()["n_classes"] == 2:
@@ -235,7 +242,7 @@ class FedSGDClassifier(SKLearnTrainingPlanPartialFit):
         losses = np.array(values).mean(axis=0)
         # Compute the support-weighted average of label-wise losses.
         # NOTE: this assumes a (n, 1)-shaped targets array.
-        classes = getattr(self.model(), "classes_")
+        classes = self.model().classes_
         support = (target == classes).sum(axis=0)
         return float(np.average(losses, weights=support))
 
@@ -250,7 +257,7 @@ class FedPerceptron(FedSGDClassifier):
 
     _model_dep = (
         "from sklearn.linear_model import SGDClassifier",
-        "from fedbiomed.common.training_plans import FedPerceptron"
+        "from fedbiomed.common.training_plans import FedPerceptron",
     )
 
     def __init__(self) -> None:
@@ -258,12 +265,12 @@ class FedPerceptron(FedSGDClassifier):
         super().__init__()
 
     def post_init(
-            self,
-            model_args: Dict[str, Any],
-            training_args: Dict[str, Any],
-            aggregator_args: Optional[Dict[str, Any]] = None,
-            **kwargs
-        ) -> None:
+        self,
+        model_args: Dict[str, Any],
+        training_args: Dict[str, Any],
+        aggregator_args: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> None:
         # get default values of Perceptron model (different from SGDClassifier model default values)
         perceptron_default_values = Perceptron().get_params()
         sgd_classifier_default_values = SGDClassifier().get_params()
@@ -275,6 +282,9 @@ class FedPerceptron(FedSGDClassifier):
         # collect default values of Perceptron and set it to the model FedPerceptron
         model_hyperparameters = self._model.get_params()
         for hyperparameter_name, val in perceptron_default_values.items():
-            if model_hyperparameters[hyperparameter_name] == sgd_classifier_default_values[hyperparameter_name]:
+            if (
+                model_hyperparameters[hyperparameter_name]
+                == sgd_classifier_default_values[hyperparameter_name]
+            ):
                 # this means default parameter of SGDClassifier has not been changed by user
                 self._model.set_params(**{hyperparameter_name: val})

@@ -1,22 +1,21 @@
 import time
-import pytest
 
+import pytest
+from experiments.training_plans.mnist_model_approval import TrainingPlanApprovalTP
 from helpers import (
-    clear_component_data,
     add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
+    clear_component_data,
     clear_experiment_data,
-    training_plan_operation,
     create_node,
     create_researcher,
-    get_data_folder
+    get_data_folder,
+    kill_subprocesses,
+    start_nodes,
+    training_plan_operation,
 )
 
-from experiments.training_plans.mnist_model_approval import TrainingPlanApprovalTP
-
-from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.experiment import Experiment
 
 
 # Set up nodes and start
@@ -28,24 +27,18 @@ def setup_components(port, post_session, request):
         "description": "MNIST DATASET",
         "tags": "#MNIST,#dataset",
         "data_type": "default",
-        "path": get_data_folder('MNIST-e2e-test')
-
+        "path": get_data_folder("MNIST-e2e-test"),
     }
 
-    print(f"USING PORT {port} for researcher erver")
+    print(f"USING PORT {port} for researcher server")
     print("Creating§ components ---------------------------------------------")
     node_1 = create_node(
-        port=port,
-        config_sections={
-            'security': {'training_plan_approval': 'True'}
-        })
+        port=port, config_sections={"security": {"training_plan_approval": "True"}}
+    )
 
     node_2 = create_node(
-        port=port,
-        config_sections={
-            'security': {'training_plan_approval': 'True'}
-        })
-
+        port=port, config_sections={"security": {"training_plan_approval": "True"}}
+    )
 
     print("Creating researcher component -----------------------------------------")
     researcher = create_researcher(port=port)
@@ -54,7 +47,6 @@ def setup_components(port, post_session, request):
     add_dataset_to_node(node_1, dataset)
     print("adding second dataset")
     add_dataset_to_node(node_2, dataset)
-
 
     # Starts the nodes
     node_processes, thread = start_nodes([node_1, node_2])
@@ -75,8 +67,8 @@ def setup_components(port, post_session, request):
 
     request.addfinalizer(clear)
 
-
     return node_1, node_2, researcher
+
 
 #############################################
 ### Start writing tests
@@ -84,21 +76,20 @@ def setup_components(port, post_session, request):
 #############################################
 
 model_args = {}
-tags = ['#MNIST', '#dataset']
-rounds =  1
+tags = ["#MNIST", "#dataset"]
+rounds = 1
 training_args = {
-    'loader_args': { 'batch_size': 48, },
-    'optimizer_args': {
-        "lr" : 1e-3
+    "loader_args": {
+        "batch_size": 48,
     },
-    'num_updates': 100,
-    'dry_run': False,
+    "optimizer_args": {"lr": 1e-3},
+    "num_updates": 100,
+    "dry_run": False,
 }
 
 
 def test_01_training_plan_approval_failure_success_cases(setup_components):
     """Tests running training mnist with basic configuration"""
-
 
     print("Running test_experiment_run_01")
     node_1, node_2, researcher = setup_components
@@ -120,24 +111,23 @@ def test_01_training_plan_approval_failure_success_cases(setup_components):
     # Check status
     status = exp.check_training_plan_status()
 
-    node_1_id = node_1.get('default', 'id')
-    node_2_id = node_2.get('default', 'id')
+    node_1_id = node_1.get("default", "id")
+    node_2_id = node_2.get("default", "id")
 
     assert node_1_id in status
     assert node_2_id in status
 
-    assert status[node_1_id].status == 'Not Registered'
-    assert status[node_2_id].status == 'Not Registered'
+    assert status[node_1_id].status == "Not Registered"
+    assert status[node_2_id].status == "Not Registered"
 
-
-    print('Sending approval request')
+    print("Sending approval request")
     reply = exp.training_plan_approve(description="Test training plan")
 
     assert node_1_id in reply
     assert node_2_id in reply
 
-    tp_id_1 = reply[node_1_id]['training_plan_id']
-    tp_id_2 = reply[node_2_id]['training_plan_id']
+    tp_id_1 = reply[node_1_id]["training_plan_id"]
+    tp_id_2 = reply[node_2_id]["training_plan_id"]
 
     assert tp_id_1 is not None
     assert tp_id_2 is not None
@@ -145,38 +135,33 @@ def test_01_training_plan_approval_failure_success_cases(setup_components):
     # Recheck status results it should be pending
     # Check status
     status = exp.check_training_plan_status()
-    assert status[node_1_id].status == 'Pending'
-    assert status[node_2_id].status == 'Pending'
-
-
+    assert status[node_1_id].status == "Pending"
+    assert status[node_2_id].status == "Pending"
 
     # Approve training plans --------------------------------
-    training_plan_operation(node_1, 'approve', tp_id_1)
-    training_plan_operation(node_2, 'approve', tp_id_2)
+    training_plan_operation(node_1, "approve", tp_id_1)
+    training_plan_operation(node_2, "approve", tp_id_2)
 
     # Recheck status results it should be pending
     # Check status
     status = exp.check_training_plan_status()
-    assert status[node_1_id].status == 'Approved'
-    assert status[node_2_id].status == 'Approved'
+    assert status[node_1_id].status == "Approved"
+    assert status[node_2_id].status == "Approved"
 
     # Should be able to run training
     exp.run()
 
-
     # Reject training plans
-    training_plan_operation(node_1, 'reject', tp_id_1)
-    training_plan_operation(node_2, 'reject', tp_id_2)
+    training_plan_operation(node_1, "reject", tp_id_1)
+    training_plan_operation(node_2, "reject", tp_id_2)
 
     status = exp.check_training_plan_status()
-    assert status[node_1_id].status == 'Rejected'
-    assert status[node_2_id].status == 'Rejected'
+    assert status[node_1_id].status == "Rejected"
+    assert status[node_2_id].status == "Rejected"
 
     # Should not be able to run experiment with rejected training plan
     with pytest.raises(SystemExit):
         exp.run(rounds=2, increase=True)
 
-
     # Important always clear experiment  data
     clear_experiment_data(exp)
-

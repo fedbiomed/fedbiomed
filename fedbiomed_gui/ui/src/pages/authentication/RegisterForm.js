@@ -72,7 +72,7 @@ const RegisterForm = (props) => {
     }
 
     /**
-     * Hadnler for form input changes
+     * Handler for form input changes
      * @param event
      */
     const handleChange = (event) => {

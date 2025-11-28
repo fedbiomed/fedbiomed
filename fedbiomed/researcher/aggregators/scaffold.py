@@ -6,18 +6,16 @@
 import copy
 import os
 import uuid
-from typing import Any, Dict, Collection, List, Mapping, Optional, Tuple, Union
+from typing import Any, Collection, Dict, List, Mapping, Optional, Union
 
 import numpy as np
-from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 import torch
 
-from fedbiomed.common.logger import logger
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_plans import BaseTrainingPlan
-
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import initialize
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -88,7 +86,7 @@ class Scaffold(Aggregator):
         {node id: learning rate}
     """
 
-    def __init__(self, server_lr: float = 1., fds: Optional[FederatedDataSet] = None):
+    def __init__(self, server_lr: float = 1.0, fds: Optional[FederatedDataSet] = None):
         """Constructs `Scaffold` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
 
@@ -99,28 +97,33 @@ class Scaffold(Aggregator):
         """
         super().__init__()
         self.aggregator_name: str = "Scaffold"
-        if server_lr == 0.:
-            raise FedbiomedAggregatorError("SCAFFOLD Error: Server learning rate cannot be equal to 0")
+        if server_lr == 0.0:
+            raise FedbiomedAggregatorError(
+                "SCAFFOLD Error: Server learning rate cannot be equal to 0"
+            )
         self.server_lr: float = server_lr
         self.global_state: Dict[str, Union[torch.Tensor, np.ndarray]] = {}
         self.nodes_states: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
-        # FIXME: `nodes_states` is mis-named, because can conflict with `node_state`s that are saved 
-        # whitin 2 Rounds
+        # FIXME: `nodes_states` is mis-named, because can conflict with `node_state`s that are saved
+        # within 2 Rounds
         self.nodes_deltas: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
         self.nodes_lr: Dict[str, Dict[str, float]] = {}
         if fds is not None:
             self.set_fds(fds)
         self._aggregator_args = {}  # we need `_aggregator_args` to be not None
 
-    def aggregate(self,
-                  model_params: Dict,
-                  weights: Dict[str, float],
-                  global_model: Dict[str, Union[torch.Tensor, np.ndarray]],
-                  training_plan: BaseTrainingPlan,
-                  training_replies: Dict,
-                  n_updates: int = 1,
-                  n_round: int = 0,
-                  *args, **kwargs) -> Dict:
+    def aggregate(
+        self,
+        model_params: Dict,
+        weights: Dict[str, float],
+        global_model: Dict[str, Union[torch.Tensor, np.ndarray]],
+        training_plan: BaseTrainingPlan,
+        training_replies: Dict,
+        n_updates: int = 1,
+        n_round: int = 0,
+        *args,
+        **kwargs,
+    ) -> Dict:
         """
         Aggregates local models coming from nodes into a global model, using SCAFFOLD algorithm (2nd option)
         [Scaffold: Stochastic Controlled Averaging for Federated Learning][https://arxiv.org/abs/1910.06378]
@@ -217,8 +220,12 @@ class Scaffold(Aggregator):
             )
         node_ids = self._fds.node_ids()
         # Initialize nodes states with zero scalars, that will be summed into actual tensors.
-        init_params = {key: initialize(tensor)[1] for key, tensor in global_model.items()}
-        self.nodes_deltas = {node_id: copy.deepcopy(init_params) for node_id in node_ids}
+        init_params = {
+            key: initialize(tensor)[1] for key, tensor in global_model.items()
+        }
+        self.nodes_deltas = {
+            node_id: copy.deepcopy(init_params) for node_id in node_ids
+        }
         self.nodes_states = copy.deepcopy(self.nodes_deltas)
         self.global_state = init_params
 
@@ -246,36 +253,34 @@ class Scaffold(Aggregator):
         # c_i^{t+1} = delta_i^t + (x^t - y_i^t) / (M * eta)
         for node_id, updates in model_updates.items():
             d_i = self.nodes_deltas[node_id]
-            for (key, val) in updates.items():
+            for key, val in updates.items():
                 if self.nodes_lr[node_id].get(key) is not None:
                     self.nodes_states[node_id].update(
                         {
-                        key: d_i[key] + val / (self.nodes_lr[node_id][key] * n_updates)
-                         }
+                            key: d_i[key]
+                            + val / (self.nodes_lr[node_id][key] * n_updates)
+                        }
                     )
         # Update the global state: c^{t+1} = average(c_i^{t+1})
         for key in self.global_state:
             self.global_state[key] = 0
             for state in self.nodes_states.values():
                 if state.get(key) is not None:
-                    self.global_state[key] = (
-                        sum(state[key] for state in self.nodes_states.values())
-                            / len(self.nodes_states)
-                        )
+                    self.global_state[key] = sum(
+                        state[key] for state in self.nodes_states.values()
+                    ) / len(self.nodes_states)
 
         # Compute the new node-wise correction states:
         # delta_i^{t+1} = c_i^{t+1} - c^{t+1}
         self.nodes_deltas = {
-            node_id: {
-                key: val - self.global_state[key] for key, val in state.items()
-            }
+            node_id: {key: val - self.global_state[key] for key, val in state.items()}
             for node_id, state in self.nodes_states.items()
         }
 
     def create_aggregator_args(
         self,
         global_model: Dict[str, Union[torch.Tensor, np.ndarray]],
-        node_ids: Collection[str]
+        node_ids: Collection[str],
     ) -> Dict[str, Dict[str, Any]]:
         """Return correction states that are to be sent to the nodes.
 
@@ -300,18 +305,22 @@ class Scaffold(Aggregator):
         for node_id in node_ids:
             # If a node was late-added to the FederatedDataset, create states.
             if node_id not in self.nodes_deltas:
-                zeros = {key: initialize(val)[1] for key, val in self.global_state.items()}
+                zeros = {
+                    key: initialize(val)[1] for key, val in self.global_state.items()
+                }
                 self.nodes_deltas[node_id] = zeros
                 self.nodes_states[node_id] = copy.deepcopy(zeros)
             # Add information for the current node to the message dicts.
             aggregator_dat[node_id] = {
-                'aggregator_name': self.aggregator_name,
-                'aggregator_correction': self.nodes_deltas[node_id]
+                "aggregator_name": self.aggregator_name,
+                "aggregator_correction": self.nodes_deltas[node_id],
             }
- 
+
         return aggregator_dat
 
-    def check_values(self, n_updates: int, training_plan: BaseTrainingPlan, *args, **kwargs) -> True:
+    def check_values(
+        self, n_updates: int, training_plan: BaseTrainingPlan, *args, **kwargs
+    ) -> True:
         """Check if all values/parameters are correct and have been set before using aggregator.
 
         Raise an error otherwise.
@@ -332,7 +341,9 @@ class Scaffold(Aggregator):
                 has not been set.
         """
         if n_updates is None:
-            raise FedbiomedAggregatorError("Cannot perform Scaffold: missing 'num_updates' entry in the training_args")
+            raise FedbiomedAggregatorError(
+                "Cannot perform Scaffold: missing 'num_updates' entry in the training_args"
+            )
         elif n_updates <= 0 or int(n_updates) != float(n_updates):
             raise FedbiomedAggregatorError(
                 "n_updates should be a positive non zero integer, but got "
@@ -344,11 +355,13 @@ class Scaffold(Aggregator):
             )
 
         # raise warnings
-        if kwargs.get('secagg'):
-            logger.warning("Warning: secagg setting detected. Nodes correction states involved in Scaffold algorithm"
-                           " are not encrypted and can be read by the `Researcher`.\n"
-                           "Please consider using `declearn`'s Scaffold to encrypt both model parameters and correction"
-                           " terms")
+        if kwargs.get("secagg"):
+            logger.warning(
+                "Warning: secagg setting detected. Nodes correction states involved in Scaffold algorithm"
+                " are not encrypted and can be read by the `Researcher`.\n"
+                "Please consider using `declearn`'s Scaffold to encrypt both model parameters and correction"
+                " terms"
+            )
         return True
 
     def set_nodes_learning_rate_after_training(
@@ -371,16 +384,15 @@ class Scaffold(Aggregator):
                 the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
         """
 
-        n_model_layers = len(training_plan.get_model_params(
-            only_trainable=False,
-            exclude_buffers=True)
+        n_model_layers = len(
+            training_plan.get_model_params(only_trainable=False, exclude_buffers=True)
         )
         for node_id in self._fds.node_ids():
             lrs: Dict[str, float] = {}
 
             node = training_replies.get(node_id, None)
             if node is not None:
-                lrs = training_replies[node_id]["optimizer_args"].get('lr')
+                lrs = training_replies[node_id]["optimizer_args"].get("lr")
 
             if node is None or lrs is None:
                 # fall back to default value if no lr information was provided
@@ -394,7 +406,9 @@ class Scaffold(Aggregator):
             self.nodes_lr[node_id] = lrs
         return self.nodes_lr
 
-    def set_training_plan_type(self, training_plan_type: TrainingPlans) -> TrainingPlans:
+    def set_training_plan_type(
+        self, training_plan_type: TrainingPlans
+    ) -> TrainingPlans:
         """
         Overrides `set_training_plan_type` from parent class.
         Checks the training plan type, and if it is SKlearnTrainingPlan,
@@ -410,7 +424,9 @@ class Scaffold(Aggregator):
             TrainingPlans: training plan type
         """
         if training_plan_type == TrainingPlans.SkLearnTrainingPlan:
-            raise FedbiomedAggregatorError("Aggregator SCAFFOLD not implemented for SKlearn")
+            raise FedbiomedAggregatorError(
+                "Aggregator SCAFFOLD not implemented for SKlearn"
+            )
         training_plan_type = super().set_training_plan_type(training_plan_type)
 
         # TODO: trigger a warning if user is trying to use scaffold with something else than SGD
@@ -419,15 +435,15 @@ class Scaffold(Aggregator):
     def save_state_breakpoint(
         self,
         breakpoint_path: str,
-        global_model: Mapping[str, Union[torch.Tensor, np.ndarray]]
+        global_model: Mapping[str, Union[torch.Tensor, np.ndarray]],
     ) -> Dict[str, Any]:
-        # adding aggregator parameters to the breakpoint that wont be sent to nodes
-        self._aggregator_args['server_lr'] = self.server_lr
+        # adding aggregator parameters to the breakpoint that won't be sent to nodes
+        self._aggregator_args["server_lr"] = self.server_lr
 
         # saving global state variable into a file
         filename = os.path.join(breakpoint_path, f"global_state_{uuid.uuid4()}.mpk")
         Serializer.dump(self.global_state, filename)
-        self._aggregator_args['global_state_filename'] = filename
+        self._aggregator_args["global_state_filename"] = filename
 
         self._aggregator_args["nodes"] = self._fds.node_ids()
         # adding aggregator parameters that will be sent to nodes afterwards
@@ -438,13 +454,15 @@ class Scaffold(Aggregator):
     def load_state_breakpoint(self, state: Dict[str, Any] = None):
         super().load_state_breakpoint(state)
 
-        self.server_lr = self._aggregator_args['server_lr']
+        self.server_lr = self._aggregator_args["server_lr"]
 
         # loading global state
-        global_state_filename = self._aggregator_args['global_state_filename']
+        global_state_filename = self._aggregator_args["global_state_filename"]
         self.global_state = Serializer.load(global_state_filename)
 
-        for node_id in self._aggregator_args['nodes']:
-            self.nodes_deltas[node_id] = self._aggregator_args[node_id]['aggregator_correction']
+        for node_id in self._aggregator_args["nodes"]:
+            self.nodes_deltas[node_id] = self._aggregator_args[node_id][
+                "aggregator_correction"
+            ]
 
         self.nodes_states = copy.deepcopy(self.nodes_deltas)

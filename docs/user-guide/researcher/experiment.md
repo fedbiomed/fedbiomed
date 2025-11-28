@@ -172,7 +172,7 @@ training_plan_class = exp.training_plan_class()
 The `model_args` is a dictionary with the arguments related to the model
 (e.g. number of layers, layer arguments and dimensions, etc.).
 This will be passed to the `init_model` method during model setup.
-An example for passing the number of input adn output features for a model is shown below.
+An example for passing the number of input and output features for a model is shown below.
 
 ```python
 model_args = {
@@ -307,6 +307,7 @@ The `random_seed` argument allows to set a random seed at the beginning of each 
 Setting the `random_seed` affects:
 
 - the random initialization of model parameters at the beginning of the experiment
+- the random splitting of data between training and testing subset
 - the random shuffling of data in the `DataLoader`
 - any other random effect on the node and researcher side.
 

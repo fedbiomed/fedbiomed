@@ -1,7 +1,7 @@
 ---
 title: Deploying Datasets in Nodes
 description: Deploying datasets in nodes makes the datasets ready for federated training with Fed-BioMed.
-keywords: fedbiomed configuration,node configuration,deployin datasets
+keywords: fedbiomed configuration,node configuration,deploying datasets
 ---
 
 # Deploying Datasets in Nodes
@@ -34,18 +34,14 @@ Please select the data type that you're configuring:
 	3) mednist
 	4) images
 	5) medical-folder
-	6) flamby
+	6) custom
 select:
 ```
 
-The interface prompts you to select the type of dataset you would like to add. The `default` and `mednist` options are preconfigured to automatically download and add the MNIST and MedNIST datasets. To deploy your own data, you can select one of the following options: `csv`, `image`, `medical-folder`, or `flamby`, based on your requirements. After selecting an option, you will be prompted to provide additional details, covering both common and option-specific attributes.
+The interface prompts you to select the type of dataset you would like to add. The `default` and `mednist` options are preconfigured to automatically download and add the MNIST and MedNIST datasets. To deploy your own data, you can select one of the following options: `csv`, `image`, `medical-folder`, or `custom`, based on your requirements. After selecting an option, you will be prompted to provide additional details, covering both common and option-specific attributes.
 
 For example, suppose you want to add a CSV dataset. To do this, type `1` and press Enter. The interface will then ask you to provide the common attributes: dataset name, tags, and description.
 
-!!! note "Flamby"
-    To enable option 6 in Fed-BioMed, you'll need to install FLamby as an external dependency. After installing Fed-BioMed, use the following command: `pip install git+https://github.com/owkin/FLamby@main`."
-
-```
 Name of the database: My Dataset
 Tags (separate them by comma and no spaces): #my-csv-data,#csv-dummy-data
 Description: Dummy CSV data

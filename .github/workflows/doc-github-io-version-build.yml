@@ -3,11 +3,11 @@ on:
   push:
     # Pattern matched against refs/tags
     tags:
-      - '*'
+      - "*"
 
 jobs:
   build-doc:
-    name: Publish version in fedbioemd/fedbiomed.github.io repository
+    name: Publish version in fedbiomed/fedbiomed.github.io repository
     environment: fedbiomed.github.io
     runs-on: ubuntu-latest
     steps:
@@ -33,13 +33,13 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v4
         with:
-            python-version: '3.10'
+          python-version: "3.10"
 
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v4
 
       - name: Install Dependencies
-        run: pdm install -G docs
+        run: pdm install --no-default -G docs -G dev
 
       - name: Build documentation
         run: |

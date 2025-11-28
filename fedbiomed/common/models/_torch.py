@@ -9,9 +9,9 @@ from typing import Dict, List
 import numpy as np
 import torch
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.models import Model
 
 
@@ -56,9 +56,7 @@ class TorchModel(Model):
         return gradients
 
     def get_weights(
-        self,
-        only_trainable: bool = False,
-        exclude_buffers: bool = True
+        self, only_trainable: bool = False, exclude_buffers: bool = True
     ) -> Dict[str, torch.Tensor]:
         """Return the model's parameters.
 
@@ -66,14 +64,18 @@ class TorchModel(Model):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or 
+            exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their
                 torch tensor.
         """
-        param_iterator = self.model.named_parameters() if exclude_buffers else self.model.state_dict().items()
+        param_iterator = (
+            self.model.named_parameters()
+            if exclude_buffers
+            else self.model.state_dict().items()
+        )
         parameters = {
             name: param.detach().clone()
             for name, param in param_iterator
@@ -81,32 +83,34 @@ class TorchModel(Model):
         }
         return parameters
 
-    def flatten(self,
-                only_trainable: bool = False,
-                exclude_buffers: bool = True) -> List[float]:
+    def flatten(
+        self, only_trainable: bool = False, exclude_buffers: bool = True
+    ) -> List[float]:
         """Gets weights as flatten vector
 
         Args:
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or 
+            exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
 
         Returns:
             to_list: Convert np.ndarray to a list if it is True.
         """
         params: List[float] = torch.nn.utils.parameters_to_vector(
-            self.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers).values()
+            self.get_weights(
+                only_trainable=only_trainable, exclude_buffers=exclude_buffers
+            ).values()
         ).tolist()
 
         return params
 
     def unflatten(
-            self,
-            weights_vector: List[float],
-            only_trainable: bool = False,
-            exclude_buffers: bool = True
+        self,
+        weights_vector: List[float],
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
     ) -> Dict[str, torch.Tensor]:
         """Unflatten vectorized model weights using [`vector_to_parameters`][torch.nn.utils.vector_to_parameters]
 
@@ -117,7 +121,7 @@ class TorchModel(Model):
             only_trainable: Whether to ignore non-trainable model parameters
                 from outputs (e.g. frozen neural network layers' parameters),
                 or include all model parameters (the default).
-            exclude_buffers: Whether to ignore buffers (the default), or 
+            exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
 
         Returns:
@@ -129,7 +133,9 @@ class TorchModel(Model):
         # Copy model to make sure global model parameters won't be overwritten
         model = copy.deepcopy(self)
         vector = torch.as_tensor(weights_vector).type(torch.DoubleTensor)
-        weights = model.get_weights(only_trainable=only_trainable, exclude_buffers=exclude_buffers)
+        weights = model.get_weights(
+            only_trainable=only_trainable, exclude_buffers=exclude_buffers
+        )
 
         # Following operation updates model parameters of copied model object
         try:
@@ -157,19 +163,21 @@ class TorchModel(Model):
         # parameters, and/or input weights may exclude non-trainable weights,
         # without requiring a warning.
         if incompatible.missing_keys:
-            params = {key for key, prm in self.model.named_parameters() if prm.requires_grad}
+            params = {
+                key for key, prm in self.model.named_parameters() if prm.requires_grad
+            }
             missing = params.intersection(incompatible.missing_keys)
             if missing:
                 logger.warning(
                     "'TorchModel.set_weights' received inputs that did not cover all"
                     "trainable model parameters; missing weights: %s",
-                    missing
+                    missing,
                 )
         # Warn about invalid (hence, unused) inputs.
         if incompatible.unexpected_keys:
             logger.warning(
                 "'TorchModel.set_weights' received inputs with unexpected names: %s",
-                incompatible.unexpected_keys
+                incompatible.unexpected_keys,
             )
 
     def apply_updates(
@@ -265,7 +273,7 @@ class TorchModel(Model):
 
         !!! info "Notes":
             This method is designed to save the model to a local dump
-            file for easy re-use by the same user, possibly outside of
+            file for easy reuse by the same user, possibly outside of
             Fed-BioMed. It is not designed to produce trustworthy data
             dumps and is not used to exchange models and their weights
             as part of the federated learning process.
@@ -296,7 +304,6 @@ class TorchModel(Model):
         weights = torch.load(filename)
         # check format of weights and apply them to the model
         self.set_weights(weights)
-
 
     def _reload(self, filename: str) -> None:
         """Model-class-specific backend to the `reload` method.

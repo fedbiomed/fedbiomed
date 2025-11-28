@@ -1,52 +1,52 @@
 import os
 import re
 
-from flask import request, g
+from flask import g, request
 
-from fedbiomed.common.data import MedicalFolderController
+from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import DatasetManager
 
-from .api import api
-from ..config import config
 from ..cache import cached
-from ..db import node_database
-from ..middlewares import middleware, medical_folder_dataset, common
+from ..config import config
+
+# from ..db import node_database
+from ..middlewares import common, medical_folder_dataset, middleware
 from ..schemas import (
+    PreviewDatasetRequest,
+    ValidateDataLoadingPlanAddRequest,
+    ValidateDataLoadingPlanDeleteRequest,
+    ValidateMedicalFolderAddRequest,
     ValidateMedicalFolderReferenceCSV,
     ValidateMedicalFolderRoot,
     ValidateSubjectsHasAllModalities,
-    ValidateMedicalFolderAddRequest,
-    ValidateDataLoadingPlanAddRequest,
-    ValidateDataLoadingPlanDeleteRequest,
-    PreviewDatasetRequest
 )
-from ..utils import error, validate_request_data, response
+from ..utils import error, response, validate_request_data
+from .api import api
 
 dataset_manager = DatasetManager(config["NODE_DB_PATH"])
 
-# Medical Folder Controller
-mf_controller = MedicalFolderController()
-
 # Path to write and read the datafiles
-DATA_PATH_RW = config['DATA_PATH_RW']
-
-# Database table (default datasets table of TinyDB) and query object
-table = node_database.table_datasets()
-query = node_database.query()
+DATA_PATH_RW = config["DATA_PATH_RW"]
 
 
-@api.route('/datasets/medical-folder-dataset/validate-reference-column', methods=['POST'])
+@api.route(
+    "/datasets/medical-folder-dataset/validate-reference-column", methods=["POST"]
+)
 @validate_request_data(schema=ValidateMedicalFolderReferenceCSV)
-@middleware(middlewares=[medical_folder_dataset.read_medical_folder_reference,
-                         medical_folder_dataset.validate_available_subjects])
+@middleware(
+    middlewares=[
+        medical_folder_dataset.read_medical_folder_reference,
+        medical_folder_dataset.validate_available_subjects,
+    ]
+)
 def validate_reference_csv_column():
-    """ Validate selected reference CSV and column shows folder names """
+    """Validate selected reference CSV and column shows folder names"""
     subjects = g.available_subjects
     return response({"valid": True, "subjects": subjects}), 200
 
 
-@api.route('/datasets/medical-folder-dataset/validate-root', methods=['POST'])
+@api.route("/datasets/medical-folder-dataset/validate-root", methods=["POST"])
 @validate_request_data(schema=ValidateMedicalFolderRoot)
 @middleware(middlewares=[medical_folder_dataset.validate_medical_folder_root])
 def validate_root_path():
@@ -54,7 +54,7 @@ def validate_root_path():
     return response(data={"valid": True, "modalities": g.modalities}), 200
 
 
-@api.route('/datasets/medical-folder-dataset/validate-all-modalities', methods=['POST'])
+@api.route("/datasets/medical-folder-dataset/validate-all-modalities", methods=["POST"])
 @validate_request_data(schema=ValidateSubjectsHasAllModalities)
 @middleware(middlewares=[medical_folder_dataset.validate_all_modalities])
 def validate_subjects_has_all_modalities():
@@ -62,56 +62,66 @@ def validate_subjects_has_all_modalities():
     return response(data={"valid": True, "subjects": g.subjects}), 200
 
 
-@api.route('/datasets/medical-folder-dataset/add', methods=['POST'])
+@api.route("/datasets/medical-folder-dataset/add", methods=["POST"])
 @validate_request_data(schema=ValidateMedicalFolderAddRequest)
-@middleware(middlewares=[common.check_tags_already_registered,
-                         medical_folder_dataset.load_dlp,
-                         medical_folder_dataset.validate_medical_folder_root,
-                         medical_folder_dataset.read_medical_folder_reference,
-                         medical_folder_dataset.validate_available_subjects])
+@middleware(
+    middlewares=[
+        common.check_tags_already_registered,
+        medical_folder_dataset.load_dlp,
+        medical_folder_dataset.validate_medical_folder_root,
+        medical_folder_dataset.read_medical_folder_reference,
+        medical_folder_dataset.validate_available_subjects,
+    ]
+)
 def add_medical_folder_dataset():
-    """ Adds MedicalFolder dataset into database of NODE """
+    """Adds MedicalFolder dataset into database of NODE"""
 
     # Request object as JSON
     req = request.json
 
-    data_path_save = os.path.join(config['DATA_PATH_SAVE'], *req['medical_folder_root'])
+    data_path_save = os.path.join(config["DATA_PATH_SAVE"], *req["medical_folder_root"])
 
     if req["reference_csv_path"] is None:
         dataset_parameters = {}
     else:
-        reference_csv = os.path.join(config['DATA_PATH_SAVE'], *req["reference_csv_path"])
-        dataset_parameters = {"index_col": req["index_col"],
-                              "tabular_file": reference_csv}
+        reference_csv = os.path.join(
+            config["DATA_PATH_SAVE"], *req["reference_csv_path"]
+        )
+        dataset_parameters = {
+            "index_col": req["index_col"],
+            "tabular_file": reference_csv,
+        }
     try:
         dataset_id = dataset_manager.add_database(
             name=req["name"],
             data_type="medical-folder",
-            tags=req['tags'],
-            description=req['desc'],
+            tags=req["tags"],
+            description=req["desc"],
             path=data_path_save,
             dataset_parameters=dataset_parameters,
             data_loading_plan=g.dlp,
-            save_dlp=False)
+            save_dlp=False,
+        )
     except FedbiomedError as e:
         return error(str(e)), 400
     except Exception as e:
         return error("Unexpected error: " + str(e)), 400
 
     # Get saved dataset document
-    res = table.get(query.dataset_id == dataset_id)
+    res = dataset_manager.dataset_table.get_by_id(dataset_id)
     if not res:
-        return error("Medical Folder Dataset is not properly deployed. "
-                     "Please try again."), 400
+        return error(
+            "Medical Folder Dataset is not properly deployed. Please try again."
+        ), 400
 
     return response(data=res), 200
 
 
-@api.route('/datasets/medical-folder-dataset/add-dlp', methods=['POST'])
+@api.route("/datasets/medical-folder-dataset/add-dlp", methods=["POST"])
 @validate_request_data(schema=ValidateDataLoadingPlanAddRequest)
 @middleware(middlewares=[medical_folder_dataset.create_dlp])
 def add_data_loading_plan():
-    """Adds DataLoadingPlan into database of NODE """
+    """Adds DataLoadingPlan into database of NODE"""
 
     try:
         dlp_id = dataset_manager.save_data_loading_plan(g.dlp)
@@ -123,22 +133,22 @@ def add_data_loading_plan():
     return response(data=dlp_id), 200
 
 
-@api.route('/datasets/medical-folder-dataset/delete-dlp', methods=['POST'])
+@api.route("/datasets/medical-folder-dataset/delete-dlp", methods=["POST"])
 @validate_request_data(schema=ValidateDataLoadingPlanDeleteRequest)
 def remove_data_loading_plan():
-    """Remove DataLoadingPlan from database of NODE """
+    """Remove DataLoadingPlan from database of NODE"""
     # Request object as JSON
     req = request.json
 
     try:
-        dataset_manager.remove_dlp_by_id(req['dlp_id'], True)
+        dataset_manager.remove_dlp_by_id(req["dlp_id"])
     except FedbiomedError as e:
         return error(f"Cannot remove data loading plan for customizations: {e}"), 400
 
     return response(data=True), 200
 
 
-@api.route('/datasets/medical-folder-dataset/preview', methods=['POST'])
+@api.route("/datasets/medical-folder-dataset/preview", methods=["POST"])
 @validate_request_data(schema=PreviewDatasetRequest)
 @cached(key="dataset_id", prefix="medical_folder_dataset-preview", timeout=600)
 def medical_folder_preview():
@@ -147,29 +157,32 @@ def medical_folder_preview():
     # Request object as JSON
     req = request.json
 
-    dataset = table.get(query.dataset_id == req['dataset_id'])
+    dataset = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
 
     # Extract data path where the files are saved in the local GUI repository
-    rexp = re.match('^' + config['DATA_PATH_SAVE'], dataset['path'])
-    data_path = dataset['path'].replace(rexp.group(0), config['DATA_PATH_RW'])
-    mf_controller.root = data_path
+    rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])
+    data_path = dataset["path"].replace(rexp.group(0), config["DATA_PATH_RW"])
+    mf_controller = MedicalFolderController(root=data_path)
+    modalities = mf_controller.modalities
 
-    if "index_col" in dataset["dataset_parameters"]:
+    if (
+        "index_col" in dataset["dataset_parameters"]
+        and dataset["dataset_parameters"]["index_col"] is not None
+    ):
         # Extract data path where the files are saved in the local GUI repository
-        rexp = re.match('^' + config['DATA_PATH_SAVE'], dataset['path'])
-        reference_path = dataset["dataset_parameters"]["tabular_file"].replace(rexp.group(0),
-                                                                               config['DATA_PATH_RW'])
+        rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])
+        reference_path = dataset["dataset_parameters"]["tabular_file"].replace(
+            rexp.group(0), config["DATA_PATH_RW"]
+        )
 
         reference_csv = mf_controller.read_demographics(
-            path=reference_path,
-            index_col=dataset["dataset_parameters"]["index_col"]
+            tabular_file=reference_path,
+            index_col=dataset["dataset_parameters"]["index_col"],
         )
 
         subject_table = mf_controller.subject_modality_status(index=reference_csv.index)
     else:
         subject_table = mf_controller.subject_modality_status()
-
-    modalities, _ = mf_controller.modalities()
 
     data = {
         "subject_table": subject_table,
@@ -178,7 +191,16 @@ def medical_folder_preview():
     return response(data=data), 200
 
 
-@api.route('/datasets/medical-folder-dataset/default-modalities', methods=['GET'])
+@api.route("/datasets/medical-folder-dataset/default-modalities", methods=["GET"])
 def get_default_modalities():
-    formatted_modalities = [{'value': name, 'label': name} for name in MedicalFolderController.default_modality_names]
-    return response(data={'default_modalities': formatted_modalities}), 200
+    # TODO - DATASET REDESIGN - default modalities are removed from the MedicalFodlerController
+    # However, UI (react app) expects this api call to set default modalities. They
+    # are not mandatory since modalities are selected automatically from the folder
+    # layout. However, this data has to be removed from UI and this end-point has to be removed
+    # Quick fix includes returning empty list.
+
+    # formatted_modalities = [
+    #     {"value": name, "label": name}
+    #     for name in MedicalFolderController.default_modality_names
+    # ]
+    return response(data={"default_modalities": []}), 200

@@ -3,8 +3,8 @@
 
 from .aggregator import Aggregator
 from .fedavg import FedAverage
+from .functional import federated_averaging, initialize, weighted_sum
 from .scaffold import Scaffold
-from .functional import initialize, federated_averaging, weighted_sum
 
 __all__ = [
     "Aggregator",
@@ -12,5 +12,5 @@ __all__ = [
     "initialize",
     "federated_averaging",
     "weighted_sum",
-    "Scaffold"
+    "Scaffold",
 ]

@@ -20,9 +20,11 @@ Each author can mention his/her name only or give more information in the follow
 - Yannick Bouillard
 - Tristan Cabel
 - Sergen Cansiz
+- Lucie Chambon
 - Gaurav D. Chaudary
 - Francesco Cremonesi
 - Erwan Demairy
+- Ali Tolga Dincer
 - Nejma El Kourdachi
 - Yann Fraboni
 - Thibaud Kloczko
@@ -39,5 +41,7 @@ Each author can mention his/her name only or give more information in the follow
 - Santiago-Smith Silva-Rincon
 - Jean-Luc Szpyrka
 - Riccardo Taiello
+- Jhonatan Torres
 - Marc Vesin
+- Yaroslav Halchenko
 - Carlos Zubiaga

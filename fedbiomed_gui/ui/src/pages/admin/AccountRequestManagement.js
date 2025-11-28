@@ -194,7 +194,7 @@ const AccountRequestManagement = (props) => {
                 <React.Fragment>
                      <EuiSpacer size="l" />
                      <EuiToast
-                            title="Opps!"
+                            title="Oops!"
                             color="danger"
                             iconType="alert"
                             onClose={() => dispatch({type: USER_REQUESTS_ERROR_MESSAGE, payload: null})}

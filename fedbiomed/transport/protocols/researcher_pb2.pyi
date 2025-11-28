@@ -1,7 +1,8 @@
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from collections.abc import Mapping as _Mapping
+from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -18,7 +19,7 @@ class ProtocolVersion(_message.Message):
 class FeedbackMessage(_message.Message):
     __slots__ = ("protocol_version", "researcher_id", "scalar", "log")
     class Scalar(_message.Message):
-        __slots__ = ("node_id", "experiment_id", "train", "test", "test_on_local_updates", "test_on_global_updates", "metric", "epoch", "total_samples", "batch_samples", "num_batches", "num_samples_trained", "iteration")
+        __slots__ = ("node_id", "experiment_id", "train", "test", "test_on_local_updates", "test_on_global_updates", "metric", "epoch", "total_samples", "batch_samples", "num_batches", "num_samples_trained", "iteration", "node_name")
         class MetricEntry(_message.Message):
             __slots__ = ("key", "value")
             KEY_FIELD_NUMBER: _ClassVar[int]
@@ -39,6 +40,7 @@ class FeedbackMessage(_message.Message):
         NUM_BATCHES_FIELD_NUMBER: _ClassVar[int]
         NUM_SAMPLES_TRAINED_FIELD_NUMBER: _ClassVar[int]
         ITERATION_FIELD_NUMBER: _ClassVar[int]
+        NODE_NAME_FIELD_NUMBER: _ClassVar[int]
         node_id: str
         experiment_id: str
         train: bool
@@ -52,7 +54,8 @@ class FeedbackMessage(_message.Message):
         num_batches: int
         num_samples_trained: int
         iteration: int
-        def __init__(self, node_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ...) -> None: ...
+        node_name: str
+        def __init__(self, node_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., train: bool = ..., test: bool = ..., test_on_local_updates: bool = ..., test_on_global_updates: bool = ..., metric: _Optional[_Mapping[str, float]] = ..., epoch: _Optional[int] = ..., total_samples: _Optional[int] = ..., batch_samples: _Optional[int] = ..., num_batches: _Optional[int] = ..., num_samples_trained: _Optional[int] = ..., iteration: _Optional[int] = ..., node_name: _Optional[str] = ...) -> None: ...
     class Log(_message.Message):
         __slots__ = ("node_id", "level", "msg")
         NODE_ID_FIELD_NUMBER: _ClassVar[int]
