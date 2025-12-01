@@ -320,7 +320,8 @@ plugins:
       default_handler: python
       handlers:
         python:
-          paths: fedbiomed
+          paths: 
+            - fedbiomed
           import:
             - https://requests.readthedocs.io/en/master/objects.inv
             - https://numpy.org/doc/stable/objects.inv
