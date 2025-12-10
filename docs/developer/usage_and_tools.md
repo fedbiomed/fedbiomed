@@ -335,12 +335,12 @@ We sort labels in several categories:
   - **product backlog** : The product owner adds an entry to the product backlog
   - **sprint backlog** : The development team adds an entry to the sprint backlog
   - **attic** : The entry is not completed, but is now considered obsolete and closed
-  - **done**: The entry is completed, closed, and not anymore in the *sprint backlog*
+  - **(no label)**: Previously *done*. The entry is completed, closed, and not anymore in the *sprint backlog*
 
 
 #### *status* information:
 
-**IMPORTANT: status information now uses the []`Fed-BioMed Dev`](https://github.com/orgs/fedbiomed/projects/2)**. Labels are not used anymore for status information (*todo*, *doing*, *in review* *done*). **Don't use anymore these labels**.
+**IMPORTANT: status information now uses the [`Fed-BioMed Dev`](https://github.com/orgs/fedbiomed/projects/2)**. Labels are not used anymore for status information (*todo*, *doing*, *in review* *done*). **Don't use anymore these labels**.
 
 All sprint backlog issues have one status information in the board.
 
@@ -351,7 +351,7 @@ Other issues only have a status information in the board when they are active (e
   - **in review** : Issue implementation is finished, a pull request open and is ready for review (or under review)
   - **done** : Issue is completed, it meets the DoD and **was merged to the next release integration branch**, but it still belongs to the *sprint backlog*
 
-FThe `Fed-BioMed Dev` board can be found in the `Projects` field on the right side of the issue.
+The `Fed-BioMed Dev` board can be found in the `Projects` field on the right side of the issue.
 
 
 #### *misc* labels
