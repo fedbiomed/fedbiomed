@@ -886,6 +886,48 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     training_plan_id: Optional[str]
 
 
+@catch_dataclass_exception
+@dataclass
+class FARequest(RequestReply, RequiresProtocolVersion):
+    """Message for requesting FA job from researcher to node.
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    experiment_id: str
+    fa_id: str
+    dataset_id: str
+    fa_arguments: (
+        Dict  # TODO: Use dataclass to define precisely what arguments are expected
+    )
+
+
+@catch_dataclass_exception
+@dataclass
+class FAReply(RequestReply, RequiresProtocolVersion):
+    """Message that instantiated on the node side to reply FA job request from researcher
+
+    Attributes:
+        researcher_id: ID of the researcher that receives the reply
+        experiment_id: Id of the experiment that is sent by researcher
+        success: True if the node process the request as expected, false if any exception occurs
+        node_id: Node id that replies the request
+        node_name: Node Name that replies the request
+        msg: Custom message
+
+    """
+
+    researcher_id: str
+    experiment_id: str
+    fa_id: str
+    node_id: str
+    node_name: str
+    output: Dict
+    msg: Optional[str]
+
+
 # Train messages
 
 
