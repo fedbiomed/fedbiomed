@@ -5,13 +5,11 @@
 Classes that simplify imports from fedbiomed.common.analytics
 """
 
-from .analytics_dispatcher import AnalyticsDispatcher
 from .analytics_strategy import AnalyticsStrategy
 from .image_analytics import ImageAnalytics
 from .tabular_analytics import TabularAnalytics
 
 __all__ = [
-    "AnalyticsDispatcher",
     "AnalyticsStrategy",
     "ImageAnalytics",
     "TabularAnalytics",

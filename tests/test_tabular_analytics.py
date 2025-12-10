@@ -1,234 +1,164 @@
-from unittest.mock import Mock
-
-import polars as pl
+import numpy as np
 import pytest
+import torch
 
-from fedbiomed.common.analytics.tabular_analytics import TabularAnalytics
 from fedbiomed.common.dataset import TabularDataset
-from fedbiomed.common.dataset_controller import TabularController
-from fedbiomed.common.dataset_reader import CsvReader
-from fedbiomed.common.exceptions import FedbiomedError
+
+
+class MockTabularDataset(TabularDataset):
+    """Mock dataset that uses TabularAnalytics mixin
+
+    This mock stores pre-built data/target lists and provides simple
+    __len__ and __getitem__ so that the TabularAnalytics.mean() mixin
+    can operate on it without a controller.
+    """
+
+    def __init__(self, data_list, target_list):
+        """Initialize the mock dataset.
+
+        Args:
+            data_list: list of numpy arrays or torch tensors
+            target_list: list of numpy arrays or torch tensors
+        """
+
+        # Store samples directly
+        # TabularAnalytics relies only on __len__/__getitem__
+
+        if len(data_list) != len(target_list):
+            raise ValueError("data_list and target_list must have the same length")
+
+        self.data_list = data_list
+        self.target_list = target_list
+
+    def __len__(self):
+        return len(self.data_list)
+
+    def __getitem__(self, idx):
+        return self.data_list[idx], self.target_list[idx]
 
 
 @pytest.fixture
-def analytics():
-    """Fixture for TabularAnalytics instance"""
-    return TabularAnalytics()
+def mock_dataset_with_numpy():
+    """Fixture for mock dataset with numpy arrays"""
+    data_samples = [
+        np.array([25.0, 1.0]),
+        np.array([30.0, 3.0]),
+        np.array([35.0, 5.0]),
+        np.array([40.0, 7.0]),
+        np.array([45.0, 9.0]),
+    ]
+    target_samples = [
+        np.array([50000.0]),
+        np.array([60000.0]),
+        np.array([70000.0]),
+        np.array([80000.0]),
+        np.array([90000.0]),
+    ]
+    return MockTabularDataset(data_samples, target_samples)
 
 
 @pytest.fixture
-def sample_df():
-    """Fixture for sample dataframe"""
-    return pl.DataFrame(
-        {
-            "age": [25, 30, 35, 40, 45],
-            "salary": [50000, 60000, 70000, 80000, 90000],
-            "name": ["Alice", "Bob", "Charlie", "David", "Eve"],
-            "experience": [1, 3, 5, 7, 9],
-        }
-    )
+def mock_dataset_with_single_sample():
+    """Fixture for mock dataset with single sample"""
+    data_samples = [np.array([10.0, 20.0])]
+    target_samples = [np.array([100.0])]
+    return MockTabularDataset(data_samples, target_samples)
 
 
 @pytest.fixture
-def mock_dataset(sample_df):
-    """Fixture for mock dataset with controller and reader"""
-    mock_reader = Mock(spec=CsvReader)
-    mock_reader.data = sample_df
-
-    mock_controller = Mock(spec=TabularController)
-    mock_controller._reader = mock_reader
-
-    mock_dataset = Mock(spec=TabularDataset)
-    mock_dataset._controller = mock_controller
-
-    return mock_dataset
+def mock_dataset_empty():
+    """Fixture for empty mock dataset"""
+    return MockTabularDataset([], [])
 
 
-class TestTabularAnalyticsMean:
-    """Tests for TabularAnalytics.mean() method"""
+def test_mean_with_numpy_arrays(mock_dataset_with_numpy):
+    """Test mean calculation with numpy arrays"""
+    result = mock_dataset_with_numpy.mean()
 
-    def test_mean_with_all_numeric_columns(self, analytics, mock_dataset):
-        """Test mean calculation with all numeric columns"""
-        result = analytics.mean(mock_dataset)
+    # Check structure
+    assert isinstance(result, dict)
+    assert set(result.keys()) == {"data", "target"}
 
-        # Verify result contains all numeric columns
-        assert "age" in result
-        assert "salary" in result
-        assert "experience" in result
-        assert "name" not in result
+    # Verify values are correct
+    assert np.allclose(result["data"], np.array([35.0, 5.0]))
+    assert np.allclose(result["target"], np.array([70000.0]))
 
-        # Verify values are correct
-        assert result["age"][0] == pytest.approx(35.0)  # (25+30+35+40+45)/5
-        assert result["salary"][0] == pytest.approx(70000.0)
-        assert result["experience"][0] == pytest.approx(5.0)
+    assert isinstance(result["data"], np.ndarray)
+    assert isinstance(result["target"], np.ndarray)
 
-    def test_mean_with_selected_columns(self, analytics, mock_dataset):
-        """Test mean calculation with specific columns selected via params"""
-        params = {"cols": ["age", "salary"]}
-        result = analytics.mean(mock_dataset, params)
 
-        assert "age" in result
-        assert "salary" in result
-        assert "experience" not in result
-        assert "name" not in result
+def test_mean_with_single_sample(mock_dataset_with_single_sample):
+    """Test mean with only one sample"""
+    result = mock_dataset_with_single_sample.mean()
 
-    def test_mean_with_single_numeric_column(self, analytics, mock_dataset):
-        """Test mean with only one numeric column selected"""
-        params = {"cols": ["age"]}
-        result = analytics.mean(mock_dataset, params)
+    assert np.allclose(result["data"], np.array([10.0, 20.0]))
+    assert np.allclose(result["target"], np.array([100.0]))
 
-        assert "age" in result
-        assert len(result) == 1
-        assert result["age"][0] == pytest.approx(35.0)
 
-    def test_mean_with_no_numeric_columns(self, analytics, mock_dataset):
-        """Test mean when no numeric columns are selected"""
-        params = {"cols": ["name"]}
-        result = analytics.mean(mock_dataset, params)
+def test_mean_with_empty_dataset(mock_dataset_empty):
+    """Test mean with empty dataset"""
+    result = mock_dataset_empty.mean()
 
-        assert result == {}
+    assert result["data"] is None
+    assert result["target"] is None
 
-    def test_mean_with_invalid_controller_type(self, analytics):
-        """Test that error is raised when controller is not TabularController"""
-        mock_dataset = Mock(spec=TabularDataset)
-        mock_dataset._controller = Mock()  # Not a TabularController
 
-        with pytest.raises(FedbiomedError, match="Expected TabularController"):
-            analytics.mean(mock_dataset)
+# -------------------- Torch tests (mirror numpy tests) --------------------
 
-    def test_mean_with_invalid_reader_type(self, analytics):
-        """Test that error is raised when reader is not CsvReader"""
-        mock_controller = Mock(spec=TabularController)
-        mock_controller._reader = Mock()  # Not a CsvReader
 
-        mock_dataset = Mock(spec=TabularDataset)
-        mock_dataset._controller = mock_controller
+@pytest.fixture
+def mock_dataset_with_torch():
+    """Fixture for mock dataset with torch tensors"""
+    data_samples = [
+        torch.tensor([25.0, 1.0]),
+        torch.tensor([30.0, 3.0]),
+        torch.tensor([35.0, 5.0]),
+        torch.tensor([40.0, 7.0]),
+        torch.tensor([45.0, 9.0]),
+    ]
+    target_samples = [
+        torch.tensor([50000.0]),
+        torch.tensor([60000.0]),
+        torch.tensor([70000.0]),
+        torch.tensor([80000.0]),
+        torch.tensor([90000.0]),
+    ]
+    return MockTabularDataset(data_samples, target_samples)
 
-        with pytest.raises(FedbiomedError, match="Expected CsvReader"):
-            analytics.mean(mock_dataset)
 
-    def test_mean_with_none_data(self, analytics):
-        """Test that error is raised when data is None"""
-        mock_reader = Mock(spec=CsvReader)
-        mock_reader.data = None
+@pytest.fixture
+def mock_dataset_with_single_torch_sample():
+    data_samples = [torch.tensor([10.0, 20.0])]
+    target_samples = [torch.tensor([100.0])]
+    return MockTabularDataset(data_samples, target_samples)
 
-        mock_controller = Mock(spec=TabularController)
-        mock_controller._reader = mock_reader
 
-        mock_dataset = Mock(spec=TabularDataset)
-        mock_dataset._controller = mock_controller
+@pytest.fixture
+def mock_dataset_torch_empty():
+    return MockTabularDataset([], [])
 
-        with pytest.raises(FedbiomedError, match="Dataset is empty"):
-            analytics.mean(mock_dataset)
 
-    def test_mean_with_missing_columns(self, analytics, mock_dataset):
-        """Test that error is raised when requested columns don't exist"""
-        params = {"cols": ["age", "nonexistent_col"]}
+def test_mean_with_torch_tensors(mock_dataset_with_torch):
+    result = mock_dataset_with_torch.mean()
 
-        with pytest.raises(KeyError, match="Columns not found"):
-            analytics.mean(mock_dataset, params)
+    # Check structure
+    assert isinstance(result, dict)
+    assert set(result.keys()) == {"data", "target"}
 
-    def test_mean_with_mixed_numeric_and_string_params(self, analytics, mock_dataset):
-        """Test mean with mix of numeric and non-numeric columns in params"""
-        params = {"cols": ["age", "name", "salary"]}
-        result = analytics.mean(mock_dataset, params)
+    # Verify values are correct
+    assert torch.allclose(result["data"], torch.tensor([35.0, 5.0]))
+    assert torch.allclose(result["target"], torch.tensor([70000.0]))
 
-        # Only numeric columns should be in result
-        assert "age" in result
-        assert "salary" in result
-        assert "name" not in result
+    assert isinstance(result["data"], torch.Tensor)
+    assert isinstance(result["target"], torch.Tensor)
 
-    def test_mean_with_empty_dataframe(self, analytics):
-        """Test mean with an empty dataframe"""
-        empty_df = pl.DataFrame(
-            {
-                "age": pl.Series([], dtype=pl.Int64),
-                "salary": pl.Series([], dtype=pl.Float64),
-            }
-        )
 
-        mock_reader = Mock(spec=CsvReader)
-        mock_reader.data = empty_df
+def test_mean_with_single_torch_sample(mock_dataset_with_single_torch_sample):
+    result = mock_dataset_with_single_torch_sample.mean()
+    assert torch.allclose(result["data"], torch.tensor([10.0, 20.0]))
+    assert torch.allclose(result["target"], torch.tensor([100.0]))
 
-        mock_controller = Mock(spec=TabularController)
-        mock_controller._reader = mock_reader
 
-        mock_dataset = Mock(spec=TabularDataset)
-        mock_dataset._controller = mock_controller
-
-        result = analytics.mean(mock_dataset)
-
-        # Result should contain numeric columns
-        assert "age" in result
-        assert "salary" in result
-
-    def test_mean_with_none_params(self, analytics, mock_dataset):
-        """Test that None params defaults to all numeric columns"""
-        result = analytics.mean(mock_dataset, params=None)
-
-        # Should include all numeric columns
-        assert "age" in result
-        assert "salary" in result
-        assert "experience" in result
-        assert "name" not in result
-
-    def test_mean_with_empty_cols_in_params(self, analytics, mock_dataset):
-        """Test that empty cols in params defaults to all numeric columns"""
-        params = {"cols": None}
-        result = analytics.mean(mock_dataset, params)
-
-        # Should include all numeric columns
-        assert "age" in result
-        assert "salary" in result
-
-    def test_mean_with_floating_point_values(self, analytics):
-        """Test mean calculation with floating point numbers"""
-        df = pl.DataFrame({"values": [1.5, 2.5, 3.5, 4.5]})
-
-        mock_reader = Mock(spec=CsvReader)
-        mock_reader.data = df
-
-        mock_controller = Mock(spec=TabularController)
-        mock_controller._reader = mock_reader
-
-        mock_dataset = Mock(spec=TabularDataset)
-        mock_dataset._controller = mock_controller
-
-        result = analytics.mean(mock_dataset)
-
-        assert result["values"][0] == pytest.approx(3.0)
-
-    def test_mean_with_negative_values(self, analytics):
-        """Test mean calculation with negative values"""
-        df = pl.DataFrame({"values": [-10, -5, 0, 5, 10]})
-
-        mock_reader = Mock(spec=CsvReader)
-        mock_reader.data = df
-
-        mock_controller = Mock(spec=TabularController)
-        mock_controller._reader = mock_reader
-
-        mock_dataset = Mock(spec=TabularDataset)
-        mock_dataset._controller = mock_controller
-
-        result = analytics.mean(mock_dataset)
-
-        assert result["values"][0] == pytest.approx(0.0)
-
-    @pytest.mark.parametrize(
-        "cols,expected_columns",
-        [
-            (["age"], ["age"]),
-            (["age", "salary"], ["age", "salary"]),
-            (["experience"], ["experience"]),
-        ],
-    )
-    def test_mean_with_various_column_selections(
-        self, analytics, mock_dataset, cols, expected_columns
-    ):
-        """Parametrized test for various column selections"""
-        params = {"cols": cols}
-        result = analytics.mean(mock_dataset, params)
-
-        for col in expected_columns:
-            assert col in result
+def test_mean_with_empty_torch_dataset(mock_dataset_torch_empty):
+    result = mock_dataset_torch_empty.mean()
+    assert result["data"] is None and result["target"] is None
