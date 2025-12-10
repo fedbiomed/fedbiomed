@@ -18,6 +18,30 @@ from fedbiomed.common.message import (
 )
 
 
+def test_fa_request_message_creation():
+    """Test FARequest message creation"""
+    _ = message.FARequest(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        fa_id="fa_1234",
+        dataset_id="dataset_1234",
+        fa_arguments={"test": "output_data"},
+    )
+
+
+def test_fa_reply_message_creation():
+    """Test FAReply message creation"""
+    _ = message.FAReply(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        fa_id="fa_1234",
+        node_id="node_1234",
+        node_name="node_name_1234",
+        output={"test": "output_data"},
+        msg="This is a FA reply message",
+    )
+
+
 class TestMessage(unittest.TestCase):
     """
     Test the Message class
