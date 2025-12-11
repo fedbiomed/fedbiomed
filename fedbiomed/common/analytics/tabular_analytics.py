@@ -26,21 +26,23 @@ class TabularAnalytics(AnalyticsStrategy):
         for idx in range(len(self)):
             data, target = self[idx]
             data_sum += data
-            target_sum += target
             count += 1
+            if target is not None:
+                target_sum += target
 
         if count == 0:
             # Return dict with None values for all columns
             result = {}
             for col in self._input_columns:
                 result[col] = None
-            for col in self._target_columns:
-                result[col] = None
+            if self._target_columns is not None:
+                for col in self._target_columns:
+                    result[col] = None
             return result
 
         # Calculate means by dividing by count
         data_mean = data_sum / count
-        target_mean = target_sum / count
+        target_mean = target_sum / count if target_sum != 0 else None
 
         # Build result dict keyed by column names
         result = {}
@@ -51,10 +53,13 @@ class TabularAnalytics(AnalyticsStrategy):
                 data_mean[i] if hasattr(data_mean, "__getitem__") else data_mean
             )
 
-        # Add target column means
-        for i, col in enumerate(self._target_columns):
-            result[col] = (
-                target_mean[i] if hasattr(target_mean, "__getitem__") else target_mean
-            )
+        # Add target column means (only if target_columns is not None)
+        if self._target_columns is not None:
+            for i, col in enumerate(self._target_columns):
+                result[col] = (
+                    target_mean[i]
+                    if hasattr(target_mean, "__getitem__")
+                    else target_mean
+                )
 
         return result
