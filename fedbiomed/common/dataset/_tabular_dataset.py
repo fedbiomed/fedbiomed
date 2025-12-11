@@ -1,11 +1,13 @@
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Tuple, Union
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
 
-if TYPE_CHECKING:
-    import torch
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import polars as pl
+import torch
 
+from fedbiomed.common.analytics import TabularAnalytics
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset._dataset import Dataset
 from fedbiomed.common.dataset_controller._tabular_controller import TabularController
@@ -13,7 +15,7 @@ from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 
 
-class TabularDataset(Dataset):
+class TabularDataset(Dataset, TabularAnalytics):
     _controller_cls: type = TabularController
 
     # Input from controller is Polars Series
