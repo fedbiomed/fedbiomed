@@ -1,11 +1,13 @@
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Tuple, Union
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
 
-if TYPE_CHECKING:
-    import torch
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import polars as pl
+import torch
 
+from fedbiomed.common.analytics import TabularAnalytics
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset._dataset import Dataset
 from fedbiomed.common.dataset_controller._tabular_controller import TabularController
@@ -13,7 +15,7 @@ from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 
 
-class TabularDataset(Dataset):
+class TabularDataset(Dataset, TabularAnalytics):
     _controller_cls: type = TabularController
 
     # Input from controller is Polars Series
@@ -25,7 +27,7 @@ class TabularDataset(Dataset):
     def __init__(
         self,
         input_columns: Iterable | int | str,
-        target_columns: Iterable | int | str,
+        target_columns: Optional[Iterable | int | str] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
     ) -> None:
@@ -75,9 +77,10 @@ class TabularDataset(Dataset):
         self._validate_format_and_transformations(
             self._get_inputs_from_sample(sample), transform=self._transform
         )
-        self._validate_format_and_transformations(
-            self._get_targets_from_sample(sample), transform=self._transform
-        )
+        if self._target_columns is not None:
+            self._validate_format_and_transformations(
+                self._get_targets_from_sample(sample), transform=self._transform
+            )
 
     def _get_inputs_from_sample(self, sample: pl.DataFrame) -> pl.DataFrame:
         """Get inputs dataset
@@ -87,17 +90,21 @@ class TabularDataset(Dataset):
         """
         return sample.select(self._controller.normalize_columns(self._input_columns))
 
-    def _get_targets_from_sample(self, sample: pl.DataFrame) -> pl.DataFrame:
+    def _get_targets_from_sample(self, sample: pl.DataFrame) -> Optional[pl.DataFrame]:
         """Get target columns
 
         Returns:
-            List of target columns
+            List of target columns, or None if target_columns is not specified
         """
+        if self._target_columns is None:
+            return None
         return sample.select(self._controller.normalize_columns(self._target_columns))
 
     def __getitem__(
         self, idx: int
-    ) -> Tuple[Union["np.array", "torch.Tensor"], Union["np.array", "torch.Tensor"]]:
+    ) -> Tuple[
+        Union["np.array", "torch.Tensor"], Optional[Union["np.array", "torch.Tensor"]]
+    ]:
         """Retrieve item at index `idx`
 
         Args:
