@@ -10,6 +10,14 @@ from typing import Optional
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
+from fedbiomed.common.dataset import (
+    CustomDataset,
+    ImageFolderDataset,
+    MedicalFolderDataset,
+    MedNistDataset,
+    MnistDataset,
+    TabularDataset,
+)
 from fedbiomed.common.dataset_controller import (
     Controller,
     CustomController,
@@ -46,12 +54,16 @@ class MedicalFolderParameters(ControllerParametersBase):
 
 # Registry mapping data types to corresponding controller and expected parameters
 REGISTRY_CONTROLLERS = {
-    "csv": (TabularController, ControllerParametersBase),
-    "medical-folder": (MedicalFolderController, MedicalFolderParameters),
-    "images": (ImageFolderController, ControllerParametersBase),
-    "default": (MnistController, ControllerParametersBase),
-    "mednist": (MedNistController, ControllerParametersBase),
-    "custom": (CustomController, ControllerParametersBase),
+    "csv": (TabularController, ControllerParametersBase, TabularDataset),
+    "medical-folder": (
+        MedicalFolderController,
+        MedicalFolderParameters,
+        MedicalFolderDataset,
+    ),
+    "images": (ImageFolderController, ControllerParametersBase, ImageFolderDataset),
+    "default": (MnistController, ControllerParametersBase, MnistDataset),
+    "mednist": (MedNistController, ControllerParametersBase, MedNistDataset),
+    "custom": (CustomController, ControllerParametersBase, CustomDataset),
 }
 
 
@@ -66,7 +78,7 @@ def get_controller(
             f"Unknown 'data_type', implemented are: {list(REGISTRY_CONTROLLERS.keys())}"
         )
 
-    controller_class, parameters_class = REGISTRY_CONTROLLERS[data_type]
+    controller_class, parameters_class, _ = REGISTRY_CONTROLLERS[data_type]
 
     # Validate and instantiate parameters
     try:
