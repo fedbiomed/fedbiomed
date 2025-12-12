@@ -891,13 +891,18 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
 class FARequest(RequestReply, RequiresProtocolVersion):
     """Message for requesting FA job from researcher to node.
 
+    Attributes:
+        researcher_id: ID of the researcher that requests FA job
+        experiment_id: Id of the experiment that is sent by researcher
+        dataset_id: id of the dataset that is used for FA job
+        fa_arguments: Arguments for FA job
+
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
     """
 
     researcher_id: str
-    experiment_id: str
-    fa_id: str
+    experiment_id: str  # fa_id could be here alternatively
     dataset_id: str
     fa_arguments: (
         Dict  # TODO: Use dataclass to define precisely what arguments are expected
@@ -920,8 +925,7 @@ class FAReply(RequestReply, RequiresProtocolVersion):
     """
 
     researcher_id: str
-    experiment_id: str
-    fa_id: str
+    experiment_id: str  # fa_id could be here alternatively
     node_id: str
     node_name: str
     output: Dict
