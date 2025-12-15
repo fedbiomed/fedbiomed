@@ -36,24 +36,23 @@ class TabularAnalytics(AnalyticsStrategy):
         # Start calculating mean
         data_sum = 0
         target_sum = 0
-        count = 0
-
-        for idx in range(len(self)):
-            data, target = self[idx]
-            data_sum += data[numeric_inputs]
-            count += 1
-            if target is not None:
-                target_sum += target[numeric_targets]
+        num_samples = len(self)
 
         # Raise error if no data is found
-        if count == 0:
+        if num_samples == 0:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Cannot calculate mean of an empty dataset."
             )
 
+        for idx in range(num_samples):
+            data, target = self[idx]
+            data_sum += data[numeric_inputs]
+            if target is not None:
+                target_sum += target[numeric_targets]
+
         # Calculate means by dividing by count
-        data_mean = data_sum / count
-        target_mean = target_sum / count if target_sum != 0 else None
+        data_mean = data_sum / num_samples
+        target_mean = target_sum / num_samples if target_sum != 0 else None
 
         # Build result dict keyed by column names
         # Get the column names of the numeric columns
