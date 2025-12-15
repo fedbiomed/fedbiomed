@@ -305,25 +305,26 @@ class Dataset(ABC):
                 f"in sample in {self._to_format.value} format."
             ) from e
 
-        try:
-            sample["target"] = self._target_transform(
-                self._get_default_types_callable()(
-                    self._get_format_conversion_callable()(sample["target"])
+        if sample.get("target") is not None:
+            try:
+                sample["target"] = self._target_transform(
+                    self._get_default_types_callable()(
+                        self._get_format_conversion_callable()(sample["target"])
+                    )
                 )
-            )
-        except Exception as e:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform` to "
-                f"`target` in sample in {self._to_format.value} format."
-            ) from e
+            except Exception as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform` to "
+                    f"`target` in sample in {self._to_format.value} format."
+                ) from e
 
-        try:
-            sample["target"] = self._get_default_types_callable()(sample["target"])
-        except Exception as e:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types to `target` "
-                f"in sample in {self._to_format.value} format."
-            ) from e
+            try:
+                sample["target"] = self._get_default_types_callable()(sample["target"])
+            except Exception as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types to `target` "
+                    f"in sample in {self._to_format.value} format."
+                ) from e
 
         return sample
 
