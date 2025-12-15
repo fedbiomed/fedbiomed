@@ -902,8 +902,9 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     """
 
     researcher_id: str
-    experiment_id: str  # fa_id could be here alternatively
+    experiment_id: str
     dataset_id: str
+    fa_id: str
     fa_arguments: (
         Dict  # TODO: Use dataclass to define precisely what arguments are expected
     )
@@ -925,7 +926,8 @@ class FAReply(RequestReply, RequiresProtocolVersion):
     """
 
     researcher_id: str
-    experiment_id: str  # fa_id could be here alternatively
+    experiment_id: str
+    fa_id: str
     node_id: str
     node_name: str
     output: Dict

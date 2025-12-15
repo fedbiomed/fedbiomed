@@ -29,6 +29,7 @@ class FAJob:
         node_name: str,
         dataset_id: str,
         experiment_id: str,
+        fa_id: str,
         researcher_id: str,
         request_id: str,
         fa_kwargs: Optional[Dict],
@@ -52,6 +53,7 @@ class FAJob:
         self._node_name = node_name
         self._dataset_id = dataset_id
         self._experiment_id = experiment_id
+        self._fa_id = fa_id
         self._researcher_id = researcher_id
         self._request_id = request_id
         self._fa_kwargs = fa_kwargs if fa_kwargs is not None else {}
@@ -112,6 +114,18 @@ class FAJob:
         if isinstance(dataset, ErrorMessage):
             return dataset
 
-        # TODO: implement FA job
+        # TODO: implement FA job / needs to be adapted
+        _mean = dataset.mean()
+        output = {
+            "mean": [_mean[_feature] for _feature in self.fa_kwargs["mean"]],
+        }
 
-        return FAReply()
+        return FAReply(
+            request_id=self._request_id,
+            researcher_id=self._researcher_id,
+            experiment_id=self._experiment_id,
+            fa_id=self._fa_id,
+            node_id=self._node_id,
+            node_name=self._node_name,
+            output=output,
+        )
