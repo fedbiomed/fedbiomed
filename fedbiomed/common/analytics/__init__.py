@@ -5,9 +5,9 @@
 Classes that simplify imports from fedbiomed.common.analytics
 """
 
-from .analytics_strategy import AnalyticsStrategy
-from .image_analytics import ImageAnalytics
-from .tabular_analytics import TabularAnalytics
+from ._analytics_strategy import AnalyticsStrategy
+from ._image_analytics import ImageAnalytics
+from ._tabular_analytics import TabularAnalytics
 
 __all__ = [
     "AnalyticsStrategy",

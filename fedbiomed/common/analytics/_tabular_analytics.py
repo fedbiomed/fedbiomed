@@ -3,9 +3,10 @@
 
 from typing import Dict
 
-from fedbiomed.common.analytics import AnalyticsStrategy
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
+
+from ._analytics_strategy import AnalyticsStrategy
 
 
 class TabularAnalytics(AnalyticsStrategy):

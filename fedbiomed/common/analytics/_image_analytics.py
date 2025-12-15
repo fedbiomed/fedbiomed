@@ -1,6 +1,6 @@
 from typing import Dict
 
-from .analytics_strategy import AnalyticsStrategy
+from ._analytics_strategy import AnalyticsStrategy
 
 
 class ImageAnalytics(AnalyticsStrategy):
