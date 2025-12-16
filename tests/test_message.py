@@ -25,7 +25,7 @@ def test_fa_request_message_creation():
         experiment_id="experiment_1234",
         fa_id="fa_1234",
         dataset_id="dataset_1234",
-        fa_arguments={"test": "output_data"},
+        fa_args={"test": "output_data"},
     )
 
 
@@ -38,7 +38,6 @@ def test_fa_reply_message_creation():
         node_id="node_1234",
         node_name="node_name_1234",
         output={"test": "output_data"},
-        msg="This is a FA reply message",
     )
 
 
@@ -87,7 +86,7 @@ class TestMessage(unittest.TestCase):
             for c in all_classes:
                 if cls == c:
                     # print("DEBUG: detected class:", c)
-                    m = c(**kwargs)
+                    _ = c(**kwargs)
                     valid_class = True
                     break
 
@@ -179,7 +178,7 @@ class TestMessage(unittest.TestCase):
         # bad parameter type for a
         bad_result = False
         try:
-            m1 = self.DummyMessage(a="oh your god!", b="oh my god!")
+            _ = self.DummyMessage(a="oh your god!", b="oh my god!")
         except FedbiomedMessageError:
             # we must arrive here, because message is malformed
             bad_result = True
@@ -197,7 +196,7 @@ class TestMessage(unittest.TestCase):
         # bad params number
         bad_result = False
         try:
-            m2 = self.DummyMessage(1, "foobar", False)
+            _ = self.DummyMessage(1, "foobar", False)
 
         except FedbiomedMessageError:
             #

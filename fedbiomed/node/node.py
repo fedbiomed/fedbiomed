@@ -15,6 +15,7 @@ from fedbiomed.common.message import (
     AdditiveSSSetupRequest,
     ApprovalRequest,
     ErrorMessage,
+    FARequest,
     ListReply,
     ListRequest,
     Message,
@@ -34,6 +35,7 @@ from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.fa_job import FAJob
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.round import Round
@@ -184,6 +186,7 @@ class Node:
                     TrainRequest.__name__
                     | SecaggRequest.__name__
                     | AdditiveSSSetupRequest.__name__
+                    | FARequest.__name__
                 ):
                     self.add_task(message)
                 case SecaggDeleteRequest.__name__:
@@ -449,6 +452,16 @@ class Node:
 
                     case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
                         self._task_secagg(item)
+                    case FARequest.__name__:
+                        fa_job = FAJob(
+                            root_dir=self._config.root,
+                            db_path=self._db_path,
+                            node_id=self._node_id,
+                            node_name=self._node_name,
+                            request=item,
+                        )
+                        response = fa_job.run()
+                        self._grpc_client.send(response)
                     case _:
                         errmess = (
                             f"{ErrorNumbers.FB319.value}: Undefined request message"
