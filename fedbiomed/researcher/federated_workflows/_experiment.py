@@ -31,6 +31,9 @@ from fedbiomed.common.optimizers import (
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.federated_workflows._federated_analytics import (
+    FederatedAnalytics,
+)
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 from fedbiomed.researcher.filetools import choose_bkpt_file
 from fedbiomed.researcher.monitor import Monitor
@@ -155,6 +158,8 @@ class Experiment(TrainingPlanWorkflow):
 
         # whether to retain the full experiment history or not
         self.set_retain_full_history(retain_full_history)
+
+        self.analytics = FederatedAnalytics(self)  # bind analytics to this experiment
 
     @exp_exceptions
     def __del__(self):
