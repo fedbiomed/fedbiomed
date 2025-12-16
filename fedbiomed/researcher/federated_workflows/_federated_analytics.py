@@ -1,57 +1,76 @@
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
-if TYPE_CHECKING:
-    from fedbiomed.researcher.federated_workflows._experiment import Experiment
+import numpy as np
 
 from fedbiomed.common.exceptions import FedbiomedExperimentError
-from fedbiomed.common.logger import logger
-from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
-from fedbiomed.researcher.federated_workflows.jobs._fa_researcher_job import (
-    FAResearcherJob,
-)
+from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.federated_workflows.jobs import Job
+from fedbiomed.researcher.requests import Requests
+
+
+class FAResearcherJob(Job):
+    """
+    A class representing a Federated Analytics (FA) job to be executed on federated nodes.
+    This class extends the base Job class and includes specific attributes and methods
+    for handling FA tasks.
+    """
+
+    def __init__(
+        self,
+        **kwargs,
+    ):
+        """Dummy class to test FA workflow integration"""
+        super().__init__(
+            researcher_id=kwargs.get("researcher_id"),
+            requests=kwargs.get("requests"),
+            nodes=kwargs.get("nodes"),
+            keep_files_dir=kwargs.get("keep_files_dir"),
+        )
+
+        # to be used for `execute()`
+        self._kwargs = kwargs
+
+    def execute(self) -> Dict[str, Any]:
+        """Execute the FA training job
+
+        Returns:
+            A dictionary containing the results of the training job from each node.
+        """
+
+        # For now, we simulate FA execution with random data
+        analytics = np.random.rand(3, 3)
+
+        return self._kwargs, analytics
 
 
 class FederatedAnalytics:
     """
-    A Federated Learning Experiment based on a Training Plan.
-
-    This class provides a comprehensive entry point for the management and orchestration
-    of a FL experiment, including definition, execution, and interpretation of results.
-
-    !!! note "Managing model parameters"
-        The model parameters should be managed through the corresponding methods in the training_plan by accessing
-        the experiment's
-        [`training_plan()`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.training_plan]
-        attribute and using the
-        [`set_model_params`][fedbiomed.common.training_plans._base_training_plan.BaseTrainingPlan.set_model_params] and
-        [`get_model_params`][fedbiomed.common.training_plans._base_training_plan.BaseTrainingPlan.get_model_params]
-        functions, e.g.
-        ```python
-        exp.training_plan().set_model_params(params_dict)
-        ```
-
-    !!! warning "Do not set the training plan attribute directly"
-        Setting the `training_plan` attribute directly is not allowed. Instead, use the
-        [`set_training_plan_class`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow.set_training_plan_class]
-        method to set the training plan type, and the underlying model will be correctly
-        constructed and initialized.
+    A class to manage Federated Analytics (FA) workflows within an Experiment.
+    FA workflows allow researchers to perform analytics tasks across federated datasets.
     """
 
-    @exp_exceptions
     def __init__(
         self,
-        experiment: "Experiment",
+        fds: FederatedDataSet,
+        experiment_id: str,
+        researcher_id: str,
+        reqs: Requests,
+        experimentation_folder: str,
         **kwargs,
     ) -> None:
         """Constructor of the class.
 
         Args:
-            experiment: An Experiment object to be managed by this workflow
             **kwargs: Additional named arguments
         """
-        self._exp = experiment
         self._fa_id: str = "FA_" + str(uuid.uuid4())  # creating a unique experiment id
+        self._fds = fds
+        self._experiment_id = experiment_id
+        self._researcher_id = researcher_id
+        self._reqs = reqs
+        self._experimentation_folder = experimentation_folder
+        self._kwargs = kwargs
 
     @property
     def fa_id(self) -> str:
@@ -62,27 +81,19 @@ class FederatedAnalytics:
         """
         return self._fa_id
 
-    @property
-    def experiment(self) -> "Experiment":
-        """Get the Experiment managed by this workflow.
-
-        Returns:
-            The Experiment object
-        """
-        return self._exp
-
     def mean(self, col_names: Optional[list[str | int]]) -> Union[Any, Dict[str, Any]]:
         """Compute mean analytics across nodes.
 
         Returns:
             A dictionary containing the mean analytics results from each node.
         """
+        if self._fds is None:
+            raise FedbiomedExperimentError(
+                "No defined FederatedDataSet found for FederatedAnalytics."
+            )
 
         # Sample nodes for training
-        node_ids = self._exp._node_selection_strategy.sample_nodes(
-            from_nodes=self._exp.filtered_federation_nodes(),
-            round_i=self._exp._round_current,
-        )
+        node_ids = self._fds.node_ids()
         if len(node_ids) == 0:
             raise FedbiomedExperimentError(
                 "Empty list of nodes for analytics: no nodes replied to original "
@@ -92,20 +103,19 @@ class FederatedAnalytics:
         # Create FA job
         fa_job = FAResearcherJob(
             fa_id=self._fa_id,
-            experiment_id=self._exp._experiment_id,
-            data=self._exp._fds,
             fa_args={
                 "analytics_method": "mean",
                 "col_names": col_names if col_names is not None else [],
             },
-            node_ids=node_ids,
-            researcher_id=self._exp._researcher_id,
-            requests=self._exp._reqs,
+            fds=self._fds,
+            experiment_id=self._experiment_id,
+            researcher_id=self._researcher_id,
+            requests=self._reqs,
             nodes=node_ids,
-            keep_files_dir=self._exp.experimentation_path(),
+            keep_files_dir=self._experimentation_folder,
         )
 
-        logger.info("Nodes replied for analytics: " + str(fa_job.nodes))
+        print("Nodes replied for analytics: " + str(fa_job.nodes))
 
         # Collect training replies and (opt.) optimizer auxiliary variables.
         analytics_replies = fa_job.execute()
