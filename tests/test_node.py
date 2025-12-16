@@ -11,6 +11,7 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.message import (
     ApprovalRequest,
     ErrorMessage,
+    FARequest,
     ListRequest,
     Message,
     PingReply,
@@ -73,6 +74,14 @@ class TestNode(unittest.TestCase):
         secagg_id="my_test_secagg_id",
         element=0,
         experiment_id="a_dummy_experiment_id",
+    )
+
+    fa_request = FARequest(
+        researcher_id="researcher-id",
+        experiment_id="experiment-id",
+        dataset_id="dataset-id",
+        fa_id="fa-id",
+        fa_arguments={},
     )
 
     @classmethod
@@ -573,6 +582,38 @@ class TestNode(unittest.TestCase):
             error = self.grpc_send_mock.call_args.args[1]
             self.assertIsInstance(error, ErrorMessage)
             self.grpc_send_mock.reset_mock()
+
+    def test_node_on_message_fa_request(self):
+        """Tests `on_message` method with FARequest"""
+        with patch.object(self.n1, "add_task") as mock_add_task:
+            self.n1.on_message(self.fa_request.to_dict())
+            mock_add_task.assert_called_once()
+            args, _ = mock_add_task.call_args
+            self.assertIsInstance(args[0], FARequest)
+
+    @patch("fedbiomed.node.node.FAJob")
+    def test_node_parser_task_fa(self, mock_fa_job):
+        """Tests `parser_task_fa` method"""
+        job = self.n1.parser_task_fa(self.fa_request)
+        mock_fa_job.assert_called_once()
+        self.assertEqual(job, mock_fa_job.return_value)
+
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
+    @patch("fedbiomed.node.node.FAJob")
+    def test_node_task_manager_fa_request(self, mock_fa_job, mock_task_done, mock_get):
+        """Tests `task_manager` with FARequest"""
+        mock_get.side_effect = [self.fa_request, SystemExit]
+
+        # Mock FAJob run method
+        mock_job_instance = mock_fa_job.return_value
+        mock_job_instance.run.return_value = MagicMock()
+
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+
+        mock_job_instance.run.assert_called_once()
+        self.grpc_send_mock.assert_called_once()
 
 
 if __name__ == "__main__":  # pragma: no cover
