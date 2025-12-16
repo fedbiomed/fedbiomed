@@ -74,7 +74,8 @@ def get_controller(
     """Get controller instance based on data_type and dataset_parameters"""
     # Validate that data_type is implemented.
     if data_type not in REGISTRY_CONTROLLERS:
-        raise NotImplementedError(
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB632.value}: "
             f"Unknown 'data_type', implemented are: {list(REGISTRY_CONTROLLERS.keys())}"
         )
 
