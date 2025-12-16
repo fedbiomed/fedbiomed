@@ -5,49 +5,65 @@ import pytest
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.message import ErrorMessage, FAReply
+from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.node.fa_job import FAJob
 
 
 class TestFAJob:
     @pytest.fixture
-    def fa_job_args(self):
+    def request_args(self):
+        return {
+            "researcher_id": "res_1",
+            "request_id": "req_1",
+            "experiment_id": "exp_1",
+            "dataset_id": "dataset_123",
+            "fa_id": "fa_1",
+            "fa_args": {"mean": ["col1"]},
+        }
+
+    @pytest.fixture
+    def fa_request(self, request_args):
+        return FARequest(**request_args)
+
+    @pytest.fixture
+    def fa_job_args(self, fa_request):
         return {
             "root_dir": "/tmp/root",
             "db_path": "/tmp/db.json",
             "node_id": "node_1",
             "node_name": "test_node",
-            "dataset_id": "dataset_123",
-            "experiment_id": "exp_1",
-            "fa_id": "fa_1",
-            "researcher_id": "res_1",
-            "request_id": "req_1",
-            "fa_kwargs": {"mean": ["col1"]},
+            "request": fa_request,
         }
 
     @pytest.fixture
     def fa_job(self, fa_job_args):
         return FAJob(**fa_job_args)
 
-    def test_fa_job_init(self, fa_job, fa_job_args):
+    def test_fa_job_init(self, fa_job, fa_job_args, request_args):
         """Test FAJob initialization."""
         assert fa_job._dir == fa_job_args["root_dir"]
         assert fa_job._db_path == fa_job_args["db_path"]
         assert fa_job._node_id == fa_job_args["node_id"]
         assert fa_job._node_name == fa_job_args["node_name"]
-        assert fa_job._dataset_id == fa_job_args["dataset_id"]
-        assert fa_job._experiment_id == fa_job_args["experiment_id"]
-        assert fa_job._fa_id == fa_job_args["fa_id"]
-        assert fa_job._researcher_id == fa_job_args["researcher_id"]
-        assert fa_job._request_id == fa_job_args["request_id"]
-        assert fa_job._fa_kwargs == fa_job_args["fa_kwargs"]
+        assert fa_job._dataset_id == request_args["dataset_id"]
+        assert fa_job._experiment_id == request_args["experiment_id"]
+        assert fa_job._fa_id == request_args["fa_id"]
+        assert fa_job._researcher_id == request_args["researcher_id"]
+        assert fa_job._request_id == request_args["request_id"]
+        assert fa_job._fa_args == request_args["fa_args"]
 
-    def test_fa_job_init_defaults(self, fa_job_args):
+    def test_fa_job_init_defaults(self, fa_job_args, request_args):
         """Test FAJob initialization with default arguments."""
+        # Create a request with empty fa_args
+        req_args = request_args.copy()
+        req_args["fa_args"] = {}
+        request = FARequest(**req_args)
+
         args = fa_job_args.copy()
-        args["fa_kwargs"] = None
+        args["request"] = request
+
         job = FAJob(**args)
-        assert job._fa_kwargs == {}
+        assert job._fa_args == {}
 
     def test_build_error_msg(self, fa_job):
         """Test _build_error_msg method."""
@@ -168,13 +184,13 @@ class TestFAJob:
     def test_run_success(self, fa_job):
         """Test run method success."""
         mock_dataset = MagicMock()
-        mock_dataset.mean.return_value = {"col1": 1.5, "col2": 2.0}
+        mock_dataset.mean.return_value = {"col1": 1.5}
 
         with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
             reply = fa_job.run()
 
             assert isinstance(reply, FAReply)
-            assert reply.output["mean"] == [1.5]
+            assert reply.output["mean"] == {"col1": 1.5}
             assert reply.request_id == fa_job._request_id
             assert reply.node_id == fa_job._node_id
 

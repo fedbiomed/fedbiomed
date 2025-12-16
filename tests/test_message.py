@@ -25,7 +25,7 @@ def test_fa_request_message_creation():
         experiment_id="experiment_1234",
         fa_id="fa_1234",
         dataset_id="dataset_1234",
-        fa_arguments={"test": "output_data"},
+        fa_args={"test": "output_data"},
     )
 
 

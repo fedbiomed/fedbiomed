@@ -412,20 +412,6 @@ class Node:
 
         return round_
 
-    def parser_task_fa(self, msg: FARequest) -> Union[FAJob, None]:
-        """Parses a given federated analytics task message to create a FAJob instance"""
-        return FAJob(
-            root_dir=self._config.root,
-            db_path=self._db_path,
-            node_id=self._node_id,
-            node_name=self._node_name,
-            dataset_id=msg.dataset_id,
-            experiment_id=msg.experiment_id,
-            researcher_id=msg.researcher_id,
-            request_id=msg.request_id,
-            fa_kwargs=msg.get_param("fa_arguments"),
-        )
-
     def task_manager(self):
         """Manages training tasks in the queue."""
 
@@ -467,9 +453,15 @@ class Node:
                     case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
                         self._task_secagg(item)
                     case FARequest.__name__:
-                        fa_job = self.parser_task_fa(item)
-                        msg = fa_job.run()
-                        self._grpc_client.send(msg)
+                        fa_job = FAJob(
+                            root_dir=self._config.root,
+                            db_path=self._db_path,
+                            node_id=self._node_id,
+                            node_name=self._node_name,
+                            request=item,
+                        )
+                        response = fa_job.run()
+                        self._grpc_client.send(response)
                     case _:
                         errmess = (
                             f"{ErrorNumbers.FB319.value}: Undefined request message"

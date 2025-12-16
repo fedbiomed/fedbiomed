@@ -895,7 +895,7 @@ class FARequest(RequestReply, RequiresProtocolVersion):
         researcher_id: ID of the researcher that requests FA job
         experiment_id: Id of the experiment that is sent by researcher
         dataset_id: id of the dataset that is used for FA job
-        fa_arguments: Arguments for FA job
+        fa_args: Arguments for FA job
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -905,9 +905,7 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     experiment_id: str
     dataset_id: str
     fa_id: str
-    fa_arguments: (
-        Dict  # TODO: Use dataclass to define precisely what arguments are expected
-    )
+    fa_args: Dict  # TODO: Use dataclass to define precisely what arguments are expected
 
 
 @catch_dataclass_exception

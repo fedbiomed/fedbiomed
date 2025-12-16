@@ -81,7 +81,7 @@ class TestNode(unittest.TestCase):
         experiment_id="experiment-id",
         dataset_id="dataset-id",
         fa_id="fa-id",
-        fa_arguments={},
+        fa_args={},
     )
 
     @classmethod
@@ -590,13 +590,6 @@ class TestNode(unittest.TestCase):
             mock_add_task.assert_called_once()
             args, _ = mock_add_task.call_args
             self.assertIsInstance(args[0], FARequest)
-
-    @patch("fedbiomed.node.node.FAJob")
-    def test_node_parser_task_fa(self, mock_fa_job):
-        """Tests `parser_task_fa` method"""
-        job = self.n1.parser_task_fa(self.fa_request)
-        mock_fa_job.assert_called_once()
-        self.assertEqual(job, mock_fa_job.return_value)
 
     @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
     @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
