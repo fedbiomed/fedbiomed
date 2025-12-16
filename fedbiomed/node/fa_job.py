@@ -18,7 +18,7 @@ from fedbiomed.node.dataset_manager import REGISTRY_CONTROLLERS, DatasetManager
 
 class FAJob:
     """
-    This class represents the training part execute by a node in a given round
+    This class represents the training part execute by a node in a given Federated Analytics job.
     """
 
     def __init__(
@@ -43,6 +43,7 @@ class FAJob:
             node_name: Node name (Hospital name)
             dataset: dataset_id to recover metadata from node database
             experiment_id: experiment id
+            fa_id: federated analytics id
             researcher_id: researcher id
             request_id: request id
             fa_kwargs: federated analytics job arguments
@@ -70,26 +71,26 @@ class FAJob:
         )
 
     def _build_dataset(self) -> Dataset | ErrorMessage:
-        """Build dataset instance ready-to-use from dataset entry."""
+        """Build dataset instance ready-to-use from dataset id."""
         # dataset manager to get metadata about dataset, dlp and loading block
         dataset_manager = DatasetManager(self._db_path)
 
         # recover dataset entry
-        dataset_entry = dataset_manager.dataset_table.get_by_id(self.dataset_id)
+        dataset_entry = dataset_manager.dataset_table.get_by_id(self._dataset_id)
         if dataset_entry is None:
             msg = f"Did not found proper data in local datasets on node={self._node_id}"
-            return self._build_error_msg(extra_msg=msg, errnum=ErrorNumbers.FB313)
+            return self._build_error_msg(extra_msg=msg, errnum=ErrorNumbers.FB313.value)
 
         # validate data type
-        data_type = self.dataset_entry.get("data_type")
+        data_type = dataset_entry.get("data_type")
         if data_type not in REGISTRY_CONTROLLERS:
             msg = f"Data type '{data_type}' not supported."
-            return self._build_error_msg(extra_msg=msg, errnum=ErrorNumbers.FB313)
+            return self._build_error_msg(extra_msg=msg, errnum=ErrorNumbers.FB313.value)
 
         # get controller parameters
         controller_kwargs = {
-            "root": self.dataset_entry.get("path"),
-            **self.dataset_entry.get("dataset_parameters", {}),
+            "root": dataset_entry.get("path"),
+            **dataset_entry.get("dataset_parameters", {}),
         }
 
         # recover dlp if any
@@ -99,7 +100,9 @@ class FAJob:
                 controller_kwargs["dlp"] = DataLoadingPlan().deserialize(*dlp_metadata)
             except FedbiomedError as e:
                 msg = f"Cannot recover dlp on node={self._node_id}: {repr(e)}"
-                return self._build_error_msg(extra_msg=msg, errnum=ErrorNumbers.FB313)
+                return self._build_error_msg(
+                    extra_msg=msg, errnum=ErrorNumbers.FB313.value
+                )
 
         # build dataset instance
         _, _, dataset_cls = REGISTRY_CONTROLLERS[data_type]
@@ -109,7 +112,8 @@ class FAJob:
         return dataset
 
     def run(self) -> FAReply | ErrorMessage:
-        """Retrieve dataset ready-to-use from self.dataset_entry."""
+        """Run FA job and return FAReply message or ErrorMessage in case of failure."""
+        # Retrieve dataset ready-to-use from self._dataset_id
         dataset = self._build_dataset()
         if isinstance(dataset, ErrorMessage):
             return dataset
@@ -117,7 +121,7 @@ class FAJob:
         # TODO: implement FA job / needs to be adapted
         _mean = dataset.mean()
         output = {
-            "mean": [_mean[_feature] for _feature in self.fa_kwargs["mean"]],
+            "mean": [_mean[_feature] for _feature in self._fa_kwargs["mean"]],
         }
 
         return FAReply(

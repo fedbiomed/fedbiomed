@@ -931,7 +931,6 @@ class FAReply(RequestReply, RequiresProtocolVersion):
     node_id: str
     node_name: str
     output: Dict
-    msg: Optional[str]
 
 
 # Train messages
