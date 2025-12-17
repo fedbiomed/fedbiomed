@@ -348,7 +348,7 @@ class ErrorNumbers(_BaseEnum):
     FB322 = "FB322: Dataset registration error"
     FB323 = "FB323: Node State error"
     FB324 = "FB324: Node to node overlay communication error"
-
+    FB325 = "FB325: Node federated analytics error"
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
@@ -423,3 +423,13 @@ class UserRequestStatus(str, _BaseEnum):
 
     NEW = "NEW"
     REJECTED = "REJECTED"
+
+
+class AnalyticsTypes(_BaseEnum):
+    """Enumeration class for Federated Analytics types
+
+    Attributes:
+        MEAN: Mean analytics type
+    """
+
+    MEAN: str = "mean"
