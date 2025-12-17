@@ -16,27 +16,34 @@ class FARequestJob(Job):
         fa_request: The FA request associated with this job.
     """
 
-    def __init__(self, experiment_id, fa_id, fa_arguments) -> None:
+    def __init__(self, experiment_id, fa_id, fa_args) -> None:
         """Initialize the FARequestJob with the given FA request.
 
         Args:
             fa_request: The FA request to be associated with this job.
         """
-        self._fa_arguments = fa_arguments
         self._experiment_id = experiment_id
         self._fa_id = fa_id
+        self._fa_args = fa_args
 
         super().__init__()
 
     def execute(self) -> Dict[str, FAReply]:
-        fa_request = FARequest(
+        fa_request = dict(
             researcher_id=self._researcher_id,
             experiment_id=self.experiment_id,
-            fa_id=self.fa_id,
-            fa_arguments=self.fa_arguments,
+            analytics_type="mean",
+            fa_id=self._fa_id,
+            fa_args=self._fa_args,
         )
 
-        with self._reqs.send(fa_request, self._nodes, self._policies) as responses:
+        requests = {}
+        for node in self._nodes:
+            requests[node] = FARequest(
+                {**fa_request, "dataset_id": self._data.data()[node].dataset_id}
+            )
+
+        with self._reqs.send(requests, self._nodes, self._policies) as responses:
             errors: Dict[str, ErrorMessage] = responses.errors()
             replies: Dict[str, FAReply] = responses.replies()
 
@@ -44,7 +51,8 @@ class FARequestJob(Job):
             # Handle errors appropriately (logging, raising exceptions, etc.)
             for node_id, error in errors.items():
                 logger.log(
-                    f"Error from node during federeated analytics{node_id}: {error}"
+                    "Error message received during federated analytics "
+                    f"in node_id={node_id}: {error.errnum}. {error.extra_msg}"
                 )
 
         return replies, errors
