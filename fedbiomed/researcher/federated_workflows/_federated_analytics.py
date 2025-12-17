@@ -81,6 +81,26 @@ class FederatedAnalytics:
         """
         return self._fa_id
 
+    def get_node_ids(self) -> list[str]:
+        """Get the list of node IDs participating in this federated analytics.
+
+        Returns:
+            A list of node IDs
+        """
+        if self._fds is None:
+            raise FedbiomedExperimentError(
+                "No defined FederatedDataSet found for FederatedAnalytics."
+            )
+
+        node_ids = self._fds.node_ids()
+        if len(node_ids) == 0:
+            raise FedbiomedExperimentError(
+                "Empty list of nodes for analytics: no nodes replied to original "
+                "`federated_analytics_request` or sampling strategy returned an empty list."
+            )
+
+        return node_ids
+
     def mean(self, col_names: Optional[list[str | int]]) -> Union[Any, Dict[str, Any]]:
         """Compute mean analytics across nodes.
 
@@ -92,13 +112,7 @@ class FederatedAnalytics:
                 "No defined FederatedDataSet found for FederatedAnalytics."
             )
 
-        # Sample nodes for training
-        node_ids = self._fds.node_ids()
-        if len(node_ids) == 0:
-            raise FedbiomedExperimentError(
-                "Empty list of nodes for analytics: no nodes replied to original "
-                "`federated_analytics_request` or sampling strategy returned an empty list."
-            )
+        node_ids = self.get_node_ids()
 
         # Create FA job
         fa_job = FAResearcherJob(
