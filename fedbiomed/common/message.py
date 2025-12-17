@@ -904,6 +904,7 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     experiment_id: str
     dataset_id: str
+    analytics_type: str
     fa_id: str
     fa_args: Dict  # TODO: Use dataclass to define precisely what arguments are expected
 
@@ -928,6 +929,7 @@ class FAReply(RequestReply, RequiresProtocolVersion):
     fa_id: str
     node_id: str
     node_name: str
+    analytics_type: str
     output: Dict
 
 

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import fedbiomed.common.message as message
 from fedbiomed.common.constants import (
+    AnalyticsTypes,
     ErrorNumbers,
     TrainingPlanApprovalStatus,
 )
@@ -25,6 +26,7 @@ def test_fa_request_message_creation():
         experiment_id="experiment_1234",
         fa_id="fa_1234",
         dataset_id="dataset_1234",
+        analytics_type=AnalyticsTypes.MEAN.value,
         fa_args={"test": "output_data"},
     )
 
@@ -37,6 +39,7 @@ def test_fa_reply_message_creation():
         fa_id="fa_1234",
         node_id="node_1234",
         node_name="node_name_1234",
+        analytics_type=AnalyticsTypes.MEAN.value,
         output={"test": "output_data"},
     )
 

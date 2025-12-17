@@ -5,13 +5,19 @@
 implementation of Federated Analytics Job class of the node component
 """
 
-from fedbiomed.common.constants import ErrorNumbers
+from typing import Dict
+
+from fedbiomed.common.constants import AnalyticsTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.node.dataset_manager import REGISTRY_CONTROLLERS, DatasetManager
+
+
+class _InternalFAJobError(FedbiomedError):
+    """Internal error raised during FA job execution on node."""
 
 
 class FAJob:
@@ -37,6 +43,7 @@ class FAJob:
             request: FARequest message object containing all information about the FA task
         """
         self._dir = root_dir
+        self._analytics_type = request.analytics_type
         self._db_path = db_path
         self._node_id = node_id
         self._node_name = node_name
@@ -47,7 +54,9 @@ class FAJob:
         self._request_id = request.request_id
         self._fa_args = request.fa_args if request.fa_args is not None else {}
 
-    def _build_error_msg(self, msg: str, errnum: str) -> ErrorMessage:
+    def _build_error_msg(
+        self, msg: str, errnum: str = ErrorNumbers.FB313.value
+    ) -> ErrorMessage:
         """Build error message for FA job failure."""
         return ErrorMessage(
             request_id=self._request_id,
@@ -58,29 +67,37 @@ class FAJob:
             errnum=errnum,
         )
 
-    def _build_dataset(self) -> Dataset | ErrorMessage:
-        """Build dataset instance ready-to-use from dataset id."""
+    def _build_dataset(self) -> Dataset:
+        """Build dataset instance ready-to-use from dataset id.
+
+        Raises:
+            _InternalFAJobError: if dataset cannot be recovered or initialized.
+        """
         # dataset manager to get metadata about dataset, dlp and loading block
+
         dataset_manager = DatasetManager(self._db_path)
 
         # recover dataset entry
         dataset_entry = dataset_manager.dataset_table.get_by_id(self._dataset_id)
         if dataset_entry is None:
-            msg = f"Did not found proper data in local datasets on node={self._node_id}"
-            return self._build_error_msg(msg=msg, errnum=ErrorNumbers.FB313.value)
+            raise _InternalFAJobError(
+                f"Cannot found request dataset in local datasets: dataset_id='{self._dataset_id}' "
+                f"on node='{self._node_id}'"
+            )
 
         # validate data type
         data_type = dataset_entry.get("data_type")
         # FIXME: temporal exception
         if data_type != "csv":
-            return self._build_error_msg(
-                msg=f"Data type '{data_type}' not supported yet.",
-                errnum=ErrorNumbers.FB313.value,
+            raise _InternalFAJobError(
+                f"{data_type} not supported. FAJob currently only supports 'csv' data_type, got '{data_type}'"
             )
 
         if data_type not in REGISTRY_CONTROLLERS:
-            msg = f"Data type '{data_type}' not supported."
-            return self._build_error_msg(msg=msg, errnum=ErrorNumbers.FB313.value)
+            raise _InternalFAJobError(
+                f"Data type '{data_type}' not supported in FAJob, available types: "
+                f"{list(REGISTRY_CONTROLLERS.keys())}"
+            )
 
         # get controller parameters
         controller_kwargs = {
@@ -94,8 +111,9 @@ class FAJob:
             try:
                 controller_kwargs["dlp"] = DataLoadingPlan().deserialize(*dlp_metadata)
             except FedbiomedError as e:
-                msg = f"Cannot recover dlp on node={self._node_id}: {repr(e)}"
-                return self._build_error_msg(msg=msg, errnum=ErrorNumbers.FB313.value)
+                raise _InternalFAJobError(
+                    f"Cannot recover dlp on node={self._node_id}: {repr(e)}"
+                ) from e
 
         # build dataset instance
         _, _, dataset_cls = REGISTRY_CONTROLLERS[data_type]
@@ -107,18 +125,27 @@ class FAJob:
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
         # Retrieve dataset ready-to-use from self._dataset_id
-        dataset = self._build_dataset()
-        if isinstance(dataset, ErrorMessage):
-            return dataset
+
+        if self._analytics_type not in [AnalyticsTypes.MEAN.value]:
+            return self._build_error_msg(
+                msg=f"Analytics type '{self._analytics_type}' not supported.",
+                errnum=ErrorNumbers.FB325.value,
+            )
+
+        try:
+            dataset = self._build_dataset()
+        except _InternalFAJobError as e:
+            return self._build_error_msg(msg=repr(e), errnum=ErrorNumbers.FB325.value)
 
         # TODO: implement FA job / needs to be adapted
-        output = {"mean": dataset.mean()}
+        output: Dict = dataset.mean()
 
         return FAReply(
             request_id=self._request_id,
             researcher_id=self._researcher_id,
             experiment_id=self._experiment_id,
             fa_id=self._fa_id,
+            analytics_type=self._analytics_type,
             node_id=self._node_id,
             node_name=self._node_name,
             output=output,
