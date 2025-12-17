@@ -1,0 +1,5 @@
+queue_type: SGE
+queue_primary: sge
+queues:
+  sge:
+    script: job_script_template.sh

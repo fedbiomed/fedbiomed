@@ -1,0 +1,5 @@
+nb:ParticipantID	nb:SessionID	nb:Sex	nb:Age	nb:Diagnosis	snomed:859351000000102	snomed:342061000000106
+01	BL	snomed:248153007	80.0	ncit:C94342	nb:available	nb:available
+01	M12	snomed:248152002	81.0	ncit:C94342	nb:available	nb:available
+02	BL	snomed:248152002	64.0	snomed:49049000	nb:available	nb:available
+02	M12	snomed:248152002	65.0	snomed:49049000	nb:available	nb:available

@@ -1,0 +1,4 @@
+cluster_primary: slurm
+cluster:
+  slurm: slurm.yaml
+  sge: sge.yaml

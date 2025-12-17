@@ -1,0 +1,5 @@
+queue_type: SLURM
+queue_primary: slurm
+queues:
+  slurm:
+    script: job_script_template.sh

@@ -1,0 +1,32 @@
+{
+    "SUBSTITUTIONS": {
+        "[[NIPOPPY_DPATH_CONTAINERS]]": "[[NIPOPPY_DPATH_ROOT]]/containers",
+        "[[HPC_ACCOUNT_NAME]]": ""
+    },
+    "DICOM_DIR_PARTICIPANT_FIRST": true,
+    "CONTAINER_CONFIG": {
+        "COMMAND": "apptainer",
+        "ARGS": [
+            "--cleanenv"
+        ],
+        "ENV_VARS": {
+            "PYTHONUNBUFFERED": "1"
+        }
+    },
+    "HPC_PREAMBLE": [
+        "# (These lines can all be removed if not using HPC functionality.)",
+        "# ========== Activate Python environment ==========",
+        "# Here we need the command to activate your Python environment in an ",
+        "# HPC job, for example:",
+        "# - venv:  source <PATH_TO_VENV>/bin/activate",
+        "# - conda: source ~/.bashrc; conda activate <ENV_NAME>",
+        "# ========== Set environment variables ==========",
+        "export PYTHONUNBUFFERED=1"
+    ],
+    "PIPELINE_VARIABLES": {
+        "BIDSIFICATION": {},
+        "PROCESSING": {},
+        "EXTRACTION": {}
+    },
+    "CUSTOM": {}
+}

@@ -1,0 +1,1 @@
+This directory contains the outputs of image processing pipelines. Outputs of different pipelines are stored in `<pipeline_name>/<pipeline_version>` subdirectories. Each subdirectory has two additional subdirectories: one for the actual output (under `output`) and one for temporary files created during processing (under `work`).
