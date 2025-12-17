@@ -117,7 +117,11 @@ class FAJob:
 
         # build dataset instance
         _, _, dataset_cls = REGISTRY_CONTROLLERS[data_type]
-        dataset = dataset_cls()
+
+        # TODO: handle input columns properly accordingly to each dataset type
+        input_columns = list(dataset_entry.get("dtypes", {}).keys())
+        dataset = dataset_cls(input_columns=input_columns)
+
         dataset.complete_initialization(controller_kwargs, DataReturnFormat.SKLEARN)
 
         return dataset
