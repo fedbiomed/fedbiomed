@@ -3,12 +3,10 @@
 
 """Module includes the classes that allow researcher to interact with remote datasets (federated datasets)."""
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedFederatedDataSetError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.validator import Validator, ValidatorError
+from fedbiomed.common.exceptions import FedbiomedError
 
 
 class FederatedDataSet:
@@ -18,11 +16,11 @@ class FederatedDataSet:
     or sampling strategies on researcher's side
     """
 
-    def __init__(self, data: Dict):
+    def __init__(self, data: Optional[Dict] = None):
         """Construct FederatedDataSet object.
 
         Args:
-            data: Dictionary of datasets. Each key is a `str` representing a node's ID. Each value is
+            data:  Dictionary of datasets. Each key is a `str` representing a node's ID. Each value is
                 a `dict` (or a `list` containing exactly one `dict`). Each `dict` contains the description
                 of the dataset associated to this node in the federated dataset.
 
@@ -30,34 +28,31 @@ class FederatedDataSet:
             FedbiomedFederatedDataSetError: bad `data` format
         """
         # check structure of data
-        self._v = Validator()
-        self._v.register("list_or_dict", self._dataset_type, override=True)
-        try:
-            self._v.validate(data, dict)
-            for node, ds in data.items():
-                self._v.validate(node, str)
-                self._v.validate(ds, "list_or_dict")
-                if isinstance(ds, list):
-                    if len(ds) == 1:
-                        self._v.validate(ds[0], dict)
-                        # convert list of one dict to dict
-                        data[node] = ds[0]
-                    else:
-                        errmess = (
-                            f"{ErrorNumbers.FB416.value}: {node} must have one unique dataset "
-                            f"but has {len(ds)} datasets."
-                        )
-                        logger.error(errmess)
-                        raise FedbiomedFederatedDataSetError(errmess)
-        except ValidatorError as e:
-            errmess = (
-                f"{ErrorNumbers.FB416.value}: bad parameter `data` must be a `dict` of "
-                f"(`list` of one) `dict`: {e}"
-            )
-            logger.error(errmess)
-            raise FedbiomedFederatedDataSetError(errmess) from e
+        if data is not None:
+            self.set_federated_dataset(data)
+        else:
+            self._data = {}
 
-        self._data = data
+    def set_federated_dataset(self, datasets: Dict) -> None:
+        """Set federated dataset.
+
+        Args:
+            datasets:  Dictionary of datasets. Each key is a `str` representing a node's ID. Each value is
+                a `dict` (or a `list` containing exactly one `dict`). Each `dict` contains the description
+                of the dataset associated to this node in the federated dataset.
+
+        Raises:
+            FedbiomedFederatedDataSetError: bad `data` format
+        """
+        # check structure of data
+
+        if isinstance(datasets, dict) is False:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB416.value}: bad parameter `data` must be a `dict` of "
+                f"(`list` of one) `dict`."
+            )
+
+        self._data = datasets
 
     @staticmethod
     def _dataset_type(value) -> bool:

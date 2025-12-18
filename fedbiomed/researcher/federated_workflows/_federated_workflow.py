@@ -147,7 +147,7 @@ class FederatedWorkflow(ABC):
         self,
         tags: Optional[List[str] | str] = None,
         nodes: Optional[List[str]] = None,
-        training_data: Union[FederatedDataSet, dict, None] = None,
+        training_data: Optional[Dict] = None,
         experimentation_folder: Union[str, None] = None,
         secagg: Union[bool, SecureAggregation] = False,
         save_breakpoints: bool = False,
@@ -204,8 +204,11 @@ class FederatedWorkflow(ABC):
         # predefine all class variables, so no need to write try/except
         # block each time we use it
         self._fds: Optional[FederatedDataSet] = (
-            None  # dataset metadata from the full federation
+            self.set_training_data(training_data=training_data)
+            if training_data
+            else FederatedDataSet()
         )
+
         self._reqs: Requests = Requests(config=self.config)
         self._nodes_filter: Optional[List[str]] = (
             None  # researcher-defined nodes filter
@@ -589,7 +592,7 @@ class FederatedWorkflow(ABC):
     @exp_exceptions
     def set_training_data(
         self,
-        training_data: Union[FederatedDataSet, dict, None],
+        training_data: Union[Dict, None],
         from_tags: bool = False,
     ) -> Union[FederatedDataSet, None]:
         """Sets training data for federated training + verification on arguments type
@@ -631,52 +634,40 @@ class FederatedWorkflow(ABC):
         """
 
         if not isinstance(from_tags, bool):
-            msg = (
-                ErrorNumbers.FB410.value
-                + f" `from_tags` : got {type(from_tags)} but expected a boolean"
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB410.value} `from_tags` has incorrect type: {type(from_tags)} "
+                "but expected a boolean"
             )
-            logger.critical(msg)
-            raise FedbiomedTypeError(msg)
+
         if from_tags and training_data is not None:
-            msg = (
-                ErrorNumbers.FB410.value
-                + " set_training_data: cannot specify a training_data argument if "
-                "from_tags is True"
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB410.value}: set_training_data: cannot specify a training_data "
+                "argument if from_tags is True"
             )
-            logger.critical(msg)
-            raise FedbiomedValueError(msg)
 
         # case where no training data are passed
         if training_data is None:
             if from_tags is True:
                 if not self._tags:
-                    msg = (
+                    raise FedbiomedValueError(
                         f"{ErrorNumbers.FB410.value}: attempting to "
                         "set training data from undefined tags. Please consider set tags before "
                         "using set_tags method of the experiment."
                     )
-                    logger.critical(msg)
-                    raise FedbiomedValueError(msg)
                 training_data = self._reqs.search(self._tags, self._nodes_filter)
             else:
-                msg = (
+                raise FedbiomedValueError(
                     f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. "
                     "Please set from_tags=True or provide a valid training data"
                 )
-                logger.critical(msg)
-                raise FedbiomedValueError(msg)
 
-        if isinstance(training_data, FederatedDataSet):
-            self._fds = training_data
-        elif isinstance(training_data, dict):
-            self._fds = FederatedDataSet(training_data)
+        if isinstance(training_data, dict):
+            self._fds = self._fds.set_federated_dataset(training_data)
         else:
-            msg = (
+            raise FedbiomedTypeError(
                 ErrorNumbers.FB410.value
                 + f" `training_data` has incorrect type: {type(training_data)}"
             )
-            logger.critical(msg)
-            raise FedbiomedTypeError(msg)
 
         # check and ensure consistency
         self._tags = self._tags if from_tags else None
