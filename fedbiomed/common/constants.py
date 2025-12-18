@@ -310,6 +310,27 @@ class SecaggElementTypes(_BaseEnum):
                 return element
 
 
+class PreprocType(_BaseEnum):
+    """Enumeration class for dataset preprocessing types"""
+
+    FEDCOMBAT: int = 0
+
+
+class PreprocStep(_BaseEnum):
+    """Abstract base enumeration class for dataset preprocessing steps"""
+
+
+class HarmonizationStep(PreprocStep):
+    """Enumeration class for dataset preprocessing steps"""
+
+    # step1 uses Federated Analytics
+    STEP2: int = 2
+    # step3 uses Federated Learning
+    STEP4: int = 4
+    STEP5: int = 5
+    STEP6: int = 6
+
+
 class SAParameters:
     CLIPPING_RANGE: int = 3
     TARGET_RANGE: int = 2**13

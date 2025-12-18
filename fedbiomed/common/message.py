@@ -922,6 +922,8 @@ class FAReply(RequestReply, RequiresProtocolVersion):
         node_name: Node Name that replies the request
         msg: Custom message
 
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
     """
 
     researcher_id: str
@@ -944,7 +946,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that requests training
         experiment_id: Id of the experiment that is sent by researcher
-        state_id: ID of state associated to this request on node
+        state_id: ID of state to use for this request on node
         training_args: Arguments for training routine
         dataset_id: id of the dataset that is used for training
         training: Declares whether training will be performed
@@ -991,6 +993,13 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
         params_url: URL of parameters uploaded by node
         timing: Timing statistics
         msg: Custom message
+        state_id: ID of state after this request on node
+        sample_size: Number of samples used for training
+        encrypted: Whether the parameters are encrypted
+        params: Parameters trained by node
+        optimizer_args: Optional dict of Optimizer arguments
+        optim_aux_var: Optional dict of Optimizer auxiliary variables
+        encryption_factor: Optional list of encryption factors used for secure aggregation
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -1011,3 +1020,63 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
     optimizer_args: Optional[Dict] = None  # None for testing only
     optim_aux_var: Optional[Dict] = None  # None for testing only
     encryption_factor: Optional[List] = None  # None for testing only
+
+
+@catch_dataclass_exception
+@dataclass
+class PreprocRequest(RequestReply, RequiresProtocolVersion):
+    """Message for requesting pre-processing job from researcher to node.
+
+    Attributes:
+        researcher_id: ID of the researcher that requests pre-processing job
+        experiment_id: Id of the experiment that is sent by researcher
+        preproc_type: Type of pre-processing
+        preproc_step: Step of the pre-processing corresponding to this request
+        preproc_id: Id of the pre-processing job
+        preproc_args: Arguments for pre-processing job. Should be checked by converting to dataclass.
+        state_id: ID of state to use for this request on node
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    experiment_id: str
+    preproc_type: int  # Convert to PreprocType later
+    preproc_step: int  # Convert to PreprocStep later
+    preproc_id: str
+    # TODO: Use dataclass per pre-processing and per-step
+    # to define precisely what arguments are expected
+    # - includes dataset_id so we hide the temporary intermediate datasets from the researcher
+    preproc_args: Dict
+    state_id: Optional[str] = None
+
+
+@catch_dataclass_exception
+@dataclass
+class PreprocReply(RequestReply, RequiresProtocolVersion):
+    """Message that instantiated on the node side to reply FA job request from researcher
+
+    Attributes:
+        researcher_id: Id of the researcher that receives the reply
+        experiment_id: Id of the experiment that is sent by researcher
+        node_id: Node id that replies the request
+        node_name: Node Name that replies the request
+        msg: Custom message
+        preproc_output: Outputs of the pre-processing job. Should be checked by converting to dataclass.
+        state_id: ID of state after this request on node
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    experiment_id: str
+    node_id: str
+    node_name: str
+    msg: str
+    # TODO: Use dataclass per pre-processing and per-step
+    # to define precisely what arguments are expected
+    # - includes dataset_id of final hamonized dataset in last step to handle it to the researcher
+    preproc_output: Dict
+    state_id: Optional[str] = None
