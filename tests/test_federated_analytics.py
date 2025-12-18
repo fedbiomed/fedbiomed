@@ -6,7 +6,7 @@ import pytest
 
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.federated_workflows import FAResearcherJob, FederatedAnalytics
+from fedbiomed.researcher.federated_workflows import FederatedAnalytics
 from fedbiomed.researcher.requests import Requests
 
 
@@ -81,11 +81,12 @@ def test_get_node_ids_empty_raises(empty_fds, mock_requests):
         fa.get_node_ids()
 
 
-@patch.object(FAResearcherJob, "execute")
+@patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
 def test_mean_executes_fa_job(
-    mock_execute,
+    mock_fa_job_cls,
     base_fa,
 ):
+    mock_execute = mock_fa_job_cls.return_value.execute
     fake_result = ({"dummy": "kwargs"}, np.ones((3, 3)))
     mock_execute.return_value = fake_result
 
