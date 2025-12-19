@@ -74,7 +74,9 @@ class _BaseJob(ABC):
     ) -> Dataset:
         """Build dataset instance ready-to-use from dataset id.
 
-
+        Args:
+            return_type: format in which data should be returned
+            data_types: list of accepted data types for the dataset
 
         Raises:
             _InternalJobError: if dataset cannot be recovered or initialized.
@@ -128,24 +130,24 @@ class _BaseJob(ABC):
 
         # build dataset instance
         _, _, dataset_cls = REGISTRY_CONTROLLERS[data_type]
-        dataset = dataset_cls()
 
-        columns = list(dataset_entry.get("dtypes", {}).keys())
-        if self._fa_args.get("col_names", None) is not None:
-            input_columns = self._fa_args["col_names"]
-            if not all(col in columns for col in input_columns):
-                raise _InternalFAJobError(
-                    f"One or more invalid column names for federated analytics on node='{self._node_id}': "
-                    f"requested columns '{input_columns}' not in available columns {columns}"
-                )
-        else:
-            input_columns = columns
-
-        dataset = dataset_cls(input_columns=input_columns)
+        # dataset = dataset_cls(input_columns=input_columns)
+        dataset = dataset_cls(**self._build_args_for_dataset(dataset_entry))
 
         dataset.complete_initialization(controller_kwargs, return_type)
 
         return dataset
+
+    @abstractmethod
+    def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
+        """Build arguments for dataset initialization.
+
+        Args:
+            dataset_entry: dataset entry from dataset manager
+
+        Returns:
+            Dict of arguments for dataset initialization
+        """
 
     @abstractmethod
     def run(self) -> RequestReply | ErrorMessage:
