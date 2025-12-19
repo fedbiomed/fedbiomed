@@ -108,8 +108,7 @@ class Scaffold(Aggregator):
         # within 2 Rounds
         self.nodes_deltas: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
         self.nodes_lr: Dict[str, Dict[str, float]] = {}
-        if fds is not None:
-            self.set_fds(fds)
+        self.set_fds(fds)
         self._aggregator_args = {}  # we need `_aggregator_args` to be not None
 
     def aggregate(
@@ -213,10 +212,9 @@ class Scaffold(Aggregator):
                 this aggregator.
         """
         # Gather node ids from the attached FederatedDataset.
-        if self._fds is None:
+        if not self._fds:
             raise FedbiomedAggregatorError(
-                "Cannot initialize correction states: Scaffold aggregator does "
-                "not have a FederatedDataset attached."
+                "Cannot initialize correction states: federated datasets is empty."
             )
         node_ids = self._fds.node_ids()
         # Initialize nodes states with zero scalars, that will be summed into actual tensors.

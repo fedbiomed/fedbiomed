@@ -5,7 +5,7 @@ from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_researcher_secagg import FakeSecAgg
 
 import fedbiomed
-from fedbiomed.common.constants import __breakpoints_version__, SecureAggregationSchemes
+from fedbiomed.common.constants import SecureAggregationSchemes, __breakpoints_version__
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
@@ -34,8 +34,8 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         exp = FederatedWorkflow()
         self.assertIsNone(exp.tags())  # by default, tags set to None
         self.assertIsNone(exp.nodes())  # by default, nodes set to None
-        self.assertIsNone(
-            exp.training_data()
+        self.assertIsInstance(
+            exp.training_data(), FederatedDataSet
         )  # by default, training data is initialized to something
         self.assertIsNotNone(
             exp.experimentation_folder()
@@ -48,6 +48,9 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
         # Test all possible combinations of init arguments
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data.data.return_value = {
+            "node-1": {"dataset_id": "dataset-id-1", "shape": [100, 100]}
+        }
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         parameters_and_possible_values = {
             "tags": (None, None, ["one-tag", "another-tag"]),
@@ -88,7 +91,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             save_breakpoints=True,
         )
         self.assertListEqual(exp.nodes(), ["alice", "bob"])
-        self.assertEqual(exp.training_data(), _training_data)
+        self.assertDictEqual(exp.training_data().data(), _training_data.data())
         self.assertTrue(isinstance(exp.secagg, SecureAggregation))
         self.assertTrue(exp.secagg.active)
         self.assertTrue(exp.save_breakpoints())
@@ -162,7 +165,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         with self.assertRaises(SystemExit):
             exp.set_training_data("not-none", from_tags=False)
 
-        self.assertIsNone(exp.training_data())
+        self.assertEqual(exp.training_data().data(), {})
 
         self.fake_search_reply = {
             "node1": [{"my-metadata": "is-the-best", "tags": ["some-tag"]}]
@@ -174,9 +177,9 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             exp.training_data().data(),
             {"node1": {"my-metadata": "is-the-best", "tags": ["some-tag"]}},
         )
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = {"node-1": {"dataset_id": "dataset-id-1", "shape": [100, 100]}}
         exp.set_training_data(_training_data)
-        self.assertEqual(exp.training_data(), _training_data)
+        self.assertDictEqual(exp.training_data().data(), _training_data)
 
     def test_federated_workflow_05_set_experimentation_folder(self):
         exp = FederatedWorkflow()
@@ -232,7 +235,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
         # resetting tags to None when training data is not None -> simply set tags to None
         exp._tags = None
-        exp.set_training_data(FederatedDataSet(self.fake_search_reply))
+        exp.set_training_data(self.fake_search_reply)
         self.assertIsNone(exp.tags())
         self.assertDictEqual(exp.training_data().data(), self.fake_search_reply)
 
@@ -241,7 +244,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             exp.set_training_data(None, from_tags=True)
 
         # set tags when training data is not None -> reset training data based on new tags
-        exp.set_training_data(FederatedDataSet(self.fake_search_reply))
+        exp.set_training_data(self.fake_search_reply)
         self.fake_search_reply = {
             "node2": [{"my-metadata": "is-the-bestest", "tags": ["other-tags"]}]
         }
@@ -352,7 +355,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
     ):
         # define attributes that will be saved in breakpoint
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
-        _training_data.data.return_value = {"training": "data"}
+        _training_data.data.return_value = {"training": {"data": "data"}}
         exp = FederatedWorkflow(
             training_data=_training_data,
         )
@@ -363,7 +366,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             {
                 "id": exp.id,
                 "breakpoint_version": str(__breakpoints_version__),
-                "training_data": {"training": "data"},
+                "training_data": {"training": {"data": "data"}},
                 "experimentation_folder": exp.experimentation_folder(),
                 "tags": exp.tags(),
                 "nodes": exp.nodes(),

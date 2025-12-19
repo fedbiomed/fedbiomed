@@ -96,17 +96,9 @@ For example if you instantiate `Experiment(tags='#dataset')` and a node has regi
 
 #### Setting the training data by providing the metadata directly
 
-The dataset metadata can be provided directly using the `set_training_data` method.
-The metadata can be a `FederatedDataSet` object or a nested `dict` with format `{node_id: {metadata_key: metadata_value}}`.
+The dataset metadata can be provided directly using the `set_training_data` method. The metadata can be nested `dict` with format `{node_id: {metadata_key: metadata_value}}`.
 
 When you provide a metadata object directly, the `Experiment`'s tags attribute is set to `None`.
-
-#### Under-the-hood consistency with all members of `Experiment`
-
-When you change the training data (either through `set_tags` or `set_training_data`), the `Experiment` class
-performs a lot of operations to ensure that consistency is maintained for all of its attributes that use the
-training data.
-In particular, the `aggregator` and `node_state_agent` classes are updated with the new training data.
 
 ### Selecting specific Nodes for the training
 

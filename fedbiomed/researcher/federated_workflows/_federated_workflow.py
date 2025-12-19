@@ -147,7 +147,7 @@ class FederatedWorkflow(ABC):
         self,
         tags: Optional[List[str] | str] = None,
         nodes: Optional[List[str]] = None,
-        training_data: Optional[Dict] = None,
+        training_data: Optional[FederatedDataSet | Dict] = None,
         experimentation_folder: Union[str, None] = None,
         secagg: Union[bool, SecureAggregation] = False,
         save_breakpoints: bool = False,
@@ -203,11 +203,7 @@ class FederatedWorkflow(ABC):
         self.config = config
         # predefine all class variables, so no need to write try/except
         # block each time we use it
-        self._fds: Optional[FederatedDataSet] = (
-            self.set_training_data(training_data=training_data)
-            if training_data
-            else FederatedDataSet()
-        )
+        self._fds: Optional[FederatedDataSet] = FederatedDataSet(training_data)
 
         self._reqs: Requests = Requests(config=self.config)
         self._nodes_filter: Optional[List[str]] = (
@@ -240,16 +236,11 @@ class FederatedWorkflow(ABC):
         if tags:
             self.set_tags(tags)
 
-        if training_data:
-            self.set_training_data(training_data)
-
         self.set_nodes(nodes)
         self.set_save_breakpoints(save_breakpoints)
 
         self.set_experimentation_folder(experimentation_folder)
-        self._node_state_agent = NodeStateAgent(
-            list(self._fds.data().keys()) if self._fds and self._fds.data() else []
-        )
+        self._node_state_agent = NodeStateAgent(federated_dataset=self._fds)
 
         self.analytics = FederatedAnalytics(
             fds=self._fds,
@@ -475,14 +466,14 @@ class FederatedWorkflow(ABC):
         # (value None == not defined yet for _fds,)
 
         _not_runable_if_missing = {
-            "Training Data": self._fds,
+            "Training Data": self._fds.data(),
         }
 
         if missing_objects:
             _not_runable_if_missing.update(missing_objects)
         missing: str = ""
         for key, value in _not_runable_if_missing.items():
-            if value in (None, False):
+            if value in (None, False, {}):
                 missing += f"- {key}\n"
 
         return missing
@@ -662,7 +653,7 @@ class FederatedWorkflow(ABC):
                 )
 
         if isinstance(training_data, dict):
-            self._fds = self._fds.set_federated_dataset(training_data)
+            self._fds.set_federated_dataset(training_data)
         else:
             raise FedbiomedTypeError(
                 ErrorNumbers.FB410.value
@@ -941,7 +932,7 @@ class FederatedWorkflow(ABC):
         # initializing experiment
         loaded_exp = cls(experimentation_folder=exp_folder)
         loaded_exp._experiment_id = saved_state.get("id")
-        loaded_exp.set_training_data(bkpt_fds)
+        loaded_exp._fds = bkpt_fds
         loaded_exp._tags = saved_state.get("tags")
         loaded_exp.set_nodes(saved_state.get("nodes"))
 

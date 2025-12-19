@@ -1,20 +1,21 @@
+import copy
+import random
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
+
+import torch
+import torch.nn as nn
+from testsupport.fake_uuid import FakeUuid
+from torch.nn import Linear
+
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.datasets import FederatedDataSet
-from testsupport.fake_uuid import FakeUuid
-import torch
-import torch.nn as nn
-from torch.nn import Linear
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
-
-import copy
-import random
+from fedbiomed.researcher.datasets import FederatedDataSet
 
 
 class TestScaffold(unittest.TestCase):

@@ -1,42 +1,60 @@
 import unittest
 
 from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
-
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
+from tests.test_experiment import FederatedDataSet
 
 
 class TestNodeStateAgent(unittest.TestCase):
     def setUp(self) -> None:
-        self.node_ids_1 = ["node_id_1234", "node_id_5678", "node_id_9012"]
+        self.node_ids = ["node_id_1234", "node_id_5678", "node_id_9012"]
+        self.federated_dataset = FederatedDataSet(
+            {
+                self.node_ids[0]: {"data": "sample_data"},
+                self.node_ids[1]: {"data": "sample_data"},
+                self.node_ids[2]: {"data": "sample_data"},
+            }
+        )
+
+        self.node_ids_2 = [
+            "node_id_1234",
+            "node_id_5678",
+            "node_id_4321",
+            "node_id_0987",
+        ]
+        self.federated_dataset_2 = FederatedDataSet(
+            {
+                self.node_ids_2[0]: {"data": "sample_data"},
+                self.node_ids_2[1]: {"data": "sample_data"},
+                self.node_ids_2[2]: {"data": "sample_data"},
+                self.node_ids_2[3]: {"data": "sample_data"},
+            }
+        )
 
     def test_node_state_1_agent_get_last_node_states(self):
         # build several NodeStateAgents
         # case NodeStateAgent is built with no nodes
-        test_nsa_1 = NodeStateAgent([])
+        test_nsa_1 = NodeStateAgent(self.federated_dataset)
         res_1 = test_nsa_1.get_last_node_states()
 
-        self.assertEqual(res_1, {})
+        self.assertEqual(res_1, {k: None for k in self.node_ids})
 
         # case NodeStateAgent is built with some nodes
 
-        node_ids = ["node_id_1234", "node_id_5678", "node_id_9012"]
-        test_nsa_2 = NodeStateAgent(node_ids)
+        test_nsa_2 = NodeStateAgent(self.federated_dataset_2)
         res_2 = test_nsa_2.get_last_node_states()
 
-        expected_res = {k: None for k in node_ids}
+        expected_res = {k: None for k in self.node_ids_2}
         self.assertDictEqual(expected_res, res_2)
 
     def test_node_state_agent_4_upate_node_state(self):
-        node_ids_2 = ["node_id_1234", "node_id_5678", "node_id_4321", "node_id_0987"]
-
-        nsa = NodeStateAgent(self.node_ids_1)
+        nsa = NodeStateAgent(self.federated_dataset)
         # case where node replies are none
 
-        nsa.update_node_states(node_ids_2)
-
+        self.federated_dataset.set_federated_dataset(self.federated_dataset_2.data())
+        nsa.update_node_states()
         res = nsa.get_last_node_states()
-
-        expected_res = {k: None for k in node_ids_2}
+        expected_res = {k: None for k in self.node_ids_2}
         self.assertDictEqual(
             res, expected_res
         )  # we check here that keys and initialization has been done
@@ -48,9 +66,9 @@ class TestNodeStateAgent(unittest.TestCase):
             "node_id_5678": {"node_id": "node_id_5678", "state_id": "node_state_5678"},
         }
 
-        nsa.update_node_states(node_ids_2, resp)
+        nsa.update_node_states()
         res = nsa.get_last_node_states()
-        self.assertListEqual(list(res.keys()), node_ids_2)
+        self.assertListEqual(list(res.keys()), self.node_ids_2)
 
         # finally, we update with a node_id that is not present in the FederatedDataset
 
@@ -64,18 +82,18 @@ class TestNodeStateAgent(unittest.TestCase):
         }
         resp = nodes_replies_content
 
-        nsa.update_node_states(node_ids_2, resp)
+        nsa.update_node_states(resp)
         res = nsa.get_last_node_states()
 
         nodes_replies_content_nodes_id = list(nodes_replies_content.keys())
         nodes_replies_content_nodes_id.remove("unknown-node_id")
-        self.assertListEqual(list(res.keys()), node_ids_2)
+        self.assertListEqual(list(res.keys()), self.node_ids_2)
         self.assertNotIn("unknown-node_id", res)
         for node_id in nodes_replies_content_nodes_id:
-            self.assertIn(node_id, node_ids_2)
+            self.assertIn(node_id, self.node_ids_2)
 
     def test_node_state_agent_5_update_node_state_failure(self):
-        nsa = NodeStateAgent(self.node_ids_1)
+        nsa = NodeStateAgent(self.federated_dataset)
 
         bad_resp = {
             "node_id_1234": {"node_id": "node_id_1234", "state_id": "node_state_1234"},
@@ -83,10 +101,10 @@ class TestNodeStateAgent(unittest.TestCase):
         }
 
         with self.assertRaises(FedbiomedNodeStateAgentError):
-            nsa.update_node_states(self.node_ids_1, bad_resp)
+            nsa.update_node_states(bad_resp)
 
     def test_node_state_agent_6_save_state_breakpoint(self):
-        nsa = NodeStateAgent(self.node_ids_1)
+        nsa = NodeStateAgent(self.federated_dataset)
 
         nsa_bkpt = nsa.save_state_breakpoint()
         res = nsa.get_last_node_states()
@@ -102,7 +120,7 @@ class TestNodeStateAgent(unittest.TestCase):
             },
         }
 
-        nsa = NodeStateAgent(self.node_ids_1)
+        nsa = NodeStateAgent(self.federated_dataset)
         nsa.load_state_breakpoint(nodes_states_bkpt)
 
         reloaded_nodes_states_bkpt = nsa.save_state_breakpoint()
@@ -110,11 +128,11 @@ class TestNodeStateAgent(unittest.TestCase):
         self.assertDictEqual(nodes_states_bkpt, reloaded_nodes_states_bkpt)
 
     def test_node_state_agent_8_save_and_load_bkpt(self):
-        nsa = NodeStateAgent(self.node_ids_1)
+        nsa = NodeStateAgent(self.federated_dataset)
         last_nodes_states_before_saving = nsa.get_last_node_states()
 
         nodes_states_bkpt = nsa.save_state_breakpoint()
-        nsa2 = NodeStateAgent(self.node_ids_1)
+        nsa2 = NodeStateAgent(self.federated_dataset)
         nsa2.load_state_breakpoint(nodes_states_bkpt)
 
         last_nodes_states_after_saving = nsa2.get_last_node_states()

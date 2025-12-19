@@ -30,7 +30,6 @@ from fedbiomed.common.optimizers import (
 )
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
-from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 from fedbiomed.researcher.filetools import choose_bkpt_file
 from fedbiomed.researcher.monitor import Monitor
@@ -404,41 +403,11 @@ class Experiment(TrainingPlanWorkflow):
             # at this point, `aggregator` is an instance / inheriting of `Aggregator`
             self._aggregator = aggregator
         self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
-        # ensure consistency with federated dataset
+
+        # Set federated dataset
         self._aggregator.set_fds(self._fds)
 
         return self._aggregator
-
-    @exp_exceptions
-    def set_training_data(
-        self,
-        training_data: Union[FederatedDataSet, dict, None],
-        from_tags: bool = False,
-    ) -> Union[FederatedDataSet, None]:
-        """Sets training data for federated training + verification on arguments type
-
-        See
-        [`FederatedWorkflow.set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data]
-        for more information.
-
-        Ensures consistency also with the Experiment's aggregator and node state agent
-
-        !!! warning "Setting to None forfeits consistency checks"
-            Setting training_data to None does not trigger consistency checks, and may therefore leave the class in an
-            inconsistent state.
-
-        Returns:
-            Dataset metadata
-        """
-        super().set_training_data(training_data, from_tags)
-        # Below: Experiment-specific operations for consistency
-        if self._aggregator is not None and self._fds is not None:
-            # update the aggregator's training data
-            self._aggregator.set_fds(self._fds)
-        if self._node_state_agent is not None and self._fds is not None:
-            # update the node state agent (member of FederatedWorkflow)
-            self._node_state_agent.update_node_states(self.all_federation_nodes())
-        return self._fds
 
     @exp_exceptions
     def set_agg_optimizer(
@@ -793,8 +762,6 @@ class Experiment(TrainingPlanWorkflow):
         # Collect auxiliary variables from the aggregator optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
 
-        # update node states when list of nodes has changed from one round to another
-        self._update_nodes_states_agent(before_training=True)
         # TODO check node state agent
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
@@ -839,9 +806,7 @@ class Experiment(TrainingPlanWorkflow):
         )
 
         # Update node states with node answers + when used node list has changed during the round.
-        self._update_nodes_states_agent(
-            before_training=False, training_replies=training_replies
-        )
+        self._update_nodes_states_agent(training_replies=training_replies)
 
         # (Secure-)Aggregate model parameters and optimizer auxiliary variables.
         if self._secagg.active:
@@ -1463,7 +1428,7 @@ class Experiment(TrainingPlanWorkflow):
         return Optimizer.load_state(state)
 
     def _update_nodes_states_agent(
-        self, before_training: bool = True, training_replies: Optional[Dict] = None
+        self, training_replies: Optional[Dict] = None
     ) -> None:
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within
@@ -1479,18 +1444,13 @@ class Experiment(TrainingPlanWorkflow):
         Raises:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
         """
-        node_ids = self.all_federation_nodes()
-        if before_training:
-            self._node_state_agent.update_node_states(node_ids)
-            return
-
         # extract last node state
         if training_replies is None:
             raise FedbiomedValueError(
                 f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
                 "replies form Node(s) has(ve) been received!"
             )
-        self._node_state_agent.update_node_states(node_ids, training_replies)
+        self._node_state_agent.update_node_states(training_replies)
 
     @staticmethod
     @exp_exceptions

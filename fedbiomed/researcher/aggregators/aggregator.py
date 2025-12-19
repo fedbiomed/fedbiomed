@@ -115,6 +115,13 @@ class Aggregator:
         return True
 
     def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
+        """Sets the FederatedDataSet to be used by the Aggregator.
+
+        Args:
+            fds: FederatedDataSet to be used by the Aggregator
+        Returns:
+            The FederatedDataSet set to be used by the Aggregator
+        """
         self._fds = fds
         return self._fds
 

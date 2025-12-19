@@ -1,11 +1,13 @@
 import os
-import unittest
 import tempfile
-
-from unittest.mock import MagicMock, patch
-
+import unittest
+from unittest.mock import ANY, MagicMock, patch
 
 from testsupport.base_mocks import MockRequestModule
+from testsupport.fake_training_plan import (
+    FakeSKLearnTrainingPlan,
+    FakeTorchTrainingPlan,
+)
 
 import fedbiomed
 from fedbiomed.common.exceptions import FedbiomedExperimentError
@@ -13,19 +15,12 @@ from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import (
     BaseTrainingPlan,
 )
+from fedbiomed.researcher.config import config
 from fedbiomed.researcher.federated_workflows import TrainingPlanWorkflow
 from fedbiomed.researcher.federated_workflows.jobs import (
     TrainingPlanApproveJob,
     TrainingPlanCheckJob,
 )
-from testsupport.fake_training_plan import (
-    FakeTorchTrainingPlan,
-    FakeSKLearnTrainingPlan,
-)
-
-from unittest.mock import ANY
-
-from fedbiomed.researcher.config import config
 
 
 class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
@@ -84,6 +79,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
 
         # Test all possible combinations of init arguments
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data.data.return_value = {"node1": {"some": "data"}}
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         parameters_and_possible_values = {
             "tags": (None, None, ["one-tag", "another-tag"]),
@@ -120,6 +116,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         # Special corner cases that deserve additional testing
         # TrainingPlanWorkflow can also be constructed by providing parameters to the constructor
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data.data.return_value = {"alice": {"some": "data"}}
         _training_data.node_ids.return_value = [
             "alice",
             "bob",
@@ -208,7 +205,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         mock_approval_job = MagicMock(spec=TrainingPlanApproveJob)
         mock_job.return_value = mock_approval_job
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
-
+        _training_data.data.return_value = {"node1": {"some": "data"}}
         exp = TrainingPlanWorkflow(
             training_plan_class=FakeTorchTrainingPlan, training_data=_training_data
         )
@@ -225,7 +222,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         mock_approval_job = MagicMock(spec=TrainingPlanCheckJob)
         mock_job.return_value = mock_approval_job
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
-
+        _training_data.data.return_value = {"node1": {"some": "data"}}
         exp = TrainingPlanWorkflow(
             training_plan_class=FakeTorchTrainingPlan, training_data=_training_data
         )
