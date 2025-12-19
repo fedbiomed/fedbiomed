@@ -44,6 +44,28 @@ class FAJob(_BaseJob):
         self._fa_id = request.fa_id
         self._fa_args = request.fa_args if request.fa_args is not None else {}
 
+    def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
+        """Build arguments for dataset initialization.
+
+        Args:
+            dataset_entry: dataset entry from dataset manager
+
+        Returns:
+            Dict of arguments for dataset initialization
+        """
+        columns = list(dataset_entry.get("dtypes", {}).keys())
+        if self._fa_args.get("col_names", None) is not None:
+            input_columns = self._fa_args["col_names"]
+            if not all(col in columns for col in input_columns):
+                raise _InternalJobError(
+                    f"One or more invalid column names for federated analytics on node='{self._node_id}': "
+                    f"requested columns '{input_columns}' not in available columns {columns}"
+                )
+        else:
+            input_columns = columns
+
+        return {"input_columns": input_columns}
+
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
         # Retrieve dataset ready-to-use from self._dataset_id
