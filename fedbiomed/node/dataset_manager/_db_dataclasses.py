@@ -43,7 +43,6 @@ class DatasetEntry(TableEntry):
     path: str
     shape: List[int] | Dict[str, List[int]]
     dtypes: Dict[str, str]
-
     dataset_id: Optional[str] = None
     dataset_parameters: Optional[Dict[str, Any]] = None
     dlp_id: Optional[str] = None

@@ -33,6 +33,7 @@ class TrainingJob(Job):
         data: FederatedDataSet,
         nodes_state_ids: Dict[str, str],
         aggregator_args: Dict[str, Dict[str, Any]],
+        keep_files_dir: str,
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, AuxVar]] = None,
@@ -76,6 +77,7 @@ class TrainingJob(Job):
         )  # Assign empty dict to secagg arguments if it is None
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
+        self._keep_files_dir = keep_files_dir
 
     def _get_training_results(
         self,

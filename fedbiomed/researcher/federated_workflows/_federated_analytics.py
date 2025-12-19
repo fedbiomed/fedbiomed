@@ -1,47 +1,10 @@
 import uuid
 from typing import Any, Dict, Optional, Union
 
-import numpy as np
-
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.federated_workflows.jobs import Job
+from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
 from fedbiomed.researcher.requests import Requests
-
-
-class FAResearcherJob(Job):
-    """
-    A class representing a Federated Analytics (FA) job to be executed on federated nodes.
-    This class extends the base Job class and includes specific attributes and methods
-    for handling FA tasks.
-    """
-
-    def __init__(
-        self,
-        **kwargs,
-    ):
-        """Dummy class to test FA workflow integration"""
-        super().__init__(
-            researcher_id=kwargs.get("researcher_id"),
-            requests=kwargs.get("requests"),
-            nodes=kwargs.get("nodes"),
-            keep_files_dir=kwargs.get("keep_files_dir"),
-        )
-
-        # to be used for `execute()`
-        self._kwargs = kwargs
-
-    def execute(self) -> Dict[str, Any]:
-        """Execute the FA training job
-
-        Returns:
-            A dictionary containing the results of the training job from each node.
-        """
-
-        # For now, we simulate FA execution with random data
-        analytics = np.random.rand(3, 3)
-
-        return self._kwargs, analytics
 
 
 class FederatedAnalytics:
@@ -115,21 +78,17 @@ class FederatedAnalytics:
         node_ids = self.get_node_ids()
 
         # Create FA job
-        fa_job = FAResearcherJob(
+        fa_job = FARequestJob(
             fa_id=self._fa_id,
             fa_args={
-                "analytics_method": "mean",
                 "col_names": col_names if col_names is not None else [],
             },
-            fds=self._fds,
+            federated_dataset=self._fds,
             experiment_id=self._experiment_id,
             researcher_id=self._researcher_id,
             requests=self._reqs,
             nodes=node_ids,
-            keep_files_dir=self._experimentation_folder,
         )
-
-        print("Nodes replied for analytics: " + str(fa_job.nodes))
 
         # Collect training replies and (opt.) optimizer auxiliary variables.
         analytics_replies = fa_job.execute()

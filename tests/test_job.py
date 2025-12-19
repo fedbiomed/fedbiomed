@@ -58,28 +58,23 @@ class TestJob(unittest.TestCase):
                 pass
 
         nodes = MagicMock(spec=list)
-        files_dir = "/path/to/my/files"
         job = MinimalJob(
             requests=MagicMock(),
             researcher_id="test-id",
             nodes=nodes,
-            keep_files_dir=files_dir,
         )
-        self.assertIsNotNone(job._keep_files_dir)  # must be initialized by Job
         self.assertTrue(
             isinstance(job._nodes, list) and len(job._nodes) == 0
         )  # nodes must be empty list by default
 
-        # Job can take nodes and keep_files_dir as arguments
+        # Job can take nodes as arguments
         mynodes = ["first-node", "second-node"]
         job = MinimalJob(
             requests=MagicMock(),
             researcher_id="test-id",
             nodes=mynodes,
-            keep_files_dir="keep_files_dir",
         )
-        self.assertEqual(job._keep_files_dir, "keep_files_dir")
-        self.assertTrue(all(x == y for x, y in zip(job._nodes, mynodes)))
+        self.assertTrue(all(x == y for x, y in zip(job._nodes, mynodes, strict=True)))
 
         # use and check timer
         with job.RequestTimer(mynodes) as t1:
@@ -408,7 +403,7 @@ class TestJob(unittest.TestCase):
         "_training_plan_approval_job.DiscardOnTimeout"
     )
     def test_job_04_training_plan_approve_job(self, mock_policy_dot):
-        mock_policy_dot = MagicMock(spec=DiscardOnTimeout)
+        _ = MagicMock(spec=DiscardOnTimeout)
 
         mock_tp_class = MagicMock()
         mock_tp_class.return_value = MagicMock(spec=BaseTrainingPlan)
@@ -427,14 +422,13 @@ class TestJob(unittest.TestCase):
 
         for success_status in success_status_all:
             # initialize TrainingJob
-            with tempfile.TemporaryDirectory() as fp:
+            with tempfile.TemporaryDirectory() as _fp:
                 job = TrainingPlanApproveJob(
                     researcher_id="test-id",
                     requests=self.request_mock,
                     training_plan=mock_tp,
                     description="my test TP",
                     nodes=["alice", "bob"],
-                    keep_files_dir=fp,
                 )
 
                 # prepare mocked node answers
@@ -461,7 +455,7 @@ class TestJob(unittest.TestCase):
         "jobs._training_plan_approval_job.DiscardOnTimeout"
     )
     def test_job_05_training_plan_check_job(self, mock_policy_dot):
-        mock_policy_dot = MagicMock(spec=DiscardOnTimeout)
+        _ = MagicMock(spec=DiscardOnTimeout)
 
         mock_tp_class = MagicMock()
         mock_tp_class.return_value = MagicMock(spec=BaseTrainingPlan)
@@ -492,14 +486,13 @@ class TestJob(unittest.TestCase):
                     for alice_approval_status in TrainingPlanApprovalStatus:
                         for bob_approval_status in TrainingPlanApprovalStatus:
                             # initialize TrainingJob
-                            with tempfile.TemporaryDirectory() as fp:
+                            with tempfile.TemporaryDirectory() as _fp:
                                 job = TrainingPlanCheckJob(
                                     researcher_id="test-id",
                                     requests=self.request_mock,
                                     experiment_id="any_unused_id",
                                     training_plan=mock_tp,
                                     nodes=["alice", "bob"],
-                                    keep_files_dir=fp,
                                 )
 
                                 err = {}

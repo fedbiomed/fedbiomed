@@ -34,7 +34,6 @@ class Job(ABC):
         researcher_id: str,
         requests: Requests,
         nodes: List[str] | None,
-        keep_files_dir: str,
     ):
         """Constructor of the class
 
@@ -52,7 +51,6 @@ class Job(ABC):
         self._nodes: List[str] = (
             nodes or []
         )  # List of node ids participating in this task
-        self._keep_files_dir = keep_files_dir
         self._policies: List[RequestPolicy] | None = None
 
     @property

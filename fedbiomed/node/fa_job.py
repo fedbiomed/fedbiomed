@@ -117,7 +117,19 @@ class FAJob:
 
         # build dataset instance
         _, _, dataset_cls = REGISTRY_CONTROLLERS[data_type]
-        dataset = dataset_cls()
+
+        columns = list(dataset_entry.get("dtypes", {}).keys())
+        if self._fa_args.get("col_names", None) is not None:
+            input_columns = self._fa_args["col_names"]
+            if not all(col in columns for col in input_columns):
+                raise _InternalFAJobError(
+                    f"One or more invalid column names for federated analytics on node='{self._node_id}': "
+                    f"requested columns '{input_columns}' not in available columns {columns}"
+                )
+        else:
+            input_columns = columns
+
+        dataset = dataset_cls(input_columns=input_columns)
         dataset.complete_initialization(controller_kwargs, DataReturnFormat.SKLEARN)
 
         return dataset
