@@ -5,6 +5,8 @@ import fedbiomed.common.message as message
 from fedbiomed.common.constants import (
     AnalyticsTypes,
     ErrorNumbers,
+    HarmonizationStep,
+    PreprocType,
     TrainingPlanApprovalStatus,
 )
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
@@ -41,6 +43,31 @@ def test_fa_reply_message_creation():
         node_name="node_name_1234",
         analytics_type=AnalyticsTypes.MEAN.value,
         output={"test": "output_data"},
+    )
+
+
+def test_preproc_request_message_creation():
+    """Test PreprocRequest message creation"""
+    _ = message.PreprocRequest(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        preproc_type=PreprocType.FEDCOMBAT.value,
+        preproc_step=HarmonizationStep.STEP2.value,
+        preproc_id="preproc_1234",
+        preproc_args={"test": "output_data"},
+        state_id="state_1234",
+    )
+
+
+def test_preproc_reply_message_creation():
+    """Test PreprocReply message creation"""
+    _ = message.PreprocReply(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        node_id="node_1234",
+        node_name="node_name_1234",
+        msg="my message",
+        preproc_output={"test": "output_data"},
     )
 
 
