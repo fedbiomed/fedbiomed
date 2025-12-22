@@ -64,7 +64,9 @@ class FederatedAnalytics:
 
         return node_ids
 
-    def mean(self, col_names: Optional[list[str | int]]) -> Union[Any, Dict[str, Any]]:
+    def mean(
+        self, col_names: Optional[list[str | int]] = None
+    ) -> Union[Any, Dict[str, Any]]:
         """Compute mean analytics across nodes.
 
         Returns:

@@ -26,7 +26,7 @@ class TabularDataset(Dataset, TabularAnalytics):
 
     def __init__(
         self,
-        input_columns: Iterable | int | str,
+        input_columns: Optional[Iterable | int | str] = None,
         target_columns: Optional[Iterable | int | str] = None,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
@@ -65,6 +65,10 @@ class TabularDataset(Dataset, TabularAnalytics):
 
         self._init_controller(controller_kwargs=controller_kwargs)
 
+        # If the input columns were not specified, get all columns from controller
+        if not self._input_columns:
+            self._input_columns = self._controller.normalize_columns(columns=[])
+
         sample = self._controller.get_sample(0)  # type: ignore
 
         n_rows, _ = sample.shape
@@ -81,6 +85,66 @@ class TabularDataset(Dataset, TabularAnalytics):
             self._validate_format_and_transformations(
                 self._get_targets_from_sample(sample), transform=self._transform
             )
+
+    def _validate_format_and_transformations(
+        self, data: Any, transform: Optional[Callable], label: Optional[str] = None
+    ) -> Any:
+        """Validates and applies format transform and conversion.
+
+        In TabularDataset, the order is reversed compared to other datasets.
+        First, the transformation is applied, then the format conversion.
+        This is to allow users to customize strings or categorical variables before
+        converting to numpy/torch formats.
+
+        Args:
+            data: from `self._controller.get_sample`
+            transform: `Callable` given at instantiation of cls
+            label: to add to error message to indicate concerned variables
+
+        Returns:
+            Transformed data
+        """
+        by = " " if label is None else f" by '{label}' "
+
+        data = self._validate_transformation(
+            data,
+            transform,
+            extra_info=f"Error raised{by}when applying associated transform",
+        )
+
+        data = self._validate_format_conversion(
+            data,
+            extra_info=f"Error raised{by}in format conversion step.",
+        )
+
+        return data
+
+    def _validate_transformation(
+        self, data: Any, transform: Optional[Callable], extra_info: Optional[str] = None
+    ) -> Any:
+        """Validates and applies `transform`
+
+        In TabularDataset, we don't have a check for output type here,
+        since we haven't applied format conversion yet.
+
+        Args:
+            data: from `self._controller.get_sample`
+            transform: `Callable` given at instantiation of cls
+            extra_info: info to add to error message to indicate concerned variables
+
+        Returns:
+            Transformed data
+        """
+        extra_info = "" if extra_info is None else extra_info
+        try:
+            data = transform(data)
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Unable to apply transform. "
+                f"{extra_info if extra_info else ''}"
+            ) from e
+
+        return data
 
     def _get_inputs_from_sample(self, sample: pl.DataFrame) -> pl.DataFrame:
         """Get inputs dataset
@@ -130,3 +194,57 @@ class TabularDataset(Dataset, TabularAnalytics):
 
         sample = self.apply_transforms(sample)
         return sample["data"], sample["target"]
+
+    def apply_transforms(self, sample: Dict[str, Any]) -> None:
+        """Apply transforms to sample in place.
+
+        In TabularDataset, the order is reversed compared to other datasets.
+        First, the transformation is applied, then the format conversion.
+        This is to allow users to customize strings or categorical variables before
+        converting to numpy/torch formats.
+
+        Args:
+            sample: sample returned by `self._controller.get_sample`
+
+        Raises:
+            FedbiomedError: if there is a problem applying `transform` or `target_transform`
+        """
+
+        try:
+            sample["data"] = self._transform(sample["data"])
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply `transform` to `data` "
+                f"in sample in {self._to_format.value} format."
+            ) from e
+
+        try:
+            sample["data"] = self._get_default_types_callable()(
+                self._get_format_conversion_callable()(sample["data"])
+            )
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types to `data` "
+                f"in sample in {self._to_format.value} format."
+            ) from e
+
+        if sample.get("target") is not None:
+            try:
+                sample["target"] = self._target_transform(sample["target"])
+            except Exception as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform` to "
+                    f"`target` in sample in {self._to_format.value} format."
+                ) from e
+
+            try:
+                sample["target"] = self._get_default_types_callable()(
+                    self._get_format_conversion_callable()(sample["target"])
+                )
+            except Exception as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types to `target` "
+                    f"in sample in {self._to_format.value} format."
+                ) from e
+
+        return sample
