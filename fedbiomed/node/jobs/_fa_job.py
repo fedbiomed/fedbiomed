@@ -54,7 +54,7 @@ class FAJob(_BaseJob):
             Dict of arguments for dataset initialization
         """
         columns = list(dataset_entry.get("dtypes", {}).keys())
-        if self._fa_args.get("col_names", None) is not None:
+        if self._fa_args.get("col_names"):
             input_columns = self._fa_args["col_names"]
             if not all(col in columns for col in input_columns):
                 raise _InternalJobError(
