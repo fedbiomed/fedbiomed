@@ -72,4 +72,4 @@ class FARequestJob(Job):
                     f"in node_id={node_id}: {error.errnum}. {error.extra_msg}"
                 )
 
-        return replies, errors
+        return replies

@@ -37,6 +37,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 from fedbiomed.researcher.config import config
 from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.federated_workflows._fedcombat import FedCombat
 from fedbiomed.researcher.federated_workflows._federated_analytics import (
     FederatedAnalytics,
 )
@@ -249,6 +250,14 @@ class FederatedWorkflow(ABC):
         )
 
         self.analytics = FederatedAnalytics(
+            fds=self._fds,
+            experiment_id=self._experiment_id,
+            researcher_id=self._researcher_id,
+            reqs=self._reqs,
+            experimentation_folder=self._experimentation_folder,
+        )
+
+        self.fedcombat = FedCombat(
             fds=self._fds,
             experiment_id=self._experiment_id,
             researcher_id=self._researcher_id,

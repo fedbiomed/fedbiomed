@@ -14,7 +14,10 @@ from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.message import Message as ProtobufMessage
 
 import fedbiomed.transport.protocols.researcher_pb2 as r_pb2
-from fedbiomed.common.constants import ErrorNumbers, __messaging_protocol_version__
+from fedbiomed.common.constants import (
+    ErrorNumbers,
+    __messaging_protocol_version__,
+)
 from fedbiomed.common.exceptions import FedbiomedMessageError, FedbiomedValueError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import import_object, raise_for_version_compatibility
