@@ -7,7 +7,7 @@ from testsupport.fake_researcher_secagg import FakeSecAgg
 import fedbiomed
 from fedbiomed.common.constants import SecureAggregationSchemes, __breakpoints_version__
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
 from fedbiomed.researcher.secagg import SecureAggregation
 
@@ -35,7 +35,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertIsNone(exp.tags())  # by default, tags set to None
         self.assertIsNone(exp.nodes())  # by default, nodes set to None
         self.assertIsInstance(
-            exp.training_data(), FederatedDataSet
+            exp.training_data(), FederatedDataset
         )  # by default, training data is initialized to something
         self.assertIsNotNone(
             exp.experimentation_folder()
@@ -47,7 +47,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertFalse(exp.secagg.active)
 
         # Test all possible combinations of init arguments
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
         _training_data.data.return_value = {
             "node-1": {"dataset_id": "dataset-id-1", "shape": [100, 100]}
         }
@@ -354,7 +354,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self, mock_bkpt_file, mock_json_dump, mock_open
     ):
         # define attributes that will be saved in breakpoint
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
         _training_data.data.return_value = {"training": {"data": "data"}}
         exp = FederatedWorkflow(
             training_data=_training_data,
@@ -473,7 +473,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         """Tests retrieving nodes"""
 
         ff = FederatedWorkflow()
-        ff._fds = FederatedDataSet({"node-1": {}, "node-2": {}})
+        ff._fds = FederatedDataset({"node-1": {}, "node-2": {}})
         nodes = ff.all_federation_nodes()
         self.assertListEqual(["node-1", "node-2"], nodes)
 
@@ -482,7 +482,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
         ff = FederatedWorkflow()
         ff._nodes_filter = ["node-1"]
-        ff._fds = FederatedDataSet({"node-1": {}, "node-2": {}})
+        ff._fds = FederatedDataset({"node-1": {}, "node-2": {}})
 
         # Check filtered nodes
         nodes = ff.filtered_federation_nodes()

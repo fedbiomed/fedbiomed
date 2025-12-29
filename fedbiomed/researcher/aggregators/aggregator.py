@@ -16,7 +16,7 @@ from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.secagg import SecaggCrypter
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 
 if TYPE_CHECKING:
     from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
@@ -30,7 +30,7 @@ class Aggregator:
 
     def __init__(self):
         self._aggregator_args: dict = None
-        self._fds: FederatedDataSet = None
+        self._fds: FederatedDataset = None
         self._training_plan_type: TrainingPlans = None
         self._secagg_crypter = SecaggCrypter()
 
@@ -114,13 +114,13 @@ class Aggregator:
     def check_values(self, *args, **kwargs) -> True:
         return True
 
-    def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
-        """Sets the FederatedDataSet to be used by the Aggregator.
+    def set_fds(self, fds: FederatedDataset) -> FederatedDataset:
+        """Sets the FederatedDataset to be used by the Aggregator.
 
         Args:
-            fds: FederatedDataSet to be used by the Aggregator
+            fds: FederatedDataset to be used by the Aggregator
         Returns:
-            The FederatedDataSet set to be used by the Aggregator
+            The FederatedDataset set to be used by the Aggregator
         """
         self._fds = fds
         return self._fds

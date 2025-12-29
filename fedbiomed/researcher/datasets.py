@@ -3,6 +3,7 @@
 
 """Module includes the classes that allow researcher to interact with remote datasets (federated datasets)."""
 
+import copy
 from asyncio.log import logger
 from typing import Dict, List, Optional
 
@@ -10,7 +11,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 
 
-class FederatedDataSet:
+class FederatedDataset:
     """A class that allows researcher to interact with remote datasets (federated datasets).
 
     It contains details about remote datasets, such as client ids, data size that can be useful for aggregating
@@ -18,7 +19,7 @@ class FederatedDataSet:
     """
 
     def __init__(self, data: Optional[Dict] = None):
-        """Construct FederatedDataSet object.
+        """Construct FederatedDataset object.
 
         Args:
             data:  Dictionary of datasets. Each key is a `str` representing a node's ID. Each value is
@@ -41,18 +42,18 @@ class FederatedDataSet:
                 of the dataset associated to this node in the federated dataset.
 
         Raises:
-            FedbiomedFederatedDataSetError: bad `data` format
+            FedbiomedError: bad `data` format
         """
         # check structure of data
         # DEPRECATED: to be removed in future versions
-        if isinstance(datasets, FederatedDataSet):
+        if isinstance(datasets, FederatedDataset):
             logger.warning(
-                "DEPRECATED: Passing a `FederatedDataSet` instance"
-                " to the `data` parameter of `FederatedDataSet` is deprecated and "
+                "DEPRECATED: Passing a `FederatedDataset` instance"
+                " to the `data` parameter of `FederatedDataset` is deprecated and "
                 "will not be supported in future versions. Please pass a `dict` "
                 "representing the federated dataset instead."
             )
-            datasets = datasets.data()
+            datasets = copy.deepcopy(datasets.data())
 
         if isinstance(datasets, dict) is False:
             raise FedbiomedError(
@@ -98,7 +99,7 @@ class FederatedDataSet:
         return self._data
 
     def node_ids(self) -> List[str]:
-        """Retrieve Node ids from `FederatedDataSet`.
+        """Retrieve Node ids from `FederatedDataset`.
 
         Returns:
             List of node ids
@@ -110,7 +111,7 @@ class FederatedDataSet:
 
         Returns:
             List of sample sizes in federated datasets in the same order with
-                [node_ids][fedbiomed.researcher.datasets.FederatedDataSet.node_ids]
+                [node_ids][fedbiomed.researcher.datasets.FederatedDataset.node_ids]
         """
         sample_sizes = []
         for _, val in self._data.items():
@@ -122,7 +123,7 @@ class FederatedDataSet:
         """Get shape of FederatedDatasets by node ids.
 
         Returns:
-            Includes [`sample_sizes`][fedbiomed.researcher.datasets.FederatedDataSet.sample_sizes] by node_ids.
+            Includes [`sample_sizes`][fedbiomed.researcher.datasets.FederatedDataset.sample_sizes] by node_ids.
         """
         shapes_dict = {}
         for node_id, node_data_size in zip(
@@ -131,3 +132,6 @@ class FederatedDataSet:
             shapes_dict[node_id] = node_data_size
 
         return shapes_dict
+
+
+FederatedDataSet = FederatedDataset  # backward compatibility

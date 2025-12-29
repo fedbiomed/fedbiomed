@@ -1,7 +1,7 @@
 import pytest
 
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 
 data = {
     "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}],
@@ -12,7 +12,7 @@ data = {
 # before the tests
 @pytest.fixture
 def fds():
-    return FederatedDataSet(data)
+    return FederatedDataset(data)
 
 
 def test_federated_dataset_01_create_error():
@@ -27,7 +27,7 @@ def test_federated_dataset_01_create_error():
     for data in data_list:
         # test + check
         with pytest.raises(FedbiomedError):
-            FederatedDataSet(data)
+            FederatedDataset(data)
 
 
 def test_federated_dataset_02_data(fds):

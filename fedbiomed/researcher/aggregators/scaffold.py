@@ -18,7 +18,7 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import initialize
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 
 
 class Scaffold(Aggregator):
@@ -86,7 +86,7 @@ class Scaffold(Aggregator):
         {node id: learning rate}
     """
 
-    def __init__(self, server_lr: float = 1.0, fds: Optional[FederatedDataSet] = None):
+    def __init__(self, server_lr: float = 1.0, fds: Optional[FederatedDataset] = None):
         """Constructs `Scaffold` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
 

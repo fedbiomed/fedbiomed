@@ -5,21 +5,21 @@ import numpy as np
 import pytest
 
 from fedbiomed.common.exceptions import FedbiomedExperimentError
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import FederatedAnalytics
 from fedbiomed.researcher.requests import Requests
 
 
 @pytest.fixture
 def mock_fds():
-    fds = MagicMock(spec=FederatedDataSet)
+    fds = MagicMock(spec=FederatedDataset)
     fds.node_ids.return_value = ["node-1", "node-2"]
     return fds
 
 
 @pytest.fixture
 def empty_fds():
-    fds = MagicMock(spec=FederatedDataSet)
+    fds = MagicMock(spec=FederatedDataset)
     fds.node_ids.return_value = []
     return fds
 

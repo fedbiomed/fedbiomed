@@ -2,13 +2,13 @@ import unittest
 
 from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
-from tests.test_experiment import FederatedDataSet
+from tests.test_experiment import FederatedDataset
 
 
 class TestNodeStateAgent(unittest.TestCase):
     def setUp(self) -> None:
         self.node_ids = ["node_id_1234", "node_id_5678", "node_id_9012"]
-        self.federated_dataset = FederatedDataSet(
+        self.federated_dataset = FederatedDataset(
             {
                 self.node_ids[0]: {"data": "sample_data"},
                 self.node_ids[1]: {"data": "sample_data"},
@@ -22,7 +22,7 @@ class TestNodeStateAgent(unittest.TestCase):
             "node_id_4321",
             "node_id_0987",
         ]
-        self.federated_dataset_2 = FederatedDataSet(
+        self.federated_dataset_2 = FederatedDataset(
             {
                 self.node_ids_2[0]: {"data": "sample_data"},
                 self.node_ids_2[1]: {"data": "sample_data"},

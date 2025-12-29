@@ -16,7 +16,7 @@ from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers import AuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 from fedbiomed.researcher.monitor import Monitor
@@ -135,7 +135,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             aggregator_name = "aggregator"
             is_set_fds_called = False
 
-            def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
+            def set_fds(self, fds: FederatedDataset) -> FederatedDataset:
                 if not self.is_set_fds_called:
                     self.is_set_fds_called = True
                 return super().set_fds(fds)
@@ -236,7 +236,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp._fds = None
         with self.assertRaises(SystemExit):
             exp.run_once()
-        exp._fds = FederatedDataSet(_training_data)
+        exp._fds = FederatedDataset(_training_data)
         # -------------------------------------------------------------
 
         # Run experiment ----------------------------------------------

@@ -78,7 +78,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         self.assertIsNotNone(exp.training_args())
 
         # Test all possible combinations of init arguments
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
         _training_data.data.return_value = {"node1": {"some": "data"}}
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         parameters_and_possible_values = {
@@ -115,7 +115,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
 
         # Special corner cases that deserve additional testing
         # TrainingPlanWorkflow can also be constructed by providing parameters to the constructor
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
         _training_data.data.return_value = {"alice": {"some": "data"}}
         _training_data.node_ids.return_value = [
             "alice",
@@ -204,7 +204,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         mock_job = patch_job.start()
         mock_approval_job = MagicMock(spec=TrainingPlanApproveJob)
         mock_job.return_value = mock_approval_job
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
         _training_data.data.return_value = {"node1": {"some": "data"}}
         exp = TrainingPlanWorkflow(
             training_plan_class=FakeTorchTrainingPlan, training_data=_training_data
@@ -221,7 +221,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         mock_job = patch_job.start()
         mock_approval_job = MagicMock(spec=TrainingPlanCheckJob)
         mock_job.return_value = mock_approval_job
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
         _training_data.data.return_value = {"node1": {"some": "data"}}
         exp = TrainingPlanWorkflow(
             training_plan_class=FakeTorchTrainingPlan, training_data=_training_data

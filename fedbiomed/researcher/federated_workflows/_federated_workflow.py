@@ -36,7 +36,7 @@ from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 from fedbiomed.researcher.config import config
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows._federated_analytics import (
     FederatedAnalytics,
 )
@@ -147,7 +147,7 @@ class FederatedWorkflow(ABC):
         self,
         tags: Optional[List[str] | str] = None,
         nodes: Optional[List[str]] = None,
-        training_data: Optional[FederatedDataSet | Dict] = None,
+        training_data: Optional[FederatedDataset | Dict] = None,
         experimentation_folder: Union[str, None] = None,
         secagg: Union[bool, SecureAggregation] = False,
         save_breakpoints: bool = False,
@@ -164,8 +164,8 @@ class FederatedWorkflow(ABC):
                 Defaults to None (no filtering).
 
             training_data:
-                * If it is a FederatedDataSet object, use this value as training_data.
-                * else if it is a dict, create and use a FederatedDataSet object
+                * If it is a FederatedDataset object, use this value as training_data.
+                * else if it is a dict, create and use a FederatedDataset object
                     from the dict and use this value as training_data. The dict should use
                     node ids as keys, values being list of dicts (each dict representing a
                     dataset on a node).
@@ -203,7 +203,7 @@ class FederatedWorkflow(ABC):
         self.config = config
         # predefine all class variables, so no need to write try/except
         # block each time we use it
-        self._fds: Optional[FederatedDataSet] = FederatedDataSet(training_data)
+        self._fds: FederatedDataset = FederatedDataset(training_data)
 
         self._reqs: Requests = Requests(config=self.config)
         self._nodes_filter: Optional[List[str]] = (
@@ -320,9 +320,9 @@ class FederatedWorkflow(ABC):
             return self.all_federation_nodes()
 
     @exp_exceptions
-    def training_data(self) -> Union[FederatedDataSet, None]:
+    def training_data(self) -> Union[FederatedDataset, None]:
         """Retrieves the training data which is an instance of
-        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet]
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset]
 
         This represents the dataset metadata available for the full federation.
 
@@ -585,7 +585,7 @@ class FederatedWorkflow(ABC):
         self,
         training_data: Union[Dict, None],
         from_tags: bool = False,
-    ) -> Union[FederatedDataSet, None]:
+    ) -> FederatedDataset:
         """Sets training data for federated training + verification on arguments type
 
 
@@ -604,8 +604,8 @@ class FederatedWorkflow(ABC):
 
         Args:
             training_data:
-                * If it is a FederatedDataSet object, use this value as training_data.
-                * else if it is a dict, create and use a FederatedDataSet object from the dict
+                * If it is a FederatedDataset object, use this value as training_data.
+                * else if it is a dict, create and use a FederatedDataset object from the dict
                   and use this value as training_data. The dict should use node ids as keys,
                   values being list of dicts (each dict representing a dataset on a node).
                 * else if it is None (no training data provided)
@@ -617,7 +617,7 @@ class FederatedWorkflow(ABC):
                 Not used when `training_data` is provided.
 
         Returns:
-            FederatedDataSet metadata
+            FederatedDataset metadata
 
         Raises:
             FedbiomedTypeError: bad training_data or from_tags type.
@@ -924,7 +924,7 @@ class FederatedWorkflow(ABC):
 
         # retrieve breakpoint training data
         bkpt_fds = saved_state.get("training_data")
-        bkpt_fds = FederatedDataSet(bkpt_fds)
+        bkpt_fds = FederatedDataset(bkpt_fds)
 
         # retrieve experimentation folder
         exp_folder = saved_state.get("experimentation_folder")

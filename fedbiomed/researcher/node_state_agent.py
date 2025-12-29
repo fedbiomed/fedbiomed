@@ -1,10 +1,11 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
+from fedbiomed.researcher.datasets import FederatedDataset
 
 
 class NodeStateAgent:
@@ -13,7 +14,7 @@ class NodeStateAgent:
     Manages Node States collection, gathered from `Nodes` replies.
     """
 
-    def __init__(self, federated_dataset: List[str]) -> None:
+    def __init__(self, federated_dataset: FederatedDataset) -> None:
         """Constructor for NodeStateAgent.
 
         Initializes state ID of each node provided in `node_ids` to None (will maintain state,

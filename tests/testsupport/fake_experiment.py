@@ -8,7 +8,7 @@ from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.federated_workflows._experiment import SecureAggregation
 
 # need those types defined
-FederatedDataSet = TypeVar("FederatedDataSet")
+FederatedDataset = TypeVar("FederatedDataset")
 Aggregator = TypeVar("Aggregator")
 Optimizer = TypeVar("Optimizer")
 Strategy = TypeVar("Strategy")
@@ -26,7 +26,7 @@ class ExperimentMock:
         self,
         tags: Union[List[str], str, None] = None,
         nodes: Union[List[str], None] = None,
-        training_data: Union[FederatedDataSet, dict, None] = None,
+        training_data: Union[FederatedDataset, dict, None] = None,
         aggregator: Union[Aggregator, Type[Aggregator], None] = None,
         agg_optimizer: Optional[Optimizer] = None,
         node_selection_strategy: Union[Strategy, Type[Strategy], None] = None,

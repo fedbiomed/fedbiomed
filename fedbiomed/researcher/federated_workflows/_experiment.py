@@ -1432,7 +1432,7 @@ class Experiment(TrainingPlanWorkflow):
     ) -> None:
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within
-        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet].
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
 
         Args:
             before_training: whether to update `NodeStateAgent` at the beginning or at the end of a `Round`:

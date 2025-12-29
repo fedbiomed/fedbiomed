@@ -49,7 +49,7 @@ exp = Experiment(tags=tags,
 
 Under the hood, the `Experiment` class takes care of a lot of heavy lifting for you.
 For example, when you initialize an experiment with the `tags` argument, it uses them to automatically create a
-`FederatedDataSet` by querying the federation.
+`FederatedDataset` by querying the federation.
 Afterwards, `Experiment` initializes several internal variables to manage federated training on all participating nodes.
 Finally, it also creates the strategy to select the nodes for each training round.
 When the `node_selection_strategy` is set to `None`, the experiment uses the default strategy which is `DefaultStrategy`.
@@ -87,7 +87,7 @@ print(tags)
 
 !!! warning "Tags matching multiple datasets"
     An `Experiment` object must have **one unique** dataset per node.
-    Object creation fails if this is not the case when trying to instantiate the `FederatedDataSet` object.
+    Object creation fails if this is not the case when trying to instantiate the `FederatedDataset` object.
     This is done to ensure that training for an `Experiment` uses only a single dataset for each node.
 
 As a consequence, `tags` specified for an `Experiment` should not be ambiguous, which means they cannot match multiple datasets on one node.
