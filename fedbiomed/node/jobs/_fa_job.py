@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-implementation of Federated Analytics Job class of the node component
+Implementation of Federated Analytics Job class of the node component
 """
 
 from typing import Dict
