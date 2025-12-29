@@ -10,6 +10,7 @@ from typing import Dict
 from fedbiomed.common.constants import AnalyticsTypes, ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
+from fedbiomed.node.dataset_manager import DatasetManager
 
 from ._base_job import _BaseJob, _InternalJobError
 
@@ -22,7 +23,7 @@ class FAJob(_BaseJob):
     def __init__(
         self,
         root_dir: str,
-        db_path: str,
+        dataset_manager: DatasetManager,
         node_id: str,
         node_name: str,
         request: FARequest,
@@ -31,12 +32,12 @@ class FAJob(_BaseJob):
 
         Args:
             root_dir: Root fedbiomed directory where node instance files will be stored.
-            db_path: Path to node database file.
+            dataset_manager: DatasetManager instance to retrieve datasets
             node_id: Node id
             node_name: Node name (Hospital name)
             request: FARequest message object containing all information about the FA task
         """
-        super().__init__(root_dir, db_path, node_id, node_name, request)
+        super().__init__(root_dir, dataset_manager, node_id, node_name, request)
 
         self._analytics_type = request.analytics_type
         self._dataset_id = request.dataset_id

@@ -29,7 +29,7 @@ class _BaseJob(ABC):
     def __init__(
         self,
         root_dir: str,
-        db_path: str,
+        dataset_manager: DatasetManager,
         node_id: str,
         node_name: str,
         request: RequestReply,
@@ -38,13 +38,13 @@ class _BaseJob(ABC):
 
         Args:
             root_dir: Root fedbiomed directory where node instance files will be stored.
-            db_path: Path to node database file.
+            dataset_manager: DatasetManager instance to retrieve datasets
             node_id: Node id
             node_name: Node name (Hospital name)
             request: Message object containing all information about the task
         """
         self._dir = root_dir
-        self._db_path = db_path
+        self._dataset_manager = dataset_manager
         self._node_id = node_id
         self._node_name = node_name
         self._dataset_id = (
@@ -87,11 +87,8 @@ class _BaseJob(ABC):
                 f"in message {self._message}."
             )
 
-        # dataset manager to get metadata about dataset, dlp and loading block
-        dataset_manager = DatasetManager(self._db_path)
-
         # recover dataset entry
-        dataset_entry = dataset_manager.dataset_table.get_by_id(self._dataset_id)
+        dataset_entry = self._dataset_manager.dataset_table.get_by_id(self._dataset_id)
         if dataset_entry is None:
             raise _InternalJobError(
                 f"Cannot found request dataset in local datasets: dataset_id='{self._dataset_id}' "
@@ -120,7 +117,7 @@ class _BaseJob(ABC):
 
         # recover dlp if any
         if "dlp_id" in dataset_entry:
-            dlp_metadata = dataset_manager.get_dlp_by_id(dataset_entry["dlp_id"])
+            dlp_metadata = self._dataset_manager.get_dlp_by_id(dataset_entry["dlp_id"])
             try:
                 controller_kwargs["dlp"] = DataLoadingPlan().deserialize(*dlp_metadata)
             except FedbiomedError as e:

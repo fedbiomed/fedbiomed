@@ -457,7 +457,7 @@ class Node:
                     case FARequest.__name__:
                         fa_job = FAJob(
                             root_dir=self._config.root,
-                            db_path=self._db_path,
+                            dataset_manager=self.dataset_manager,
                             node_id=self._node_id,
                             node_name=self._node_name,
                             request=item,
