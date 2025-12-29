@@ -463,7 +463,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             researcher_id=self._researcher_id,
             requests=self._reqs,
             nodes=self.training_data().node_ids(),
-            keep_files_dir=self.experimentation_path(),
             experiment_id=self._experiment_id,
             training_plan=self.training_plan(),
         )
@@ -495,7 +494,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             researcher_id=self._researcher_id,
             requests=self._reqs,
             nodes=self.training_data().node_ids(),
-            keep_files_dir=self.experimentation_path(),
             training_plan=self.training_plan(),
             description=description,
         )
