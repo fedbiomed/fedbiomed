@@ -31,7 +31,7 @@ def fa_request(request_args):
 def fa_job_args(fa_request):
     return {
         "root_dir": "/tmp/root",
-        "db_path": "/tmp/db.json",
+        "dataset_manager": MagicMock(),
         "node_id": "node_1",
         "node_name": "test_node",
         "request": fa_request,
@@ -68,7 +68,7 @@ def mocked_dlp():
 def test_fa_job_init(fa_job, fa_job_args, request_args):
     """Test FAJob initialization."""
     assert fa_job._dir == fa_job_args["root_dir"]
-    assert fa_job._db_path == fa_job_args["db_path"]
+    assert fa_job._dataset_manager == fa_job_args["dataset_manager"]
     assert fa_job._node_id == fa_job_args["node_id"]
     assert fa_job._node_name == fa_job_args["node_name"]
     assert fa_job._dataset_id == request_args["dataset_id"]
@@ -115,6 +115,7 @@ def test_build_dataset_success(mock_registry, fa_job, mocked_dataset_manager):
         "path": "/path/to/data",
         "dataset_parameters": {},
     }
+    fa_job._dataset_manager = mock_dm
 
     mock_dataset_cls = MagicMock()
 
@@ -137,6 +138,7 @@ def test_build_dataset_not_found(mocked_dataset_manager, fa_job):
     """Test _build_dataset when dataset is not found in DB."""
     mock_dm_cls, mock_dm = mocked_dataset_manager
     mock_dm.dataset_table.get_by_id.return_value = None
+    fa_job._dataset_manager = mock_dm
 
     with pytest.raises(_InternalJobError) as exc_info:
         fa_job._build_dataset(DataReturnFormat.SKLEARN, ["csv"])
@@ -169,6 +171,7 @@ def test_build_dataset_with_dlp_success(
         "dlp_id": "dlp_1",
     }
     mock_dm.get_dlp_by_id.return_value = ["dlp_content"]
+    fa_job._dataset_manager = mock_dm
 
     mock_dlp = mock_dlp_cls.return_value
     mock_dlp.deserialize.return_value = mock_dlp  # return self
@@ -197,6 +200,7 @@ def test_build_dataset_dlp_error(
         "dlp_id": "dlp_1",
     }
     mock_dm.get_dlp_by_id.return_value = ["dlp_content"]
+    fa_job._dataset_manager = mock_dm
 
     mock_dlp_cls.return_value.deserialize.side_effect = FedbiomedError("DLP Error")
     mock_registry.__contains__.return_value = True
