@@ -3,61 +3,80 @@
 
 """Module includes the classes that allow researcher to interact with remote datasets (federated datasets)."""
 
-from typing import Dict, List
+import copy
+from asyncio.log import logger
+from typing import Dict, List, Optional
 
 from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedFederatedDataSetError
-from fedbiomed.common.logger import logger
-from fedbiomed.common.validator import Validator, ValidatorError
+from fedbiomed.common.exceptions import FedbiomedError
 
 
-class FederatedDataSet:
+class FederatedDataset:
     """A class that allows researcher to interact with remote datasets (federated datasets).
 
     It contains details about remote datasets, such as client ids, data size that can be useful for aggregating
     or sampling strategies on researcher's side
     """
 
-    def __init__(self, data: Dict):
-        """Construct FederatedDataSet object.
+    def __init__(self, data: Optional[Dict] = None):
+        """Construct FederatedDataset object.
 
         Args:
-            data: Dictionary of datasets. Each key is a `str` representing a node's ID. Each value is
+            data:  Dictionary of datasets. Each key is a `str` representing a node's ID. Each value is
+                a `dict` (or a `list` containing exactly one `dict`). Each `dict` contains the description
+                of the dataset associated to this node in the federated dataset.
+        """
+        # check structure of data
+
+        if data is not None:
+            self.set_federated_dataset(data)
+        else:
+            self._data = {}
+
+    def set_federated_dataset(self, datasets: Dict) -> None:
+        """Set federated dataset.
+
+        Args:
+            datasets:  Dictionary of datasets. Each key is a `str` representing a node's ID. Each value is
                 a `dict` (or a `list` containing exactly one `dict`). Each `dict` contains the description
                 of the dataset associated to this node in the federated dataset.
 
         Raises:
-            FedbiomedFederatedDataSetError: bad `data` format
+            FedbiomedError: bad `data` format
         """
         # check structure of data
-        self._v = Validator()
-        self._v.register("list_or_dict", self._dataset_type, override=True)
-        try:
-            self._v.validate(data, dict)
-            for node, ds in data.items():
-                self._v.validate(node, str)
-                self._v.validate(ds, "list_or_dict")
-                if isinstance(ds, list):
-                    if len(ds) == 1:
-                        self._v.validate(ds[0], dict)
-                        # convert list of one dict to dict
-                        data[node] = ds[0]
-                    else:
-                        errmess = (
-                            f"{ErrorNumbers.FB416.value}: {node} must have one unique dataset "
-                            f"but has {len(ds)} datasets."
-                        )
-                        logger.error(errmess)
-                        raise FedbiomedFederatedDataSetError(errmess)
-        except ValidatorError as e:
-            errmess = (
-                f"{ErrorNumbers.FB416.value}: bad parameter `data` must be a `dict` of "
-                f"(`list` of one) `dict`: {e}"
+        # DEPRECATED: to be removed in future versions
+        if isinstance(datasets, FederatedDataset):
+            logger.warning(
+                "DEPRECATED: Passing a `FederatedDataset` instance"
+                " to the `data` parameter of `FederatedDataset` is deprecated and "
+                "will not be supported in future versions. Please pass a `dict` "
+                "representing the federated dataset instead."
             )
-            logger.error(errmess)
-            raise FedbiomedFederatedDataSetError(errmess) from e
+            datasets = copy.deepcopy(datasets.data())
 
-        self._data = data
+        if isinstance(datasets, dict) is False:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB416.value}: bad parameter `data` must be a `dict` of "
+                f"(`list` of one) `dict`."
+            )
+
+        for node_id, node_data in datasets.items():
+            if not (isinstance(node_data, dict) or isinstance(node_data, list)):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB416.value}: bad parameter `data` for node {node_id}. "
+                    f"Must be a `dict` or a `list` containing exactly one `dict`."
+                )
+            if isinstance(node_data, list):
+                if len(node_data) != 1 or not isinstance(node_data[0], dict):
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB416.value}: bad parameter `data` for node {node_id}. "
+                        f"Must be a `dict` or a `list` containing exactly one `dict`."
+                    )
+                else:
+                    datasets[node_id] = node_data[0]
+
+        self._data = datasets
 
     @staticmethod
     def _dataset_type(value) -> bool:
@@ -80,7 +99,7 @@ class FederatedDataSet:
         return self._data
 
     def node_ids(self) -> List[str]:
-        """Retrieve Node ids from `FederatedDataSet`.
+        """Retrieve Node ids from `FederatedDataset`.
 
         Returns:
             List of node ids
@@ -92,7 +111,7 @@ class FederatedDataSet:
 
         Returns:
             List of sample sizes in federated datasets in the same order with
-                [node_ids][fedbiomed.researcher.datasets.FederatedDataSet.node_ids]
+                [node_ids][fedbiomed.researcher.datasets.FederatedDataset.node_ids]
         """
         sample_sizes = []
         for _, val in self._data.items():
@@ -104,7 +123,7 @@ class FederatedDataSet:
         """Get shape of FederatedDatasets by node ids.
 
         Returns:
-            Includes [`sample_sizes`][fedbiomed.researcher.datasets.FederatedDataSet.sample_sizes] by node_ids.
+            Includes [`sample_sizes`][fedbiomed.researcher.datasets.FederatedDataset.sample_sizes] by node_ids.
         """
         shapes_dict = {}
         for node_id, node_data_size in zip(
@@ -113,3 +132,6 @@ class FederatedDataSet:
             shapes_dict[node_id] = node_data_size
 
         return shapes_dict
+
+
+FederatedDataSet = FederatedDataset  # backward compatibility

@@ -12,7 +12,7 @@ from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.config import config
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import (
     Job,
     TrainingJob,
@@ -37,7 +37,7 @@ class TestJob(unittest.TestCase):
 
         # Globally create mock for Model and FederatedDataset
         self.model = create_autospec(BaseTrainingPlan, instance=False)
-        self.fds = MagicMock(spec=FederatedDataSet)
+        self.fds = MagicMock(spec=FederatedDataset)
         self.fds.data = MagicMock(return_value={})
         self.model = FakeTorchTrainingPlan
         self.model.save_code = MagicMock()
@@ -127,7 +127,7 @@ class TestJob(unittest.TestCase):
                         training_plan=mock_tp,
                         training_args=TrainingArgs({}, only_required=False),
                         model_args=None,
-                        data=self.fds,  # mocked FederatedDataSet class
+                        data=self.fds,  # mocked FederatedDataset class
                         nodes_state_ids=fake_node_state_ids,
                         nodes=["alice", "bob"],
                         aggregator_args={},
@@ -292,7 +292,7 @@ class TestJob(unittest.TestCase):
                         training_plan=mock_tp,
                         training_args=TrainingArgs({}, only_required=False),
                         model_args=None,
-                        data=self.fds,  # mocked FederatedDataSet class
+                        data=self.fds,  # mocked FederatedDataset class
                         nodes_state_ids=fake_node_state_ids,
                         nodes=["alice", "bob"],
                         aggregator_args={},
@@ -615,7 +615,7 @@ class TestJob(unittest.TestCase):
                 training_plan=mock_tp,
                 training_args=TrainingArgs({}, only_required=False),
                 model_args=None,
-                data=self.fds,  # mocked FederatedDataSet class
+                data=self.fds,  # mocked FederatedDataset class
                 nodes_state_ids=fake_node_state_ids,
                 nodes=["node-1", "node-2"],
                 aggregator_args={},

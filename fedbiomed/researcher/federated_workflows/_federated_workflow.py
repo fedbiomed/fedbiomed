@@ -36,7 +36,7 @@ from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 from fedbiomed.researcher.config import config
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows._federated_analytics import (
     FederatedAnalytics,
 )
@@ -147,7 +147,7 @@ class FederatedWorkflow(ABC):
         self,
         tags: Optional[List[str] | str] = None,
         nodes: Optional[List[str]] = None,
-        training_data: Union[FederatedDataSet, dict, None] = None,
+        training_data: Optional[FederatedDataset | Dict] = None,
         experimentation_folder: Union[str, None] = None,
         secagg: Union[bool, SecureAggregation] = False,
         save_breakpoints: bool = False,
@@ -164,8 +164,8 @@ class FederatedWorkflow(ABC):
                 Defaults to None (no filtering).
 
             training_data:
-                * If it is a FederatedDataSet object, use this value as training_data.
-                * else if it is a dict, create and use a FederatedDataSet object
+                * If it is a FederatedDataset object, use this value as training_data.
+                * else if it is a dict, create and use a FederatedDataset object
                     from the dict and use this value as training_data. The dict should use
                     node ids as keys, values being list of dicts (each dict representing a
                     dataset on a node).
@@ -203,9 +203,8 @@ class FederatedWorkflow(ABC):
         self.config = config
         # predefine all class variables, so no need to write try/except
         # block each time we use it
-        self._fds: Optional[FederatedDataSet] = (
-            None  # dataset metadata from the full federation
-        )
+        self._fds: FederatedDataset = FederatedDataset(training_data)
+
         self._reqs: Requests = Requests(config=self.config)
         self._nodes_filter: Optional[List[str]] = (
             None  # researcher-defined nodes filter
@@ -237,16 +236,11 @@ class FederatedWorkflow(ABC):
         if tags:
             self.set_tags(tags)
 
-        if training_data:
-            self.set_training_data(training_data)
-
         self.set_nodes(nodes)
         self.set_save_breakpoints(save_breakpoints)
 
         self.set_experimentation_folder(experimentation_folder)
-        self._node_state_agent = NodeStateAgent(
-            list(self._fds.data().keys()) if self._fds and self._fds.data() else []
-        )
+        self._node_state_agent = NodeStateAgent(federated_dataset=self._fds)
 
         self.analytics = FederatedAnalytics(
             fds=self._fds,
@@ -326,9 +320,9 @@ class FederatedWorkflow(ABC):
             return self.all_federation_nodes()
 
     @exp_exceptions
-    def training_data(self) -> Union[FederatedDataSet, None]:
+    def training_data(self) -> Union[FederatedDataset, None]:
         """Retrieves the training data which is an instance of
-        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet]
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset]
 
         This represents the dataset metadata available for the full federation.
 
@@ -472,14 +466,14 @@ class FederatedWorkflow(ABC):
         # (value None == not defined yet for _fds,)
 
         _not_runable_if_missing = {
-            "Training Data": self._fds,
+            "Training Data": self._fds.data(),
         }
 
         if missing_objects:
             _not_runable_if_missing.update(missing_objects)
         missing: str = ""
         for key, value in _not_runable_if_missing.items():
-            if value in (None, False):
+            if value in (None, False, {}):
                 missing += f"- {key}\n"
 
         return missing
@@ -589,9 +583,9 @@ class FederatedWorkflow(ABC):
     @exp_exceptions
     def set_training_data(
         self,
-        training_data: Union[FederatedDataSet, dict, None],
+        training_data: Union[Dict, None],
         from_tags: bool = False,
-    ) -> Union[FederatedDataSet, None]:
+    ) -> FederatedDataset:
         """Sets training data for federated training + verification on arguments type
 
 
@@ -610,8 +604,8 @@ class FederatedWorkflow(ABC):
 
         Args:
             training_data:
-                * If it is a FederatedDataSet object, use this value as training_data.
-                * else if it is a dict, create and use a FederatedDataSet object from the dict
+                * If it is a FederatedDataset object, use this value as training_data.
+                * else if it is a dict, create and use a FederatedDataset object from the dict
                   and use this value as training_data. The dict should use node ids as keys,
                   values being list of dicts (each dict representing a dataset on a node).
                 * else if it is None (no training data provided)
@@ -623,7 +617,7 @@ class FederatedWorkflow(ABC):
                 Not used when `training_data` is provided.
 
         Returns:
-            FederatedDataSet metadata
+            FederatedDataset metadata
 
         Raises:
             FedbiomedTypeError: bad training_data or from_tags type.
@@ -631,52 +625,40 @@ class FederatedWorkflow(ABC):
         """
 
         if not isinstance(from_tags, bool):
-            msg = (
-                ErrorNumbers.FB410.value
-                + f" `from_tags` : got {type(from_tags)} but expected a boolean"
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB410.value} `from_tags` has incorrect type: {type(from_tags)} "
+                "but expected a boolean"
             )
-            logger.critical(msg)
-            raise FedbiomedTypeError(msg)
+
         if from_tags and training_data is not None:
-            msg = (
-                ErrorNumbers.FB410.value
-                + " set_training_data: cannot specify a training_data argument if "
-                "from_tags is True"
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB410.value}: set_training_data: cannot specify a training_data "
+                "argument if from_tags is True"
             )
-            logger.critical(msg)
-            raise FedbiomedValueError(msg)
 
         # case where no training data are passed
         if training_data is None:
             if from_tags is True:
                 if not self._tags:
-                    msg = (
+                    raise FedbiomedValueError(
                         f"{ErrorNumbers.FB410.value}: attempting to "
                         "set training data from undefined tags. Please consider set tags before "
                         "using set_tags method of the experiment."
                     )
-                    logger.critical(msg)
-                    raise FedbiomedValueError(msg)
                 training_data = self._reqs.search(self._tags, self._nodes_filter)
             else:
-                msg = (
+                raise FedbiomedValueError(
                     f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. "
                     "Please set from_tags=True or provide a valid training data"
                 )
-                logger.critical(msg)
-                raise FedbiomedValueError(msg)
 
-        if isinstance(training_data, FederatedDataSet):
-            self._fds = training_data
-        elif isinstance(training_data, dict):
-            self._fds = FederatedDataSet(training_data)
+        if isinstance(training_data, dict):
+            self._fds.set_federated_dataset(training_data)
         else:
-            msg = (
+            raise FedbiomedTypeError(
                 ErrorNumbers.FB410.value
                 + f" `training_data` has incorrect type: {type(training_data)}"
             )
-            logger.critical(msg)
-            raise FedbiomedTypeError(msg)
 
         # check and ensure consistency
         self._tags = self._tags if from_tags else None
@@ -942,7 +924,7 @@ class FederatedWorkflow(ABC):
 
         # retrieve breakpoint training data
         bkpt_fds = saved_state.get("training_data")
-        bkpt_fds = FederatedDataSet(bkpt_fds)
+        bkpt_fds = FederatedDataset(bkpt_fds)
 
         # retrieve experimentation folder
         exp_folder = saved_state.get("experimentation_folder")
@@ -950,7 +932,7 @@ class FederatedWorkflow(ABC):
         # initializing experiment
         loaded_exp = cls(experimentation_folder=exp_folder)
         loaded_exp._experiment_id = saved_state.get("id")
-        loaded_exp.set_training_data(bkpt_fds)
+        loaded_exp._fds = bkpt_fds
         loaded_exp._tags = saved_state.get("tags")
         loaded_exp.set_nodes(saved_state.get("nodes"))
 

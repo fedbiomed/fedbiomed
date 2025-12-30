@@ -1,10 +1,11 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
+from fedbiomed.researcher.datasets import FederatedDataset
 
 
 class NodeStateAgent:
@@ -13,7 +14,7 @@ class NodeStateAgent:
     Manages Node States collection, gathered from `Nodes` replies.
     """
 
-    def __init__(self, node_ids: List[str]) -> None:
+    def __init__(self, federated_dataset: FederatedDataset) -> None:
         """Constructor for NodeStateAgent.
 
         Initializes state ID of each node provided in `node_ids` to None (will maintain state,
@@ -22,8 +23,9 @@ class NodeStateAgent:
         Args:
             node_ids: list of node IDs of the nodes for which to maintain state ID
         """
+        self._fds = federated_dataset
         self._collection_state_ids: Dict[str, str] = {  # Mapping <node_id, state_id>
-            node_id: None for node_id in node_ids
+            node_id: None for node_id in self._fds.data().keys()
         }
 
     def get_last_node_states(self) -> Dict[str, str]:
@@ -34,9 +36,9 @@ class NodeStateAgent:
         Returns:
             Mapping of `<node_id, state_id>`
         """
-        return self._collection_state_ids
+        return self._update_collection_state_ids()
 
-    def update_node_states(self, all_node_ids: List[str], resp: Optional[Dict] = None):
+    def update_node_states(self, resp: Optional[Dict] = None):
         """Updates the state_id collection with respect to current nodes and latest Nodes replies.
 
         Adds node IDs contained in node_ids argument that was not part of the previous Round, and discards node_ids that
@@ -50,7 +52,8 @@ class NodeStateAgent:
             FedbiomedNodeStateAgentError: raised if Nodes replies have a missing entry that needs to be collected.
         """
         # first, we update _collection_state_id wrt new FederatedDataset (if it has been modified)
-        self._update_collection_state_ids(all_node_ids)
+        self._update_collection_state_ids()
+
         if resp is not None:
             for node_reply in resp.values():
                 # adds Node replies
@@ -63,13 +66,15 @@ class NodeStateAgent:
                 if node_id in self._collection_state_ids:
                     self._collection_state_ids[node_id] = state_id
 
-    def _update_collection_state_ids(self, node_ids: List[str]):
+    def _update_collection_state_ids(self):
         """Adds node_ids contained in self._data argument that was not part of the previous Round,
         and discards node_ids that do not belong to the current Round anymore.
 
         Args:
             node_ids: all possible nodes that can participate to the training.
         """
+        node_ids = self._fds.data().keys()
+
         for node_id in node_ids:
             if self._collection_state_ids.get(node_id, False) is False:
                 self._collection_state_ids[node_id] = None
@@ -77,6 +82,8 @@ class NodeStateAgent:
             if node_id not in node_ids:
                 # remove previous node_ids of collection_state_ids if _data has changed
                 self._collection_state_ids.pop(node_id)
+
+        return self._collection_state_ids
 
     def save_state_breakpoint(self) -> Dict:
         """NodeStateAgent's state, to be saved in a breakpoint.

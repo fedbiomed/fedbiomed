@@ -18,7 +18,7 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.aggregators.functional import initialize
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 
 
 class Scaffold(Aggregator):
@@ -86,7 +86,7 @@ class Scaffold(Aggregator):
         {node id: learning rate}
     """
 
-    def __init__(self, server_lr: float = 1.0, fds: Optional[FederatedDataSet] = None):
+    def __init__(self, server_lr: float = 1.0, fds: Optional[FederatedDataset] = None):
         """Constructs `Scaffold` object as an instance of [`Aggregator`]
         [fedbiomed.researcher.aggregators.Aggregator].
 
@@ -108,8 +108,7 @@ class Scaffold(Aggregator):
         # within 2 Rounds
         self.nodes_deltas: Dict[str, Dict[str, Union[torch.Tensor, np.ndarray]]] = {}
         self.nodes_lr: Dict[str, Dict[str, float]] = {}
-        if fds is not None:
-            self.set_fds(fds)
+        self.set_fds(fds)
         self._aggregator_args = {}  # we need `_aggregator_args` to be not None
 
     def aggregate(
@@ -213,10 +212,9 @@ class Scaffold(Aggregator):
                 this aggregator.
         """
         # Gather node ids from the attached FederatedDataset.
-        if self._fds is None:
+        if not self._fds:
             raise FedbiomedAggregatorError(
-                "Cannot initialize correction states: Scaffold aggregator does "
-                "not have a FederatedDataset attached."
+                "Cannot initialize correction states: federated datasets is empty."
             )
         node_ids = self._fds.node_ids()
         # Initialize nodes states with zero scalars, that will be summed into actual tensors.

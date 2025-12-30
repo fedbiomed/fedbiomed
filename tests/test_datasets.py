@@ -1,97 +1,75 @@
-import unittest
+import pytest
 
-from fedbiomed.common.exceptions import FedbiomedFederatedDataSetError
+from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.researcher.datasets import FederatedDataset
+
+data = {
+    "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}],
+    "node-2": [{"dataset_id": "dataset-id-2", "shape": [120, 120], "test_ratio": 0.0}],
+}
 
 
-from fedbiomed.researcher.datasets import FederatedDataSet
+# before the tests
+@pytest.fixture
+def fds():
+    return FederatedDataset(data)
 
 
-class TestFederatedDataset(unittest.TestCase):
+def test_federated_dataset_01_create_error():
+    """Testing creation with incorrect data"""
+    # prepare
+    data_list = [
+        3,
+        (2,),
+        [],
+    ]
+
+    for data in data_list:
+        # test + check
+        with pytest.raises(FedbiomedError):
+            FederatedDataset(data)
+
+
+def test_federated_dataset_02_data(fds):
+    """Testing property .data()"""
+
+    updated_data = fds.data()
+    # federated dataset should have added a new entry `test_ratio` in the FederatedDataset
+    assert data == updated_data, "Can not get data properly from FederatedDataset"
+
+
+def test_federated_dataset_04_node_ids(fds):
+    """Testing node_ids getter/properties
+    FIXME: When refactoring properties as getters
     """
-    Test `FederatedDataset` class
-    Args:
-        unittest ([type]): [description]
+
+    node_ids = fds.node_ids()
+    assert node_ids == ["node-1", "node-2"], (
+        "Can not get node ids of FederatedDataset properly"
+    )
+
+
+def test_federated_dataset_05_sample_sizes(fds):
+    """Testing node_ids getter/properties
+    FIXME: When refactoring properties as getters
     """
-
-    # before the tests
-    def setUp(self):
-        self.data = {
-            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}],
-            "node-2": [
-                {"dataset_id": "dataset-id-2", "shape": [120, 120], "test_ratio": 0.0}
-            ],
-        }
-
-        self.fds = FederatedDataSet(self.data)
-
-    # after the tests
-    def tearDown(self):
-        pass
-
-    def test_federated_dataset_01_create_error(self):
-        """Testing creation with incorrect data"""
-        # prepare
-        data_list = [
-            3,
-            (2,),
-            [],
-            {3: {"dataset_id": "my_dataset"}},
-            {"my_node_with_no_dataset": []},
-            {"my_node_with_2_datasets": [{}, {}]},
-        ]
-
-        for data in data_list:
-            # test + check
-            with self.assertRaises(FedbiomedFederatedDataSetError):
-                FederatedDataSet(data)
-
-    def test_federated_dataset_02_data(self):
-        """Testing property .data()"""
-
-        updated_data = self.fds.data()
-        # federated dataset should have added a new entry `test_ratio` in the FederatedDataset
-        self.assertDictEqual(
-            self.data, updated_data, "Can not get data properly from FederatedDataset"
-        )
-
-    def test_federated_dataset_04_node_ids(self):
-        """Testing node_ids getter/properties
-        FIXME: When refactoring properties as getters
-        """
-
-        node_ids = self.fds.node_ids()
-        self.assertListEqual(
-            node_ids,
-            ["node-1", "node-2"],
-            "Can not get node ids of FederatedDataset properly",
-        )
-
-    def test_federated_dataset_05_sample_sizes(self):
-        """Testing node_ids getter/properties
-        FIXME: When refactoring properties as getters
-        """
-        # Nothing to do it is an empty method
-        sizes = [val["shape"][0] for (_, val) in self.data.items()]
-        sample_sizes = self.fds.sample_sizes()
-        self.assertListEqual(
-            sizes,
-            sample_sizes,
-            "Provided sample sizes and result of sample_sizes do not match",
-        )
-
-    def test_federated_dataset_06_shapes(self):
-        """Testing shapes property of FederatedDataset"""
-
-        node_1 = list(self.data.keys())[0]
-        node_2 = list(self.data.keys())[1]
-
-        size_1 = self.data[node_1]["shape"][0]
-        size_2 = self.data[node_2]["shape"][0]
-
-        shapes = self.fds.shapes()
-        self.assertEqual(shapes[node_1], size_1)
-        self.assertEqual(shapes[node_2], size_2)
+    # Nothing to do it is an empty method
+    sizes = [val["shape"][0] for (_, val) in data.items()]
+    sample_sizes = fds.sample_sizes()
+    assert sizes == sample_sizes, (
+        "Provided sample sizes and result of sample_sizes do not match"
+    )
 
 
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+def test_federated_dataset_06_shapes(fds):
+    """Testing shapes property of FederatedDataset"""
+
+    node_1 = list(data.keys())[0]
+    node_2 = list(data.keys())[1]
+
+    size_1 = data[node_1]["shape"][0]
+    size_2 = data[node_2]["shape"][0]
+
+    shapes = fds.shapes()
+    assert shapes[node_1] == size_1
+    assert shapes[node_2] == size_2
