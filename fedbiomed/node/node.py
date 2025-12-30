@@ -37,7 +37,7 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.history_monitor import HistoryMonitor
-from fedbiomed.node.jobs import FAJob
+from fedbiomed.node.jobs import FAJob, PreprocJob
 from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
@@ -463,6 +463,16 @@ class Node:
                             request=item,
                         )
                         response = fa_job.run()
+                        self._grpc_client.send(response)
+                    case PreprocRequest.__name__:
+                        preproc_job = PreprocJob(
+                            root_dir=self._config.root,
+                            db_path=self._db_path,
+                            node_id=self._node_id,
+                            node_name=self._node_name,
+                            request=item,
+                        )
+                        response = preproc_job.run()
                         self._grpc_client.send(response)
                     case _:
                         errmess = (
