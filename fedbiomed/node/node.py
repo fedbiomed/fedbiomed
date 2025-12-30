@@ -22,6 +22,7 @@ from fedbiomed.common.message import (
     OverlayMessage,
     PingReply,
     PingRequest,
+    PreprocRequest,
     SearchReply,
     SearchRequest,
     SecaggDeleteReply,
@@ -35,8 +36,8 @@ from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.fa_job import FAJob
 from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.node.jobs import FAJob
 from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
@@ -187,6 +188,7 @@ class Node:
                     | SecaggRequest.__name__
                     | AdditiveSSSetupRequest.__name__
                     | FARequest.__name__
+                    | PreprocRequest.__name__
                 ):
                     self.add_task(message)
                 case SecaggDeleteRequest.__name__:
@@ -416,7 +418,7 @@ class Node:
         """Manages training tasks in the queue."""
 
         while True:
-            item: TrainRequest = self._tasks_queue.get()
+            item: Message = self._tasks_queue.get()
             # don't want to treat again in case of failure
             self._tasks_queue.task_done()
 
@@ -455,7 +457,7 @@ class Node:
                     case FARequest.__name__:
                         fa_job = FAJob(
                             root_dir=self._config.root,
-                            db_path=self._db_path,
+                            dataset_manager=self.dataset_manager,
                             node_id=self._node_id,
                             node_name=self._node_name,
                             request=item,
