@@ -1,7 +1,8 @@
 import unittest
+
 from fedbiomed.common.constants import TrainingPlans
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 
 
 class TestAggregator(unittest.TestCase):
@@ -56,7 +57,7 @@ class TestAggregator(unittest.TestCase):
         )
 
     def test_4_set_fds(self):
-        fds = FederatedDataSet({})
+        fds = FederatedDataset({})
         self.aggregator.set_fds(fds)
         self.assertEqual(fds, self.aggregator._fds)
 

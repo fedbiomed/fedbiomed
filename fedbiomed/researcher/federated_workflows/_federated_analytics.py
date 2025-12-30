@@ -2,7 +2,7 @@ import uuid
 from typing import Any, Dict, Optional, Union
 
 from fedbiomed.common.exceptions import FedbiomedExperimentError
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
 from fedbiomed.researcher.requests import Requests
 
@@ -15,7 +15,7 @@ class FederatedAnalytics:
 
     def __init__(
         self,
-        fds: FederatedDataSet,
+        fds: FederatedDataset,
         experiment_id: str,
         researcher_id: str,
         reqs: Requests,
@@ -52,7 +52,7 @@ class FederatedAnalytics:
         """
         if self._fds is None:
             raise FedbiomedExperimentError(
-                "No defined FederatedDataSet found for FederatedAnalytics."
+                "No defined FederatedDataset found for FederatedAnalytics."
             )
 
         node_ids = self._fds.node_ids()
@@ -64,7 +64,9 @@ class FederatedAnalytics:
 
         return node_ids
 
-    def mean(self, col_names: Optional[list[str | int]]) -> Union[Any, Dict[str, Any]]:
+    def mean(
+        self, col_names: Optional[list[str | int]] = None
+    ) -> Union[Any, Dict[str, Any]]:
         """Compute mean analytics across nodes.
 
         Returns:
@@ -72,7 +74,7 @@ class FederatedAnalytics:
         """
         if self._fds is None:
             raise FedbiomedExperimentError(
-                "No defined FederatedDataSet found for FederatedAnalytics."
+                "No defined FederatedDataset found for FederatedAnalytics."
             )
 
         node_ids = self.get_node_ids()

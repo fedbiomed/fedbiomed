@@ -1,33 +1,28 @@
 import unittest
 from itertools import product
-from unittest.mock import create_autospec, MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 from declearn.model.api import Vector
-
-from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedExperimentError
-from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.metrics import MetricTypes
-
-from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.datasets import FederatedDataSet
-
-from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.monitor import Monitor
-from fedbiomed.researcher.node_state_agent import NodeStateAgent
+from declearn.optimizer.modules import AuxVar
 from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_training_plan import (
-    FakeTorchTrainingPlan,
     FakeSKLearnTrainingPlan,
+    FakeTorchTrainingPlan,
 )
 
-
-from declearn.optimizer.modules import AuxVar
-
 import fedbiomed
+from fedbiomed.common.exceptions import FedbiomedExperimentError
+from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers import AuxVar
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
+from fedbiomed.researcher.monitor import Monitor
+from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.secagg._secure_aggregation import _SecureAggregation
+from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
 class TestExperiment(unittest.TestCase, MockRequestModule):
@@ -70,7 +65,11 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         )  # set by default
 
         # Test all possible combinations of init arguments
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = {
+            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}],
+            "node-2": [{"dataset_id": "dataset-id-2", "shape": [120, 120]}],
+        }
+
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
         _aggregator.aggregator_name = "mock aggregator"
@@ -108,15 +107,16 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
     def test_experiment_02_set_aggregator(self):
         """Tests setting the Experiment's aggregator and related side effects"""
         exp = Experiment()
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = {
+            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}]
+        }
         exp.set_training_data(_training_data)
-
         # test default case
         exp.set_aggregator()
         self.assertIsInstance(
             exp.aggregator(), fedbiomed.researcher.aggregators.FedAverage
         )
-        self.assertEqual(exp.aggregator()._fds, _training_data)
+        self.assertEqual(exp.aggregator()._fds, exp._fds)
 
         # setting through an object instance
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
@@ -135,7 +135,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             aggregator_name = "aggregator"
             is_set_fds_called = False
 
-            def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
+            def set_fds(self, fds: FederatedDataset) -> FederatedDataset:
                 if not self.is_set_fds_called:
                     self.is_set_fds_called = True
                 return super().set_fds(fds)
@@ -155,7 +155,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp.set_aggregator(_aggregator)
         exp.set_training_data(_training_data)
         _aggregator.set_fds.assert_called_with(exp.training_data())
-        self.assertEqual(_aggregator.set_fds.call_count, 2)
+        self.assertEqual(_aggregator.set_fds.call_count, 1)
 
     def test_experiment_03_set_strategy(self):
         """Tests setting the Experiment's node selection strategy and related side effects"""
@@ -197,7 +197,9 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
     #    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
     def test_experiment_04_run_once_base_case(self):
         """Tests run once method of experiment"""
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = {
+            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}]
+        }
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
         _aggregator.aggregator_name = "mock-aggregator"
         _strategy = MagicMock(
@@ -234,7 +236,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp._fds = None
         with self.assertRaises(SystemExit):
             exp.run_once()
-        exp._fds = _training_data
+        exp._fds = FederatedDataset(_training_data)
         # -------------------------------------------------------------
 
         # Run experiment ----------------------------------------------
@@ -404,7 +406,9 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
     def test_experiment_06_run_once_special_cases(self):
         """Tests running experiment special casses"""
 
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = {
+            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}]
+        }
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
         _aggregator.aggregator_name = "mock-aggregator"
         _aggregator.create_aggregator_args.return_value = ({}, {})
@@ -850,26 +854,12 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         """Tests updating node state agent"""
 
         state_agent = MagicMock(spec=NodeStateAgent)
-        exp = Experiment()
+        exp = Experiment(training_data={"node-1": {"xx": "xx"}, "node-2": {"yy": "yy"}})
         exp._node_state_agent = state_agent
-
-        with patch.object(exp, "all_federation_nodes") as afn:
-            afn.return_value = ["node-1", "node-2"]
-            exp._update_nodes_states_agent(before_training=True, training_replies=None)
-            state_agent.update_node_states.assert_called_once()
-
-        # Test if training replies None while before_training=False
-        with self.assertRaises(FedbiomedValueError):
-            exp._update_nodes_states_agent(False, None)
-
         # Test normal case
         state_agent.reset_mock()
-        with patch.object(exp, "all_federation_nodes") as afn:
-            afn.return_value = ["node-1", "node-2"]
-            exp._update_nodes_states_agent(False, {"hello": "world"})
-            state_agent.update_node_states.assert_called_once_with(
-                ["node-1", "node-2"], {"hello": "world"}
-            )
+        exp._update_nodes_states_agent({"hello": "world"})
+        state_agent.update_node_states.assert_called_once_with({"hello": "world"})
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -11,7 +11,7 @@ from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.requests import MessagesByNode
 
 from ._job import Job
@@ -30,7 +30,7 @@ class TrainingJob(Job):
         training_plan: BaseTrainingPlan,
         training_args: TrainingArgs,
         model_args: Optional[dict],
-        data: FederatedDataSet,
+        data: FederatedDataset,
         nodes_state_ids: Dict[str, str],
         aggregator_args: Dict[str, Dict[str, Any]],
         keep_files_dir: str,

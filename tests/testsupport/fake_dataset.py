@@ -1,11 +1,11 @@
-"""This file contains dummy Classes for unit testing. It fakes FederatedDataSet class
+"""This file contains dummy Classes for unit testing. It fakes FederatedDataset class
 (from fedbiomed.common.dataset)
 """
 
 from typing import Any
 
 
-class FederatedDataSetMock:
+class FederatedDatasetMock:
     """Provides an interface that behave like the FederatedDataset,
     with a constructor and a `data` method
     """
@@ -15,7 +15,7 @@ class FederatedDataSetMock:
         self._node_ids = []
 
     def data(self) -> Any:
-        """Returns data values stored in FederatedDataSetMock
+        """Returns data values stored in FederatedDatasetMock
 
         Returns:
             Any: values stored in class

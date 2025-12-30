@@ -1,20 +1,21 @@
+import copy
+import random
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
+
+import torch
+import torch.nn as nn
+from testsupport.fake_uuid import FakeUuid
+from torch.nn import Linear
+
 from fedbiomed.common.exceptions import FedbiomedAggregatorError
 from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
-from fedbiomed.researcher.datasets import FederatedDataSet
-from testsupport.fake_uuid import FakeUuid
-import torch
-import torch.nn as nn
-from torch.nn import Linear
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
-
-import copy
-import random
+from fedbiomed.researcher.datasets import FederatedDataset
 
 
 class TestScaffold(unittest.TestCase):
@@ -27,7 +28,7 @@ class TestScaffold(unittest.TestCase):
         self.model = Linear(10, 3)
         self.n_nodes = 4
         self.node_ids = [f"node_{i}" for i in range(self.n_nodes)]
-        self.fds = FederatedDataSet({node: {} for node in self.node_ids})
+        self.fds = FederatedDataset({node: {} for node in self.node_ids})
         self.models = {
             node_id: Linear(10, 3).state_dict()
             for i, node_id in enumerate(self.node_ids)
@@ -277,7 +278,7 @@ class TestScaffold(unittest.TestCase):
     def test_7_save_state_breakpoint(self, uuid_patch):
         uuid_patch.return_value = FakeUuid()
         server_lr = 0.5
-        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
+        fds = FederatedDataset({node_id: {} for node_id in self.node_ids})
         bkpt_path = "/path/to/my/breakpoint"
         scaffold = Scaffold(server_lr, fds=fds)
         scaffold.init_correction_states(self.model.state_dict())
@@ -300,7 +301,7 @@ class TestScaffold(unittest.TestCase):
     def test_8_load_state_breakpoint(self):
         """Test that 'load_state_breakpoint' triggers the proper amount of calls."""
         server_lr = 0.5
-        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
+        fds = FederatedDataset({node_id: {} for node_id in self.node_ids})
         bkpt_path = "/path/to/my/breakpoint"
         scaffold = Scaffold(server_lr, fds=fds)
 
@@ -333,7 +334,7 @@ class TestScaffold(unittest.TestCase):
         get_model_params_mock = MagicMock()
         get_model_params_mock.__len__ = MagicMock(return_value=n_model_layer)
         training_plan.get_model_params.return_value = get_model_params_mock
-        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids})
+        fds = FederatedDataset({node_id: {} for node_id in self.node_ids})
         scaffold = Scaffold(fds=fds)
         for n_round in range(n_rounds):
             node_lr = scaffold.set_nodes_learning_rate_after_training(
@@ -343,7 +344,7 @@ class TestScaffold(unittest.TestCase):
             self.assertDictEqual(node_lr, test_node_lr)
 
         # same test with a mix of present and absent nodes in training_replies
-        fds = FederatedDataSet({node_id: {} for node_id in self.node_ids + ["node_99"]})
+        fds = FederatedDataset({node_id: {} for node_id in self.node_ids + ["node_99"]})
         optim_w = MagicMock(spec=NativeTorchOptimizer)
         optim_w.get_learning_rate = MagicMock(return_value=lr)
         training_plan.optimizer = MagicMock(return_value=optim_w)
@@ -429,7 +430,7 @@ class TestIntegrationScaffold(unittest.TestCase):
         self.model = self.FakeModelTorch.ComplexModel()
         self.n_nodes = 4
         self.node_ids = [f"node_{i}" for i in range(self.n_nodes)]
-        self.fds = FederatedDataSet({node: {} for node in self.node_ids})
+        self.fds = FederatedDataset({node: {} for node in self.node_ids})
         self.models = {
             node_id: copy.deepcopy(self.model.state_dict())
             for i, node_id in enumerate(self.node_ids)
