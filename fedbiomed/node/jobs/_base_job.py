@@ -81,11 +81,7 @@ class _BaseJob(ABC):
         Raises:
             _InternalJobError: if dataset cannot be recovered or initialized.
         """
-        if not self._dataset_id:
-            raise _InternalJobError(
-                f"This job {self.__class__.__name__} has no associated `dataset_id` "
-                f"in message {self._message}."
-            )
+        # Note: assumes that self._dataset_id is set during job initialization
 
         # recover dataset entry
         dataset_entry = self._dataset_manager.dataset_table.get_by_id(self._dataset_id)
