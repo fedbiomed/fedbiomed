@@ -57,8 +57,6 @@ class TrainingJob(Job):
                 Note that such variables may only be used if both the Experiment and node-side training plan
                 hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
                 are coherent with each other as to expected information exchange.
-            *args: Positional argument of parent class
-                [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
             **kwargs: Named arguments of parent class. Please see
                 [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
         """
