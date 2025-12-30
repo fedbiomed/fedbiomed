@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Joye-Libert secure aggregation scheme (JL) and its threshold-variant (TJL)
 

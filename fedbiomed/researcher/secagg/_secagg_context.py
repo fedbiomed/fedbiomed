@@ -1,8 +1,7 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 """
-This file is originally part of Fed-BioMed
-SPDX-License-Identifier: Apache-2.0
-
-
 Secure aggregation context setup module  to be executed on the
 server/researcher side
 
