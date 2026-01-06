@@ -13,10 +13,9 @@ from tabulate import tabulate  # only used for printing
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
+from fedbiomed.common.dataset import get_controller
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db_tables import DatasetTable, DlbTable, DlpTable
-
-from ._registry_controllers import get_controller
 
 
 class DatasetManager:

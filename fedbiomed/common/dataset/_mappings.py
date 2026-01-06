@@ -10,7 +10,6 @@ from typing import Optional
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
-from fedbiomed.common.dataset import DATASET_CLASSES_PER_TYPE
 from fedbiomed.common.dataset_controller import (
     Controller,
     CustomController,
@@ -21,6 +20,24 @@ from fedbiomed.common.dataset_controller import (
     TabularController,
 )
 from fedbiomed.common.exceptions import FedbiomedError
+
+from ._custom_dataset import CustomDataset
+from ._medical_folder_dataset import MedicalFolderDataset
+from ._simple_dataset import (
+    ImageFolderDataset,
+    MedNistDataset,
+    MnistDataset,
+)
+from ._tabular_dataset import TabularDataset
+
+DATASET_CLASSES_PER_TYPE = {
+    DatasetTypes.CUSTOM: CustomDataset,
+    DatasetTypes.IMAGES: ImageFolderDataset,
+    DatasetTypes.MEDICAL_FOLDER: MedicalFolderDataset,
+    DatasetTypes.MEDNIST: MedNistDataset,
+    DatasetTypes.DEFAULT: MnistDataset,
+    DatasetTypes.TABULAR: TabularDataset,
+}
 
 
 @dataclass

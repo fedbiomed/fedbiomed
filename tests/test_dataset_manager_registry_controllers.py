@@ -3,13 +3,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager._registry_controllers import (
+from fedbiomed.common.dataset import (
     REGISTRY_CONTROLLERS,
     ControllerParametersBase,
     MedicalFolderParameters,
     get_controller,
 )
+from fedbiomed.common.exceptions import FedbiomedError
 
 
 def test_controller_parameters_base():

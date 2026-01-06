@@ -10,11 +10,11 @@ from typing import List, Optional
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
-from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.dataset import REGISTRY_CONTROLLERS, Dataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.message import ErrorMessage, RequestReply
-from fedbiomed.node.dataset_manager import REGISTRY_CONTROLLERS, DatasetManager
+from fedbiomed.node.dataset_manager import DatasetManager
 
 
 class _InternalJobError(FedbiomedError):
