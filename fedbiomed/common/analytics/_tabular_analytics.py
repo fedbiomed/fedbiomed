@@ -1,10 +1,8 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-
 from typing import Dict
 
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError
+import numpy as np
 
 from ._analytics_strategy import AnalyticsStrategy
 
@@ -13,97 +11,108 @@ class TabularAnalytics(AnalyticsStrategy):
     """Mixin class for computing analytics on tabular datasets"""
 
     def mean(self, **kwargs) -> Dict:
-        """Calculate mean of features across the dataset
-
-        Iterates through dataset items (tuples of data and target tensors/numpy arrays)
-        and computes the mean of both data and target features manually.
-        Only considers numeric columns.
+        """Calculate mean of features across the dataset. Only considers numeric columns.
+        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
 
         Returns:
-            Dictionary keyed by column names (input_columns + target_columns) with their
-            respective means. Preserves the input data type (Tensor or numpy array).
-
-        Raises:
-            FedbiomedError: if dataset is empty
+            Dictionary by column names with their respective calculated value.
         """
-        # Filter out non-numeric columns
-        numeric_inputs, numeric_targets = self._filter_numeric_columns()
+        data, _ = self[0]
 
-        if not numeric_inputs and not numeric_targets:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: No numeric columns found for mean calculation."
-            )
+        # Initialize accumulators
+        data_sum = np.zeros_like(data, dtype=float)
+        data_count = np.zeros_like(data, dtype=int)
 
-        # Start calculating mean
-        data_sum = 0
-        target_sum = 0
-        num_samples = len(self)
-
-        # Raise error if no data is found
-        if num_samples == 0:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Cannot calculate mean of an empty dataset."
-            )
-
-        for idx in range(num_samples):
-            data, target = self[idx]
-            data_sum += data[numeric_inputs]
-            if target is not None:
-                target_sum += target[numeric_targets]
+        # Iterate through dataset to accumulate
+        for idx in range(len(self)):
+            data, _ = self[idx]
+            mask = [isinstance(_, (int, float)) and np.isfinite(_) for _ in data]
+            data_sum[mask] += data[mask].astype(float)  # Cast for sanity
+            data_count += mask
 
         # Calculate means by dividing by count
-        data_mean = data_sum / num_samples
-        target_mean = target_sum / num_samples if target_sum != 0 else None
+        data_mean = data_sum / data_count
 
-        # Build result dict keyed by column names
-        # Get the column names of the numeric columns
-        result = {}
-        input_columns = (self._input_columns[i] for i in numeric_inputs)
-        target_columns = (
-            (self._target_columns[i] for i in numeric_targets)
-            if self._target_columns is not None
-            else None
-        )
+        # Build result dict by column names
+        return {col: data_mean[i] for i, col in enumerate(self._input_columns)}
 
-        # Add input column means
-        for i, col in enumerate(input_columns):
-            result[col] = (
-                data_mean[i] if hasattr(data_mean, "__getitem__") else data_mean
-            )
-
-        # Add target column means (only if target_columns is not None)
-        if target_columns is not None:
-            for i, col in enumerate(target_columns):
-                result[col] = (
-                    target_mean[i]
-                    if hasattr(target_mean, "__getitem__")
-                    else target_mean
-                )
-
-        return result
-
-    def _filter_numeric_columns(self):
-        """Filter columns to keep only numeric ones
+    def max(self, **kwargs) -> Dict:
+        """Calculate max of features across the dataset. Only considers numeric columns.
+        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
 
         Returns:
-            Column numbers of the numeric columns
+            Dictionary by column names with their respective calculated value.
         """
-        controller = self._controller
-        schema = controller._reader.data.schema
+        data, _ = self[0]
 
-        input_cols = controller.normalize_columns(self._input_columns)
-        target_cols = (
-            controller.normalize_columns(self._target_columns)
-            if self._target_columns is not None
-            else []
-        )
+        # Initialize accumulators
+        data_max = np.full_like(data, -np.inf, dtype=float)
 
-        numeric_inputs = [
-            i for i, col in enumerate(input_cols) if schema[col].is_numeric()
-        ]
+        # Iterate through dataset to accumulate
+        for idx in range(len(self)):
+            data, _ = self[idx]
+            mask = [isinstance(_, (int, float)) and np.isfinite(_) for _ in data]
+            data_max[mask] = np.maximum(data_max[mask], data[mask].astype(float))
 
-        numeric_targets = [
-            i for i, col in enumerate(target_cols) if schema[col].is_numeric()
-        ]
+        # Build result dict by column names
+        return {col: data_max[i] for i, col in enumerate(self._input_columns)}
 
-        return (numeric_inputs, numeric_targets)
+    def min(self, **kwargs) -> Dict:
+        """Calculate min of features across the dataset. Only considers numeric columns.
+        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
+
+        Returns:
+            Dictionary by column names with their respective calculated value.
+        """
+        data, _ = self[0]
+
+        # Initialize accumulators
+        data_min = np.full_like(data, np.inf, dtype=float)
+
+        # Iterate through dataset to accumulate sums, mins, maxs, and counts
+        for idx in range(len(self)):
+            data, _ = self[idx]
+            mask = [isinstance(_, (int, float)) and np.isfinite(_) for _ in data]
+            data_min[mask] = np.minimum(data_min[mask], data[mask].astype(float))
+
+        # Build result dict by column names
+        return {col: data_min[i] for i, col in enumerate(self._input_columns)}
+
+    def variance(self, **kwargs) -> Dict:
+        """Calculate variance of features across the dataset. Only considers numeric columns.
+        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
+
+        Returns:
+            Dictionary by column names with their respective calculated value.
+        """
+        data, _ = self[0]
+
+        # Get means first
+        data_mean = np.array(list(self.mean().values()))
+
+        # Initialize accumulators
+        data_variance = np.zeros_like(data, dtype=float)
+        data_count = np.zeros_like(data, dtype=int)
+
+        # Iterate through dataset to accumulate sums, mins, maxs, and counts
+        for idx in range(len(self)):
+            data, _ = self[idx]
+            mask = [isinstance(_, (int, float)) and np.isfinite(_) for _ in data]
+            data_variance[mask] += np.square(data[mask].astype(float) - data_mean[mask])
+            data_count += mask
+
+        # Calculate means by dividing by count
+        data_variance /= data_count
+
+        # Build result dict by column names
+        return {col: data_variance[i] for i, col in enumerate(self._input_columns)}
+
+    def std(self, **kwargs) -> Dict:
+        """Calculate std of features across the dataset. Only considers numeric columns.
+        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
+
+        Returns:
+            Dictionary by column names with their respective calculated value.
+        """
+        # Build result dict by column names from variance function
+        return {col: np.sqrt(val) for col, val in self.variance().items()}
