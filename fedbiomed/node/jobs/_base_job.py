@@ -8,7 +8,7 @@ implementation of the base Job class of the node component
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.dataset_types import DataReturnFormat
@@ -47,9 +47,7 @@ class _BaseJob(ABC):
         self._dataset_manager = dataset_manager
         self._node_id = node_id
         self._node_name = node_name
-        self._dataset_id = (
-            request.dataset_id if hasattr(request, "dataset_id") else None
-        )
+        self._dataset_id = request.dataset_id
         self._researcher_id = request.researcher_id  # we can assume this exists
         self._request_id = request.request_id
         self._message = request.__class__.__name__
@@ -70,7 +68,7 @@ class _BaseJob(ABC):
     def _build_dataset(
         self,
         return_type: DataReturnFormat,
-        data_types: Optional[List[str]],
+        data_types: Optional[List[str]] = None,
     ) -> Dataset:
         """Build dataset instance ready-to-use from dataset id.
 
@@ -99,6 +97,7 @@ class _BaseJob(ABC):
                 f"only supports data_types: {data_types}, got '{data_type}'"
             )
 
+        data_type = DatasetTypes.get_type_by_value(data_type)
         if data_type not in REGISTRY_CONTROLLERS:
             raise _InternalJobError(
                 f"Data type '{data_type}' not supported in jobs, available types: "
@@ -121,7 +120,6 @@ class _BaseJob(ABC):
                     f"Cannot recover dlp on node={self._node_id}: {repr(e)}"
                 ) from e
 
-        # build dataset instance
         _, _, dataset_cls = REGISTRY_CONTROLLERS[data_type]
 
         # dataset = dataset_cls(input_columns=input_columns)

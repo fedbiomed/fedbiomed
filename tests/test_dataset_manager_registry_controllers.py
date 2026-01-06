@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._registry_controllers import (
     REGISTRY_CONTROLLERS,
@@ -61,11 +61,13 @@ def test_get_controller_success():
     mock_params_cls.from_dict.return_value = mock_params_instance
 
     # Create a fake registry entry
-    fake_registry = {"mock-type": (mock_controller_cls, mock_params_cls, MagicMock())}
+    fake_registry = {
+        DatasetTypes.TABULAR: (mock_controller_cls, mock_params_cls, MagicMock())
+    }
 
     # Patch the registry dictionary
     with patch.dict(REGISTRY_CONTROLLERS, fake_registry):
-        controller = get_controller("mock-type", {"root": "/tmp/mock"})
+        controller = get_controller("csv", {"root": "/tmp/mock"})
 
         # Verify interactions
         mock_params_cls.from_dict.assert_called_once_with({"root": "/tmp/mock"})
@@ -87,7 +89,7 @@ def test_get_controller_param_parsing_error():
 
     with patch.dict(REGISTRY_CONTROLLERS, fake_registry):
         with pytest.raises(FedbiomedError) as excinfo:
-            get_controller("mock-type", {})
+            get_controller("csv", {})
 
         assert ErrorNumbers.FB632.value in str(excinfo.value)
         assert "Failed to parse dataset_parameters" in str(excinfo.value)
@@ -107,11 +109,13 @@ def test_get_controller_instantiation_error():
     # Simulate generic exception during controller init
     mock_controller_cls.side_effect = Exception("Init error")
 
-    fake_registry = {"mock-type": (mock_controller_cls, mock_params_cls, MagicMock())}
+    fake_registry = {
+        DatasetTypes.TABULAR: (mock_controller_cls, mock_params_cls, MagicMock())
+    }
 
     with patch.dict(REGISTRY_CONTROLLERS, fake_registry):
         with pytest.raises(FedbiomedError) as excinfo:
-            get_controller("mock-type", {})
+            get_controller("csv", {})
 
         assert ErrorNumbers.FB632.value in str(excinfo.value)
         assert "Unhandled exception occurred" in str(excinfo.value)
@@ -132,11 +136,13 @@ def test_get_controller_instantiation_fedbiomed_error():
     fb_error = FedbiomedError("Specific error")
     mock_controller_cls.side_effect = fb_error
 
-    fake_registry = {"mock-type": (mock_controller_cls, mock_params_cls, MagicMock())}
+    fake_registry = {
+        DatasetTypes.TABULAR: (mock_controller_cls, mock_params_cls, MagicMock())
+    }
 
     with patch.dict(REGISTRY_CONTROLLERS, fake_registry):
         with pytest.raises(FedbiomedError) as excinfo:
-            get_controller("mock-type", {})
+            get_controller("csv", {})
 
         # Should be the exact same exception object
         assert excinfo.value is fb_error

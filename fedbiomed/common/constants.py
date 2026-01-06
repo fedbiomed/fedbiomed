@@ -280,8 +280,14 @@ class DatasetTypes(_BaseEnum):
     DEFAULT = "default"
     MEDNIST = "mednist"
     MEDICAL_FOLDER = "medical-folder"
-    TEST = "test"
+    CUSTOM = "custom"
     NONE = "none"
+
+    def get_type_by_value(value: str):
+        for dataset_type in DatasetTypes:
+            if dataset_type.value == value:
+                return dataset_type
+        return None
 
 
 class SecureAggregationSchemes(_BaseEnum):

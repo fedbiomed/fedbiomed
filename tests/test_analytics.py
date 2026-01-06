@@ -5,6 +5,8 @@ import polars as pl
 import pytest
 import torch
 
+from fedbiomed.common.analytics import validate_dataset_arguments_for_fa
+from fedbiomed.common.constants import DatasetTypes
 from fedbiomed.common.dataset import TabularDataset
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -141,6 +143,20 @@ def numpy_mixed_dataset():
         input_columns=["age", "sex"],
         target_columns=["salary"],
         schema=schema,
+    )
+
+
+def test_validate_dataset_arguments_for_fa(numpy_mixed_dataset):
+    # Valid arguments
+    dataset_args = {"col_names": ["age", "sex"]}
+
+    validate_dataset_arguments_for_fa(dataset_args, DatasetTypes.TABULAR)
+
+    pytest.raises(
+        FedbiomedError,
+        validate_dataset_arguments_for_fa,
+        {"invalid_arg": 123},
+        DatasetTypes.TABULAR,
     )
 
 
