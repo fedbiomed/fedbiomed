@@ -17,21 +17,24 @@ class TabularAnalytics(AnalyticsStrategy):
         Returns:
             Dictionary by column names with their respective calculated value.
         """
-        data, _ = self[0]
-
-        # Initialize accumulators
-        data_sum = np.zeros_like(data, dtype=float)
-        data_count = np.zeros_like(data, dtype=int)
+        data_sum = None
+        count = None
 
         # Iterate through dataset to accumulate
-        for idx in range(len(self)):
-            data, _ = self[idx]
-            mask = [isinstance(_, (int, float)) and np.isfinite(_) for _ in data]
-            data_sum[mask] += data[mask].astype(float)  # Cast for sanity
-            data_count += mask
+        for data, _ in self:
+            if data_sum is None:
+                # Initialize accumulators on first iteration
+                data_sum = np.zeros_like(data, dtype=float)
+                count = np.zeros_like(data, dtype=int)
+
+            mask = [isinstance(val, (int, float)) and np.isfinite(val) for val in data]
+            data_sum[mask] += data[mask].astype(float)
+            count[mask] += 1
 
         # Calculate means by dividing by count
-        data_mean = data_sum / data_count
+        data_mean = np.divide(
+            data_sum, count, out=np.full_like(data_sum, np.nan), where=count != 0
+        )
 
         # Build result dict by column names
         return {col: data_mean[i] for i, col in enumerate(self._input_columns)}
@@ -43,15 +46,15 @@ class TabularAnalytics(AnalyticsStrategy):
         Returns:
             Dictionary by column names with their respective calculated value.
         """
-        data, _ = self[0]
-
-        # Initialize accumulators
-        data_max = np.full_like(data, -np.inf, dtype=float)
+        data_max = None
 
         # Iterate through dataset to accumulate
-        for idx in range(len(self)):
-            data, _ = self[idx]
-            mask = [isinstance(_, (int, float)) and np.isfinite(_) for _ in data]
+        for data, _ in self:
+            if data_max is None:
+                # Initialize accumulators on first iteration
+                data_max = np.full_like(data, -np.inf, dtype=float)
+
+            mask = [isinstance(val, (int, float)) and np.isfinite(val) for val in data]
             data_max[mask] = np.maximum(data_max[mask], data[mask].astype(float))
 
         # Build result dict by column names
@@ -64,15 +67,15 @@ class TabularAnalytics(AnalyticsStrategy):
         Returns:
             Dictionary by column names with their respective calculated value.
         """
-        data, _ = self[0]
+        data_min = None
 
-        # Initialize accumulators
-        data_min = np.full_like(data, np.inf, dtype=float)
+        # Iterate through dataset to accumulate
+        for data, _ in self:
+            if data_min is None:
+                # Initialize accumulators on first iteration
+                data_min = np.full_like(data, np.inf, dtype=float)
 
-        # Iterate through dataset to accumulate sums, mins, maxs, and counts
-        for idx in range(len(self)):
-            data, _ = self[idx]
-            mask = [isinstance(_, (int, float)) and np.isfinite(_) for _ in data]
+            mask = [isinstance(val, (int, float)) and np.isfinite(val) for val in data]
             data_min[mask] = np.minimum(data_min[mask], data[mask].astype(float))
 
         # Build result dict by column names
@@ -80,29 +83,36 @@ class TabularAnalytics(AnalyticsStrategy):
 
     def variance(self, **kwargs) -> Dict:
         """Calculate variance of features across the dataset. Only considers numeric columns.
+        Uses Welford's online algorithm for numerical stability and single-pass efficiency.
         Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
 
         Returns:
             Dictionary by column names with their respective calculated value.
         """
-        data, _ = self[0]
+        mean = None
+        m2 = None
+        count = None
 
-        # Get means first
-        data_mean = np.array(list(self.mean().values()))
+        # Welford's online algorithm for variance in a single pass
+        for data, _ in self:
+            if mean is None:
+                # Initialize accumulators on first iteration
+                mean = np.zeros_like(data, dtype=float)
+                m2 = np.zeros_like(data, dtype=float)
+                count = np.zeros_like(data, dtype=int)
 
-        # Initialize accumulators
-        data_variance = np.zeros_like(data, dtype=float)
-        data_count = np.zeros_like(data, dtype=int)
+            mask = [isinstance(val, (int, float)) and np.isfinite(val) for val in data]
+            data_float = data[mask].astype(float)
+            count[mask] += 1
+            delta = data_float - mean[mask]
+            mean[mask] += delta / count[mask]
+            delta2 = data_float - mean[mask]
+            m2[mask] += delta * delta2
 
-        # Iterate through dataset to accumulate sums, mins, maxs, and counts
-        for idx in range(len(self)):
-            data, _ = self[idx]
-            mask = [isinstance(_, (int, float)) and np.isfinite(_) for _ in data]
-            data_variance[mask] += np.square(data[mask].astype(float) - data_mean[mask])
-            data_count += mask
-
-        # Calculate means by dividing by count
-        data_variance /= data_count
+        # Calculate variance, using nan for zero counts
+        data_variance = np.divide(
+            m2, count, out=np.full_like(m2, np.nan), where=count != 0
+        )
 
         # Build result dict by column names
         return {col: data_variance[i] for i, col in enumerate(self._input_columns)}
