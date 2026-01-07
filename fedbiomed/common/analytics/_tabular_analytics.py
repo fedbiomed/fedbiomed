@@ -115,18 +115,28 @@ class TabularAnalytics(AnalyticsStrategy):
             FedbiomedError: if bin_edges are invalid or missing for any column
         """
 
+        print("Computing histogram for database with columns:", self._input_columns)
+
         # Validate and prepare bin_edges for each column
         col_bin_edges = {}
         for col_idx, col in enumerate(self._input_columns):
             if isinstance(bin_edges, dict):
                 # Try to get edges by column name first, then by index
-                edges = bin_edges.get(col) or bin_edges.get(col_idx)
-                if edges is None:
+                if col in bin_edges:
+                    edges = bin_edges[col]
+                elif col_idx in bin_edges:
+                    edges = bin_edges[col_idx]
+                else:
                     raise FedbiomedError(
                         f"{ErrorNumbers.FB632.value}: Column '{col}' (index {col_idx}) not found in bin_edges dict"
                     )
             else:
+                print("Using global bin edges for column:", col)
                 edges = bin_edges
+
+            # Convert to numpy array if it's a list
+            if isinstance(edges, list):
+                edges = np.array(edges)
 
             # Validate bin_edges
             if edges.ndim != 1 or edges.size < 2:
@@ -146,6 +156,7 @@ class TabularAnalytics(AnalyticsStrategy):
             for col, edges in col_bin_edges.items()
         }
 
+        print("Calculating histogram counts for each column")
         # Single pass through dataset
         for idx in range(len(self)):
             data, _ = self[idx]
@@ -273,4 +284,45 @@ class TabularAnalytics(AnalyticsStrategy):
             result[col] = quantiles[0] if q_is_scalar else quantiles
 
         return result
+<<<<<<< HEAD
 >>>>>>> 27505247 (Add draft quantile function that uses histogram for image and tabular datasets)
+=======
+
+    def minmax(self, **kwargs) -> Dict[str, tuple]:
+        """Calculate min and max values of features across the dataset.
+
+        Returns:
+            Dictionary keyed by column names with (min, max) tuples for each column.
+
+        Raises:
+            FedbiomedError: if dataset is empty
+        """
+        num_samples = len(self)
+
+        if num_samples == 0:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Cannot calculate minmax of an empty dataset."
+            )
+
+        result = {}
+
+        for col_idx, col in enumerate(self._input_columns):
+            col_min = float("inf")
+            col_max = float("-inf")
+
+            for idx in range(num_samples):
+                data, _ = self[idx]
+                # Extract value for this specific column
+                value = float(data[col_idx])
+
+                if np.isfinite(value):
+                    col_min = min(col_min, value)
+                    col_max = max(col_max, value)
+
+            result[col] = (
+                col_min if col_min != float("inf") else None,
+                col_max if col_max != float("-inf") else None,
+            )
+
+        return result
+>>>>>>> dd3aa21e (First working draft for histogram for Tabular Dataset)

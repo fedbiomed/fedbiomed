@@ -35,6 +35,10 @@ class ImageAnalytics(AnalyticsStrategy):
             FedbiomedError: if bin_edges is not a 1D array of length >= 2
             FedbiomedError: if bin_edges are not strictly increasing
         """
+        # Convert to numpy array if it's a list
+        if isinstance(bin_edges, list):
+            bin_edges = np.array(bin_edges)
+
         # Validate bin_edges
         if bin_edges.ndim != 1 or bin_edges.size < 2:
             raise FedbiomedError(
@@ -148,3 +152,46 @@ class ImageAnalytics(AnalyticsStrategy):
 
         # Return scalar if input was scalar
         return quantiles[0] if q_is_scalar else quantiles
+
+    def minmax(self, **kwargs) -> Dict[str, tuple]:
+        """Calculate min and max pixel values across all images in the dataset.
+
+        Returns:
+            Dictionary with key "pixel_values" containing (min, max) tuple
+
+        Raises:
+            FedbiomedError: if dataset is empty
+        """
+        if len(self) == 0:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Cannot calculate minmax of an empty dataset."
+            )
+
+        pixel_min = float("inf")
+        pixel_max = float("-inf")
+
+        for idx in range(len(self)):
+            data, _ = self[idx]
+
+            # Convert to numpy array if necessary
+            if isinstance(data, torch.Tensor):
+                pixel_values = data.detach().cpu().numpy().flatten()
+            elif isinstance(data, np.ndarray):
+                pixel_values = data.flatten()
+            else:
+                pixel_values = np.array(data).flatten()
+
+            pixel_values = pixel_values.astype(np.float64)
+
+            # Find min/max excluding non-finite values
+            finite_values = pixel_values[np.isfinite(pixel_values)]
+            if finite_values.size > 0:
+                pixel_min = min(pixel_min, np.min(finite_values))
+                pixel_max = max(pixel_max, np.max(finite_values))
+
+        return {
+            "pixel_values": (
+                pixel_min if pixel_min != float("inf") else None,
+                pixel_max if pixel_max != float("-inf") else None,
+            )
+        }
