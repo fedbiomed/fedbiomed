@@ -51,6 +51,8 @@ class TrainingJob(Job):
             data: metadata of the federated data set
             nodes_state_ids: unique IDs of the node states saved remotely
             aggregator_args: aggregator arguments required for remote execution
+            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
+                of the job.
             secagg_arguments: Secure aggregation arguments, some depending on scheme used
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.

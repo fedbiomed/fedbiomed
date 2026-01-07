@@ -319,7 +319,8 @@ class SecaggElementTypes(_BaseEnum):
 class PreprocType(_BaseEnum):
     """Enumeration class for dataset preprocessing types"""
 
-    FEDCOMBAT: int = 0
+    NONE: int = 0
+    FEDCOMBAT: int = 1
 
 
 class PreprocStep(_BaseEnum):

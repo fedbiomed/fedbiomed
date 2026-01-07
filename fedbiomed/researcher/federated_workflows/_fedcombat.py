@@ -14,7 +14,7 @@ from fedbiomed.researcher.federated_workflows.jobs import PreprocRequestJob
 from fedbiomed.researcher.requests import Requests
 
 
-class FedCombat:
+class FedCombatPreproc:
     """
     A class to run Fed-ComBat to harmonize data of a federated dataset within an experiment.
 
@@ -39,7 +39,7 @@ class FedCombat:
             researcher_id: The researcher ID initiating this Fed-ComBat harmonization.
             reqs: Requests instance to handle communication with nodes.
             nodes: List of node IDs participating in the harmonization.
-            experimentation_folder: Path to the experimentation folder.
+            experimentation_folder: Path to the experimentation folder to save harmonization data files.
             preproc_args: Optional dictionary of preprocessing arguments for Fed-ComBat.
         """
         self._preproc_id: str = "preproc_" + str(
@@ -142,10 +142,10 @@ class FedCombat:
             logger.debug(f"Starting FedCombat preprocessing step {preproc_step}")
             preproc_job = PreprocRequestJob(
                 experiment_id=self._experiment_id,
-                preproc_type=PreprocType.FEDCOMBAT.value,
+                preproc_type=PreprocType(PreprocType.FEDCOMBAT),
                 preproc_step=HarmonizationStep(
                     preproc_step
-                ).value,  # dummy computation for now to remember to derive proper step value
+                ),  # dummy computation for now to remember to derive proper step value
                 preproc_id=self._preproc_id,
                 federated_dataset=self._fds,
                 preproc_args={
@@ -163,6 +163,12 @@ class FedCombat:
             )
 
             # dont check replies for now, to be implemented properly later
+
+        logger.info(
+            "Fed-ComBat harmonization completed successfully. Updating federated dataset."
+        )
+        # TODO: actually update the federated dataset with harmonized dataset IDs
+        # self._fds.set_federated_dataset(dict_harmonized_datasets)
 
         self._update_harmonization_done()
         return True

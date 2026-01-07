@@ -95,7 +95,7 @@ def test_mean_executes_fa_job(
     mock_execute.return_value = fake_result
     result = base_fa.mean(dataset_args={"col_names": ["a", "b"]})
 
-    # Result is whatever FAResearcherJob.execute returns
+    # Result is whatever FARequestJob.execute returns
     assert result == fake_result
 
     # Ensure job execution was triggered

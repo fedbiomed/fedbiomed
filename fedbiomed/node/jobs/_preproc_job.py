@@ -5,7 +5,7 @@
 Implementation of Preprocess Job class of the node component
 """
 
-from fedbiomed.common.constants import ErrorNumbers, PreprocStep, PreprocType
+from fedbiomed.common.constants import ErrorNumbers, HarmonizationStep, PreprocType
 from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -61,7 +61,7 @@ class PreprocJob(_BaseJob):
                 errnum=ErrorNumbers.FB326.value,
             )
         try:
-            self._preproc_step = PreprocStep(self._preproc_step_raw)
+            self._preproc_step = HarmonizationStep(self._preproc_step_raw)
         except ValueError:
             return self._build_error_msg(
                 f"Received invalid preproc_step: {self._preproc_step_raw}",
