@@ -13,6 +13,7 @@ def request_args():
     return {
         "researcher_id": "researcher_1",
         "request_id": "req_1",
+        "dataset_id": "dataset_123",
         "experiment_id": "exp_1",
         "preproc_type": 123,
         "preproc_step": 456,

@@ -30,6 +30,7 @@ def test_fa_request_message_creation():
         dataset_id="dataset_1234",
         analytics_type=AnalyticsTypes.MEAN.value,
         fa_args={"test": "output_data"},
+        dataset_args={"test": "dataset_data"},
     )
 
 
@@ -55,6 +56,7 @@ def test_preproc_request_message_creation():
         preproc_step=HarmonizationStep.STEP2.value,
         preproc_id="preproc_1234",
         preproc_args={"test": "output_data"},
+        dataset_id="dataset_1234",
         state_id="state_1234",
     )
 

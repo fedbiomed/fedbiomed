@@ -906,7 +906,8 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     dataset_id: str
     analytics_type: str
     fa_id: str
-    fa_args: Dict  # TODO: Use dataclass to define precisely what arguments are expected
+    fa_args: Optional[Dict] = None
+    dataset_args: Optional[Dict] = None
 
 
 @catch_dataclass_exception
@@ -1042,6 +1043,7 @@ class PreprocRequest(RequestReply, RequiresProtocolVersion):
 
     researcher_id: str
     experiment_id: str
+    dataset_id: str
     preproc_type: int  # Convert to PreprocType later
     preproc_step: int  # Convert to PreprocStep later
     preproc_id: str

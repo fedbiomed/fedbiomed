@@ -7,7 +7,11 @@ Implementation of Federated Analytics Job class of the node component
 
 from typing import Dict
 
-from fedbiomed.common.constants import AnalyticsTypes, ErrorNumbers
+from fedbiomed.common.analytics import (
+    DatasetArgumentsFA,
+    validate_dataset_arguments_for_fa,
+)
+from fedbiomed.common.constants import AnalyticsTypes, DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.node.dataset_manager import DatasetManager
@@ -43,7 +47,8 @@ class FAJob(_BaseJob):
         self._dataset_id = request.dataset_id
         self._experiment_id = request.experiment_id
         self._fa_id = request.fa_id
-        self._fa_args = request.fa_args if request.fa_args is not None else {}
+        self._fa_args = request.fa_args
+        self._dataset_args = request.dataset_args
 
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
         """Build arguments for dataset initialization.
@@ -54,18 +59,20 @@ class FAJob(_BaseJob):
         Returns:
             Dict of arguments for dataset initialization
         """
-        columns = list(dataset_entry.get("dtypes", {}).keys())
-        if self._fa_args.get("col_names"):
-            input_columns = self._fa_args["col_names"]
-            if not all(col in columns for col in input_columns):
-                raise _InternalJobError(
-                    f"One or more invalid column names for federated analytics on node='{self._node_id}': "
-                    f"requested columns '{input_columns}' not in available columns {columns}"
-                )
-        else:
-            input_columns = columns
 
-        return {"input_columns": input_columns}
+        type_ = dataset_entry.get("data_type")
+        dataset_type = DatasetTypes.get_type_by_value(type_)
+        validate_dataset_arguments_for_fa(self._dataset_args, dataset_type)
+
+        args = {}
+
+        if self._dataset_args:
+            for key, value in self._dataset_args.items():
+                args.update(
+                    {DatasetArgumentsFA[dataset_type].get(key).get("arg_name"): value}
+                )
+
+        return args
 
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
@@ -78,12 +85,28 @@ class FAJob(_BaseJob):
             )
 
         try:
-            dataset = self._build_dataset(DataReturnFormat.SKLEARN, ["csv"])
+            dataset = self._build_dataset(DataReturnFormat.SKLEARN)
         except _InternalJobError as e:
             return self._build_error_msg(msg=repr(e), errnum=ErrorNumbers.FB325.value)
 
-        # TODO: implement FA job / needs to be adapted
-        output: Dict = dataset.mean()
+        if hasattr(dataset, self._analytics_type) is False:
+            return self._build_error_msg(
+                msg=f"Dataset does not support analytics type '{self._analytics_type}'.",
+                errnum=ErrorNumbers.FB325.value,
+            )
+
+        analytics = getattr(dataset, self._analytics_type)
+
+        try:
+            output: Dict = analytics(**self._fa_args if self._fa_args else {})
+        except Exception as e:
+            return self._build_error_msg(
+                msg=(
+                    f"Error during execution of analytics '{self._analytics_type}' "
+                    f"on node='{self._node_id}': {repr(e)}"
+                ),
+                errnum=ErrorNumbers.FB325.value,
+            )
 
         return FAReply(
             request_id=self._request_id,
