@@ -1,6 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
-from typing import Dict, Union
+
+from typing import Dict, Sequence, Union
 
 import numpy as np
 
@@ -165,4 +166,111 @@ class TabularAnalytics(AnalyticsStrategy):
                 result[col][bin_idx] += 1
 
         return result
+<<<<<<< HEAD
 >>>>>>> 0ddec5e6 (Initial draft for Histogram Logic for Tabular Dataset)
+=======
+
+    def quantile(
+        self,
+        bin_edges: Union[np.ndarray, Dict[str, np.ndarray]],
+        q: Union[float, Sequence[float]],
+    ) -> Dict[str, Union[float, np.ndarray]]:
+        """
+        Compute quantiles from the histogram of column values.
+
+        Parameters
+        ----------
+        bin_edges:
+            Global bin edges. Can be either:
+            - 1D numpy array (length B+1): applied to all columns
+            - Dict mapping column names to bin edges: column-specific bins
+        q:
+            Quantile(s) to compute. Scalar in [0, 1] or sequence of values in [0, 1].
+            0.5 = median, 0.25 = first quartile, 0.75 = third quartile, etc.
+
+        Returns
+        -------
+        dict: {column_name: quantile_value(s)}
+            Quantile value(s) for each column. Scalar if q is scalar, array if q is sequence.
+            Linear interpolation is used within bins.
+
+        Raises:
+            FedbiomedError: if q values are not in [0, 1]
+        """
+        # Normalize q to array
+        q_is_scalar = np.isscalar(q)
+        q_arr = np.atleast_1d(q)
+
+        # Validate q values
+        if np.any((q_arr < 0) | (q_arr > 1)):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Quantile values must be in [0, 1]"
+            )
+
+        # Get histogram counts for all columns
+        counts_dict = self.histogram(bin_edges)
+
+        result = {}
+
+        # Process each column
+        for col in self._input_columns:
+            counts = counts_dict[col]
+
+            # Determine bin_edges for this column
+            if isinstance(bin_edges, dict):
+                col_idx = (
+                    self._input_columns.index(col)
+                    if isinstance(self._input_columns, list)
+                    else list(self._input_columns).index(col)
+                )
+                edges = bin_edges.get(col) or bin_edges.get(col_idx)
+                if edges is None:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB632.value}: Column '{col}' not found in bin_edges dict"
+                    )
+            else:
+                edges = bin_edges
+
+            # Compute cumulative distribution
+            total_count = np.sum(counts)
+            if total_count == 0:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: No data available for quantile computation in column '{col}'"
+                )
+
+            cumsum = np.cumsum(counts)
+
+            # Compute quantiles for this column
+            quantiles = np.zeros_like(q_arr, dtype=np.float64)
+            bin_widths = np.diff(edges)
+
+            for i, quantile in enumerate(q_arr):
+                # Find the target count
+                target_count = quantile * total_count
+
+                # Find the bin containing this quantile
+                bin_idx = np.searchsorted(cumsum, target_count, side="left")
+                bin_idx = np.clip(bin_idx, 0, len(counts) - 1)
+
+                # Linear interpolation within the bin
+                bin_left = edges[bin_idx]
+                bin_width = bin_widths[bin_idx]
+
+                # Count in previous bins
+                count_before = cumsum[bin_idx - 1] if bin_idx > 0 else 0
+
+                # Fraction within current bin
+                count_in_bin = counts[bin_idx]
+                if count_in_bin > 0:
+                    fraction = (target_count - count_before) / count_in_bin
+                    fraction = np.clip(fraction, 0, 1)
+                else:
+                    fraction = 0.5
+
+                quantiles[i] = bin_left + fraction * bin_width
+
+            # Store result for this column (scalar if input was scalar)
+            result[col] = quantiles[0] if q_is_scalar else quantiles
+
+        return result
+>>>>>>> 27505247 (Add draft quantile function that uses histogram for image and tabular datasets)
