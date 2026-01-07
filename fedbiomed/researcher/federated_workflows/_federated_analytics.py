@@ -269,7 +269,10 @@ class FederatedAnalytics:
             dataset_args: Dataset arguments for histogram computation
 
         Returns:
-            A dictionary containing the histogram analytics results from each node.
+            Tuple containing:
+            - aggregated_histogram: Dictionary with aggregated counts from all nodes
+            - node_histograms: Dictionary with per-node results
+            - errors: Any errors from node execution
         """
         if self._fds is None:
             raise FedbiomedError(
@@ -309,7 +312,21 @@ class FederatedAnalytics:
         )
 
         # Collect histogram replies
-        analytics_replies, errors = fa_job.execute()
+        node_histograms, errors = fa_job.execute()
 
+<<<<<<< HEAD
         return analytics_replies, errors
 >>>>>>> dd3aa21e (First working draft for histogram for Tabular Dataset)
+=======
+        # Aggregate histograms from all nodes
+        aggregated_histogram = {}
+        for _node_id, node_result in node_histograms.items():
+            hist_data = node_result.output
+            for col_name, counts in hist_data.items():
+                if col_name not in aggregated_histogram:
+                    aggregated_histogram[col_name] = np.array(counts)
+                else:
+                    aggregated_histogram[col_name] += np.array(counts)
+
+        return aggregated_histogram, node_histograms, errors
+>>>>>>> fd17785a (First working draft for both tabular dataset and image dataset for histogram function)

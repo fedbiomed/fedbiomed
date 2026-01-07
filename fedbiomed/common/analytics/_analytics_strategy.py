@@ -4,7 +4,7 @@
 from abc import abstractmethod
 from typing import Dict
 
-from fedbiomed.common.constants import DatasetTypes
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 
 """Classes and mappings to handle arguments mapping for different dataset types 
@@ -37,6 +37,11 @@ def validate_dataset_arguments_for_fa(
     """
 
     if DatasetArgumentsFA.get(dataset_type) is None:
+        if dataset_args is not None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset type '{dataset_type}' does not accept"
+                f" dataset arguments, but some were provided: {dataset_args}"
+            )
         return
 
     for arg, arg_info in DatasetArgumentsFA[dataset_type].items():

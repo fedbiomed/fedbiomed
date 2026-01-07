@@ -181,6 +181,44 @@ class TabularAnalytics(AnalyticsStrategy):
 >>>>>>> 0ddec5e6 (Initial draft for Histogram Logic for Tabular Dataset)
 =======
 
+    def minmax(self, **kwargs) -> Dict[str, tuple]:
+        """Calculate min and max values of features across the dataset.
+
+        Returns:
+            Dictionary keyed by column names with (min, max) tuples for each column.
+
+        Raises:
+            FedbiomedError: if dataset is empty
+        """
+        num_samples = len(self)
+
+        if num_samples == 0:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Cannot calculate minmax of an empty dataset."
+            )
+
+        result = {}
+
+        for col_idx, col in enumerate(self._input_columns):
+            col_min = float("inf")
+            col_max = float("-inf")
+
+            for idx in range(num_samples):
+                data, _ = self[idx]
+                # Extract value for this specific column
+                value = float(data[col_idx])
+
+                if np.isfinite(value):
+                    col_min = min(col_min, value)
+                    col_max = max(col_max, value)
+
+            result[col] = (
+                col_min if col_min != float("inf") else None,
+                col_max if col_max != float("-inf") else None,
+            )
+
+        return result
+
     def quantile(
         self,
         bin_edges: Union[np.ndarray, Dict[str, np.ndarray]],
@@ -285,6 +323,7 @@ class TabularAnalytics(AnalyticsStrategy):
 
         return result
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 27505247 (Add draft quantile function that uses histogram for image and tabular datasets)
 =======
 
@@ -326,3 +365,5 @@ class TabularAnalytics(AnalyticsStrategy):
 
         return result
 >>>>>>> dd3aa21e (First working draft for histogram for Tabular Dataset)
+=======
+>>>>>>> fd17785a (First working draft for both tabular dataset and image dataset for histogram function)
