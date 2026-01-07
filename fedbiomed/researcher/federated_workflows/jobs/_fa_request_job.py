@@ -27,6 +27,8 @@ class FARequestJob(Job):
         fa_id: str,
         federated_dataset: dict,
         fa_args: dict,
+        analytics_type: AnalyticsTypes,
+        dataset_args: dict,
         **kwargs,
     ) -> None:
         """Initialize the FARequestJob with the given FA request.
@@ -35,10 +37,13 @@ class FARequestJob(Job):
             fa_request: The FA request to be associated with this job.
         """
         super().__init__(**kwargs)
+
         self._experiment_id = experiment_id
         self._fa_id = fa_id
         self._federated_dataset = federated_dataset
         self._fa_args = fa_args
+        self._dataset_args = dataset_args
+        self._analytics_type = analytics_type
 
     def execute(self) -> Dict[str, FAReply]:
         """Executes federated analytics request
@@ -49,9 +54,10 @@ class FARequestJob(Job):
         fa_request = dict(
             researcher_id=self._researcher_id,
             experiment_id=self._experiment_id,
-            analytics_type=AnalyticsTypes.MEAN.value,
+            analytics_type=self._analytics_type,
             fa_id=self._fa_id,
             fa_args=self._fa_args,
+            dataset_args=self._dataset_args,
         )
 
         requests = MessagesByNode()

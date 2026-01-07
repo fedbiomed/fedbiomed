@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from fedbiomed.common.exceptions import FedbiomedExperimentError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import FederatedAnalytics
 from fedbiomed.researcher.requests import Requests
@@ -13,6 +13,10 @@ from fedbiomed.researcher.requests import Requests
 @pytest.fixture
 def mock_fds():
     fds = MagicMock(spec=FederatedDataset)
+    fds.data.return_value = {
+        "node-1": {"dataset_id": "ds-1", "data_type": "csv"},
+        "node-2": {"dataset_id": "ds-2", "data_type": "csv"},
+    }
     fds.node_ids.return_value = ["node-1", "node-2"]
     return fds
 
@@ -89,8 +93,7 @@ def test_mean_executes_fa_job(
     mock_execute = mock_fa_job_cls.return_value.execute
     fake_result = ({"dummy": "kwargs"}, np.ones((3, 3)))
     mock_execute.return_value = fake_result
-
-    result = base_fa.mean(col_names=["a", "b"])
+    result = base_fa.mean(dataset_args={"col_names": ["a", "b"]})
 
     # Result is whatever FAResearcherJob.execute returns
     assert result == fake_result
@@ -108,5 +111,5 @@ def test_mean_without_fds_raises(mock_requests):
         experimentation_folder="/tmp",
     )
 
-    with pytest.raises(FedbiomedExperimentError):
-        fa.mean(col_names=["a"])
+    with pytest.raises(FedbiomedError):
+        fa.mean(dataset_args={"col_names": ["a"]})
