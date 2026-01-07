@@ -75,13 +75,11 @@ class PreprocRequestJob(Job):
             # Note: deepcopy is used to avoid mutation issues across nodes
             # may be later reconsidered depending on size and content of preproc_args
             preproc_args = deepcopy(self._preproc_args)
-            preproc_args["dataset_id"] = self._federated_dataset.data()[node][
-                "dataset_id"
-            ]
 
             requests[node] = PreprocRequest(
                 **{
                     **preproc_request,
+                    "dataset_id": self._federated_dataset.data()[node]["dataset_id"],
                     "state_id": self._state_id.get(node),
                     "preproc_args": preproc_args,
                 }

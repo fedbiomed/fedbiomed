@@ -1031,6 +1031,7 @@ class PreprocRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that requests pre-processing job
         experiment_id: Id of the experiment that is sent by researcher
+        dataset_id: ID of the dataset to be pre-processed
         preproc_type: Type of pre-processing
         preproc_step: Step of the pre-processing corresponding to this request
         preproc_id: Id of the pre-processing job
