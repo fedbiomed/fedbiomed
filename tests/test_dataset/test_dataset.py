@@ -209,3 +209,11 @@ def test_17_validate_transformation_success():
     with pytest.raises(FedbiomedError) as exc:
         ds._validate_transformation(np.array([1, 2]), boom)
     assert "Unable to apply transform" in str(exc.value)
+
+
+def test_18_iter():
+    ds = DummyDataset()
+    ds._init_controller({})
+    items = list(ds)
+    assert len(items) == 42
+    assert all(item == (1, 2) for item in items)
