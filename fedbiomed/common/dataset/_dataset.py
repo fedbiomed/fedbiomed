@@ -330,3 +330,8 @@ class Dataset(ABC):
 
     def __len__(self) -> int:
         return len(self._controller)
+
+    def __iter__(self):
+        """Iterator to properly control iteration over dataset items."""
+        for idx in range(len(self)):
+            yield self[idx]
