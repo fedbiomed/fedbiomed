@@ -21,6 +21,7 @@ from fedbiomed.common.constants import (
     EXPERIMENT_PREFIX,
     TENSORBOARD_FOLDER_NAME,
     ErrorNumbers,
+    PreprocType,
     SecureAggregationSchemes,
     __breakpoints_version__,
 )
@@ -37,9 +38,6 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 from fedbiomed.researcher.config import config
 from fedbiomed.researcher.datasets import FederatedDataset
-from fedbiomed.researcher.federated_workflows._federated_analytics import (
-    FederatedAnalytics,
-)
 from fedbiomed.researcher.filetools import (
     choose_bkpt_file,
     create_exp_folder,
@@ -52,6 +50,9 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.secagg import (
     SecureAggregation,
 )
+
+from ._fedcombat import FedCombatPreproc
+from ._federated_analytics import FederatedAnalytics
 
 TFederatedWorkflow = TypeVar(
     "TFederatedWorkflow", bound="FederatedWorkflow"
@@ -249,6 +250,9 @@ class FederatedWorkflow(ABC):
             reqs=self._reqs,
             experimentation_folder=self._experimentation_folder,
         )
+
+        # no preprocessing by default
+        self.set_preprocessing(PreprocType(PreprocType.NONE))
 
     @property
     def requests(self) -> Requests:
@@ -665,6 +669,46 @@ class FederatedWorkflow(ABC):
 
         # return the new value
         return self._fds
+
+    @exp_exceptions
+    def set_preprocessing(
+        self, preproc_type: PreprocType, preproc_args: Optional[Dict] = None
+    ) -> Optional[FedCombatPreproc]:
+        """Sets preprocessing to be applied before training.
+
+        Args:
+            preproc_type: Type of preprocessing to apply
+            preproc_args: Arguments for the preprocessing
+        Returns:
+            Preprocessing object if `preproc_type` is not `PreprocType.NONE`, None otherwise
+        """
+        if not isinstance(preproc_type, PreprocType):
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB410.value} `preproc_type` has incorrect type: "
+                f"{type(preproc_type).__name__} but expected a PreprocType"
+            )
+
+        preproc_args = preproc_args or {}
+        if not isinstance(preproc_args, dict):
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB410.value} `preproc_args` has incorrect type: "
+                f"{type(preproc_args).__name__} but expected a dict"
+            )
+
+        if preproc_type == PreprocType.NONE:
+            self._fed_preproc = None
+        else:
+            self._fed_preproc = FedCombatPreproc(
+                self._fds,
+                self._experiment_id,
+                self._researcher_id,
+                self._reqs,
+                self.filtered_federation_nodes(),
+                self._experimentation_folder,
+                preproc_args,
+            )
+
+        return self._fed_preproc
 
     @exp_exceptions
     def set_experimentation_folder(
