@@ -6,7 +6,7 @@
 import uuid
 from typing import Any, Optional
 
-from fedbiomed.common.constants import HarmonizationStep, PreprocType
+from fedbiomed.common.constants import ErrorNumbers, HarmonizationStep, PreprocType
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -122,6 +122,7 @@ class FedCombatPreproc:
 
         if len(self._nodes) == 0:
             raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: "
                 "Empty list of nodes for Fed-ComBat: no nodes replied to original "
                 "request or sampling strategy returned an empty list."
             )
@@ -163,6 +164,12 @@ class FedCombatPreproc:
             )
 
             # dont check replies for now, to be implemented properly later
+            if fedcombat_replies.keys() != set(self._nodes):
+                raise FedbiomedExperimentError(
+                    f"{ErrorNumbers.FB420.value}: "
+                    f"Not all nodes replied to Fed-ComBat preprocessing step {preproc_step}: "
+                    f"received {fedcombat_replies.keys()}, expected {self._nodes}."
+                )
 
         logger.info(
             "Fed-ComBat harmonization completed successfully. Updating federated dataset."

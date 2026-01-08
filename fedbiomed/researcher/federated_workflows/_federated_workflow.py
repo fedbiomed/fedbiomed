@@ -44,6 +44,7 @@ from fedbiomed.researcher.filetools import (
     find_breakpoint_path,
 )
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
+from fedbiomed.researcher.preproc import FedCombatPreproc
 from fedbiomed.researcher.requests import Requests
 
 # need to import JoyeLibertSecureAggregation, LomSecureAggregation - used for load_breakpoint()
@@ -51,7 +52,6 @@ from fedbiomed.researcher.secagg import (
     SecureAggregation,
 )
 
-from ._fedcombat import FedCombatPreproc
 from ._federated_analytics import FederatedAnalytics
 
 TFederatedWorkflow = TypeVar(
@@ -252,7 +252,7 @@ class FederatedWorkflow(ABC):
         )
 
         # no preprocessing by default
-        self.set_preprocessing(PreprocType(PreprocType.NONE))
+        self.set_preprocessing(PreprocType.NONE)
 
     @property
     def requests(self) -> Requests:
@@ -337,6 +337,15 @@ class FederatedWorkflow(ABC):
             Object that contains metadata for the datasets of each node. `None` if it isn't set yet.
         """
         return self._fds
+
+    @exp_exceptions
+    def preprocessing(self) -> Union[FedCombatPreproc, None]:
+        """Retrieves the object for the federated pre-processing associated to the experiment.
+
+        Returns:
+            Federated pre-processing object. `None` if it isn't set.
+        """
+        return self._fed_preproc
 
     @exp_exceptions
     def experimentation_folder(self) -> str:
