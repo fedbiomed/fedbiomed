@@ -329,4 +329,105 @@ class FederatedAnalytics:
                     aggregated_histogram[col_name] += np.array(counts)
 
         return aggregated_histogram, node_histograms, errors
+<<<<<<< HEAD
 >>>>>>> fd17785a (First working draft for both tabular dataset and image dataset for histogram function)
+=======
+
+    def quantile(
+        self,
+        q: Union[float, List[float]] = 0.5,
+        bin_edges: Union[List, Dict[str, List]] = None,
+        num_bins: int = 10,
+        dataset_args: dict = None,
+        fa_args: dict = None,
+    ) -> tuple:
+        """Compute quantile values across federated nodes.
+
+        Args:
+            q: Quantile value(s) to compute. Can be:
+                - float between 0 and 1 (e.g., 0.5 for median)
+                - List of floats for multiple quantiles
+            bin_edges: Pre-computed bin edges. Can be:
+                - 1D numpy array: applied to all columns (for images)
+                - Dict mapping column names to bin_edges: column-specific bins
+                - None: will compute from global min/max (for tabular data)
+            num_bins: Number of bins to create if bin_edges is None. Default is 10.
+            dataset_args: Dataset arguments for quantile computation
+            fa_args: Additional federated analytics arguments
+
+        Returns:
+            Tuple containing:
+            - aggregated_quantiles: Dictionary with aggregated quantile values from all nodes
+            - node_quantiles: Dictionary with per-node results
+            - errors: Any errors from node execution
+
+        Raises:
+            FedbiomedError: if no FederatedDataset is defined
+        """
+
+        if self._fds is None:
+            raise FedbiomedError(
+                "No defined FederatedDataset found for FederatedAnalytics."
+            )
+
+        print("Validating analytics")
+        self._validate_if_dataset_has_analytics(AnalyticsTypes.QUANTILE.value)
+        print("Validating dataset arguments")
+        self._validate_dataset_arguments(dataset_args)
+        node_ids = self.get_node_ids()
+
+        # If bin_edges not provided, compute from global min/max
+        if bin_edges is None:
+            print("Bin edges is None, computing global minmax")
+            global_minmax = self._get_global_minmax(dataset_args)
+            print("Global minmax computed:", global_minmax)
+            print("Setting bin edges")
+            bin_edges = self._create_bins(global_minmax, num_bins)
+
+        # Prepare fa_args with bin_edges and quantile values
+        fa_args = fa_args or {}
+        fa_args["bin_edges"] = bin_edges
+        fa_args["q"] = q
+        print("FA args prepared:", fa_args)
+
+        # Create FA job
+        fa_job = FARequestJob(
+            fa_id=self._fa_id,
+            fa_args=fa_args,
+            analytics_type=AnalyticsTypes.QUANTILE.value,
+            dataset_args=dataset_args,
+            federated_dataset=self._fds,
+            experiment_id=self._experiment_id,
+            researcher_id=self._researcher_id,
+            requests=self._reqs,
+            nodes=node_ids,
+        )
+
+        # Collect quantile replies
+        node_quantiles, errors = fa_job.execute()
+
+        # Aggregate quantiles from all nodes
+        aggregated_quantiles = {}
+        for _node_id, node_result in node_quantiles.items():
+            quant_data = node_result.output
+            for col_name, values in quant_data.items():
+                if col_name not in aggregated_quantiles:
+                    # Initialize with lists to collect values from all nodes
+                    aggregated_quantiles[col_name] = {
+                        q_key: [q_val] for q_key, q_val in values.items()
+                    }
+                else:
+                    # Add values from this node to the lists
+                    for q_key, q_val in values.items():
+                        if q_key not in aggregated_quantiles[col_name]:
+                            aggregated_quantiles[col_name][q_key] = []
+                        aggregated_quantiles[col_name][q_key].append(q_val)
+
+        # Average quantile values across nodes
+        for col_name in aggregated_quantiles:
+            for q_key in aggregated_quantiles[col_name]:
+                values_list = aggregated_quantiles[col_name][q_key]
+                aggregated_quantiles[col_name][q_key] = float(np.mean(values_list))
+
+        return aggregated_quantiles, node_quantiles, errors
+>>>>>>> 74b02411 (Finish draft for quantile function)

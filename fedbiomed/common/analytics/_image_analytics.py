@@ -128,7 +128,7 @@ class ImageAnalytics(AnalyticsStrategy):
         self,
         bin_edges: np.ndarray,
         q: Union[float, Sequence[float]],
-    ) -> Union[float, np.ndarray]:
+    ) -> Dict[float, float]:
         """
         Compute quantiles from the histogram of pixel values.
 
@@ -138,14 +138,19 @@ class ImageAnalytics(AnalyticsStrategy):
                0.5 = median, 0.25 = first quartile, 0.75 = third quartile, etc.
 
         Returns:
-            Quantile value(s). Scalar if q is scalar, array if q is sequence.
+            Dictionary mapping quantile values to computed quantiles.
+            e.g., {0.5: median_value} or {0.25: q1_value, 0.5: median_value, 0.75: q3_value}
             Linear interpolation is used within bins.
 
         Raises:
             FedbiomedError: if q values are not in [0, 1]
         """
+
+        # If bin_edges is a dict, extract the single array
+        if isinstance(bin_edges, dict):
+            bin_edges = next(iter(bin_edges.values()))
+
         # Normalize q to array
-        q_is_scalar = np.isscalar(q)
         q_arr = np.atleast_1d(q)
 
         # Validate q values
@@ -155,7 +160,7 @@ class ImageAnalytics(AnalyticsStrategy):
             )
 
         # Get histogram counts
-        counts = self.histogram(bin_edges)
+        counts = self.histogram(bin_edges).get("pixel_values")
 
         # Compute cumulative distribution
         total_count = np.sum(counts)
@@ -195,5 +200,8 @@ class ImageAnalytics(AnalyticsStrategy):
 
             quantiles[i] = bin_left + fraction * bin_width
 
-        # Return scalar if input was scalar
-        return quantiles[0] if q_is_scalar else quantiles
+        # Return dictionary mapping quantile values to computed quantiles
+        return {
+            float(q_val): float(quant)
+            for q_val, quant in zip(q_arr, quantiles, strict=True)
+        }

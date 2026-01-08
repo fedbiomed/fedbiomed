@@ -223,7 +223,7 @@ class TabularAnalytics(AnalyticsStrategy):
         self,
         bin_edges: Union[np.ndarray, Dict[str, np.ndarray]],
         q: Union[float, Sequence[float]],
-    ) -> Dict[str, Union[float, np.ndarray]]:
+    ) -> Dict[str, Dict[float, float]]:
         """
         Compute quantiles from the histogram of column values.
 
@@ -239,15 +239,20 @@ class TabularAnalytics(AnalyticsStrategy):
 
         Returns
         -------
-        dict: {column_name: quantile_value(s)}
-            Quantile value(s) for each column. Scalar if q is scalar, array if q is sequence.
+        dict: {column_name: {quantile: quantile_value}}
+            Nested dictionary mapping column names to dictionaries of quantile values.
+            e.g., {"col1": {0.5: median_val}, "col2": {0.25: q1_val, 0.5: med_val, 0.75: q3_val}}
             Linear interpolation is used within bins.
 
         Raises:
             FedbiomedError: if q values are not in [0, 1]
         """
+
+        # If bin_edges is a dict, extract the single array
+        if isinstance(bin_edges, dict):
+            bin_edges = next(iter(bin_edges.values()))
+
         # Normalize q to array
-        q_is_scalar = np.isscalar(q)
         q_arr = np.atleast_1d(q)
 
         # Validate q values
@@ -318,8 +323,11 @@ class TabularAnalytics(AnalyticsStrategy):
 
                 quantiles[i] = bin_left + fraction * bin_width
 
-            # Store result for this column (scalar if input was scalar)
-            result[col] = quantiles[0] if q_is_scalar else quantiles
+            # Store result as dictionary mapping quantile values to computed values
+            result[col] = {
+                float(q_val): float(quant)
+                for q_val, quant in zip(q_arr, quantiles, strict=True)
+            }
 
         return result
 <<<<<<< HEAD
