@@ -395,6 +395,7 @@ class ErrorNumbers(_BaseEnum):
     FB416 = "FB416: federated dataset error"
     FB417 = "FB417: secure aggregation error"
     FB419 = "FB419: node state agent error"
+    FB420 = "FB420: preprocessing error"
 
     # general application errors (common to node/researcher/..)
 

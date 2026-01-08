@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from ._experiment import Experiment
-from ._fedcombat import FedCombatPreproc
 from ._federated_analytics import FederatedAnalytics
 from ._federated_workflow import FederatedWorkflow
 from ._training_plan_workflow import TrainingPlanWorkflow
@@ -12,5 +11,4 @@ __all__ = [
     "TrainingPlanWorkflow",
     "FederatedWorkflow",
     "FederatedAnalytics",
-    "FedCombatPreproc",
 ]
