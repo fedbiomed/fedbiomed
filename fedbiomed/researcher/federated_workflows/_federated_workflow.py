@@ -882,6 +882,9 @@ class FederatedWorkflow(ABC):
                 "nodes": self._nodes_filter,
                 "secagg": self._secagg.save_state_breakpoint(),
                 "node_state": self._node_state_agent.save_state_breakpoint(),
+                "preprocessing": self._fed_preproc.save_state_breakpoint()
+                if self._fed_preproc
+                else None,
             }
         )
 
@@ -995,6 +998,22 @@ class FederatedWorkflow(ABC):
             saved_state.get("node_state")
         )
         loaded_exp.set_save_breakpoints(True)
+
+        preproc_state = saved_state.get("preprocessing")
+        if isinstance(preproc_state, dict):
+            preproc_state["arguments"].update(
+                {
+                    "fds": loaded_exp.training_data(),
+                    "experiment_id": loaded_exp.id,
+                    "researcher_id": loaded_exp.researcher_id,
+                    "reqs": loaded_exp.requests,
+                    "nodes": loaded_exp.filtered_federation_nodes(),
+                    "experimentation_folder": loaded_exp.experimentation_folder(),
+                }
+            )
+            loaded_exp._fed_preproc = FedCombatPreproc.load_state_breakpoint(
+                preproc_state
+            )
 
         return loaded_exp, saved_state
 

@@ -179,3 +179,36 @@ class FedCombatPreproc:
 
         self._update_harmonization_done()
         return True
+
+    def save_state_breakpoint(self) -> dict[str, Any]:
+        """Save the current state for breakpointing.
+
+        Returns:
+            A dictionary representing the current state of the object.
+        """
+        state = {
+            "arguments": {
+                "preproc_args": self._preproc_args,
+            },
+            "attributes": {
+                "_preproc_id": self._preproc_id,
+                "_do_harmonization": self._do_harmonization,
+                "_harmonized_datasets": self._harmonized_datasets,
+            },
+        }
+        return state
+
+    @classmethod
+    def load_state_breakpoint(cls, state: dict[str, Any]) -> "FedCombatPreproc":
+        """Load the state from a breakpoint.
+
+        Args:
+            state: A dictionary representing the saved state of the object.
+
+        Returns:
+            An instance of FedCombatPreproc with the loaded state.
+        """
+        instance = cls(**state["arguments"])
+        for key, value in state["attributes"].items():
+            setattr(instance, f"{key}", value)
+        return instance
