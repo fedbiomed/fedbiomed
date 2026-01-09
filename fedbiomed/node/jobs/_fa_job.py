@@ -78,7 +78,7 @@ class FAJob(_BaseJob):
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
         # Retrieve dataset ready-to-use from self._dataset_id
 
-        if self._analytics_type not in [AnalyticsTypes.MEAN.value]:
+        if self._analytics_type not in [t.value for t in AnalyticsTypes]:
             return self._build_error_msg(
                 msg=f"Analytics type '{self._analytics_type}' not supported.",
                 errnum=ErrorNumbers.FB325.value,

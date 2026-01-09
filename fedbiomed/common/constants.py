@@ -458,7 +458,11 @@ class AnalyticsTypes(_BaseEnum):
     """Enumeration class for Federated Analytics types
 
     Attributes:
+        BASIC_STATS: min, max, count, mean, std
+        MIN_MAX: min and max only
         MEAN: Mean analytics type
     """
 
+    BASIC_STATS: str = "basic_stats"
+    MIN_MAX: str = "min_max"
     MEAN: str = "mean"
