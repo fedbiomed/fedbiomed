@@ -92,8 +92,7 @@ class TabularAnalytics(AnalyticsStrategy):
         """
         # Build result dict by column names from variance function
         return {col: np.sqrt(val) for col, val in self.variance().items()}
-    
-    
+
     def histogram(
         self,
         bin_edges: Union[np.ndarray, Dict[Union[str, int], np.ndarray]],
@@ -190,34 +189,10 @@ class TabularAnalytics(AnalyticsStrategy):
         Raises:
             FedbiomedError: if dataset is empty
         """
-        num_samples = len(self)
+        min_values = self.min()
+        max_values = self.max()
 
-        if num_samples == 0:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Cannot calculate minmax of an empty dataset."
-            )
-
-        result = {}
-
-        for col_idx, col in enumerate(self._input_columns):
-            col_min = float("inf")
-            col_max = float("-inf")
-
-            for idx in range(num_samples):
-                data, _ = self[idx]
-                # Extract value for this specific column
-                value = float(data[col_idx])
-
-                if np.isfinite(value):
-                    col_min = min(col_min, value)
-                    col_max = max(col_max, value)
-
-            result[col] = (
-                col_min if col_min != float("inf") else None,
-                col_max if col_max != float("-inf") else None,
-            )
-
-        return result
+        return {col: (min_values[col], max_values[col]) for col in self._input_columns}
 
     def quantile(
         self,
