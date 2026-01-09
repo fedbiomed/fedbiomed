@@ -192,7 +192,6 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
                 exp.config.vars["EXPERIMENTS_DIR"]
             )
             self.assertIsNotNone(exp.experimentation_folder())
-            old_folder = exp.experimentation_folder()
             mock_exp_folder_creat.reset_mock()
             exp.set_experimentation_folder("new-name")
             mock_exp_folder_creat.assert_called_once_with(
@@ -202,7 +201,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             mock_exp_folder_creat.side_effect = lambda x: x
             # Invalid argument type
             with self.assertRaises(SystemExit):
-                result = exp.set_experimentation_folder(15)
+                exp.set_experimentation_folder(15)
 
     def test_federated_workflow_07_set_secagg(self):
         exp = FederatedWorkflow()
@@ -372,6 +371,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
                 "nodes": exp.nodes(),
                 "secagg": exp.secagg.save_state_breakpoint(),
                 "node_state": exp._node_state_agent.save_state_breakpoint(),
+                "preprocessing": None,
             },
             mock_open.return_value.__enter__.return_value,
         )
