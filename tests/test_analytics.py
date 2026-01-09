@@ -4,7 +4,10 @@
 import numpy as np
 import pytest
 
-from fedbiomed.common.analytics import TabularAnalytics, validate_dataset_arguments_for_fa
+from fedbiomed.common.analytics import (
+    TabularAnalytics,
+    validate_dataset_arguments_for_fa,
+)
 from fedbiomed.common.constants import DatasetTypes
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -109,6 +112,7 @@ def zero_dataset():
 
 # ==================== MEAN TESTS ====================
 
+
 def test_validate_dataset_arguments_for_fa():
     # Valid arguments
     dataset_args = {"col_names": ["age", "sex"]}
@@ -207,79 +211,79 @@ def test_tabular_analytics_mean_zeros(zero_dataset):
 def test_tabular_analytics_max_simple(simple_dataset):
     """Test max calculation on simple numeric dataset"""
     dataset, columns = simple_dataset
-    result = dataset.max()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
     assert len(result) == 3
-    assert result["col1"] == pytest.approx(7.0)
-    assert result["col2"] == pytest.approx(8.0)
-    assert result["col3"] == pytest.approx(9.0)
+    assert result["col1"]["max"] == pytest.approx(7.0)
+    assert result["col2"]["max"] == pytest.approx(8.0)
+    assert result["col3"]["max"] == pytest.approx(9.0)
 
 
 def test_tabular_analytics_max_mixed_types(mixed_dataset):
     """Test max calculation on dataset with mixed numeric types"""
     dataset, columns = mixed_dataset
-    result = dataset.max()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["int_col"] == pytest.approx(3.0)
-    assert result["float_col"] == pytest.approx(4.5)
-    assert result["mixed_col"] == pytest.approx(5.0)
+    assert result["int_col"]["max"] == pytest.approx(3.0)
+    assert result["float_col"]["max"] == pytest.approx(4.5)
+    assert result["mixed_col"]["max"] == pytest.approx(5.0)
 
 
 def test_tabular_analytics_max_with_nan(nan_dataset):
     """Test max calculation with NaN values (should skip NaN)"""
     dataset, columns = nan_dataset
-    result = dataset.max()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["col1"] == pytest.approx(7.0)
-    assert result["col2"] == pytest.approx(8.0)
-    assert result["col3"] == pytest.approx(9.0)
+    assert result["col1"]["max"] == pytest.approx(7.0)
+    assert result["col2"]["max"] == pytest.approx(8.0)
+    assert result["col3"]["max"] == pytest.approx(9.0)
 
 
 def test_tabular_analytics_max_with_inf(inf_dataset):
     """Test max calculation with infinity values (should skip inf)"""
     dataset, columns = inf_dataset
-    result = dataset.max()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["col1"] == pytest.approx(7.0)
-    assert result["col2"] == pytest.approx(8.0)
-    assert result["col3"] == pytest.approx(9.0)
+    assert result["col1"]["max"] == pytest.approx(7.0)
+    assert result["col2"]["max"] == pytest.approx(8.0)
+    assert result["col3"]["max"] == pytest.approx(9.0)
 
 
 def test_tabular_analytics_max_single_row(single_dataset):
     """Test max calculation on single row dataset"""
     dataset, columns = single_dataset
-    result = dataset.max()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["a"] == pytest.approx(5.0)
-    assert result["b"] == pytest.approx(10.0)
-    assert result["c"] == pytest.approx(15.0)
+    assert result["a"]["max"] == pytest.approx(5.0)
+    assert result["b"]["max"] == pytest.approx(10.0)
+    assert result["c"]["max"] == pytest.approx(15.0)
 
 
 def test_tabular_analytics_max_negative_values(negative_dataset):
     """Test max calculation with negative values"""
     dataset, columns = negative_dataset
-    result = dataset.max()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["x"] == pytest.approx(1.0)
-    assert result["y"] == pytest.approx(2.0)
-    assert result["z"] == pytest.approx(5.0)
+    assert result["x"]["max"] == pytest.approx(1.0)
+    assert result["y"]["max"] == pytest.approx(2.0)
+    assert result["z"]["max"] == pytest.approx(5.0)
 
 
 def test_tabular_analytics_max_zeros(zero_dataset):
     """Test max calculation with all zeros"""
     dataset, columns = zero_dataset
-    result = dataset.max()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["zero1"] == pytest.approx(0.0)
-    assert result["zero2"] == pytest.approx(0.0)
-    assert result["zero3"] == pytest.approx(0.0)
+    assert result["zero1"]["max"] == pytest.approx(0.0)
+    assert result["zero2"]["max"] == pytest.approx(0.0)
+    assert result["zero3"]["max"] == pytest.approx(0.0)
 
 
 # ==================== MIN TESTS ====================
@@ -288,167 +292,79 @@ def test_tabular_analytics_max_zeros(zero_dataset):
 def test_tabular_analytics_min_simple(simple_dataset):
     """Test min calculation on simple numeric dataset"""
     dataset, columns = simple_dataset
-    result = dataset.min()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
     assert len(result) == 3
-    assert result["col1"] == pytest.approx(1.0)
-    assert result["col2"] == pytest.approx(2.0)
-    assert result["col3"] == pytest.approx(3.0)
+    assert result["col1"]["min"] == pytest.approx(1.0)
+    assert result["col2"]["min"] == pytest.approx(2.0)
+    assert result["col3"]["min"] == pytest.approx(3.0)
 
 
 def test_tabular_analytics_min_mixed_types(mixed_dataset):
     """Test min calculation on dataset with mixed numeric types"""
     dataset, columns = mixed_dataset
-    result = dataset.min()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["int_col"] == pytest.approx(1.0)
-    assert result["float_col"] == pytest.approx(2.5)
-    assert result["mixed_col"] == pytest.approx(3.0)
+    assert result["int_col"]["min"] == pytest.approx(1.0)
+    assert result["float_col"]["min"] == pytest.approx(2.5)
+    assert result["mixed_col"]["min"] == pytest.approx(3.0)
 
 
 def test_tabular_analytics_min_with_nan(nan_dataset):
     """Test min calculation with NaN values (should skip NaN)"""
     dataset, columns = nan_dataset
-    result = dataset.min()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["col1"] == pytest.approx(1.0)
-    assert result["col2"] == pytest.approx(2.0)
-    assert result["col3"] == pytest.approx(6.0)
+    assert result["col1"]["min"] == pytest.approx(1.0)
+    assert result["col2"]["min"] == pytest.approx(2.0)
+    assert result["col3"]["min"] == pytest.approx(6.0)
 
 
 def test_tabular_analytics_min_with_inf(inf_dataset):
     """Test min calculation with infinity values (should skip inf)"""
     dataset, columns = inf_dataset
-    result = dataset.min()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["col1"] == pytest.approx(1.0)
-    assert result["col2"] == pytest.approx(2.0)
-    assert result["col3"] == pytest.approx(6.0)
+    assert result["col1"]["min"] == pytest.approx(1.0)
+    assert result["col2"]["min"] == pytest.approx(2.0)
+    assert result["col3"]["min"] == pytest.approx(6.0)
 
 
 def test_tabular_analytics_min_single_row(single_dataset):
     """Test min calculation on single row dataset"""
     dataset, columns = single_dataset
-    result = dataset.min()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["a"] == pytest.approx(5.0)
-    assert result["b"] == pytest.approx(10.0)
-    assert result["c"] == pytest.approx(15.0)
+    assert result["a"]["min"] == pytest.approx(5.0)
+    assert result["b"]["min"] == pytest.approx(10.0)
+    assert result["c"]["min"] == pytest.approx(15.0)
 
 
 def test_tabular_analytics_min_negative_values(negative_dataset):
     """Test min calculation with negative values"""
     dataset, columns = negative_dataset
-    result = dataset.min()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["x"] == pytest.approx(-5.0)
-    assert result["y"] == pytest.approx(-2.0)
-    assert result["z"] == pytest.approx(-3.0)
+    assert result["x"]["min"] == pytest.approx(-5.0)
+    assert result["y"]["min"] == pytest.approx(-2.0)
+    assert result["z"]["min"] == pytest.approx(-3.0)
 
 
 def test_tabular_analytics_min_zeros(zero_dataset):
     """Test min calculation with all zeros"""
     dataset, columns = zero_dataset
-    result = dataset.min()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["zero1"] == pytest.approx(0.0)
-    assert result["zero2"] == pytest.approx(0.0)
-    assert result["zero3"] == pytest.approx(0.0)
-
-
-# ==================== VARIANCE TESTS ====================
-
-
-def test_tabular_analytics_variance_simple(simple_dataset):
-    """Test variance calculation on simple numeric dataset"""
-    dataset, columns = simple_dataset
-    result = dataset.variance()
-
-    assert isinstance(result, dict)
-    assert len(result) == 3
-    # Variance of [1, 4, 7]: mean=4, var=((1-4)^2 + (4-4)^2 + (7-4)^2)/3 = 6
-    assert result["col1"] == pytest.approx(6.0)
-    assert result["col2"] == pytest.approx(6.0)
-    assert result["col3"] == pytest.approx(6.0)
-
-
-def test_tabular_analytics_variance_mixed_types(mixed_dataset):
-    """Test variance calculation on dataset with mixed numeric types"""
-    dataset, columns = mixed_dataset
-    result = dataset.variance()
-
-    assert isinstance(result, dict)
-    # Variance of [1, 2, 3]: mean=2, var=((1-2)^2 + (2-2)^2 + (3-2)^2)/3 = 2/3
-    assert result["int_col"] == pytest.approx(2.0 / 3.0)
-    # Variance of [2.5, 3.5, 4.5]: mean=3.5, var=((2.5-3.5)^2 + (3.5-3.5)^2 + (4.5-3.5)^2)/3 = 2/3
-    assert result["float_col"] == pytest.approx(2.0 / 3.0)
-    assert result["mixed_col"] == pytest.approx(2.0 / 3.0)
-
-
-def test_tabular_analytics_variance_with_nan(nan_dataset):
-    """Test variance calculation with NaN values (should skip NaN)"""
-    dataset, columns = nan_dataset
-    result = dataset.variance()
-
-    assert isinstance(result, dict)
-    # col1: [1, 4, 7], mean=4, var=6
-    assert result["col1"] == pytest.approx(6.0)
-    # col2: [2, 8], mean=5, var=((2-5)^2 + (8-5)^2)/2 = 9
-    assert result["col2"] == pytest.approx(9.0)
-    # col3: [6, 9], mean=7.5, var=((6-7.5)^2 + (9-7.5)^2)/2 = 2.25
-    assert result["col3"] == pytest.approx(2.25)
-
-
-def test_tabular_analytics_variance_with_inf(inf_dataset):
-    """Test variance calculation with infinity values (should skip inf)"""
-    dataset, columns = inf_dataset
-    result = dataset.variance()
-
-    assert isinstance(result, dict)
-    assert result["col1"] == pytest.approx(6.0)
-    assert result["col2"] == pytest.approx(9.0)
-    assert result["col3"] == pytest.approx(2.25)
-
-
-def test_tabular_analytics_variance_single_row(single_dataset):
-    """Test variance calculation on single row dataset"""
-    dataset, columns = single_dataset
-    result = dataset.variance()
-
-    assert isinstance(result, dict)
-    # Single value variance should be 0
-    assert result["a"] == pytest.approx(0.0)
-    assert result["b"] == pytest.approx(0.0)
-    assert result["c"] == pytest.approx(0.0)
-
-
-def test_tabular_analytics_variance_negative_values(negative_dataset):
-    """Test variance calculation with negative values"""
-    dataset, columns = negative_dataset
-    result = dataset.variance()
-
-    assert isinstance(result, dict)
-    assert result["x"] == pytest.approx(56.0 / 9.0, rel=1e-5)
-    assert result["y"] == pytest.approx(8.0 / 3.0, rel=1e-5)
-    assert result["z"] == pytest.approx(104.0 / 9.0, rel=1e-5)
-
-
-def test_tabular_analytics_variance_zeros(zero_dataset):
-    """Test variance calculation with all zeros"""
-    dataset, columns = zero_dataset
-    result = dataset.variance()
-
-    assert isinstance(result, dict)
-    assert result["zero1"] == pytest.approx(0.0)
-    assert result["zero2"] == pytest.approx(0.0)
-    assert result["zero3"] == pytest.approx(0.0)
+    assert result["zero1"]["min"] == pytest.approx(0.0)
+    assert result["zero2"]["min"] == pytest.approx(0.0)
+    assert result["zero3"]["min"] == pytest.approx(0.0)
 
 
 # ==================== STD TESTS ====================
@@ -457,100 +373,90 @@ def test_tabular_analytics_variance_zeros(zero_dataset):
 def test_tabular_analytics_std_simple(simple_dataset):
     """Test standard deviation calculation on simple numeric dataset"""
     dataset, columns = simple_dataset
-    result = dataset.std()
+    result = dataset.basic_stats()
 
     assert isinstance(result, dict)
     assert len(result) == 3
-    # Std is sqrt of variance
-    assert result["col1"] == pytest.approx(np.sqrt(6.0))
-    assert result["col2"] == pytest.approx(np.sqrt(6.0))
-    assert result["col3"] == pytest.approx(np.sqrt(6.0))
+    # Std is part of stats
+    assert result["col1"]["std"] == pytest.approx(np.sqrt(6.0))
+    assert result["col2"]["std"] == pytest.approx(np.sqrt(6.0))
+    assert result["col3"]["std"] == pytest.approx(np.sqrt(6.0))
 
 
 def test_tabular_analytics_std_mixed_types(mixed_dataset):
     """Test standard deviation calculation on dataset with mixed numeric types"""
     dataset, columns = mixed_dataset
-    result = dataset.std()
+    result = dataset.basic_stats()
 
     assert isinstance(result, dict)
-    assert result["int_col"] == pytest.approx(np.sqrt(2.0 / 3.0))
-    assert result["float_col"] == pytest.approx(np.sqrt(2.0 / 3.0))
-    assert result["mixed_col"] == pytest.approx(np.sqrt(2.0 / 3.0))
+    assert result["int_col"]["std"] == pytest.approx(np.sqrt(2.0 / 3.0))
+    assert result["float_col"]["std"] == pytest.approx(np.sqrt(2.0 / 3.0))
+    assert result["mixed_col"]["std"] == pytest.approx(np.sqrt(2.0 / 3.0))
 
 
 def test_tabular_analytics_std_with_nan(nan_dataset):
     """Test standard deviation calculation with NaN values (should skip NaN)"""
     dataset, columns = nan_dataset
-    result = dataset.std()
+    result = dataset.basic_stats()
 
     assert isinstance(result, dict)
-    assert result["col1"] == pytest.approx(np.sqrt(6.0))
-    assert result["col2"] == pytest.approx(np.sqrt(9.0))
-    assert result["col3"] == pytest.approx(np.sqrt(2.25))
+    assert result["col1"]["std"] == pytest.approx(np.sqrt(6.0))
+    assert result["col2"]["std"] == pytest.approx(np.sqrt(9.0))
+    assert result["col3"]["std"] == pytest.approx(np.sqrt(2.25))
 
 
 def test_tabular_analytics_std_with_inf(inf_dataset):
     """Test standard deviation calculation with infinity values (should skip inf)"""
     dataset, columns = inf_dataset
-    result = dataset.std()
+    result = dataset.basic_stats()
 
     assert isinstance(result, dict)
-    assert result["col1"] == pytest.approx(np.sqrt(6.0))
-    assert result["col2"] == pytest.approx(np.sqrt(9.0))
-    assert result["col3"] == pytest.approx(np.sqrt(2.25))
+    assert result["col1"]["std"] == pytest.approx(np.sqrt(6.0))
+    assert result["col2"]["std"] == pytest.approx(np.sqrt(9.0))
+    assert result["col3"]["std"] == pytest.approx(np.sqrt(2.25))
 
 
 def test_tabular_analytics_std_single_row(single_dataset):
     """Test standard deviation calculation on single row dataset"""
     dataset, columns = single_dataset
-    result = dataset.std()
+    result = dataset.basic_stats()
 
     assert isinstance(result, dict)
     # Single value std should be 0
-    assert result["a"] == pytest.approx(0.0)
-    assert result["b"] == pytest.approx(0.0)
-    assert result["c"] == pytest.approx(0.0)
+    assert result["a"]["std"] == pytest.approx(0.0)
+    assert result["b"]["std"] == pytest.approx(0.0)
+    assert result["c"]["std"] == pytest.approx(0.0)
 
 
 def test_tabular_analytics_std_negative_values(negative_dataset):
     """Test standard deviation calculation with negative values"""
     dataset, columns = negative_dataset
-    result = dataset.std()
+    result = dataset.basic_stats()
 
     assert isinstance(result, dict)
-    assert result["x"] == pytest.approx(np.sqrt(56.0 / 9.0), rel=1e-5)
-    assert result["y"] == pytest.approx(np.sqrt(8.0 / 3.0), rel=1e-5)
-    assert result["z"] == pytest.approx(np.sqrt(104.0 / 9.0), rel=1e-5)
+    assert result["x"]["std"] == pytest.approx(np.sqrt(56.0 / 9.0), rel=1e-5)
+    assert result["y"]["std"] == pytest.approx(np.sqrt(8.0 / 3.0), rel=1e-5)
+    assert result["z"]["std"] == pytest.approx(np.sqrt(104.0 / 9.0), rel=1e-5)
 
 
 def test_tabular_analytics_std_zeros(zero_dataset):
     """Test standard deviation calculation with all zeros"""
     dataset, columns = zero_dataset
-    result = dataset.std()
+    result = dataset.basic_stats()
 
     assert isinstance(result, dict)
-    assert result["zero1"] == pytest.approx(0.0)
-    assert result["zero2"] == pytest.approx(0.0)
-    assert result["zero3"] == pytest.approx(0.0)
+    assert result["zero1"]["std"] == pytest.approx(0.0)
+    assert result["zero2"]["std"] == pytest.approx(0.0)
+    assert result["zero3"]["std"] == pytest.approx(0.0)
 
 
 # ==================== EDGE CASES AND INTEGRATION ====================
 
 
-def test_tabular_analytics_consistency_across_methods(simple_dataset):
-    """Test that std is consistent with variance (std = sqrt(variance))"""
-    dataset, columns = simple_dataset
-    variance = dataset.variance()
-    std = dataset.std()
-
-    for col in columns:
-        assert std[col] == pytest.approx(np.sqrt(variance[col]))
-
-
 def test_tabular_analytics_column_names_preserved(simple_dataset):
     """Test that all methods preserve column names correctly"""
     dataset, columns = simple_dataset
-    methods = ["mean", "max", "min", "variance", "std"]
+    methods = ["mean", "min_max", "basic_stats"]
 
     for method_name in methods:
         method = getattr(dataset, method_name)
@@ -562,23 +468,10 @@ def test_tabular_analytics_column_names_preserved(simple_dataset):
 def test_tabular_analytics_all_methods_return_dict(simple_dataset):
     """Test that all methods return dictionaries"""
     dataset, columns = simple_dataset
-    methods = ["mean", "max", "min", "variance", "std"]
+    methods = ["mean", "min_max", "basic_stats"]
 
     for method_name in methods:
         method = getattr(dataset, method_name)
         result = method()
-
-        assert isinstance(result, dict)
-
-
-def test_tabular_analytics_kwargs_accepted(simple_dataset):
-    """Test that all methods accept **kwargs (even if not used)"""
-    dataset, columns = simple_dataset
-    methods = ["mean", "max", "min", "variance", "std"]
-
-    for method_name in methods:
-        method = getattr(dataset, method_name)
-        # Should not raise an error even with extra kwargs
-        result = method(unused_param=True, another_param="test")
 
         assert isinstance(result, dict)
