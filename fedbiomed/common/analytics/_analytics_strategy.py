@@ -39,7 +39,7 @@ def validate_dataset_arguments_for_fa(
     if DatasetArgumentsFA.get(dataset_type) is None:
         if dataset_args is not None:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Dataset type '{dataset_type}' does not accept"
+                f"{ErrorNumbers.FB633.value}: Dataset type '{dataset_type}' does not accept"
                 f" dataset arguments, but some were provided: {dataset_args}"
             )
         return
@@ -56,6 +56,7 @@ def validate_dataset_arguments_for_fa(
             and dataset_args.keys() - DatasetArgumentsFA[dataset_type].keys()
         ):
             raise FedbiomedError(
+                f"{ErrorNumbers.FB633.value}:"
                 f"Unexpected dataset argument(s) for dataset type '{dataset_type}'. "
                 f"Expected arguments: {list(DatasetArgumentsFA[dataset_type].keys())}, "
                 f"but got: {list(dataset_args.keys())}."
