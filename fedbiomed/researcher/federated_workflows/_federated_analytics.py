@@ -219,7 +219,7 @@ class FederatedAnalytics:
                         max(global_max, min_max_dict["max"]),
                     )
 
-        logger.debug("Global minmax computed:", global_minmax)
+        logger.debug(f"Global minmax computed: {global_minmax}")
 
         return global_minmax
 
@@ -287,7 +287,7 @@ class FederatedAnalytics:
         # Prepare fa_args with bin_edges
         fa_args = fa_args or {}
         fa_args["bin_edges"] = bin_edges
-        logger.debug("FA args prepared:", fa_args)
+        logger.debug(f"FA args prepared: {fa_args}")
 
         # Collect histogram replies
         node_histograms, errors = self._compute_analytics(
@@ -357,7 +357,7 @@ class FederatedAnalytics:
         fa_args = fa_args or {}
         fa_args["bin_edges"] = bin_edges
         fa_args["q"] = q
-        logger.debug("FA args prepared:", fa_args)
+        logger.debug(f"FA args prepared: {fa_args}")
 
         # Collect quantile replies
         node_quantiles, errors = self._compute_analytics(

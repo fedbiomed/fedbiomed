@@ -470,4 +470,3 @@ class AnalyticsTypes(_BaseEnum):
     MEAN: str = "mean"
     HISTOGRAM: str = "histogram"
     QUANTILE: str = "quantile"
-    MINMAX: str = "minmax"

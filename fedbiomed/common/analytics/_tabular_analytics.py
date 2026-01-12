@@ -109,7 +109,7 @@ class TabularAnalytics(AnalyticsStrategy):
         """
 
         logger.debug(
-            "Computing histogram for database with columns:", self._input_columns
+            f"Computing histogram for database with columns: {self._input_columns}"
         )
 
         # Validate and prepare bin_edges for each column
@@ -123,10 +123,10 @@ class TabularAnalytics(AnalyticsStrategy):
                     edges = bin_edges[col_idx]
                 else:
                     raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Column '{col}' (index {col_idx}) not found in bin_edges dict"
+                        f"{ErrorNumbers.FB633.value}: Column '{col}' (index {col_idx}) not found in bin_edges dict"
                     )
             else:
-                logger.debug("Using global bin edges for column:", col)
+                logger.debug(f"Using global bin edges for column: {col}")
                 edges = bin_edges
 
             # Convert to numpy array if it's a list
@@ -136,11 +136,11 @@ class TabularAnalytics(AnalyticsStrategy):
             # Validate bin_edges
             if edges.ndim != 1 or edges.size < 2:
                 raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value} bin_edges must be a 1D array of length >= 2"
+                    f"{ErrorNumbers.FB633.value} bin_edges must be a 1D array of length >= 2"
                 )
             if not np.all(np.diff(edges) > 0):
                 raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value} bin_edges must be strictly increasing"
+                    f"{ErrorNumbers.FB633.value} bin_edges must be strictly increasing"
                 )
 
             col_bin_edges[col] = edges
@@ -208,7 +208,7 @@ class TabularAnalytics(AnalyticsStrategy):
         # Validate q values
         if np.any((q_arr < 0) | (q_arr > 1)):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Quantile values must be in [0, 1]"
+                f"{ErrorNumbers.FB633.value}: Quantile values must be in [0, 1]"
             )
 
         # Get histogram counts for all columns
@@ -230,7 +230,7 @@ class TabularAnalytics(AnalyticsStrategy):
                 edges = bin_edges.get(col) or bin_edges.get(col_idx)
                 if edges is None:
                     raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Column '{col}' not found in bin_edges dict"
+                        f"{ErrorNumbers.FB633.value}: Column '{col}' not found in bin_edges dict"
                     )
             else:
                 edges = bin_edges
@@ -239,7 +239,7 @@ class TabularAnalytics(AnalyticsStrategy):
             total_count = np.sum(counts)
             if total_count == 0:
                 raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: No data available for quantile computation in column '{col}'"
+                    f"{ErrorNumbers.FB633.value}: No data available for quantile computation in column '{col}'"
                 )
 
             cumsum = np.cumsum(counts)

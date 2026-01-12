@@ -75,7 +75,7 @@ class ImageAnalytics(AnalyticsStrategy):
 
         return {"pixel_values": counts}
 
-    def minmax(self, **kwargs) -> Dict[str, tuple]:
+    def min_max(self, **kwargs) -> Dict[str, tuple]:
         """Calculate min and max pixel values across all images in the dataset.
 
         Returns:
@@ -88,7 +88,7 @@ class ImageAnalytics(AnalyticsStrategy):
         # TODO: Check for min number of pixels on images.
         if len(self) == 0:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB633.value}: Cannot calculate minmax of an empty dataset."
+                f"{ErrorNumbers.FB633.value}: Cannot calculate min_max of an empty dataset."
             )
 
         pixel_min = float("inf")
@@ -144,7 +144,7 @@ class ImageAnalytics(AnalyticsStrategy):
         # Validate q values
         if np.any((q_arr < 0) | (q_arr > 1)):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Quantile values must be in [0, 1]"
+                f"{ErrorNumbers.FB633.value}: Quantile values must be in [0, 1]"
             )
 
         # Get histogram counts
@@ -154,7 +154,7 @@ class ImageAnalytics(AnalyticsStrategy):
         total_count = np.sum(counts)
         if total_count == 0:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: No data available for quantile computation"
+                f"{ErrorNumbers.FB633.value}: No data available for quantile computation"
             )
 
         cumsum = np.cumsum(counts)
