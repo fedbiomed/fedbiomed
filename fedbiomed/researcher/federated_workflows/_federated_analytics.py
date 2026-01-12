@@ -148,7 +148,6 @@ class FederatedAnalytics:
 
         return analytics_replies
 
-<<<<<<< HEAD
     def basic_stats(
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
@@ -170,7 +169,7 @@ class FederatedAnalytics:
     ) -> Union[Any, Dict[str, Any]]:
         """Returns a dict containing min and max for each node."""
         return self._compute_analytics(AnalyticsTypes.MEAN.value, dataset_args, fa_args)
-=======
+
     def _get_global_minmax(
         self, dataset_args: dict = None
     ) -> Dict[str, tuple[float, float]]:
@@ -183,31 +182,16 @@ class FederatedAnalytics:
             dataset_args: Dataset arguments for minmax computation
 
         Returns:
-            A dictionary mapping column names to (min, max) tuples
+            Either a dictionary mapping column names to (min, max) tuples such as:
+                {"column_1": (min_value, max_value), "column_2": (min_value, max_value), ...}
+            or a dict with one key "result (such as 'pixel_values')" mapping to (min, max) tuple for non-tabular data.
+
+        Raises:
+            FedbiomedError: if errors occur during minmax computation on nodes
         """
-        if self._fds is None:
-            raise FedbiomedError(
-                "No defined FederatedDataset found for FederatedAnalytics."
-            )
-
-        self._validate_dataset_arguments(dataset_args)
-        node_ids = self.get_node_ids()
-
-        # Create FA job to get min/max from each node
-        fa_job = FARequestJob(
-            fa_id=self._fa_id,
-            fa_args={},
-            analytics_type=AnalyticsTypes.MINMAX.value,
-            dataset_args=dataset_args,
-            federated_dataset=self._fds,
-            experiment_id=self._experiment_id,
-            researcher_id=self._researcher_id,
-            requests=self._reqs,
-            nodes=node_ids,
-        )
 
         # Collect minmax replies from all nodes
-        minmax_replies, errors = fa_job.execute()
+        minmax_replies, errors = self.min_max(dataset_args)
 
         if errors:
             raise FedbiomedError(
@@ -216,16 +200,19 @@ class FederatedAnalytics:
 
         # Aggregate min/max across all nodes
         global_minmax = {}
-        for _, reply in minmax_replies.items():
+        for _node_id, reply in minmax_replies.items():
             node_minmax = reply.output
-            for col, (node_min, node_max) in node_minmax.items():
-                if col not in global_minmax:
-                    global_minmax[col] = (node_min, node_max)
+            for _col_or_result_key, min_max_dict in node_minmax.items():
+                if _col_or_result_key not in global_minmax:
+                    global_minmax[_col_or_result_key] = (
+                        min_max_dict["min"],
+                        min_max_dict["max"],
+                    )
                 else:
-                    global_min, global_max = global_minmax[col]
-                    global_minmax[col] = (
-                        min(global_min, node_min),
-                        max(global_max, node_max),
+                    global_min, global_max = global_minmax[_col_or_result_key]
+                    global_minmax[_col_or_result_key] = (
+                        min(global_min, min_max_dict["min"]),
+                        max(global_max, min_max_dict["max"]),
                     )
 
         return global_minmax
@@ -245,10 +232,12 @@ class FederatedAnalytics:
             Dictionary mapping column names to bin_edges arrays
         """
         bin_edges = {}
-        for col, (min_val, max_val) in global_minmax.items():
+        for col_or_result_key, (min_val, max_val) in global_minmax.items():
             # Add small margin to include max value in last bin
             margin = (max_val - min_val) * 0.001 if max_val != min_val else 1
-            bin_edges[col] = np.linspace(min_val, max_val + margin, num_bins + 1)
+            bin_edges[col_or_result_key] = np.linspace(
+                min_val, max_val + margin, num_bins + 1
+            )
         return bin_edges
 
     def histogram(
@@ -262,7 +251,7 @@ class FederatedAnalytics:
 
         Args:
             bin_edges: Pre-computed bin edges. Can be:
-                - 1D numpy array: applied to all columns (for images)
+                - 1D numpy array: applied to all columns (for both tabular data or all pixels in images)
                 - Dict mapping column names to bin_edges: column-specific bins
                 - None: will compute from global min/max (for tabular data)
             num_bins: Number of bins to create if bin_edges is None. Default is 10.
@@ -283,7 +272,6 @@ class FederatedAnalytics:
         self._validate_if_dataset_has_analytics(AnalyticsTypes.HISTOGRAM.value)
         print("Validating dataset arguments")
         self._validate_dataset_arguments(dataset_args)
-        node_ids = self.get_node_ids()
 
         # If bin_edges not provided, compute from global min/max
         if bin_edges is None:
@@ -298,27 +286,14 @@ class FederatedAnalytics:
         fa_args["bin_edges"] = bin_edges
         print("FA args prepared:", fa_args)
 
-        # Create FA job
-        fa_job = FARequestJob(
-            fa_id=self._fa_id,
-            fa_args=fa_args,
-            analytics_type=AnalyticsTypes.HISTOGRAM.value,
-            dataset_args=dataset_args,
-            federated_dataset=self._fds,
-            experiment_id=self._experiment_id,
-            researcher_id=self._researcher_id,
-            requests=self._reqs,
-            nodes=node_ids,
+        # Collect histogram replies
+        node_histograms, errors = self._compute_analytics(
+            AnalyticsTypes.HISTOGRAM.value, dataset_args, fa_args
         )
 
-        # Collect histogram replies
-        node_histograms, errors = fa_job.execute()
-
-<<<<<<< HEAD
-        return analytics_replies, errors
->>>>>>> dd3aa21e (First working draft for histogram for Tabular Dataset)
-=======
         # Aggregate histograms from all nodes
+        # TODO: Add common aggregation strategies (e.g., weighted by sample size)
+        # and delegate below part to specific strategy
         aggregated_histogram = {}
         for _node_id, node_result in node_histograms.items():
             hist_data = node_result.output
@@ -329,9 +304,6 @@ class FederatedAnalytics:
                     aggregated_histogram[col_name] += np.array(counts)
 
         return aggregated_histogram, node_histograms, errors
-<<<<<<< HEAD
->>>>>>> fd17785a (First working draft for both tabular dataset and image dataset for histogram function)
-=======
 
     def quantile(
         self,
@@ -374,7 +346,6 @@ class FederatedAnalytics:
         self._validate_if_dataset_has_analytics(AnalyticsTypes.QUANTILE.value)
         print("Validating dataset arguments")
         self._validate_dataset_arguments(dataset_args)
-        node_ids = self.get_node_ids()
 
         # If bin_edges not provided, compute from global min/max
         if bin_edges is None:
@@ -390,23 +361,14 @@ class FederatedAnalytics:
         fa_args["q"] = q
         print("FA args prepared:", fa_args)
 
-        # Create FA job
-        fa_job = FARequestJob(
-            fa_id=self._fa_id,
-            fa_args=fa_args,
-            analytics_type=AnalyticsTypes.QUANTILE.value,
-            dataset_args=dataset_args,
-            federated_dataset=self._fds,
-            experiment_id=self._experiment_id,
-            researcher_id=self._researcher_id,
-            requests=self._reqs,
-            nodes=node_ids,
+        # Collect quantile replies
+        node_quantiles, errors = self._compute_analytics(
+            AnalyticsTypes.QUANTILE.value, dataset_args, fa_args
         )
 
-        # Collect quantile replies
-        node_quantiles, errors = fa_job.execute()
-
         # Aggregate quantiles from all nodes
+        # TODO: Change aggregation strategy (maybe weighted by sample size)
+        # TODO: Delegate below part to a common class for aggregation strategies
         aggregated_quantiles = {}
         for _node_id, node_result in node_quantiles.items():
             quant_data = node_result.output
@@ -430,4 +392,3 @@ class FederatedAnalytics:
                 aggregated_quantiles[col_name][q_key] = float(np.mean(values_list))
 
         return aggregated_quantiles, node_quantiles, errors
->>>>>>> 74b02411 (Finish draft for quantile function)

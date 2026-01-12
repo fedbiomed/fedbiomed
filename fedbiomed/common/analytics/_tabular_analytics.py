@@ -63,7 +63,6 @@ class TabularAnalytics(AnalyticsStrategy):
         if data_min is None:  # No data processed
             return results
 
-<<<<<<< HEAD
         for i, col in enumerate(self._input_columns):
             stats = {
                 "min": data_min[i] if np.isfinite(data_min[i]) else np.nan,
@@ -86,12 +85,6 @@ class TabularAnalytics(AnalyticsStrategy):
         """Returns mean across the dataset."""
         stats = self.basic_stats()
         return {col: stat["mean"] for col, stat in stats.items()}
-=======
-        Returns:
-            Dictionary by column names with their respective calculated value.
-        """
-        # Build result dict by column names from variance function
-        return {col: np.sqrt(val) for col, val in self.variance().items()}
 
     def histogram(
         self,
@@ -176,23 +169,6 @@ class TabularAnalytics(AnalyticsStrategy):
                 result[col][bin_idx] += 1
 
         return result
-<<<<<<< HEAD
->>>>>>> 0ddec5e6 (Initial draft for Histogram Logic for Tabular Dataset)
-=======
-
-    def minmax(self, **kwargs) -> Dict[str, tuple]:
-        """Calculate min and max values of features across the dataset.
-
-        Returns:
-            Dictionary keyed by column names with (min, max) tuples for each column.
-
-        Raises:
-            FedbiomedError: if dataset is empty
-        """
-        min_values = self.min()
-        max_values = self.max()
-
-        return {col: (min_values[col], max_values[col]) for col in self._input_columns}
 
     def quantile(
         self,
@@ -202,22 +178,20 @@ class TabularAnalytics(AnalyticsStrategy):
         """
         Compute quantiles from the histogram of column values.
 
-        Parameters
-        ----------
-        bin_edges:
-            Global bin edges. Can be either:
-            - 1D numpy array (length B+1): applied to all columns
-            - Dict mapping column names to bin edges: column-specific bins
-        q:
-            Quantile(s) to compute. Scalar in [0, 1] or sequence of values in [0, 1].
-            0.5 = median, 0.25 = first quartile, 0.75 = third quartile, etc.
+        Args:
+            bin_edges:
+                Global bin edges. Can be either:
+                - 1D numpy array (length B+1): applied to all columns
+                - Dict mapping column names to bin edges: column-specific bins
+            q:
+                Quantile(s) to compute. Scalar in [0, 1] or sequence of values in [0, 1].
+                0.5 = median, 0.25 = first quartile, 0.75 = third quartile, etc.
 
-        Returns
-        -------
-        dict: {column_name: {quantile: quantile_value}}
-            Nested dictionary mapping column names to dictionaries of quantile values.
-            e.g., {"col1": {0.5: median_val}, "col2": {0.25: q1_val, 0.5: med_val, 0.75: q3_val}}
-            Linear interpolation is used within bins.
+        Returns:
+            dict: {column_name: {quantile: quantile_value}}
+                Nested dictionary mapping column names to dictionaries of quantile values.
+                (Or one global result key for non-tabular data.)
+                e.g., {"col1": {0.5: median_val}, "col2": {0.25: q1_val, 0.5: med_val, 0.75: q3_val}}
 
         Raises:
             FedbiomedError: if q values are not in [0, 1]
@@ -305,48 +279,3 @@ class TabularAnalytics(AnalyticsStrategy):
             }
 
         return result
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> 27505247 (Add draft quantile function that uses histogram for image and tabular datasets)
-=======
-
-    def minmax(self, **kwargs) -> Dict[str, tuple]:
-        """Calculate min and max values of features across the dataset.
-
-        Returns:
-            Dictionary keyed by column names with (min, max) tuples for each column.
-
-        Raises:
-            FedbiomedError: if dataset is empty
-        """
-        num_samples = len(self)
-
-        if num_samples == 0:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Cannot calculate minmax of an empty dataset."
-            )
-
-        result = {}
-
-        for col_idx, col in enumerate(self._input_columns):
-            col_min = float("inf")
-            col_max = float("-inf")
-
-            for idx in range(num_samples):
-                data, _ = self[idx]
-                # Extract value for this specific column
-                value = float(data[col_idx])
-
-                if np.isfinite(value):
-                    col_min = min(col_min, value)
-                    col_max = max(col_max, value)
-
-            result[col] = (
-                col_min if col_min != float("inf") else None,
-                col_max if col_max != float("-inf") else None,
-            )
-
-        return result
->>>>>>> dd3aa21e (First working draft for histogram for Tabular Dataset)
-=======
->>>>>>> fd17785a (First working draft for both tabular dataset and image dataset for histogram function)

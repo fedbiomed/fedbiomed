@@ -41,6 +41,10 @@ class ImageAnalytics(AnalyticsStrategy):
         if isinstance(bin_edges, dict):
             bin_edges = next(iter(bin_edges.values()))
 
+        # Convert to numpy array if it's a list
+        if isinstance(bin_edges, list):
+            bin_edges = np.array(bin_edges)
+
         # Validate bin_edges
         if bin_edges.ndim != 1 or bin_edges.size < 2:
             raise FedbiomedError(
@@ -202,6 +206,8 @@ class ImageAnalytics(AnalyticsStrategy):
 
         # Return dictionary mapping quantile values to computed quantiles
         return {
-            float(q_val): float(quant)
-            for q_val, quant in zip(q_arr, quantiles, strict=True)
+            "pixel_values": {
+                float(q_val): float(quant)
+                for q_val, quant in zip(q_arr, quantiles, strict=True)
+            }
         }
