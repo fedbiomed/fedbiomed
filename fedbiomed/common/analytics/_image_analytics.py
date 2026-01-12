@@ -70,12 +70,8 @@ class ImageAnalytics(AnalyticsStrategy):
             pixel_values = pixel_values[np.isfinite(pixel_values)]
 
             if pixel_values.size > 0:
-                # Determine bin indices (like numpy.histogram)
-                bin_indices = np.searchsorted(bin_edges, pixel_values, side="right") - 1
-                # Clamp to valid range
-                bin_indices = np.clip(bin_indices, 0, num_bins - 1)
-                # Accumulate counts
-                np.add.at(counts, bin_indices, 1)
+                clipped = np.clip(pixel_values, bin_edges[0], bin_edges[-1])
+                counts += np.histogram(clipped, bins=bin_edges)[0]
 
         return {"pixel_values": counts}
 

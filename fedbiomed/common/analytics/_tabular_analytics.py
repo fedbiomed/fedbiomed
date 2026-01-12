@@ -7,6 +7,7 @@ import numpy as np
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.logger import logger
 
 from ._analytics_strategy import AnalyticsStrategy
 
@@ -107,7 +108,9 @@ class TabularAnalytics(AnalyticsStrategy):
             FedbiomedError: if bin_edges are invalid or missing for any column
         """
 
-        print("Computing histogram for database with columns:", self._input_columns)
+        logger.debug(
+            "Computing histogram for database with columns:", self._input_columns
+        )
 
         # Validate and prepare bin_edges for each column
         col_bin_edges = {}
@@ -123,7 +126,7 @@ class TabularAnalytics(AnalyticsStrategy):
                         f"{ErrorNumbers.FB632.value}: Column '{col}' (index {col_idx}) not found in bin_edges dict"
                     )
             else:
-                print("Using global bin edges for column:", col)
+                logger.debug("Using global bin edges for column:", col)
                 edges = bin_edges
 
             # Convert to numpy array if it's a list
@@ -148,7 +151,7 @@ class TabularAnalytics(AnalyticsStrategy):
             for col, edges in col_bin_edges.items()
         }
 
-        print("Calculating histogram counts for each column")
+        logger.debug("Calculating histogram counts for each column")
         # Single pass through dataset
         for idx in range(len(self)):
             data, _ = self[idx]
@@ -162,11 +165,9 @@ class TabularAnalytics(AnalyticsStrategy):
                     continue
 
                 edges = col_bin_edges[col]
-                # Determine bin index: rightmost edge <= value minus 1 (like numpy.histogram)
-                bin_idx = np.searchsorted(edges, value, side="right") - 1
-                # Clamp to valid range
-                bin_idx = np.clip(bin_idx, 0, edges.size - 2)
-                result[col][bin_idx] += 1
+
+                clipped = np.clip(value, edges[0], edges[-1])
+                result[col] += np.histogram(clipped, bins=edges)[0]
 
         return result
 

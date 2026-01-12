@@ -12,6 +12,7 @@ from fedbiomed.common.analytics import (
 from fedbiomed.common.constants import AnalyticsTypes, DatasetTypes
 from fedbiomed.common.dataset import DATASET_CLASSES_PER_TYPE
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
+from fedbiomed.common.logger import logger
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
 from fedbiomed.researcher.requests import Requests
@@ -80,6 +81,7 @@ class FederatedAnalytics:
         Returns:
             The dataset type
         """
+        logger.debug("Validating analytics")
 
         # Extract dataset types from the first self._fds.data() entry
         type_ = next(iter(self._fds.data().values())).get("data_type")
@@ -101,6 +103,7 @@ class FederatedAnalytics:
         Args:
             dataset_args: Dataset arguments to validate
         """
+        logger.debug("Validating dataset arguments")
 
         # Extract dataset types from the first self._fds.data() entry
         type_ = next(iter(self._fds.data().values())).get("data_type")
@@ -189,6 +192,7 @@ class FederatedAnalytics:
         Raises:
             FedbiomedError: if errors occur during minmax computation on nodes
         """
+        logger.debug("Bin edges is None, computing global minmax")
 
         # Collect minmax replies from all nodes
         minmax_replies, errors = self.min_max(dataset_args)
@@ -215,6 +219,8 @@ class FederatedAnalytics:
                         max(global_max, min_max_dict["max"]),
                     )
 
+        logger.debug("Global minmax computed:", global_minmax)
+
         return global_minmax
 
     def _create_bins(
@@ -231,6 +237,8 @@ class FederatedAnalytics:
         Returns:
             Dictionary mapping column names to bin_edges arrays
         """
+        logger.debug("Setting bin edges")
+
         bin_edges = {}
         for col_or_result_key, (min_val, max_val) in global_minmax.items():
             # Add small margin to include max value in last bin
@@ -268,23 +276,18 @@ class FederatedAnalytics:
                 "No defined FederatedDataset found for FederatedAnalytics."
             )
 
-        print("Validating analytics")
         self._validate_if_dataset_has_analytics(AnalyticsTypes.HISTOGRAM.value)
-        print("Validating dataset arguments")
         self._validate_dataset_arguments(dataset_args)
 
         # If bin_edges not provided, compute from global min/max
         if bin_edges is None:
-            print("Bin edges is None, computing global minmax")
             global_minmax = self._get_global_minmax(dataset_args)
-            print("Global minmax computed:", global_minmax)
-            print("Setting bin edges")
             bin_edges = self._create_bins(global_minmax, num_bins)
 
         # Prepare fa_args with bin_edges
         fa_args = fa_args or {}
         fa_args["bin_edges"] = bin_edges
-        print("FA args prepared:", fa_args)
+        logger.debug("FA args prepared:", fa_args)
 
         # Collect histogram replies
         node_histograms, errors = self._compute_analytics(
@@ -342,24 +345,19 @@ class FederatedAnalytics:
                 "No defined FederatedDataset found for FederatedAnalytics."
             )
 
-        print("Validating analytics")
         self._validate_if_dataset_has_analytics(AnalyticsTypes.QUANTILE.value)
-        print("Validating dataset arguments")
         self._validate_dataset_arguments(dataset_args)
 
         # If bin_edges not provided, compute from global min/max
         if bin_edges is None:
-            print("Bin edges is None, computing global minmax")
             global_minmax = self._get_global_minmax(dataset_args)
-            print("Global minmax computed:", global_minmax)
-            print("Setting bin edges")
             bin_edges = self._create_bins(global_minmax, num_bins)
 
         # Prepare fa_args with bin_edges and quantile values
         fa_args = fa_args or {}
         fa_args["bin_edges"] = bin_edges
         fa_args["q"] = q
-        print("FA args prepared:", fa_args)
+        logger.debug("FA args prepared:", fa_args)
 
         # Collect quantile replies
         node_quantiles, errors = self._compute_analytics(
