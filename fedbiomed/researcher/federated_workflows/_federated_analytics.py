@@ -106,21 +106,25 @@ class FederatedAnalytics:
 
         validate_dataset_arguments_for_fa(dataset_args, dataset_type)
 
-    def mean(
-        self, dataset_args: dict = None, fa_args: dict = None
+    def _compute_analytics(
+        self, analytics_type: str, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
-        """Compute mean analytics across nodes.
+        """Compute analytics across nodes.
+
+        Args:
+            analytics_type: The type of analytics to compute.
+            dataset_args: Dataset arguments.
+            fa_args: Federated analytics arguments.
 
         Returns:
-            A dictionary containing the mean analytics results from each node.
+            A dictionary containing the analytics results from each node.
         """
         if self._fds is None:
             raise FedbiomedError(
                 "No defined FederatedDataset found for FederatedAnalytics."
             )
-            # Extract dataset types from the first self._fds.data() entry
 
-        self._validate_if_dataset_has_analytics(AnalyticsTypes.MEAN.value)
+        self._validate_if_dataset_has_analytics(analytics_type)
         self._validate_dataset_arguments(dataset_args)
         node_ids = self.get_node_ids()
 
@@ -128,7 +132,7 @@ class FederatedAnalytics:
         fa_job = FARequestJob(
             fa_id=self._fa_id,
             fa_args=fa_args,
-            analytics_type=AnalyticsTypes.MEAN.value,
+            analytics_type=analytics_type,
             dataset_args=dataset_args,
             federated_dataset=self._fds,
             experiment_id=self._experiment_id,
@@ -137,7 +141,29 @@ class FederatedAnalytics:
             nodes=node_ids,
         )
 
-        # Collect training replies and (opt.) optimizer auxiliary variables.
+        # Collect replies
         analytics_replies = fa_job.execute()
 
         return analytics_replies
+
+    def basic_stats(
+        self, dataset_args: dict = None, fa_args: dict = None
+    ) -> Union[Any, Dict[str, Any]]:
+        """Returns a dict containing the basic analytics for each node (min, max, count, mean, std)."""
+        return self._compute_analytics(
+            AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
+        )
+
+    def min_max(
+        self, dataset_args: dict = None, fa_args: dict = None
+    ) -> Union[Any, Dict[str, Any]]:
+        """Returns a dict containing min and max for each node."""
+        return self._compute_analytics(
+            AnalyticsTypes.MIN_MAX.value, dataset_args, fa_args
+        )
+
+    def mean(
+        self, dataset_args: dict = None, fa_args: dict = None
+    ) -> Union[Any, Dict[str, Any]]:
+        """Returns a dict containing min and max for each node."""
+        return self._compute_analytics(AnalyticsTypes.MEAN.value, dataset_args, fa_args)

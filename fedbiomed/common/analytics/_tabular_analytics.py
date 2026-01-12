@@ -10,119 +10,74 @@ from ._analytics_strategy import AnalyticsStrategy
 class TabularAnalytics(AnalyticsStrategy):
     """Mixin class for computing analytics on tabular datasets"""
 
-    def mean(self, **kwargs) -> Dict:
-        """Calculate mean of features across the dataset. Only considers numeric columns.
-        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
+    def basic_stats(self, only_min_max: bool = False) -> Dict:
+        """Calculate statistics across the dataset.
+
+        Args:
+            only_min_max: If True, only calculate min and max. If False, calculate min, max, count, mean, std.
 
         Returns:
-            Dictionary by column names with their respective calculated value.
-        """
-        data_sum = None
-        count = None
-
-        # Iterate through dataset to accumulate
-        for data, _ in self:
-            if data_sum is None:
-                # Initialize accumulators on first iteration
-                data_sum = np.zeros_like(data, dtype=float)
-                count = np.zeros_like(data, dtype=int)
-
-            mask = [isinstance(val, (int, float)) and np.isfinite(val) for val in data]
-            data_sum[mask] += data[mask].astype(float)
-            count[mask] += 1
-
-        # Calculate means by dividing by count
-        data_mean = np.divide(
-            data_sum, count, out=np.full_like(data_sum, np.nan), where=count != 0
-        )
-
-        # Build result dict by column names
-        return {col: data_mean[i] for i, col in enumerate(self._input_columns)}
-
-    def max(self, **kwargs) -> Dict:
-        """Calculate max of features across the dataset. Only considers numeric columns.
-        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
-
-        Returns:
-            Dictionary by column names with their respective calculated value.
-        """
-        data_max = None
-
-        # Iterate through dataset to accumulate
-        for data, _ in self:
-            if data_max is None:
-                # Initialize accumulators on first iteration
-                data_max = np.full_like(data, -np.inf, dtype=float)
-
-            mask = [isinstance(val, (int, float)) and np.isfinite(val) for val in data]
-            data_max[mask] = np.maximum(data_max[mask], data[mask].astype(float))
-
-        # Build result dict by column names
-        return {col: data_max[i] for i, col in enumerate(self._input_columns)}
-
-    def min(self, **kwargs) -> Dict:
-        """Calculate min of features across the dataset. Only considers numeric columns.
-        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
-
-        Returns:
-            Dictionary by column names with their respective calculated value.
+            Dictionary with structure: {variable_name: {statistic_name: value}}
         """
         data_min = None
-
-        # Iterate through dataset to accumulate
-        for data, _ in self:
-            if data_min is None:
-                # Initialize accumulators on first iteration
-                data_min = np.full_like(data, np.inf, dtype=float)
-
-            mask = [isinstance(val, (int, float)) and np.isfinite(val) for val in data]
-            data_min[mask] = np.minimum(data_min[mask], data[mask].astype(float))
-
-        # Build result dict by column names
-        return {col: data_min[i] for i, col in enumerate(self._input_columns)}
-
-    def variance(self, **kwargs) -> Dict:
-        """Calculate variance of features across the dataset. Only considers numeric columns.
-        Uses Welford's online algorithm for numerical stability and single-pass efficiency.
-        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
-
-        Returns:
-            Dictionary by column names with their respective calculated value.
-        """
+        data_max = None
+        count = None
         mean = None
         m2 = None
-        count = None
 
-        # Welford's online algorithm for variance in a single pass
         for data, _ in self:
-            if mean is None:
-                # Initialize accumulators on first iteration
-                mean = np.zeros_like(data, dtype=float)
-                m2 = np.zeros_like(data, dtype=float)
-                count = np.zeros_like(data, dtype=int)
+            # Mask generation handles mixed types or NaNs
+            mask = [
+                isinstance(val, (int, float, np.number)) and np.isfinite(val)
+                for val in data
+            ]
+            masked_data = data[mask].astype(float)
 
-            mask = [isinstance(val, (int, float)) and np.isfinite(val) for val in data]
-            data_float = data[mask].astype(float)
-            count[mask] += 1
-            delta = data_float - mean[mask]
-            mean[mask] += delta / count[mask]
-            delta2 = data_float - mean[mask]
-            m2[mask] += delta * delta2
+            # Initialize accumulators on first presence of data (assuming consistent shape)
+            if data_min is None:
+                data_min = np.full_like(data, np.inf, dtype=float)
+                data_max = np.full_like(data, -np.inf, dtype=float)
+                if not only_min_max:
+                    count = np.zeros_like(data, dtype=int)
+                    mean = np.zeros_like(data, dtype=float)
+                    m2 = np.zeros_like(data, dtype=float)
 
-        # Calculate variance, using nan for zero counts
-        data_variance = np.divide(
-            m2, count, out=np.full_like(m2, np.nan), where=count != 0
-        )
+            # Update min/max
+            data_min[mask] = np.minimum(data_min[mask], masked_data)
+            data_max[mask] = np.maximum(data_max[mask], masked_data)
+            if not only_min_max:
+                count[mask] += 1
+                # Welford's online algorithm for mean/variance
+                delta = masked_data - mean[mask]
+                mean[mask] += delta / count[mask]
+                delta2 = masked_data - mean[mask]
+                m2[mask] += delta * delta2
 
-        # Build result dict by column names
-        return {col: data_variance[i] for i, col in enumerate(self._input_columns)}
+        # Prepare final values
+        results = {}
 
-    def std(self, **kwargs) -> Dict:
-        """Calculate std of features across the dataset. Only considers numeric columns.
-        Iterates through dataset items (tuples of `data:np.ndarrays` and `target=None`).
+        if data_min is None:  # No data processed
+            return results
 
-        Returns:
-            Dictionary by column names with their respective calculated value.
-        """
-        # Build result dict by column names from variance function
-        return {col: np.sqrt(val) for col, val in self.variance().items()}
+        for i, col in enumerate(self._input_columns):
+            stats = {
+                "min": data_min[i] if np.isfinite(data_min[i]) else np.nan,
+                "max": data_max[i] if np.isfinite(data_max[i]) else np.nan,
+            }
+            if not only_min_max:
+                stats["count"] = count[i] if count[i] > 0 else np.nan
+                stats["mean"] = mean[i] if count[i] > 0 else np.nan
+                stats["std"] = np.sqrt(m2[i] / count[i]) if count[i] > 0 else np.nan
+
+            results[col] = stats
+
+        return results
+
+    def min_max(self) -> Dict:
+        """Returns min and max across the dataset."""
+        return self.basic_stats(only_min_max=True)
+
+    def mean(self) -> Dict:
+        """Returns mean across the dataset."""
+        stats = self.basic_stats()
+        return {col: stat["mean"] for col, stat in stats.items()}
