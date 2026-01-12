@@ -17,6 +17,7 @@ from fedbiomed.common.message import (
     Message,
     PingReply,
     PingRequest,
+    PreprocRequest,
     SearchRequest,
     SecaggDeleteRequest,
     SecaggRequest,
@@ -85,6 +86,17 @@ class TestNode(unittest.TestCase):
         analytics_type=AnalyticsTypes.MEAN.value,
         fa_args={},
         dataset_args={"col_names": ["age", "weight"]},  # Example dataset arguments
+    )
+
+    preproc_request = PreprocRequest(
+        researcher_id="researcher-id_123",
+        experiment_id="experiment-id_456",
+        dataset_id="dataset-id_789",
+        preproc_id="preproc-id_abc",
+        preproc_type=1,
+        preproc_step=5,
+        preproc_args={"dummy_arg": 42},
+        state_id="my_state_id_xyz",
     )
 
     @classmethod
@@ -603,6 +615,25 @@ class TestNode(unittest.TestCase):
 
         # Mock FAJob run method
         mock_job_instance = mock_fa_job.return_value
+        mock_job_instance.run.return_value = MagicMock()
+
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+
+        mock_job_instance.run.assert_called_once()
+        self.grpc_send_mock.assert_called_once()
+
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
+    @patch("fedbiomed.node.node.PreprocJob")
+    def test_node_task_manager_preproc_request(
+        self, mock_preproc_job, mock_task_done, mock_get
+    ):
+        """Tests `task_manager` with PreprocRequest"""
+        mock_get.side_effect = [self.preproc_request, SystemExit]
+
+        # Mock PreprocJob run method
+        mock_job_instance = mock_preproc_job.return_value
         mock_job_instance.run.return_value = MagicMock()
 
         with self.assertRaises(SystemExit):

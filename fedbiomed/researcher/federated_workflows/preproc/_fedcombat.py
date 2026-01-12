@@ -10,8 +10,9 @@ from fedbiomed.common.constants import ErrorNumbers, HarmonizationStep, PreprocT
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.researcher.datasets import FederatedDataSet
-from fedbiomed.researcher.federated_workflows.jobs import PreprocRequestJob
 from fedbiomed.researcher.requests import Requests
+
+from ..jobs import PreprocRequestJob
 
 
 class FedCombatPreproc:
