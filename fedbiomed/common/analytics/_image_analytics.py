@@ -4,7 +4,6 @@
 from typing import Dict, Sequence, Union
 
 import numpy as np
-import torch
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
@@ -48,11 +47,11 @@ class ImageAnalytics(AnalyticsStrategy):
         # Validate bin_edges
         if bin_edges.ndim != 1 or bin_edges.size < 2:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: bin_edges must be a 1D array of length >= 2"
+                f"{ErrorNumbers.FB633.value}: bin_edges must be a 1D array of length >= 2"
             )
         if not np.all(np.diff(bin_edges) > 0):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: bin_edges must be strictly increasing"
+                f"{ErrorNumbers.FB633.value}: bin_edges must be strictly increasing"
             )
 
         # Initialize histogram counts
@@ -60,14 +59,9 @@ class ImageAnalytics(AnalyticsStrategy):
         counts = np.zeros(num_bins, dtype=np.int64)
 
         # Single pass through dataset
-        for idx in range(len(self)):
-            data, _ = self[idx]
-
-            # Convert to numpy array if necessary
-            if isinstance(data, torch.Tensor):
-                pixel_values = data.detach().cpu().numpy().flatten()
-            elif isinstance(data, np.ndarray):
-                pixel_values = data.flatten()
+        for data, _ in self:
+            # Flatten pixel values
+            pixel_values = data.flatten()
 
             # Convert to float for processing
             pixel_values = pixel_values.astype(np.float64)
@@ -94,24 +88,18 @@ class ImageAnalytics(AnalyticsStrategy):
         Raises:
             FedbiomedError: if dataset is empty
         """
+
+        # TODO: Check for min number of pixels on images.
         if len(self) == 0:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Cannot calculate minmax of an empty dataset."
+                f"{ErrorNumbers.FB633.value}: Cannot calculate minmax of an empty dataset."
             )
 
         pixel_min = float("inf")
         pixel_max = float("-inf")
 
-        for idx in range(len(self)):
-            data, _ = self[idx]
-
-            # Convert to numpy array if necessary
-            if isinstance(data, torch.Tensor):
-                pixel_values = data.detach().cpu().numpy().flatten()
-            elif isinstance(data, np.ndarray):
-                pixel_values = data.flatten()
-            else:
-                pixel_values = np.array(data).flatten()
+        for data, _ in self:
+            pixel_values = data.flatten()
 
             pixel_values = pixel_values.astype(np.float64)
 
@@ -123,8 +111,8 @@ class ImageAnalytics(AnalyticsStrategy):
 
         return {
             "pixel_values": (
-                pixel_min if pixel_min != float("inf") else None,
-                pixel_max if pixel_max != float("-inf") else None,
+                pixel_min if pixel_min != float("inf") else np.nan,
+                pixel_max if pixel_max != float("-inf") else np.nan,
             )
         }
 
