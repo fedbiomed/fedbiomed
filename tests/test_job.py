@@ -6,8 +6,17 @@ from unittest.mock import MagicMock, call, create_autospec, patch
 
 from testsupport.fake_training_plan import FakeTorchTrainingPlan
 
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.message import ErrorMessage, TrainingPlanStatusReply, TrainReply
+from fedbiomed.common.constants import (
+    HarmonizationStep,
+    PreprocType,
+    TrainingPlanApprovalStatus,
+)
+from fedbiomed.common.message import (
+    ErrorMessage,
+    PreprocReply,
+    TrainingPlanStatusReply,
+    TrainReply,
+)
 from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
@@ -15,6 +24,7 @@ from fedbiomed.researcher.config import config
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import (
     Job,
+    PreprocRequestJob,
     TrainingJob,
     TrainingPlanApproveJob,
     TrainingPlanCheckJob,
@@ -638,6 +648,138 @@ class TestJob(unittest.TestCase):
         patch_encrypted_auxvar_from_dict.assert_has_calls(
             [call(reply_1["optim_aux_var"]), call(reply_2["optim_aux_var"])]
         )
+
+    def test_job_07_preproc_request_job_success(self):
+        """PreprocRequestJob execute success case"""
+
+        # 1.prepare
+
+        self.fds.data = MagicMock(
+            return_value={
+                "alice": {"dataset_id": "alice_data"},
+                "bob": {"dataset_id": "bob_data"},
+            }
+        )
+
+        _researcher_id = "researcher_123"
+        _experiment_id = "experiment_123"
+
+        errors = {}
+        self.federated_request_mock.errors.return_value = errors
+        replies = {
+            "alice": PreprocReply(
+                **{
+                    "researcher_id": _researcher_id,
+                    "experiment_id": _experiment_id,
+                    "node_id": "alice",
+                    "node_name": "alice-name",
+                    "msg": "any dummy message from alice",
+                    "preproc_output": {"a": 1},
+                    "state_id": "state_alice_new",
+                }
+            ),
+            "bob": PreprocReply(
+                **{
+                    "researcher_id": _researcher_id,
+                    "experiment_id": _experiment_id,
+                    "node_id": "bob",
+                    "node_name": "bob-name",
+                    "msg": "any dummy message from bob",
+                    "preproc_output": {"b": 2},
+                    "state_id": "state_bob_new",
+                }
+            ),
+        }
+        self.federated_request_mock.replies.return_value = replies
+
+        # 2. test
+
+        preproc_request_job = PreprocRequestJob(
+            researcher_id=_researcher_id,
+            requests=self.request_mock,
+            nodes=["alice", "bob"],
+            experiment_id="experiment_123",
+            preproc_type=PreprocType.FEDCOMBAT,
+            preproc_step=HarmonizationStep.STEP2,
+            preproc_id="preproc_123",
+            federated_dataset=self.fds,
+            preproc_args={"a": 1},
+            state_id={"alice": "state_alice"},
+        )
+
+        job_replies = preproc_request_job.execute()
+
+        # 3. check
+
+        self.request_mock.send.assert_called_once()
+        self.assertDictEqual(job_replies, replies)
+        self.federated_request_mock.errors.assert_called_once()
+        self.federated_request_mock.errors.assert_return_value = errors
+        self.federated_request_mock.reset_mock()
+
+    def test_job_08_preproc_request_job_failure(self):
+        """PreprocRequestJob execute failure case"""
+
+        # 1.prepare
+
+        self.fds.data = MagicMock(
+            return_value={
+                "alice": {"dataset_id": "alice_data"},
+                "bob": {"dataset_id": "bob_data"},
+            }
+        )
+
+        _researcher_id = "researcher_123"
+        _experiment_id = "experiment_123"
+
+        replies = {}
+        errors = {
+            "alice": ErrorMessage(
+                **{
+                    "researcher_id": _researcher_id,
+                    "node_id": "alice",
+                    "node_name": "alice-name",
+                    "errnum": "dummy error num alice",
+                    "extra_msg": "dummy extra msg alice",
+                }
+            ),
+            "bob": ErrorMessage(
+                **{
+                    "researcher_id": _researcher_id,
+                    "node_id": "bob",
+                    "node_name": "bob-name",
+                    "errnum": "dummy error num bob",
+                    "extra_msg": "dummy extra msg bob",
+                }
+            ),
+        }
+        self.federated_request_mock.errors.return_value = errors
+        self.federated_request_mock.replies.return_value = replies
+
+        # 2. test
+
+        preproc_request_job = PreprocRequestJob(
+            researcher_id=_researcher_id,
+            requests=self.request_mock,
+            nodes=["alice", "bob"],
+            experiment_id="experiment_123",
+            preproc_type=PreprocType.FEDCOMBAT,
+            preproc_step=HarmonizationStep.STEP2,
+            preproc_id="preproc_123",
+            federated_dataset=self.fds,
+            preproc_args={"a": 1},
+            state_id={"alice": "state_alice"},
+        )
+
+        job_replies = preproc_request_job.execute()
+
+        # 3. check
+
+        self.request_mock.send.assert_called_once()
+        self.assertDictEqual(job_replies, {})
+        self.federated_request_mock.errors.assert_called_once()
+        self.federated_request_mock.errors.assert_return_value = errors
+        self.federated_request_mock.reset_mock()
 
     def _get_train_request(self, mock_tp, secagg_arguments, node_id, state_ids, data):
         return {

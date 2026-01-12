@@ -44,7 +44,6 @@ from fedbiomed.researcher.filetools import (
     find_breakpoint_path,
 )
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
-from fedbiomed.researcher.preproc import FedCombatPreproc
 from fedbiomed.researcher.requests import Requests
 
 # need to import JoyeLibertSecureAggregation, LomSecureAggregation - used for load_breakpoint()
@@ -53,6 +52,7 @@ from fedbiomed.researcher.secagg import (
 )
 
 from ._federated_analytics import FederatedAnalytics
+from .preproc import FedCombatPreproc
 
 TFederatedWorkflow = TypeVar(
     "TFederatedWorkflow", bound="FederatedWorkflow"
