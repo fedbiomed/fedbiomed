@@ -198,10 +198,6 @@ class TabularAnalytics(AnalyticsStrategy):
             FedbiomedError: if q values are not in [0, 1]
         """
 
-        # If bin_edges is a dict, extract the single array
-        if isinstance(bin_edges, dict):
-            bin_edges = next(iter(bin_edges.values()))
-
         # Normalize q to array
         q_arr = np.atleast_1d(q)
 
@@ -217,22 +213,21 @@ class TabularAnalytics(AnalyticsStrategy):
         result = {}
 
         # Process each column
-        for col in self._input_columns:
+        for col_idx, col in enumerate(self._input_columns):
             counts = counts_dict[col]
 
-            # Determine bin_edges for this column
             if isinstance(bin_edges, dict):
-                col_idx = (
-                    self._input_columns.index(col)
-                    if isinstance(self._input_columns, list)
-                    else list(self._input_columns).index(col)
-                )
-                edges = bin_edges.get(col) or bin_edges.get(col_idx)
-                if edges is None:
+                # Try to get edges by column name first, then by index
+                if col in bin_edges:
+                    edges = bin_edges[col]
+                elif col_idx in bin_edges:
+                    edges = bin_edges[col_idx]
+                else:
                     raise FedbiomedError(
-                        f"{ErrorNumbers.FB633.value}: Column '{col}' not found in bin_edges dict"
+                        f"{ErrorNumbers.FB633.value}: Column '{col}' (index {col_idx}) not found in bin_edges dict"
                     )
             else:
+                logger.debug(f"Using global bin edges for column: {col}")
                 edges = bin_edges
 
             # Compute cumulative distribution
