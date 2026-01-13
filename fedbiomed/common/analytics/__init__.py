@@ -5,6 +5,7 @@
 Classes that simplify imports from fedbiomed.common.analytics
 """
 
+from ._analytics_result import AnalyticsResult
 from ._analytics_strategy import (
     AnalyticsStrategy,
     DatasetArgumentsFA,
@@ -16,6 +17,7 @@ from ._tabular_analytics import TabularAnalytics
 __all__ = [
     "DatasetArgumentsFA",
     "AnalyticsStrategy",
+    "AnalyticsResult",
     "ImageAnalytics",
     "TabularAnalytics",
     "validate_dataset_arguments_for_fa",
