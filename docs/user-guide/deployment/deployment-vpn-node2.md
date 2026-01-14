@@ -54,11 +54,25 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
     [user@node $] cp /tmp/config2.env ./node2/run_mounts/config/config.env
     ```
 
+* **optionally** allow to apply pre-processing to the datasets on the node (original dataset is not modified). Warning: make sure it is coherent with your site security requirements !
+
+    ```bash
+    [user@node $] export FBM_SECURITY_ALLOW_PREPROC=True
+    ```
+
 * **optionally** force the use of secure aggregation by the node (node will refuse to train without the use of secure aggregation):
 
     ```bash
     [user@node $] export FBM_SECURITY_FORCE_SECURE_AGGREGATION=True
     ```
+
+* **optionally** allow all training plans to execute without node side approval (warning: be sure this is coherent with your site security requirements !), or allow the pre-defined training plans to execute without approval:
+
+    ```bash
+    [user@node $] export FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True
+    [user@node $] export FBM_SECURITY_TRAINING_PLAN_APPROVAL=False
+    ```
+
 
 * start `node2` container
 

@@ -7,8 +7,7 @@
 # need to exist for *all* containers every time we run a `docker compose` command
 # thus we would have to copy file trees for vpnserver, researcher, etc. when only
 # running a node
-x-node:
-  &standard-node
+x-node: &standard-node
   container_name: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   hostname: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
@@ -24,6 +23,7 @@ x-node:
     - FBM_SECURITY_FORCE_SECURE_AGGREGATION
     - FBM_SECURITY_TRAINING_PLAN_APPROVAL
     - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    - FBM_SECURITY_ALLOW_PREPROC
   cap_add:
     - net_admin
     - sys_module
@@ -35,15 +35,14 @@ x-node:
 
 #
 # optionally launch a second node instance on the same machine
-x-node2:
-  &standard-node2
+x-node2: &standard-node2
   container_name: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   hostname: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
   networks:
     - fedbiomed_node2
   environment:
-  # enable overloading build-time id with a run-time id
+    # enable overloading build-time id with a run-time id
     - CONTAINER_UID
     - CONTAINER_GID
     - CONTAINER_USER
@@ -52,6 +51,7 @@ x-node2:
     - FBM_SECURITY_FORCE_SECURE_AGGREGATION
     - FBM_SECURITY_TRAINING_PLAN_APPROVAL
     - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    - FBM_SECURITY_ALLOW_PREPROC
   cap_add:
     - net_admin
     - sys_module
@@ -64,19 +64,19 @@ x-node2:
 services:
   # not using gpu
   node:
-    << : *standard-node
+    <<: *standard-node
   # using gpu (need image with gpu support)
   node-gpu:
-    << : *standard-node
+    <<: *standard-node
     runtime: nvidia
   #
   # optionally launch a second node instance
   # not using gpu
   node2:
-    << : *standard-node2
+    <<: *standard-node2
   # using gpu (need image with gpu support)
   node2-gpu:
-    << : *standard-node2
+    <<: *standard-node2
     runtime: nvidia
 
   #
@@ -114,7 +114,7 @@ services:
     networks:
       - fedbiomed_gui2
     environment:
-    # enable overloading build-time id with a run-time id
+      # enable overloading build-time id with a run-time id
       - SSL_ON=true
       - GUI_SERVER_NAME
       - NGINX_PORT_SSL=8444

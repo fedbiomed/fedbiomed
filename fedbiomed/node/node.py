@@ -471,6 +471,9 @@ class Node:
                             node_id=self._node_id,
                             node_name=self._node_name,
                             request=item,
+                            allow_preproc=self.config.getbool(
+                                "security", "allow_preproc"
+                            ),
                         )
                         response = preproc_job.run()
                         self._grpc_client.send(response)

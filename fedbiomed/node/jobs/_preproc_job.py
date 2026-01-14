@@ -24,6 +24,7 @@ class PreprocJob(_BaseJob):
         node_id: str,
         node_name: str,
         request: PreprocRequest,
+        allow_preproc: bool,
     ) -> None:
         """Constructor of the class
 
@@ -42,6 +43,7 @@ class PreprocJob(_BaseJob):
         self._preproc_id = request.preproc_id
         self._preproc_args_raw = request.preproc_args
         self._state_id = request.state_id
+        self._allow_preproc = allow_preproc
 
     def _build_args_for_dataset(self, dataset_entry):
         pass
@@ -52,6 +54,12 @@ class PreprocJob(_BaseJob):
         Returns:
             PreprocReply message if successful, ErrorMessage otherwise.
         """
+        if not self._allow_preproc:
+            return self._build_error_msg(
+                "Preprocessing is not allowed on this node by node configuration.",
+                errnum=ErrorNumbers.FB326.value,
+            )
+
         # Further check message parameters if needed
         try:
             self._preproc_type = PreprocType(self._preproc_type_raw)
