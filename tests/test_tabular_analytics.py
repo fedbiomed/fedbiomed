@@ -77,14 +77,14 @@ def test_tabular_analytics_mean_simple(dataset):
 # ==================== MINMAX TESTS ====================
 
 
-def test_tabular_analytics_minmax_simple(dataset):
-    """Test minmax calculation"""
-    result = dataset.minmax()
+def test_tabular_analytics_min_max_simple(dataset):
+    """Test min_max calculation"""
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
-    assert result["col1"] == (1.0, 7.0)
-    assert result["col2"] == (2.0, 8.0)
-    assert result["col3"] == (3.0, 9.0)
+    assert result["col1"] == {"min": 1.0, "max": 7.0}
+    assert result["col2"] == {"min": 2.0, "max": 8.0}
+    assert result["col3"] == {"min": 3.0, "max": 9.0}
 
 
 # ==================== HISTOGRAM TESTS ====================

@@ -39,9 +39,9 @@ def dataset():
 # ==================== MINMAX TESTS ====================
 
 
-def test_image_analytics_minmax(dataset):
+def test_image_analytics_min_max(dataset):
     """Test minmax calculation"""
-    result = dataset.minmax()
+    result = dataset.min_max()
 
     assert isinstance(result, dict)
     assert "pixel_values" in result
@@ -88,7 +88,7 @@ def test_image_analytics_histogram_non_increasing_edges(dataset):
 def test_image_analytics_quantile_single(dataset):
     """Test quantile with single quantile value"""
     bin_edges = np.array([20, 40, 60, 80, 100])
-    result = dataset.quantile(bin_edges, q=0.5)
+    result = dataset.quantile(bin_edges, q=0.5)["pixel_values"]
 
     assert isinstance(result, dict)
     assert 0.5 in result
@@ -99,7 +99,7 @@ def test_image_analytics_quantile_single(dataset):
 def test_image_analytics_quantile_multiple(dataset):
     """Test quantile with multiple quantile values"""
     bin_edges = np.array([20, 40, 60, 80, 100])
-    result = dataset.quantile(bin_edges, q=[0.25, 0.5, 0.75])
+    result = dataset.quantile(bin_edges, q=[0.25, 0.5, 0.75])["pixel_values"]
 
     assert isinstance(result, dict)
     assert 0.25 in result
