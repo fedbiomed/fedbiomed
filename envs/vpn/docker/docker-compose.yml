@@ -1,7 +1,6 @@
 #
 # node component template
-x-node:
-  &standard-node
+x-node: &standard-node
   container_name: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   hostname: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   build:
@@ -17,7 +16,7 @@ x-node:
   networks:
     - fedbiomed_node
   environment:
-  # enable overloading build-time id with a run-time id
+    # enable overloading build-time id with a run-time id
     - CONTAINER_UID
     - CONTAINER_GID
     - CONTAINER_USER
@@ -26,6 +25,7 @@ x-node:
     - FBM_SECURITY_FORCE_SECURE_AGGREGATION
     - FBM_SECURITY_TRAINING_PLAN_APPROVAL
     - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    - FBM_SECURITY_ALLOW_PREPROC
   cap_add:
     - net_admin
     - sys_module
@@ -36,8 +36,7 @@ x-node:
     - ./node/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
 #
 # optionally launch a second node instance on the same machine
-x-node2:
-  &standard-node2
+x-node2: &standard-node2
   container_name: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   hostname: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}
   # dont build images as they are the same as for `node`
@@ -48,7 +47,7 @@ x-node2:
   networks:
     - fedbiomed_node2
   environment:
-  # enable overloading build-time id with a run-time id
+    # enable overloading build-time id with a run-time id
     - CONTAINER_UID
     - CONTAINER_GID
     - CONTAINER_USER
@@ -57,6 +56,7 @@ x-node2:
     - FBM_SECURITY_FORCE_SECURE_AGGREGATION
     - FBM_SECURITY_TRAINING_PLAN_APPROVAL
     - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
+    - FBM_SECURITY_ALLOW_PREPROC
   cap_add:
     - net_admin
     - sys_module
@@ -124,7 +124,7 @@ services:
     networks:
       - fedbiomed_vpnserver
     environment:
-    # enable overloading build-time id with a run-time id
+      # enable overloading build-time id with a run-time id
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
@@ -143,10 +143,10 @@ services:
   # node component
   # not using gpu
   node:
-    << : *standard-node
+    <<: *standard-node
   # using gpu (need image with gpu support)
   node-gpu:
-    << : *standard-node
+    <<: *standard-node
     runtime: nvidia
     #
     ## alternate syntax from the `Compose` specification, needs both
@@ -164,10 +164,10 @@ services:
   # optionally launch a second node instance
   # not using gpu
   node2:
-    << : *standard-node2
+    <<: *standard-node2
   # using gpu (need image with gpu support)
   node2-gpu:
-    << : *standard-node2
+    <<: *standard-node2
     runtime: nvidia
 
   #
@@ -188,7 +188,7 @@ services:
     networks:
       - fedbiomed_gui
     environment:
-    # enable overloading build-time id with a run-time id
+      # enable overloading build-time id with a run-time id
       - SSL_ON=true
       - GUI_SERVER_NAME
       - NGINX_PORT_SSL=8443
@@ -217,7 +217,7 @@ services:
     networks:
       - fedbiomed_gui2
     environment:
-    # enable overloading build-time id with a run-time id
+      # enable overloading build-time id with a run-time id
       - SSL_ON=true
       - GUI_SERVER_NAME
       - NGINX_PORT_SSL=8444
@@ -233,7 +233,7 @@ services:
       # caution: /fbm-node directory must be shared with node
       - ./gui2/run_mounts/certs:/certs
       - ./node2/run_mounts/fbm-node:/fbm-node # contains fedbiomed component configuration and data
-#
+  #
   # researcher component
   researcher:
     container_name: fedbiomed-vpn-researcher-${FBM_CONTAINER_INSTANCE_ID:-unknown}
@@ -251,7 +251,7 @@ services:
     networks:
       - fedbiomed_researcher
     environment:
-    # enable overloading build-time id with a run-time id
+      # enable overloading build-time id with a run-time id
       - CONTAINER_UID
       - CONTAINER_GID
       - CONTAINER_USER
