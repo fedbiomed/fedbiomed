@@ -5,10 +5,15 @@ from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_researcher_secagg import FakeSecAgg
 
 import fedbiomed
-from fedbiomed.common.constants import SecureAggregationSchemes, __breakpoints_version__
+from fedbiomed.common.constants import (
+    PreprocType,
+    SecureAggregationSchemes,
+    __breakpoints_version__,
+)
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
+from fedbiomed.researcher.federated_workflows.preproc import FedCombatPreproc
 from fedbiomed.researcher.secagg import SecureAggregation
 
 
@@ -192,7 +197,6 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
                 exp.config.vars["EXPERIMENTS_DIR"]
             )
             self.assertIsNotNone(exp.experimentation_folder())
-            old_folder = exp.experimentation_folder()
             mock_exp_folder_creat.reset_mock()
             exp.set_experimentation_folder("new-name")
             mock_exp_folder_creat.assert_called_once_with(
@@ -202,7 +206,22 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             mock_exp_folder_creat.side_effect = lambda x: x
             # Invalid argument type
             with self.assertRaises(SystemExit):
-                result = exp.set_experimentation_folder(15)
+                exp.set_experimentation_folder(15)
+
+    def test_federated_workflow_06_set_preprocessing(self):
+        exp = FederatedWorkflow()
+        preproc_args = {"arg1": "value1", "arg2": 2}
+        exp.set_preprocessing(PreprocType.FEDCOMBAT, preproc_args)
+        self.assertTrue(isinstance(exp.preprocessing(), FedCombatPreproc))
+        self.assertEqual(exp.preprocessing()._preproc_args, preproc_args)
+
+        # Invalid type
+        with self.assertRaises(SystemExit):
+            exp.set_preprocessing("invalid-type", preproc_args)
+
+        # Invalid args
+        with self.assertRaises(SystemExit):
+            exp.set_preprocessing(PreprocType.FEDCOMBAT, "invalid-args")
 
     def test_federated_workflow_07_set_secagg(self):
         exp = FederatedWorkflow()
@@ -351,7 +370,10 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         return_value=("/bkpt-path", "bkpt-folder"),
     )
     def test_federated_workflow_10_breakpoint(
-        self, mock_bkpt_file, mock_json_dump, mock_open
+        self,
+        mock_bkpt_file,
+        mock_json_dump,
+        mock_open,
     ):
         # define attributes that will be saved in breakpoint
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
@@ -372,10 +394,40 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
                 "nodes": exp.nodes(),
                 "secagg": exp.secagg.save_state_breakpoint(),
                 "node_state": exp._node_state_agent.save_state_breakpoint(),
+                "preprocessing": None,
             },
             mock_open.return_value.__enter__.return_value,
         )
 
+        # 2. Test with preprocessing
+        preproc_args = {"some": "args"}
+        exp.set_preprocessing(PreprocType.FEDCOMBAT, preproc_args)
+        exp.breakpoint(state={}, bkpt_number=1)
+        mock_json_dump.assert_called_with(
+            {
+                "id": exp.id,
+                "breakpoint_version": str(__breakpoints_version__),
+                "training_data": {"training": {"data": "data"}},
+                "experimentation_folder": exp.experimentation_folder(),
+                "tags": exp.tags(),
+                "nodes": exp.nodes(),
+                "secagg": exp.secagg.save_state_breakpoint(),
+                "node_state": exp._node_state_agent.save_state_breakpoint(),
+                "preprocessing": {
+                    "arguments": {
+                        "preproc_args": preproc_args,
+                    },
+                    "attributes": {
+                        "_preproc_id": exp.preprocessing()._preproc_id,
+                        "_do_harmonization": exp.preprocessing()._do_harmonization,
+                        "_harmonized_datasets": exp.preprocessing()._harmonized_datasets,
+                    },
+                },
+            },
+            mock_open.return_value.__enter__.return_value,
+        )
+
+        # 3. Test error case: if open raises an exception
         mock_open.side_effect = OSError
 
         with self.assertRaises(SystemExit):
@@ -405,7 +457,8 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         mock_node_state_load.return_value = MagicMock(
             spec=fedbiomed.researcher.node_state_agent.NodeStateAgent
         )
-        mock_json_load.return_value = {
+
+        breakpoint_json = {
             "id": "exp-id",
             "breakpoint_version": str(__breakpoints_version__),
             "training_data": {"node1": [{"training": "data", "tags": "some-tags"}]},
@@ -431,8 +484,9 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
                 },
             },
             "node_state": {"node_state": "bkpt"},
-            "downstream": "bkpt",
+            "preprocessing": None,
         }
+        mock_json_load.return_value = breakpoint_json
 
         exp, saved_state = FederatedWorkflow.load_breakpoint()
 
@@ -453,9 +507,28 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertEqual(saved_state["secagg"]["class"], "SecureAggregation")
         self.assertDictEqual(saved_state["node_state"], {"node_state": "bkpt"})
         self.assertEqual(exp.secagg.scheme, SecureAggregationSchemes.LOM)
-        self.assertEqual(saved_state["downstream"], "bkpt")
 
-        # Test error cases
+        # 2. Test with preprocessing
+        breakpoint_json["preprocessing"] = {
+            "arguments": {"preproc_args": {"some": "args"}},
+            "attributes": {
+                "_preproc_id": "preproc-id",
+                "_do_harmonization": True,
+                "_harmonized_datasets": {"node1": "dataset-id-1"},
+            },
+        }
+        mock_json_load.return_value = breakpoint_json
+
+        exp, saved_state = FederatedWorkflow.load_breakpoint()
+
+        self.assertIsNotNone(exp.preprocessing())
+        self.assertEqual(exp.preprocessing()._preproc_id, "preproc-id")
+        self.assertTrue(exp.preprocessing()._do_harmonization)
+        self.assertDictEqual(
+            exp.preprocessing()._harmonized_datasets, {"node1": "dataset-id-1"}
+        )
+
+        # 3. Test error cases
 
         # If open raises an exception
         mock_open.side_effect = OSError

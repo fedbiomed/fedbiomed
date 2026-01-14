@@ -21,6 +21,7 @@ from fedbiomed.common.constants import (
     EXPERIMENT_PREFIX,
     TENSORBOARD_FOLDER_NAME,
     ErrorNumbers,
+    PreprocType,
     SecureAggregationSchemes,
     __breakpoints_version__,
 )
@@ -37,9 +38,6 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 from fedbiomed.researcher.config import config
 from fedbiomed.researcher.datasets import FederatedDataset
-from fedbiomed.researcher.federated_workflows._federated_analytics import (
-    FederatedAnalytics,
-)
 from fedbiomed.researcher.filetools import (
     choose_bkpt_file,
     create_exp_folder,
@@ -52,6 +50,9 @@ from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.secagg import (
     SecureAggregation,
 )
+
+from ._federated_analytics import FederatedAnalytics
+from .preproc import FedCombatPreproc
 
 TFederatedWorkflow = TypeVar(
     "TFederatedWorkflow", bound="FederatedWorkflow"
@@ -250,6 +251,9 @@ class FederatedWorkflow(ABC):
             experimentation_folder=self._experimentation_folder,
         )
 
+        # no preprocessing by default
+        self.set_preprocessing(PreprocType.NONE)
+
     @property
     def requests(self) -> Requests:
         """Returns requests object"""
@@ -333,6 +337,15 @@ class FederatedWorkflow(ABC):
             Object that contains metadata for the datasets of each node. `None` if it isn't set yet.
         """
         return self._fds
+
+    @exp_exceptions
+    def preprocessing(self) -> Union[FedCombatPreproc, None]:
+        """Retrieves the object for the federated pre-processing associated to the experiment.
+
+        Returns:
+            Federated pre-processing object. `None` if it isn't set.
+        """
+        return self._fed_preproc
 
     @exp_exceptions
     def experimentation_folder(self) -> str:
@@ -667,6 +680,46 @@ class FederatedWorkflow(ABC):
         return self._fds
 
     @exp_exceptions
+    def set_preprocessing(
+        self, preproc_type: PreprocType, preproc_args: Optional[Dict] = None
+    ) -> Optional[FedCombatPreproc]:
+        """Sets preprocessing to be applied before training.
+
+        Args:
+            preproc_type: Type of preprocessing to apply
+            preproc_args: Arguments for the preprocessing
+        Returns:
+            Preprocessing object if `preproc_type` is not `PreprocType.NONE`, None otherwise
+        """
+        if not isinstance(preproc_type, PreprocType):
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB410.value} `preproc_type` has incorrect type: "
+                f"{type(preproc_type).__name__} but expected a PreprocType"
+            )
+
+        preproc_args = preproc_args or {}
+        if not isinstance(preproc_args, dict):
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB410.value} `preproc_args` has incorrect type: "
+                f"{type(preproc_args).__name__} but expected a dict"
+            )
+
+        if preproc_type == PreprocType.NONE:
+            self._fed_preproc = None
+        else:
+            self._fed_preproc = FedCombatPreproc(
+                self._fds,
+                self._experiment_id,
+                self._researcher_id,
+                self._reqs,
+                self.filtered_federation_nodes(),
+                self._experimentation_folder,
+                preproc_args,
+            )
+
+        return self._fed_preproc
+
+    @exp_exceptions
     def set_experimentation_folder(
         self, experimentation_folder: Optional[str] = None
     ) -> str:
@@ -829,6 +882,9 @@ class FederatedWorkflow(ABC):
                 "nodes": self._nodes_filter,
                 "secagg": self._secagg.save_state_breakpoint(),
                 "node_state": self._node_state_agent.save_state_breakpoint(),
+                "preprocessing": self._fed_preproc.save_state_breakpoint()
+                if self._fed_preproc
+                else None,
             }
         )
 
@@ -942,6 +998,22 @@ class FederatedWorkflow(ABC):
             saved_state.get("node_state")
         )
         loaded_exp.set_save_breakpoints(True)
+
+        preproc_state = saved_state.get("preprocessing")
+        if isinstance(preproc_state, dict):
+            preproc_state["arguments"].update(
+                {
+                    "fds": loaded_exp.training_data(),
+                    "experiment_id": loaded_exp.id,
+                    "researcher_id": loaded_exp.researcher_id,
+                    "reqs": loaded_exp.requests,
+                    "nodes": loaded_exp.filtered_federation_nodes(),
+                    "experimentation_folder": loaded_exp.experimentation_folder(),
+                }
+            )
+            loaded_exp._fed_preproc = FedCombatPreproc.load_state_breakpoint(
+                preproc_state
+            )
 
         return loaded_exp, saved_state
 

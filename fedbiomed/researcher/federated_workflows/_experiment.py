@@ -744,6 +744,10 @@ class Experiment(TrainingPlanWorkflow):
                 "`search_request` or sampling strategy returned an empty list."
             )
 
+        # Perform federated pre-processing if needed
+        if self._fed_preproc is not None:
+            self._fed_preproc.execute()
+
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup(training_nodes)
 

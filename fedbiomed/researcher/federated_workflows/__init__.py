@@ -11,5 +11,4 @@ __all__ = [
     "TrainingPlanWorkflow",
     "FederatedWorkflow",
     "FederatedAnalytics",
-    "FAResearcherJob",
 ]

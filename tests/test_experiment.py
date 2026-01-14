@@ -11,6 +11,7 @@ from testsupport.fake_training_plan import (
 )
 
 import fedbiomed
+from fedbiomed.common.constants import PreprocType
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers import AuxVar
@@ -276,6 +277,16 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertEqual(exp._round_limit, 3)
         # ------------------------------------------------------------
 
+        # Run once with preprocessing --------------------------------
+        _preproc = MagicMock(
+            spec=fedbiomed.researcher.federated_workflows.preproc.FedCombatPreproc
+        )
+        _preproc.execute.return_value = True
+        exp._fed_preproc = _preproc
+        exp.run_once(increase=True)
+        _preproc.execute.assert_called_once()
+        exp.set_preprocessing(PreprocType.NONE)
+
         # Run once with secure aggregation ----------------------------------------
         secagg = MagicMock(spec=_SecureAggregation, instance=True)
         type(secagg).active = True
@@ -312,12 +323,12 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertEqual(self.mock_job.return_value.execute.call_count, 2)
         # 4 replies also from previous executions
         self.assertEqual(
-            len(exp.training_replies()), 5
+            len(exp.training_replies()), 6
         )  # validation replies are not saved
         _strategy.refine.assert_called_once()
         _aggregator.aggregate.assert_called_once()
         exp.training_plan().set_model_params.assert_called_once()
-        self.assertEqual(exp.round_current(), 6)
+        self.assertEqual(exp.round_current(), 7)
         # ------------------------------------------------------------------------
 
     def test_experiment_05_run(self):

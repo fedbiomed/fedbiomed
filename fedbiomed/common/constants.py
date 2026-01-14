@@ -97,7 +97,7 @@ __researcher_config_version__ = FBM_Component_Version(
 __node_config_version__ = FBM_Component_Version("2")  # node config file version
 
 __node_state_version__ = FBM_Component_Version("2")  # node state version
-__breakpoints_version__ = FBM_Component_Version("3")  # breakpoints format version
+__breakpoints_version__ = FBM_Component_Version("4")  # breakpoints format version
 __messaging_protocol_version__ = FBM_Component_Version("7")  # format of gRPC messages.
 __secagg_element_version__ = FBM_Component_Version(
     "2"
@@ -319,7 +319,8 @@ class SecaggElementTypes(_BaseEnum):
 class PreprocType(_BaseEnum):
     """Enumeration class for dataset preprocessing types"""
 
-    FEDCOMBAT: int = 0
+    NONE: int = 0
+    FEDCOMBAT: int = 1
 
 
 class PreprocStep(_BaseEnum):
@@ -394,6 +395,7 @@ class ErrorNumbers(_BaseEnum):
     FB416 = "FB416: federated dataset error"
     FB417 = "FB417: secure aggregation error"
     FB419 = "FB419: node state agent error"
+    FB420 = "FB420: preprocessing error"
 
     # general application errors (common to node/researcher/..)
 

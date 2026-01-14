@@ -79,13 +79,13 @@ def test_build_args_for_dataset(preproc_job_args):
 def test_run_success(monkeypatch, preproc_request, preproc_job_args):
     """Test successful run of PreprocJob."""
 
-    # Patch PreprocType and PreprocStep to simple callables returning objects with .name
+    # Patch PreprocType and HarmonizationStep to simple callables returning objects with .name
     class Dummy:
         def __init__(self, v):
             self.name = v
 
     monkeypatch.setattr(_preproc_job, "PreprocType", Dummy)
-    monkeypatch.setattr(_preproc_job, "PreprocStep", Dummy)
+    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
 
     job = PreprocJob(**preproc_job_args)
     reply = job.run()
@@ -115,7 +115,7 @@ def test_run_invalid_preproc_type(monkeypatch, preproc_job_args):
             self.name = v
 
     monkeypatch.setattr(_preproc_job, "PreprocType", bad_type)
-    monkeypatch.setattr(_preproc_job, "PreprocStep", Dummy)
+    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
 
     job = PreprocJob(**preproc_job_args)
     result = job.run()
@@ -128,7 +128,7 @@ def test_run_invalid_preproc_type(monkeypatch, preproc_job_args):
 def test_run_invalid_preproc_step(monkeypatch, preproc_job_args):
     """Test run of PreprocJob with invalid preproc_step."""
 
-    # PreprocType ok, PreprocStep bad
+    # PreprocType ok, HarmonizationStep bad
     class DummyType:
         def __init__(self, v):
             self.name = v
@@ -137,7 +137,7 @@ def test_run_invalid_preproc_step(monkeypatch, preproc_job_args):
         raise ValueError("bad step")
 
     monkeypatch.setattr(_preproc_job, "PreprocType", DummyType)
-    monkeypatch.setattr(_preproc_job, "PreprocStep", bad_step)
+    monkeypatch.setattr(_preproc_job, "HarmonizationStep", bad_step)
 
     job = PreprocJob(**preproc_job_args)
     result = job.run()
@@ -159,7 +159,7 @@ def test_run_preprocreply_construction_failure(
             self.name = v
 
     monkeypatch.setattr(_preproc_job, "PreprocType", Dummy)
-    monkeypatch.setattr(_preproc_job, "PreprocStep", Dummy)
+    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
 
     def bad_reply(*args, **kwargs):
         raise RuntimeError("boom")
