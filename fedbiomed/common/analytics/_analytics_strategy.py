@@ -65,5 +65,5 @@ def validate_dataset_arguments_for_fa(
 
 class AnalyticsStrategy:
     @abstractmethod
-    def mean(self, **kwargs) -> Dict:
+    def basic_stats(self, **kwargs) -> Dict:
         pass
