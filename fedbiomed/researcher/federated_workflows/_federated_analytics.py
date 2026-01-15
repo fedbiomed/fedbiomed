@@ -2,20 +2,178 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import uuid
-from typing import Any, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 
 from fedbiomed.common.analytics import (
     validate_dataset_arguments_for_fa,
 )
+from fedbiomed.common.analytics._aggregators import (
+    aggregate_count,
+    aggregate_histogram,
+    aggregate_max,
+    aggregate_mean,
+    aggregate_min,
+    aggregate_std,
+)
 from fedbiomed.common.constants import AnalyticsTypes, DatasetTypes
 from fedbiomed.common.dataset import DATASET_CLASSES_PER_TYPE
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.message import FAReply
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
 from fedbiomed.researcher.requests import Requests
+
+
+class FAResult:
+    """Class to handle results from Federated Analytics.
+
+    This class wraps the results received from nodes and provides methods to
+    access them independently or to aggregate them.
+    """
+
+    _modalities: List[str] = None
+    _stat_names: List[str] = None
+
+    def __init__(
+        self,
+        replies: Dict[str, FAReply],
+        aggregators: Optional[Dict[str, Callable]] = None,
+    ) -> None:
+        """Constructor.
+
+        Args:
+            replies: A dictionary containing the analytics results from each node.
+            aggregator: A dictionary of functions to apply on the results for aggregation.
+        """
+        # Validate that we have replies
+        if not replies:
+            raise FedbiomedError("No replies provided to FAResult.")
+
+        # Validate reply structure and consistency
+        for node_id, reply in replies.items():
+            self._validate_reply(node_id, reply)
+
+        self._results = {node_id: reply.output for node_id, reply in replies.items()}
+
+        # Validate aggregators
+        self._validate_aggregators(aggregators)
+        self._aggregators = aggregators
+
+    def _validate_aggregators(self, aggregators: Optional[Dict[str, Callable]]) -> None:
+        """Validates the aggregators provided."""
+        if aggregators is None:
+            return
+        if not isinstance(aggregators, dict):
+            raise FedbiomedError(
+                "Aggregators should be provided as a dictionary of callables."
+            )
+        if not aggregators:
+            raise FedbiomedError("Aggregators dictionary cannot be empty.")
+        for stat_name, func in aggregators.items():
+            if not callable(func):
+                raise FedbiomedError(f"Aggregator for '{stat_name}' is not callable.")
+
+    def _validate_reply(self, node_id: str, reply: FAReply) -> None:
+        """Validates the structure and consistency of a reply.
+
+        Args:
+            node_id: The ID of the node that sent the reply.
+            reply: The reply object to validate.
+        """
+        # Check structure
+        if not isinstance(reply.output, dict):
+            raise FedbiomedError(f"Node {node_id} returned invalid output format.")
+        if not reply.output:
+            raise FedbiomedError(f"Output for node {node_id} is empty.")
+
+        # Initialize modalities on first reply
+        if self._modalities is None:
+            self._modalities = sorted(list(reply.output.keys()))
+
+        # Check modalities consistency
+        if sorted(list(reply.output.keys())) != self._modalities:
+            raise FedbiomedError("Nodes present inconsistent modalities.")
+
+        # Validate each modality's stats
+        for modality, stats in reply.output.items():
+            if not isinstance(stats, dict):
+                raise FedbiomedError(
+                    f"Node {node_id}, modality {modality} output is not a dictionary."
+                )
+            if not stats:
+                raise FedbiomedError(
+                    f"Node {node_id}, modality {modality} has empty statistics."
+                )
+
+            # Initialize stat names on first modality
+            if self._stat_names is None:
+                self._stat_names = sorted(list(stats.keys()))
+
+            # Check stat names consistency
+            if sorted(list(stats.keys())) != self._stat_names:
+                raise FedbiomedError(
+                    f"Node {node_id}, modality {modality} has inconsistent statistics."
+                )
+
+    @property
+    def modalities(self) -> List[str]:
+        return self._modalities
+
+    @property
+    def stat_names(self) -> List[str]:
+        return self._stat_names
+
+    @property
+    def results(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """Returns nested dict [node_id][modality][stat_name][value]"""
+        return self._results
+
+    @property
+    def values(self) -> Dict[str, Dict[str, List[Any]]]:
+        """Returns values grouped by modality and statistic.
+
+        Returns:
+            A nested dictionary where keys are modalities and statistics, and values are lists of
+            collected values from all nodes.
+            Format: {modality: {stat_name: [value_node_1, value_node_2, ...]}}
+        """
+        values = {
+            mod: {stat: [] for stat in self._stat_names} for mod in self._modalities
+        }
+
+        for result in self._results.values():
+            for mod in self._modalities:
+                for stat in self._stat_names:
+                    values[mod][stat].append(result[mod][stat])
+        return values
+
+    def aggregate(self) -> Dict[str, Any]:
+        """Aggregates the results from all nodes.
+
+        Returns:
+             The aggregated results.
+        """
+        if self._aggregators is None:
+            logger.info("No parameter 'aggregators' available, returning raw values.")
+            return self.values
+
+        # Initialize output structure
+        output = {modality: {} for modality in self._modalities}
+
+        # Remove nodes that returned errors or empty results
+        for modality, stats in self.values.items():
+            for stat_name, aggregator in self._aggregators.items():
+                try:
+                    output[modality][stat_name] = aggregator(**stats)
+                except Exception as e:
+                    logger.warning(
+                        f"Aggregation failed for modality '{modality}', statistic '{stat_name}': {e}"
+                    )
+
+        return output
 
 
 class FederatedAnalytics:
@@ -147,105 +305,96 @@ class FederatedAnalytics:
         )
 
         # Collect replies
-        analytics_replies = fa_job.execute()
+        analytics_replies, errors = fa_job.execute()
+
+        # TODO: define error handling strategy
+        for node_id, error in errors.items():
+            logger.warning(
+                "Error message received during analytics request for node "
+                f"{node_id} - {error.errnum}: {error.extra_msg}"
+            )
+            # _ = self._fds._data.pop(node_id)
 
         return analytics_replies
 
     def basic_stats(
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
-        """Returns a dict containing the basic analytics for each node (min, max, count, mean, std)."""
-        return self._compute_analytics(
+        """Returns FAResult object containing the basic analytics for each node (min, max, count, mean, std)."""
+        replies = self._compute_analytics(
             AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
         )
+        aggregators = {
+            "min": aggregate_min,
+            "max": aggregate_max,
+            "count": aggregate_count,
+            "mean": aggregate_mean,
+            "std": aggregate_std,
+        }
+        return FAResult(replies, aggregators)
 
     def min_max(
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
-        """Returns a dict containing min and max for each node."""
-        return self._compute_analytics(
+        """Returns FAResult object containing min and max for each node."""
+        replies = self._compute_analytics(
             AnalyticsTypes.MIN_MAX.value, dataset_args, fa_args
         )
+        aggregators = {
+            "min": aggregate_min,
+            "max": aggregate_max,
+        }
+        return FAResult(replies, aggregators)
 
     def mean(
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
-        """Returns a dict containing min and max for each node."""
-        return self._compute_analytics(AnalyticsTypes.MEAN.value, dataset_args, fa_args)
-
-    def _get_global_minmax(
-        self, dataset_args: dict = None
-    ) -> Dict[str, tuple[float, float]]:
-        """Get global min/max values across all nodes for each column.
-
-        This method sends a request to all nodes to compute local min/max values,
-        then aggregates them to determine global boundaries for bin creation.
-
-        Args:
-            dataset_args: Dataset arguments for minmax computation
-
-        Returns:
-            Either a dictionary mapping column names to (min, max) tuples such as:
-                {"column_1": (min_value, max_value), "column_2": (min_value, max_value), ...}
-            or a dict with one key "result (such as 'pixel_values')" mapping to (min, max) tuple for non-tabular data.
-
-        Raises:
-            FedbiomedError: if errors occur during minmax computation on nodes
-        """
-        logger.debug("Bin edges is None, computing global minmax")
-
-        # Collect minmax replies from all nodes
-        minmax_replies, errors = self.min_max(dataset_args)
-
-        if errors:
-            raise FedbiomedError(
-                f"Errors occurred while computing global min/max: {errors}"
-            )
-
-        # Aggregate min/max across all nodes
-        global_minmax = {}
-        for _node_id, reply in minmax_replies.items():
-            node_minmax = reply.output
-            for _col_or_result_key, min_max_dict in node_minmax.items():
-                if _col_or_result_key not in global_minmax:
-                    global_minmax[_col_or_result_key] = (
-                        min_max_dict["min"],
-                        min_max_dict["max"],
-                    )
-                else:
-                    global_min, global_max = global_minmax[_col_or_result_key]
-                    global_minmax[_col_or_result_key] = (
-                        min(global_min, min_max_dict["min"]),
-                        max(global_max, min_max_dict["max"]),
-                    )
-
-        logger.debug(f"Global minmax computed: {global_minmax}")
-
-        return global_minmax
+        """Returns FAResult object containing mean for each node."""
+        replies = self._compute_analytics(
+            AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
+        )
+        aggregators = {
+            "mean": aggregate_mean,
+        }
+        return FAResult(replies, aggregators)
 
     def _create_bins(
         self,
-        global_minmax: Dict[str, tuple[float, float]],
         num_bins: int = 10,
+        dataset_args: dict = None,
+        fa_args: dict = None,
     ) -> Dict[str, np.ndarray]:
-        """Create uniform bins for each column based on global min/max.
+        """Create bin edges based on global min and max values across nodes.
 
         Args:
-            global_minmax: Dictionary mapping column names to (min, max) tuples
-            num_bins: Number of bins to create for each column
+            num_bins: Number of bins to create.
+            dataset_args: Dataset arguments for min/max computation.
+            fa_args: Additional federated analytics arguments for min/max computation.
 
         Returns:
-            Dictionary mapping column names to bin_edges arrays
+            A dictionary mapping modality names to their corresponding bin edges.
         """
-        logger.debug("Setting bin edges")
+        # Get global min/max
+        logger.debug("Getting global min and max")
+        global_min_max = FAResult(
+            replies=self._compute_analytics(
+                AnalyticsTypes.MIN_MAX.value, dataset_args, fa_args
+            ),
+            aggregators={"min": aggregate_min, "max": aggregate_max},
+        ).aggregate()
 
+        # Set bin edges based on global min/max
+        logger.debug("Setting bin edges")
         bin_edges = {}
-        for col_or_result_key, (min_val, max_val) in global_minmax.items():
+        for modality, vals in global_min_max.items():
             # Add small margin to include max value in last bin
-            margin = (max_val - min_val) * 0.001 if max_val != min_val else 1
-            bin_edges[col_or_result_key] = np.linspace(
-                min_val, max_val + margin, num_bins + 1
+            margin = (
+                (vals["max"] - vals["min"]) * 0.001 if vals["max"] != vals["min"] else 1
             )
+            bin_edges[modality] = np.linspace(
+                vals["min"], vals["max"] + margin, num_bins + 1
+            )
+
         return bin_edges
 
     def histogram(
@@ -266,47 +415,28 @@ class FederatedAnalytics:
             dataset_args: Dataset arguments for histogram computation
 
         Returns:
-            Tuple containing:
-            - aggregated_histogram: Dictionary with aggregated counts from all nodes
-            - node_histograms: Dictionary with per-node results
-            - errors: Any errors from node execution
+            FAResult object containing histogram for each node.
         """
-        if self._fds is None:
-            raise FedbiomedError(
-                "No defined FederatedDataset found for FederatedAnalytics."
+        if bin_edges is None:
+            # Validate that dataset supports histogram analytics before computing min/max
+            self._validate_if_dataset_has_analytics(AnalyticsTypes.HISTOGRAM.value)
+            bin_edges = self._create_bins(
+                num_bins=num_bins, dataset_args=dataset_args, fa_args=fa_args
             )
 
-        self._validate_if_dataset_has_analytics(AnalyticsTypes.HISTOGRAM.value)
-        self._validate_dataset_arguments(dataset_args)
-
-        # If bin_edges not provided, compute from global min/max
-        if bin_edges is None:
-            global_minmax = self._get_global_minmax(dataset_args)
-            bin_edges = self._create_bins(global_minmax, num_bins)
-
         # Prepare fa_args with bin_edges
-        fa_args = fa_args or {}
+        fa_args = {} if fa_args is None else fa_args
         fa_args["bin_edges"] = bin_edges
         logger.debug(f"FA args prepared: {fa_args}")
 
         # Collect histogram replies
-        node_histograms, errors = self._compute_analytics(
+        replies = self._compute_analytics(
             AnalyticsTypes.HISTOGRAM.value, dataset_args, fa_args
         )
-
-        # Aggregate histograms from all nodes
-        # TODO: Add common aggregation strategies (e.g., weighted by sample size)
-        # and delegate below part to specific strategy
-        aggregated_histogram = {}
-        for _node_id, node_result in node_histograms.items():
-            hist_data = node_result.output
-            for col_name, counts in hist_data.items():
-                if col_name not in aggregated_histogram:
-                    aggregated_histogram[col_name] = np.array(counts)
-                else:
-                    aggregated_histogram[col_name] += np.array(counts)
-
-        return aggregated_histogram, node_histograms, errors
+        aggregators = {
+            "histogram": aggregate_histogram,
+        }
+        return FAResult(replies, aggregators)
 
     def quantile(
         self,
@@ -339,22 +469,15 @@ class FederatedAnalytics:
         Raises:
             FedbiomedError: if no FederatedDataset is defined
         """
-
-        if self._fds is None:
-            raise FedbiomedError(
-                "No defined FederatedDataset found for FederatedAnalytics."
+        if bin_edges is None:
+            # Validate that dataset supports histogram analytics before computing min/max
+            self._validate_if_dataset_has_analytics(AnalyticsTypes.QUANTILE.value)
+            bin_edges = self._create_bins(
+                num_bins=num_bins, dataset_args=dataset_args, fa_args=fa_args
             )
 
-        self._validate_if_dataset_has_analytics(AnalyticsTypes.QUANTILE.value)
-        self._validate_dataset_arguments(dataset_args)
-
-        # If bin_edges not provided, compute from global min/max
-        if bin_edges is None:
-            global_minmax = self._get_global_minmax(dataset_args)
-            bin_edges = self._create_bins(global_minmax, num_bins)
-
         # Prepare fa_args with bin_edges and quantile values
-        fa_args = fa_args or {}
+        fa_args = {} if fa_args is None else fa_args
         fa_args["bin_edges"] = bin_edges
         fa_args["q"] = q
         logger.debug(f"FA args prepared: {fa_args}")

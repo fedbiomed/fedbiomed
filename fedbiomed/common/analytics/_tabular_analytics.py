@@ -90,7 +90,7 @@ class TabularAnalytics(AnalyticsStrategy):
     def histogram(
         self,
         bin_edges: Union[np.ndarray, Dict[Union[str, int], np.ndarray]],
-    ) -> Dict[str, np.ndarray]:
+    ) -> Dict[str, Dict[str, list]]:
         """
         Compute per-feature histogram counts for a tabular dataset on a node.
 
@@ -153,9 +153,7 @@ class TabularAnalytics(AnalyticsStrategy):
 
         logger.debug("Calculating histogram counts for each column")
         # Single pass through dataset
-        for idx in range(len(self)):
-            data, _ = self[idx]
-
+        for data, _ in self:
             # Process each column (for each sample)
             for i, col in enumerate(self._input_columns):
                 value = data[i]
@@ -168,6 +166,15 @@ class TabularAnalytics(AnalyticsStrategy):
 
                 clipped = np.clip(value, edges[0], edges[-1])
                 result[col] += np.histogram(clipped, bins=edges)[0]
+
+        # Convert histogram to generic format
+        result = {
+            col: {
+                "bin_edges": list(col_bin_edges[col]),
+                "counts": list(counts),
+            }
+            for col, counts in result.items()
+        }
 
         return result
 
