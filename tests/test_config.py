@@ -88,6 +88,28 @@ class TestNodeConfig(BaseConfigTest):
         self.assertTrue("security" in sections)
         self.assertTrue("certificate" in sections)
 
+    def test_03_node_config_migrate_old(self):
+        config = NodeConfig(root="test")
+
+        # Simulate old config by removing options
+        if config._cfg.has_option("default", "name"):
+            config._cfg.remove_option("default", "name")
+        if config._cfg.has_option("security", "allow_preproc"):
+            config._cfg.remove_option("security", "allow_preproc")
+
+        config.migrate()
+
+        self.assertTrue(config._cfg.has_option("default", "name"))
+        self.assertTrue(config._cfg.has_option("security", "allow_preproc"))
+
+    def test_04_node_config_migrate_new(self):
+        config = NodeConfig(root="test")
+
+        # Should not raise any warning
+        with patch("fedbiomed.common.logger.logger.warning") as log_warn:
+            config.migrate()
+            log_warn.assert_not_called()
+
 
 class TestResearcherConfig(BaseConfigTest):
     def test_01_researcher_config_generate(self):

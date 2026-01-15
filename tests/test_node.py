@@ -206,6 +206,7 @@ class TestNode(unittest.TestCase):
         self.config["security"] = {
             "hashing_algorithm": "SHA256",
             "training_plan_approval": "True",
+            "allow_preproc": "True",
         }
 
         self.node_config._cfg = self.config
