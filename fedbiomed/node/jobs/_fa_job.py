@@ -13,6 +13,7 @@ from fedbiomed.common.analytics import (
 )
 from fedbiomed.common.constants import AnalyticsTypes, DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -95,10 +96,14 @@ class FAJob(_BaseJob):
                 errnum=ErrorNumbers.FB325.value,
             )
 
+        logger.debug(
+            f"FA Request received and database built, executing analytics: {self._analytics_type}"
+        )
         analytics = getattr(dataset, self._analytics_type)
 
         try:
             output: Dict = analytics(**self._fa_args if self._fa_args else {})
+            logger.debug(f"Analytics executed, output: {output}")
         except Exception as e:
             return self._build_error_msg(
                 msg=(
