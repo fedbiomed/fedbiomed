@@ -8,6 +8,7 @@ import torch
 import torchvision.transforms as T
 from PIL import Image
 
+from fedbiomed.common.analytics import ImageAnalytics
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import (
     ImageFolderController,
@@ -20,7 +21,7 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 from ._dataset import Dataset
 
 
-class _ImageLabelDataset(Dataset):
+class _ImageLabelDataset(Dataset, ImageAnalytics):
     "Dataset where data and target are implicitly predefined by the controller"
 
     _native_to_framework = {
