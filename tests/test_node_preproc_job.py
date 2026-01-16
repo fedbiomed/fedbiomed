@@ -49,6 +49,7 @@ def preproc_job_args(preproc_request):
         "node_id": "node_1",
         "node_name": "Toto",
         "request": preproc_request,
+        "allow_preproc": True,
     }
 
 
@@ -101,6 +102,20 @@ def test_run_success(monkeypatch, preproc_request, preproc_job_args):
     assert reply.node_id == preproc_job_args["node_id"]
     assert reply.node_name == preproc_job_args["node_name"]
     assert reply.state_id == preproc_request.state_id
+
+
+def test_run_preproc_not_allowed(preproc_job_args):
+    """Test run of PreprocJob when preprocessing is not allowed."""
+
+    job_args = preproc_job_args.copy()
+    job_args["allow_preproc"] = False
+
+    job = PreprocJob(**job_args)
+    result = job.run()
+
+    assert isinstance(result, ErrorMessage)
+    assert result.errnum == ErrorNumbers.FB326.value
+    assert "not allowed" in result.extra_msg
 
 
 def test_run_invalid_preproc_type(monkeypatch, preproc_job_args):

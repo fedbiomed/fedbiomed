@@ -28,11 +28,13 @@ trap finish TERM INT QUIT
 
 
 # Create node configuration if not existing yet
-su -l -c "export FBM_SECURITY_FORCE_SECURE_AGGREGATION=\"${FBM_SECURITY_FORCE_SECURE_AGGREGATION}\" && \
+su -l -c "export FBM_SECURITY_ALLOW_PREPROC=\"${FBM_SECURITY_ALLOW_PREPROC:-False}\" && \
+      export FBM_SECURITY_FORCE_SECURE_AGGREGATION=\"${FBM_SECURITY_FORCE_SECURE_AGGREGATION}\" && \
       export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && \
       export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && \
       FBM_SECURITY_TRAINING_PLAN_APPROVAL=\"${FBM_SECURITY_TRAINING_PLAN_APPROVAL:-True}\" \
       FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=\"${FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS:-False}\" \
+      FBM_SECURITY_ALLOW_PREPROC=\"${FBM_SECURITY_ALLOW_PREPROC:-False}\" \ 
       fedbiomed component create --component NODE --path /fbm-node --exist-ok" $CONTAINER_USER
 
 # Overwrite node options file if re-launching container
