@@ -36,6 +36,7 @@ def fa_job_args(fa_request):
         "node_id": "node_1",
         "node_name": "test_node",
         "request": fa_request,
+        "allow_fa": True,
     }
 
 
@@ -224,6 +225,19 @@ def test_run_success(fa_job):
         assert reply.output == {"col1": 1.5}
         assert reply.request_id == fa_job._request_id
         assert reply.node_id == fa_job._node_id
+
+
+def test_run_federated_analytics_not_allowed(fa_job_args):
+    """Test run method when federated analytics is not allowed."""
+    args = fa_job_args.copy()
+    args["allow_fa"] = False
+    job = FAJob(**args)
+
+    reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    assert "not allowed" in reply.extra_msg
 
 
 def test_run_no_dataset_args(fa_job_args):

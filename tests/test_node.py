@@ -207,6 +207,7 @@ class TestNode(unittest.TestCase):
             "hashing_algorithm": "SHA256",
             "training_plan_approval": "True",
             "allow_preproc": "True",
+            "allow_federated_analytics": "True",
         }
 
         self.node_config._cfg = self.config
