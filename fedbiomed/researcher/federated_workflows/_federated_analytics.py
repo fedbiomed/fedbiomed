@@ -318,9 +318,30 @@ class FederatedAnalytics:
         return analytics_replies
 
     def basic_stats(
-        self, dataset_args: dict = None, fa_args: dict = None
+        self,
+        dataset_args: dict = None,
+        fa_args: dict = None,
+        features: list = None,
+        channel: Union[int, str, None] = None,
+        per_channel: bool = False,
     ) -> Union[Any, Dict[str, Any]]:
-        """Returns FAResult object containing the basic analytics for each node (min, max, count, mean, std)."""
+        """Returns FAResult object containing the basic analytics for each node (min, max, count, mean, std).
+
+        Args:
+            dataset_args: Dataset arguments
+            fa_args: Federated analytics arguments
+            features: List of features to compute (image analytics: 'height', 'width', 'depth', 'intensity')
+            channel: Channel selection (None, 'auto', or int index)
+            per_channel: Whether to compute per-channel analytics for intensity
+        """
+        fa_args = fa_args or {}
+        if features is not None:
+            fa_args["features"] = features
+        if channel is not None:
+            fa_args["channel"] = channel
+        if per_channel:
+            fa_args["per_channel"] = True
+
         replies = self._compute_analytics(
             AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
         )
@@ -334,9 +355,30 @@ class FederatedAnalytics:
         return FAResult(replies, aggregators)
 
     def min_max(
-        self, dataset_args: dict = None, fa_args: dict = None
+        self,
+        dataset_args: dict = None,
+        fa_args: dict = None,
+        features: list = None,
+        channel: Union[int, str, None] = None,
+        per_channel: bool = False,
     ) -> Union[Any, Dict[str, Any]]:
-        """Returns FAResult object containing min and max for each node."""
+        """Returns FAResult object containing min and max for each node.
+
+        Args:
+            dataset_args: Dataset arguments
+            fa_args: Federated analytics arguments
+            features: List of features to compute (image analytics: 'height', 'width', 'depth', 'intensity')
+            channel: Channel selection (None, 'auto', or int index)
+            per_channel: Whether to compute per-channel analytics for intensity
+        """
+        fa_args = fa_args or {}
+        if features is not None:
+            fa_args["features"] = features
+        if channel is not None:
+            fa_args["channel"] = channel
+        if per_channel:
+            fa_args["per_channel"] = True
+
         replies = self._compute_analytics(
             AnalyticsTypes.MIN_MAX.value, dataset_args, fa_args
         )
@@ -403,6 +445,9 @@ class FederatedAnalytics:
         num_bins: int = 10,
         dataset_args: dict = None,
         fa_args: dict = None,
+        features: list = None,
+        channel: Union[int, str, None] = None,
+        per_channel: bool = False,
     ) -> Union[Any, Dict[str, Any]]:
         """Compute histogram analytics across nodes.
 
@@ -413,6 +458,9 @@ class FederatedAnalytics:
                 - None: will compute from global min/max (for tabular data)
             num_bins: Number of bins to create if bin_edges is None. Default is 10.
             dataset_args: Dataset arguments for histogram computation
+            features: List of features to compute (image analytics: 'height', 'width', 'depth', 'intensity')
+            channel: Channel selection (None, 'auto', or int index)
+            per_channel: Whether to compute per-channel analytics for intensity
 
         Returns:
             FAResult object containing histogram for each node.
@@ -420,6 +468,13 @@ class FederatedAnalytics:
         if bin_edges is None:
             # Validate that dataset supports histogram analytics before computing min/max
             self._validate_if_dataset_has_analytics(AnalyticsTypes.HISTOGRAM.value)
+            fa_args = {} if fa_args is None else fa_args
+            if features is not None:
+                fa_args["features"] = features
+            if channel is not None:
+                fa_args["channel"] = channel
+            if per_channel:
+                fa_args["per_channel"] = True
             bin_edges = self._create_bins(
                 num_bins=num_bins, dataset_args=dataset_args, fa_args=fa_args
             )
@@ -427,6 +482,12 @@ class FederatedAnalytics:
         # Prepare fa_args with bin_edges
         fa_args = {} if fa_args is None else fa_args
         fa_args["bin_edges"] = bin_edges
+        if features is not None:
+            fa_args["features"] = features
+        if channel is not None:
+            fa_args["channel"] = channel
+        if per_channel:
+            fa_args["per_channel"] = True
         logger.debug(f"FA args prepared: {fa_args}")
 
         # Collect histogram replies
@@ -445,6 +506,9 @@ class FederatedAnalytics:
         num_bins: int = 10,
         dataset_args: dict = None,
         fa_args: dict = None,
+        features: list = None,
+        channel: Union[int, str, None] = None,
+        per_channel: bool = False,
     ) -> tuple:
         """Compute quantile values across federated nodes.
 
@@ -459,6 +523,9 @@ class FederatedAnalytics:
             num_bins: Number of bins to create if bin_edges is None. Default is 10.
             dataset_args: Dataset arguments for quantile computation
             fa_args: Additional federated analytics arguments
+            features: List of features to compute (image analytics: 'height', 'width', 'depth', 'intensity')
+            channel: Channel selection (None, 'auto', or int index)
+            per_channel: Whether to compute per-channel analytics for intensity
 
         Returns:
             Tuple containing:
@@ -472,6 +539,13 @@ class FederatedAnalytics:
         if bin_edges is None:
             # Validate that dataset supports histogram analytics before computing min/max
             self._validate_if_dataset_has_analytics(AnalyticsTypes.QUANTILE.value)
+            fa_args = {} if fa_args is None else fa_args
+            if features is not None:
+                fa_args["features"] = features
+            if channel is not None:
+                fa_args["channel"] = channel
+            if per_channel:
+                fa_args["per_channel"] = True
             bin_edges = self._create_bins(
                 num_bins=num_bins, dataset_args=dataset_args, fa_args=fa_args
             )
@@ -480,6 +554,12 @@ class FederatedAnalytics:
         fa_args = {} if fa_args is None else fa_args
         fa_args["bin_edges"] = bin_edges
         fa_args["q"] = q
+        if features is not None:
+            fa_args["features"] = features
+        if channel is not None:
+            fa_args["channel"] = channel
+        if per_channel:
+            fa_args["per_channel"] = True
         logger.debug(f"FA args prepared: {fa_args}")
 
         # Collect quantile replies
