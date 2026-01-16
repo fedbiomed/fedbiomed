@@ -16,8 +16,9 @@ from fedbiomed.common.analytics._aggregators import (
     aggregate_mean,
     aggregate_min,
     aggregate_std,
+    aggregate_sum,
 )
-from fedbiomed.common.constants import AnalyticsTypes, DatasetTypes
+from fedbiomed.common.constants import AnalyticsTypes, DatasetTypes, Stats
 from fedbiomed.common.dataset import DATASET_CLASSES_PER_TYPE
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
@@ -239,7 +240,7 @@ class FederatedAnalytics:
         Returns:
             The dataset type
         """
-        logger.debug("Validating analytics")
+        logger.debug(f"Validating analytics: {analytics_type}")
 
         # Extract dataset types from the first self._fds.data() entry
         type_ = next(iter(self._fds.data().values())).get("data_type")
@@ -317,6 +318,23 @@ class FederatedAnalytics:
 
         return analytics_replies
 
+    def _update_fa_args(self, fa_args: Optional[dict], kwargs: dict) -> dict:
+        """Update fa_args with additional kwargs.
+
+        Args:
+            kwargs: Additional named arguments
+            fa_args: Existing federated analytics arguments
+
+        Returns:
+            Updated fa_args dictionary
+        """
+        fa_args = {} if fa_args is None else fa_args
+        for key, value in kwargs.items():
+            if key in fa_args:
+                logger.info(f"'{key}' in fa_args will be replaced.")
+            fa_args[key] = value
+        return fa_args
+
     def basic_stats(
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
@@ -337,9 +355,15 @@ class FederatedAnalytics:
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
         """Returns FAResult object containing min and max for each node."""
-        replies = self._compute_analytics(
-            AnalyticsTypes.MIN_MAX.value, dataset_args, fa_args
+        # Update fa_args with requested_stats
+        fa_args = self._update_fa_args(
+            fa_args, {"requested_stats": [Stats.MIN.value, Stats.MAX.value]}
         )
+        # Collect replies
+        replies = self._compute_analytics(
+            AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
+        )
+        # Define aggregators
         aggregators = {
             "min": aggregate_min,
             "max": aggregate_max,
@@ -350,11 +374,31 @@ class FederatedAnalytics:
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
         """Returns FAResult object containing mean for each node."""
+        # Update fa_args with requested_stats
+        fa_args = self._update_fa_args(fa_args, {"requested_stats": [Stats.MEAN.value]})
+        # Collect replies
         replies = self._compute_analytics(
             AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
         )
+        # Define aggregators
         aggregators = {
             "mean": aggregate_mean,
+        }
+        return FAResult(replies, aggregators)
+
+    def sum(
+        self, dataset_args: dict = None, fa_args: dict = None
+    ) -> Union[Any, Dict[str, Any]]:
+        """Returns FAResult object containing mean for each node."""
+        # Update fa_args with requested_stats
+        fa_args = self._update_fa_args(fa_args, {"requested_stats": [Stats.SUM.value]})
+        # Collect replies
+        replies = self._compute_analytics(
+            AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
+        )
+        # Define aggregators
+        aggregators = {
+            "sum": aggregate_sum,
         }
         return FAResult(replies, aggregators)
 
@@ -376,12 +420,7 @@ class FederatedAnalytics:
         """
         # Get global min/max
         logger.debug("Getting global min and max")
-        global_min_max = FAResult(
-            replies=self._compute_analytics(
-                AnalyticsTypes.MIN_MAX.value, dataset_args, fa_args
-            ),
-            aggregators={"min": aggregate_min, "max": aggregate_max},
-        ).aggregate()
+        global_min_max = self.min_max(dataset_args, fa_args).aggregate()
 
         # Set bin edges based on global min/max
         logger.debug("Setting bin edges")
@@ -427,7 +466,6 @@ class FederatedAnalytics:
         # Prepare fa_args with bin_edges
         fa_args = {} if fa_args is None else fa_args
         fa_args["bin_edges"] = bin_edges
-        logger.debug(f"FA args prepared: {fa_args}")
 
         # Collect histogram replies
         replies = self._compute_analytics(

@@ -2,10 +2,56 @@ import pytest
 
 from fedbiomed.common.analytics._analytics_strategy import (
     AnalyticsStrategy,
+    resolve_stats,
     validate_dataset_arguments_for_fa,
 )
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, Stats
 from fedbiomed.common.exceptions import FedbiomedError
+
+
+class TestResolveStats:
+    """Test the resolve_stats function."""
+
+    def test_resolve_stats_empty_none(self):
+        """Test resolve_stats with None or empty input."""
+        assert resolve_stats(None) is None
+        assert resolve_stats([]) == set()
+        assert resolve_stats(set()) == set()
+
+    def test_resolve_stats_single_no_deps(self):
+        """Test resolve_stats for statistics with no dependencies."""
+        # Stats.COUNT has no dependencies
+        resolved = resolve_stats([Stats.COUNT.value])
+        assert resolved == {Stats.COUNT.value}
+
+    def test_resolve_stats_with_dependencies(self):
+        """Test resolve_stats for statistics with dependencies."""
+        # Stats.MEAN depends on Stats.COUNT
+        resolved = resolve_stats([Stats.MEAN.value])
+        assert resolved == {Stats.MEAN.value, Stats.COUNT.value}
+
+        # Stats.STD depends on Stats.MEAN and Stats.COUNT
+        resolved = resolve_stats([Stats.STD.value])
+        assert resolved == {Stats.STD.value, Stats.MEAN.value, Stats.COUNT.value}
+
+    def test_resolve_stats_multiple_requested(self):
+        """Test resolve_stats with multiple requested statistics."""
+        # SUM depends on COUNT, MEAN depends on COUNT.
+        resolved = resolve_stats([Stats.SUM.value, Stats.MEAN.value])
+        assert resolved == {Stats.SUM.value, Stats.MEAN.value, Stats.COUNT.value}
+
+    def test_resolve_stats_invalid_input(self):
+        """Test resolve_stats with invalid inputs."""
+        # Invalid stat name
+        with pytest.raises(FedbiomedError) as excinfo:
+            resolve_stats(["invalid_stat"])
+        assert ErrorNumbers.FB633.value in str(excinfo.value)
+        assert "not recognized" in str(excinfo.value)
+
+        # Not iterable (but not None) - e.g. a single string instead of list of strings?
+        # resolve_stats("mean") -> set("mean") -> {'m', 'e', 'a', 'n'} -> Invalid
+        with pytest.raises(FedbiomedError):
+            resolve_stats("mean")
 
 
 class TestValidateDatasetArgumentsForFA:
