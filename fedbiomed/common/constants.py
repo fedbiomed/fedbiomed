@@ -461,12 +461,30 @@ class AnalyticsTypes(_BaseEnum):
 
     Attributes:
         BASIC_STATS: min, max, count, mean, std
-        MIN_MAX: min and max only
-        MEAN: Mean analytics type
     """
 
     BASIC_STATS: str = "basic_stats"
-    MIN_MAX: str = "min_max"
-    MEAN: str = "mean"
     HISTOGRAM: str = "histogram"
     QUANTILE: str = "quantile"
+
+
+class Stats(_BaseEnum):
+    """Enumeration class for statistical metrics used by Analytics
+
+    Attributes:
+        MIN: Minimum value
+        MAX: Maximum value
+        MEAN: Mean value
+        STD: Standard deviation
+        COUNT: Count of values
+        SUM: Sum of values
+        VARIANCE: Variance of values
+    """
+
+    MIN: str = "min"
+    MAX: str = "max"
+    MEAN: str = "mean"
+    STD: str = "std"
+    COUNT: str = "count"
+    SUM: str = "sum"
+    VARIANCE: str = "variance"
