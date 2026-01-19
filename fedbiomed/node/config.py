@@ -57,6 +57,9 @@ class NodeConfig(Config):
                 "FBM_SECURITY_SECAGG_INSECURE_VALIDATION", "True"
             ),
             "allow_preproc": os.getenv("FBM_SECURITY_ALLOW_PREPROC", "True"),
+            "allow_federated_analytics": os.getenv(
+                "FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS", "True"
+            ),
         }
         # Generate self-signed certificates
         key_file, pem_file = generate_certificate(
@@ -98,6 +101,15 @@ class NodeConfig(Config):
             )
 
             self._cfg["security"].update({"allow_preproc": "True"})
+
+        if not self._cfg.has_option("security", "allow_federated_analytics"):
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for the node. "
+                "Please add 'allow_federated_analytics' value in `security` section "
+                "of the node configuration to define whether federated analytics is allowed."
+            )
+
+            self._cfg["security"].update({"allow_federated_analytics": "True"})
 
 
 component_root = os.environ.get("FBM_NODE_COMPONENT_ROOT", None)

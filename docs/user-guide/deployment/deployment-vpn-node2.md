@@ -54,6 +54,12 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
     [user@node $] cp /tmp/config2.env ./node2/run_mounts/config/config.env
     ```
 
+* **optionally** allow to compute federated analytics on the datasets on the node (original dataset is not modified). Warning: make sure it is coherent with your site security requirements !
+
+    ```bash
+    [user@node $] export FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS=True
+    ```
+
 * **optionally** allow to apply pre-processing to the datasets on the node (original dataset is not modified). Warning: make sure it is coherent with your site security requirements !
 
     ```bash

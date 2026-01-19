@@ -34,6 +34,7 @@ class PreprocJob(_BaseJob):
             node_id: Node id
             node_name: Node name (Hospital name)
             request: FARequest message object containing all information about the FA task
+            allow_preproc: True if preprocessing is allowed on this node, False otherwise
         """
         super().__init__(root_dir, dataset_manager, node_id, node_name, request)
 

@@ -461,6 +461,9 @@ class Node:
                             node_id=self._node_id,
                             node_name=self._node_name,
                             request=item,
+                            allow_fa=self.config.getbool(
+                                "security", "allow_federated_analytics"
+                            ),
                         )
                         response = fa_job.run()
                         self._grpc_client.send(response)

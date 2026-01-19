@@ -28,7 +28,8 @@ trap finish TERM INT QUIT
 
 
 # Create node configuration if not existing yet
-su -l -c "export FBM_SECURITY_ALLOW_PREPROC=\"${FBM_SECURITY_ALLOW_PREPROC:-False}\" && \
+su -l -c "export FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS=\"${FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS:-False}\" && \
+      export FBM_SECURITY_ALLOW_PREPROC=\"${FBM_SECURITY_ALLOW_PREPROC:-False}\" && \
       export FBM_SECURITY_FORCE_SECURE_AGGREGATION=\"${FBM_SECURITY_FORCE_SECURE_AGGREGATION}\" && \
       export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && \
       export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && \

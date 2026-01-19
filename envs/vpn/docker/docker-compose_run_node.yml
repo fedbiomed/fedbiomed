@@ -24,6 +24,7 @@ x-node: &standard-node
     - FBM_SECURITY_TRAINING_PLAN_APPROVAL
     - FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS
     - FBM_SECURITY_ALLOW_PREPROC
+    - FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS
   cap_add:
     - net_admin
     - sys_module

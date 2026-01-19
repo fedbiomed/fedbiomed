@@ -32,6 +32,7 @@ class FAJob(_BaseJob):
         node_id: str,
         node_name: str,
         request: FARequest,
+        allow_fa: bool,
     ) -> None:
         """Constructor of the class
 
@@ -41,6 +42,7 @@ class FAJob(_BaseJob):
             node_id: Node id
             node_name: Node name (Hospital name)
             request: FARequest message object containing all information about the FA task
+            allow_fa: True if federated analytics is allowed on this node, False otherwise
         """
         super().__init__(root_dir, dataset_manager, node_id, node_name, request)
 
@@ -50,6 +52,7 @@ class FAJob(_BaseJob):
         self._fa_id = request.fa_id
         self._fa_args = request.fa_args
         self._dataset_args = request.dataset_args
+        self._allow_fa = allow_fa
 
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
         """Build arguments for dataset initialization.
@@ -77,6 +80,13 @@ class FAJob(_BaseJob):
 
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
+
+        if not self._allow_fa:
+            return self._build_error_msg(
+                "Federated Analytics are not allowed on this node by node configuration.",
+                errnum=ErrorNumbers.FB325.value,
+            )
+
         # Retrieve dataset ready-to-use from self._dataset_id
 
         if self._analytics_type not in [t.value for t in AnalyticsTypes]:

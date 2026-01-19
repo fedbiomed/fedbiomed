@@ -95,6 +95,7 @@ The configuration file is structured following the sections below:
     - `force_secure_aggregation`: Boolean parameter (True/False) to force secure aggregation for every action that uses local dataset.
     - `secagg_insecure_validation`: A boolean parameter to activate insecure validation for secure aggregation rounds to verify the correctness of the aggregation on the researcher side. This option is intended for testing and debugging purposes and must be deactivated in production deployments.
     - `allow_preproc`: Boolean value to enable applying pre-processing to the datasets before using them. Original dataset is not modified.
+    - `allow_federated_analytics`: Boolean value to enable computing statistics and analytics on the datasets.
 
 An example for a config file is shown below;
 
@@ -113,6 +114,7 @@ secure_aggregation = True
 force_secure_aggregation = False
 secagg_insecure_validation = False
 allow_preproc = True
+allow_federated_analytics=True
 
 
 [researcher]
@@ -164,6 +166,7 @@ Environment variables can be used to parameterize various options for creating t
 - force_secure_aggregation: FBM_SECURITY_FORCE_SECURE_AGGREGATION, False
 - secagg_insecure_validation: FBM_SECURITY_SECAGG_INSECURE_VALIDATION, False (VPN/container mode) or True (other)
 - allow_preproc: FBM_SECURITY_ALLOW_PREPROC, False (VPN/container mode) or True (other)
+- allow_federated_analytics: FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS, False (VPN/container mode) or True (other)
 
 [researcher]:
 - ip: FBM_RESEARCHER_IP, ${IP_ADDRESS}, if not set: localhost
