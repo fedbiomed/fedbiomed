@@ -83,7 +83,7 @@ class TestNode(unittest.TestCase):
         experiment_id="experiment-id",
         dataset_id="dataset-id",
         fa_id="fa-id",
-        analytics_type=AnalyticsTypes.MEAN.value,
+        analytics_type=AnalyticsTypes.BASIC_STATS.value,
         fa_args={},
         dataset_args={"col_names": ["age", "weight"]},  # Example dataset arguments
     )

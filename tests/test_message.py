@@ -28,7 +28,7 @@ def test_fa_request_message_creation():
         experiment_id="experiment_1234",
         fa_id="fa_1234",
         dataset_id="dataset_1234",
-        analytics_type=AnalyticsTypes.MEAN.value,
+        analytics_type=AnalyticsTypes.BASIC_STATS.value,
         fa_args={"test": "output_data"},
         dataset_args={"test": "dataset_data"},
     )
@@ -42,7 +42,7 @@ def test_fa_reply_message_creation():
         fa_id="fa_1234",
         node_id="node_1234",
         node_name="node_name_1234",
-        analytics_type=AnalyticsTypes.MEAN.value,
+        analytics_type=AnalyticsTypes.BASIC_STATS.value,
         output={"test": "output_data"},
     )
 

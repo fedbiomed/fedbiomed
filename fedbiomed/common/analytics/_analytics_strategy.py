@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import abstractmethod
-from typing import Dict
+from typing import Dict, Iterable, Optional
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, Stats
 from fedbiomed.common.exceptions import FedbiomedError
 
 """Classes and mappings to handle arguments mapping for different dataset types 
@@ -24,6 +24,60 @@ DatasetArgumentsFA = {
     DatasetTypes.MEDNIST: None,
     DatasetTypes.CUSTOM: None,
 }
+
+# Define dependencies between statistics
+STATS_DEPENDENCIES = {
+    Stats.MEAN: {Stats.COUNT},
+    Stats.STD: {Stats.MEAN, Stats.COUNT},
+    Stats.VARIANCE: {Stats.MEAN, Stats.COUNT},
+    Stats.SUM: {Stats.COUNT},
+}
+
+
+def resolve_stats(requested: Optional[Iterable[str]] = None) -> Optional[set]:
+    """Resolve all dependent statistics for a given set of requested statistics.
+
+    Args:
+        requested: Set of requested statistics.
+
+    Returns:
+        Set of resolved statistics including dependencies, or None if no statistics are requested.
+    """
+    if requested is None:
+        return None
+
+    # Cast to set for easier handling
+    try:
+        resolved = set(requested)
+    except TypeError as e:
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB633.value}: Requested statistics argument is not iterable."
+        ) from e
+
+    # Validate requested statistics
+    valid_values = {stat.value for stat in Stats}
+    if not resolved.issubset(valid_values):
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB633.value}: One or more requested statistics are not recognized: {requested}"
+        )
+
+    # Worklist algorithm for dependency resolution
+    worklist = list(resolved)
+
+    while worklist:
+        stat_value = worklist.pop()
+
+        # Convert string back to Enum to lookup dependencies
+        # This is safe because we validated against valid_values
+        stat_enum = Stats(stat_value)
+
+        dependencies = STATS_DEPENDENCIES.get(stat_enum, set())
+        for dep in dependencies:
+            if dep.value not in resolved:
+                resolved.add(dep.value)
+                worklist.append(dep.value)
+
+    return resolved
 
 
 def validate_dataset_arguments_for_fa(
@@ -65,5 +119,5 @@ def validate_dataset_arguments_for_fa(
 
 class AnalyticsStrategy:
     @abstractmethod
-    def mean(self, **kwargs) -> Dict:
+    def basic_stats(self, **kwargs) -> Dict:
         pass

@@ -1,32 +1,50 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, Sequence, Union
+from typing import Dict, Optional, Union
 
 import numpy as np
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, Stats
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
-from ._analytics_strategy import AnalyticsStrategy
+from ._analytics_strategy import AnalyticsStrategy, resolve_stats
 
 
 class TabularAnalytics(AnalyticsStrategy):
     """Mixin class for computing analytics on tabular datasets"""
 
-    def basic_stats(self, only_min_max: bool = False) -> Dict:
+    def basic_stats(self, requested_stats: Optional[set] = None) -> Dict:
         """Calculate statistics across the dataset.
 
         Args:
-            only_min_max: If True, only calculate min and max. If False, calculate min, max, count, mean, std.
+            requested_stats: Set of statistics to compute. If None, compute default stats: min, max, count, mean, std.
+                Valid values are: 'min', 'max', 'count', 'mean', 'std', 'variance', 'sum'.
 
         Returns:
             Dictionary with structure: {variable_name: {statistic_name: value}}
         """
+        requested_stats = resolve_stats(requested_stats)
+
+        # Default stats
+        if requested_stats is None:
+            requested_stats = {
+                Stats.MIN.value,
+                Stats.MAX.value,
+                Stats.COUNT.value,
+                Stats.MEAN.value,
+                Stats.STD.value,
+            }
+
+        logger.debug(
+            f"Computing basic statistics for database with columns: {self._input_columns}"
+        )
+
+        count = None
         data_min = None
         data_max = None
-        count = None
+        data_sum = None
         mean = None
         m2 = None
 
@@ -39,19 +57,27 @@ class TabularAnalytics(AnalyticsStrategy):
             masked_data = data[mask].astype(float)
 
             # Initialize accumulators on first presence of data (assuming consistent shape)
-            if data_min is None:
+            if count is None:
+                count = np.zeros_like(data, dtype=int)
                 data_min = np.full_like(data, np.inf, dtype=float)
                 data_max = np.full_like(data, -np.inf, dtype=float)
-                if not only_min_max:
-                    count = np.zeros_like(data, dtype=int)
+                data_sum = np.zeros_like(data, dtype=float)
+                if any(
+                    _ in requested_stats
+                    for _ in [Stats.STD.value, Stats.VARIANCE.value]
+                ):
                     mean = np.zeros_like(data, dtype=float)
                     m2 = np.zeros_like(data, dtype=float)
 
-            # Update min/max
+            # Update statistics
+            count[mask] += 1
             data_min[mask] = np.minimum(data_min[mask], masked_data)
             data_max[mask] = np.maximum(data_max[mask], masked_data)
-            if not only_min_max:
-                count[mask] += 1
+            data_sum[mask] += masked_data
+
+            if any(
+                _ in requested_stats for _ in [Stats.STD.value, Stats.VARIANCE.value]
+            ):
                 # Welford's online algorithm for mean/variance
                 delta = masked_data - mean[mask]
                 mean[mask] += delta / count[mask]
@@ -61,36 +87,41 @@ class TabularAnalytics(AnalyticsStrategy):
         # Prepare final values
         results = {}
 
-        if data_min is None:  # No data processed
+        if count is None:  # No data processed
             return results
 
         for i, col in enumerate(self._input_columns):
             stats = {
-                "min": data_min[i] if np.isfinite(data_min[i]) else np.nan,
-                "max": data_max[i] if np.isfinite(data_max[i]) else np.nan,
+                Stats.COUNT.value: count[i],
+                Stats.MIN.value: data_min[i] if np.isfinite(data_min[i]) else np.nan,
+                Stats.MAX.value: data_max[i] if np.isfinite(data_max[i]) else np.nan,
+                Stats.MEAN.value: data_sum[i] / count[i] if count[i] > 0 else np.nan,
+                Stats.SUM.value: data_sum[i],
             }
-            if not only_min_max:
-                stats["count"] = count[i] if count[i] > 0 else np.nan
-                stats["mean"] = mean[i] if count[i] > 0 else np.nan
-                stats["std"] = np.sqrt(m2[i] / count[i]) if count[i] > 0 else np.nan
+            if any(
+                stat in requested_stats
+                for stat in [Stats.STD.value, Stats.VARIANCE.value]
+            ):
+                stats[Stats.VARIANCE.value] = (
+                    m2[i] / count[i] if count[i] > 0 else np.nan
+                )
+                stats[Stats.STD.value] = np.sqrt(stats[Stats.VARIANCE.value])
+
+            # Convert numpy scalar types to native python types and filter requested stats
+            stats = {
+                stat: val.item()
+                for stat, val in stats.items()
+                if stat in requested_stats
+            }
 
             results[col] = stats
 
         return results
 
-    def min_max(self) -> Dict:
-        """Returns min and max across the dataset."""
-        return self.basic_stats(only_min_max=True)
-
-    def mean(self) -> Dict:
-        """Returns mean across the dataset."""
-        stats = self.basic_stats()
-        return {col: stat["mean"] for col, stat in stats.items()}
-
     def histogram(
         self,
         bin_edges: Union[np.ndarray, Dict[Union[str, int], np.ndarray]],
-    ) -> Dict[str, np.ndarray]:
+    ) -> Dict[str, Dict[str, list]]:
         """
         Compute per-feature histogram counts for a tabular dataset on a node.
 
@@ -153,9 +184,7 @@ class TabularAnalytics(AnalyticsStrategy):
 
         logger.debug("Calculating histogram counts for each column")
         # Single pass through dataset
-        for idx in range(len(self)):
-            data, _ = self[idx]
-
+        for data, _ in self:
             # Process each column (for each sample)
             for i, col in enumerate(self._input_columns):
                 value = data[i]
@@ -169,8 +198,21 @@ class TabularAnalytics(AnalyticsStrategy):
                 clipped = np.clip(value, edges[0], edges[-1])
                 result[col] += np.histogram(clipped, bins=edges)[0]
 
+        # Convert histogram to generic format
+        result = {
+            col: {
+                "histogram": {
+                    "bin_edges": col_bin_edges[col].tolist(),
+                    "counts": counts.tolist(),
+                }
+            }
+            for col, counts in result.items()
+        }
+
         return result
 
+    # TODO: ==================== QUANTILE METHOD ====================
+    '''
     def quantile(
         self,
         bin_edges: Union[np.ndarray, Dict[str, np.ndarray]],
@@ -275,3 +317,4 @@ class TabularAnalytics(AnalyticsStrategy):
             }
 
         return result
+    '''

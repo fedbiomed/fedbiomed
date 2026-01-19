@@ -17,8 +17,8 @@ def request_args():
         "experiment_id": "exp_1",
         "dataset_id": "dataset_123",
         "fa_id": "fa_1",
-        "analytics_type": "mean",
-        "fa_args": {"mean": ["col1"]},
+        "analytics_type": "basic_stats",
+        "fa_args": {"basic_stats": ["col1"]},
         "dataset_args": {"col_names": ["age", "weight"]},
     }
 
@@ -216,7 +216,7 @@ def test_build_dataset_dlp_error(
 def test_run_success(fa_job):
     """Test run method success."""
     mock_dataset = MagicMock()
-    mock_dataset.mean.return_value = {"col1": 1.5}
+    mock_dataset.basic_stats.return_value = {"col1": 1.5}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = fa_job.run()
@@ -251,7 +251,7 @@ def test_run_no_dataset_args(fa_job_args):
     job = FAJob(**args)
 
     mock_dataset = MagicMock()
-    mock_dataset.mean.return_value = {"col1": 2.0}
+    mock_dataset.basic_stats.return_value = {"col1": 2.0}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()

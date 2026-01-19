@@ -14,8 +14,9 @@ from ._analytics_strategy import AnalyticsStrategy
 class ImageAnalytics(AnalyticsStrategy):
     """Mixin class for computing analytics on image folder datasets"""
 
-    def mean(self, **kwargs) -> Dict:
-        return super().mean(**kwargs)
+    def basic_stats(self, **kwargs) -> Dict:
+        # TODO: Implement basic stats for images
+        return None
 
     def histogram(
         self,
