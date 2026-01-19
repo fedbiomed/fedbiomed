@@ -267,7 +267,7 @@ class Requests(metaclass=SingletonMeta):
         Args:
             config: Object for handling the component configuration
         """
-        self._monitor_message_callback = None
+        self._monitor_message_callbacks: Dict[str, Callable] = {}
 
         server_host = config.get("server", "host")
         server_port = config.get("server", "port")
@@ -311,9 +311,10 @@ class Requests(metaclass=SingletonMeta):
             self.print_node_log_message(msg.get_dict())
 
         elif type_ == MessageType.SCALAR:
-            if self._monitor_message_callback is not None:
+            experiment_id = msg.get_dict().get("experiment_id")
+            if experiment_id in self._monitor_message_callbacks:
                 # Pass message to Monitor's on message handler
-                self._monitor_message_callback(msg.get_dict())
+                self._monitor_message_callbacks[experiment_id](msg.get_dict())
         else:
             logger.error(f"Undefined message type received  {type_} - IGNORING")
 
@@ -543,16 +544,22 @@ class Requests(metaclass=SingletonMeta):
 
         return {id: rep.get_dict() for id, rep in replies.items()}
 
-    def add_monitor_callback(self, callback: Callable[[Dict], None]):
+    def add_monitor_callback(
+        self, experiment_id: str, callback: Callable[[Dict], None]
+    ) -> None:
         """Adds callback function for monitor messages
 
         Args:
+            experiment_id: ID of the experiment for which to add the callback
             callback: Callback function for handling monitor messages that come due 'general/monitoring' channel
         """
+        self._monitor_message_callbacks[experiment_id] = callback
 
-        self._monitor_message_callback = callback
+    def remove_monitor_callback(self, experiment_id: str) -> None:
+        """Removes callback function for Monitor class.
 
-    def remove_monitor_callback(self):
-        """Removes callback function for Monitor class."""
+        Args:
+            experiment_id: ID of the experiment for which to remove the callback
+        """
 
-        self._monitor_message_callback = None
+        _ = self._monitor_message_callbacks.pop(experiment_id, None)

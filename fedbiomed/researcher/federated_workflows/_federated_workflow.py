@@ -913,7 +913,7 @@ class FederatedWorkflow(ABC):
     @exp_exceptions
     def load_breakpoint(
         cls, breakpoint_folder_path: Optional[str] = None
-    ) -> Tuple[TFederatedWorkflow, dict]:
+    ) -> Tuple[TFederatedWorkflow, dict, str]:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so the workflow can be resumed.
@@ -924,7 +924,8 @@ class FederatedWorkflow(ABC):
             If None, loads the latest breakpoint of the latest workflow. Defaults to None.
 
         Returns:
-            Tuple containing reinitialized workflow object and the saved state as a dictionary
+            Tuple containing reinitialized workflow object, the saved state as a dictionary,
+                and the temporary ID as a string
 
         Raises:
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or
@@ -987,6 +988,7 @@ class FederatedWorkflow(ABC):
 
         # initializing experiment
         loaded_exp = cls(experimentation_folder=exp_folder)
+        tempo_id = loaded_exp._experiment_id
         loaded_exp._experiment_id = saved_state.get("id")
         loaded_exp._fds = bkpt_fds
         loaded_exp._tags = saved_state.get("tags")
@@ -1015,7 +1017,7 @@ class FederatedWorkflow(ABC):
                 preproc_state
             )
 
-        return loaded_exp, saved_state
+        return loaded_exp, saved_state, tempo_id
 
     @abstractmethod
     def run(self) -> int:
