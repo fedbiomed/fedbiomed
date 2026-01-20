@@ -192,3 +192,37 @@ def aggregate_histogram(
         "bin_edges": histogram[0]["bin_edges"],
         "counts": list(np.sum([h["counts"] for h in histogram], axis=0)),
     }
+
+
+@validate_aggregator_args
+def aggregate_quantile(
+    quantile: List[Dict[str, List[float]]],
+) -> Dict[str, List[float]]:
+    """Aggregates quantiles from nodes.
+
+    Args:
+        quantile: List of quantile dictionaries from nodes.
+                  Each dict must contain "q" (list of quantiles) and "values" (list of values).
+
+    Returns:
+        The aggregated quantile dictionary with "q" and "values".
+    """
+    aggregated = {}
+    if not quantile:
+        return aggregated
+
+    # Check key consistency regarding "q" across all nodes
+    reference_q = quantile[0]["q"]
+    if not all(node_q["q"] == reference_q for node_q in quantile):
+        logger.info("Quantiles 'q' do not match across nodes; cannot aggregate.")
+        return None
+
+    # Aggregate values (averaging across nodes)
+    # Each value in 'values' corresponds to the q at the same index in 'q'
+    all_values = [node_q["values"] for node_q in quantile]
+    aggregated_values = np.mean(all_values, axis=0).tolist()
+
+    return {
+        "q": reference_q,
+        "values": aggregated_values,
+    }

@@ -3,7 +3,7 @@
 
 from typing import Dict
 
-from fedbiomed.common.constants import AnalyticsTypes
+from fedbiomed.common.constants import Stats
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.researcher.requests import MessagesByNode
@@ -27,7 +27,7 @@ class FARequestJob(Job):
         fa_id: str,
         federated_dataset: dict,
         fa_args: dict,
-        analytics_type: AnalyticsTypes,
+        stats: Stats,
         dataset_args: dict,
         **kwargs,
     ) -> None:
@@ -43,7 +43,7 @@ class FARequestJob(Job):
         self._federated_dataset = federated_dataset
         self._fa_args = fa_args
         self._dataset_args = dataset_args
-        self._analytics_type = analytics_type
+        self._stats = stats
 
     def execute(self) -> Dict[str, FAReply]:
         """Executes federated analytics request
@@ -54,7 +54,7 @@ class FARequestJob(Job):
         fa_request = dict(
             researcher_id=self._researcher_id,
             experiment_id=self._experiment_id,
-            analytics_type=self._analytics_type,
+            stats=self._stats,
             fa_id=self._fa_id,
             fa_args=self._fa_args,
             dataset_args=self._dataset_args,

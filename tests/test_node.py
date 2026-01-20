@@ -5,8 +5,8 @@ import unittest
 from unittest.mock import ANY, MagicMock, patch
 
 from fedbiomed.common.constants import (
-    AnalyticsTypes,
     ErrorNumbers,
+    Stats,
     __messaging_protocol_version__,
 )
 from fedbiomed.common.message import (
@@ -83,7 +83,7 @@ class TestNode(unittest.TestCase):
         experiment_id="experiment-id",
         dataset_id="dataset-id",
         fa_id="fa-id",
-        analytics_type=AnalyticsTypes.BASIC_STATS.value,
+        stats=Stats.MEAN.value,
         fa_args={},
         dataset_args={"col_names": ["age", "weight"]},  # Example dataset arguments
     )

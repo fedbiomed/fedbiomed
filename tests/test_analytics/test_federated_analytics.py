@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from fedbiomed.common.constants import AnalyticsTypes, Stats
+from fedbiomed.common.constants import Stats
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.message import FAReply
 from fedbiomed.researcher.datasets import FederatedDataset
@@ -158,23 +158,11 @@ class TestFederatedAnalytics:
         with pytest.raises(FedbiomedExperimentError):
             fa.get_node_ids()
 
-    def test_update_fa_args(self, base_fa):
-        fa_args = {"existing": 1}
-        new_args = base_fa._update_fa_args(fa_args, {"existing": 2, "new": 3})
-        assert new_args == {"existing": 2, "new": 3}
-
-        new_args_none = base_fa._update_fa_args(None, {"a": 1})
-        assert new_args_none == {"a": 1}
-
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     @patch(
         "fedbiomed.researcher.federated_workflows._federated_analytics.validate_dataset_arguments_for_fa"
     )
-    # We patch the instance method on the class to avoid needing an instance beforehand
-    @patch.object(FederatedAnalytics, "_validate_if_dataset_has_analytics")
-    def test_compute_analytics_flow(
-        self, mock_validate_analytics, mock_validate_args, mock_fa_job_cls, base_fa
-    ):
+    def test_compute_analytics_flow(self, mock_validate_args, mock_fa_job_cls, base_fa):
         replies = {"n1": "r1"}
         errors = {}
         # FARequestJob().execute() returns (replies, errors)
@@ -182,8 +170,7 @@ class TestFederatedAnalytics:
 
         res = base_fa._compute_analytics("my_analytics", dataset_args={}, fa_args={})
 
-        assert res == replies
-        mock_validate_analytics.assert_called_once_with("my_analytics")
+        assert res[0] == replies
         mock_validate_args.assert_called_once()
         mock_fa_job_cls.assert_called_once()
 
@@ -197,7 +184,6 @@ class TestFederatedAnalytics:
 
         # We need to ensure validations pass
         with (
-            patch.object(base_fa, "_validate_if_dataset_has_analytics"),
             patch.object(base_fa, "_validate_dataset_arguments"),
         ):
             result = base_fa.mean(dataset_args={"col_names": ["mod1"]})
@@ -212,43 +198,50 @@ class TestFederatedAnalytics:
             spec=FAReply,
             output={"mod": {"mean": 1, "min": 0, "max": 2, "std": 0.5, "count": 10}},
         )
-        mock_compute.return_value = {"n1": reply_obj}
+        mock_compute.return_value = ({"n1": reply_obj}, {})
 
         result = base_fa.basic_stats(dataset_args={})
 
         assert isinstance(result, FAResult)
-        mock_compute.assert_called_once_with(AnalyticsTypes.BASIC_STATS.value, {}, None)
+        # Check call arguments. We expect a list of stats as first argument.
+        call_args = mock_compute.call_args
+        requested_analytics = call_args[0][0]
+        assert isinstance(requested_analytics, list)
+        assert Stats.MEAN.value in requested_analytics
+        assert Stats.MIN.value in requested_analytics
+
         assert "mean" in result.values["mod"]
 
     @patch.object(FederatedAnalytics, "_compute_analytics")
     def test_mean_wrapper(self, mock_compute, base_fa):
         reply_obj = MagicMock(spec=FAReply, output={"mod": {"mean": 1}})
-        mock_compute.return_value = {"n1": reply_obj}
+        mock_compute.return_value = ({"n1": reply_obj}, {})
 
         result = base_fa.mean(dataset_args={})
 
         assert isinstance(result, FAResult)
         call_args = mock_compute.call_args
-        assert call_args[0][0] == AnalyticsTypes.BASIC_STATS.value
-        assert call_args[0][2]["requested_stats"] == [Stats.MEAN.value]
+        # Expect directly requested stats as a list
+        assert call_args[0][0] == [Stats.MEAN.value]
 
     @patch.object(FederatedAnalytics, "_compute_analytics")
     def test_min_max_wrapper(self, mock_compute, base_fa):
         reply_obj = MagicMock(spec=FAReply, output={"mod": {"min": 0, "max": 1}})
-        mock_compute.return_value = {"n1": reply_obj}
+        mock_compute.return_value = ({"n1": reply_obj}, {})
 
         base_fa.min_max()
         call_args = mock_compute.call_args
-        assert call_args[0][2]["requested_stats"] == [Stats.MIN.value, Stats.MAX.value]
+        # Expect list of MIN and MAX
+        assert call_args[0][0] == [Stats.MIN.value, Stats.MAX.value]
 
     @patch.object(FederatedAnalytics, "_compute_analytics")
     def test_sum_wrapper(self, mock_compute, base_fa):
         reply_obj = MagicMock(spec=FAReply, output={"mod": {"sum": 10}})
-        mock_compute.return_value = {"n1": reply_obj}
+        mock_compute.return_value = ({"n1": reply_obj}, {})
 
         base_fa.sum()
         call_args = mock_compute.call_args
-        assert call_args[0][2]["requested_stats"] == [Stats.SUM.value]
+        assert call_args[0][0] == [Stats.SUM.value]
 
     @patch.object(FederatedAnalytics, "_compute_analytics")
     def test_histogram_wrapper(self, mock_compute, base_fa):
@@ -259,13 +252,13 @@ class TestFederatedAnalytics:
             reply_obj = MagicMock(
                 spec=FAReply, output={"mod": {"counts": [5], "bin_edges": [0, 1]}}
             )
-            mock_compute.return_value = {"n1": reply_obj}
+            mock_compute.return_value = ({"n1": reply_obj}, {})
 
             base_fa.histogram(num_bins=5)
 
             mock_create_bins.assert_called_once()
             call_args = mock_compute.call_args
-            assert call_args[0][0] == AnalyticsTypes.HISTOGRAM.value
+            assert call_args[0][0] == [Stats.HISTOGRAM.value]
             assert call_args[0][2]["bin_edges"] == {"mod": [0, 1]}
 
     @patch.object(FederatedAnalytics, "_compute_analytics")
@@ -273,7 +266,7 @@ class TestFederatedAnalytics:
         # Result of min_max analytics passed to min_max wrapper
         reply1 = MagicMock(spec=FAReply, output={"mod1": {"min": 0.0, "max": 10.0}})
         reply2 = MagicMock(spec=FAReply, output={"mod1": {"min": 2.0, "max": 12.0}})
-        mock_compute.return_value = {"n1": reply1, "n2": reply2}
+        mock_compute.return_value = ({"n1": reply1, "n2": reply2}, {})
 
         bin_edges = base_fa._create_bins(num_bins=10)
 
@@ -285,24 +278,26 @@ class TestFederatedAnalytics:
         assert np.isclose(bin_edges["mod1"][0], 0.0)
         assert bin_edges["mod1"][-1] > 12.0
 
-    # TODO: Fix this test
-    """
     @patch.object(FederatedAnalytics, "_compute_analytics")
     def test_quantile_wrapper(self, mock_compute, base_fa):
         # Mock _create_bins
         with patch.object(base_fa, "_create_bins", return_value={"mod": [0, 1]}):
             # Mock return of _compute_analytics to be a tuple (node_quantiles, errors)
-            # This is validating the expectation of CURRENT code, even if flawed.
-
-            node_quantiles = {
-                "n1": MagicMock(spec=FAReply, output={"mod1": {"q0.5": 10.0}})
-            }
+            reply_obj = MagicMock(
+                spec=FAReply,
+                output={"mod1": {"quantile": {"q": [0.5], "values": [10.0]}}},
+            )
+            node_quantiles = {"n1": reply_obj}
             errors = {}
             mock_compute.return_value = (node_quantiles, errors)
 
-            agg_q, node_q, err = base_fa.quantile()
+            result = base_fa.quantile()
 
-            assert agg_q["mod1"]["q0.5"] == 10.0
-            assert node_q == node_quantiles
-            assert err == errors
-    """
+            assert isinstance(result, FAResult)
+            # Check aggregation
+            aggregated = result.aggregate()
+            # aggregated should be { "mod1": { "quantile": {"q": [0.5], "values": [10.0]} } }
+            assert "mod1" in aggregated
+            assert "quantile" in aggregated["mod1"]
+            assert aggregated["mod1"]["quantile"]["q"] == [0.5]
+            assert aggregated["mod1"]["quantile"]["values"] == [10.0]
