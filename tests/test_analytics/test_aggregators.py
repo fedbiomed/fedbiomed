@@ -10,6 +10,7 @@ from fedbiomed.common.analytics._aggregators import (
     aggregate_max,
     aggregate_mean,
     aggregate_min,
+    aggregate_quantile,
     aggregate_std,
     aggregate_sum,
     aggregate_variance,
@@ -180,3 +181,43 @@ def test_aggregate_histogram():
     # Empty list -> FedbiomedError
     with pytest.raises(FedbiomedError):
         aggregate_histogram([])
+
+
+def test_aggregate_quantile():
+    """Test aggregate_quantile function."""
+
+    # 1. Single quantile
+    q1 = {"q": [0.5], "values": [10.0]}
+    q2 = {"q": [0.5], "values": [20.0]}
+    res = aggregate_quantile([q1, q2])
+    assert res["q"] == [0.5]
+    assert np.isclose(res["values"][0], 15.0)
+
+    # 2. Multiple quantiles
+    q1 = {"q": [0.25, 0.5], "values": [10.0, 5.0]}
+    q2 = {"q": [0.25, 0.5], "values": [20.0, 15.0]}
+
+    # Normal case
+    res = aggregate_quantile([q1, q2])
+    assert res["q"] == [0.25, 0.5]
+    assert np.allclose(res["values"], [15.0, 10.0])
+
+    # 3. Mismatched q -> None
+    q1 = {"q": [0.25, 0.5], "values": [10.0, 5.0]}
+    q2 = {"q": [0.5], "values": [20.0]}
+    assert aggregate_quantile([q1, q2]) is None
+
+    # Mismatched q values (different order or values)
+    q3 = {"q": [0.5, 0.25], "values": [5.0, 10.0]}
+    assert aggregate_quantile([q1, q3]) is None
+
+    # 4. Empty inputs
+    with pytest.raises(FedbiomedError):
+        aggregate_quantile([])
+
+    # 5. Empty content (valid structure but empty lists)
+    # Ideally should handle or return empty lists
+    q_empty = {"q": [], "values": []}
+    res = aggregate_quantile([q_empty, q_empty])
+    assert res["q"] == []
+    assert res["values"] == []

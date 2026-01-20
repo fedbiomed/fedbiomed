@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, Stats
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
@@ -17,8 +17,8 @@ def request_args():
         "experiment_id": "exp_1",
         "dataset_id": "dataset_123",
         "fa_id": "fa_1",
-        "analytics_type": "basic_stats",
-        "fa_args": {"basic_stats": ["col1"]},
+        "stats": Stats.MEAN.value,
+        "fa_args": {},
         "dataset_args": {"col_names": ["age", "weight"]},
     }
 
@@ -216,7 +216,7 @@ def test_build_dataset_dlp_error(
 def test_run_success(fa_job):
     """Test run method success."""
     mock_dataset = MagicMock()
-    mock_dataset.basic_stats.return_value = {"col1": 1.5}
+    mock_dataset.compute_stats.return_value = {"col1": 1.5}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = fa_job.run()
@@ -251,7 +251,7 @@ def test_run_no_dataset_args(fa_job_args):
     job = FAJob(**args)
 
     mock_dataset = MagicMock()
-    mock_dataset.basic_stats.return_value = {"col1": 2.0}
+    mock_dataset.compute_stats.return_value = {"col1": 2.0}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()
@@ -267,7 +267,7 @@ def test_run_unsupported_analytics_type(
 ):
     """Test run method with unsupported analytics type."""
     req_args = request_args.copy()
-    req_args["analytics_type"] = "unsupported_type"
+    req_args["stats"] = "unsupported_type"
     request = FARequest(**req_args)
 
     args = fa_job_args.copy()
@@ -278,7 +278,27 @@ def test_run_unsupported_analytics_type(
 
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
-    assert "not supported" in reply.extra_msg
+    assert "unsupported values" in reply.extra_msg
+
+
+def test_run_missing_compute_stats_method(fa_job):
+    """Test run method when dataset does not accept compute_stats."""
+
+    # Mock dataset without compute_stats method
+    mock_dataset = MagicMock()
+    del mock_dataset.compute_stats
+
+    # Ensure hasattr(mock_dataset, 'compute_stats') returns False
+    # MagicMock usually creates attributes on access, so we need to be careful.
+    # Specifying spec=[] creates a mock with no attributes/methods unless added.
+    mock_dataset = MagicMock(spec=[])
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = fa_job.run()
+
+        assert isinstance(reply, ErrorMessage)
+        assert reply.errnum == ErrorNumbers.FB325.value
+        assert "does not support analytics method 'compute_stats'" in reply.extra_msg
 
 
 def test_run_failure(fa_job):
@@ -291,3 +311,65 @@ def test_run_failure(fa_job):
         assert isinstance(reply, ErrorMessage)
         assert reply.errnum == ErrorNumbers.FB325.value
         assert "Dataset error" in reply.extra_msg
+
+
+def test_run_compute_stats_args(fa_job):
+    """Test validity of arguments passed to compute_stats."""
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"res": 1}
+
+    # Manually set fa_args to simulate extra arguments
+    fa_job._fa_args = {"some_arg_key": "some_arg_val"}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        fa_job.run()
+
+        mock_dataset.compute_stats.assert_called_once()
+        call_kwargs = mock_dataset.compute_stats.call_args[1]
+
+        # Check if requested_stats is passed correctly (converted to list)
+        assert "requested_stats" in call_kwargs
+        assert call_kwargs["requested_stats"] == [Stats.MEAN.value]
+
+        # Check if original fa_args are present
+        assert "some_arg_key" in call_kwargs
+        assert call_kwargs["some_arg_key"] == "some_arg_val"
+
+
+def test_run_compute_stats_error(fa_job):
+    """Test run method when compute_stats raises an exception."""
+    mock_dataset = MagicMock()
+    error_msg = "Computation failed"
+    mock_dataset.compute_stats.side_effect = Exception(error_msg)
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = fa_job.run()
+
+        assert isinstance(reply, ErrorMessage)
+        assert reply.errnum == ErrorNumbers.FB325.value
+        assert error_msg in reply.extra_msg
+
+
+def test_run_success_multiple_stats(fa_job_args, request_args):
+    """Test run method with multiple requested statistics."""
+    req_args = request_args.copy()
+    stats_list = [Stats.MEAN.value, Stats.STD.value]
+    req_args["stats"] = stats_list
+    request = FARequest(**req_args)
+
+    args = fa_job_args.copy()
+    args["request"] = request
+    job = FAJob(**args)
+
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"col1": {"mean": 1, "std": 0.1}}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+        assert isinstance(reply, FAReply)
+        # Check that list of stats is returned
+        assert reply.stats == stats_list
+        # Check passed arguments
+        call_kwargs = mock_dataset.compute_stats.call_args[1]
+        assert call_kwargs["requested_stats"] == stats_list

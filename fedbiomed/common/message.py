@@ -904,7 +904,7 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     experiment_id: str
     dataset_id: str
-    analytics_type: str
+    stats: str | List
     fa_id: str
     fa_args: Optional[Dict] = None
     dataset_args: Optional[Dict] = None
@@ -932,7 +932,7 @@ class FAReply(RequestReply, RequiresProtocolVersion):
     fa_id: str
     node_id: str
     node_name: str
-    analytics_type: str
+    stats: str | List
     output: Dict
 
 

@@ -15,11 +15,11 @@ from fedbiomed.common.analytics._aggregators import (
     aggregate_max,
     aggregate_mean,
     aggregate_min,
+    aggregate_quantile,
     aggregate_std,
     aggregate_sum,
 )
-from fedbiomed.common.constants import AnalyticsTypes, DatasetTypes, Stats
-from fedbiomed.common.dataset import DATASET_CLASSES_PER_TYPE
+from fedbiomed.common.constants import DatasetTypes, Stats
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FAReply
@@ -234,28 +234,6 @@ class FederatedAnalytics:
 
         return node_ids
 
-    def _validate_if_dataset_has_analytics(self, analytics_type: str) -> DatasetTypes:
-        """Get the dataset type from the federated dataset.
-
-        Returns:
-            The dataset type
-        """
-        logger.debug(f"Validating analytics: {analytics_type}")
-
-        # Extract dataset types from the first self._fds.data() entry
-        type_ = next(iter(self._fds.data().values())).get("data_type")
-        dataset_type = DatasetTypes.get_type_by_value(type_)
-
-        # Check if dataset class has requested analytics implemented
-        dataset_cls = DATASET_CLASSES_PER_TYPE[dataset_type]
-        if not hasattr(dataset_cls, analytics_type):
-            raise FedbiomedError(
-                f"Dataset type '{dataset_type.value}' does not support "
-                f"analytics type '{analytics_type}'."
-            )
-
-        return dataset_type
-
     def _validate_dataset_arguments(self, dataset_args: dict) -> None:
         """Validate dataset arguments for federated analytics.
 
@@ -271,12 +249,15 @@ class FederatedAnalytics:
         validate_dataset_arguments_for_fa(dataset_args, dataset_type)
 
     def _compute_analytics(
-        self, analytics_type: str, dataset_args: dict = None, fa_args: dict = None
+        self,
+        stats: Union[str, List[str]],
+        dataset_args: dict = None,
+        fa_args: dict = None,
     ) -> Union[Any, Dict[str, Any]]:
         """Compute analytics across nodes.
 
         Args:
-            analytics_type: The type of analytics to compute.
+            stats: The type of analytics to compute (string or list of strings).
             dataset_args: Dataset arguments.
             fa_args: Federated analytics arguments.
 
@@ -288,7 +269,6 @@ class FederatedAnalytics:
                 "No defined FederatedDataset found for FederatedAnalytics."
             )
 
-        self._validate_if_dataset_has_analytics(analytics_type)
         self._validate_dataset_arguments(dataset_args)
         node_ids = self.get_node_ids()
 
@@ -296,7 +276,7 @@ class FederatedAnalytics:
         fa_job = FARequestJob(
             fa_id=self._fa_id,
             fa_args=fa_args,
-            analytics_type=analytics_type,
+            stats=stats,
             dataset_args=dataset_args,
             federated_dataset=self._fds,
             experiment_id=self._experiment_id,
@@ -316,31 +296,22 @@ class FederatedAnalytics:
             )
             # _ = self._fds._data.pop(node_id)
 
-        return analytics_replies
-
-    def _update_fa_args(self, fa_args: Optional[dict], kwargs: dict) -> dict:
-        """Update fa_args with additional kwargs.
-
-        Args:
-            kwargs: Additional named arguments
-            fa_args: Existing federated analytics arguments
-
-        Returns:
-            Updated fa_args dictionary
-        """
-        fa_args = {} if fa_args is None else fa_args
-        for key, value in kwargs.items():
-            if key in fa_args:
-                logger.info(f"'{key}' in fa_args will be replaced.")
-            fa_args[key] = value
-        return fa_args
+        return analytics_replies, errors
 
     def basic_stats(
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
         """Returns FAResult object containing the basic analytics for each node (min, max, count, mean, std)."""
-        replies = self._compute_analytics(
-            AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
+        replies, _ = self._compute_analytics(
+            [
+                Stats.MIN.value,
+                Stats.MAX.value,
+                Stats.COUNT.value,
+                Stats.MEAN.value,
+                Stats.STD.value,
+            ],
+            dataset_args,
+            fa_args,
         )
         aggregators = {
             "min": aggregate_min,
@@ -355,13 +326,9 @@ class FederatedAnalytics:
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
         """Returns FAResult object containing min and max for each node."""
-        # Update fa_args with requested_stats
-        fa_args = self._update_fa_args(
-            fa_args, {"requested_stats": [Stats.MIN.value, Stats.MAX.value]}
-        )
         # Collect replies
-        replies = self._compute_analytics(
-            AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
+        replies, _ = self._compute_analytics(
+            [Stats.MIN.value, Stats.MAX.value], dataset_args, fa_args
         )
         # Define aggregators
         aggregators = {
@@ -374,12 +341,8 @@ class FederatedAnalytics:
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
         """Returns FAResult object containing mean for each node."""
-        # Update fa_args with requested_stats
-        fa_args = self._update_fa_args(fa_args, {"requested_stats": [Stats.MEAN.value]})
         # Collect replies
-        replies = self._compute_analytics(
-            AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
-        )
+        replies, _ = self._compute_analytics([Stats.MEAN.value], dataset_args, fa_args)
         # Define aggregators
         aggregators = {
             "mean": aggregate_mean,
@@ -389,13 +352,9 @@ class FederatedAnalytics:
     def sum(
         self, dataset_args: dict = None, fa_args: dict = None
     ) -> Union[Any, Dict[str, Any]]:
-        """Returns FAResult object containing mean for each node."""
-        # Update fa_args with requested_stats
-        fa_args = self._update_fa_args(fa_args, {"requested_stats": [Stats.SUM.value]})
+        """Returns FAResult object containing sum for each node."""
         # Collect replies
-        replies = self._compute_analytics(
-            AnalyticsTypes.BASIC_STATS.value, dataset_args, fa_args
-        )
+        replies, _ = self._compute_analytics([Stats.SUM.value], dataset_args, fa_args)
         # Define aggregators
         aggregators = {
             "sum": aggregate_sum,
@@ -458,7 +417,6 @@ class FederatedAnalytics:
         """
         if bin_edges is None:
             # Validate that dataset supports histogram analytics before computing min/max
-            self._validate_if_dataset_has_analytics(AnalyticsTypes.HISTOGRAM.value)
             bin_edges = self._create_bins(
                 num_bins=num_bins, dataset_args=dataset_args, fa_args=fa_args
             )
@@ -468,11 +426,11 @@ class FederatedAnalytics:
         fa_args["bin_edges"] = bin_edges
 
         # Collect histogram replies
-        replies = self._compute_analytics(
-            AnalyticsTypes.HISTOGRAM.value, dataset_args, fa_args
+        replies, _ = self._compute_analytics(
+            [Stats.HISTOGRAM.value], dataset_args, fa_args
         )
         aggregators = {
-            "histogram": aggregate_histogram,
+            Stats.HISTOGRAM.value: aggregate_histogram,
         }
         return FAResult(replies, aggregators)
 
@@ -483,7 +441,7 @@ class FederatedAnalytics:
         num_bins: int = 10,
         dataset_args: dict = None,
         fa_args: dict = None,
-    ) -> tuple:
+    ) -> Union[Any, Dict[str, Any]]:
         """Compute quantile values across federated nodes.
 
         Args:
@@ -499,17 +457,10 @@ class FederatedAnalytics:
             fa_args: Additional federated analytics arguments
 
         Returns:
-            Tuple containing:
-            - aggregated_quantiles: Dictionary with aggregated quantile values from all nodes
-            - node_quantiles: Dictionary with per-node results
-            - errors: Any errors from node execution
-
-        Raises:
-            FedbiomedError: if no FederatedDataset is defined
+            FAResult object containing quantiles for each node.
         """
         if bin_edges is None:
             # Validate that dataset supports histogram analytics before computing min/max
-            self._validate_if_dataset_has_analytics(AnalyticsTypes.QUANTILE.value)
             bin_edges = self._create_bins(
                 num_bins=num_bins, dataset_args=dataset_args, fa_args=fa_args
             )
@@ -518,13 +469,13 @@ class FederatedAnalytics:
         fa_args = {} if fa_args is None else fa_args
         fa_args["bin_edges"] = bin_edges
         fa_args["q"] = q
-        logger.debug(f"FA args prepared: {fa_args}")
 
         # Collect quantile replies
-        node_quantiles, errors = self._compute_analytics(
-            AnalyticsTypes.QUANTILE.value, dataset_args, fa_args
+        replies, _ = self._compute_analytics(
+            Stats.QUANTILE.value, dataset_args, fa_args
         )
 
+        """
         # Aggregate quantiles from all nodes
         # TODO: Change aggregation strategy (maybe weighted by sample size)
         # TODO: Delegate below part to a common class for aggregation strategies
@@ -551,3 +502,8 @@ class FederatedAnalytics:
                 aggregated_quantiles[col_name][q_key] = float(np.mean(values_list))
 
         return aggregated_quantiles, node_quantiles, errors
+        """
+        aggregators = {
+            "quantile": aggregate_quantile,
+        }
+        return FAResult(replies, aggregators)
