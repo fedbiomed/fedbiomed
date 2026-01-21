@@ -219,6 +219,7 @@ class FederatedWorkflow(ABC):
         self._experiment_id: str = EXPERIMENT_PREFIX + str(
             uuid.uuid4()
         )  # creating a unique experiment id
+        self._fed_preproc: Optional[FedCombatPreproc] = None
 
         # set internal members from constructor arguments
         self.set_secagg(secagg)
@@ -591,6 +592,11 @@ class FederatedWorkflow(ABC):
             )
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
+
+        # Inform preprocessing object of node filter change
+        if self._fed_preproc is not None:
+            self._fed_preproc.set_nodes(self.filtered_federation_nodes())
+
         return self._nodes_filter
 
     @exp_exceptions

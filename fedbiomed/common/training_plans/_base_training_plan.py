@@ -601,7 +601,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             # Log the computed value.
             # Reporting
 
-            if (
+            if self.training_args()["log_interval"] > 0 and (
                 idx % self.training_args()["log_interval"] == 0
                 or idx == 1
                 or idx == n_batches

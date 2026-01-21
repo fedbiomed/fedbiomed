@@ -150,6 +150,8 @@ class MiniBatchTrainingIterationsAccountant:
             - it is the last batch of the epoch
             - it is the first batch of the epoch
         """
+        if self._training_plan.training_args()["log_interval"] <= 0:
+            return False
         current_iter = (
             self.cur_epoch - 1
         ) * self.num_batches_per_epoch + self.cur_batch
