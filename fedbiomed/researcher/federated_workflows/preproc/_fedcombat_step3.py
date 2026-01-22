@@ -86,8 +86,14 @@ class _FedCombat_Step3:
             experimentation_folder: Name of the *main* experimentation folder
                 to save training data files. A distinct folder name is derived for this
                 harmonization and is used as a subdirectory of `config.vars[EXPERIMENTS_DIR])`.
+            covariates: List of covariate column names or indices used for harmonization.
+            phenotypes: List of phenotype column names or indices used for harmonization.
             training_args: User-provided training arguments for the harmonization model.
             model_args: User-provided model arguments for the harmonization model.
+            rounds: Number of federated training rounds for the harmonization model.
+
+        Raises:
+            FedbiomedExperimentError: if covariates or phenotypes are not provided.
         """
 
         self._fds = fds
@@ -101,7 +107,42 @@ class _FedCombat_Step3:
         self._covariates = covariates or []
         self._phenotypes = phenotypes or []
 
-        # TODO: ADDITIONAL CHECKS on covariates and phenotypes
+        # Checks on covariates and phenotypes
+        if not isinstance(self._covariates, list) or not isinstance(
+            self._phenotypes, list
+        ):
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: "
+                "Covariates and phenotypes must be provided as lists for Fed-ComBat harmonization."
+            )
+        if len(self._covariates) < 1:
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: "
+                "At least one covariate must be provided for Fed-ComBat harmonization."
+            )
+        if len(self._phenotypes) < 1:
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: "
+                "At least one phenotype must be provided for Fed-ComBat harmonization."
+            )
+        if not all(
+            isinstance(v, int) for v in self._covariates + self._phenotypes
+        ) and not all(isinstance(v, str) for v in self._covariates + self._phenotypes):
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: "
+                "Covariates and phenotypes must all be of the same type, either `str` or `int`."
+            )
+        _duplicates = [
+            v
+            for v in set(self._covariates + self._phenotypes)
+            if (self._covariates + self._phenotypes).count(v) > 1
+        ]
+        if any(_duplicates):
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: "
+                "Covariates and phenotypes must be disjoint lists of unique values. "
+                f"Duplicates found: {_duplicates}."
+            )
 
         if isinstance(training_args, TrainingArgs):
             training_args = training_args.dict()
@@ -131,7 +172,10 @@ class _FedCombat_Step3:
         self._training_plan_class = _FedCombatTrainingPlan
 
     def execute(self) -> None:
-        """Execute harmonization model training."""
+        """Execute harmonization model training.
+
+        Raises:
+            FedbiomedExperimentError: if harmonization model initialization or training fails."""
         try:
             # TODO: IMPLEMENT AS FACTORY PATTERN TO AVOID CIRCULAR IMPORT AND LOCAL IMPORT
             from fedbiomed.researcher.federated_workflows import Experiment
