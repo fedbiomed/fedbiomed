@@ -13,6 +13,7 @@ from fedbiomed.common.dataset._dataset import Dataset
 from fedbiomed.common.dataset_controller._tabular_controller import TabularController
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.logger import logger
 
 
 class TabularDataset(Dataset, TabularAnalytics):
@@ -81,6 +82,19 @@ class TabularDataset(Dataset, TabularAnalytics):
             self._validate_format_and_transformations(
                 self._get_targets_from_sample(sample), transform=self._transform
             )
+
+            # Check for overlap between input_columns and target_columns
+            _inter = list(
+                filter(
+                    lambda x: x
+                    in self._controller.normalize_columns(self._input_columns),
+                    self._controller.normalize_columns(self._target_columns),
+                )
+            )
+            if any(_inter):
+                logger.warning(
+                    f"Columns {_inter} are present in both input_columns and target_columns."
+                )
 
     def _get_inputs_from_sample(self, sample: pl.DataFrame) -> pl.DataFrame:
         """Get inputs dataset
