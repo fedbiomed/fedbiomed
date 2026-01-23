@@ -6,9 +6,14 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from fedbiomed.common.dataset import ImageFolderDataset
+from fedbiomed.common.dataset import ImageFolderDataset, MedNistDataset, MnistDataset
 from fedbiomed.common.dataset._simple_dataset import _ImageLabelDataset
-from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.dataset_controller import MedNistController, MnistController
+from fedbiomed.common.dataset_types import (
+    DataReturnFormat,
+    DatasetElementType,
+    ImageSpec,
+)
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 
@@ -176,9 +181,84 @@ def test_complete_initialization_success(dataset_with_mock_controller):
     assert isinstance(target, dataset_with_mock_controller._to_format.value)
 
 
-def test_getitem(dataset_with_mock_controller):
-    sample = dataset_with_mock_controller[0]
-    assert all(
-        isinstance(item, dataset_with_mock_controller._to_format.value)
-        for item in sample
+# === Tests for getitem ===
+
+
+def test_getitem_not_initialized():
+    """Accessing an item before initialization raises an error."""
+    dataset = ImageFolderDataset()
+    with pytest.raises(FedbiomedError) as excinfo:
+        _ = dataset[0]
+    assert "Dataset object has not completed initialization" in str(excinfo.value)
+
+
+def test_getitem_torch_numpy_input(tmp_path):
+    """Test converting numpy input to torch tensor."""
+    mock_controller = MagicMock()
+    # Return numpy array instead of PIL Image
+    result_data = np.zeros((28, 28, 3), dtype=np.uint8)
+    mock_controller.get_sample.side_effect = lambda index: {
+        "data": result_data,
+        "target": 1,
+    }
+
+    dataset = ImageFolderDataset()
+    dataset._controller_cls = lambda **kwargs: mock_controller
+    dataset.complete_initialization(
+        controller_kwargs={"root": tmp_path},
+        to_format=DataReturnFormat.TORCH,
     )
+
+    data, target = dataset[0]
+    assert isinstance(data, torch.Tensor)
+    assert isinstance(target, torch.Tensor)
+
+
+# === Tests for Analytics and Schema ===
+
+
+@pytest.mark.parametrize(
+    "to_format", [DataReturnFormat.SKLEARN, DataReturnFormat.TORCH]
+)
+def test_get_analytics_item(to_format, mock_controller, tmp_path):
+    """Test retrieving an item for analytics."""
+    dataset = ImageFolderDataset()
+    dataset._controller_cls = lambda **kwargs: mock_controller
+    dataset.complete_initialization(
+        controller_kwargs={"root": tmp_path},
+        to_format=to_format,
+    )
+    analytics_item = dataset.get_analytics_item(0)
+
+    # Regardless of the dataset format (Torch or Sklearn),
+    # get_analytics_item should return a numpy array
+    assert isinstance(analytics_item, np.ndarray)
+
+
+def test_get_schema(dataset_with_mock_controller):
+    """Test retrieving the schema."""
+    dataset = dataset_with_mock_controller
+    schema = dataset.get_schema()
+    assert isinstance(schema, ImageSpec)
+    assert schema.type == DatasetElementType.IMAGE
+
+
+# === Tests for Concrete Dataset Classes ===
+
+
+def test_imagefolder_dataset_class():
+    """Test ImageFolderDataset class attributes."""
+    dataset = ImageFolderDataset()
+    assert dataset._controller_cls.__name__ == "ImageFolderController"
+
+
+def test_mednist_dataset_class():
+    """Test MedNistDataset class attributes."""
+    dataset = MedNistDataset()
+    assert dataset._controller_cls == MedNistController
+
+
+def test_mnist_dataset_class():
+    """Test MnistDataset class attributes."""
+    dataset = MnistDataset()
+    assert dataset._controller_cls == MnistController
