@@ -212,8 +212,8 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         exp = FederatedWorkflow()
         preproc_args = {"arg1": "value1", "arg2": 2}
         exp.set_preprocessing(PreprocType.FEDCOMBAT, preproc_args)
-        self.assertTrue(isinstance(exp.preprocessing(), FedCombatPreproc))
-        self.assertEqual(exp.preprocessing()._preproc_args, preproc_args)
+        self.assertTrue(isinstance(exp.preprocessing, FedCombatPreproc))
+        self.assertEqual(exp.preprocessing._preproc_args, preproc_args)
 
         # Invalid type
         with self.assertRaises(SystemExit):
@@ -418,9 +418,9 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
                         "preproc_args": preproc_args,
                     },
                     "attributes": {
-                        "_preproc_id": exp.preprocessing()._preproc_id,
-                        "_do_harmonization": exp.preprocessing()._do_harmonization,
-                        "_harmonized_datasets": exp.preprocessing()._harmonized_datasets,
+                        "_preproc_id": exp.preprocessing._preproc_id,
+                        "_do_harmonization": exp.preprocessing._do_harmonization,
+                        "_harmonized_datasets": exp.preprocessing._harmonized_datasets,
                     },
                 },
             },
@@ -521,11 +521,11 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
         exp, saved_state = FederatedWorkflow.load_breakpoint()
 
-        self.assertIsNotNone(exp.preprocessing())
-        self.assertEqual(exp.preprocessing()._preproc_id, "preproc-id")
-        self.assertTrue(exp.preprocessing()._do_harmonization)
+        self.assertIsNotNone(exp.preprocessing)
+        self.assertEqual(exp.preprocessing._preproc_id, "preproc-id")
+        self.assertTrue(exp.preprocessing._do_harmonization)
         self.assertDictEqual(
-            exp.preprocessing()._harmonized_datasets, {"node1": "dataset-id-1"}
+            exp.preprocessing._harmonized_datasets, {"node1": "dataset-id-1"}
         )
 
         # 3. Test error cases

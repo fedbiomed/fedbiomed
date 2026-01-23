@@ -6,6 +6,7 @@ Implementation of Preprocess Job class of the node component
 """
 
 from fedbiomed.common.constants import ErrorNumbers, HarmonizationStep, PreprocType
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -82,6 +83,11 @@ class PreprocJob(_BaseJob):
         # Placeholder for actual preprocessing logic
         # This is where the preprocessing would be performed
         # For now, we just simulate a successful preprocessing step
+
+        logger.info(
+            "Dummy preprocessing executed successfully for "
+            f"{self._preproc_type.name} / {self._preproc_step.name}."
+        )
 
         # TODO: Parse request message and implement actual preprocessing logic
         # Simulated request of preprocessing
