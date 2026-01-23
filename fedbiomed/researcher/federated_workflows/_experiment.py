@@ -116,6 +116,7 @@ class Experiment(TrainingPlanWorkflow):
             retain_full_history: whether to retain in memory the full history
                 of node replies and aggregated params for the experiment. If False, only the
                 last round's replies and aggregated params will be available. Defaults to True.
+
             *args: Extra positional arguments from parent class
                 [`TrainingPlanWorkflow`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow]
             **kwargs: Arguments of parent class
@@ -465,7 +466,7 @@ class Experiment(TrainingPlanWorkflow):
         elif not isinstance(node_selection_strategy, Strategy):
             msg = (
                 f"{ErrorNumbers.FB410.value}: wrong type for "
-                "node_selection_strategy {type(node_selection_strategy)} "
+                f"node_selection_strategy {type(node_selection_strategy)} "
                 "it should be an instance of Strategy"
             )
             logger.critical(msg)

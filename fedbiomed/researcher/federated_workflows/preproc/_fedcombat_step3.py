@@ -13,6 +13,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import TabularDataset
 from fedbiomed.common.exceptions import FedbiomedExperimentError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -176,6 +177,8 @@ class _FedCombat_Step3:
 
         Raises:
             FedbiomedExperimentError: if harmonization model initialization or training fails."""
+
+        logger.setPrefix(" \033[1m[Fed-ComBat]\033[0m")
         try:
             # TODO: IMPLEMENT AS FACTORY PATTERN TO AVOID CIRCULAR IMPORT AND LOCAL IMPORT
             from fedbiomed.researcher.federated_workflows import Experiment
@@ -200,15 +203,19 @@ class _FedCombat_Step3:
                 # config_path=None,  # Use default config path
             )
         except Exception as e:
+            logger.setPrefix("")
             raise FedbiomedExperimentError(
                 f"{ErrorNumbers.FB420.value}: "
                 "Fed-ComBat harmonization model initialization failed."
             ) from e
+
         try:
             experiment.run()
         except Exception as e:
+            logger.setPrefix("")
             raise FedbiomedExperimentError(
                 f"{ErrorNumbers.FB420.value}: "
                 "Fed-ComBat harmonization model training failed."
             ) from e
         del experiment
+        logger.setPrefix("")

@@ -177,8 +177,6 @@ class FederatedWorkflow(ABC):
                     experiment is not fully initialized and cannot be launched)
                 Defaults to None (query nodes for dataset if `tags` is not None, set training_data
                 to None else)
-            save_breakpoints: whether to save breakpoints or not after each training
-                round. Breakpoints can be used for resuming a crashed experiment.
 
             experimentation_folder: choose a specific name for the folder
                 where experimentation result files and breakpoints are stored. This
@@ -190,10 +188,15 @@ class FederatedWorkflow(ABC):
                 - Caveat : do not use a `experimentation_folder` name finishing
                     with numbers ([0-9]+) as this would confuse the last experimentation
                     detection heuristic by `load_breakpoint`.
+
             secagg: whether to setup a secure aggregation context for this experiment, and
                 use it to send encrypted updates from nodes to researcher.
                 Defaults to `False`,
-            config_name: Allows to use specific configuration for researcher instead of default
+
+            save_breakpoints: whether to save breakpoints or not after each training
+                round. Breakpoints can be used for resuming a crashed experiment.
+
+            config_path: Allows to use specific configuration for researcher instead of default
                 one. Configuration file are kept in `{FEDBIOMED_DIR}/etc`, and a new configuration
                 file will be generated if it is not existing.
         """
@@ -274,6 +277,15 @@ class FederatedWorkflow(ABC):
         """
         return self._secagg
 
+    @property
+    def preprocessing(self) -> Union[FedCombatPreproc, None]:
+        """Retrieves the object for the federated pre-processing associated to the experiment.
+
+        Returns:
+            Federated pre-processing object. `None` if it isn't set.
+        """
+        return self._fed_preproc
+
     @exp_exceptions
     def tags(self) -> Union[List[str], None]:
         """Retrieves the tags from the experiment object.
@@ -338,15 +350,6 @@ class FederatedWorkflow(ABC):
             Object that contains metadata for the datasets of each node. `None` if it isn't set yet.
         """
         return self._fds
-
-    @exp_exceptions
-    def preprocessing(self) -> Union[FedCombatPreproc, None]:
-        """Retrieves the object for the federated pre-processing associated to the experiment.
-
-        Returns:
-            Federated pre-processing object. `None` if it isn't set.
-        """
-        return self._fed_preproc
 
     @exp_exceptions
     def experimentation_folder(self) -> str:
@@ -687,27 +690,32 @@ class FederatedWorkflow(ABC):
 
     @exp_exceptions
     def set_preprocessing(
-        self, preproc_type: PreprocType, preproc_args: Optional[Dict] = None
+        self,
+        preproc_type: Optional[Union[PreprocType, bool]],
+        preproc_args: Optional[Dict] = None,
     ) -> Optional[FedCombatPreproc]:
         """Sets preprocessing to be applied before training.
 
         Args:
-            preproc_type: Type of preprocessing to apply
+            preproc_type: Type of preprocessing to apply, or None or False for no preprocessing
             preproc_args: Arguments for the preprocessing
         Returns:
             Preprocessing object if `preproc_type` is not `PreprocType.NONE`, None otherwise
         """
+        if preproc_type is None or preproc_type is False:
+            preproc_type = PreprocType.NONE
+
         if not isinstance(preproc_type, PreprocType):
             raise FedbiomedTypeError(
                 f"{ErrorNumbers.FB410.value} `preproc_type` has incorrect type: "
-                f"{type(preproc_type).__name__} but expected a PreprocType"
+                f"{type(preproc_type).__name__} but expected a PreprocType or None/False"
             )
 
         preproc_args = preproc_args or {}
         if not isinstance(preproc_args, dict):
             raise FedbiomedTypeError(
                 f"{ErrorNumbers.FB410.value} `preproc_args` has incorrect type: "
-                f"{type(preproc_args).__name__} but expected a dict"
+                f"{type(preproc_args).__name__} but expected a dict or None"
             )
 
         if preproc_type == PreprocType.NONE:

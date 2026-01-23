@@ -44,8 +44,7 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
 
 import json
 import logging
-import logging.handlers
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.singleton import SingletonMeta
@@ -53,7 +52,8 @@ from fedbiomed.common.singleton import SingletonMeta
 # default values
 DEFAULT_LOG_FILE = "mylog.log"
 DEFAULT_LOG_LEVEL = logging.WARNING
-DEFAULT_FORMAT = "%(asctime)s %(name)s %(levelname)s - %(message)s"
+LOG_PREFIX = "%(prefix)s"
+DEFAULT_FORMAT = f"%(asctime)s %(name)s{LOG_PREFIX} %(levelname)s - %(message)s"
 
 
 class _GrpcFormatter(logging.Formatter):
@@ -200,13 +200,18 @@ class FedLogger(metaclass=SingletonMeta):
 
         self._logger.setLevel(self._default_level)
 
+        # Store base format used by handlers
+        self._original_format = {}
+
         # init the handlers list and add a console handler on startup
         self._handlers = {}
         self.add_console_handler()
 
         pass
 
-    def _internal_add_handler(self, output: str, handler: Callable):
+    def _internal_add_handler(
+        self, output: str, handler: Callable, format: Optional[str] = None
+    ):
         """Private method
 
         Add a handler to the logger. only one handler is allowed
@@ -215,11 +220,13 @@ class FedLogger(metaclass=SingletonMeta):
         Args:
             output: Tag for the logger ("CONSOLE", "FILE"), this is a string used as a hash key
             handler: Proper handler to install. if handler is None, it will remove the previous installed handler
+            format: format string for this handler
         """
         if handler is None:
             if output in self._handlers:
                 self.removeHandler(self._handlers[output])
                 del self._handlers[output]
+                del self._original_format[output]
                 self._logger.debug(" removing handler for: " + output)
             return
 
@@ -228,6 +235,7 @@ class FedLogger(metaclass=SingletonMeta):
             self._handlers[output] = handler
             self._logger.addHandler(handler)
             self._handlers[output].setLevel(self._default_level)
+            self._original_format[output] = format
         else:
             self._logger.warning(output + " handler already present - ignoring")
 
@@ -280,10 +288,10 @@ class FedLogger(metaclass=SingletonMeta):
         handler = logging.FileHandler(filename=filename, mode="a")
         handler.setLevel(self._internal_level_translator(level))
 
-        formatter = logging.Formatter(format)
+        formatter = logging.Formatter(format.replace(LOG_PREFIX, ""))
         handler.setFormatter(formatter)
 
-        self._internal_add_handler("FILE", handler)
+        self._internal_add_handler("FILE", handler, format)
 
     def add_console_handler(
         self, format: str = DEFAULT_FORMAT, level: Any = DEFAULT_LOG_LEVEL
@@ -301,9 +309,9 @@ class FedLogger(metaclass=SingletonMeta):
 
         handler.setLevel(self._internal_level_translator(level))
 
-        formatter = logging.Formatter(format)
+        formatter = logging.Formatter(format.replace(LOG_PREFIX, ""))
         handler.setFormatter(formatter)
-        self._internal_add_handler("CONSOLE", handler)
+        self._internal_add_handler("CONSOLE", handler, format)
 
         pass
 
@@ -379,6 +387,20 @@ class FedLogger(metaclass=SingletonMeta):
 
         # htype provided but no handler for this type exists
         self._logger.warning(htype + " handler not initialized yet")
+
+    def setPrefix(self, prefix: str = "") -> None:
+        """Sets a log prefix for all handlers.
+
+        Args:
+            prefix: Prefix to add to all log messages
+        """
+        for h in self._handlers:
+            if self._original_format[h] is not None:
+                self._handlers[h].setFormatter(
+                    logging.Formatter(
+                        self._original_format[h].replace(LOG_PREFIX, prefix),
+                    )
+                )
 
     def info(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Extends arguments of info message.
