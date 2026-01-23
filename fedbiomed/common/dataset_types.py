@@ -5,7 +5,9 @@
 Classes for dataset's data types and structures
 """
 
-from typing import Any, Callable, Dict, Optional, Union
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -46,3 +48,53 @@ Transform = Optional[Union[Callable, Dict[str, Callable]]]
 #
 # `Any`` represents the data in the framework specific format (using `to_format`)
 DatasetDataItem = Optional[Union[Any, Dict[str, Any]]]
+
+
+# === Schema Types ===
+
+
+class DatasetElementType(_BaseEnum):
+    """Classification of leaf data elements in a dataset sample (schema)."""
+
+    IMAGE = "image"
+    ROW = "row"
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class DatasetElementSpec(ABC):
+    """Base class for dataset element specifications."""
+
+    @property
+    @abstractmethod
+    def type(self) -> DatasetElementType:
+        pass
+
+
+@dataclass
+class ImageSpec(DatasetElementSpec):
+    """Specification for an image element."""
+
+    @property
+    def type(self) -> DatasetElementType:
+        return DatasetElementType.IMAGE
+
+
+@dataclass
+class RowSpec(DatasetElementSpec):
+    """Specification for a tabular row element."""
+
+    columns: List[str]
+
+    @property
+    def type(self) -> DatasetElementType:
+        return DatasetElementType.ROW
+
+
+@dataclass
+class UnknownSpec(DatasetElementSpec):
+    """Specification for an unknown element."""
+
+    @property
+    def type(self) -> DatasetElementType:
+        return DatasetElementType.UNKNOWN

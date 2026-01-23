@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
 import torch
 
+# from fedbiomed.common.analytics._analytics_orchestrator import AnalyticsOrchestrator
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import Controller
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
@@ -327,6 +328,23 @@ class Dataset(ABC):
                 ) from e
 
         return sample
+
+    def compute_stats(self, stats: Optional[List[str]] = None) -> Any:
+        """Computes statistics over the dataset using the AnalyticsOrchestrator.
+
+        Args:
+            stats: List of statistics names to compute (e.g. ['mean', 'std']).
+                   If None or empty, default statistics are chosen based on data type.
+
+        Returns:
+            Computed statistics structure.
+
+        Raises:
+            FedbiomedError: If the dataset does not support analytics (missing get_schema_for_analytics).
+        """
+        # orchestrator = AnalyticsOrchestrator()
+        # return orchestrator.compute_stats(self, stats)
+        return None  # Placeholder until AnalyticsOrchestrator is integrated
 
     def __len__(self) -> int:
         return len(self._controller)
