@@ -310,9 +310,10 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
                 "training_plan_path": "some-path",
                 "model_weights_path": model_weights_path,
             },
+            "some-exp-tempo-id",
         )
 
-        exp, saved_state = TrainingPlanWorkflow.load_breakpoint()
+        exp, saved_state, exp_tempo_id = TrainingPlanWorkflow.load_breakpoint()
         # Test if Serializer.load is called once with the good arguments
         mock_serializer_load.assert_called_once_with(model_weights_path)
         self.assertEqual(exp.training_plan_class(), FakeTorchTrainingPlan)
@@ -326,6 +327,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         exp.training_plan().get_model_wrapper_class.return_value.set_weights.assert_called_once_with(
             mock_serializer_load.return_value
         )
+        self.assertIsInstance(exp_tempo_id, str)
 
     def test_training_plan_workflow_08_set_training_args(self):
         """Tests setting training arguments"""

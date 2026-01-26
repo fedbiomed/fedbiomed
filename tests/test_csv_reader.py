@@ -170,3 +170,18 @@ def test_csvreader_17_get_column_name_not_found(sample_csv):
     reader = CsvReader(sample_csv)
     with pytest.raises(FedbiomedUserInputError):
         reader.get(indexes=[1], columns=["not_a_col"])
+
+
+def test_csvreader_18_normalize_column_bad_input(sample_csv):
+    reader = CsvReader(sample_csv)
+    with pytest.raises(FedbiomedUserInputError):
+        reader.normalize_columns(2.4)
+
+    with pytest.raises(FedbiomedUserInputError):
+        reader.normalize_columns([2.4])
+
+
+def test_csvreader_19_normalize_column_duplicates(sample_csv):
+    reader = CsvReader(sample_csv)
+    with pytest.raises(FedbiomedUserInputError):
+        reader.normalize_columns(["age", "age"])

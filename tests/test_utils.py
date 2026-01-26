@@ -1,12 +1,11 @@
 import os
 import sys
 import unittest
-import fedbiomed.common.utils as fed_utils
-import fedbiomed.common.utils
-
-from fedbiomed.common.exceptions import FedbiomedError
-
 from unittest.mock import patch
+
+import fedbiomed.common.utils
+import fedbiomed.common.utils as fed_utils
+from fedbiomed.common.exceptions import FedbiomedError
 
 
 # Dummy Class for testing its source --------------------
@@ -25,7 +24,7 @@ class TestUtils(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    @patch("fedbiomed.common.utils._utils.is_ipython")
+    @patch("inspect.getsource")
     @patch("fedbiomed.common.utils.get_ipython_class_file")
     @patch("inspect.linecache.getlines")
     @patch("fedbiomed.common.utils._utils.importlib")
@@ -34,27 +33,28 @@ class TestUtils(unittest.TestCase):
         mock_importlib,
         mock_get_lines,
         mock_get_ipython_class_file,
-        mock_is_ipython,
+        mock_getsource,
     ):
         """
         Tests getting class source
         """
         class_source = ["class TestClass:\n", "\tdef __init__(self):\n", "\t\tpass\n"]
 
-        # Test getting class source when is_ipython returns True
+        # Test getting class source when inspect.getsource works
         expected_cls_source = "".join(class_source)
         mock_get_lines.return_value = class_source
         mock_get_ipython_class_file.return_value = None
-        mock_is_ipython.return_value = True
         mock_importlib.import_module.return_value.extract_symbols.return_value = [
             [expected_cls_source]
         ]
 
+        mock_getsource.return_value = expected_cls_source
+
         codes = fed_utils.get_class_source(TestClass)
         self.assertEqual(codes, expected_cls_source)
 
-        # Test getting class source if is_python returns False
-        mock_is_ipython.return_value = False
+        # Test getting class source when inspect.getsource fails
+        mock_getsource.side_effect = OSError("inspect.getsource failed")
         codes = fed_utils.get_class_source(TestClass)
         self.assertEqual(codes, expected_cls_source)
 

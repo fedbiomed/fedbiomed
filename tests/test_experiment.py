@@ -105,6 +105,20 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
                 )
                 raise e
 
+    def test_experiment_01_delete(self):
+        """Tests deletion of Experiment object"""
+
+        exp = Experiment()
+        requests = exp.requests
+
+        with patch(
+            "fedbiomed.researcher.federated_workflows._experiment.isinstance"
+        ) as mock_isinstance:
+            mock_isinstance.return_value = True
+            del exp
+
+        requests.remove_monitor_callback.assert_called_once()
+
     def test_experiment_02_set_aggregator(self):
         """Tests setting the Experiment's aggregator and related side effects"""
         exp = Experiment()
@@ -594,6 +608,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
                     0: {"node1": {"params_path": "bkpt", "other": "reply-data"}}
                 },
             },
+            "some-exp-tempo-id",
         )
 
         def _gen():
