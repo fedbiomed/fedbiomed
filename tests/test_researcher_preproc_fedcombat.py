@@ -11,6 +11,9 @@ from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.preproc._fedcombat import (
     FedCombatPreproc,
 )
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat_step3 import (
+    _FedCombat_Step3,
+)
 from fedbiomed.researcher.requests import Requests
 
 
@@ -28,7 +31,19 @@ def mock_reqs():
 
 
 @pytest.fixture
-def base_preproc(mock_fds, mock_reqs, tmp_path):
+def mock_fedcombat_step3():
+    return MagicMock(spec=_FedCombat_Step3)
+
+
+@pytest.fixture
+def base_preproc(mock_fds, mock_reqs, mock_fedcombat_step3, tmp_path):
+    # install mocked step3 class into fedcombat module so FedCombatPreproc uses it
+    from fedbiomed.researcher.federated_workflows.preproc import (
+        _fedcombat as _fedcombat_mod,
+    )
+
+    _fedcombat_mod._FedCombat_Step3 = mock_fedcombat_step3
+
     return FedCombatPreproc(
         fds=mock_fds,
         experiment_id="exp1",
@@ -36,6 +51,10 @@ def base_preproc(mock_fds, mock_reqs, tmp_path):
         reqs=mock_reqs,
         nodes=["n1", "n2"],
         experimentation_folder=str(tmp_path),
+        preproc_args={
+            "covariates": ["cov1", "cov2"],
+            "phenotypes": ["phen1"],
+        },
     )
 
 
@@ -61,6 +80,14 @@ def test_execute_success(monkeypatch, base_preproc, mock_fds):
     assert result is True
     assert preproc._needs_harmonization() is False
     assert preproc._harmonized_datasets == {"n1": "ds1", "n2": "ds2"}
+
+
+def test_set_nodes_updates_nodes(base_preproc):
+    preproc = base_preproc
+    assert preproc._nodes == ["n1", "n2"]
+
+    preproc.set_nodes(["n3", "n4"])
+    assert preproc._nodes == ["n3", "n4"]
 
 
 def test_execute_empty_nodes_raises(mock_fds, mock_reqs, tmp_path):

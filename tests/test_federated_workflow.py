@@ -140,11 +140,18 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
     def test_federated_workflow_03_set_nodes(self):
         exp = FederatedWorkflow()
+
+        # Valid arguments
         exp.set_nodes(None)
 
         self.assertIsNone(exp.nodes())
         exp.set_nodes(["first", "second"])
         self.assertEqual(exp.nodes(), ["first", "second"])
+
+        # Valid arguments + preprocessing
+        exp.set_preprocessing(PreprocType.FEDCOMBAT, {})
+        exp.set_nodes(["node-1", "node-2"])
+        self.assertEqual(exp.nodes(), ["node-1", "node-2"])
 
         # Invalid arguments
         with self.assertRaises(SystemExit):
@@ -211,9 +218,16 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
     def test_federated_workflow_06_set_preprocessing(self):
         exp = FederatedWorkflow()
         preproc_args = {"arg1": "value1", "arg2": 2}
+
+        # Fed-Combat
         exp.set_preprocessing(PreprocType.FEDCOMBAT, preproc_args)
         self.assertTrue(isinstance(exp.preprocessing, FedCombatPreproc))
         self.assertEqual(exp.preprocessing._preproc_args, preproc_args)
+
+        # No preprocessing
+        for val in [None, False, PreprocType.NONE]:
+            exp.set_preprocessing(val)
+            self.assertIsNone(exp.preprocessing)
 
         # Invalid type
         with self.assertRaises(SystemExit):
@@ -451,7 +465,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
     ):
         # Invalid argument should be string or None
         with self.assertRaises(SystemExit):
-            exp, _ = FederatedWorkflow.load_breakpoint(breakpoint_folder_path=15)
+            exp, _, _ = FederatedWorkflow.load_breakpoint(breakpoint_folder_path=15)
 
         # Normal test case
         mock_node_state_load.return_value = MagicMock(
@@ -488,7 +502,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         }
         mock_json_load.return_value = breakpoint_json
 
-        exp, saved_state = FederatedWorkflow.load_breakpoint()
+        exp, saved_state, exp_tempo_id = FederatedWorkflow.load_breakpoint()
 
         self.assertEqual(exp.id, "exp-id")
         self.assertEqual(
@@ -507,6 +521,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertEqual(saved_state["secagg"]["class"], "SecureAggregation")
         self.assertDictEqual(saved_state["node_state"], {"node_state": "bkpt"})
         self.assertEqual(exp.secagg.scheme, SecureAggregationSchemes.LOM)
+        self.assertIsInstance(exp_tempo_id, str)
 
         # 2. Test with preprocessing
         breakpoint_json["preprocessing"] = {
@@ -519,7 +534,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         }
         mock_json_load.return_value = breakpoint_json
 
-        exp, saved_state = FederatedWorkflow.load_breakpoint()
+        exp, saved_state, exp_tempo_id = FederatedWorkflow.load_breakpoint()
 
         self.assertIsNotNone(exp.preprocessing)
         self.assertEqual(exp.preprocessing._preproc_id, "preproc-id")
@@ -527,20 +542,21 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertDictEqual(
             exp.preprocessing._harmonized_datasets, {"node1": "dataset-id-1"}
         )
+        self.assertIsInstance(exp_tempo_id, str)
 
         # 3. Test error cases
 
         # If open raises an exception
         mock_open.side_effect = OSError
         with self.assertRaises(SystemExit):
-            exp, _ = FederatedWorkflow.load_breakpoint()
+            exp, _, _ = FederatedWorkflow.load_breakpoint()
         mock_open.side_effect = None
 
         # If saved state is not dict
 
         mock_json_load.return_value = ["list"]
         with self.assertRaises(SystemExit):
-            exp, _ = FederatedWorkflow.load_breakpoint()
+            exp, _, _ = FederatedWorkflow.load_breakpoint()
 
     def test_federated_workflow_06_all_federation_nodes(self):
         """Tests retrieving nodes"""

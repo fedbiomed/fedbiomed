@@ -157,7 +157,7 @@ class TestRequests(unittest.TestCase):
 
         req_1 = Requests(config)
         self.assertEqual(
-            None, req_1._monitor_message_callback, "Request is not properly initialized"
+            {}, req_1._monitor_message_callbacks, "Request is not properly initialized"
         )
 
         # Remove previous singleton instance
@@ -167,7 +167,7 @@ class TestRequests(unittest.TestCase):
         # Build new fresh requests
         req_2 = Requests(config)
         self.assertEqual(
-            None, req_2._monitor_message_callback, "Request is not properly initialized"
+            {}, req_2._monitor_message_callbacks, "Request is not properly initialized"
         )
 
     @patch("fedbiomed.researcher.requests.Requests.print_node_log_message")
@@ -188,10 +188,11 @@ class TestRequests(unittest.TestCase):
         # Check the method has been called
         mock_print_node_log_message.assert_called_once_with(msg_logger.get_dict())
 
+        experiment_id = "DummyExperimentID"
         msg_monitor = {
             "node_id": "DummyNodeID",
             "node_name": "DummyNodeName",
-            "experiment_id": "DummyExperimentID",
+            "experiment_id": experiment_id,
             "metric": {"loss": 12},
             "train": True,
             "test": False,
@@ -208,9 +209,15 @@ class TestRequests(unittest.TestCase):
         msg_monitor = Scalar(**msg_monitor)
         monitor_callback = MagicMock(return_value=None)
         # Add callback for monitoring
-        self.requests.add_monitor_callback(monitor_callback)
+        self.requests.add_monitor_callback(experiment_id, monitor_callback)
         self.requests.on_message(msg_monitor, type_=MessageType.SCALAR)
         monitor_callback.assert_called_once_with(msg_monitor.get_dict())
+
+        # Test with other experiment id, the callback should not be called
+        monitor_callback.reset_mock()
+        msg_monitor.experiment_id = "AnotherExperimentID"
+        self.requests.on_message(msg_monitor, type_=MessageType.SCALAR)
+        monitor_callback.assert_not_called()
 
         # Test when the topic is unknown, it should call logger to log error
         self.requests.on_message(msg_monitor, type_="unknown/topic")
@@ -390,18 +397,26 @@ class TestRequests(unittest.TestCase):
 
     @patch("fedbiomed.researcher.monitor.Monitor.__init__")
     @patch("fedbiomed.researcher.monitor.Monitor.on_message_handler")
-    @patch("fedbiomed.researcher.requests.Requests.add_monitor_callback")
     def test_request_11_add_monitor_callback(
-        self, mock_monitor_callback, mock_monitor_message_handler, mock_monitor_init
+        self, mock_monitor_message_handler, mock_monitor_init
     ):
         """Test adding monitor message callbacks"""
         mock_monitor_init.return_value = None
         mock_monitor_message_handler.return_value = None
         monitor = Monitor(results_dir=self.temp_dir.name)
+        experiment_id = "dummy-experiment-id"
 
         # Test adding monitor callback
-        self.requests.add_monitor_callback(monitor.on_message_handler)
-        mock_monitor_callback.assert_called_once_with(monitor.on_message_handler)
+        self.requests.add_monitor_callback(experiment_id, monitor.on_message_handler)
+        self.assertEqual(
+            [experiment_id], list(self.requests._monitor_message_callbacks.keys())
+        )
+
+        # Test adding monitor callback again
+        self.requests.add_monitor_callback(experiment_id, monitor.on_message_handler)
+        self.assertEqual(
+            [experiment_id], list(self.requests._monitor_message_callbacks.keys())
+        )
 
     @patch("fedbiomed.researcher.monitor.Monitor.__init__")
     @patch("fedbiomed.researcher.monitor.Monitor.on_message_handler")
@@ -413,11 +428,13 @@ class TestRequests(unittest.TestCase):
         mock_monitor_init.return_value = None
         mock_monitor_message_handler.return_value = None
         monitor = Monitor(results_dir=self.temp_dir.name)
+        experiment_id = "dummy-experiment-id"
 
-        self.requests.add_monitor_callback(monitor.on_message_handler)
-        self.requests.remove_monitor_callback()
-        self.assertIsNone(
-            self.requests._monitor_message_callback,
+        self.requests.add_monitor_callback(experiment_id, monitor.on_message_handler)
+        self.requests.remove_monitor_callback(experiment_id)
+        self.assertEqual(
+            self.requests._monitor_message_callbacks,
+            {},
             "Monitor callback hasn't been removed",
         )
 
