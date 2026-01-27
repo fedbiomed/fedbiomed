@@ -1,4 +1,4 @@
-"""Tests for _FedCombat_Step3 federated preprocessing workflow - model training."""
+"""Tests for _FedCombatTrainModel federated preprocessing workflow - model training."""
 
 import pytest
 import torch
@@ -6,11 +6,12 @@ import torch
 import fedbiomed.researcher.federated_workflows as fw
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import TabularDataset
+from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.datasets import FederatedDataset
-from fedbiomed.researcher.federated_workflows.preproc._fedcombat_step3 import (
-    _FedCombat_Step3,
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat_model import (
     _FedCombatTrainingPlan,
+    _FedCombatTrainModel,
 )
 
 
@@ -28,8 +29,8 @@ def mock_fds(mocker):
 
 
 @pytest.fixture
-def base_preproc_step3(mock_fds, exp_folder):
-    return _FedCombat_Step3(
+def base_preproc_tm(mock_fds, exp_folder):
+    return _FedCombatTrainModel(
         fds=mock_fds,
         nodes=["n1", "n2"],
         experimentation_folder=exp_folder,
@@ -42,9 +43,9 @@ def base_preproc_step3(mock_fds, exp_folder):
 
 
 @pytest.fixture
-def base_preproc_step3_factory(mock_fds, exp_folder):
+def base_preproc_tm_factory(mock_fds, exp_folder):
     def _factory(**preproc_args):
-        return _FedCombat_Step3(
+        return _FedCombatTrainModel(
             fds=mock_fds,
             nodes=preproc_args.get("nodes", mock_fds.node_ids()),
             experimentation_folder=exp_folder,
@@ -58,26 +59,26 @@ def base_preproc_step3_factory(mock_fds, exp_folder):
     return _factory
 
 
-def test_fedcombat_step3_init_ok(base_preproc_step3, exp_folder):
-    """Test successful initialization of _FedCombat_Step3."""
+def test_fedcombat_tm_init_ok(base_preproc_tm, exp_folder):
+    """Test successful initialization of _FedCombatTrainModel."""
 
-    assert base_preproc_step3._fds is not None
-    assert base_preproc_step3._nodes == ["n1", "n2"]
-    assert base_preproc_step3._experimentation_folder == exp_folder + "_fedcombat"
-    assert base_preproc_step3._covariates == ["cov1", "cov2"]
-    assert base_preproc_step3._phenotypes == ["phen1", "phen2"]
-    assert base_preproc_step3._training_args["arg1"] == "value1"
-    assert base_preproc_step3._training_args["arg2"] == "value2"
-    assert base_preproc_step3._model_args["argA"] == "valueA"
-    assert base_preproc_step3._model_args["argB"] == "valueB"
-    assert base_preproc_step3._rounds == 2
+    assert base_preproc_tm._fds is not None
+    assert base_preproc_tm._nodes == ["n1", "n2"]
+    assert base_preproc_tm._experimentation_folder == exp_folder + "_fedcombat"
+    assert base_preproc_tm._covariates == ["cov1", "cov2"]
+    assert base_preproc_tm._phenotypes == ["phen1", "phen2"]
+    assert base_preproc_tm._training_args["arg1"] == "value1"
+    assert base_preproc_tm._training_args["arg2"] == "value2"
+    assert base_preproc_tm._model_args["argA"] == "valueA"
+    assert base_preproc_tm._model_args["argB"] == "valueB"
+    assert base_preproc_tm._rounds == 2
 
 
-def test_fedcombat_step3_init_ok_alternative(base_preproc_step3_factory):
-    """Test successful initialization of _FedCombat_Step3 with alternative arguments."""
+def test_fedcombat_tm_init_ok_alternative(base_preproc_tm_factory):
+    """Test successful initialization of _FedCombatTrainModel with alternative arguments."""
 
     # TrainingArgs object for training_args
-    preproc = base_preproc_step3_factory(
+    preproc = base_preproc_tm_factory(
         cov=[1, 2],
         phenotypes=[3, 4],
         training_args=TrainingArgs({"epochs": 7}),
@@ -88,7 +89,7 @@ def test_fedcombat_step3_init_ok_alternative(base_preproc_step3_factory):
     assert preproc._training_args["epochs"] == 7
 
     # None for training_args
-    preproc = base_preproc_step3_factory(
+    preproc = base_preproc_tm_factory(
         cov=["covA"],
         phenotypes=["phenB"],
         training_args=None,
@@ -99,60 +100,60 @@ def test_fedcombat_step3_init_ok_alternative(base_preproc_step3_factory):
     assert preproc._training_args["epochs"] == 1  # default value
 
 
-def test_fedcombat_step3_init_bad_arguments(base_preproc_step3_factory):
-    """Test initialization of _FedCombat_Step3 with bad arguments."""
+def test_fedcombat_tm_init_bad_arguments(base_preproc_tm_factory):
+    """Test initialization of _FedCombatTrainModel with bad arguments."""
 
     # Covariates not a list
     with pytest.raises(Exception) as excinfo:
-        base_preproc_step3_factory(cov="not_a_list")
+        base_preproc_tm_factory(cov="not_a_list")
     assert "Covariates and phenotypes must be provided as lists" in str(excinfo.value)
 
     # Phenotypes not a list
     with pytest.raises(Exception) as excinfo:
-        base_preproc_step3_factory(phenotypes="not_a_list")
+        base_preproc_tm_factory(phenotypes="not_a_list")
     assert "Covariates and phenotypes must be provided as lists" in str(excinfo.value)
 
     # No covariates provided
     with pytest.raises(Exception) as excinfo:
-        base_preproc_step3_factory(cov=[])
+        base_preproc_tm_factory(cov=[])
     assert "At least one covariate must be provided" in str(excinfo.value)
 
     # No phenotypes provided
     with pytest.raises(Exception) as excinfo:
-        base_preproc_step3_factory(phenotypes=[])
+        base_preproc_tm_factory(phenotypes=[])
     assert "At least one phenotype must be provided" in str(excinfo.value)
 
     # Mix int and str phenotypes
     with pytest.raises(Exception) as excinfo:
-        base_preproc_step3_factory(phenotypes=["phen1", 2])
+        base_preproc_tm_factory(phenotypes=["phen1", 2])
     assert "Covariates and phenotypes must all be of the same type" in str(
         excinfo.value
     )
 
     # Mix int and str covariates
     with pytest.raises(Exception) as excinfo:
-        base_preproc_step3_factory(cov=["cov1", 2])
+        base_preproc_tm_factory(cov=["cov1", 2])
     assert "Covariates and phenotypes must all be of the same type" in str(
         excinfo.value
     )
 
     # Mix int covariates and str phenotypes
     with pytest.raises(Exception) as excinfo:
-        base_preproc_step3_factory(cov=[1, 2], phenotypes=["phen1", "phen2"])
+        base_preproc_tm_factory(cov=[1, 2], phenotypes=["phen1", "phen2"])
     assert "Covariates and phenotypes must all be of the same type" in str(
         excinfo.value
     )
 
     # Duplicates between covariates and phenotypes
     with pytest.raises(Exception) as excinfo:
-        base_preproc_step3_factory(cov=["var1", "var2"], phenotypes=["var2", "var3"])
+        base_preproc_tm_factory(cov=["var1", "var2"], phenotypes=["var2", "var3"])
     assert "Covariates and phenotypes must be disjoint lists of unique values" in str(
         excinfo.value
     )
 
 
-def test_fedcombat_step3_execute(base_preproc_step3, mocker, monkeypatch):
-    """Test execution of _FedCombat_Step3 with mocked training plan."""
+def test_fedcombat_tm_execute(base_preproc_tm, mocker, monkeypatch):
+    """Test execution of _FedCombatTrainModel with mocked training plan."""
 
     # prepare mock Experiment class returning an instance whose .run() we can assert
     MockExperiment = mocker.MagicMock()
@@ -165,43 +166,45 @@ def test_fedcombat_step3_execute(base_preproc_step3, mocker, monkeypatch):
     # 1. execute successfully
 
     # Execute the preprocessing step
-    base_preproc_step3.execute()
+    base_preproc_tm.execute()
     # Check that the training plan was initialized with correct arguments
     mock_instance.run.assert_called_once()
 
     # 2. execute with failure at Experiment()
     mock_instance.run.reset_mock()
     MockExperiment.side_effect = Exception()
-    with pytest.raises(Exception):
-        base_preproc_step3.execute()
+    with pytest.raises(FedbiomedExperimentError):
+        base_preproc_tm.execute()
 
     # 3. execute with failure at .run()
     mock_instance.run.reset_mock()
     MockExperiment.side_effect = None
     mock_instance.run.side_effect = Exception()
-    with pytest.raises(Exception):
-        base_preproc_step3.execute()
+    with pytest.raises(FedbiomedExperimentError):
+        base_preproc_tm.execute()
 
 
-def test_fedcombat_step3_instantiate_training_plan(mocker):
+def test_fedcombat_tm_instantiate_training_plan(mocker):
+    """Test instantiation and methods of _FedCombatTrainingPlan."""
+
     # Patch dependencies of _FedCombatTrainingPlan
     mock_loss = mocker.patch(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_step3.nn.MSELoss",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_model.nn.MSELoss",
         new=mocker.MagicMock(),
     )
     mock_loss.return_value = lambda x, y: float(torch.mean((x - y) ** 2))
     mocker.patch(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_step3.TabularDataset",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_model.TabularDataset",
         mocker.MagicMock(spec=TabularDataset),
     )
     mock_datamanager = mocker.MagicMock(spec=DataManager)
     mock_datamanager.return_value = "training_data_return_value"
     mocker.patch(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_step3.DataManager",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_model.DataManager",
         mock_datamanager,
     )
     mocker.patch(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_step3.TorchTrainingPlan",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_model.TorchTrainingPlan",
         new=mocker.MagicMock(),
     )
 

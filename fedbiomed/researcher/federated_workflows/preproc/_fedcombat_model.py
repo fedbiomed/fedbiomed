@@ -65,7 +65,7 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
 
 
 # TODO: change design to match other preprocessing steps from issue 1568
-class _FedCombat_Step3:
+class _FedCombatTrainModel:
     """Class to handle Fed-ComBat harmonization step 3: train harmonization model."""
 
     def __init__(

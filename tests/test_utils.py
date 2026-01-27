@@ -55,8 +55,16 @@ class TestUtils(unittest.TestCase):
 
         # Test getting class source when inspect.getsource fails
         mock_getsource.side_effect = OSError("inspect.getsource failed")
-        codes = fed_utils.get_class_source(TestClass)
-        self.assertEqual(codes, expected_cls_source)
+        with patch("fedbiomed.common.utils._utils.is_ipython") as mock_is_ipython:
+            # Test if in ipython kernel
+            mock_is_ipython.return_value = True
+            codes = fed_utils.get_class_source(TestClass)
+            self.assertEqual(codes, expected_cls_source)
+
+            # Test if not in ipython kernel
+            mock_is_ipython.return_value = False
+            with self.assertRaises(FedbiomedError):
+                fed_utils.get_class_source(TestClass)
 
         # Test if `cls` is not a class
         obj = TestClass()
