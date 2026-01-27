@@ -11,10 +11,6 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 
 def test_complete_initialization_wires_controller_and_validates(mocker):
-    ds = TabularDataset(
-        input_columns=["data"], target_columns=["target"], transform=None
-    )
-
     df = pl.DataFrame({"data": [1], "target": [2]})
 
     # Stub a controller that returns a sample
@@ -27,6 +23,15 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
             return cols
 
     captured_kwargs = {}
+
+    mock_logger_warning = mocker.patch(
+        "fedbiomed.common.dataset._tabular_dataset.logger.warning"
+    )
+
+    # 1. base test
+    ds = TabularDataset(
+        input_columns=["data"], target_columns=["target"], transform=None
+    )
 
     def fake_init_controller(*, controller_kwargs):
         captured_kwargs.update(controller_kwargs)
@@ -45,6 +50,28 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
 
     # The kwargs were enriched with columns
     assert captured_kwargs["root"] == "/path"
+
+    mock_logger_warning.assert_not_called()
+
+    # 2. test with duplicate column
+
+    ds = TabularDataset(
+        input_columns=["data", "target"], target_columns=["target"], transform=None
+    )
+
+    def fake_init_controller(*, controller_kwargs):
+        captured_kwargs.update(controller_kwargs)
+        ds._controller = StubController()
+
+    # Patch instance methods
+    mocker.patch.object(ds, "_init_controller", side_effect=fake_init_controller)
+
+    ds.complete_initialization(
+        controller_kwargs={"root": "/path"},
+        to_format=DataReturnFormat.SKLEARN,
+    )
+
+    mock_logger_warning.assert_called_once()
 
 
 # ---------- _get_format_conversion_callable ----------

@@ -1,14 +1,10 @@
-import unittest
-
 import logging
 import tempfile
 import time
-
-
+import unittest
 from unittest.mock import MagicMock
 
-from fedbiomed.common.logger import logger
-from fedbiomed.common.logger import DEFAULT_LOG_LEVEL
+from fedbiomed.common.logger import DEFAULT_LOG_LEVEL, logger
 
 
 class TestLogger(unittest.TestCase):
@@ -289,6 +285,27 @@ class TestLogger(unittest.TestCase):
             self.assertTrue(True, "log message detected")
 
         pass
+
+    def test_logger_08_setprefix(self):
+        """
+        test setPrefix
+        """
+
+        prefix = "[TEST_PREFIX] "
+        message = "TEST_MESSAGE"
+        logger.setPrefix(prefix)
+
+        with self.assertLogs("fedbiomed", logging.INFO) as captured:
+            logger.info(message)
+
+        self.assertEqual(len(captured.records), 1)
+
+        # Handler formatters add the prefix at formatting time; assertLogs gives raw record.
+        formatted = logger._handlers["CONSOLE"].formatter.format(captured.records[0])
+        self.assertTrue(prefix in formatted, "prefix not found in log message")
+
+        # reset prefix
+        logger.setPrefix("")
 
 
 if __name__ == "__main__":  # pragma: no cover

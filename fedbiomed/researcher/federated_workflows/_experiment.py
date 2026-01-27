@@ -33,6 +33,7 @@ from fedbiomed.researcher.aggregators import Aggregator, FedAverage
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 from fedbiomed.researcher.filetools import choose_bkpt_file
 from fedbiomed.researcher.monitor import Monitor
+from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.strategies.strategy import Strategy
 
@@ -115,6 +116,7 @@ class Experiment(TrainingPlanWorkflow):
             retain_full_history: whether to retain in memory the full history
                 of node replies and aggregated params for the experiment. If False, only the
                 last round's replies and aggregated params will be available. Defaults to True.
+
             *args: Extra positional arguments from parent class
                 [`TrainingPlanWorkflow`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow]
             **kwargs: Arguments of parent class
@@ -149,7 +151,9 @@ class Experiment(TrainingPlanWorkflow):
 
         # always create a monitoring process
         self._monitor = Monitor(self.tensorboard_results_path)
-        self._reqs.add_monitor_callback(self._monitor.on_message_handler)
+        self._reqs.add_monitor_callback(
+            self._experiment_id, self._monitor.on_message_handler
+        )
         self.set_tensorboard(tensorboard)
 
         # whether to retain the full experiment history or not
@@ -160,6 +164,8 @@ class Experiment(TrainingPlanWorkflow):
         """Handles destruction of the Monitor when Experiment is destroyed."""
         if isinstance(self._monitor, Monitor):
             self._monitor.close_writer()
+        if isinstance(self._reqs, Requests) and self._experiment_id is not None:
+            self._reqs.remove_monitor_callback(self._experiment_id)
 
     @exp_exceptions
     def aggregator(self) -> Aggregator:
@@ -460,7 +466,7 @@ class Experiment(TrainingPlanWorkflow):
         elif not isinstance(node_selection_strategy, Strategy):
             msg = (
                 f"{ErrorNumbers.FB410.value}: wrong type for "
-                "node_selection_strategy {type(node_selection_strategy)} "
+                f"node_selection_strategy {type(node_selection_strategy)} "
                 "it should be an instance of Strategy"
             )
             logger.critical(msg)
@@ -1270,7 +1276,9 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
                 content (corrupted)
         """
-        loaded_exp, saved_state = super().load_breakpoint(breakpoint_folder_path)
+        loaded_exp, saved_state, tempo_id = super().load_breakpoint(
+            breakpoint_folder_path
+        )
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args)
@@ -1293,6 +1301,12 @@ class Experiment(TrainingPlanWorkflow):
         loaded_exp.load_training_replies(saved_state.get("training_replies"))
         logger.info(
             f"Experimentation reload from {breakpoint_folder_path if breakpoint_folder_path else 'last save'} successful!"
+        )
+        # fix monitor callback with correct experiment_id
+        loaded_exp.requests.remove_monitor_callback(tempo_id)
+        loaded_exp.requests.add_monitor_callback(
+            loaded_exp.id,
+            loaded_exp.monitor().on_message_handler,
         )
 
         return loaded_exp

@@ -13,6 +13,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.requests import Requests
 
 from ..jobs import PreprocRequestJob
+from ._fedcombat_model import _FedCombatTrainModel
 
 
 class FedCombatPreproc:
@@ -100,6 +101,14 @@ class FedCombatPreproc:
 
         return False
 
+    def set_nodes(self, nodes: list[str]) -> None:
+        """Set the list of nodes participating in the harmonization.
+
+        Args:
+            nodes: List of node IDs.
+        """
+        self._nodes = nodes
+
     def execute(self) -> bool:
         """Execute Fed-ComBat harmonization across the federated dataset for this experiment.
 
@@ -138,6 +147,20 @@ class FedCombatPreproc:
             elif preproc_step == 3:
                 logger.debug(
                     "Starting FedCombat preprocessing step 3: train harmonization model"
+                )
+                fc_training_plan = _FedCombatTrainModel(
+                    self._fds,
+                    self._nodes,
+                    self._experimentation_folder,
+                    self._preproc_args.get("covariates"),
+                    self._preproc_args.get("phenotypes"),
+                    self._preproc_args.get("training_args"),
+                    self._preproc_args.get("model_args"),
+                    self._preproc_args.get("rounds"),
+                )
+                fc_training_plan.execute()
+                logger.debug(
+                    "Completed FedCombat preprocessing step 3: train harmonization model"
                 )
                 continue
 

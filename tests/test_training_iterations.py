@@ -1,10 +1,12 @@
 import unittest
 from unittest.mock import MagicMock
+
 import numpy as np
+
+from fedbiomed.common.exceptions import FedbiomedUserInputError
 from fedbiomed.common.training_plans._training_iterations import (
     MiniBatchTrainingIterationsAccountant,
 )  # noqa
-from fedbiomed.common.exceptions import FedbiomedUserInputError
 
 reference_num_batches = np.random.randint(low=4, high=15, size=1)[0]
 reference_batch_size = np.random.randint(low=1, high=5, size=1)[0]
@@ -238,6 +240,19 @@ class TestMiniBatchTrainingIterationsAccountant(unittest.TestCase):
         iter_accountant = MiniBatchTrainingIterationsAccountant(mock_training_plan)
         with self.assertRaises(FedbiomedUserInputError):
             iter_accountant.reporting_on_num_samples()
+
+    def test_mini_batch_should_log_false(self):
+        """Tests that should_log_this_batch works as expected when log_interval is 0"""
+        mock_training_plan.training_args.return_value = {
+            "epochs": 1,
+            "batch_maxnum": None,
+            "num_updates": None,
+            "log_interval": 0,
+        }
+        iter_accountant = MiniBatchTrainingIterationsAccountant(mock_training_plan)
+        for epoch in iter_accountant.iterate_epochs():
+            for batch in iter_accountant.iterate_batches():
+                self.assertFalse(iter_accountant.should_log_this_batch())
 
 
 if __name__ == "__main__":  # pragma: no cover

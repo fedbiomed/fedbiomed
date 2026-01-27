@@ -555,7 +555,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     @exp_exceptions
     def load_breakpoint(
         cls, breakpoint_folder_path: Optional[str] = None
-    ) -> Tuple[TrainingPlanWorkflowT, dict]:
+    ) -> Tuple[TrainingPlanWorkflowT, dict, str]:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so the workflow can be resumed.
@@ -572,7 +572,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
                 content (corrupted)
         """
-        loaded_exp, saved_state = super().load_breakpoint(breakpoint_folder_path)
+        loaded_exp, saved_state, tempo_id = super().load_breakpoint(
+            breakpoint_folder_path
+        )
 
         # Define type for pylint
         loaded_exp: TrainingPlanWorkflow
@@ -601,7 +603,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         params = Serializer.load(param_path)
         loaded_exp.training_plan().get_model_wrapper_class().set_weights(params)
 
-        return loaded_exp, saved_state
+        return loaded_exp, saved_state, tempo_id
 
     def _check_round_value_consistency(
         self, round_current: int, variable_name: str
