@@ -11,8 +11,8 @@ from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.preproc._fedcombat import (
     FedCombatPreproc,
 )
-from fedbiomed.researcher.federated_workflows.preproc._fedcombat_step3 import (
-    _FedCombat_Step3,
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat_model import (
+    _FedCombatTrainModel,
 )
 from fedbiomed.researcher.requests import Requests
 
@@ -31,18 +31,18 @@ def mock_reqs():
 
 
 @pytest.fixture
-def mock_fedcombat_step3():
-    return MagicMock(spec=_FedCombat_Step3)
+def mock_fedcombat_tm():
+    return MagicMock(spec=_FedCombatTrainModel)
 
 
 @pytest.fixture
-def base_preproc(mock_fds, mock_reqs, mock_fedcombat_step3, tmp_path):
-    # install mocked step3 class into fedcombat module so FedCombatPreproc uses it
+def base_preproc(mock_fds, mock_reqs, mock_fedcombat_tm, tmp_path):
+    # install mocked training plan class into fedcombat module so FedCombatPreproc uses it
     from fedbiomed.researcher.federated_workflows.preproc import (
         _fedcombat as _fedcombat_mod,
     )
 
-    _fedcombat_mod._FedCombat_Step3 = mock_fedcombat_step3
+    _fedcombat_mod._FedCombatTrainModel = mock_fedcombat_tm
 
     return FedCombatPreproc(
         fds=mock_fds,

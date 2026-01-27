@@ -14,6 +14,7 @@ import torch
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.ipython import is_ipython
 
 
 def read_file(path):
@@ -51,6 +52,7 @@ def get_class_source(cls: Callable) -> str:
 
     Raises:
         FedbiomedError: if argument is not a class
+        FedbiomedError: cannot read source file of the class
     """
     if not inspect.isclass(cls):
         raise FedbiomedError(
@@ -65,8 +67,12 @@ def get_class_source(cls: Callable) -> str:
     except OSError:
         pass
 
-    # At this point, the class is defined in an IPython shell
-    # if is_ipython():
+    # At this point, the class is defined in an IPython shell or there was a problem reading the source file
+    if not is_ipython():
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB627.value}: Could not read source file of the class {cls.__name__}"
+        )
+
     file = get_ipython_class_file(cls)
     codes = "".join(inspect.linecache.getlines(file))
 

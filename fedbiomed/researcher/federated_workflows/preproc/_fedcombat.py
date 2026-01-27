@@ -13,7 +13,7 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.requests import Requests
 
 from ..jobs import PreprocRequestJob
-from ._fedcombat_step3 import _FedCombat_Step3
+from ._fedcombat_model import _FedCombatTrainModel
 
 
 class FedCombatPreproc:
@@ -148,7 +148,7 @@ class FedCombatPreproc:
                 logger.debug(
                     "Starting FedCombat preprocessing step 3: train harmonization model"
                 )
-                fc_step3 = _FedCombat_Step3(
+                fc_training_plan = _FedCombatTrainModel(
                     self._fds,
                     self._nodes,
                     self._experimentation_folder,
@@ -158,7 +158,7 @@ class FedCombatPreproc:
                     self._preproc_args.get("model_args"),
                     self._preproc_args.get("rounds"),
                 )
-                fc_step3.execute()
+                fc_training_plan.execute()
                 logger.debug(
                     "Completed FedCombat preprocessing step 3: train harmonization model"
                 )
