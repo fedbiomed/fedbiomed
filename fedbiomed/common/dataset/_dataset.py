@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 import numpy as np
 import torch
 
-# from fedbiomed.common.analytics._analytics_orchestrator import AnalyticsOrchestrator
+from fedbiomed.common.analytics._analytics_orchestrator import AnalyticsOrchestrator
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import Controller
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
@@ -329,12 +329,19 @@ class Dataset(ABC):
 
         return sample
 
-    def compute_stats(self, stats: Optional[List[str]] = None) -> Any:
+    def compute_stats(
+        self,
+        schema_args: Optional[Union[str, List[str], Dict[str, Any]]] = None,
+        stats: Optional[List[str]] = None,
+        fa_args: Optional[Dict[str, Any]] = None,
+    ) -> Any:
         """Computes statistics over the dataset using the AnalyticsOrchestrator.
 
         Args:
+            schema_args: Selection arguments to filter the schema (e.g. subset of columns/keys).
             stats: List of statistics names to compute (e.g. ['mean', 'std']).
                    If None or empty, default statistics are chosen based on data type.
+            fa_args: Specific arguments for statistics, structured matching the schema.
 
         Returns:
             Computed statistics structure.
@@ -342,9 +349,13 @@ class Dataset(ABC):
         Raises:
             FedbiomedError: If the dataset does not support analytics (missing get_schema_for_analytics).
         """
-        # orchestrator = AnalyticsOrchestrator()
-        # return orchestrator.compute_stats(self, stats)
-        return None  # Placeholder until AnalyticsOrchestrator is integrated
+        orchestrator = AnalyticsOrchestrator()
+        return orchestrator.compute_stats(
+            self,
+            subschema=schema_args,
+            stats=stats,
+            fa_args=fa_args,
+        )
 
     def __len__(self) -> int:
         return len(self._controller)

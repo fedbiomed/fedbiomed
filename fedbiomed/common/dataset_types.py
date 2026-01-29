@@ -7,12 +7,12 @@ Classes for dataset's data types and structures
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
 
-from fedbiomed.common.constants import _BaseEnum
+from fedbiomed.common.constants import FedbiomedError, _BaseEnum
 
 
 class DataReturnFormat(_BaseEnum):
@@ -42,7 +42,6 @@ class DataReturnFormat(_BaseEnum):
 
 Transform = Optional[Union[Callable, Dict[str, Callable]]]
 
-
 # Base type for `Dataset.__getitem__()` returning data in framework format
 # a sample is `(DatasetDataItem, DatasetDataItem)` for `(data, target)`
 #
@@ -51,6 +50,11 @@ DatasetDataItem = Optional[Union[Any, Dict[str, Any]]]
 
 
 # === Schema Types ===
+
+
+# Type for statistics configuration (used in analytics)
+# Can be a string ("mean") or a tuple ("histogram", {"bins": 10})
+StatConfig = Union[str, Tuple[str, Dict[str, Any]]]
 
 
 class DatasetElementType(_BaseEnum):
@@ -85,6 +89,10 @@ class RowSpec(DatasetElementSpec):
     """Specification for a tabular row element."""
 
     columns: List[str]
+
+    def __post_init__(self):
+        if not self.columns:
+            raise FedbiomedError("RowSpec must have at least one column.")
 
     @property
     def type(self) -> DatasetElementType:

@@ -235,10 +235,10 @@ def test_get_analytics_item(to_format, mock_controller, tmp_path):
     assert isinstance(analytics_item, np.ndarray)
 
 
-def test_get_schema(dataset_with_mock_controller):
+def test_get_analytics_schema(dataset_with_mock_controller):
     """Test retrieving the schema."""
     dataset = dataset_with_mock_controller
-    schema = dataset.get_schema()
+    schema = dataset.get_analytics_schema()
     assert isinstance(schema, ImageSpec)
     assert schema.type == DatasetElementType.IMAGE
 

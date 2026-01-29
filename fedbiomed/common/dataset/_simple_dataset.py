@@ -97,7 +97,7 @@ class _ImageLabelDataset(Dataset):
 
         return data
 
-    def get_schema(self):
+    def get_analytics_schema(self):
         """Return schema associated with get_analytics_item"""
         return ImageSpec()
 
