@@ -44,6 +44,8 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
 
 import json
 import logging
+import sqlite3
+from contextvars import ContextVar
 from typing import Any, Callable, Optional
 
 from fedbiomed.common.ipython import is_ipython
@@ -52,8 +54,16 @@ from fedbiomed.common.singleton import SingletonMeta
 # default values
 DEFAULT_LOG_FILE = "mylog.log"
 DEFAULT_LOG_LEVEL = logging.WARNING
+DEFAULT_LOG_DB = "logs.db"
 LOG_PREFIX = "%(prefix)s"
 DEFAULT_FORMAT = f"%(asctime)s %(name)s{LOG_PREFIX} %(levelname)s - %(message)s"
+
+# Context variables for persistent metadata across logs
+# TODO: Change location of these variables to the start of researcher/node script
+_user_id_context = ContextVar("user_id", default=None)
+_dataset_id_context = ContextVar("dataset_id", default=None)
+_operation_context = ContextVar("operation", default=None)
+_researcher_id_context = ContextVar("researcher_id", default=None)
 
 
 class _GrpcFormatter(logging.Formatter):
@@ -145,6 +155,72 @@ class _IpythonConsoleHandler(logging.Handler):
         from IPython.display import display
 
         display({"text/plain": self.format(record)}, raw=True)
+
+
+class _SqliteHandler(logging.Handler):
+    """Logger handler for SQLite database"""
+
+    def __init__(self, db_path: str = DEFAULT_LOG_DB):
+        """Constructor
+
+        Args:
+            db_path: Path to SQLite database file
+        """
+        logging.Handler.__init__(self)
+        self.db_path = db_path
+        self._init_db()
+
+    def _init_db(self):
+        """Create logs table if it doesn't exist"""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                level TEXT,
+                logger_name TEXT,
+                message TEXT,
+                user_id TEXT,
+                dataset_id TEXT,
+                operation TEXT,
+                node_id TEXT,
+                researcher_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+    def emit(self, record: logging.LogRecord):
+        """Insert log record into database
+
+        Args:
+            record: is automatically passed by the logger class
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.execute(
+                """
+                INSERT INTO logs 
+                (timestamp, level, logger_name, message, user_id, dataset_id, operation, node_id, researcher_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    record.asctime,
+                    record.levelname,
+                    record.name,
+                    self.format(record),
+                    getattr(record, "user_id", None),
+                    getattr(record, "dataset_id", None),
+                    getattr(record, "operation", None),
+                    getattr(record, "node_id", None),
+                    getattr(record, "researcher_id", None),
+                ),
+            )
+            conn.commit()
+            conn.close()
+        except Exception:
+            self.handleError(record)
 
 
 class FedLogger(metaclass=SingletonMeta):
@@ -264,7 +340,7 @@ class FedLogger(metaclass=SingletonMeta):
             if upper_level in self._nameToLevel:
                 return self._nameToLevel[upper_level]
 
-        self._logger.warning("Calling selLevel() with bad value: " + str(level))
+        self._logger.warning("Calling setLevel() with bad value: " + str(level))
         self._logger.warning(
             "Setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead"
         )
@@ -344,6 +420,21 @@ class FedLogger(metaclass=SingletonMeta):
 
         pass
 
+    def add_sqlite_handler(
+        self, db_path: str = DEFAULT_LOG_DB, level: Any = DEFAULT_LOG_LEVEL
+    ):
+        """Adds a SQLite database handler to store logs in database
+
+        Args:
+            db_path: Path to SQLite database file (default: "logs.db")
+            level: Log level for this handler (optional)
+        """
+        handler = _SqliteHandler(db_path=db_path)
+        handler.setLevel(level)
+        formatter = logging.Formatter("%(message)s")
+        handler.setFormatter(formatter)
+        self._internal_add_handler("SQLITE", handler)
+
     def log(self, level: Any, msg: str):
         """Overrides the logging.log() method to allow the use of string instead of a logging.* level"""
 
@@ -402,59 +493,203 @@ class FedLogger(metaclass=SingletonMeta):
                     )
                 )
 
-    def info(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+    def set_user_context(
+        self,
+        user_id: str = None,
+        dataset_id: str = None,
+        operation: str = None,
+        researcher_id: str = None,
+    ) -> None:
+        """Sets user context variables that persist across all logs in this thread/async context
+
+        Args:
+            user_id: User identifier
+            dataset_id: Dataset identifier
+            operation: Operation type or name
+            researcher_id: Researcher identifier
+        """
+        if user_id is not None:
+            _user_id_context.set(user_id)
+        if dataset_id is not None:
+            _dataset_id_context.set(dataset_id)
+        if operation is not None:
+            _operation_context.set(operation)
+        if researcher_id is not None:
+            _researcher_id_context.set(researcher_id)
+
+    def clear_user_context(self) -> None:
+        """Clears all user context variables"""
+        _user_id_context.set(None)
+        _dataset_id_context.set(None)
+        _operation_context.set(None)
+
+    def query_logs(
+        self,
+        db_path: str = DEFAULT_LOG_DB,
+        user_id: str = None,
+        dataset_id: str = None,
+        level: str = None,
+        limit: int = 100,
+    ):
+        """Query logs from SQLite database
+
+        Args:
+            db_path: Path to logs database
+            user_id: Filter by user_id
+            dataset_id: Filter by dataset_id
+            level: Filter by log level
+            limit: Maximum number of results
+
+        Returns:
+            List of log records as dictionaries
+        """
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+
+        query = "SELECT * FROM logs WHERE 1=1"
+        params = []
+
+        if user_id:
+            query += " AND user_id = ?"
+            params.append(user_id)
+        if dataset_id:
+            query += " AND dataset_id = ?"
+            params.append(dataset_id)
+        if level:
+            query += " AND level = ?"
+            params.append(level)
+
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+
+        cursor = conn.execute(query, params)
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+
+        return results
+
+    def info(
+        self,
+        msg,
+        *args,
+        user_id=None,
+        dataset_id=None,
+        operation=None,
+        broadcast=False,
+        researcher_id=None,
+        **kwargs,
+    ):
         """Extends arguments of info message.
 
-        Valid only GrpcHandler is existing
+        Valid only if GrpcHandler is existing
 
         Args:
             msg: Message to log
+            user_id: Optional user identifier (overrides context)
+            dataset_id: Optional dataset identifier (overrides context)
+            operation: Optional operation type (overrides context)
             broadcast: Broadcast message to all available researchers
             researcher_id: ID of the researcher that the message will be sent.
-                If broadcast True researcher id will be ignored
+                If broadcast True researcher id will be ignored (overrides context)
+            **kwargs: Additional custom metadata fields
         """
-        self._logger.info(
-            msg,
-            *args,
+        extra = {
+            "user_id": user_id or _user_id_context.get(),
+            "dataset_id": dataset_id or _dataset_id_context.get(),
+            "operation": operation or _operation_context.get(),
+            "researcher_id": researcher_id or _researcher_id_context.get(),
+            "broadcast": broadcast,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        }
+        self._logger.info(msg, *args, extra=extra)
 
-    def debug(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+    def debug(
+        self,
+        msg,
+        *args,
+        user_id=None,
+        dataset_id=None,
+        operation=None,
+        broadcast=False,
+        researcher_id=None,
+        **kwargs,
+    ):
         """Same as info message"""
-        self._logger.debug(
-            msg,
-            *args,
+        extra = {
+            "user_id": user_id or _user_id_context.get(),
+            "dataset_id": dataset_id or _dataset_id_context.get(),
+            "operation": operation or _operation_context.get(),
+            "researcher_id": researcher_id or _researcher_id_context.get(),
+            "broadcast": broadcast,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        }
+        self._logger.debug(msg, *args, extra=extra)
 
-    def warning(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+    def warning(
+        self,
+        msg,
+        *args,
+        user_id=None,
+        dataset_id=None,
+        operation=None,
+        broadcast=False,
+        researcher_id=None,
+        **kwargs,
+    ):
         """Same as info message"""
-        self._logger.warning(
-            msg,
-            *args,
+        extra = {
+            "user_id": user_id or _user_id_context.get(),
+            "dataset_id": dataset_id or _dataset_id_context.get(),
+            "operation": operation or _operation_context.get(),
+            "researcher_id": researcher_id or _researcher_id_context.get(),
+            "broadcast": broadcast,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        }
+        self._logger.warning(msg, *args, extra=extra)
 
-    def critical(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+    def critical(
+        self,
+        msg,
+        *args,
+        user_id=None,
+        dataset_id=None,
+        operation=None,
+        broadcast=False,
+        researcher_id=None,
+        **kwargs,
+    ):
         """Same as info message"""
-        self._logger.critical(
-            msg,
-            *args,
+        extra = {
+            "user_id": user_id or _user_id_context.get(),
+            "dataset_id": dataset_id or _dataset_id_context.get(),
+            "operation": operation or _operation_context.get(),
+            "researcher_id": researcher_id or _researcher_id_context.get(),
+            "broadcast": broadcast,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        }
+        self._logger.critical(msg, *args, extra=extra)
 
-    def error(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
+    def error(
+        self,
+        msg,
+        *args,
+        user_id=None,
+        dataset_id=None,
+        operation=None,
+        broadcast=False,
+        researcher_id=None,
+        **kwargs,
+    ):
         """Same as info message"""
-        self._logger.error(
-            msg,
-            *args,
+        extra = {
+            "user_id": user_id or _user_id_context.get(),
+            "dataset_id": dataset_id or _dataset_id_context.get(),
+            "operation": operation or _operation_context.get(),
+            "researcher_id": researcher_id or _researcher_id_context.get(),
+            "broadcast": broadcast,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
-        )
+        }
+        self._logger.error(msg, *args, extra=extra)
 
     def __getattr__(self, s: Any):
         """Calls the method from self._logger if not override by this class"""
