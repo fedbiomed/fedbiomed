@@ -6,8 +6,10 @@ Core code of the node component.
 """
 
 import os
+import time
 from typing import Callable, Optional, Union
 
+from fedbiomed import __version__
 from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
@@ -117,6 +119,13 @@ class Node:
             hashing=self._config.get("security", "hashing_algorithm"),
             tp_approval=self._config.getbool("security", "training_plan_approval"),
         )
+
+        # Initialize security audit logging
+        logger.configure_security(node_id=self._node_id, fedbiomed_version=__version__)
+        security_log_dir = os.path.join(self._config.root, "log")
+        os.makedirs(security_log_dir, exist_ok=True)
+        security_log_path = os.path.join(security_log_dir, "security_audit.log")
+        logger.add_security_file_handler(filename=security_log_path)
 
         self.node_args = node_args
 
@@ -433,6 +442,20 @@ class Node:
                         round_ = self.parser_task_train(item)
                         # once task is out of queue, initiate training rounds
                         if round_ is not None:
+                            # Capture start time
+                            start_time = time.time()
+
+                            # Log training round start with detailed information
+                            logger.security_event(
+                                operation="training_round_start",
+                                status="initiated",
+                                researcher_id=item.researcher_id,
+                                experiment_id=item.experiment_id,
+                                request_id=item.request_id,
+                                dataset_id=round_.dataset.get("dataset_id"),
+                                training_plan_id=item.get_param("training_plan_class"),
+                                round_number=item.round,
+                            )
                             msg = round_.run_model_training(
                                 tp_approval=self._config.getbool(
                                     "security", "training_plan_approval"
@@ -450,6 +473,22 @@ class Node:
                             )
                             msg.request_id = item.request_id
                             self._grpc_client.send(msg)
+
+                            # Calculate duration
+                            duration_seconds = time.time() - start_time
+
+                            # Log training round completion with timing
+                            logger.security_event(
+                                operation="training_round_complete",
+                                status="success",
+                                researcher_id=item.researcher_id,
+                                experiment_id=item.experiment_id,
+                                request_id=item.request_id,
+                                dataset_id=round_.dataset.get("dataset_id"),
+                                training_plan_id=item.get_param("training_plan_class"),
+                                round_number=item.round,
+                                duration_seconds=round(duration_seconds, 2),
+                            )
                             del round_
 
                     case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
@@ -488,6 +527,18 @@ class Node:
 
             # TODO: Test exception
             except Exception as e:
+                # Log failure with request type for training rounds
+                logger.security_event(
+                    operation=item.__name__ + "_failed",
+                    status="error",
+                    researcher_id=item.researcher_id,
+                    experiment_id=item.experiment_id,
+                    request_id=item.request_id,
+                    request_type=item.__name__,
+                    dataset_id=getattr(item, "dataset_id", None),
+                    round_number=getattr(item, "round", None),
+                    error_message=str(e),
+                )
                 self.send_error(
                     request_id=item.request_id,
                     researcher_id=item.researcher_id,
