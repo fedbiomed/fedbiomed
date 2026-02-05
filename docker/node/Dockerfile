@@ -45,17 +45,6 @@ WORKDIR /home/${FEDBIOMED_USER}/fedbiomed
 # Globally install fedbiomed
 RUN pip install '.[node]'
 
-
-# Clean unnecessary files after installation
-RUN rm -rf ~/.cache/pip
-RUN rm -ff docs/tutorials
-RUN rm -rf notebooks
-RUN rm -rf envs/vpn
-RUN rm -rf envs/common
-RUN rm -rf envs/common_reference
-RUN rm -rf fedbiomed_gui
-
-
 WORKDIR /home/${FEDBIOMED_USER}/
 
 # Note: Uses CMD from base image which runs /entrypoint-base.sh
