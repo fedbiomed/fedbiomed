@@ -7,7 +7,7 @@ FROM fedbiomed/node:${FBM_IMAGE_VERSION:-latest} AS fedbiomed-node
 ARG FEDBIOMED_USER=fedbiomed
 ARG FEDBIOMED_GROUP=fedbiomed
 ARG FEDBIOMED_UID=1001
-ARG FEDBIOMED_GID=101
+ARG FEDBIOMED_GID=1001
 
 # Set environment variables to make them available at runtime
 ENV FEDBIOMED_USER=${FEDBIOMED_USER}
@@ -34,11 +34,6 @@ EXPOSE 8484
 EXPOSE 8443
 
 
-
-# Copy node-gui entry point file
-COPY docker/node-gui/entrypoint.bash /entrypoint-gui.bash
-COPY docker/node-gui/nginx /fedbiomed/nginx
-
 USER root:root
 # Install socat
 RUN apt-get update && apt-get install -y socat
@@ -46,21 +41,36 @@ RUN apt-get update && apt-get install -y socat
 # Install Nginx along with the missing dependencies
 RUN apt-get install nginx -y --fix-missing
 
+# Copy node-gui entry point files
+# entrypoint-root.sh runs as root before privilege drop (nginx config)
+COPY docker/node-gui/entrypoint-root.sh /entrypoint-root.sh
+RUN chmod +x /entrypoint-root.sh
+
+# entrypoint.sh runs as user after privilege drop (GUI app)
+COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} docker/node-gui/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} docker/node-gui/nginx /home/${FEDBIOMED_USER}/nginx
+
+USER ${FEDBIOMED_USER}:${FEDBIOMED_GROUP}
+
+RUN mkdir -p /home/${FEDBIOMED_USER}/nginx/logs && \
+    chmod -R 700 /home/${FEDBIOMED_USER}/nginx
 
 # Create node directory
-RUN mkdir /certs
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /certs 
+RUN mkdir /home/${FEDBIOMED_USER}/certs
 
 # Change working directory to fedbiomed
-WORKDIR /fedbiomed
+WORKDIR /home/${FEDBIOMED_USER}/fedbiomed
 
 # Install only GUI dependencies
 RUN pip install '.[gui]'
 
-# Restore ownership of /fedbiomed after pip install (which runs as root)
-RUN chown -R ${FEDBIOMED_USER}:${FEDBIOMED_GROUP} /fedbiomed
+# Nginx requires write access to its log and run 
+# directories, so  we set those up with the correct 
+# ownership and permissions
+USER root:root
 
-WORKDIR /
 
-# Run researcher
-ENTRYPOINT ["/entrypoint-gui.bash"]
+WORKDIR /home/${FEDBIOMED_USER}/
+
