@@ -7,7 +7,7 @@ FROM python:3.10-slim-bullseye AS python-build
 # Merge multi-state builds
 FROM debian:bullseye
 
-ARG FEDBIOMED_GID=101
+ARG FEDBIOMED_GID=1001
 ARG FEDBIOMED_UID=1001
 ARG FEDBIOMED_GROUP=fedbiomed
 ARG FEDBIOMED_USER=fedbiomed
@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y \
 	  libgmp3-dev libmpfr-dev libmpc-dev \
 	  gettext-base \
 	  supervisor \
+	  tini \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Node
@@ -42,53 +43,47 @@ COPY --from=python-build /usr/lib/ /usr/lib/
 #RUN ln -sf /usr/local/bin/python3 /usr/local/bin/python && \
 #    ln -sf /usr/local/bin/pip3 /usr/local/bin/pip
 
-# Setup subset of fedbiomed code tree
-RUN mkdir -p /fedbiomed/envs
-
-# Copy entrypoint bash
-COPY docker/base/functions.bash /functions.bash
-
-# Copy files from fedbiomed repo - in the context of fedbiomed top directory
-COPY envs/vpn /fedbiomed/envs/vpn
-COPY envs/common /fedbiomed/envs/common
-COPY envs/common /fedbiomed/envs/common_reference
-COPY fedbiomed /fedbiomed/fedbiomed
-COPY notebooks /fedbiomed/notebooks
-COPY docs/tutorials /fedbiomed/docs/tutorials
-COPY scripts /fedbiomed/scripts
-COPY fedbiomed_gui /fedbiomed/fedbiomed_gui
-COPY pyproject.toml /fedbiomed/pyproject.toml
-COPY README.md /fedbiomed/README.md
-COPY hatch_build.py /fedbiomed/hatch_build.py
-
-
-# Create and activate fedbiomed user
-RUN groupadd --gid $FEDBIOMED_GID $FEDBIOMED_GROUP
-RUN useradd -m --shell /bin/bash -d /home/$FEDBIOMED_USER \
+# Create fedbiomed user first
+RUN groupadd --gid $FEDBIOMED_GID $FEDBIOMED_GROUP && \
+    useradd -m --shell /bin/bash -d /home/$FEDBIOMED_USER \
 	--uid $FEDBIOMED_UID --gid $FEDBIOMED_GID $FEDBIOMED_USER
 
+# Create log directory with correct ownership
+RUN mkdir -p /home/$FEDBIOMED_USER/log && \
+    chown $FEDBIOMED_USER:$FEDBIOMED_GROUP /home/$FEDBIOMED_USER/log && \
+    chmod -R g+rwX /home/$FEDBIOMED_USER
 
-# Create log directory
-RUN mkdir -p /home/$FEDBIOMED_USER/log
+# Copy entrypoint bash as root (needs to be executable by root)
+COPY docker/base/entrypoint-base.sh /entrypoint-base.sh
+RUN chmod +x /entrypoint-base.sh
 
-# Prepare for work in context of alternate account
-RUN chown -R $FEDBIOMED_USER:$FEDBIOMED_GROUP /fedbiomed /home/$FEDBIOMED_USER/log
+# Copy files with correct ownership from the start
+# COPY automatically creates parent directories
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP envs/vpn /home/${FEDBIOMED_USER}/fedbiomed/envs/vpn
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP envs/common /home/${FEDBIOMED_USER}/fedbiomed/envs/common
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP envs/common /home/${FEDBIOMED_USER}/fedbiomed/envs/common_reference
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP fedbiomed /home/${FEDBIOMED_USER}/fedbiomed/fedbiomed
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP notebooks /home/${FEDBIOMED_USER}/fedbiomed/notebooks
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP docs/tutorials /home/${FEDBIOMED_USER}/fedbiomed/docs/tutorials
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP scripts /home/${FEDBIOMED_USER}/fedbiomed/scripts
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP fedbiomed_gui /home/${FEDBIOMED_USER}/fedbiomed/fedbiomed_gui
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP pyproject.toml /home/${FEDBIOMED_USER}/fedbiomed/pyproject.toml
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP README.md /home/${FEDBIOMED_USER}/fedbiomed/README.md
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP hatch_build.py /home/${FEDBIOMED_USER}/fedbiomed/hatch_build.py
 
+WORKDIR /home/${FEDBIOMED_USER}/fedbiomed
 
-# Give permission to Fed-BioMed group to allows user in the same group 
-# can user fedbiomed home directory
-RUN chgrp -R $FEDBIOMED_GROUP /home/$FEDBIOMED_USER
-RUN chmod -R g+rwX /home/$FEDBIOMED_USER
+# Switch to non-root user before pip install
+USER $FEDBIOMED_USER
 
+# Add .local/bin to PATH for pip-installed commands
+ENV PATH="/home/${FEDBIOMED_USER}/.local/bin:${PATH}"
 
-WORKDIR /fedbiomed
-
-# Install fedbiomed globally
+# Install fedbiomed as the user
 RUN pip install '.[ ]'
 
+# Use tini as init system for proper signal handling
+ENTRYPOINT ["/usr/bin/tini", "--"]
 
-# Switch to Fed-BioMed user
-USER $FEDBIOMED_USER:$FEDBIOMED_GROUP
-
-# Default command (optional)
-CMD ["bash"]
+# Default command
+CMD ["/entrypoint-base.sh"]

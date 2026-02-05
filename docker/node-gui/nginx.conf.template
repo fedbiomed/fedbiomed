@@ -1,0 +1,29 @@
+# Fed-BioMed nginx configuration for non-root execution
+user ${CONTAINER_USER};
+worker_processes auto;
+pid /var/run/nginx/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    log_format main '${DOLLAR}remote_addr - ${DOLLAR}remote_user [${DOLLAR}time_local] "${DOLLAR}request" '
+                    '${DOLLAR}status ${DOLLAR}body_bytes_sent "${DOLLAR}http_referer" '
+                    '"${DOLLAR}http_user_agent" "${DOLLAR}http_x_forwarded_for"';
+
+    access_log /var/log/nginx/access.log main;
+    error_log /var/log/nginx/error.log;
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Include site configuration
+    include /etc/nginx/conf.d/*.conf;
+}
