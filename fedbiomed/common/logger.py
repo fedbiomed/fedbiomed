@@ -44,6 +44,9 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
 
 import json
 import logging
+from contextlib import contextmanager
+from contextvars import ContextVar
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 from fedbiomed.common.ipython import is_ipython
@@ -51,9 +54,36 @@ from fedbiomed.common.singleton import SingletonMeta
 
 # default values
 DEFAULT_LOG_FILE = "mylog.log"
+DEFAULT_SECURITY_LOG_FILE = "security_audit.log"
 DEFAULT_LOG_LEVEL = logging.WARNING
 LOG_PREFIX = "%(prefix)s"
 DEFAULT_FORMAT = f"%(asctime)s %(name)s{LOG_PREFIX} %(levelname)s - %(message)s"
+
+# --- Security context (propagates across modules) ---
+SECURITY_CONTEXT: ContextVar[dict] = ContextVar(
+    "fedbiomed_security_context", default=None
+)
+
+
+# --- Helper functions for security logging ---
+def _utc_timestamp() -> str:
+    """UTC timestamp in ISO8601 with Z suffix (no milliseconds)."""
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+# --- No additional sanitization needed; json.dumps() handles serialization ---
+
+
+class _SecurityOnlyFilter(logging.Filter):
+    """Ensures only security events go to the SECURITY_FILE handler."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return bool(getattr(record, "is_security", False))
 
 
 class _GrpcFormatter(logging.Formatter):
@@ -207,7 +237,121 @@ class FedLogger(metaclass=SingletonMeta):
         self._handlers = {}
         self.add_console_handler()
 
+        # --- Security log defaults (filled by Node at startup) ---
+        self._security_defaults = {
+            "node_id": None,
+            "fedbiomed_version": None,
+        }
+
         pass
+
+    def configure_security(
+        self,
+        *,
+        node_id: Optional[str] = None,
+        fedbiomed_version: Optional[str] = None,
+    ) -> None:
+        """Configure default fields that must appear in every security log entry."""
+        if node_id is not None:
+            self._security_defaults["node_id"] = node_id
+        if fedbiomed_version is not None:
+            self._security_defaults["fedbiomed_version"] = fedbiomed_version
+
+    @contextmanager
+    def security_context(self, **ctx: Any):
+        """
+        Bind security context for downstream logging.
+
+        How reset works:
+        - SECURITY_CONTEXT.set(new_dict) returns a token referencing the previous value.
+        - In the `finally` block we call SECURITY_CONTEXT.reset(token) so the old context
+          is restored even if exceptions occur (prevents context leaks).
+        """
+        current = dict(
+            SECURITY_CONTEXT.get() or {}
+        )  # copy to avoid mutation across calls
+        current.update({k: v for k, v in ctx.items() if v is not None})
+        token = SECURITY_CONTEXT.set(current)
+        try:
+            yield
+        finally:
+            SECURITY_CONTEXT.reset(token)
+
+    def add_security_file_handler(
+        self,
+        filename: str = DEFAULT_SECURITY_LOG_FILE,
+        level: Any = logging.INFO,
+    ) -> None:
+        """
+        Adds a dedicated SECURITY_FILE handler that writes JSONL only.
+        Only records emitted with extra {"is_security": True} will be written.
+
+        Args:
+            filename: Security log file path. Defaults to 'security_audit.log'
+            level: Logging level for security events. Defaults to INFO
+        """
+        handler = logging.FileHandler(filename=filename, mode="a")
+        handler.setLevel(self._internal_level_translator(level))
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        handler.addFilter(_SecurityOnlyFilter())
+
+        # Register under its own key so it doesn't collide with FILE handler
+        self._internal_add_handler("SECURITY_FILE", handler, "%(message)s")
+
+    def security_event(
+        self,
+        *,
+        operation: Optional[str] = None,
+        status: Optional[str] = None,
+        researcher_id: Optional[str] = None,
+        **fields: Any,
+    ) -> None:
+        """
+        Writes one JSON security/audit log line to security file only.
+
+        Always present:
+          - node_id, researcher_id, timestamp, operation, status, fedbiomed_version
+
+        Values resolved as:
+          - explicit args > bound SECURITY_CONTEXT > defaults (for node_id/version)
+
+        Args:
+            operation: Name of the operation being logged (e.g., 'dataset_search', 'training_execute')
+            status: Status of the operation (e.g., 'success', 'failure', 'pending')
+            researcher_id: ID of the researcher performing the operation
+            **fields: Additional fields to log (e.g., dataset_id, experiment_id, node_id)
+        """
+        ctx = dict(SECURITY_CONTEXT.get() or {})
+
+        op = operation or ctx.get("operation")
+        st = status or ctx.get("status")
+        rid = researcher_id or ctx.get("researcher_id")
+
+        entry = {
+            "timestamp": _utc_timestamp(),
+            "node_id": self._security_defaults.get("node_id"),
+            "researcher_id": rid,
+            "operation": op,
+            "status": st,
+            "fedbiomed_version": self._security_defaults.get("fedbiomed_version"),
+        }
+
+        # Merge extra fields: context first, then explicit fields override
+        merged = {}
+        merged.update(ctx)
+        merged.update(fields)
+
+        # Avoid duplicating required keys in payload
+        for k in ("operation", "status", "researcher_id"):
+            merged.pop(k, None)
+
+        entry.update(merged)
+
+        # Write only to security file (is_security=True filters out other handlers)
+        self._logger.info(
+            json.dumps(entry, default=str, separators=(",", ":")),
+            extra={"is_security": True},
+        )
 
     def _internal_add_handler(
         self, output: str, handler: Callable, format: Optional[str] = None
