@@ -102,7 +102,7 @@ class MyRemoteTrainingPlan(TorchTrainingPlan):
         return self.Net()
 
     def init_optimizer(self):
-        return torch.optim.SGD(self.parameters(), lr=0.01)
+        return torch.optim.SGD(self.model().parameters(), lr=0.01)
 
     def init_dependencies(self):
         return ["from torchvision import transforms",
