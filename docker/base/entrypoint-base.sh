@@ -81,18 +81,34 @@ if [ "$(id -u)" = "0" ]; then
         
         # Modify user UID
         if [ "$CURRENT_UID" != "$CONTAINER_UID" ]; then
-            log "Changing UID from $CURRENT_UID to $CONTAINER_UID"
-            usermod -u "$CONTAINER_UID" "$FEDBIOMED_USER" 2>/dev/null || {
+            log "Changing UID from $CURRENT_UID to $CONTAINER_UID. This may take a moment if there are many files to update...."
+            usermod -o -u "$CONTAINER_UID" "$FEDBIOMED_USER" 2>/dev/null || {
                 log "WARNING: Failed to change UID, continuing..."
             }
         fi
         
-        # Fix ownership of home directory
+        # Fix ownership of home directory -------------------------------------------------------------------
         log "Fixing ownership of /home/$FEDBIOMED_USER"
         chown -R "$CONTAINER_UID:$CONTAINER_GID" "/home/$FEDBIOMED_USER" 2>/dev/null || {
             log "WARNING: Failed to fix ownership of some files in home directory"
         }
-        
+
+        # Fix supervisord directories if they exist (for node containers) -----------------------------------
+        if [ -d "/var/log/supervisor" ]; then
+            log "Fixing ownership of /var/log/supervisor"
+            chown -R "$CONTAINER_UID:$CONTAINER_GID" "/var/log/supervisor" 2>/dev/null || true
+        fi
+
+        if [ -d "/var/run/supervisor" ]; then
+            log "Fixing ownership of /var/run/supervisor"
+            chown -R "$CONTAINER_UID:$CONTAINER_GID" "/var/run/supervisor" 2>/dev/null || true
+        fi
+
+        if [ -f "/etc/supervisor/supervisord.conf" ]; then
+            log "Fixing ownership of /etc/supervisor/supervisord.conf"
+            chown "$CONTAINER_UID:$CONTAINER_GID" "/etc/supervisor/supervisord.conf" 2>/dev/null || true
+        fi
+
         # Fix ownership of /fbm-node if it exists
         if [ -d "/fbm-node" ]; then
             log "Fixing ownership of /fbm-node"
