@@ -14,6 +14,7 @@ from fedbiomed.researcher.requests import Requests
 
 from ..jobs import PreprocRequestJob
 from ._fedcombat_model import _FedCombatTrainModel
+from ._fedcombat_parameters import _FedComBatParameters
 
 
 class FedCombatPreproc:
@@ -137,13 +138,29 @@ class FedCombatPreproc:
                 "request or sampling strategy returned an empty list."
             )
 
+        fedcombat_parameters = _FedComBatParameters()
+
+        fedcombat_replies = {}
+        preproc_replies = []
+
         for preproc_step in range(1, 7):
+            step_args = fedcombat_parameters(
+                HarmonizationStep(preproc_step), preproc_replies
+            )
+
+            logger.debug(
+                f"Starting FedCombat preprocessing step {preproc_step} with args: {step_args}"
+            )
+
             if preproc_step == 1:
                 logger.debug(
                     "Starting FedCombat preprocessing step 1: use federated analytics "
                     "to compute global means and variances"
                 )
-                continue
+
+            elif preproc_step == 2:
+                logger.debug("Starting FedCombat preprocessing step 2")
+
             elif preproc_step == 3:
                 logger.debug(
                     "Starting FedCombat preprocessing step 3: train harmonization model"
@@ -162,9 +179,27 @@ class FedCombatPreproc:
                 logger.debug(
                     "Completed FedCombat preprocessing step 3: train harmonization model"
                 )
+
+                continue
+            elif preproc_step == 4:
+                logger.debug("Starting FedCombat preprocessing step 4")
+                step_args = {
+                    "biological_model_id": fc_training_plan._experimentation_folder,
+                    "global_bias_model_id": fc_training_plan._experimentation_folder,
+                    "local_bias_model_id": fc_training_plan._experimentation_folder,
+                }
+            elif preproc_step == 5:
+                logger.debug("Starting FedCombat preprocessing step 5")
+                step_args["biological_model_id"] = (
+                    fc_training_plan._experimentation_folder
+                )
+                step_args["global_bias_model_id"] = (
+                    fc_training_plan._experimentation_folder
+                )
+            else:
+                logger.debug(f"Starting FedCombat preprocessing step {preproc_step}")
                 continue
 
-            logger.debug(f"Starting FedCombat preprocessing step {preproc_step}")
             preproc_job = PreprocRequestJob(
                 experiment_id=self._experiment_id,
                 preproc_type=PreprocType(PreprocType.FEDCOMBAT),
@@ -173,15 +208,16 @@ class FedCombatPreproc:
                 ),  # dummy computation for now to remember to derive proper step value
                 preproc_id=self._preproc_id,
                 federated_dataset=self._fds,
-                preproc_args={
-                    "dummy": f"Preprocessing step {preproc_step}",
-                },
+                preproc_args=step_args,
                 state_id=None,  # dont have state_id for now
                 researcher_id=self._researcher_id,
                 requests=self._reqs,
                 nodes=self._nodes,
             )
             fedcombat_replies = preproc_job.execute()
+            preproc_replies = [
+                reply.preproc_output for reply in fedcombat_replies.values()
+            ]
 
             logger.debug(
                 f"Fed-ComBat replies after harmonization step {preproc_step}: {fedcombat_replies}"

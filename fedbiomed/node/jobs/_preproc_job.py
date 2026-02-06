@@ -11,6 +11,7 @@ from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
 from fedbiomed.node.dataset_manager import DatasetManager
 
 from ._base_job import _BaseJob
+from ._fedcombat_jobs import _FedComBat_jobs
 
 
 class PreprocJob(_BaseJob):
@@ -46,6 +47,7 @@ class PreprocJob(_BaseJob):
         self._preproc_args_raw = request.preproc_args
         self._state_id = request.state_id
         self._allow_preproc = allow_preproc
+        self._fedcombat_estimator = _FedComBat_jobs()
 
     def run(self) -> PreprocReply | ErrorMessage:
         """Execute preprocessing job.
@@ -95,9 +97,13 @@ class PreprocJob(_BaseJob):
         )
 
         # Simulated output of preprocessing
-        preproc_output = {
-            "dummy": f"Preprocessing step {self._preproc_step.name} completed.",
-        }
+        # preproc_output = {
+        #    "dummy": f"Preprocessing step {self._preproc_step.name} completed.",
+        # }
+
+        preproc_output = self._fedcombat_estimator(
+            self._preproc_step, self._preproc_args
+        )
 
         try:
             return PreprocReply(
