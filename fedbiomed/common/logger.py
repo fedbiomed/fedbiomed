@@ -127,38 +127,6 @@ class _SecurityFormatter(logging.Formatter):
             "message": msg,
         }
 
-        # Add any extra attributes from the record
-        for key, value in record.__dict__.items():
-            if key not in (
-                "name",
-                "msg",
-                "args",
-                "created",
-                "filename",
-                "funcName",
-                "levelname",
-                "levelno",
-                "lineno",
-                "module",
-                "msecs",
-                "message",
-                "pathname",
-                "process",
-                "processName",
-                "relativeCreated",
-                "thread",
-                "threadName",
-                "exc_info",
-                "exc_text",
-                "stack_info",
-                "is_security",
-                "researcher_id",
-                "broadcast",
-                "operation",
-                "status",
-            ):
-                entry[key] = value
-
         # Merge context fields
         for key, value in ctx.items():
             if key not in entry or entry[key] is None:
