@@ -89,6 +89,84 @@ class _SecurityOnlyFilter(logging.Filter):
         return bool(getattr(record, "is_security", False))
 
 
+class _SecurityFormatter(logging.Formatter):
+    """Formats security log records as JSON with consistent structure."""
+
+    def __init__(self, security_defaults: dict):
+        super().__init__()
+        self._security_defaults = security_defaults
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format log record as JSON."""
+        msg = record.getMessage()
+
+        # If message is already JSON (from security_event), return as-is
+        try:
+            json.loads(msg)
+            return msg
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Otherwise, build JSON structure from log record
+        ctx = dict(SECURITY_CONTEXT.get() or {})
+
+        entry = {
+            "timestamp": _utc_timestamp(),
+            "node_id": self._security_defaults.get("node_id"),
+            "node_name": self._security_defaults.get("node_name"),
+            "researcher_id": ctx.get("researcher_id")
+            or getattr(record, "researcher_id", None),
+            "operation": ctx.get("operation") or getattr(record, "operation", None),
+            "status": getattr(record, "status", "logged"),
+            "fedbiomed_version": self._security_defaults.get("fedbiomed_version"),
+            "caller_function": record.funcName,
+            "caller_module": os.path.basename(record.pathname),
+            "caller_file": record.pathname,
+            "caller_line": record.lineno,
+            "level": record.levelname,
+            "message": msg,
+        }
+
+        # Add any extra attributes from the record
+        for key, value in record.__dict__.items():
+            if key not in (
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "message",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "is_security",
+                "researcher_id",
+                "broadcast",
+                "operation",
+                "status",
+            ):
+                entry[key] = value
+
+        # Merge context fields
+        for key, value in ctx.items():
+            if key not in entry or entry[key] is None:
+                entry[key] = value
+
+        return json.dumps(entry, default=str, separators=(",", ":"))
+
+
 class _GrpcFormatter(logging.Formatter):
     """gRPC log  formatter"""
 
@@ -304,7 +382,7 @@ class FedLogger(metaclass=SingletonMeta):
             backupCount=0,  # Keep all old logs, never delete
         )
         handler.setLevel(self._internal_level_translator(level))
-        handler.setFormatter(logging.Formatter("%(message)s"))
+        handler.setFormatter(_SecurityFormatter(self._security_defaults))
         handler.addFilter(_SecurityOnlyFilter())
         # Disable buffering to ensure immediate writes
         handler.stream.reconfigure(line_buffering=True)

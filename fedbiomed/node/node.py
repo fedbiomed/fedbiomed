@@ -686,16 +686,19 @@ class Node:
             request_id: Optional request i to reply as error to a request.
         """
         try:
-            logger.error(extra_msg)
-
-            # Log security event for all errors
-            logger.security_event(
-                operation="error_sent",
-                status="error",
+            # Log error to console and security audit log in one call
+            logger.error(
+                extra_msg,
+                extra={
+                    "is_security": True,
+                    "operation": "error_sent",
+                    "status": "error",
+                    "request_id": request_id,
+                    "error_code": errnum.name,
+                    "error_message": extra_msg,
+                    "broadcast": broadcast,
+                },
                 researcher_id=researcher_id if researcher_id != "<unknown>" else None,
-                request_id=request_id,
-                error_code=errnum.name,
-                error_message=extra_msg,
                 broadcast=broadcast,
             )
 
