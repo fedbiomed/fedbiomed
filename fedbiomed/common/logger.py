@@ -249,11 +249,14 @@ class FedLogger(metaclass=SingletonMeta):
         self,
         *,
         node_id: Optional[str] = None,
+        node_name: Optional[str] = None,
         fedbiomed_version: Optional[str] = None,
     ) -> None:
         """Configure default fields that must appear in every security log entry."""
         if node_id is not None:
             self._security_defaults["node_id"] = node_id
+        if node_name is not None:
+            self._security_defaults["node_name"] = node_name
         if fedbiomed_version is not None:
             self._security_defaults["fedbiomed_version"] = fedbiomed_version
 
@@ -294,6 +297,8 @@ class FedLogger(metaclass=SingletonMeta):
         handler.setLevel(self._internal_level_translator(level))
         handler.setFormatter(logging.Formatter("%(message)s"))
         handler.addFilter(_SecurityOnlyFilter())
+        # Disable buffering to ensure immediate writes
+        handler.stream.reconfigure(line_buffering=True)
 
         # Register under its own key so it doesn't collide with FILE handler
         self._internal_add_handler("SECURITY_FILE", handler, "%(message)s")
@@ -330,6 +335,7 @@ class FedLogger(metaclass=SingletonMeta):
         entry = {
             "timestamp": _utc_timestamp(),
             "node_id": self._security_defaults.get("node_id"),
+            "node_name": self._security_defaults.get("node_name"),
             "researcher_id": rid,
             "operation": op,
             "status": st,

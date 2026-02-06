@@ -86,12 +86,19 @@ class Node:
             node_id=self._node_id,
             researchers=[
                 ResearcherCredentials(
-                    port=self._config.get("researcher", "port"),
-                    host=self._config.get("researcher", "ip"),
+                    port=self._config.get("researcher1", "port"),
+                    host=self._config.get("researcher1", "ip"),
                     certificate=self._config.get(
-                        "researcher", "certificate", fallback=None
+                        "researcher1", "certificate", fallback=None
                     ),
-                )
+                ),
+                ResearcherCredentials(
+                    port=self._config.get("researcher2", "port"),
+                    host=self._config.get("researcher2", "ip"),
+                    certificate=self._config.get(
+                        "researcher2", "certificate", fallback=None
+                    ),
+                ),
             ],
             on_message=self.on_message,
         )
@@ -121,7 +128,11 @@ class Node:
         )
 
         # Initialize security audit logging
-        logger.configure_security(node_id=self._node_id, fedbiomed_version=__version__)
+        logger.configure_security(
+            node_id=self._node_id,
+            node_name=self._node_name,
+            fedbiomed_version=__version__,
+        )
         security_log_dir = os.path.join(self._config.root, "log")
         os.makedirs(security_log_dir, exist_ok=True)
         security_log_path = os.path.join(security_log_dir, "security_audit.log")
@@ -318,12 +329,6 @@ class Node:
                         )
                     case _:
                         resid = msg.get("researcher_id", "unknown_researcher_id")
-                        # Log unhandled message type
-                        logger.security_event(
-                            operation="unhandled_message_type",
-                            status="error",
-                            error_message=f"Message handler not implemented for {message.__class__.__name__}",
-                        )
                         self.send_error(
                             ErrorNumbers.FB301,
                             extra_msg="This request handler is not implemented "
@@ -627,15 +632,6 @@ class Node:
 
                 # TODO: Test exception
                 except Exception as e:
-                    # Log failure
-                    logger.security_event(
-                        operation=item.__name__ + "_failed",
-                        status="error",
-                        request_type=item.__name__,
-                        dataset_id=getattr(item, "dataset_id", None),
-                        round_number=getattr(item, "round", None),
-                        error_message=str(e),
-                    )
                     self.send_error(
                         request_id=item.request_id,
                         researcher_id=item.researcher_id,
@@ -691,6 +687,18 @@ class Node:
         """
         try:
             logger.error(extra_msg)
+
+            # Log security event for all errors
+            logger.security_event(
+                operation="error_sent",
+                status="error",
+                researcher_id=researcher_id if researcher_id != "<unknown>" else None,
+                request_id=request_id,
+                error_code=errnum.name,
+                error_message=extra_msg,
+                broadcast=broadcast,
+            )
+
             self._grpc_client.send(
                 ErrorMessage(
                     request_id=request_id,
