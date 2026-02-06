@@ -42,11 +42,14 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
     Please pay attention to not create dependency loop then importing other fedbiomed package
 """
 
+import inspect
 import json
 import logging
+import os
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from logging.handlers import TimedRotatingFileHandler
 from typing import Any, Callable, Optional
 
 from fedbiomed.common.ipython import is_ipython
@@ -288,12 +291,18 @@ class FedLogger(metaclass=SingletonMeta):
         """
         Adds a dedicated SECURITY_FILE handler that writes JSONL only.
         Only records emitted with extra {"is_security": True} will be written.
+        Automatically rotates daily at midnight. Old logs are never deleted.
 
         Args:
             filename: Security log file path. Defaults to 'security_audit.log'
             level: Logging level for security events. Defaults to INFO
         """
-        handler = logging.FileHandler(filename=filename, mode="a")
+        handler = TimedRotatingFileHandler(
+            filename=filename,
+            when="midnight",
+            interval=1,
+            backupCount=0,  # Keep all old logs, never delete
+        )
         handler.setLevel(self._internal_level_translator(level))
         handler.setFormatter(logging.Formatter("%(message)s"))
         handler.addFilter(_SecurityOnlyFilter())
@@ -316,6 +325,7 @@ class FedLogger(metaclass=SingletonMeta):
 
         Always present:
           - node_id, researcher_id, timestamp, operation, status, fedbiomed_version
+          - caller_function, caller_module, caller_file, caller_line (automatically captured)
 
         Values resolved as:
           - explicit args > bound SECURITY_CONTEXT > defaults (for node_id/version)
@@ -332,6 +342,22 @@ class FedLogger(metaclass=SingletonMeta):
         st = status or ctx.get("status")
         rid = researcher_id or ctx.get("researcher_id")
 
+        # Capture caller information from the stack
+        frame = inspect.currentframe()
+        caller_frame = frame.f_back if frame else None
+        caller_info = {
+            "caller_function": caller_frame.f_code.co_name
+            if caller_frame
+            else "unknown",
+            "caller_module": os.path.basename(caller_frame.f_code.co_filename)
+            if caller_frame
+            else "unknown",
+            "caller_file": caller_frame.f_code.co_filename
+            if caller_frame
+            else "unknown",
+            "caller_line": caller_frame.f_lineno if caller_frame else 0,
+        }
+
         entry = {
             "timestamp": _utc_timestamp(),
             "node_id": self._security_defaults.get("node_id"),
@@ -340,6 +366,7 @@ class FedLogger(metaclass=SingletonMeta):
             "operation": op,
             "status": st,
             "fedbiomed_version": self._security_defaults.get("fedbiomed_version"),
+            **caller_info,
         }
 
         # Merge extra fields: context first, then explicit fields override
@@ -414,7 +441,7 @@ class FedLogger(metaclass=SingletonMeta):
             if upper_level in self._nameToLevel:
                 return self._nameToLevel[upper_level]
 
-        self._logger.warning("Calling selLevel() with bad value: " + str(level))
+        self._logger.warning("Calling setLevel() with bad value: " + str(level))
         self._logger.warning(
             "Setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead"
         )
@@ -562,48 +589,65 @@ class FedLogger(metaclass=SingletonMeta):
             broadcast: Broadcast message to all available researchers
             researcher_id: ID of the researcher that the message will be sent.
                 If broadcast True researcher id will be ignored
+            **kwargs: Additional keyword arguments. Can include extra={"is_security": True}
+                to also write to security log file
         """
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.info(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def debug(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.debug(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def warning(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.warning(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def critical(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.critical(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def error(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.error(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def __getattr__(self, s: Any):
