@@ -331,11 +331,14 @@ class HarmonizationStep(PreprocStep):
     """Enumeration class for dataset preprocessing steps"""
 
     # step1 uses Federated Analytics
+    STEP1: int = 1
     STEP2: int = 2
     # step3 uses Federated Learning
+    STEP3: int = 3
     STEP4: int = 4
     STEP5: int = 5
     STEP6: int = 6
+    STEP7: int = 7
 
 
 class SAParameters:
