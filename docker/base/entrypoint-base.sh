@@ -3,14 +3,17 @@ set -e
 set -u
 set -o pipefail
 
+ ls -la .
+
+
 # Clean unnecessary files after installation
-rm -rf ~/.cache/pip
-rm -rf docs/tutorials
-rm -rf notebooks
-rm -rf envs/vpn
-rm -rf envs/common
-rm -rf envs/common_reference
-rm -rf fedbiomed_gui
+# rm -rf ~/.cache/pip
+# rm -rf docs/tutorials
+# rm -rf notebooks
+# rm -rf envs/vpn
+# rm -rf envs/common
+# rm -rf envs/common_reference
+# rm -rf fedbiomed_gui
 
 readonly FEDBIOMED_USER="${FEDBIOMED_USER:-fedbiomed}"
 readonly CONTAINER_UID="${CONTAINER_UID:-${FEDBIOMED_UID}}"

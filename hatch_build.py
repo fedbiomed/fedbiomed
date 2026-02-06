@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
-from datetime import time
+import time
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
@@ -38,5 +38,5 @@ class CustomBuildHook(BuildHookInterface):
                     time.sleep(5)
                 else:
                     raise
-            finally:
-                os.chdir("../../")
+
+        os.chdir("../../")
