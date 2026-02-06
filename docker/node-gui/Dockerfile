@@ -64,7 +64,9 @@ RUN mkdir /home/${FEDBIOMED_USER}/certs
 WORKDIR /home/${FEDBIOMED_USER}/fedbiomed
 
 # Install only GUI dependencies
-RUN pip install '.[gui]'
+RUN pip install --user --no-cache-dir --no-index \
+    --find-links=/tmp/wheels \
+    'fedbiomed[gui]'
 
 # Nginx requires write access to its log and run 
 # directories, so  we set those up with the correct 

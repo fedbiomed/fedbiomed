@@ -42,8 +42,10 @@ USER ${FEDBIOMED_USER}:${FEDBIOMED_GROUP}
 # Change working directory to fedbiomed
 WORKDIR /home/${FEDBIOMED_USER}/fedbiomed
 
-# Globally install fedbiomed
-RUN pip install '.[node]'
+# Install only node dependencies
+RUN pip install --user --no-cache-dir --no-index \
+    --find-links=/tmp/wheels \
+    'fedbiomed[node]'
 
 WORKDIR /home/${FEDBIOMED_USER}/
 
