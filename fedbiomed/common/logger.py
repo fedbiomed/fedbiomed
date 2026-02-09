@@ -42,6 +42,7 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
     Please pay attention to not create dependency loop then importing other fedbiomed package
 """
 
+import copy
 import inspect
 import json
 import logging
@@ -102,9 +103,14 @@ class _SecurityFormatter(logging.Formatter):
 
         # If message is already JSON (from security_event), return as-is
         try:
-            json.loads(msg)
-            return msg
-        except (json.JSONDecodeError, ValueError):
+            parsed = json.loads(msg)
+            if (
+                isinstance(parsed, dict)
+                and "timestamp" in parsed
+                and "operation" in parsed
+            ):
+                return msg
+        except (json.JSONDecodeError, ValueError, TypeError):
             pass
 
         # Otherwise, build JSON structure from log record
@@ -146,17 +152,16 @@ class _GrpcFormatter(logging.Formatter):
 
     def format(self, record):
         """Formats the message/data that is going to be send to remote party through gRPC"""
-
+        record2 = copy.copy(record)
         json_message = {
-            "asctime": record.__dict__["asctime"],
+            "asctime": record2.__dict__["asctime"],
             "node_id": self._node_id,
-            "name": record.__dict__["name"],
-            "level": record.__dict__["levelname"],
-            "message": record.__dict__["message"],
+            "name": record2.__dict__["name"],
+            "level": record2.__dict__["levelname"],
+            "message": record2.__dict__["message"],
         }
-
-        record.msg = json.dumps(json_message)
-        return super().format(record)
+        record2.msg = json.dumps(json_message)
+        return super().format(record2)
 
 
 class _GrpcHandler(logging.Handler):
@@ -356,7 +361,7 @@ class FedLogger(metaclass=SingletonMeta):
         handler.stream.reconfigure(line_buffering=True)
 
         # Register under its own key so it doesn't collide with FILE handler
-        self._internal_add_handler("SECURITY_FILE", handler, "%(message)s")
+        self._internal_add_handler("SECURITY_FILE", handler, None)
 
     def security_event(
         self,
@@ -441,7 +446,7 @@ class FedLogger(metaclass=SingletonMeta):
         for a given output (type)
 
         Args:
-            output: Tag for the logger ("CONSOLE", "FILE"), this is a string used as a hash key
+            output: Tag for the logger ("CONSOLE", "FILE", "SECURITY_FILE"), this is a string used as a hash key
             handler: Proper handler to install. if handler is None, it will remove the previous installed handler
             format: format string for this handler
         """
@@ -618,6 +623,8 @@ class FedLogger(metaclass=SingletonMeta):
             prefix: Prefix to add to all log messages
         """
         for h in self._handlers:
+            if h == "SECURITY_FILE":
+                continue
             if self._original_format[h] is not None:
                 self._handlers[h].setFormatter(
                     logging.Formatter(

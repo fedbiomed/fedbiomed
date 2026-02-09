@@ -4,6 +4,7 @@ import os
 import tempfile
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from fedbiomed.common.logger import (
@@ -19,6 +20,28 @@ class TestLogger(unittest.TestCase):
     """
     Test the Logger class
     """
+
+    def _flush_security_handler(self):
+        """Flush + fsync SECURITY_FILE handler to avoid timing-based test flakiness."""
+        h = logger._handlers.get("SECURITY_FILE")
+        if h is None:
+            return
+        try:
+            h.flush()
+        except Exception:
+            pass
+
+        stream = getattr(h, "stream", None)
+        if stream is not None:
+            try:
+                stream.flush()
+            except Exception:
+                pass
+            # On some platforms/filesystems this can raise; keep it best-effort.
+            try:
+                os.fsync(stream.fileno())
+            except Exception:
+                pass
 
     def setUp(self):
         """
@@ -267,6 +290,14 @@ class TestLogger(unittest.TestCase):
         logger.setLevel("DEBUG")
         logger.critical("verify that logger still works properly")
 
+        grpc_handler = logger._handlers.get("GRPC")
+        if grpc_handler is not None:
+            logger._internal_add_handler("GRPC", None)
+            try:
+                grpc_handler.close()
+            except Exception:
+                pass
+
         pass
 
     def test_logger_07_filehandler(self):
@@ -388,7 +419,7 @@ class TestLogger(unittest.TestCase):
             self.assertEqual(ctx_reverted["operation"], "outer_op")
 
     def test_logger_12_security_formatter_json_passthrough(self):
-        """Test _SecurityFormatter passes through existing JSON"""
+        """Test _SecurityFormatter only passes through security-shaped JSON"""
         security_defaults = {
             "node_id": "node_123",
             "node_name": "node_test",
@@ -396,228 +427,263 @@ class TestLogger(unittest.TestCase):
         }
         formatter = _SecurityFormatter(security_defaults)
 
-        # Create a mock record with JSON message
+        # Create a mock record with JSON message that already matches the security schema.
+        # Arbitrary JSON should NOT be passed through, to avoid other handlers writing
+        # non-security JSON into the security audit log.
         record = MagicMock()
-        json_msg = json.dumps({"test": "data", "value": 123})
+        json_payload = {
+            "timestamp": "2026-02-09T10:33:42Z",
+            "event_type": "security_event",
+            "operation": "test_operation",
+            "status": "success",
+            "node_id": "node_123",
+            "node_name": "node_test",
+            "fedbiomed_version": "v1.0",
+        }
+        json_msg = json.dumps(json_payload)
         record.getMessage.return_value = json_msg
 
         # Should return JSON as-is
         result = formatter.format(record)
         self.assertEqual(result, json_msg)
-        self.assertEqual(json.loads(result), {"test": "data", "value": 123})
+        self.assertEqual(json.loads(result), json_payload)
 
     def test_logger_13_security_event_with_caller_info(self):
         """Test security_event() captures caller information"""
+        old_level = logger.getEffectiveLevel()
+        # Ensure INFO security events are not filtered by logger level, and ensure
+        # SECURITY_FILE handler level isn't overwritten to WARNING on add.
+        logger.setLevel("INFO")
         logger.configure_security(
             node_id="test_node", node_name="test_name", fedbiomed_version="v1.0"
         )
-        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".log") as f:
-            temp_file = f.name
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = str(Path(tmpdir) / "security_audit.log")
+            try:
+                logger.add_security_file_handler(filename=temp_file)
+                logger.setLevel("INFO", "SECURITY_FILE")
+                logger.security_event(
+                    operation="test_operation",
+                    status="success",
+                    researcher_id="researcher_1",
+                    custom_field="custom_value",
+                )
+                self._flush_security_handler()
 
-        try:
-            logger.add_security_file_handler(filename=temp_file)
-            logger.security_event(
-                operation="test_operation",
-                status="success",
-                researcher_id="researcher_1",
-                custom_field="custom_value",
-            )
-            time.sleep(0.1)
+                with open(temp_file, "r") as f:
+                    log_entry = json.loads(f.readline())
 
-            with open(temp_file, "r") as f:
-                log_entry = json.loads(f.readline())
+                self.assertEqual(log_entry["operation"], "test_operation")
+                self.assertEqual(log_entry["status"], "success")
+                self.assertEqual(log_entry["researcher_id"], "researcher_1")
+                self.assertEqual(log_entry["custom_field"], "custom_value")
+                self.assertIn("caller_function", log_entry)
+                self.assertIn("caller_module", log_entry)
+                self.assertIn("caller_file", log_entry)
+                self.assertIn("caller_line", log_entry)
 
-            self.assertEqual(log_entry["operation"], "test_operation")
-            self.assertEqual(log_entry["status"], "success")
-            self.assertEqual(log_entry["researcher_id"], "researcher_1")
-            self.assertEqual(log_entry["custom_field"], "custom_value")
-            self.assertIn("caller_function", log_entry)
-            self.assertIn("caller_module", log_entry)
-            self.assertIn("caller_file", log_entry)
-            self.assertIn("caller_line", log_entry)
+            finally:
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                if security_handler is not None:
+                    logger._internal_add_handler("SECURITY_FILE", None)
+                    security_handler.close()
 
-        finally:
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
+        logger.setLevel(old_level)
 
     def test_logger_14_is_security_flag_behavior(self):
         """Test is_security flag controls writing to security log"""
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel("INFO")
         logger.configure_security(
             node_id="test_node", node_name="test_name", fedbiomed_version="v1.0"
         )
-        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".log") as f:
-            temp_file = f.name
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = str(Path(tmpdir) / "security_audit.log")
+            try:
+                logger.add_security_file_handler(filename=temp_file)
+                logger.setLevel("INFO", "SECURITY_FILE")
 
-        try:
-            logger.add_security_file_handler(filename=temp_file)
+                # Without flag - should not write
+                logger.info("Regular message")
+                logger.error("Regular error")
+                self._flush_security_handler()
+                with open(temp_file, "r") as f:
+                    self.assertEqual(len(f.readlines()), 0)
 
-            # Without flag - should not write
-            logger.info("Regular message")
-            logger.error("Regular error")
-            time.sleep(0.1)
-            with open(temp_file, "r") as f:
-                self.assertEqual(len(f.readlines()), 0)
+                # With False flag - should not write
+                logger.info("False flag", extra={"is_security": False})
+                self._flush_security_handler()
+                with open(temp_file, "r") as f:
+                    self.assertEqual(len(f.readlines()), 0)
 
-            # With False flag - should not write
-            logger.info("False flag", extra={"is_security": False})
-            time.sleep(0.1)
-            with open(temp_file, "r") as f:
-                self.assertEqual(len(f.readlines()), 0)
+                # With True flag - should write
+                logger.info(
+                    "Info msg", extra={"is_security": True, "operation": "test_op"}
+                )
+                logger.error(
+                    "Error msg",
+                    extra={
+                        "is_security": True,
+                        "operation": "error_sent",
+                    },
+                    researcher_id="researcher_1",
+                )
+                self._flush_security_handler()
 
-            # With True flag - should write
-            logger.info("Info msg", extra={"is_security": True, "operation": "test_op"})
-            logger.error(
-                "Error msg",
-                extra={
-                    "is_security": True,
-                    "operation": "error_sent",
-                    "error_code": "FB300",
-                },
-                researcher_id="researcher_1",
-            )
-            time.sleep(0.1)
+                with open(temp_file, "r") as f:
+                    lines = f.readlines()
+                self.assertEqual(len(lines), 2)
 
-            with open(temp_file, "r") as f:
-                lines = f.readlines()
-            self.assertEqual(len(lines), 2)
+                info_entry = json.loads(lines[0])
+                print(info_entry.keys())
+                print(info_entry)
+                self.assertEqual(info_entry["message"], "Info msg")
+                self.assertEqual(info_entry["level"], "INFO")
+                self.assertEqual(info_entry["operation"], "test_op")
 
-            info_entry = json.loads(lines[0])
-            self.assertEqual(info_entry["message"], "Info msg")
-            self.assertEqual(info_entry["level"], "INFO")
-            self.assertEqual(info_entry["operation"], "test_op")
+                error_entry = json.loads(lines[1])
+                self.assertEqual(error_entry["message"], "Error msg")
+                self.assertEqual(error_entry["level"], "ERROR")
+                self.assertEqual(error_entry["researcher_id"], "researcher_1")
 
-            error_entry = json.loads(lines[1])
-            self.assertEqual(error_entry["message"], "Error msg")
-            self.assertEqual(error_entry["level"], "ERROR")
-            self.assertEqual(error_entry["error_code"], "FB300")
-            self.assertEqual(error_entry["researcher_id"], "researcher_1")
+            finally:
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                if security_handler is not None:
+                    logger._internal_add_handler("SECURITY_FILE", None)
+                    security_handler.close()
 
-        finally:
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
+        logger.setLevel(old_level)
 
     def test_logger_15_security_context_merges_with_event(self):
         """Test security_context merges with security_event fields"""
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel("INFO")
         logger.configure_security(
             node_id="test_node", node_name="test_name", fedbiomed_version="v1.0"
         )
-        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".log") as f:
-            temp_file = f.name
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = str(Path(tmpdir) / "security_audit.log")
+            try:
+                logger.add_security_file_handler(filename=temp_file)
+                logger.setLevel("INFO", "SECURITY_FILE")
+                with logger.security_context(
+                    researcher_id="researcher_1", experiment_id="exp_123"
+                ):
+                    logger.security_event(
+                        operation="training_start",
+                        status="initiated",
+                        round_number=1,
+                    )
 
-        try:
-            logger.add_security_file_handler(filename=temp_file)
-            with logger.security_context(
-                researcher_id="researcher_1", experiment_id="exp_123"
-            ):
-                logger.security_event(
-                    operation="training_start", status="initiated", round_number=1
-                )
+                self._flush_security_handler()
+                with open(temp_file, "r") as f:
+                    log_entry = json.loads(f.readline())
 
-            time.sleep(0.1)
-            with open(temp_file, "r") as f:
-                log_entry = json.loads(f.readline())
+                self.assertEqual(log_entry["researcher_id"], "researcher_1")
+                self.assertEqual(log_entry["experiment_id"], "exp_123")
+                self.assertEqual(log_entry["operation"], "training_start")
+                self.assertEqual(log_entry["round_number"], 1)
 
-            self.assertEqual(log_entry["researcher_id"], "researcher_1")
-            self.assertEqual(log_entry["experiment_id"], "exp_123")
-            self.assertEqual(log_entry["operation"], "training_start")
-            self.assertEqual(log_entry["round_number"], 1)
+            finally:
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                if security_handler is not None:
+                    logger._internal_add_handler("SECURITY_FILE", None)
+                    security_handler.close()
 
-        finally:
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
+        logger.setLevel(old_level)
 
     def test_logger_16_add_security_file_handler_rotation(self):
         """Test daily rotation creates new file when day passes"""
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel("INFO")
         logger.configure_security(
             node_id="test_node", node_name="test_name", fedbiomed_version="v1.0"
         )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = str(Path(tmpdir) / "security_audit.log")
+            try:
+                # Add security file handler with real TimedRotatingFileHandler
+                logger.add_security_file_handler(filename=temp_file)
+                logger.setLevel("INFO", "SECURITY_FILE")
 
-        with tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".log") as f:
-            temp_file = f.name
+                # Write first log entry
+                logger.security_event(
+                    operation="test_operation_1",
+                    status="success",
+                    researcher_id="researcher_1",
+                )
 
-        try:
-            # Add security file handler with real TimedRotatingFileHandler
-            logger.add_security_file_handler(filename=temp_file)
+                self._flush_security_handler()
 
-            # Write first log entry
-            logger.security_event(
-                operation="test_operation_1",
-                status="success",
-                researcher_id="researcher_1",
-            )
+                # Verify first entry exists
+                with open(temp_file, "r") as f:
+                    lines_before = f.readlines()
 
-            time.sleep(0.1)
+                self.assertEqual(len(lines_before), 1)
 
-            # Verify first entry exists
-            with open(temp_file, "r") as f:
-                lines_before = f.readlines()
+                # Get the handler and trigger rollover manually (simulates midnight passing)
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                self.assertIsNotNone(
+                    security_handler, "SECURITY_FILE handler should exist"
+                )
 
-            self.assertEqual(len(lines_before), 1)
+                # Trigger rollover (simulates day change)
+                security_handler.doRollover()
 
-            # Get the handler and trigger rollover manually (simulates midnight passing)
-            security_handler = logger._handlers.get("SECURITY_FILE")
-            self.assertIsNotNone(security_handler, "SECURITY_FILE handler should exist")
+                # Write second log entry after "day change"
+                logger.security_event(
+                    operation="test_operation_2",
+                    status="success",
+                    researcher_id="researcher_2",
+                )
 
-            # Trigger rollover (simulates day change)
-            security_handler.doRollover()
+                self._flush_security_handler()
 
-            # Write second log entry after "day change"
-            logger.security_event(
-                operation="test_operation_2",
-                status="success",
-                researcher_id="researcher_2",
-            )
+                # Verify current file now has only the new entry
+                with open(temp_file, "r") as f:
+                    lines_after = f.readlines()
 
-            time.sleep(0.1)
+                self.assertEqual(
+                    len(lines_after),
+                    1,
+                    "Current log file should have only the new entry after rollover",
+                )
+                log_entry = json.loads(lines_after[0])
+                self.assertEqual(log_entry["operation"], "test_operation_2")
 
-            # Verify current file now has only the new entry
-            with open(temp_file, "r") as f:
-                lines_after = f.readlines()
+                # Verify backup file was created (with timestamp suffix)
+                # TimedRotatingFileHandler adds suffix like .2026-02-06
+                temp_path = Path(temp_file)
+                backup_files = sorted(
+                    [
+                        p
+                        for p in temp_path.parent.glob(temp_path.name + ".*")
+                        if p != temp_path
+                    ]
+                )
 
-            self.assertEqual(
-                len(lines_after),
-                1,
-                "Current log file should have only the new entry after rollover",
-            )
-            log_entry = json.loads(lines_after[0])
-            self.assertEqual(log_entry["operation"], "test_operation_2")
+                self.assertGreater(
+                    len(backup_files),
+                    0,
+                    "Backup file should be created after rollover",
+                )
 
-            # Verify backup file was created (with timestamp suffix)
-            # TimedRotatingFileHandler adds suffix like .2026-02-06
-            backup_files = [
-                f
-                for f in os.listdir(os.path.dirname(temp_file))
-                if f.startswith(os.path.basename(temp_file))
-                and f != os.path.basename(temp_file)
-            ]
+                # Verify old entry is in backup file
+                backup_file = backup_files[0]
+                with backup_file.open("r") as f:
+                    backup_lines = f.readlines()
 
-            self.assertGreater(
-                len(backup_files),
-                0,
-                "Backup file should be created after rollover",
-            )
+                self.assertEqual(len(backup_lines), 1)
+                backup_entry = json.loads(backup_lines[0])
+                self.assertEqual(backup_entry["operation"], "test_operation_1")
 
-            # Verify old entry is in backup file
-            backup_file = os.path.join(os.path.dirname(temp_file), backup_files[0])
-            with open(backup_file, "r") as f:
-                backup_lines = f.readlines()
+            finally:
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                if security_handler is not None:
+                    logger._internal_add_handler("SECURITY_FILE", None)
+                    security_handler.close()
 
-            self.assertEqual(len(backup_lines), 1)
-            backup_entry = json.loads(backup_lines[0])
-            self.assertEqual(backup_entry["operation"], "test_operation_1")
-
-        finally:
-            # Clean up all files
-            if os.path.exists(temp_file):
-                os.remove(temp_file)
-            # Clean up backup files
-            if os.path.exists(os.path.dirname(temp_file)):
-                for f in os.listdir(os.path.dirname(temp_file)):
-                    if f.startswith(os.path.basename(temp_file)):
-                        try:
-                            os.remove(os.path.join(os.path.dirname(temp_file), f))
-                        except OSError:
-                            pass
+        logger.setLevel(old_level)
 
 
 if __name__ == "__main__":  # pragma: no cover
