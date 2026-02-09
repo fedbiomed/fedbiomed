@@ -86,19 +86,12 @@ class Node:
             node_id=self._node_id,
             researchers=[
                 ResearcherCredentials(
-                    port=self._config.get("researcher1", "port"),
-                    host=self._config.get("researcher1", "ip"),
+                    port=self._config.get("researcher", "port"),
+                    host=self._config.get("researcher", "ip"),
                     certificate=self._config.get(
-                        "researcher1", "certificate", fallback=None
+                        "researcher", "certificate", fallback=None
                     ),
-                ),
-                ResearcherCredentials(
-                    port=self._config.get("researcher2", "port"),
-                    host=self._config.get("researcher2", "ip"),
-                    certificate=self._config.get(
-                        "researcher2", "certificate", fallback=None
-                    ),
-                ),
+                )
             ],
             on_message=self.on_message,
         )
