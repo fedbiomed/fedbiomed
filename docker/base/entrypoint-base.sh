@@ -24,6 +24,21 @@ log() {
     echo "[entrypoint] $*" >&2
 }
 
+# Spinner for long operations
+spinner() {
+    local pid=$1
+    local message=$2
+    local spinstr='|/-\'
+    local i=0
+    
+    while kill -0 "$pid" 2>/dev/null; do
+        i=$(( (i+1) % 4 ))
+        printf "\r[entrypoint] %s [${spinstr:$i:1}]" "$message" >&2
+        sleep 0.1
+    done
+    printf "\r[entrypoint] %s [done]\n" "$message" >&2
+}
+
 
 # Validate UID/GID ranges
 # Validate UID/GID ranges
@@ -73,27 +88,17 @@ if [ "$(id -u)" = "0" ]; then
     # Adjust UID/GID if provided and different from current
     if [ "$CURRENT_UID" != "$CONTAINER_UID" ] || [ "$CURRENT_GID" != "$CONTAINER_GID" ]; then
         log "Adjusting user permissions to UID:GID = $CONTAINER_UID:$CONTAINER_GID"
+
+        # Delete and recreate user with correct UID/GID (fast - no filesystem scan)
+        userdel "${FEDBIOMED_USER}"
+        groupadd -g "${CONTAINER_GID}" "${FEDBIOMED_USER}" 2>/dev/null || true
+        useradd --no-log-init --home "/home/${FEDBIOMED_USER}" --uid "${CONTAINER_UID}" --gid "${CONTAINER_GID}" "${FEDBIOMED_USER}"
         
-        # Modify group first (usermod requires group to exist)
-        if [ "$CURRENT_GID" != "$CONTAINER_GID" ]; then
-            log "Changing GID from $CURRENT_GID to $CONTAINER_GID"
-            groupmod -g "$CONTAINER_GID" "$FEDBIOMED_USER" 2>/dev/null || {
-                log "WARNING: Failed to change GID, continuing..."
-            }
-        fi
-        
-        # Modify user UID
-        if [ "$CURRENT_UID" != "$CONTAINER_UID" ]; then
-            log "Changing UID from $CURRENT_UID to $CONTAINER_UID. This may take a moment if there are many files to update...."
-            usermod -o -u "$CONTAINER_UID" "$FEDBIOMED_USER" 2>/dev/null || {
-                log "WARNING: Failed to change UID, continuing..."
-            }
-        fi
-        
-        # Fix ownership of home directory -------------------------------------------------------------------
-        log "Fixing ownership of /home/$FEDBIOMED_USER"
-        chown -R "$CONTAINER_UID:$CONTAINER_GID" "/home/$FEDBIOMED_USER" 2>/dev/null || {
-            log "WARNING: Failed to fix ownership of some files in home directory"
+        # Fix ownership of home directory
+        chown -R "$CONTAINER_UID:$CONTAINER_GID" "/home/${FEDBIOMED_USER}" 2>/dev/null &
+        spinner $! "Fixing ownership of /home/${FEDBIOMED_USER}"
+        wait $! || {
+            log "WARNING: Failed to fix ownership of home directory"
         }
 
         # Fix supervisord directories if they exist (for node containers) -----------------------------------
@@ -114,16 +119,18 @@ if [ "$(id -u)" = "0" ]; then
 
         # Fix ownership of /fbm-node if it exists
         if [ -d "/fbm-node" ]; then
-            log "Fixing ownership of /fbm-node"
-            chown -R "$CONTAINER_UID:$CONTAINER_GID" "/fbm-node" 2>/dev/null || {
+            chown -R "$CONTAINER_UID:$CONTAINER_GID" "/fbm-node" 2>/dev/null &
+            spinner $! "Fixing ownership of /fbm-node"
+            wait $! || {
                 log "WARNING: Failed to fix ownership of /fbm-node"
             }
         fi
         
         # Fix ownership of /fbm-researcher if it exists
         if [ -d "/fbm-researcher" ]; then
-            log "Fixing ownership of /fbm-researcher"
-            chown -R "$CONTAINER_UID:$CONTAINER_GID" "/fbm-researcher" 2>/dev/null || {
+            chown -R "$CONTAINER_UID:$CONTAINER_GID" "/fbm-researcher" 2>/dev/null &
+            spinner $! "Fixing ownership of /fbm-researcher"
+            wait $! || {
                 log "WARNING: Failed to fix ownership of /fbm-researcher"
             }
         fi
@@ -150,9 +157,13 @@ if [ "$(id -u)" = "0" ]; then
         exec su -s /bin/bash "$FEDBIOMED_USER" -c "exec sleep infinity"
     fi
 else
-    log "Already running as non-root ($(id -un):$(id -u):$(id -g))"
+    log "Running as non-root ($(id -un):$(id -u):$(id -g))"
     log "Skipping UID/GID adjustment"
     
+    if [ -v CONTAINER_GID ] || [ -v CONTAINER_UID ]; then
+        log "WARNING: CONTAINER_GID and CONTAINER_UID will be ignored since container is not running as root."
+    fi
+
     # Already non-root, go directly to entrypoint or keep running
     if [ -f /entrypoint.sh ]; then
         exec /entrypoint.sh "$@"
