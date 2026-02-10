@@ -138,6 +138,10 @@ def add_database(
                         dataset_parameters, data_loading_plan, initialdir=initialdir
                     )
                 )
+            elif data_type == "nipoppy":
+                path = Path(input("Path to the dataset: ")).resolve()
+                if not path.exists():
+                    raise FedbiomedDatasetError(f"Path not found: {path}")
             elif data_type == "custom":
                 while True:
                     abs_path = Path(input("Path to the dataset: ")).resolve()
