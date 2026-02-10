@@ -97,6 +97,16 @@ def start_node(config, node_args):
 
         try:
             if _node and _node.is_connected():
+                # Log node stop event
+                logger.security_event(
+                    operation="node_stopped",
+                    status="success",
+                    researcher_id=None,
+                    node_name=_node.node_name,
+                    reason="signal_received",
+                    signal_number=signum,
+                )
+
                 _node.send_error(
                     ErrorNumbers.FB312, extra_msg="Node is stopped", broadcast=True
                 )
@@ -146,10 +156,29 @@ def start_node(config, node_args):
         _node.task_manager()  # handling training tasks in queue
 
     except FedbiomedError as exp:
+        # Log node stop due to error
+        logger.security_event(
+            operation="node_stopped",
+            status="error",
+            researcher_id=None,
+            node_name=_node.node_name if _node else None,
+            reason="fedbiomed_error",
+            error_message=str(exp),
+        )
         logger.critical(f"Node stopped. {exp}")
         # we may add extra information for the user depending on the error
 
     except Exception as exp:
+        # Log node stop due to unexpected error
+        logger.security_event(
+            operation="node_stopped",
+            status="error",
+            researcher_id=None,
+            node_name=_node.node_name if _node else None,
+            reason="unexpected_exception",
+            error_message=str(exp),
+            exception_type=type(exp).__name__,
+        )
         # must send info to the researcher (no mqqt should be handled
         # by the previous FedbiomedError)
         _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))

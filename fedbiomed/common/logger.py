@@ -42,18 +42,105 @@ Contrary to other Fed-BioMed classes, the API of FedLogger is compliant with the
     Please pay attention to not create dependency loop then importing other fedbiomed package
 """
 
+import copy
+import inspect
 import json
 import logging
+import os
+from contextlib import contextmanager
+from contextvars import ContextVar
+from datetime import datetime, timezone
+from logging.handlers import TimedRotatingFileHandler
 from typing import Any, Callable, Optional
 
+from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.singleton import SingletonMeta
 
 # default values
 DEFAULT_LOG_FILE = "mylog.log"
+DEFAULT_SECURITY_LOG_FILE = "security_audit.log"
 DEFAULT_LOG_LEVEL = logging.WARNING
 LOG_PREFIX = "%(prefix)s"
 DEFAULT_FORMAT = f"%(asctime)s %(name)s{LOG_PREFIX} %(levelname)s - %(message)s"
+
+# --- Security context (propagates across modules) ---
+SECURITY_CONTEXT: ContextVar[dict] = ContextVar(
+    "fedbiomed_security_context", default=None
+)
+
+
+# --- Helper functions for security logging ---
+def _utc_timestamp() -> str:
+    """UTC timestamp in ISO8601 with Z suffix (no milliseconds)."""
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+# --- No additional sanitization needed; json.dumps() handles serialization ---
+
+
+class _SecurityOnlyFilter(logging.Filter):
+    """Ensures only security events go to the SECURITY_FILE handler."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return bool(getattr(record, "is_security", False))
+
+
+class _SecurityFormatter(logging.Formatter):
+    """Formats security log records as JSON with consistent structure."""
+
+    def __init__(self, security_defaults: dict):
+        super().__init__()
+        self._security_defaults = security_defaults
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format log record as JSON."""
+        msg = record.getMessage()
+
+        # If message is already JSON (from security_event), return as-is
+        try:
+            parsed = json.loads(msg)
+            if (
+                isinstance(parsed, dict)
+                and "timestamp" in parsed
+                and "operation" in parsed
+            ):
+                return msg
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+        # Otherwise, build JSON structure from log record
+        ctx = dict(SECURITY_CONTEXT.get() or {})
+
+        entry = {
+            "timestamp": _utc_timestamp(),
+            "node_id": self._security_defaults.get("component_id"),
+            "node_name": self._security_defaults.get("component_name"),
+            "researcher_id": ctx.get("researcher_id")
+            or getattr(record, "researcher_id", None),
+            "operation": ctx.get("operation") or getattr(record, "operation", None),
+            "status": getattr(record, "status", "logged"),
+            "fedbiomed_version": self._security_defaults.get("fedbiomed_version"),
+            "caller_function": record.funcName,
+            "caller_module": os.path.basename(record.pathname),
+            "caller_file": record.pathname,
+            "caller_line": record.lineno,
+            "level": record.levelname,
+            "message": msg,
+        }
+
+        # Merge context fields
+        for key, value in ctx.items():
+            if key not in entry or entry[key] is None:
+                entry[key] = value
+
+        return json.dumps(entry, default=str, separators=(",", ":"))
 
 
 class _GrpcFormatter(logging.Formatter):
@@ -67,17 +154,16 @@ class _GrpcFormatter(logging.Formatter):
 
     def format(self, record):
         """Formats the message/data that is going to be send to remote party through gRPC"""
-
+        record2 = copy.copy(record)
         json_message = {
-            "asctime": record.__dict__["asctime"],
+            "asctime": record2.__dict__["asctime"],
             "node_id": self._node_id,
-            "name": record.__dict__["name"],
-            "level": record.__dict__["levelname"],
-            "message": record.__dict__["message"],
+            "name": record2.__dict__["name"],
+            "level": record2.__dict__["levelname"],
+            "message": record2.__dict__["message"],
         }
-
-        record.msg = json.dumps(json_message)
-        return super().format(record)
+        record2.msg = json.dumps(json_message)
+        return super().format(record2)
 
 
 class _GrpcHandler(logging.Handler):
@@ -207,7 +293,184 @@ class FedLogger(metaclass=SingletonMeta):
         self._handlers = {}
         self.add_console_handler()
 
+        # --- Security log defaults (filled by Node at startup) ---
+        self._security_defaults = {
+            "component_id": None,
+            "component_name": None,
+            "fedbiomed_version": None,
+        }
+
         pass
+
+    def set_security_logs(self, root_path: str) -> None:
+        security_log_dir = os.path.join(root_path, "log")
+        os.makedirs(security_log_dir, exist_ok=True)
+        security_log_path = os.path.join(security_log_dir, "security_audit.log")
+        self.add_security_file_handler(filename=security_log_path)
+
+    def configure_security(
+        self,
+        *,
+        component_id: Optional[str] = None,
+        component_name: Optional[ComponentType] = None,
+        fedbiomed_version: Optional[str] = None,
+    ) -> None:
+        """Configure default fields that must appear in every security log entry."""
+        if component_id is not None:
+            self._security_defaults["component_id"] = component_id
+        if component_name is not None:
+            self._security_defaults["component_name"] = component_name
+        if fedbiomed_version is not None:
+            self._security_defaults["fedbiomed_version"] = fedbiomed_version
+
+    @contextmanager
+    def security_context(self, **ctx: Any):
+        """
+        Bind security context for downstream logging.
+
+        How reset works:
+        - SECURITY_CONTEXT.set(new_dict) returns a token referencing the previous value.
+        - In the `finally` block we call SECURITY_CONTEXT.reset(token) so the old context
+          is restored even if exceptions occur (prevents context leaks).
+        """
+        current = dict(
+            SECURITY_CONTEXT.get() or {}
+        )  # copy to avoid mutation across calls
+        current.update({k: v for k, v in ctx.items() if v is not None})
+        token = SECURITY_CONTEXT.set(current)
+        try:
+            yield
+        finally:
+            SECURITY_CONTEXT.reset(token)
+
+    def add_security_file_handler(
+        self,
+        filename: str = DEFAULT_SECURITY_LOG_FILE,
+        level: Any = logging.INFO,
+    ) -> None:
+        """
+        Adds a dedicated SECURITY_FILE handler that writes JSONL only.
+        Only records emitted with extra {"is_security": True} will be written.
+        Automatically rotates daily at midnight. Old logs are never deleted.
+
+        Args:
+            filename: Security log file path. Defaults to 'security_audit.log'
+            level: Logging level for security events. Defaults to INFO
+        """
+        handler = TimedRotatingFileHandler(
+            filename=filename,
+            when="midnight",
+            interval=1,
+            backupCount=0,  # Keep all old logs, never delete
+        )
+        handler.setLevel(self._internal_level_translator(level))
+        handler.setFormatter(_SecurityFormatter(self._security_defaults))
+        handler.addFilter(_SecurityOnlyFilter())
+        # Disable buffering to ensure immediate writes
+        handler.stream.reconfigure(line_buffering=True)
+
+        # Register under its own key so it doesn't collide with FILE handler
+        self._internal_add_handler("SECURITY_FILE", handler, None)
+
+    def security_event(
+        self,
+        *,
+        operation: Optional[str] = None,
+        status: Optional[str] = None,
+        researcher_id: Optional[str] = None,
+        **fields: Any,
+    ) -> None:
+        """
+        Writes one JSON security/audit log line to security file only.
+
+        Always present:
+          - node_id, researcher_id, timestamp, operation, status, fedbiomed_version
+          - caller_function, caller_module, caller_file, caller_line (automatically captured)
+
+        Values resolved as:
+          - explicit args > bound SECURITY_CONTEXT > defaults (for node_id/version)
+
+        Args:
+            operation: Name of the operation being logged (e.g., 'dataset_search', 'training_execute')
+            status: Status of the operation (e.g., 'success', 'failure', 'pending')
+            researcher_id: ID of the researcher performing the operation
+            **fields: Additional fields to log (e.g., dataset_id, experiment_id, node_id)
+        """
+        ctx = dict(SECURITY_CONTEXT.get() or {})
+
+        op = operation or ctx.get("operation")
+        st = status or ctx.get("status")
+        rid = researcher_id or ctx.get("researcher_id")
+
+        # Capture caller information from the stack
+        try:
+            frame = inspect.currentframe()
+            caller_frame = frame.f_back if frame else None
+            caller_info = {
+                "caller_function": caller_frame.f_code.co_name
+                if caller_frame
+                else "unknown",
+                "caller_module": os.path.basename(caller_frame.f_code.co_filename)
+                if caller_frame
+                else "unknown",
+                "caller_file": caller_frame.f_code.co_filename
+                if caller_frame
+                else "unknown",
+                "caller_line": caller_frame.f_lineno if caller_frame else 0,
+            }
+        except Exception as e:
+            FedbiomedError(
+                "Failed to capture caller information for security log entry. "
+                "Caller info will be set to 'unknown'. "
+                "Caller parser error: " + str(e)
+            )
+            caller_info = {
+                "caller_function": "unknown",
+                "caller_module": "unknown",
+                "caller_file": "unknown",
+                "caller_line": 0,
+            }
+            self._logger.warning(
+                json.dumps(
+                    {
+                        "timestamp": _utc_timestamp(),
+                        "node_id": self._security_defaults.get("component_id"),
+                        "caller_parsing": "failure",
+                        "caller_parser_error": str(e),
+                    },
+                    default=str,
+                    separators=(",", ":"),
+                ),
+                extra={"is_security": True},
+            )
+
+        entry = {
+            "timestamp": _utc_timestamp(),
+            "node_id": self._security_defaults.get("component_id"),
+            "node_name": self._security_defaults.get("component_name"),
+            "researcher_id": rid,
+            "operation": op,
+            "status": st,
+            "fedbiomed_version": self._security_defaults.get("fedbiomed_version"),
+            **caller_info,
+        }
+
+        # Merge extra fields: context first, then explicit fields override
+        merged = {}
+        merged.update(ctx)
+        merged.update(fields)
+
+        # Avoid duplicating required keys in payload
+        for k in ("operation", "status", "researcher_id"):
+            merged.pop(k, None)
+
+        entry.update(merged)
+
+        # Write only to security file (is_security=True filters out other handlers)
+        self._logger.info(
+            json.dumps(entry, default=str, separators=(",", ":")),
+            extra={"is_security": True},
+        )
 
     def _internal_add_handler(
         self, output: str, handler: Callable, format: Optional[str] = None
@@ -218,7 +481,7 @@ class FedLogger(metaclass=SingletonMeta):
         for a given output (type)
 
         Args:
-            output: Tag for the logger ("CONSOLE", "FILE"), this is a string used as a hash key
+            output: Tag for the logger ("CONSOLE", "FILE", "SECURITY_FILE"), this is a string used as a hash key
             handler: Proper handler to install. if handler is None, it will remove the previous installed handler
             format: format string for this handler
         """
@@ -264,7 +527,7 @@ class FedLogger(metaclass=SingletonMeta):
             if upper_level in self._nameToLevel:
                 return self._nameToLevel[upper_level]
 
-        self._logger.warning("Calling selLevel() with bad value: " + str(level))
+        self._logger.warning("Calling setLevel() with bad value: " + str(level))
         self._logger.warning(
             "Setting " + self._levelToName[DEFAULT_LOG_LEVEL] + " level instead"
         )
@@ -395,6 +658,8 @@ class FedLogger(metaclass=SingletonMeta):
             prefix: Prefix to add to all log messages
         """
         for h in self._handlers:
+            if h == "SECURITY_FILE":
+                continue
             if self._original_format[h] is not None:
                 self._handlers[h].setFormatter(
                     logging.Formatter(
@@ -412,48 +677,65 @@ class FedLogger(metaclass=SingletonMeta):
             broadcast: Broadcast message to all available researchers
             researcher_id: ID of the researcher that the message will be sent.
                 If broadcast True researcher id will be ignored
+            **kwargs: Additional keyword arguments. Can include extra={"is_security": True}
+                to also write to security log file
         """
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.info(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def debug(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.debug(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def warning(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.warning(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def critical(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.critical(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def error(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Same as info message"""
+        # Merge extra dicts properly to support is_security flag
+        extra = kwargs.pop("extra", {})
+        extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
         self._logger.error(
             msg,
             *args,
             **kwargs,
-            extra={"researcher_id": researcher_id, "broadcast": broadcast},
+            extra=extra,
         )
 
     def __getattr__(self, s: Any):
