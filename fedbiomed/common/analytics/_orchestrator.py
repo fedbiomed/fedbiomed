@@ -3,8 +3,14 @@
 
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-from fedbiomed.common.analytics._accumulators import create_accumulator
-from fedbiomed.common.analytics._analytics_registry import AnalyticsRegistry
+from fedbiomed.common.analytics.accumulators import (
+    Accumulator,
+    AnalyticsRegistry,
+    DictAccumulator,
+    ImageAccumulator,
+    RowAccumulator,
+    SequenceAccumulator,
+)
 from fedbiomed.common.dataset_types import (
     DatasetElementSpec,
     DatasetElementType,
@@ -22,7 +28,7 @@ class AnalyticsOrchestrator:
     def compute_stats(
         self,
         dataset: "Dataset",
-        subschema: Optional[Union[str, List[str], Dict[str, Any]]] = None,
+        dataset_schema: Optional[Union[str, List[str], Dict[str, Any]]] = None,
         stats: Optional[List[str]] = None,
         fa_args: Optional[Dict[str, Any]] = None,
     ) -> Any:
@@ -42,26 +48,57 @@ class AnalyticsOrchestrator:
             FedbiomedError: If validation fails or dataset capability is missing.
         """
         # 1. Check Capability
-        if not hasattr(dataset, "get_analytics_schema"):
-            raise FedbiomedError("Dataset does not implement 'get_analytics_schema'.")
+        if not all(
+            hasattr(dataset, _) for _ in ("get_analytics_schema", "get_analytics_item")
+        ):
+            raise FedbiomedError(
+                "Dataset does not implement 'get_analytics_schema' and/or 'get_analytics_item'."
+            )
 
         # 2. Get Schema
         schema = dataset.get_analytics_schema()
 
         # 3. Build & Validate Configuration
-        config = self._build_and_validate_config(schema, subschema, stats, fa_args)
+        config = self._build_and_validate_config(schema, dataset_schema, stats, fa_args)
 
         # 4. Build Accumulator Tree
-        accumulator = create_accumulator(config)
+        accumulator = self._create_accumulator(config)
 
         # 5. Iterate and Accumulate
         n_samples = len(dataset)
         for idx in range(n_samples):
-            sample = dataset[idx]
+            sample = dataset.get_analytics_item(idx)
             accumulator.update(sample)
 
         # 6. Finalize
         return accumulator.finalize()
+
+    def _create_accumulator(self, config: Any) -> Accumulator:
+        """Factory method to build an accumulator tree based on a configuration dict."""
+        if not isinstance(config, dict) or "type" not in config:
+            raise FedbiomedError("Invalid accumulator configuration.")
+
+        # Structure Types
+        if config["type"] == "dict":
+            children = {
+                k: self._create_accumulator(v)
+                for k, v in config.get("children", {}).items()
+            }
+            return DictAccumulator(children)
+        if config["type"] in ("list", "tuple"):
+            children = [
+                self._create_accumulator(item) for item in config.get("children", [])
+            ]
+            return SequenceAccumulator(children, is_tuple=(config["type"] == "tuple"))
+
+        # Leaf Types
+        if config["type"] == DatasetElementType.ROW:
+            return RowAccumulator(config)
+        if config["type"] == DatasetElementType.IMAGE:
+            return ImageAccumulator(config)
+
+        # Unhandled types
+        raise FedbiomedError(f"Unsupported accumulator type: {config['type']}")
 
     def _build_and_validate_config(
         self,
@@ -239,6 +276,7 @@ class AnalyticsOrchestrator:
         return {
             "type": DatasetElementType.ROW,
             "conf": col_configs,
+            "columns": selected_cols,  # Preserve column order for accumulators
         }
 
     def _handle_image(
@@ -248,8 +286,8 @@ class AnalyticsOrchestrator:
         if args is not None and not isinstance(args, dict):
             raise FedbiomedError("Args for IMAGE must be a dict.")
 
-        final_stats = self._compile_leaf_stats(DatasetElementType.IMAGE, stats, args)
-        return {"type": DatasetElementType.IMAGE, "stats": final_stats}
+        stats_config = self._compile_leaf_stats(DatasetElementType.IMAGE, stats, args)
+        return {"type": DatasetElementType.IMAGE, "stats": stats_config}
 
     def _compile_leaf_stats(
         self,
@@ -257,8 +295,12 @@ class AnalyticsOrchestrator:
         stats: Optional[List[str]],
         args: Optional[Dict[str, Any]],
     ) -> Dict[str, Dict[str, Any]]:
-        """Compiles valid statistics configuration for a leaf node."""
-        config = {}
+        """Compiles valid statistics configuration for a leaf node.
+
+        Returns a flat config with requested root statistics.
+        Primitives are implicitly handled by the Accumulator based on root stats.
+        """
+        requested_config = {}
         args = args or {}
         stats = stats or []
 
@@ -266,14 +308,15 @@ class AnalyticsOrchestrator:
 
         # Validate and Filter Candidates
         for stat in candidates:
+            # Check explicit presence or default
             is_explicit = stat in args
             current_args = args.get(stat, {})
 
             if self._validate_leaf_stat(element_type, stat, current_args, is_explicit):
-                config[stat] = current_args
+                requested_config[stat] = current_args
 
-        # Add Dependencies
-        return self._add_stat_dependencies(element_type, config)
+        # Resolve roots and ensure consistency for requested stats
+        return self._resolve_and_validate_roots(element_type, requested_config)
 
     def _validate_leaf_stat(
         self,
@@ -285,7 +328,7 @@ class AnalyticsOrchestrator:
         """Validates a single statistic and its arguments for a given type."""
 
         # 1. Type Compatibility
-        if not AnalyticsRegistry.is_valid_for_type(stat, element_type):
+        if not AnalyticsRegistry.check_stat_compatibility(stat, element_type):
             if is_explicit:
                 raise FedbiomedError(
                     f"Statistic '{stat}' is not valid for type {element_type.value}"
@@ -294,7 +337,7 @@ class AnalyticsOrchestrator:
 
         # 2. Argument Validation
         try:
-            AnalyticsRegistry.validate_args(stat, args)
+            AnalyticsRegistry.validate_args(stat, element_type, args)
         except ValueError as e:
             if is_explicit:
                 raise FedbiomedError(
@@ -304,21 +347,70 @@ class AnalyticsOrchestrator:
 
         return True
 
-    def _add_stat_dependencies(
-        self, element_type: DatasetElementType, config: Dict[str, Dict[str, Any]]
+    def _resolve_and_validate_roots(
+        self,
+        element_type: DatasetElementType,
+        requested_config: Dict[str, Dict[str, Any]],
     ) -> Dict[str, Dict[str, Any]]:
-        """Expands configuration to include dependencies."""
-        final_config = config.copy()
+        """Resolves root statistics and validates argument consistency.
 
-        all_stats = list(final_config.keys())
-        dependencies = set()
-        for s in all_stats:
-            dependencies.update(AnalyticsRegistry.get_dependencies(s))
+        Returns a flat config containing only root statistics (no expansion), ensuring
+        that arguments between roots and their implied dependencies are consistent.
 
-        for dep in dependencies:
-            if dep not in final_config:
-                # Dependencies must be valid for type and require no args
-                if self._validate_leaf_stat(element_type, dep, {}, is_explicit=True):
-                    final_config[dep] = {}
+        Args:
+            element_type: The type of dataset element (ROW or IMAGE).
+            requested_config: Map of requested statistics to their arguments.
+
+        Returns:
+            Flat dict with root stats and their args.
+        """
+        # 1. Map to track arguments for every stat (explicit or implied)
+        # stat_name -> (args, source_stat_name)
+        stat_arg_map: Dict[str, Tuple[Dict[str, Any], str]] = {}
+
+        for stat, args in requested_config.items():
+            # Check if this stat was already implied by a previous stat in the loop
+            if stat in stat_arg_map:
+                existing_args, source = stat_arg_map[stat]
+                if existing_args != args:
+                    raise FedbiomedError(
+                        f"Conflicting arguments for statistic '{stat}': "
+                        f"implied by '{source}' with {existing_args}, "
+                        f"but explicitly requested with {args}"
+                    )
+
+            # Record it (overwrite is fine as we checked equality or it's new)
+            stat_arg_map[stat] = (args, stat)
+
+            # Check dependencies
+            # get_dependencies returns all recursive dependencies
+            dependencies = AnalyticsRegistry.get_dependencies(stat, element_type)
+
+            for dep in dependencies:
+                # Validate that dependency accepts these arguments
+                try:
+                    AnalyticsRegistry.validate_args(dep, element_type, args)
+                except FedbiomedError as e:
+                    raise FedbiomedError(
+                        f"Statistic '{stat}' implies dependency '{dep}', but arguments are invalid for '{dep}': {e}"
+                    ) from e
+
+                if dep in stat_arg_map:
+                    existing_args, source = stat_arg_map[dep]
+                    if existing_args != args:
+                        raise FedbiomedError(
+                            f"Conflicting arguments for dependency '{dep}': "
+                            f"required by '{source}' with {existing_args}, "
+                            f"but required by '{stat}' with {args}"
+                        )
+                else:
+                    stat_arg_map[dep] = (args, stat)
+
+        # 2. Get roots
+        # Roots are stats in specific requested list that are not implied by others in the list
+        roots = AnalyticsRegistry.get_roots(requested_config.keys(), element_type)
+
+        # 3. Construct final config from roots
+        final_config = {root: requested_config[root] for root in roots}
 
         return final_config

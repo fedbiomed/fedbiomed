@@ -19,7 +19,8 @@ def request_args():
         "fa_id": "fa_1",
         "stats": Stats.MEAN.value,
         "fa_args": {},
-        "dataset_args": {"col_names": ["age", "weight"]},
+        "dataset_args": {"input_columns": ["age", "weight"]},
+        "dataset_schema": ["col1", "col2"],
     }
 
 
@@ -119,19 +120,29 @@ def test_build_dataset_success(mock_registry, fa_job, mocked_dataset_manager):
     }
     fa_job._dataset_manager = mock_dm
 
-    mock_dataset_cls = MagicMock()
+    # When instantiated
+    mock_dataset_instance = MagicMock()
 
-    # Setup registry to return our mock dataset class
-    # REGISTRY_CONTROLLERS[data_type] returns (loader, saver, dataset_cls)
-    mock_registry.__getitem__.return_value = (None, None, mock_dataset_cls)
+    class MockDataset:
+        def __init__(self, input_columns=None):
+            pass
+
+        def __new__(cls, *args, **kwargs):
+            return mock_dataset_instance
+
+    mock_dataset_cls = MockDataset
+
+    # Setup DATASET_CLASSES_PER_TYPE
     mock_registry.__contains__.return_value = True
+    # Return 3 values as expected by unpacking: _, _, dataset_cls
+    mock_registry.__getitem__.return_value = (None, None, mock_dataset_cls)
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN, ["csv"])
 
     # Verify dataset creation and initialization
-    assert dataset == mock_dataset_cls.return_value
-    mock_dataset_cls.return_value.complete_initialization.assert_called_once()
-    call_args = mock_dataset_cls.return_value.complete_initialization.call_args
+    assert dataset == mock_dataset_instance
+    mock_dataset_instance.complete_initialization.assert_called_once()
+    call_args = mock_dataset_instance.complete_initialization.call_args
     assert call_args[0][0]["root"] == "/path/to/data"
     assert call_args[0][1] == DataReturnFormat.SKLEARN
 
@@ -178,15 +189,26 @@ def test_build_dataset_with_dlp_success(
     mock_dlp = mock_dlp_cls.return_value
     mock_dlp.deserialize.return_value = mock_dlp  # return self
 
-    mock_dataset_cls = MagicMock()
-    mock_reg_cont.__getitem__.return_value = (None, None, mock_dataset_cls)
+    mock_dataset_instance = MagicMock()
+
+    class MockDataset:
+        def __init__(self, input_columns=None):
+            pass
+
+        def __new__(cls, *args, **kwargs):
+            return mock_dataset_instance
+
+    mock_reg_cont.__getitem__.return_value = (None, None, MockDataset)
     mock_reg_cont.__contains__.return_value = True
+
+    # Setup DATASET_CLASSES_PER_TYPE
+    # mock_dataset_cli not needed since _BaseJob uses REGISTRY_CONTROLLERS
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN, ["csv"])
 
-    assert dataset == mock_dataset_cls.return_value
+    assert dataset == mock_dataset_instance
     # Check if DLP was passed to complete_initialization
-    call_args = mock_dataset_cls.return_value.complete_initialization.call_args
+    call_args = mock_dataset_instance.complete_initialization.call_args
     assert call_args[0][0]["dlp"] == mock_dlp
 
 
@@ -328,12 +350,16 @@ def test_run_compute_stats_args(fa_job):
         call_kwargs = mock_dataset.compute_stats.call_args[1]
 
         # Check if requested_stats is passed correctly (converted to list)
-        assert "requested_stats" in call_kwargs
-        assert call_kwargs["requested_stats"] == [Stats.MEAN.value]
+        assert "stats" in call_kwargs
+        assert call_kwargs["stats"] == [Stats.MEAN.value]
 
         # Check if original fa_args are present
-        assert "some_arg_key" in call_kwargs
-        assert call_kwargs["some_arg_key"] == "some_arg_val"
+        assert "fa_args" in call_kwargs
+        assert call_kwargs["fa_args"]["some_arg_key"] == "some_arg_val"
+
+        # Check dataset_schema
+        assert "dataset_schema" in call_kwargs
+        assert call_kwargs["dataset_schema"] == ["col1", "col2"]
 
 
 def test_run_compute_stats_error(fa_job):
@@ -353,7 +379,7 @@ def test_run_compute_stats_error(fa_job):
 def test_run_success_multiple_stats(fa_job_args, request_args):
     """Test run method with multiple requested statistics."""
     req_args = request_args.copy()
-    stats_list = [Stats.MEAN.value, Stats.STD.value]
+    stats_list = [Stats.MEAN.value, Stats.VARIANCE.value]
     req_args["stats"] = stats_list
     request = FARequest(**req_args)
 
@@ -362,7 +388,7 @@ def test_run_success_multiple_stats(fa_job_args, request_args):
     job = FAJob(**args)
 
     mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": {"mean": 1, "std": 0.1}}
+    mock_dataset.compute_stats.return_value = {"col1": {"mean": 1, "variance": 0.1}}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()
@@ -372,4 +398,4 @@ def test_run_success_multiple_stats(fa_job_args, request_args):
         assert reply.stats == stats_list
         # Check passed arguments
         call_kwargs = mock_dataset.compute_stats.call_args[1]
-        assert call_kwargs["requested_stats"] == stats_list
+        assert call_kwargs["stats"] == stats_list

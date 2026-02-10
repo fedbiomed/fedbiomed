@@ -7,11 +7,8 @@ Implementation of Federated Analytics Job class of the node component
 
 from typing import Dict
 
-from fedbiomed.common.analytics import (
-    DatasetArgumentsFA,
-    validate_dataset_arguments_for_fa,
-)
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, Stats
+from fedbiomed.common.constants import ErrorNumbers, Stats
+from fedbiomed.common.dataset import validate_dataset_args
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
@@ -52,31 +49,14 @@ class FAJob(_BaseJob):
         self._fa_id = request.fa_id
         self._fa_args = request.fa_args
         self._dataset_args = request.dataset_args
+        self._dataset_schema = request.dataset_schema
         self._allow_fa = allow_fa
 
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
-        """Build arguments for dataset initialization.
-
-        Args:
-            dataset_entry: dataset entry from dataset manager
-
-        Returns:
-            Dict of arguments for dataset initialization
-        """
-
+        """Validate and pass the dataset arguments from the request to the dataset constructor."""
         type_ = dataset_entry.get("data_type")
-        dataset_type = DatasetTypes.get_type_by_value(type_)
-        validate_dataset_arguments_for_fa(self._dataset_args, dataset_type)
-
-        args = {}
-
-        if self._dataset_args:
-            for key, value in self._dataset_args.items():
-                args.update(
-                    {DatasetArgumentsFA[dataset_type].get(key).get("arg_name"): value}
-                )
-
-        return args
+        validate_dataset_args(type_, self._dataset_args)
+        return self._dataset_args
 
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
@@ -90,7 +70,6 @@ class FAJob(_BaseJob):
         # Validate that all requested stats are valid enum values
         if not isinstance(self._stats, list):
             self._stats = [self._stats]
-
         if not all(stat in [_.value for _ in Stats] for stat in self._stats):
             return self._build_error_msg(
                 msg=f"Analytics type '{self._stats}' contain unsupported values.",
@@ -114,9 +93,11 @@ class FAJob(_BaseJob):
         )
 
         # Prepare kwargs
-        kwargs = self._fa_args.copy() if self._fa_args else {}
-        # Pass the requested stats (list)
-        kwargs["requested_stats"] = self._stats
+        kwargs = {
+            "stats": self._stats,
+            "fa_args": self._fa_args,
+            "dataset_schema": self._dataset_schema,
+        }
 
         try:
             output: Dict = dataset.compute_stats(**kwargs)

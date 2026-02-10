@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.analytics._analytics_orchestrator import AnalyticsOrchestrator
+from fedbiomed.common.analytics import AnalyticsOrchestrator
 from fedbiomed.common.dataset_types import DatasetElementType, ImageSpec, RowSpec
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -31,7 +31,7 @@ def test_compute_stats_missing_capability(orchestrator):
         orchestrator.compute_stats(dataset)
 
 
-@patch("fedbiomed.common.analytics._analytics_orchestrator.create_accumulator")
+@patch.object(AnalyticsOrchestrator, "_create_accumulator")
 def test_compute_stats_flow(mock_create_acc, orchestrator, mock_dataset):
     # Setup
     mock_acc = MagicMock()
@@ -115,7 +115,7 @@ def test_handle_sequence_errors(orchestrator):
 
 
 @patch(
-    "fedbiomed.common.analytics._analytics_orchestrator.AnalyticsOrchestrator._compile_leaf_stats"
+    "fedbiomed.common.analytics._orchestrator.AnalyticsOrchestrator._compile_leaf_stats"
 )
 def test_handle_row(mock_compile, orchestrator):
     schema = RowSpec(columns=["c1", "c2"])
@@ -137,12 +137,14 @@ def test_handle_row(mock_compile, orchestrator):
 # --- _compile_leaf_stats logic & Registry integration ---
 
 
-@patch("fedbiomed.common.analytics._analytics_orchestrator.AnalyticsRegistry")
+@patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
 def test_compile_leaf_stats(mock_registry, orchestrator):
     # Setup registry mock
-    mock_registry.is_valid_for_type.return_value = True
+    mock_registry.check_stat_compatibility.return_value = True
     mock_registry.validate_args.return_value = True  # No exception
     mock_registry.get_dependencies.return_value = set()
+    # Mock get_roots to return the input stats (identity for simple cases)
+    mock_registry.get_roots.side_effect = lambda stats, et: set(stats)
 
     # Case 1: Default stats only
     config = orchestrator._compile_leaf_stats(
@@ -158,35 +160,39 @@ def test_compile_leaf_stats(mock_registry, orchestrator):
     assert config["max"] == {"some": "arg"}
 
     # Case 3: Invalid stat (explicit in args)
-    mock_registry.is_valid_for_type.side_effect = lambda s, t: s != "invalid"
+    mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "invalid"
     with pytest.raises(FedbiomedError, match="is not valid for type"):
         orchestrator._compile_leaf_stats(
             DatasetElementType.ROW, stats=[], args={"invalid": {}}
         )
 
     # Case 4: Invalid stat (in default list) - should be skipped silently
-    mock_registry.is_valid_for_type.side_effect = lambda s, t: s != "bad_default"
+    mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "bad_default"
     config = orchestrator._compile_leaf_stats(
         DatasetElementType.ROW, stats=["bad_default"], args={}
     )
     assert "bad_default" not in config
 
 
-@patch("fedbiomed.common.analytics._analytics_orchestrator.AnalyticsRegistry")
+@patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
 def test_dependencies(mock_registry, orchestrator):
     # Setup dependency: 'mean' depends on 'sum' and 'count'
-    def get_deps(stat):
+    # get_dependencies signature: (stat, element_type)
+    def get_deps(stat, et):
         if stat == "mean":
             return {"sum", "count"}
         return set()
 
     mock_registry.get_dependencies.side_effect = get_deps
-    mock_registry.is_valid_for_type.return_value = True
+    mock_registry.check_stat_compatibility.return_value = True
+
+    # Mock get_roots: requesting 'mean' -> root is 'mean'
+    mock_registry.get_roots.return_value = {"mean"}
 
     config = orchestrator._compile_leaf_stats(
         DatasetElementType.ROW, stats=["mean"], args={}
     )
 
     assert "mean" in config
-    assert "sum" in config
-    assert "count" in config
+    assert "sum" not in config
+    assert "count" not in config

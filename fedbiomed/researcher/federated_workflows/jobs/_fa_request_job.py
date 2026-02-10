@@ -29,6 +29,7 @@ class FARequestJob(Job):
         fa_args: dict,
         stats: Stats,
         dataset_args: dict,
+        dataset_schema: list,
         **kwargs,
     ) -> None:
         """Initialize the FARequestJob with the given FA request.
@@ -43,6 +44,7 @@ class FARequestJob(Job):
         self._federated_dataset = federated_dataset
         self._fa_args = fa_args
         self._dataset_args = dataset_args
+        self._dataset_schema = dataset_schema
         self._stats = stats
 
     def execute(self) -> Dict[str, FAReply]:
@@ -58,6 +60,7 @@ class FARequestJob(Job):
             fa_id=self._fa_id,
             fa_args=self._fa_args,
             dataset_args=self._dataset_args,
+            dataset_schema=self._dataset_schema,
         )
 
         requests = MessagesByNode()

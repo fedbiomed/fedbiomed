@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 import numpy as np
 import torch
 
-from fedbiomed.common.analytics._analytics_orchestrator import AnalyticsOrchestrator
+from fedbiomed.common.analytics import AnalyticsOrchestrator
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import Controller
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
@@ -331,7 +331,7 @@ class Dataset(ABC):
 
     def compute_stats(
         self,
-        schema_args: Optional[Union[str, List[str], Dict[str, Any]]] = None,
+        dataset_schema: Optional[Union[str, List[str], Dict[str, Any]]] = None,
         stats: Optional[List[str]] = None,
         fa_args: Optional[Dict[str, Any]] = None,
     ) -> Any:
@@ -352,7 +352,7 @@ class Dataset(ABC):
         orchestrator = AnalyticsOrchestrator()
         return orchestrator.compute_stats(
             self,
-            subschema=schema_args,
+            dataset_schema=dataset_schema,
             stats=stats,
             fa_args=fa_args,
         )
