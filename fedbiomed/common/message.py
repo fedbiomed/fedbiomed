@@ -908,6 +908,7 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     fa_id: str
     fa_args: Optional[Dict] = None
     dataset_args: Optional[Dict] = None
+    dataset_schema: Optional[str | List | Dict] = None
 
 
 @catch_dataclass_exception

@@ -4,22 +4,10 @@
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import numpy as np
-
-from fedbiomed.common.analytics import (
-    validate_dataset_arguments_for_fa,
-)
 from fedbiomed.common.analytics._aggregators import (
-    aggregate_count,
-    aggregate_histogram,
-    aggregate_max,
     aggregate_mean,
-    aggregate_min,
-    aggregate_quantile,
-    aggregate_std,
-    aggregate_sum,
 )
-from fedbiomed.common.constants import DatasetTypes, Stats
+from fedbiomed.common.constants import Stats
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FAReply
@@ -234,25 +222,12 @@ class FederatedAnalytics:
 
         return node_ids
 
-    def _validate_dataset_arguments(self, dataset_args: dict) -> None:
-        """Validate dataset arguments for federated analytics.
-
-        Args:
-            dataset_args: Dataset arguments to validate
-        """
-        logger.debug("Validating dataset arguments")
-
-        # Extract dataset types from the first self._fds.data() entry
-        type_ = next(iter(self._fds.data().values())).get("data_type")
-        dataset_type = DatasetTypes.get_type_by_value(type_)
-
-        validate_dataset_arguments_for_fa(dataset_args, dataset_type)
-
     def _compute_analytics(
         self,
         stats: Union[str, List[str]],
-        dataset_args: dict = None,
-        fa_args: dict = None,
+        dataset_args: Optional[dict] = None,
+        dataset_schema: Optional[str | list[str | dict]] = None,
+        fa_args: Optional[dict] = None,
     ) -> Union[Any, Dict[str, Any]]:
         """Compute analytics across nodes.
 
@@ -269,7 +244,7 @@ class FederatedAnalytics:
                 "No defined FederatedDataset found for FederatedAnalytics."
             )
 
-        self._validate_dataset_arguments(dataset_args)
+        # TODO: self._validate_dataset_arguments(dataset_args)
         node_ids = self.get_node_ids()
 
         # Create FA job
@@ -278,6 +253,7 @@ class FederatedAnalytics:
             fa_args=fa_args,
             stats=stats,
             dataset_args=dataset_args,
+            dataset_schema=dataset_schema,
             federated_dataset=self._fds,
             experiment_id=self._experiment_id,
             researcher_id=self._researcher_id,
@@ -298,212 +274,20 @@ class FederatedAnalytics:
 
         return analytics_replies, errors
 
-    def basic_stats(
-        self, dataset_args: dict = None, fa_args: dict = None
-    ) -> Union[Any, Dict[str, Any]]:
-        """Returns FAResult object containing the basic analytics for each node (min, max, count, mean, std)."""
-        replies, _ = self._compute_analytics(
-            [
-                Stats.MIN.value,
-                Stats.MAX.value,
-                Stats.COUNT.value,
-                Stats.MEAN.value,
-                Stats.STD.value,
-            ],
-            dataset_args,
-            fa_args,
-        )
-        aggregators = {
-            "min": aggregate_min,
-            "max": aggregate_max,
-            "count": aggregate_count,
-            "mean": aggregate_mean,
-            "std": aggregate_std,
-        }
-        return FAResult(replies, aggregators)
-
-    def min_max(
-        self, dataset_args: dict = None, fa_args: dict = None
-    ) -> Union[Any, Dict[str, Any]]:
-        """Returns FAResult object containing min and max for each node."""
-        # Collect replies
-        replies, _ = self._compute_analytics(
-            [Stats.MIN.value, Stats.MAX.value], dataset_args, fa_args
-        )
-        # Define aggregators
-        aggregators = {
-            "min": aggregate_min,
-            "max": aggregate_max,
-        }
-        return FAResult(replies, aggregators)
-
     def mean(
-        self, dataset_args: dict = None, fa_args: dict = None
+        self,
+        dataset_args: Optional[dict] = None,
+        dataset_schema: Optional[str | list[str | dict]] = None,
     ) -> Union[Any, Dict[str, Any]]:
         """Returns FAResult object containing mean for each node."""
         # Collect replies
-        replies, _ = self._compute_analytics([Stats.MEAN.value], dataset_args, fa_args)
+        replies, _ = self._compute_analytics(
+            stats=Stats.MEAN.value,
+            dataset_args=dataset_args,
+            dataset_schema=dataset_schema,
+        )
         # Define aggregators
         aggregators = {
             "mean": aggregate_mean,
-        }
-        return FAResult(replies, aggregators)
-
-    def sum(
-        self, dataset_args: dict = None, fa_args: dict = None
-    ) -> Union[Any, Dict[str, Any]]:
-        """Returns FAResult object containing sum for each node."""
-        # Collect replies
-        replies, _ = self._compute_analytics([Stats.SUM.value], dataset_args, fa_args)
-        # Define aggregators
-        aggregators = {
-            "sum": aggregate_sum,
-        }
-        return FAResult(replies, aggregators)
-
-    def _create_bins(
-        self,
-        num_bins: int = 10,
-        dataset_args: dict = None,
-        fa_args: dict = None,
-    ) -> Dict[str, np.ndarray]:
-        """Create bin edges based on global min and max values across nodes.
-
-        Args:
-            num_bins: Number of bins to create.
-            dataset_args: Dataset arguments for min/max computation.
-            fa_args: Additional federated analytics arguments for min/max computation.
-
-        Returns:
-            A dictionary mapping modality names to their corresponding bin edges.
-        """
-        # Get global min/max
-        logger.debug("Getting global min and max")
-        global_min_max = self.min_max(dataset_args, fa_args).aggregate()
-
-        # Set bin edges based on global min/max
-        logger.debug("Setting bin edges")
-        bin_edges = {}
-        for modality, vals in global_min_max.items():
-            # Add small margin to include max value in last bin
-            margin = (
-                (vals["max"] - vals["min"]) * 0.001 if vals["max"] != vals["min"] else 1
-            )
-            bin_edges[modality] = np.linspace(
-                vals["min"], vals["max"] + margin, num_bins + 1
-            )
-
-        return bin_edges
-
-    def histogram(
-        self,
-        bin_edges: Union[List, Dict[str, List]] = None,
-        num_bins: int = 10,
-        dataset_args: dict = None,
-        fa_args: dict = None,
-    ) -> Union[Any, Dict[str, Any]]:
-        """Compute histogram analytics across nodes.
-
-        Args:
-            bin_edges: Pre-computed bin edges. Can be:
-                - 1D numpy array: applied to all columns (for both tabular data or all pixels in images)
-                - Dict mapping column names to bin_edges: column-specific bins
-                - None: will compute from global min/max (for tabular data)
-            num_bins: Number of bins to create if bin_edges is None. Default is 10.
-            dataset_args: Dataset arguments for histogram computation
-
-        Returns:
-            FAResult object containing histogram for each node.
-        """
-        if bin_edges is None:
-            # Validate that dataset supports histogram analytics before computing min/max
-            bin_edges = self._create_bins(
-                num_bins=num_bins, dataset_args=dataset_args, fa_args=fa_args
-            )
-
-        # Prepare fa_args with bin_edges
-        fa_args = {} if fa_args is None else fa_args
-        fa_args["bin_edges"] = bin_edges
-
-        # Collect histogram replies
-        replies, _ = self._compute_analytics(
-            [Stats.HISTOGRAM.value], dataset_args, fa_args
-        )
-        aggregators = {
-            Stats.HISTOGRAM.value: aggregate_histogram,
-        }
-        return FAResult(replies, aggregators)
-
-    def quantile(
-        self,
-        q: Union[float, List[float]] = 0.5,
-        bin_edges: Union[List, Dict[str, List]] = None,
-        num_bins: int = 10,
-        dataset_args: dict = None,
-        fa_args: dict = None,
-    ) -> Union[Any, Dict[str, Any]]:
-        """Compute quantile values across federated nodes.
-
-        Args:
-            q: Quantile value(s) to compute. Can be:
-                - float between 0 and 1 (e.g., 0.5 for median)
-                - List of floats for multiple quantiles
-            bin_edges: Pre-computed bin edges. Can be:
-                - 1D numpy array: applied to all columns (for images)
-                - Dict mapping column names to bin_edges: column-specific bins
-                - None: will compute from global min/max (for tabular data)
-            num_bins: Number of bins to create if bin_edges is None. Default is 10.
-            dataset_args: Dataset arguments for quantile computation
-            fa_args: Additional federated analytics arguments
-
-        Returns:
-            FAResult object containing quantiles for each node.
-        """
-        if bin_edges is None:
-            # Validate that dataset supports histogram analytics before computing min/max
-            bin_edges = self._create_bins(
-                num_bins=num_bins, dataset_args=dataset_args, fa_args=fa_args
-            )
-
-        # Prepare fa_args with bin_edges and quantile values
-        fa_args = {} if fa_args is None else fa_args
-        fa_args["bin_edges"] = bin_edges
-        fa_args["q"] = q
-
-        # Collect quantile replies
-        replies, _ = self._compute_analytics(
-            Stats.QUANTILE.value, dataset_args, fa_args
-        )
-
-        """
-        # Aggregate quantiles from all nodes
-        # TODO: Change aggregation strategy (maybe weighted by sample size)
-        # TODO: Delegate below part to a common class for aggregation strategies
-        aggregated_quantiles = {}
-        for _node_id, node_result in node_quantiles.items():
-            quant_data = node_result.output
-            for col_name, values in quant_data.items():
-                if col_name not in aggregated_quantiles:
-                    # Initialize with lists to collect values from all nodes
-                    aggregated_quantiles[col_name] = {
-                        q_key: [q_val] for q_key, q_val in values.items()
-                    }
-                else:
-                    # Add values from this node to the lists
-                    for q_key, q_val in values.items():
-                        if q_key not in aggregated_quantiles[col_name]:
-                            aggregated_quantiles[col_name][q_key] = []
-                        aggregated_quantiles[col_name][q_key].append(q_val)
-
-        # Average quantile values across nodes
-        for col_name in aggregated_quantiles:
-            for q_key in aggregated_quantiles[col_name]:
-                values_list = aggregated_quantiles[col_name][q_key]
-                aggregated_quantiles[col_name][q_key] = float(np.mean(values_list))
-
-        return aggregated_quantiles, node_quantiles, errors
-        """
-        aggregators = {
-            "quantile": aggregate_quantile,
         }
         return FAResult(replies, aggregators)

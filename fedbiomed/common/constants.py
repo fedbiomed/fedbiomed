@@ -462,10 +462,8 @@ class Stats(_BaseEnum):
     Attributes:
         MIN: Minimum value
         MAX: Maximum value
-        MEAN: Mean value
-        STD: Standard deviation
         COUNT: Count of values
-        SUM: Sum of values
+        MEAN: Mean value
         VARIANCE: Variance of values
         HISTOGRAM: histogram of values
         QUANTILE: quantile of values
@@ -475,10 +473,8 @@ class Stats(_BaseEnum):
 
     MIN: str = "min"
     MAX: str = "max"
-    MEAN: str = "mean"
-    STD: str = "std"
     COUNT: str = "count"
-    SUM: str = "sum"
+    MEAN: str = "mean"
     VARIANCE: str = "variance"
     HISTOGRAM: str = "histogram"
     QUANTILE: str = "quantile"
