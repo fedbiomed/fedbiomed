@@ -14,7 +14,6 @@ import torch
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset._dataset import Dataset
-from fedbiomed.common.dataset_controller._nipoppy_controller import NipoppyController
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
@@ -23,7 +22,6 @@ from sklearn.model_selection import StratifiedKFold
 
 
 class NipoppyDataset(Dataset):
-    _controller_cls = NipoppyController
 
     # columns
     COL_PARTICIPANT_ID = "participant_id"
