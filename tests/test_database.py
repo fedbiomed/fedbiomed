@@ -1,10 +1,30 @@
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from fedbiomed.common.constants import DatasetTypes
+from fedbiomed.common.db import TinyDBConnector
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db_dataclasses import DatasetEntry
 from fedbiomed.node.dataset_manager._db_tables import DatasetTable, DlpTable
+
+
+def _reset_tinydb_singleton() -> None:
+    """Reset TinyDBConnector singleton to ensure test isolation.
+
+    TinyDBConnector is implemented as a process-wide singleton; without resetting,
+    tests that use different temp DB files can end up sharing the same TinyDB
+    instance, causing cross-test contamination.
+    """
+    inst = getattr(TinyDBConnector, "_instance", None)
+    if inst is not None:
+        db = getattr(inst, "_db", None)
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
+    TinyDBConnector._instance = None
 
 
 class TestDatasetEntry(unittest.TestCase):
@@ -39,11 +59,13 @@ class TestDatasetEntry(unittest.TestCase):
 
 class TestDatasetTable(unittest.TestCase):
     def setUp(self):
+        _reset_tinydb_singleton()
         self.dbfile = tempfile.NamedTemporaryFile(delete=True)
         self.table = DatasetTable(self.dbfile.name)
 
     def tearDown(self):
         self.dbfile.close()
+        _reset_tinydb_singleton()
 
     def test_insert_and_conflict(self):
         entry = {
@@ -128,11 +150,13 @@ class TestDatasetTable(unittest.TestCase):
 
 class TestDlpTable(unittest.TestCase):
     def setUp(self):
+        _reset_tinydb_singleton()
         self.dbfile = tempfile.NamedTemporaryFile(delete=True)
         self.table = DlpTable(self.dbfile.name)
 
     def tearDown(self):
         self.dbfile.close()
+        _reset_tinydb_singleton()
 
     def test_insert_invalid_target_type(self):
         entry = {
@@ -198,6 +222,188 @@ class TestDlpTable(unittest.TestCase):
             self.table.list_by_target_dataset_type("invalid")
         result = self.table.list_by_target_dataset_type(DatasetTypes.TABULAR.value)
         self.assertTrue(any(d["dlp_name"] == "dlp_listed" for d in result))
+
+
+class TestSecurityLoggingDatasetTable(unittest.TestCase):
+    def setUp(self):
+        _reset_tinydb_singleton()
+        self.dbfile = tempfile.NamedTemporaryFile(delete=True)
+        self.table = DatasetTable(self.dbfile.name)
+
+    def tearDown(self):
+        self.dbfile.close()
+        _reset_tinydb_singleton()
+
+    def _assert_security_event_called(
+        self, mock_security_event, *, operation: str, status: str, **expected_fields
+    ):
+        calls = [c.kwargs for c in mock_security_event.call_args_list]
+        for kwargs in calls:
+            if kwargs.get("operation") != operation:
+                continue
+            if kwargs.get("status") != status:
+                continue
+            if all(kwargs.get(k) == v for k, v in expected_fields.items()):
+                return
+        self.fail(
+            f"Expected security_event(operation={operation!r}, status={status!r}, fields={expected_fields!r}) not found. "
+            f"Calls were: {calls!r}"
+        )
+
+    def test_security_log_insert_includes_dataset_id(self):
+        entry = {
+            "name": "sec_ds",
+            "data_type": "image",
+            "tags": ["tag1"],
+            "description": "A test dataset",
+            "path": "/path/to/data",
+            "shape": [10, 10],
+            "dtypes": {"data": "float32"},
+        }
+        with patch(
+            "fedbiomed.node.dataset_manager._db_tables.logger.security_event"
+        ) as sec:
+            dataset_id = self.table.insert(entry)
+            self._assert_security_event_called(
+                sec,
+                operation="dataset_create",
+                status="success",
+                dataset_id=dataset_id,
+                entry_name="sec_ds",
+            )
+
+    def test_security_log_insert_includes_dlp_id_when_present(self):
+        entry = {
+            "name": "sec_ds_dlp",
+            "data_type": "image",
+            "tags": ["tag1"],
+            "description": "A test dataset",
+            "path": "/path/to/data",
+            "shape": [10, 10],
+            "dtypes": {"data": "float32"},
+            "dlp_id": "dlp_123",
+        }
+        with patch(
+            "fedbiomed.node.dataset_manager._db_tables.logger.security_event"
+        ) as sec:
+            dataset_id = self.table.insert(entry)
+            self._assert_security_event_called(
+                sec,
+                operation="dataset_create",
+                status="success",
+                dataset_id=dataset_id,
+                dlp_id="dlp_123",
+                entry_name="sec_ds_dlp",
+            )
+
+    def test_security_log_all_emits_dataset_list(self):
+        entry = {
+            "name": "sec_list",
+            "data_type": "image",
+            "tags": ["t"],
+            "description": "A test dataset",
+            "path": "/path/to/data",
+            "shape": [10, 10],
+            "dtypes": {"data": "float32"},
+        }
+        with patch(
+            "fedbiomed.node.dataset_manager._db_tables.logger.security_event"
+        ) as sec:
+            self.table.insert(entry)
+            sec.reset_mock()
+            rows = self.table.all()
+            self.assertEqual(len(rows), 1)
+            self._assert_security_event_called(
+                sec,
+                operation="dataset_list",
+                status="success",
+                record_count=1,
+            )
+
+    def test_security_log_get_by_id_emits_dataset_read(self):
+        entry = {
+            "name": "sec_read",
+            "data_type": "image",
+            "tags": ["t"],
+            "description": "A test dataset",
+            "path": "/path/to/data",
+            "shape": [10, 10],
+            "dtypes": {"data": "float32"},
+        }
+        with patch(
+            "fedbiomed.node.dataset_manager._db_tables.logger.security_event"
+        ) as sec:
+            dataset_id = self.table.insert(entry)
+            sec.reset_mock()
+            _ = self.table.get_by_id(dataset_id)
+            self._assert_security_event_called(
+                sec,
+                operation="dataset_read",
+                status="success",
+                dataset_id=dataset_id,
+                entry_name="sec_read",
+            )
+
+    def test_security_log_get_by_id_not_found_emits_not_found(self):
+        with patch(
+            "fedbiomed.node.dataset_manager._db_tables.logger.security_event"
+        ) as sec:
+            _ = self.table.get_by_id("NON_EXISTENT")
+            self._assert_security_event_called(
+                sec,
+                operation="dataset_read",
+                status="not_found",
+                dataset_id="NON_EXISTENT",
+            )
+
+    def test_security_log_update_by_id_emits_dataset_update(self):
+        entry = {
+            "name": "sec_update",
+            "data_type": "image",
+            "tags": ["t"],
+            "description": "A test dataset",
+            "path": "/path/to/data",
+            "shape": [10, 10],
+            "dtypes": {"data": "float32"},
+        }
+        with patch(
+            "fedbiomed.node.dataset_manager._db_tables.logger.security_event"
+        ) as sec:
+            dataset_id = self.table.insert(entry)
+            sec.reset_mock()
+            self.table.update_by_id(dataset_id, {"description": "changed"})
+            self._assert_security_event_called(
+                sec,
+                operation="dataset_update",
+                status="success",
+                dataset_id=dataset_id,
+                entry_name="sec_update",
+            )
+
+    def test_security_log_delete_by_id_emits_dataset_delete(self):
+        entry = {
+            "name": "sec_delete",
+            "data_type": "image",
+            "tags": ["t"],
+            "description": "A test dataset",
+            "path": "/path/to/data",
+            "shape": [10, 10],
+            "dtypes": {"data": "float32"},
+        }
+        with patch(
+            "fedbiomed.node.dataset_manager._db_tables.logger.security_event"
+        ) as sec:
+            dataset_id = self.table.insert(entry)
+            sec.reset_mock()
+            self.table.delete_by_id(dataset_id)
+            self._assert_security_event_called(
+                sec,
+                operation="dataset_delete",
+                status="success",
+                dataset_id=dataset_id,
+                entry_name="sec_delete",
+                data_type="image",
+            )
 
 
 if __name__ == "__main__":
