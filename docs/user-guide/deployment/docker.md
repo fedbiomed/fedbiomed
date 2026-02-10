@@ -8,7 +8,7 @@ The Docker images not only support the standard use cases but are also designed 
 
 This documentation will guide you through the available Docker images for each Fed-BioMed component, explain how to launch and manage them, and provide best practices for extending and customizing the containers to fit your needs.
  
-## Pulling Docker Images 
+## Docker Images and Containers 
 
 Fed-BioMed Docker images are published for each released version of Fed-BioMed.
 You can visit [Docker Hub](https://hub.docker.com/u/fedbiomed) to see the available images published by the Fed-BioMed team.
@@ -18,76 +18,121 @@ You can visit [Docker Hub](https://hub.docker.com/u/fedbiomed) to see the availa
 
 ---
 
-### Node 
+Fed-BioMed provides two main images as `fedbiomed/node` and `fedbiomed/researcher` to run minimal federated learning infrastructure. Later, FL nodes can install `fedbiomed/node-gui` for a dashboard to manage federated nodes.
 
-The following command pulls the Fed-BioMed Node image and runs it. Running this image will automatically start a Fed-BioMed Node component.
+Here is the list of docker images:
 
-!!! note "Running in background"
-    Please add the `-d` option to run the Docker container in the background.
+- **fedbiomed/base**: Base Fed-BioMed image that comes with vanilla Fed-BioMed installation that can be extended later.
+- **fedbiomed/node**: Image that comes with Fed-BioMed node dependencies installed.
+- **fedbiomed/researcher**: Image that comes with Fed-BioMed researcher utilities and dependencies installed.
+- **fedbiomed/node-gui**: Preconfigured Fed-BioMed node GUI image for launching GUI along with Fed-BioMed node instance.
 
-```bash
-docker run -it  \
-    --name my-node \
-    --network host \
-    -v <absolute-path-to-host-fbm-node>:/fbm-node \
-    -e FBM_SECURITY_SECURE_AGGREGATION=True \
-    -e FBM_RESEARCHER_PORT=50051 \
-    -e FBM_RESEARCHER_IP=localhost \
-    fedbiomed/node:latest
-```
+### Basic commands to quickly launch Fed-BioMed instances 
 
-For testing purposes, it's fine to use the default configuration. However, for deployment, you may want to review the available configuration options to ensure the Node is properly set up. Component configuration can be managed using environment variables. All environment variables listed in the [Node configuration guide](../nodes/configuring-nodes.md) can be passed to the container using Docker’s `--env` option. 
+The following commands will pull the requested version and start containers with default configurations. However, depending on your OS and network configuration, you may need to configure networking to establish connections between the federation server and Fed-BioMed nodes.
 
-It is recommended to update the configuration directly in the file located at `<absolute-path-to-host-fbm-node>/etc/config.ini`. This approach provides a more stable and persistent setup. Please see the section [Configuration of Node Container](#configuration-of-node-container) for more details.
-
-
-Keep in mind that any environment variables set at runtime will always override the values defined in config.ini.
-
-
-#### Launching docker container with a diffrent user
-
-By default, the Fed-BioMed Node component is launched using a predefined user inside the Docker container. However, you can specify a different user at runtime to avoid permission issues when working with files on your local machine.
-
-Here's how to run the container with custom user settings:
+#### Basic Setup (No Network Configuration)
 
 ```bash
-docker run -it \
-    --name my-node \
-    -v <path-to-local-fbm-node>:/fbm-node \
-    -e CONTAINER_USER=<user-name> \
-    -e CONTAINER_UID=<user-id> \
-    -e CONTAINER_GROUP=<group-name> \
-    -e CONTAINER_GID=<group-id> \
-    fedbiomed/node:latest
+docker run --name fbm-node-1 fedbiomed/node:<version-tag>
 ```
-
-Please, replace `<user-name>`, `<user-id>`, `<group-name>`, and `<group-id>` with the corresponding values from your host system.
-
-#### Configuration of Node Container
-
-Node configuration can be manipulated at runtime by assigning environment variables using the `--env` or `-e` flag. These variables will also define the initial configuration values during the first run of the container.
-
-After the Docker container is started for the first time, the node configuration is created inside the container under `/fbm-node/data`. To persist this configuration across runs or to edit it manually, mount a local directory using the `-v` option:
 
 ```bash
--v <path-to-host-fbm-node>:/fbm-node
+docker run --name fbm-node-2 fedbiomed/node:<version-tag>
 ```
-
-To modify the configuration, edit the file located at:
-
-```
-<absolute-path-to-host-fbm-node>/etc/config.ini
-```
-
-Then restart the Fed-BioMed node container:
 
 ```bash
-docker restart my-node
+docker run --name fbm-researcher fedbiomed/researcher:<version-tag>
 ```
 
----
+#### Network-Configured Setup
 
-##### Configuration Behavior Overview:
+For proper communication between components, use a Docker network:
+
+**Create the network:**
+```bash
+docker network create fedbiomed-net
+```
+
+**Start Node 1:**
+```bash
+docker run --network fedbiomed-net \
+  --name fbm-node-1 \
+  -e FBM_RESEARCHER_IP=fbm-researcher \
+  -e FBM_RESEARCHER_PORT=50051 \
+  fedbiomed/node:<version-tag>
+```
+
+**Start Node 2:**
+```bash
+docker run --network fedbiomed-net \
+  --name fbm-node-2 \
+  -e FBM_RESEARCHER_IP=fbm-researcher \
+  -e FBM_RESEARCHER_PORT=50051 \
+  fedbiomed/node:<version-tag>
+```
+
+**Start Researcher:**
+```bash
+docker run --network fedbiomed-net \
+  --name fbm-researcher \
+  -p 8888:8888 \
+  -e FBM_SERVER_HOST=fbm-researcher \
+  fedbiomed/researcher:<version-tag>
+```
+
+Replace `<version-tag>` with a version available on Docker Hub to launch a local federated learning network. The setup comes ready to use with the MNIST dataset. After launching the commands, navigate to `localhost:8888` to execute a basic Fed-BioMed notebook using MNIST.
+
+
+### Configuration
+
+Fed-BioMed docker images keeps Fed-BioMed node and researcher configuration and folders respectivelty under `/fbm-node` and `/fbm-researcher`. It is recommended to mount this directories in the host machine and configure manually via `config.ini`. 
+
+Docker provides several options for storing container data on the host machine. Bind mounting and Docker Volumes are the most common approaches.  Docker named volumes are recommended over bind-mounted directories for several reasons: they perform better on non-Linux hosts, are portable and easy to backup, remain isolated from the host, facilitate data sharing between containers, and are auto-populated from the image without overwriting existing data. However, bind mounts can be more convenient for testing and development purposes.
+
+Component configuration (node, researcher or gui) can be manipulated at runtime by assigning environment variables using the `--env` or `-e` flag. These variables will also define the initial configuration values during the first run of the container.
+
+After the Docker container is started for the first time, the node configuration is created inside the container under `/fbm-node/etc` or `/fbm-researcher` for researcher instance. The config folder hiearhcy is same for all the Fed-BioMed components. To persist this configuration across runs or to edit it manually, mount a local directory or docker volume using the `-v` option:
+
+If it is a Docker volume:
+
+```bash
+-v fedbiomed-node-volume:/fbm-node
+```
+
+To modify the configuration, edit the file locatedin the `fedbiomed-node-volume` volume. First, check the volume directory:
+
+```bash
+docker volume inspect fedbiomed-node-volume
+```
+
+```json
+[
+    {
+        "CreatedAt": "xxx",
+        "Driver": "local",
+        "Labels": null,
+        "Mountpoint": "/var/lib/docker/volumes/fedbiomed-node-volume/_data",
+        "Name": "fedbiomed-node-volume",
+        "Options": null,
+        "Scope": "local"
+    }
+]
+```
+
+If it is a bind-mounted directory, you can access the configuration file from the mounted directory:
+
+```bash
+-v <absolute-path-to-host-fbm-node>:/fbm-node
+```
+
+After the configuration is changed, the Fed-BioMed container needs to be restarted:
+
+```bash
+docker restart <name-of-container>
+```
+
+#### Configuration Behavior Overview:
 
 - **First run with environment variables**:
     If the container is run for the first time with environment variables, a new node configuration will be created using those values.
@@ -99,6 +144,51 @@ docker restart my-node
     If a static configuration already exists but environment variables are still provided, those variables will override the config **only at runtime**, without modifying the actual `config.ini` file.
 
 
+### Launching docker container with a different user
+
+By default, the Fed-BioMed Node component is launched using a predefined user inside the Docker container. However, you can specify a different user at runtime to avoid permission issues (especially using bind-mounting directories) when working with files on your local machine. Docker containers keep the default user `fedbiomed` but change the user ID to match the requested user ID from the host to solve the permission issues. The environment variables that need to be set are `CONTAINER_UID` and `CONTAINER_GID`.
+
+Here's how to run the container with custom user settings:
+
+```bash
+docker run -it \
+    --name my-node \
+    -v <path-to-local-fbm-node>:/fbm-node \
+    -v fbm-node-volume:/fbm-node
+    -e CONTAINER_UID=<user-id> \
+    -e CONTAINER_GID=<group-id> \
+    fedbiomed/node:latest
+```
+
+Please, replace `<user-id>`, and `<group-id>` with the corresponding values from your host system.
+
+!!! note "**Ownership** transfer can take some time"
+    Depending on the file size, ownership transfer from the Docker Fed-BioMed default user to the host user may take some time.
+
+
+## Fed-BioMed Component Type Specifications 
+
+### Nodes  
+
+The following command pulls the Fed-BioMed Node image and runs it. Running this image will automatically start a Fed-BioMed Node component.
+
+!!! note "Running in background"
+    Please add the `-d` option to run the Docker container in the background.
+
+```bash
+docker run -it  \
+    --name my-node \
+    --network host \ 
+    -v fbm-node-volume:/fbm-node
+    -e FBM_SECURITY_SECURE_AGGREGATION=True \
+    -e FBM_RESEARCHER_PORT=50051 \
+    -e FBM_RESEARCHER_IP=localhost \
+    fedbiomed/node:latest
+```
+
+For testing purposes, it's fine to use the default configuration. However, for deployment, you may want to review the available configuration options to ensure the Node is properly set up. Component configuration can be managed using environment variables. All environment variables listed in the [Node configuration guide](../nodes/configuring-nodes.md) can be passed to the container using Docker’s `--env` option. 
+
+It is recommended to update the configuration directly in the file located at `<absolute-path-to-mounted-fbm-node>/etc/config.ini`. This approach provides a more stable and persistent setup. Please see the section [Configuration](#configuration) for more details.
 
 
 #### Adding Datasets to Nodes Launched in Containers
@@ -171,7 +261,7 @@ For more details, see the full guide on [deploying datasets](../nodes/deploying-
 
 ### Node GUI
 
-Node GUI can be launched seperated from node as long as the mounted Fed-BioMed Node directory are the same. Node GUI assumes that the Node container has aldeay lancuhed and component is initialized in the directory that is going to be mounted. Therefore, please make sure that the first launch Fed-BioMed docker conitaner in order to initialize Node component with desired configuration. 
+Node GUI can be launched separated from node as long as the mounted Fed-BioMed Node directory are the same. Node GUI assumes that the Node container has aldeay lancuhed and component is initialized in the directory that is going to be mounted. Therefore, please make sure that the first launch Fed-BioMed docker conitaner in order to initialize Node component with desired configuration. 
 
 ```bash
 docker run -it --name my-node-gui \
@@ -188,9 +278,8 @@ Node GUI allows to activate SSL. If you want to activate SSL, please pass the fo
 ```bash
 docker run -it \
     -v <path-to-local-fbm-node>:/fbm-node \
-    -v <path-to-host-data>:/data \
     -e SSL_ON=True \
-    fedbiomed/node-gui:latest
+    fedbiomed/node-gui:<version-tag>
 ```
 
 If SSL is activated, the Node GUI will use port `8443`; otherwise, it will use port `8484`.
@@ -202,7 +291,7 @@ docker run -it \
     -v <path-to-host-fbm-node>:/fbm-node \
     -v <path-to-host-data>:/data \
     -e SSL_ON=True \
-    -p 8812:8483
+    -p 8812:8443
     fedbiomed/node-gui:latest
 ```
 
@@ -213,13 +302,14 @@ docker run -it \
 
 ## Researcher
 
-As it is in Node image researcher node work in a same way to lancuhs and configure. Environment variables can be used to manupulate researcher configuration or researcher configuration file located in the mounted directory can changed. 
+As it is in Node image researcher node work in a same way to lancuhs and configure. Environment variables can be used to manipulate researcher configuration or researcher configuration file located in the mounted directory can changed. 
 
-The following commad will launch a researcher component with a basic configuration. There it is recommanded to mount the volume for `/fbm-researcher` directory in host that generated and keeps researcher component configurations, folders and files. Researcher component exposes a port that allows other component. Researcher component also exposes port tensorbard application to display feedback scalar values collected from particpating node during the training.  
+The following command will launch a researcher component with a basic configuration. It is recommended to mount the volume for `/fbm-researcher` directory in host that generated and keeps researcher component configurations, folders and files. Researcher component exposes a port that allows other component. Researcher component also exposes port tensorbard application to display feedback scalar values collected from participating node during the training.  
 
 ```bash
 docker run -it -d \ 
     -v <path-fedbiomed-researcher>:/fbm-researcher \
+    # or -v fedbiomed-researcher-volume:/fbm-researcher \
     -p 50051:50051 \
     fedbiomed/researcher:latest
 ```
