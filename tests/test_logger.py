@@ -368,19 +368,19 @@ class TestLogger(unittest.TestCase):
     def test_logger_10_configure_security(self):
         """Test configure_security() sets security defaults"""
         logger.configure_security(
-            node_id="test_node_123",
-            node_name="test_node_name",
+            component_id="test_node_123",
+            component_name="test_node_name",
             fedbiomed_version="v1.2.3",
         )
 
-        self.assertEqual(logger._security_defaults["node_id"], "test_node_123")
-        self.assertEqual(logger._security_defaults["node_name"], "test_node_name")
+        self.assertEqual(logger._security_defaults["component_id"], "test_node_123")
+        self.assertEqual(logger._security_defaults["component_name"], "test_node_name")
         self.assertEqual(logger._security_defaults["fedbiomed_version"], "v1.2.3")
 
         # Test partial updates
-        logger.configure_security(node_id="new_node_456")
-        self.assertEqual(logger._security_defaults["node_id"], "new_node_456")
-        self.assertEqual(logger._security_defaults["node_name"], "test_node_name")
+        logger.configure_security(component_id="new_node_456")
+        self.assertEqual(logger._security_defaults["component_id"], "new_node_456")
+        self.assertEqual(logger._security_defaults["component_name"], "test_node_name")
 
     def test_logger_11_security_context(self):
         """Test security_context() context manager"""
@@ -455,7 +455,9 @@ class TestLogger(unittest.TestCase):
         # SECURITY_FILE handler level isn't overwritten to WARNING on add.
         logger.setLevel("INFO")
         logger.configure_security(
-            node_id="test_node", node_name="test_name", fedbiomed_version="v1.0"
+            component_id="test_node",
+            component_name="test_name",
+            fedbiomed_version="v1.0",
         )
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_file = str(Path(tmpdir) / "security_audit.log")
@@ -495,7 +497,9 @@ class TestLogger(unittest.TestCase):
         old_level = logger.getEffectiveLevel()
         logger.setLevel("INFO")
         logger.configure_security(
-            node_id="test_node", node_name="test_name", fedbiomed_version="v1.0"
+            component_id="test_node",
+            component_name="test_name",
+            fedbiomed_version="v1.0",
         )
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_file = str(Path(tmpdir) / "security_audit.log")
@@ -559,7 +563,9 @@ class TestLogger(unittest.TestCase):
         old_level = logger.getEffectiveLevel()
         logger.setLevel("INFO")
         logger.configure_security(
-            node_id="test_node", node_name="test_name", fedbiomed_version="v1.0"
+            component_id="test_node",
+            component_name="test_name",
+            fedbiomed_version="v1.0",
         )
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_file = str(Path(tmpdir) / "security_audit.log")
@@ -597,7 +603,9 @@ class TestLogger(unittest.TestCase):
         old_level = logger.getEffectiveLevel()
         logger.setLevel("INFO")
         logger.configure_security(
-            node_id="test_node", node_name="test_name", fedbiomed_version="v1.0"
+            component_id="test_node",
+            component_name="test_name",
+            fedbiomed_version="v1.0",
         )
         with tempfile.TemporaryDirectory() as tmpdir:
             temp_file = str(Path(tmpdir) / "security_audit.log")

@@ -10,7 +10,7 @@ import time
 from typing import Callable, Optional, Union
 
 from fedbiomed import __version__
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
@@ -121,15 +121,13 @@ class Node:
         )
 
         # Initialize security audit logging
+        logger.set_security_logs(root_path=self._config.root)
+
         logger.configure_security(
-            node_id=self._node_id,
-            node_name=self._node_name,
+            component_id=self._node_id,
+            component_name=ComponentType.NODE,
             fedbiomed_version=__version__,
         )
-        security_log_dir = os.path.join(self._config.root, "log")
-        os.makedirs(security_log_dir, exist_ok=True)
-        security_log_path = os.path.join(security_log_dir, "security_audit.log")
-        logger.add_security_file_handler(filename=security_log_path)
 
         # Log node creation
         logger.security_event(

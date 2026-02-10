@@ -53,6 +53,8 @@ from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 from typing import Any, Callable, Optional
 
+from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.ipython import is_ipython
 from fedbiomed.common.singleton import SingletonMeta
 
@@ -118,8 +120,8 @@ class _SecurityFormatter(logging.Formatter):
 
         entry = {
             "timestamp": _utc_timestamp(),
-            "node_id": self._security_defaults.get("node_id"),
-            "node_name": self._security_defaults.get("node_name"),
+            "node_id": self._security_defaults.get("component_id"),
+            "node_name": self._security_defaults.get("component_name"),
             "researcher_id": ctx.get("researcher_id")
             or getattr(record, "researcher_id", None),
             "operation": ctx.get("operation") or getattr(record, "operation", None),
@@ -293,24 +295,31 @@ class FedLogger(metaclass=SingletonMeta):
 
         # --- Security log defaults (filled by Node at startup) ---
         self._security_defaults = {
-            "node_id": None,
+            "component_id": None,
+            "component_name": None,
             "fedbiomed_version": None,
         }
 
         pass
 
+    def set_security_logs(self, root_path: str) -> None:
+        security_log_dir = os.path.join(root_path, "log")
+        os.makedirs(security_log_dir, exist_ok=True)
+        security_log_path = os.path.join(security_log_dir, "security_audit.log")
+        self.add_security_file_handler(filename=security_log_path)
+
     def configure_security(
         self,
         *,
-        node_id: Optional[str] = None,
-        node_name: Optional[str] = None,
+        component_id: Optional[str] = None,
+        component_name: Optional[ComponentType] = None,
         fedbiomed_version: Optional[str] = None,
     ) -> None:
         """Configure default fields that must appear in every security log entry."""
-        if node_id is not None:
-            self._security_defaults["node_id"] = node_id
-        if node_name is not None:
-            self._security_defaults["node_name"] = node_name
+        if component_id is not None:
+            self._security_defaults["component_id"] = component_id
+        if component_name is not None:
+            self._security_defaults["component_name"] = component_name
         if fedbiomed_version is not None:
             self._security_defaults["fedbiomed_version"] = fedbiomed_version
 
@@ -394,25 +403,51 @@ class FedLogger(metaclass=SingletonMeta):
         rid = researcher_id or ctx.get("researcher_id")
 
         # Capture caller information from the stack
-        frame = inspect.currentframe()
-        caller_frame = frame.f_back if frame else None
-        caller_info = {
-            "caller_function": caller_frame.f_code.co_name
-            if caller_frame
-            else "unknown",
-            "caller_module": os.path.basename(caller_frame.f_code.co_filename)
-            if caller_frame
-            else "unknown",
-            "caller_file": caller_frame.f_code.co_filename
-            if caller_frame
-            else "unknown",
-            "caller_line": caller_frame.f_lineno if caller_frame else 0,
-        }
+        try:
+            frame = inspect.currentframe()
+            caller_frame = frame.f_back if frame else None
+            caller_info = {
+                "caller_function": caller_frame.f_code.co_name
+                if caller_frame
+                else "unknown",
+                "caller_module": os.path.basename(caller_frame.f_code.co_filename)
+                if caller_frame
+                else "unknown",
+                "caller_file": caller_frame.f_code.co_filename
+                if caller_frame
+                else "unknown",
+                "caller_line": caller_frame.f_lineno if caller_frame else 0,
+            }
+        except Exception as e:
+            FedbiomedError(
+                "Failed to capture caller information for security log entry. "
+                "Caller info will be set to 'unknown'. "
+                "Caller parser error: " + str(e)
+            )
+            caller_info = {
+                "caller_function": "unknown",
+                "caller_module": "unknown",
+                "caller_file": "unknown",
+                "caller_line": 0,
+            }
+            self._logger.warning(
+                json.dumps(
+                    {
+                        "timestamp": _utc_timestamp(),
+                        "node_id": self._security_defaults.get("component_id"),
+                        "caller_parsing": "failure",
+                        "caller_parser_error": str(e),
+                    },
+                    default=str,
+                    separators=(",", ":"),
+                ),
+                extra={"is_security": True},
+            )
 
         entry = {
             "timestamp": _utc_timestamp(),
-            "node_id": self._security_defaults.get("node_id"),
-            "node_name": self._security_defaults.get("node_name"),
+            "node_id": self._security_defaults.get("component_id"),
+            "node_name": self._security_defaults.get("component_name"),
             "researcher_id": rid,
             "operation": op,
             "status": st,
