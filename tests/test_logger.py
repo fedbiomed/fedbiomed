@@ -47,6 +47,30 @@ class TestLogger(unittest.TestCase):
         """
         before all tests: put the loglevel to a known state
         """
+        # The global logger is a singleton. Other test modules may add handlers
+        # (e.g., SECURITY_FILE, GRPC) and forget to remove them. These tests
+        # assume a clean handler set, so enforce that here.
+        handler_keys = list(getattr(logger, "_handlers", {}).keys())
+        for key in handler_keys:
+            if key == "CONSOLE":
+                continue
+            h = logger._handlers.get(key)
+            try:
+                logger._internal_add_handler(key, None)
+            finally:
+                if h is not None:
+                    try:
+                        h.close()
+                    except Exception:
+                        pass
+
+        # Ensure clean prefix/security context between tests
+        try:
+            logger.setPrefix("")
+        except Exception:
+            pass
+        SECURITY_CONTEXT.set(None)
+
         logger.setLevel(DEFAULT_LOG_LEVEL)
         pass
 
@@ -54,7 +78,26 @@ class TestLogger(unittest.TestCase):
         """
         after all test... empty for now
         """
-        pass
+        # Best-effort cleanup in case a test added handlers.
+        handler_keys = list(getattr(logger, "_handlers", {}).keys())
+        for key in handler_keys:
+            if key == "CONSOLE":
+                continue
+            h = logger._handlers.get(key)
+            try:
+                logger._internal_add_handler(key, None)
+            finally:
+                if h is not None:
+                    try:
+                        h.close()
+                    except Exception:
+                        pass
+
+        SECURITY_CONTEXT.set(None)
+        try:
+            logger.setPrefix("")
+        except Exception:
+            pass
 
     def test_logger_00_internal_translator(self):
         """
