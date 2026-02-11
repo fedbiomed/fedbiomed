@@ -38,7 +38,7 @@ def mocked_dataset_manager():
             "path": "/path/to/data",
             "dataset_parameters": {},
         }
-        yield mock_dm_cls, mock_dm
+        yield mock_dm
 
 
 @pytest.fixture
