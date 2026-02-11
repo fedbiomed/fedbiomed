@@ -20,6 +20,7 @@ from fedbiomed.common.constants import (
 )
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedCertificateError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import read_file
 
 
@@ -34,7 +35,7 @@ class CertificateManager:
         """Constructs certificate manager
 
         Args:
-            db: The name of the DB file to connect through TinyDB
+            db_path: The name of the DB file to connect through TinyDB
         """
 
         self._db: Union[Table, None] = None
@@ -76,29 +77,52 @@ class CertificateManager:
         Raises:
             FedbiomedCertificateError: party is already registered
         """
-        certificate_ = self.get(party_id=party_id)
-        if not certificate_:
-            return self._db.insert(
-                {
-                    "certificate": certificate,
-                    "party_id": party_id,
-                    "component": component,
-                }
-            )
+        try:
+            certificate_ = self.get(party_id=party_id)
+            if not certificate_:
+                result = self._db.insert(
+                    {
+                        "certificate": certificate,
+                        "party_id": party_id,
+                        "component": component,
+                    }
+                )
+                logger.security_event(
+                    operation="certificate_insert",
+                    status="success",
+                    component=component,
+                    party_id=party_id,
+                )
+                return result
 
-        if upsert:
-            return self._db.upsert(
-                {
-                    "certificate": certificate,
-                    "component": component,
-                    "party_id": party_id,
-                },
-                self._query.party_id == party_id,
+            if upsert:
+                result = self._db.upsert(
+                    {
+                        "certificate": certificate,
+                        "component": component,
+                        "party_id": party_id,
+                    },
+                    self._query.party_id == party_id,
+                )
+                logger.security_event(
+                    operation="certificate_insert",
+                    status="success",
+                    component=component,
+                    party_id=party_id,
+                )
+                return result
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Party {party_id} already registered. "
+                "Please use `upsert=True` or '--upsert' option through CLI"
             )
-        raise FedbiomedCertificateError(
-            f"{ErrorNumbers.FB619.value}: Party {party_id} already registered. "
-            "Please use `upsert=True` or '--upsert' option through CLI"
-        )
+        except FedbiomedCertificateError:
+            logger.security_event(
+                operation="certificate_insert",
+                status="failure",
+                component=component,
+                party_id=party_id,
+            )
+            raise
 
     def get(self, party_id: str) -> Union[dict, None]:
         """Gets certificate/public key  of given party
@@ -109,9 +133,21 @@ class CertificateManager:
         Returns:
             Certificate, dict like TinyDB document
         """
-
-        v = self._db.get(self._query.party_id == party_id)
-        return v
+        try:
+            v = self._db.get(self._query.party_id == party_id)
+            logger.security_event(
+                operation="certificate_get",
+                status="success",
+                party_id=party_id,
+            )
+            return v
+        except Exception:
+            logger.security_event(
+                operation="certificate_get",
+                status="failure",
+                party_id=party_id,
+            )
+            raise
 
     def delete(self, party_id) -> List[int]:
         """Deletes given party from table
@@ -122,8 +158,21 @@ class CertificateManager:
         Returns:
             The document IDs of deleted certificates
         """
-
-        return self._db.remove(self._query.party_id == party_id)
+        try:
+            result = self._db.remove(self._query.party_id == party_id)
+            logger.security_event(
+                operation="certificate_delete",
+                status="success",
+                party_id=party_id,
+            )
+            return result
+        except Exception:
+            logger.security_event(
+                operation="certificate_delete",
+                status="failure",
+                party_id=party_id,
+            )
+            raise
 
     def list(self, verbose: bool = False) -> List[dict]:
         """Lists registered certificates.
@@ -134,16 +183,27 @@ class CertificateManager:
         Returns:
             List of certificate objects registered in DB
         """
-        certificates = self._db.all()
+        try:
+            certificates = self._db.all()
 
-        if verbose:
-            to_print = copy.deepcopy(certificates)
-            for doc in to_print:
-                doc.pop("certificate")
+            if verbose:
+                to_print = copy.deepcopy(certificates)
+                for doc in to_print:
+                    doc.pop("certificate")
 
-            print(tabulate(to_print, headers="keys"))
+                print(tabulate(to_print, headers="keys"))
 
-        return certificates
+            logger.security_event(
+                operation="certificate_list",
+                status="success",
+            )
+            return certificates
+        except Exception:
+            logger.security_event(
+                operation="certificate_list",
+                status="failure",
+            )
+            raise
 
     def register_certificate(
         self,
@@ -165,28 +225,43 @@ class CertificateManager:
         Raises:
             FedbiomedCertificateError: If certificate file is not existing in file system
         """
-
-        if not os.path.isfile(certificate_path):
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Certificate path does not represents a file."
-            )
-
-        # Read certificate content
-        certificate_content = read_file(certificate_path)
-
-        # Save certificate in database
+        # Determine component type early so it's available in exception handler
         component = (
             ComponentType.NODE.name
             if party_id.startswith(NODE_PREFIX)
             else ComponentType.RESEARCHER.name
         )
 
-        return self.insert(
-            certificate=certificate_content,
-            party_id=party_id,
-            component=component,
-            upsert=upsert,
-        )
+        try:
+            if not os.path.isfile(certificate_path):
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: Certificate path does not represents a file."
+                )
+
+            # Read certificate content
+            certificate_content = read_file(certificate_path)
+
+            result = self.insert(
+                certificate=certificate_content,
+                party_id=party_id,
+                component=component,
+                upsert=upsert,
+            )
+            logger.security_event(
+                operation="certificate_register",
+                status="success",
+                component=component,
+                party_id=party_id,
+            )
+            return result
+        except FedbiomedCertificateError:
+            logger.security_event(
+                operation="certificate_register",
+                status="failure",
+                component=component,
+                party_id=party_id,
+            )
+            raise
 
     @staticmethod
     def _write_certificate_file(path: str, certificate: str) -> None:

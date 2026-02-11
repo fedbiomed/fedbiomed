@@ -285,6 +285,118 @@ class TestCertificateManager(unittest.TestCase):
                     component_id="component-id",
                 )
 
+    def test_11_certificate_manager_insert_security_logging(self):
+        """Tests security logging for insert method"""
+        certificate = "Dummy certificate"
+        party_id = "test-id"
+        component = "researcher"
+
+        with patch("fedbiomed.common.certificate_manager.logger") as mock_logger:
+            # Assume get returns empty (new certificate)
+            self.tiny_db_table_mock.return_value.get.return_value = None
+            self.cm.insert(
+                certificate=certificate,
+                party_id=party_id,
+                component=component,
+            )
+            # Verify security_event was called with success
+            mock_logger.security_event.assert_called_with(
+                operation="certificate_insert",
+                status="success",
+                component=component,
+                party_id=party_id,
+            )
+
+    def test_12_certificate_manager_insert_failure_security_logging(self):
+        """Tests security logging for insert failure"""
+        certificate = "Dummy certificate"
+        party_id = "test-id"
+        component = "researcher"
+
+        with patch("fedbiomed.common.certificate_manager.logger") as mock_logger:
+            # Assume get returns existing certificate (no upsert)
+            self.tiny_db_table_mock.return_value.get.return_value = {
+                "certificate": "xxx"
+            }
+            with self.assertRaises(FedbiomedCertificateError):
+                self.cm.insert(
+                    certificate=certificate,
+                    party_id=party_id,
+                    component=component,
+                )
+            # Verify security_event was called with failure
+            mock_logger.security_event.assert_called_with(
+                operation="certificate_insert",
+                status="failure",
+                component=component,
+                party_id=party_id,
+            )
+
+    def test_13_certificate_manager_get_security_logging(self):
+        """Tests security logging for get method"""
+        party_id = "Test-ID"
+        with patch("fedbiomed.common.certificate_manager.logger") as mock_logger:
+            self.cm.get(party_id)
+            # Verify security_event was called with success
+            mock_logger.security_event.assert_called_with(
+                operation="certificate_get",
+                status="success",
+                party_id=party_id,
+            )
+
+    def test_14_certificate_manager_delete_security_logging(self):
+        """Tests security logging for delete method"""
+        party_id = "Test-ID"
+        with patch("fedbiomed.common.certificate_manager.logger") as mock_logger:
+            self.cm.delete(party_id)
+            # Verify security_event was called with success
+            mock_logger.security_event.assert_called_with(
+                operation="certificate_delete",
+                status="success",
+                party_id=party_id,
+            )
+
+    def test_15_certificate_manager_list_security_logging(self):
+        """Tests security logging for list method"""
+        dummy_result = [{"certificate": "xxxx", "party_id": "xxxx"}]
+        self.tiny_db_table_mock.return_value.all.return_value = dummy_result
+
+        with patch("fedbiomed.common.certificate_manager.logger") as mock_logger:
+            result = self.cm.list()
+            # Verify security_event was called with success
+            mock_logger.security_event.assert_called_with(
+                operation="certificate_list",
+                status="success",
+            )
+            self.assertListEqual(result, dummy_result)
+
+    def test_16_certificate_manager_register_certificate_security_logging(self):
+        """Tests security logging for register_certificate method"""
+        arguments = {
+            "certificate_path": "dummy/path",
+            "party_id": "node_party-id",
+        }
+
+        with (
+            patch("os.path.isfile") as mock_isfile,
+            patch("fedbiomed.common.certificate_manager.read_file") as mock_read,
+            patch("fedbiomed.common.certificate_manager.logger") as mock_logger,
+        ):
+            mock_isfile.return_value = True
+            mock_read.return_value = "Test certificate"
+            self.tiny_db_table_mock.return_value.get.return_value = None
+            self.tiny_db_table_mock.return_value.insert.return_value = 456
+
+            self.cm.register_certificate(**arguments)
+            # Verify security_event was called with success
+            # Note: register_certificate calls insert which also logs, so we check the last call
+            calls = mock_logger.security_event.call_args_list
+            # Last call should be from register_certificate
+            self.assertEqual(calls[-1][1]["operation"], "certificate_register")
+            self.assertEqual(calls[-1][1]["status"], "success")
+            self.assertEqual(calls[-1][1]["component"], "NODE")
+            self.assertEqual(calls[-1][1]["party_id"], "node_party-id")
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
