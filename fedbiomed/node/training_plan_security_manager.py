@@ -291,10 +291,31 @@ class TrainingPlanSecurityManager:
         try:
             self._db.insert(training_plan_record)
         except Exception as err:
+            logger.security_event(
+                operation="training_plan_register",
+                status="failure",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                researcher_id=researcher_id,
+                training_plan_id=training_plan_id,
+                training_plan_name=name,
+                error=str(err),
+            )
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + " : database insertion failed with"
                 f" following error: {str(err)}"
             ) from err
+
+        logger.security_event(
+            operation="training_plan_register",
+            status="success",
+            node_id=self._node_id,
+            node_name=self._node_name,
+            researcher_id=researcher_id,
+            training_plan_id=training_plan_id,
+            training_plan_name=name,
+            training_plan_type=training_plan_type,
+        )
         return training_plan_id
 
     def check_hashes_for_registered_training_plans(self):
@@ -573,6 +594,16 @@ class TrainingPlanSecurityManager:
                 logger.error(
                     f"Cannot add training plan in database due to error : {err}"
                 )
+                logger.security_event(
+                    operation="training_plan_approval_request_received",
+                    status="failure",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=request.researcher_id,
+                    request_id=request.request_id,
+                    training_plan_id=training_plan_name,
+                    error=str(err),
+                )
                 reply.update(
                     {
                         "message": "Cannot add training plan into database due to error",
@@ -582,6 +613,16 @@ class TrainingPlanSecurityManager:
                 return ApprovalReply(**reply)
 
             else:
+                logger.security_event(
+                    operation="training_plan_approval_request_received",
+                    status="success",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=request.researcher_id,
+                    request_id=request.request_id,
+                    training_plan_id=training_plan_name,
+                    training_plan_status=TrainingPlanApprovalStatus.PENDING.value,
+                )
                 reply["success"] = True
                 logger.debug("Training plan successfully received by Node for approval")
 
@@ -595,6 +636,19 @@ class TrainingPlanSecurityManager:
                         "Please wait for Node approval."
                     }
                 )
+                existing_tp = self.get_training_plan_from_database(training_plan)
+                logger.security_event(
+                    operation="training_plan_approval_request_received",
+                    status="already_pending",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=request.researcher_id,
+                    request_id=request.request_id,
+                    training_plan_id=existing_tp.get("training_plan_id")
+                    if existing_tp
+                    else None,
+                    message="Training plan already pending approval",
+                )
             elif self.check_training_plan_status(
                 training_plan, TrainingPlanApprovalStatus.APPROVED
             )[0]:
@@ -604,9 +658,35 @@ class TrainingPlanSecurityManager:
                         "to train on this training plan."
                     }
                 )
+                existing_tp = self.get_training_plan_from_database(training_plan)
+                logger.security_event(
+                    operation="training_plan_approval_request_received",
+                    status="already_approved",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=request.researcher_id,
+                    request_id=request.request_id,
+                    training_plan_id=existing_tp.get("training_plan_id")
+                    if existing_tp
+                    else None,
+                    message="Training plan already approved",
+                )
             else:
                 reply.update(
                     {"message": "Training plan already exists in database. Aborting"}
+                )
+                existing_tp = self.get_training_plan_from_database(training_plan)
+                logger.security_event(
+                    operation="training_plan_approval_request_received",
+                    status="duplicate",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=request.researcher_id,
+                    request_id=request.request_id,
+                    training_plan_id=existing_tp.get("training_plan_id")
+                    if existing_tp
+                    else None,
+                    message="Training plan already exists in database",
                 )
 
             reply.update({"success": True})
@@ -643,13 +723,26 @@ class TrainingPlanSecurityManager:
                 training_plan_status = training_plan.get(
                     "training_plan_status", "Not Registered"
                 )
-                reply.update(
-                    {"training_plan_id": training_plan.get("training_plan_id", None)}
-                )
+                training_plan_id = training_plan.get("training_plan_id", None)
+                reply.update({"training_plan_id": training_plan_id})
             else:
                 training_plan_status = "Not Registered"
+                training_plan_id = None
 
             reply.update({"success": True, "status": training_plan_status})
+
+            logger.security_event(
+                operation="training_plan_status_request",
+                status="checked",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                researcher_id=request.researcher_id,
+                request_id=request.request_id,
+                training_plan_id=training_plan_id,
+                training_plan_status=training_plan_status,
+                experiment_id=request.experiment_id,
+            )
+
             if self._tp_approval:
                 if training_plan_status == TrainingPlanApprovalStatus.APPROVED.value:
                     msg = "Training plan has been approved by the node, training can start"
@@ -672,6 +765,16 @@ class TrainingPlanSecurityManager:
         # Catch all exception to be able send reply back to researcher
         except Exception as exp:
             logger.error(exp)
+            logger.security_event(
+                operation="training_plan_status_request",
+                status="failure",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                researcher_id=request.researcher_id,
+                request_id=request.request_id,
+                experiment_id=request.experiment_id,
+                error=str(exp),
+            )
             reply.update(
                 {
                     "success": False,
@@ -936,13 +1039,41 @@ class TrainingPlanSecurityManager:
             return True
 
         else:
-            self._db.update(
-                {
-                    "training_plan_status": training_plan_status.value,
-                    "date_last_action": datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f"),
-                    "notes": notes,
-                },
-                self._database.training_plan_id == training_plan_id,
+            try:
+                self._db.update(
+                    {
+                        "training_plan_status": training_plan_status.value,
+                        "date_last_action": datetime.now().strftime(
+                            "%d-%m-%Y %H:%M:%S.%f"
+                        ),
+                        "notes": notes,
+                    },
+                    self._database.training_plan_id == training_plan_id,
+                )
+            except Exception as err:
+                logger.security_event(
+                    operation="training_plan_status_update",
+                    status="failure",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=training_plan.get("researcher_id"),
+                    training_plan_id=training_plan_id,
+                    training_plan_name=training_plan.get("name"),
+                    new_status=training_plan_status.value,
+                    error=str(err),
+                )
+                raise
+
+            logger.security_event(
+                operation="training_plan_status_update",
+                status="success",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                researcher_id=training_plan.get("researcher_id"),
+                training_plan_id=training_plan_id,
+                training_plan_name=training_plan.get("name"),
+                previous_status=training_plan.get("training_plan_status"),
+                new_status=training_plan_status.value,
             )
             logger.info(
                 f"Training plan {training_plan_id} status changed to {training_plan_status.value} !"
@@ -1024,10 +1155,30 @@ class TrainingPlanSecurityManager:
             try:
                 self._db.remove(doc_ids=[doc.doc_id])
             except Exception as err:
+                logger.security_event(
+                    operation="training_plan_delete",
+                    status="failure",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=training_plan.get("researcher_id"),
+                    training_plan_id=training_plan_id,
+                    training_plan_name=training_plan.get("name"),
+                    error=str(err),
+                )
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     ErrorNumbers.FB606.value
                     + f": cannot remove training plan from database. Details: {str(err)}"
                 ) from err
+
+            logger.security_event(
+                operation="training_plan_delete",
+                status="success",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                researcher_id=training_plan.get("researcher_id"),
+                training_plan_id=training_plan_id,
+                training_plan_name=training_plan.get("name"),
+            )
         else:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
