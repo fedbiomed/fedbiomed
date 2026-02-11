@@ -276,5 +276,5 @@ class NipoppyDataset(Dataset):
     def __len__(self) -> int:
         return len(self.df)
 
-    def __get_item__(self, idx) -> Tuple[np.ndarray, np.ndarray | None]:
+    def __getitem__(self, idx) -> Tuple[np.ndarray, np.ndarray | None]:
         return self.X.iloc[idx].to_numpy(), self.y.iloc[idx].to_numpy()
