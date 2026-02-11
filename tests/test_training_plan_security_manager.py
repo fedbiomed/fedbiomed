@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import pytest
 from tinydb.table import Document
 
 from fedbiomed.common.constants import (
@@ -714,6 +715,337 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         # check
         self.assertEqual(doc2[key_notsensible], doc[key_notsensible])
         self.assertFalse(key_sensible in doc2)
+
+
+# ============ PYTEST STYLE TESTS FOR SECURITY LOGGING ============
+
+
+@pytest.fixture
+def temp_db_pytest():
+    """Pytest fixture for temporary database."""
+    temp_dir = tempfile.TemporaryDirectory()
+    db_path = os.path.join(temp_dir.name, "test-db.json")
+    yield db_path, temp_dir
+    temp_dir.cleanup()
+
+
+@pytest.fixture
+def tp_security_manager_pytest(temp_db_pytest):
+    """Pytest fixture for TrainingPlanSecurityManager with I/O-free hashing + mocked logging.
+
+    Notes:
+    - Do NOT patch `builtins.open` globally: TinyDB uses it for the DB JSON file.
+    - Instead, stub `_create_hash` to avoid reading training plan files.
+    - Mock `logger` in the module under test to avoid side effects (eg. system info collection).
+    """
+
+    import hashlib
+
+    db_path, _ = temp_db_pytest
+
+    with (
+        patch("fedbiomed.node.training_plan_security_manager.logger") as mock_logger,
+        patch(
+            "fedbiomed.node.training_plan_security_manager.os.path.getctime",
+            return_value=1000000,
+        ),
+        patch(
+            "fedbiomed.node.training_plan_security_manager.os.path.getmtime",
+            return_value=1000000,
+        ),
+        patch.object(
+            TrainingPlanSecurityManager,
+            "_create_hash",
+            autospec=True,
+        ) as mock_create_hash,
+    ):
+
+        def _create_hash_side_effect(_self, source: str, from_string: bool = False):
+            # When hashing a file path, avoid touching the filesystem.
+            # When hashing source code (from_string=True), keep determinism based on content.
+            if from_string:
+                content = source
+                source_out = source
+            else:
+                content = f"mock_tp_source:{source}"
+                source_out = content
+
+            digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+            return digest, "SHA256", source_out
+
+        mock_create_hash.side_effect = _create_hash_side_effect
+
+        manager = TrainingPlanSecurityManager(
+            db=db_path,
+            node_id="pytest-node-id",
+            node_name="pytest-node-name",
+            hashing="SHA256",
+            tp_approval=True,
+        )
+
+        # Attach mocks to manager for easy access in tests
+        manager.mock_security_event = mock_logger.security_event
+        manager.mock_logger = mock_logger
+        manager.mock_create_hash = mock_create_hash
+
+        yield manager
+
+        manager._tinydb.drop_table("TrainingPlans")
+        manager._tinydb.close()
+
+
+@pytest.fixture
+def test_training_plan_source():
+    """Pytest fixture for test training plan source code."""
+    return """
+from fedbiomed.common.training_plans import TorchTrainingPlan
+
+class TestTrainingPlan(TorchTrainingPlan):
+    def init_model(self, model_args):
+        return None
+
+    def training_step(self, batch):
+        pass
+"""
+
+
+def test_security_log_register_training_plan_success(tp_security_manager_pytest):
+    """Pytest: Verify training plan registration logs security event."""
+    manager = tp_security_manager_pytest
+
+    tp_id = manager.register_training_plan(
+        name="pytest_tp",
+        description="Pytest training plan",
+        path="/mock/path/tp.py",
+        researcher_id="pytest_researcher",
+    )
+
+    # Verify security_event call
+    manager.mock_security_event.assert_called()
+    call_kwargs = manager.mock_security_event.call_args.kwargs
+
+    assert call_kwargs["operation"] == "training_plan_register"
+    assert call_kwargs["status"] == "success"
+    assert call_kwargs["node_id"] == "pytest-node-id"
+    assert call_kwargs["node_name"] == "pytest-node-name"
+    assert call_kwargs["researcher_id"] == "pytest_researcher"
+    assert call_kwargs["training_plan_id"] == tp_id
+    assert call_kwargs["training_plan_name"] == "pytest_tp"
+
+
+def test_security_log_delete_training_plan_success(tp_security_manager_pytest):
+    """Pytest: Verify training plan deletion logs security event."""
+    manager = tp_security_manager_pytest
+
+    # Register first
+    tp_id = manager.register_training_plan(
+        name="pytest_tp_del",
+        description="Pytest training plan for deletion",
+        path="/mock/path/tp_del.py",
+        researcher_id="pytest_researcher",
+    )
+
+    manager.mock_security_event.reset_mock()
+
+    # Delete
+    manager.delete_training_plan(tp_id)
+
+    # Verify security_event call
+    manager.mock_security_event.assert_called()
+    call_kwargs = manager.mock_security_event.call_args.kwargs
+
+    assert call_kwargs["operation"] == "training_plan_delete"
+    assert call_kwargs["status"] == "success"
+    assert call_kwargs["node_id"] == "pytest-node-id"
+    assert call_kwargs["node_name"] == "pytest-node-name"
+    assert call_kwargs["training_plan_id"] == tp_id
+
+
+def test_security_log_approve_training_plan(
+    tp_security_manager_pytest, test_training_plan_source
+):
+    """Pytest: Verify training plan approval logs security event."""
+    manager = tp_security_manager_pytest
+
+    # Create a PENDING training plan first (registration via CLI creates APPROVED by default)
+    request = ApprovalRequest(
+        researcher_id="pytest_researcher",
+        request_id="pytest_req_approve_001",
+        training_plan=test_training_plan_source,
+        description="Pytest approval",
+    )
+    manager.reply_training_plan_approval_request(request)
+
+    tp_info = manager.get_training_plan_from_database(test_training_plan_source)
+    assert tp_info is not None
+    tp_id = tp_info["training_plan_id"]
+
+    manager.mock_security_event.reset_mock()
+
+    # Approve
+    manager.approve_training_plan(tp_id, extra_notes="Approved in pytest")
+
+    # Verify security_event call
+    manager.mock_security_event.assert_called()
+    call_kwargs = manager.mock_security_event.call_args.kwargs
+
+    assert call_kwargs["operation"] == "training_plan_status_update"
+    assert call_kwargs["status"] == "success"
+    assert call_kwargs["node_id"] == "pytest-node-id"
+    assert call_kwargs["node_name"] == "pytest-node-name"
+    assert call_kwargs["new_status"] == TrainingPlanApprovalStatus.APPROVED.value
+
+
+def test_security_log_reject_training_plan(tp_security_manager_pytest):
+    """Pytest: Verify training plan rejection logs security event."""
+    manager = tp_security_manager_pytest
+
+    # Register first
+    tp_id = manager.register_training_plan(
+        name="pytest_tp_reject",
+        description="Pytest training plan for rejection",
+        path="/mock/path/tp_reject.py",
+        researcher_id="pytest_researcher",
+    )
+
+    manager.mock_security_event.reset_mock()
+
+    # Reject
+    manager.reject_training_plan(tp_id, extra_notes="Rejected in pytest")
+
+    # Verify security_event call
+    manager.mock_security_event.assert_called()
+    call_kwargs = manager.mock_security_event.call_args.kwargs
+
+    assert call_kwargs["operation"] == "training_plan_status_update"
+    assert call_kwargs["status"] == "success"
+    assert call_kwargs["new_status"] == TrainingPlanApprovalStatus.REJECTED.value
+
+
+def test_security_log_approval_request_received(
+    tp_security_manager_pytest, test_training_plan_source
+):
+    """Pytest: Verify approval request logs security event with request_id."""
+    manager = tp_security_manager_pytest
+    request = ApprovalRequest(
+        researcher_id="pytest_researcher",
+        request_id="pytest_req_001",
+        training_plan=test_training_plan_source,
+        description="Pytest approval request",
+    )
+
+    manager.reply_training_plan_approval_request(request)
+
+    # Verify security_event call
+    manager.mock_security_event.assert_called()
+    call_kwargs = manager.mock_security_event.call_args.kwargs
+
+    assert call_kwargs["operation"] == "training_plan_approval_request_received"
+    assert call_kwargs["status"] == "success"
+    assert call_kwargs["node_id"] == "pytest-node-id"
+    assert call_kwargs["node_name"] == "pytest-node-name"
+    assert call_kwargs["researcher_id"] == "pytest_researcher"
+    assert call_kwargs["request_id"] == "pytest_req_001"
+    assert (
+        call_kwargs["training_plan_status"] == TrainingPlanApprovalStatus.PENDING.value
+    )
+
+
+def test_security_log_status_request(
+    tp_security_manager_pytest, test_training_plan_source
+):
+    """Pytest: Verify status request logs security event with experiment_id."""
+    manager = tp_security_manager_pytest
+    # Register and approve first
+    request = ApprovalRequest(
+        researcher_id="pytest_researcher",
+        request_id="pytest_req_001",
+        training_plan=test_training_plan_source,
+        description="Pytest approval",
+    )
+
+    manager.reply_training_plan_approval_request(request)
+    tp_info = manager.get_training_plan_from_database(test_training_plan_source)
+    manager.approve_training_plan(tp_info["training_plan_id"])
+
+    manager.mock_security_event.reset_mock()
+
+    # Send status request
+    status_request = TrainingPlanStatusRequest(
+        researcher_id="pytest_researcher",
+        request_id="pytest_status_001",
+        training_plan=test_training_plan_source,
+        experiment_id="pytest_exp_001",
+    )
+
+    manager.reply_training_plan_status_request(status_request)
+
+    # Verify security_event call
+    manager.mock_security_event.assert_called()
+    call_kwargs = manager.mock_security_event.call_args.kwargs
+
+    assert call_kwargs["operation"] == "training_plan_status_request"
+    assert call_kwargs["status"] == "checked"
+    assert call_kwargs["node_id"] == "pytest-node-id"
+    assert call_kwargs["node_name"] == "pytest-node-name"
+    assert call_kwargs["researcher_id"] == "pytest_researcher"
+    assert call_kwargs["request_id"] == "pytest_status_001"
+    assert call_kwargs["experiment_id"] == "pytest_exp_001"
+    assert (
+        call_kwargs["training_plan_status"] == TrainingPlanApprovalStatus.APPROVED.value
+    )
+
+
+@pytest.mark.parametrize(
+    "status,expected_message",
+    [
+        ("already_pending", "Training plan already pending approval"),
+        ("already_approved", "Training plan already approved"),
+    ],
+)
+def test_security_log_duplicate_approval_requests(
+    tp_security_manager_pytest,
+    test_training_plan_source,
+    status,
+    expected_message,
+):
+    """Pytest: Verify duplicate approval requests log correct status."""
+    manager = tp_security_manager_pytest
+    # Register and set appropriate status
+    request = ApprovalRequest(
+        researcher_id="pytest_researcher",
+        request_id="pytest_req_001",
+        training_plan=test_training_plan_source,
+        description="Pytest approval",
+    )
+
+    manager.reply_training_plan_approval_request(request)
+    tp_info = manager.get_training_plan_from_database(test_training_plan_source)
+
+    if status == "already_approved":
+        manager.approve_training_plan(tp_info["training_plan_id"])
+
+    manager.mock_security_event.reset_mock()
+
+    # Send another request
+    request2 = ApprovalRequest(
+        researcher_id="pytest_researcher_2",
+        request_id="pytest_req_002",
+        training_plan=test_training_plan_source,
+        description="Pytest approval 2",
+    )
+
+    manager.reply_training_plan_approval_request(request2)
+
+    # Verify security_event call
+    manager.mock_security_event.assert_called()
+    call_kwargs = manager.mock_security_event.call_args.kwargs
+
+    assert call_kwargs["operation"] == "training_plan_approval_request_received"
+    assert call_kwargs["status"] == status
+    assert call_kwargs["node_id"] == "pytest-node-id"
+    assert call_kwargs["node_name"] == "pytest-node-name"
+    assert call_kwargs["request_id"] == "pytest_req_002"
 
 
 if __name__ == "__main__":  # pragma: no cover
