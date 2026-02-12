@@ -259,7 +259,20 @@ class TrainingPlanSecurityManager:
         training_plan_hash, algorithm, source = self._create_hash(path)
 
         # Verify no such training plan is already registered
-        self._check_training_plan_not_existing(name, training_plan_hash, None)
+        try:
+            self._check_training_plan_not_existing(name, training_plan_hash, None)
+        except FedbiomedTrainingPlanSecurityManagerError as err:
+            logger.security_event(
+                operation="training_plan_register",
+                status="failure",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                researcher_id=researcher_id,
+                training_plan_id=training_plan_id,
+                training_plan_name=name,
+                error=str(err),
+            )
+            raise
 
         # Training plan file creation date
         ctime = datetime.fromtimestamp(os.path.getctime(path)).strftime(
@@ -465,6 +478,26 @@ class TrainingPlanSecurityManager:
         """
 
         training_plan = self._db.get(self._database.name == training_plan_name)
+
+        if training_plan:
+            logger.security_event(
+                operation="training_plan_view",
+                status="success",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                training_plan_name=training_plan_name,
+                training_plan_id=training_plan.get("training_plan_id"),
+                training_plan_type=training_plan.get("training_plan_type"),
+                training_plan_status=training_plan.get("training_plan_status"),
+            )
+        else:
+            logger.security_event(
+                operation="training_plan_view",
+                status="not_found",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                training_plan_name=training_plan_name,
+            )
 
         return training_plan
 
@@ -964,7 +997,21 @@ class TrainingPlanSecurityManager:
         if training_plan["training_plan_type"] != TrainingPlanStatus.DEFAULT.value:
             hash, algorithm, source = self._create_hash(path)
             # Verify no such training plan already exists in DB
-            self._check_training_plan_not_existing(None, hash, algorithm)
+            try:
+                self._check_training_plan_not_existing(None, hash, algorithm)
+            except FedbiomedTrainingPlanSecurityManagerError as err:
+                logger.security_event(
+                    operation="training_plan_update",
+                    status="failure",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=training_plan.get("researcher_id"),
+                    training_plan_id=training_plan_id,
+                    training_plan_name=training_plan.get("name"),
+                    training_plan_type=training_plan.get("training_plan_type"),
+                    error=str(err),
+                )
+                raise
 
             # Get modification date
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
@@ -985,12 +1032,46 @@ class TrainingPlanSecurityManager:
                     },
                     self._database.training_plan_id == training_plan_id,
                 )
+                logger.security_event(
+                    operation="training_plan_update",
+                    status="success",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=training_plan.get("researcher_id"),
+                    training_plan_id=training_plan_id,
+                    training_plan_name=training_plan.get("name"),
+                    training_plan_type=training_plan.get("training_plan_type"),
+                    new_hash=hash,
+                    new_algorithm=algorithm,
+                )
             except Exception as err:
+                logger.security_event(
+                    operation="training_plan_update",
+                    status="failure",
+                    node_id=self._node_id,
+                    node_name=self._node_name,
+                    researcher_id=training_plan.get("researcher_id"),
+                    training_plan_id=training_plan_id,
+                    training_plan_name=training_plan.get("name"),
+                    training_plan_type=training_plan.get("training_plan_type"),
+                    error=str(err),
+                )
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     ErrorNumbers.FB606.value + ": update database failed. Details :"
                     f"{str(err)}"
                 ) from err
         else:
+            logger.security_event(
+                operation="training_plan_update",
+                status="failure",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                researcher_id=training_plan.get("researcher_id"),
+                training_plan_id=training_plan_id,
+                training_plan_name=training_plan.get("name"),
+                training_plan_type=training_plan.get("training_plan_type"),
+                reason="attempted_update_default_training_plan",
+            )
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
                 + "You cannot update default training plans. Please "
@@ -1242,6 +1323,16 @@ class TrainingPlanSecurityManager:
         try:
             training_plans = self._db.search(query)
         except Exception as err:
+            logger.security_event(
+                operation="training_plan_list",
+                status="failure",
+                node_id=self._node_id,
+                node_name=self._node_name,
+                sort_by=sort_by,
+                has_status_filter=select_status is not None,
+                has_search_filter=search is not None,
+                error=str(err),
+            )
             raise FedbiomedTrainingPlanSecurityManagerError(
                 f"{ErrorNumbers.FB606.value}: request failed when looking for a training plan into database with "
                 f"error: {err}"
@@ -1260,6 +1351,17 @@ class TrainingPlanSecurityManager:
                 )
             else:
                 logger.warning(f"Field {sort_by} is not available in dataset")
+
+        logger.security_event(
+            operation="training_plan_list",
+            status="success",
+            node_id=self._node_id,
+            node_name=self._node_name,
+            training_plans_count=len(training_plans),
+            sort_by=sort_by,
+            has_status_filter=select_status is not None,
+            has_search_filter=search is not None,
+        )
 
         if verbose:
             training_plans_verbose = training_plans.copy()
