@@ -96,11 +96,6 @@ class PreprocJob(_BaseJob):
             f"for experiment {self._experiment_id} with args {self._preproc_args}"
         )
 
-        # Simulated output of preprocessing
-        # preproc_output = {
-        #    "dummy": f"Preprocessing step {self._preproc_step.name} completed.",
-        # }
-
         preproc_output = self._fedcombat_estimator(
             self._preproc_step, self._preproc_args
         )

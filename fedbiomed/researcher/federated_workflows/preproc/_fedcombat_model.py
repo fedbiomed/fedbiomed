@@ -30,13 +30,19 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
             n_phenotypes: int,
         ):
             super().__init__()
-            self.linear = nn.Linear(n_covariates, n_phenotypes, bias=False)
+            self.linear = nn.Linear(n_covariates, n_phenotypes, bias=True)
 
         def forward(self, x):
             return self.linear(x)
 
     def init_model(self, model_args: dict) -> nn.Module:
-        return self.Net(
+        from fedbiomed.common.preproc import FedComBatModelWrapper
+
+        return FedComBatModelWrapper(
+            self.Net(
+                n_covariates=len(model_args.get("covariates")),
+                n_phenotypes=len(model_args.get("phenotypes")),
+            ),
             n_covariates=len(model_args.get("covariates")),
             n_phenotypes=len(model_args.get("phenotypes")),
         )
@@ -48,6 +54,7 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
         return [
             "from torch.optim import Adam",
             "from fedbiomed.common.dataset import TabularDataset",
+            "from fedbiomed.common.preproc import FedComBatModelWrapper",
         ]
 
     def training_data(self):
