@@ -6,25 +6,30 @@ from fedbiomed.common.constants import HarmonizationStep
 
 
 class _FedComBat_jobs:
+    """
+    Class computing the Fed-ComBat steps on the node side
+    """
+
+    # TODO: use the right arguments to use non-dummy data (DatasetManager, NodeState, ...)
     def __init__(
         self,
         # root_dir: str,
         # dataset_manager: DatasetManager,
     ):
-        """
-        Class computing the Fed-ComBat steps on the node side
-        """
+        # TODO: remove
+        ###### DUMMY DATA ######
         torch.manual_seed(42)
         self.covariates = torch.rand((100, 3))
         self.phenotypes = torch.rand((100, 2))
-        self.standardized_covariates = None
-        self.standardized_phenotypes = None
-        self.z = None
+        ########################
+
         self.n_samples = torch.tensor(self.covariates.shape[0])
 
         self.step_functions = {
             HarmonizationStep.STEP1: self._compute_mean_std,
             HarmonizationStep.STEP2: self._standardize_data,
+            # There is no step 3 as it's a model training handled by a training plan
+            HarmonizationStep.STEP3: lambda x: {},
             HarmonizationStep.STEP4: self._compute_residual_variance,
             HarmonizationStep.STEP5: self._compute_standardized_residuals_params,
             HarmonizationStep.STEP6: self._compute_fedcombat_params,
@@ -35,20 +40,26 @@ class _FedComBat_jobs:
         Generic call of the class to automatically compute the right function
         for the specified harmonization_step
 
-        :param harmonization_step: Description
-        :type harmonization_step: HarmonizationStep
-        :param params: Description
-        :type params: Dict
+        Args:
+            harmonization_step: Harmonization step Enum allowing to select the right function
+            params: Dictionary containing the parameters to pass to the called function
+
+        Returns:
+            Dict: parameters resulting from the harmonization_step computation from the node
         """
-        torch.manual_seed(42)
-        self.covariates = torch.rand((100, 3))
-        self.phenotypes = torch.rand((100, 2))
 
         return self.step_functions[harmonization_step](params)
 
     def _compute_mean_std(self, params):
         """
         Computes mean and standard deviation of the covariates and phenotypes
+
+        Args:
+            params: empty Dict
+
+        Returns:
+            Dict: Dict containing means and stds of the local covariates and phenotypes.
+                  Keys: ["mean_covariates, "mean_phenotypes", "std_covariates", "std_phenotypes"]
         """
         means_stds = {
             "mean_covariates": self.covariates.mean(0),
@@ -64,7 +75,12 @@ class _FedComBat_jobs:
         Standardizes the data from given means and standard deviations
 
         Args:
-            params:
+            params: Dict containing global means and stds of the covariates and phenotypes.
+                    Keys: ["global_mean_covariates", "global_mean_phenotypes",
+                           "global_std_covariates", "global_std_phenotypes"]
+
+        Returns:
+            Dict: empty Dict
         """
         global_mean_covariates = params["global_mean_covariates"]
         global_mean_phenotypes = params["global_mean_phenotypes"]
@@ -81,17 +97,23 @@ class _FedComBat_jobs:
 
     def _compute_residual_variance(self, params):
         """
-        Computes the variance of the residuals of the biological model
+        Computes the variance of the residuals from the biological model
 
-        :param params: Description
+        Args:
+            params: Empty Dict
+
+        Returns:
+            Dict: Dict containing the local residual variance and the number of samples
+                  Keys: ["residual_variance", "n_samples"]
         """
+        ########## TODO Replace by proper functions to read the data from the node ##########
         biological_model = self.read_biological_model(params["biological_model_id"])
         global_bias = self.read_bias_model(params["global_bias_model_id"])
         local_bias = self.read_bias_model(params["local_bias_model_id"])
 
         standardized_covariates = self.read_standardized_covariates(123)
         standardized_phenotypes = self.read_standardized_phenotypes(123)
-
+        ################################################################################
         bias_param = torch.ones((len(standardized_covariates), 1))
         preds = (
             biological_model(standardized_covariates)
@@ -106,14 +128,21 @@ class _FedComBat_jobs:
         """
         Computes the standardized residuals and returns their means and variances
 
-        :param params: Description
+        Args:
+            params: Dict containing the global pooled variance of the residuals
+                    Keys: ["sigma_hat_g"]
+
+        Returns:
+            Dict: Dict containing the mean and the variance of the standardized residuals
+                  Keys: ["gamma_hat_ig", "delta_hat_ig"]
         """
+        ########## TODO: Replace by proper functions to read the data from the node ##########
         biological_model = self.read_biological_model(params["biological_model_id"])
         global_bias = self.read_bias_model(params["global_bias_model_id"])
-        sigma_hat_g = params["sigma_hat_g"]
-
         standardized_covariates = self.read_standardized_covariates(123)
         standardized_phenotypes = self.read_standardized_phenotypes(123)
+        ################################################################################
+        sigma_hat_g = params["sigma_hat_g"]
 
         bias_param = torch.ones((len(standardized_covariates), 1))
         preds = biological_model(standardized_covariates) - global_bias(bias_param)
@@ -126,25 +155,33 @@ class _FedComBat_jobs:
         """
         Estimates the ComBat parameters and harmonizes the dataset
 
-        :param params: Description
+        Args:
+            params: Dict containing the bayesian priors to estimate the ComBat parameters
+                    Keys: ["gamma_bar", "tau_2", "lambda_bar_i", "theta_bar_i", "sigma_hat_g"]
+
+        Returns:
+            Dict: Dict containing the id of the harmonized version of the local data
+                  Keys: ["harmonized_dataset_id"]
         """
+        ########## TODO: Replace by proper functions to read the data from the node ##########
+        biological_model = self.read_biological_model(params["biological_model_id"])
+        global_bias = self.read_bias_model(params["global_bias_model_id"])
+
+        standardized_covariates = self.read_standardized_covariates(123)
+        z = self.read_standardized_residuals(1234)
+        ################################################################################
+
         gamma_bar = params["gamma_bar"]
         tau_2 = params["tau_2"]
         lambda_bar_i = params["lambda_bar_i"]
         theta_bar_i = params["theta_bar_i"]
         sigma_hat_g = params["sigma_hat_g"]
 
-        biological_model = self.read_biological_model(params["biological_model_id"])
-        global_bias = self.read_bias_model(params["global_bias_model_id"])
-
-        standardized_covariates = self.read_standardized_covariates(123)
-        bias_param = torch.ones((len(standardized_covariates), 1))
-        pred = biological_model(standardized_covariates) - global_bias(bias_param)
-
-        z = self.read_standardized_residuals(1234)
-
         gamma_hat_ig = z.mean(0)
         delta_hat_ig = z.var(0)
+
+        bias_param = torch.ones((len(standardized_covariates), 1))
+        pred = biological_model(standardized_covariates) - global_bias(bias_param)
 
         # Initial value
         delta2_star_ig = delta_hat_ig

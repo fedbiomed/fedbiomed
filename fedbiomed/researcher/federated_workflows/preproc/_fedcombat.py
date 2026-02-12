@@ -143,25 +143,17 @@ class FedCombatPreproc:
         fedcombat_replies = {}
         preproc_replies = []
 
+        # Stores all the parameters from all steps in order to carry them from one step to the other
+        all_parameters = {}
+
         for preproc_step in range(1, 7):
             step_args = fedcombat_parameters(
                 HarmonizationStep(preproc_step), preproc_replies
             )
 
-            logger.debug(
-                f"Starting FedCombat preprocessing step {preproc_step} with args: {step_args}"
-            )
-
-            if preproc_step == 1:
-                logger.debug(
-                    "Starting FedCombat preprocessing step 1: use federated analytics "
-                    "to compute global means and variances"
-                )
-
-            elif preproc_step == 2:
-                logger.debug("Starting FedCombat preprocessing step 2")
-
-            elif preproc_step == 3:
+            all_parameters.update(step_args)
+            # The step 3 involves training a model
+            if preproc_step == 3:
                 logger.debug(
                     "Starting FedCombat preprocessing step 3: train harmonization model"
                 )
@@ -180,26 +172,20 @@ class FedCombatPreproc:
                     "Completed FedCombat preprocessing step 3: train harmonization model"
                 )
 
-                continue
-            elif preproc_step == 4:
-                logger.debug("Starting FedCombat preprocessing step 4")
-                step_args = {
-                    "biological_model_id": fc_training_plan._experimentation_folder,
-                    "global_bias_model_id": fc_training_plan._experimentation_folder,
-                    "local_bias_model_id": fc_training_plan._experimentation_folder,
-                }
-            elif preproc_step == 5:
-                logger.debug("Starting FedCombat preprocessing step 5")
-                step_args["biological_model_id"] = (
+                # TODO: These are dummy arguments. This is where the training plan should hand
+                # a way for the nodes to access the models
+                # NB: local bias is a local model and the global bias is an average of all local biases
+                ######################## DUMMY ARGS ###############################################
+                all_parameters["biological_model_id"] = (
                     fc_training_plan._experimentation_folder
                 )
-                step_args["global_bias_model_id"] = (
+                all_parameters["global_bias_model_id"] = (
                     fc_training_plan._experimentation_folder
                 )
-            else:
-                logger.debug(f"Starting FedCombat preprocessing step {preproc_step}")
-                continue
-
+                all_parameters["local_bias_model_id"] = (
+                    fc_training_plan._experimentation_folder
+                )
+                ####################################################################################
             preproc_job = PreprocRequestJob(
                 experiment_id=self._experiment_id,
                 preproc_type=PreprocType(PreprocType.FEDCOMBAT),
@@ -208,7 +194,7 @@ class FedCombatPreproc:
                 ),  # dummy computation for now to remember to derive proper step value
                 preproc_id=self._preproc_id,
                 federated_dataset=self._fds,
-                preproc_args=step_args,
+                preproc_args=all_parameters,
                 state_id=None,  # dont have state_id for now
                 researcher_id=self._researcher_id,
                 requests=self._reqs,
