@@ -228,7 +228,7 @@ class CertificateManager:
         # Determine component type early so it's available in exception handler
         component = (
             ComponentType.NODE.name
-            if party_id.startswith(NODE_PREFIX)
+            if party_id.lower().startswith(NODE_PREFIX)
             else ComponentType.RESEARCHER.name
         )
 
