@@ -79,6 +79,42 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
 
         pass
 
+    @patch("fedbiomed.transport.client.logger._logger.info")
+    @patch("fedbiomed.transport.client.x509.load_pem_x509_certificate", autospec=True)
+    @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
+    @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+    async def test_grpc_client_06__connect_security_log(
+        self,
+        is_server_alive,
+        get_server_certificate,
+        load_pem_x509_certificate,
+        log_info,
+    ):
+        is_server_alive.return_value = True
+        get_server_certificate.return_value = "DUMMY-CERT"
+
+        load_pem_x509_certificate.return_value = MagicMock(
+            subject=MagicMock(
+                get_attributes_for_oid=MagicMock(
+                    return_value=[MagicMock(value="test-researcher")]
+                )
+            )
+        )
+
+        # Avoid creating real grpc channels
+        self.client._channels.connect = AsyncMock()  # no spec
+
+        await self.client._connect()
+
+        self.client._channels.connect.assert_called_once()
+        security_calls = [
+            c
+            for c in log_info.call_args_list
+            if c.kwargs.get("extra", {}).get("is_security") is True
+        ]
+        self.assertEqual(len(security_calls), 1)
+        self.assertTrue(security_calls[0].args[0])
+
 
 class TestTaskListener(unittest.IsolatedAsyncioTestCase):
     def setUp(self):

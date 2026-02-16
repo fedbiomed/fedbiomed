@@ -314,6 +314,11 @@ class GrpcClient:
 
                 # Connect to channels and create stubs
                 await self._channels.connect()
+                logger.info(
+                    f"Successfully connected to researcher server at "
+                    f"{self._researcher.host}:{self._researcher.port}",
+                    extra={"is_security": True},
+                )
 
                 break
             else:
