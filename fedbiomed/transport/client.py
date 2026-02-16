@@ -466,7 +466,10 @@ class Listener:
                         logger.error(
                             "Unexpected error raised by researcher gRPC server in "
                             f"{self.__class__.__name__}: {exp}. "
-                            f"Will retry connect in {GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
+                            f"Will retry connect in {GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds "
+                            f"to the channel {self._channels._channels} "
+                            f"with stubs {self._channels._stubs}",
+                            extra={"is_security": True},
                         )
                         await self._handle_after_process(
                             ClientStatus.FAILED,
@@ -477,7 +480,10 @@ class Listener:
             except (Exception, GeneratorExit) as exp:
                 logger.error(
                     f"Unexpected error raised by node gRPC client in {self.__class__.__name__}: "
-                    f"{type(exp).__name__} : {exp}",
+                    f"{type(exp).__name__} : {exp} "
+                    f"to the channel {self._channels._channels} "
+                    f"with stubs {self._channels._stubs}",
+                    extra={"is_security": True},
                     exc_info=True,
                 )
                 await self._handle_after_process(

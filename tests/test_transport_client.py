@@ -89,6 +89,9 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         self.update_id = AsyncMock()
         self.callback = MagicMock()
         self.channels = MagicMock()
+        # Deterministic placeholders for assertions on logged message content
+        self.channels._channels = "CHANNELS"
+        self.channels._stubs = "STUBS"
         self.channels.connect = AsyncMock()
         self.task_listener = TaskListener(
             channels=self.channels,
@@ -134,8 +137,9 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         # Cancel the task for next test
         task.cancel()
 
+    @patch("fedbiomed.transport.client.logger._logger.error")
     @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_02_listen_grpc_exceptions(self, sleep):
+    async def test_task_listener_02_listen_grpc_exceptions(self, sleep, log_error):
         request_stub = MagicMock()
         self.channels.stub = AsyncMock()
         self.channels.stub.return_value = request_stub
@@ -193,10 +197,18 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
             await task
         sleep.assert_called_once()
         self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
+        log_error.assert_called_once()
+        log_args, log_kwargs = log_error.call_args
+        self.assertEqual(len(log_args), 1)
+        self.assertIn("CHANNELS", log_args[0])
+        self.assertIn("STUBS", log_args[0])
+        self.assertIn("extra", log_kwargs)
+        self.assertTrue(log_kwargs["extra"].get("is_security"))
         # Cancel and reset the task for next test
         task.cancel()
         request_stub.reset_mock()
         sleep.reset_mock()
+        log_error.reset_mock()
 
         # For all others gRPC errors
         request_stub.GetTaskUnary.side_effect = [
@@ -213,14 +225,23 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
             await task
         sleep.assert_called_once()
         self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
+        log_error.assert_called_once()
+        log_args, log_kwargs = log_error.call_args
+        self.assertEqual(len(log_args), 1)
+        self.assertIn("CHANNELS", log_args[0])
+        self.assertIn("STUBS", log_args[0])
+        self.assertIn("extra", log_kwargs)
+        self.assertTrue(log_kwargs["extra"].get("is_security"))
 
         # Cancel and reset the task for next test
         task.cancel()
         request_stub.reset_mock()
         sleep.reset_mock()
+        log_error.reset_mock()
 
+    @patch("fedbiomed.transport.client.logger._logger.error")
     @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_03_listen_non_grpc_exceptions(self, sleep):
+    async def test_task_listener_03_listen_non_grpc_exceptions(self, sleep, log_error):
         request_stub = MagicMock()
         self.channels.stub = AsyncMock()
         self.channels.stub.return_value = request_stub
@@ -248,6 +269,17 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
                     signal = FedbiomedCommunicationError
                 with self.assertRaises(signal):
                     await task
+
+                # Logging assertions: security + exc_info + includes channel/stub details
+                self.assertGreaterEqual(log_error.call_count, 1)
+                log_args, log_kwargs = log_error.call_args
+                self.assertEqual(len(log_args), 1)
+                self.assertIn("CHANNELS", log_args[0])
+                self.assertIn("STUBS", log_args[0])
+                self.assertTrue(log_kwargs.get("exc_info"))
+                self.assertIn("extra", log_kwargs)
+                self.assertTrue(log_kwargs["extra"].get("is_security"))
+
                 self.assertEqual(
                     sleep.call_count, min(nb_errors, MAX_RETRIEVE_ERROR_RETRIES)
                 )
@@ -282,6 +314,7 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
                 task.cancel()
                 request_stub.reset_mock()
                 sleep.reset_mock()
+                log_error.reset_mock()
             self.task_listener._post_handle_raise.reset_mock()
 
 
