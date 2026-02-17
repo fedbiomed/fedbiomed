@@ -8,6 +8,7 @@ implementation of Round class of the node component
 import os
 import tempfile
 import time
+import traceback
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -66,7 +67,6 @@ class Round:
         round_number: int = 0,
         dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
         aux_vars: Optional[Dict[str, AuxVar]] = None,
-        debug: Optional[bool] = False,
     ) -> None:
         """Constructor of the class
 
@@ -138,7 +138,6 @@ class Round:
         )
         self._temp_dir = tempfile.TemporaryDirectory()
         self._keep_files_dir = self._temp_dir.name
-        self._debug = debug
 
     def __del__(self):
         """Class destructor"""
@@ -225,7 +224,10 @@ class Round:
                 experiment_id=self.experiment_id,
             )
         except FedbiomedSecureAggregationError as e:
-            logger.error(str(e))
+            logger.error(repr(e))
+            logger.debug(
+                f"Secure aggregation configuration error details: {traceback.format_exc()}"
+            )
             return self._send_round_reply(
                 success=False, message="Could not configure secure aggregation on node"
             )
@@ -239,6 +241,9 @@ class Round:
             )
 
             if not approved:
+                logger.info(
+                    f"Training plan is not approved by the node. Training plan details: {training_plan_['name']}"
+                )
                 return self._send_round_reply(
                     False,
                     f"Requested training plan is not approved by the node with: \n"
@@ -259,8 +264,10 @@ class Round:
             self.training_plan = CurrentTrainingPlan()
         except Exception as e:
             error_message = "Cannot instantiate training plan object."
-            if self._debug:
-                logger.error(f"{error_message} Details: {repr(e)}")
+            logger.error(f"{error_message} Details: {repr(e)}")
+            logger.debug(
+                f"Training plan instantiation error details: {traceback.format_exc()}"
+            )
             return self._send_round_reply(success=False, message=error_message)
 
         # save and load training plan to a file to be sure
@@ -277,6 +284,7 @@ class Round:
         except Exception as e:
             error_message = "Cannot save the training plan to a local tmp dir"
             logger.error(f"Cannot save the training plan to a local tmp dir : {e}")
+            logger.debug(f"Training plan save error details: {traceback.format_exc()}")
             return self._send_round_reply(success=False, message=error_message)
 
         del CurrentTrainingPlan
@@ -288,8 +296,8 @@ class Round:
             )
         except Exception as e:
             error_message = "Cannot load training plan object from file."
-            if self._debug:
-                logger.error(f"{error_message} Details: {repr(e)}")
+            logger.error(f"{error_message} Details: {repr(e)}")
+            logger.debug(f"Training plan load error details: {traceback.format_exc()}")
             return self._send_round_reply(success=False, message=error_message)
 
         try:
@@ -301,8 +309,10 @@ class Round:
             )
         except Exception as e:
             error_message = "Can't initialize training plan with the arguments."
-            if self._debug:
-                logger.error(f"{error_message} Details: {repr(e)}")
+            logger.error(f"{error_message} Details: {repr(e)}")
+            logger.debug(
+                f"Training plan initialization error details: {traceback.format_exc()}"
+            )
             return self._send_round_reply(success=False, message=error_message)
 
         # load node state
@@ -311,8 +321,10 @@ class Round:
             try:
                 self._load_round_state(previous_state_id)
             except Exception as e:
-                if self._debug:
-                    logger.error(f"Can't read previous node state. Details: {repr(e)}")
+                logger.error(f"Can't read previous node state. Details: {repr(e)}")
+                logger.debug(
+                    f"Previous node state load error details: {traceback.format_exc()}"
+                )
                 # don't send error details to researcher
                 return self._send_round_reply(
                     success=False, message="Can't read previous node state."
@@ -323,36 +335,45 @@ class Round:
             self.training_plan.set_model_params(self.params)
         except Exception as e:
             error_message = "Cannot initialize model parameters."
-            if self._debug:
-                logger.error(f"{error_message} Details: {repr(e)}")
+            logger.error(f"{error_message} Details: {repr(e)}")
+            logger.debug(
+                f"Model parameters initialization error details: {traceback.format_exc()}"
+            )
             return self._send_round_reply(success=False, message=error_message)
         # ---------------------------------------------------------------------
 
         # Process Optimizer auxiliary variables, if any.
-        error_message = self.process_optim_aux_var()
-        if error_message:
-            if self._debug:
+        try:
+            error_message = self.process_optim_aux_var()
+        except Exception as e:
+            if error_message:
                 logger.error(
-                    f"Error while processing optimizer auxiliary variables: {error_message}"
+                    f"Error while processing optimizer auxiliary variables: {error_message}. Details: {repr(e)}"
                 )
+            logger.debug(
+                f"Optimizer auxiliary variables processing error details: {traceback.format_exc()}"
+            )
             return self._send_round_reply(success=False, message=error_message)
 
         # Split training and validation data -------------------------------------
         try:
             self._set_training_testing_data_loaders()
-
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
-            if self._debug:
-                logger.error(error_message)
+            logger.error(error_message)
+            logger.debug(
+                f"Validation/train data creation error details: {traceback.format_exc()}"
+            )
             return self._send_round_reply(success=False, message=error_message)
         except Exception as e:
             error_message = (
                 f"Undetermined error while creating data for training/validation. Can not create "
                 f"validation/train data: {repr(e)}"
             )
-            if self._debug:
-                logger.error(error_message)
+            logger.error(error_message)
+            logger.debug(
+                f"Validation/train data creation error details: {traceback.format_exc()}"
+            )
             return self._send_round_reply(success=False, message=error_message)
         # ------------------------------------------------------------------------
 
@@ -373,11 +394,17 @@ class Round:
                         f"{repr(e)}",
                         researcher_id=self.researcher_id,
                     )
+                    logger.debug(
+                        f"Validation on global parameter updates error details: {traceback.format_exc()}"
+                    )
                 except Exception as e:
                     logger.error(
                         f"Undetermined error during the testing phase on global parameter updates: "
                         f"{repr(e)}",
                         researcher_id=self.researcher_id,
+                    )
+                    logger.debug(
+                        f"Validation on global parameter updates error details: {traceback.format_exc()}"
                     )
             else:
                 logger.error(
@@ -402,8 +429,8 @@ class Round:
                     ptime_after = time.process_time()
                 except Exception as exc:
                     error_message = f"Cannot train model in round: {repr(exc)}"
-                    if self._debug:
-                        logger.error(error_message)
+                    logger.error(error_message)
+                    logger.debug(f"Training error details: {traceback.format_exc()}")
                     return self._send_round_reply(success=False, message=error_message)
 
             # Collect Optimizer auxiliary variables, if any.
@@ -414,8 +441,10 @@ class Round:
                 error_message = (
                     f"Cannot collect Optimizer auxiliary variables: {repr(exc)}"
                 )
-                if self._debug:
-                    logger.error(error_message)
+                logger.error(error_message)
+                logger.debug(
+                    f"Optimizer auxiliary variables collecting error details: {traceback.format_exc()}"
+                )
                 return self._send_round_reply(success=False, message=error_message)
 
             # Validation after training
@@ -436,11 +465,17 @@ class Round:
                             f"{repr(e)}",
                             researcher_id=self.researcher_id,
                         )
+                        logger.debug(
+                            f"Validation on local parameter updates error details: {traceback.format_exc()}"
+                        )
                     except Exception as e:
                         logger.error(
                             f"Undetermined error during the validation phase on local parameter updates"
                             f"{repr(e)}",
                             researcher_id=self.researcher_id,
+                        )
+                        logger.debug(
+                            f"Validation on local parameter updates error details: {traceback.format_exc()}"
                         )
                 else:
                     logger.error(
@@ -478,8 +513,10 @@ class Round:
                 self._save_round_state()
             except Exception as e:
                 # don't send details to researcher
-                if self._debug:
-                    logger.error(f"Error while saving round state: {repr(e)}")
+                logger.error(f"Error while saving round state: {repr(e)}")
+                logger.debug(
+                    f"Round state saving error details: {traceback.format_exc()}"
+                )
                 return self._send_round_reply(
                     success=False, message="Can't save new node state."
                 )
@@ -489,11 +526,12 @@ class Round:
                 del self.training_plan
                 del CurrentTPModule
             except Exception as e:
-                logger.debug("Exception raised while deleting training plan instance")
-                if self._debug:
-                    logger.error(
-                        f"Exception raised while deleting training plan instance: {repr(e)}"
-                    )
+                logger.error(
+                    f"Exception raised while deleting training plan instance: {repr(e)}"
+                )
+                logger.debug(
+                    f"Training plan instance deletion error details: {traceback.format_exc()}"
+                )
 
             return self._send_round_reply(
                 success=True,

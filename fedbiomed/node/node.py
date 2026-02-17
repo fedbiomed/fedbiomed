@@ -7,6 +7,7 @@ Core code of the node component.
 
 import os
 import time
+import traceback
 from typing import Callable, Optional, Union
 
 from fedbiomed import __version__
@@ -427,11 +428,16 @@ class Node:
             researcher_id=msg.researcher_id,
             send=self._grpc_client.send,
         )
+        logger.debug(f"History monitor initialized for experiment {msg.experiment_id}")
 
         dataset_id = msg.get_param("dataset_id")
         data = self.dataset_manager.dataset_table.get_by_id(dataset_id)
 
         if data is None:
+            logger.error(
+                f"{ErrorNumbers.FB313.value}: Did not found proper data in local datasets "
+                f"on node={self._node_id} for dataset_id={dataset_id}"
+            )
             return self.send_error(
                 extra_msg="Did not found proper data in local datasets "
                 f"on node={self._node_id}",
@@ -439,11 +445,21 @@ class Node:
                 researcher_id=msg.researcher_id,
                 errnum=ErrorNumbers.FB313,
             )
+        logger.debug(
+            f"Dataset successfully fetched for dataset_id={dataset_id} on node={self._node_id}"
+        )
 
         dlp_and_loading_block_metadata = None
         if "dlp_id" in data:
             dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(
                 data["dlp_id"]
+            )
+            logger.debug(
+                f"DLP and loading block metadata with dlp_id={data['dlp_id']} fetched for dataset_id={dataset_id} on node={self._node_id}"
+            )
+        else:
+            logger.debug(
+                f"No DLP and loading block metadata found for dataset_id={dataset_id} on node={self._node_id}"
             )
 
         round_ = Round(
@@ -467,12 +483,16 @@ class Node:
             round_number=msg.get_param("round"),
             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
             aux_vars=msg.get_param("optim_aux_var"),
-            debug=self._debug,
         )
 
         # the round raises an error if it cannot initialize
-        err_msg = round_.initialize_arguments(msg.get_param("state_id"))
-        if err_msg is not None:
+        try:
+            err_msg = round_.initialize_arguments(msg.get_param("state_id"))
+        except Exception:
+            if err_msg is not None:
+                logger.error(
+                    f"{ErrorNumbers.FB300.value}: Could not initialize arguments for training round: {err_msg}"
+                )
             self._grpc_client.send(
                 ErrorMessage(
                     node_id=self._node_id,
@@ -480,6 +500,9 @@ class Node:
                     researcher_id=msg.researcher_id,
                     extra_msg="Could not initialize arguments",
                 )
+            )
+            logger.debug(
+                f"Training round initialize arguments error. Details are: {traceback.format_exc()}"
             )
 
         return round_
