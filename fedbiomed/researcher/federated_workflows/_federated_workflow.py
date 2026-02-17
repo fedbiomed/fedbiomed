@@ -118,7 +118,16 @@ def exp_exceptions(function):
 
             return ret
 
-        return function(*args, **kwargs)
+        else:
+            try:
+                return function(*args, **kwargs)
+            except FedbiomedSilentTerminationError as exp:
+                logger.debug(f"FedbiomedSilentTerminationError raised: {str(exp)}")
+                raise
+            except FedbiomedExperimentError as exp:
+                traceback.print_exc(file=sys.stdout)
+                logger.debug(f"FedbiomedExperimentError raised: {str(exp)}")
+                raise
 
     return payload
 

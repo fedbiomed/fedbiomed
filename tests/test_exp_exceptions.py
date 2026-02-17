@@ -1,8 +1,14 @@
+import io
+import os
 import unittest
 from unittest.mock import patch
 
 import fedbiomed.researcher.federated_workflows._federated_workflow
-from fedbiomed.common.exceptions import FedbiomedSilentTerminationError, FedbiomedError
+from fedbiomed.common.exceptions import (
+    FedbiomedError,
+    FedbiomedExperimentError,
+    FedbiomedSilentTerminationError,
+)
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
 
 
@@ -22,8 +28,9 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise BaseException
 
-        with self.assertRaises(BaseException):
-            decFunction()
+        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+            with self.assertRaises(BaseException):
+                decFunction()
 
     def test_exp_exceptions_2_system_Exit(self):
         """Test  raising directly system exit"""
@@ -33,8 +40,9 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise SystemExit
 
-        with self.assertRaises(SystemExit):
-            decFunction()
+        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+            with self.assertRaises(SystemExit):
+                decFunction()
 
     def test_exp_exceptions_3_key_int(self):
         """Test raisin  KeyboardInterrupt error"""
@@ -43,8 +51,9 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise KeyboardInterrupt
 
-        with self.assertRaises(SystemExit):
-            decFunction()
+        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+            with self.assertRaises(SystemExit):
+                decFunction()
 
     def test_exp_exception_4_fedbiomed_error(self):
         """Test raising exp FedbiomedError on notebook and python shell"""
@@ -53,18 +62,19 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise FedbiomedError
 
-        # on notebook
-        with patch.object(
-            fedbiomed.researcher.federated_workflows._federated_workflow,
-            "is_ipython",
-            create=True,
-        ) as m:
-            m.return_value = True
-            with self.assertRaises(FedbiomedSilentTerminationError):
+        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+            # on notebook
+            with patch.object(
+                fedbiomed.researcher.federated_workflows._federated_workflow,
+                "is_ipython",
+                create=True,
+            ) as m:
+                m.return_value = True
+                with self.assertRaises(FedbiomedSilentTerminationError):
+                    decFunction()
+            # on python shell
+            with self.assertRaises(SystemExit):
                 decFunction()
-        # on python shell
-        with self.assertRaises(SystemExit):
-            decFunction()
 
     def test_exp_exception_4_fedbiomed_silent_error(self):
         """Test raising exp FedbiomedSilentTerminationError"""
@@ -73,9 +83,10 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise FedbiomedSilentTerminationError
 
-        # SystemExit on notebook
-        with self.assertRaises(FedbiomedSilentTerminationError):
-            decFunction()
+        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+            # SystemExit on notebook
+            with self.assertRaises(FedbiomedSilentTerminationError):
+                decFunction()
 
     def test_exp_exception_5_interactive_shell_false(self):
         """Test if get_ipython does not return ZMQInteractiveShell"""
@@ -84,15 +95,54 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise FedbiomedError
 
-        # SystemExit on python shell
-        with patch.object(
-            fedbiomed.researcher.federated_workflows._federated_workflow,
-            "is_ipython",
-            create=True,
-        ) as m:
-            m.return_value = False
-            with self.assertRaises(SystemExit):
+        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+            # SystemExit on python shell
+            with patch.object(
+                fedbiomed.researcher.federated_workflows._federated_workflow,
+                "is_ipython",
+                create=True,
+            ) as m:
+                m.return_value = False
+                with self.assertRaises(SystemExit):
+                    decFunction()
+
+    def test_exp_exceptions_6_debug_mode_does_not_intercept_generic_exceptions(self):
+        """In debug mode, exp_exceptions should not add special handling to non-experiment errors."""
+
+        @exp_exceptions
+        def decFunction():
+            raise ValueError("boom")
+
+        stdout = io.StringIO()
+        with (
+            patch.dict(os.environ, {"FEDBIOMED_DEBUG": "1"}, clear=False),
+            patch("sys.stdout", stdout),
+        ):
+            with self.assertRaises(ValueError):
                 decFunction()
+
+        self.assertEqual("", stdout.getvalue())
+
+    def test_exp_exceptions_7_debug_mode_fedbiomed_experiment_error_prints_traceback_and_reraises(
+        self,
+    ):
+        """In debug mode, FedbiomedExperimentError should print a traceback and re-raise."""
+
+        @exp_exceptions
+        def decFunction():
+            raise FedbiomedExperimentError("boom-exp")
+
+        stdout = io.StringIO()
+        with (
+            patch.dict(os.environ, {"FEDBIOMED_DEBUG": "1"}, clear=False),
+            patch("sys.stdout", stdout),
+        ):
+            with self.assertRaises(FedbiomedExperimentError):
+                decFunction()
+
+        out = stdout.getvalue()
+        self.assertIn("FedbiomedExperimentError", out)
+        self.assertIn("boom-exp", out)
 
 
 if __name__ == "__main__":  # pragma: no cover
