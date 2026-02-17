@@ -6,6 +6,9 @@ Interfaces with the node component database.
 """
 
 import csv
+import os
+import shutil
+from pathlib import Path
 from typing import Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
@@ -15,7 +18,12 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import get_controller
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager._db_tables import DatasetTable, DlbTable, DlpTable
+from fedbiomed.node.dataset_manager._db_tables import (
+    DatasetTable,
+    DlbTable,
+    DlpTable,
+    DynamicDatasetTable,
+)
 
 
 class DatasetManager:
@@ -25,15 +33,22 @@ class DatasetManager:
     for the node. Currently uses TinyDB.
     """
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, dynamic_datasets_path: str = None):
         """Initialize with database path."""
         self._dataset_table = DatasetTable(path)
+        self._dynamic_dataset_table = DynamicDatasetTable(path)
         self._dlp_table = DlpTable(path)
         self._dlb_table = DlbTable(path)
+        self._dynamic_datasets_path = dynamic_datasets_path
+        self.create_dynamic_datasets_folder()
 
     @property
     def dataset_table(self) -> DatasetTable:
         return self._dataset_table
+
+    @property
+    def dynamic_dataset_table(self) -> DynamicDatasetTable:
+        return self._dynamic_dataset_table
 
     @property
     def dlp_table(self) -> DlpTable:
@@ -42,6 +57,22 @@ class DatasetManager:
     @property
     def dlb_table(self) -> DlbTable:
         return self._dlb_table
+
+    def create_dynamic_datasets_folder(self):
+        """Creates the folder for storing dynamic datasets if it does not exist.
+
+        Raises:
+            FedbiomedError:
+            - If the folder creation fails.
+        """
+        if self._dynamic_datasets_path:
+            try:
+                os.makedirs(self._dynamic_datasets_path, exist_ok=True)
+            except Exception as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to create dynamic datasets folder at "
+                    f"{self._dynamic_datasets_path}: {str(e)}"
+                ) from e
 
     def get_dlp_by_id(self, dlp_id: str) -> Tuple[Optional[dict], List[dict]]:
         """Get data loading plan by ID and its associated data loading blocks."""
@@ -145,6 +176,209 @@ class DatasetManager:
             self.save_data_loading_plan(data_loading_plan)
 
         return dataset_entry
+
+    def add_dynamic_dataset(
+        self,
+        data,
+        researcher_id: str,
+        experiment_id: str,
+        processing_id: str,
+        parent_dataset_id: str,
+        name: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        description: Optional[str] = None,
+        dataset_id: Optional[str] = None,
+        dataset_parameters: Optional[dict] = None,
+    ):
+        """Adds a dynamic dataset to the database and saves its content to the filesystem.
+
+        Args:
+            data: the dataset content to be saved, as a pandas DataFrame (for tabular data) or other appropriate format depending on the data type
+            researcher_id: the id of the researcher who created the dynamic dataset
+            experiment_id: the id of the experiment for which the dynamic dataset was created
+            processing_id: the id of the processing that generated the dynamic dataset
+            parent_dataset_id: the id of the parent dataset from which the dynamic dataset was derived
+            name: optional name for the dynamic dataset
+            tags: optional list of tags for the dynamic dataset
+            description: optional description for the dynamic dataset
+            dataset_id: optional id for the dynamic dataset. If None, a new id will be generated.
+            dataset_parameters: optional parameters for the dataset controller, such as e.g. data type specific parameters (e.g. for medical-folder, the tabular file name within the folder)
+
+        Returns:
+            The dataset_id of the registered dynamic dataset
+
+        Raises:
+            FedbiomedError:
+            - If the parent dataset is not found in the database
+        """
+
+        # Insert partial DB entry
+        entry = {
+            "researcher_id": researcher_id,
+            "experiment_id": experiment_id,
+            "processing_id": processing_id,
+            "parent_dataset_id": parent_dataset_id,
+            "name": name,
+            "tags": tags,
+            "description": description,
+            "dataset_id": dataset_id,
+            "dataset_parameters": dataset_parameters,
+        }
+        dataset_id = self.dynamic_dataset_table.insert(entry)
+
+        # Get path, create folder and save data
+        dataset_dir = os.path.join(self._dynamic_datasets_path, dataset_id)
+        os.makedirs(dataset_dir, exist_ok=True)
+        ## TODO: check where to set and choose permissions
+        os.chmod(dataset_dir, 0o750)
+        # TODO: check if saving dataset files should be done in this function,
+        # and how to deal with other types of datasets (e.g. images)
+        data_path = os.path.join(dataset_dir, "data.csv")
+        data.to_csv(data_path, index=False)
+
+        # Get data type from parent dataset
+        parent_dataset_entry = self.dataset_table.get_by_id(parent_dataset_id)
+        parent_dynamic_dataset_entry = self.dynamic_dataset_table.get_by_id(
+            parent_dataset_id
+        )
+        if parent_dataset_entry is None and parent_dynamic_dataset_entry is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Parent dataset with id {parent_dataset_id} not found."
+            )
+        parent_entry = (
+            parent_dataset_entry
+            if parent_dataset_entry is not None
+            else parent_dynamic_dataset_entry
+        )
+        data_type = parent_entry["data_type"]
+
+        # Get controller for data type
+        controller = get_controller(
+            data_type,
+            controller_parameters={
+                "root": data_path,
+                **(dataset_parameters if dataset_parameters is not None else {}),
+            },
+        )
+
+        # Update DB entry with path, shape and dtypes
+        self.dynamic_dataset_table.update_by_id(
+            dataset_id,
+            {
+                "path": data_path,
+                "shape": controller.shape(),
+                "dtypes": controller.get_types(),
+                "data_type": data_type,
+            },
+        )
+
+        return dataset_id
+
+    def delete_dataset_by_id(
+        self,
+        dataset_id: str,
+        recursive: bool = False,
+        force: bool = False,
+    ) -> None:
+        """Deletes a dataset, and the related files, from the database by its ID.
+
+        Args:
+            dataset_id: the ID of the dataset to delete
+            recursive: whether to recursively delete all descendant dynamic datasets (if any). Defaults to False.
+            force: whether to force delete the dataset if it has children, by reassigning its children to its parent dataset. Defaults to False.
+
+        Raises:
+            FedbiomedError:
+            - If the dataset has children and neither recursive nor force is True
+            - If no dataset is found with the given ID
+        """
+        raw_entry = self.dataset_table.get_by_id(dataset_id)
+        dynamic_entry = self.dynamic_dataset_table.get_by_id(dataset_id)
+        if raw_entry is None and dynamic_entry is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: No dataset found with id={dataset_id}"
+            )
+
+        children = self.dynamic_dataset_table.get_all_by_value(
+            "parent_dataset_id", dataset_id
+        )
+
+        # Case 1: raw dataset
+        if raw_entry is not None:
+            if children:
+                if force:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB632.value}: Cannot force delete a raw dataset with children. Use recursive=True to delete subtree."
+                    )
+
+                if not recursive:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB632.value}: Dataset has derived dynamic datasets. Use recursive=True to delete subtree."
+                    )
+
+                subtree = self.dynamic_dataset_table.collect_subtree(dataset_id)
+                for dyn_id in reversed(subtree):
+                    self._delete_dynamic_dataset_files(dyn_id)
+                    self.dynamic_dataset_table.delete_by_id(dyn_id)
+
+            # Delete raw dataset entry (no filesystem removal)
+            self.dataset_table.delete_by_id(dataset_id)
+            return
+
+        # Case 2: dynamic dataset
+        if not children:
+            # Simple delete
+            self._delete_dynamic_dataset_files(dataset_id)
+            self.dynamic_dataset_table.delete_by_id(dataset_id)
+            return
+
+        # Has children
+        if recursive:
+            subtree = self.dynamic_dataset_table.collect_subtree(dataset_id)
+
+            for dyn_id in reversed(subtree):
+                self._delete_dynamic_dataset_files(dyn_id)
+                self.dynamic_dataset_table.delete_by_id(dyn_id)
+
+            return
+
+        if force:
+            parent_id = dynamic_entry.get("parent_dataset_id")
+
+            for child in children:
+                self.dynamic_dataset_table.update_by_id(
+                    child["dataset_id"],
+                    {"parent_dataset_id": parent_id},
+                )
+
+            self._delete_dynamic_dataset_files(dataset_id)
+            self.dynamic_dataset_table.delete_by_id(dataset_id)
+            return
+
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB632.value}: Dataset has children. Use recursive=True to delete subtree "
+            "or force=True to reassign children."
+        )
+
+    def _delete_dynamic_dataset_files(self, dataset_id: str) -> None:
+        """Deletes filesystem folder of a dynamic dataset.
+
+        Args:
+            dataset_id: the dynamic dataset id whose files should be deleted
+        """
+        entry = self.dynamic_dataset_table.get_by_id(dataset_id)
+        if entry is not None:
+            dataset_path = entry.get("path")
+            if dataset_path:
+                path = Path(dataset_path)
+                parts = path.parts
+                if dataset_id not in parts:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB632.value}: Dataset path {dataset_path} does not contain dataset id {dataset_id}. Aborting deletion to prevent accidental data loss."
+                    )
+                idx = parts.index(dataset_id)
+                path_folder = Path(*parts[: idx + 1])
+                shutil.rmtree(path_folder)
 
     def remove_dlp_by_id(self, dlp_id: str):
         """Removes a data loading plan (DLP) from the database,

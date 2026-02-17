@@ -8,7 +8,7 @@ from fedbiomed.common.db import TinyTableConnector
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
-from ._db_dataclasses import DatasetEntry, DlbEntry, DlpEntry
+from ._db_dataclasses import DatasetEntry, DlbEntry, DlpEntry, DynamicDatasetEntry
 
 
 class BaseTable(TinyTableConnector):
@@ -139,6 +139,30 @@ class DatasetTable(BaseTable):
                 raise FedbiomedError(msg)
 
         return super().update_by_id(dataset_id, modified_dataset)
+
+
+class DynamicDatasetTable(BaseTable):
+    _table_name = "DynamicDatasets"
+    _id_name = "dataset_id"
+    _dataclass = DynamicDatasetEntry
+
+    def collect_subtree(self, parent_id: str) -> List[str]:
+        """Return a list of dataset_ids in the subtree rooted at parent_id.
+
+        The returned list starts with parent_id, then its children recursively.
+        """
+        collected: List[str] = []
+
+        def _dfs(current_id: str):
+            collected.append(current_id)
+            children = self.get_all_by_value("parent_dataset_id", current_id)
+            for c in children:
+                child_id = c.get(self._id_name)
+                if child_id:
+                    _dfs(child_id)
+
+        _dfs(parent_id)
+        return collected
 
 
 class DlpTable(BaseTable):
