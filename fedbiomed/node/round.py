@@ -66,6 +66,7 @@ class Round:
         round_number: int = 0,
         dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
         aux_vars: Optional[Dict[str, AuxVar]] = None,
+        debug: Optional[bool] = False,
     ) -> None:
         """Constructor of the class
 
@@ -137,6 +138,7 @@ class Round:
         )
         self._temp_dir = tempfile.TemporaryDirectory()
         self._keep_files_dir = self._temp_dir.name
+        self._debug = debug
 
     def __del__(self):
         """Class destructor"""
@@ -255,8 +257,10 @@ class Round:
                 code=self.training_plan_source, class_name=self.training_plan_class
             )
             self.training_plan = CurrentTrainingPlan()
-        except Exception:
+        except Exception as e:
             error_message = "Cannot instantiate training plan object."
+            if self._debug:
+                logger.error(f"{error_message} Details: {repr(e)}")
             return self._send_round_reply(success=False, message=error_message)
 
         # save and load training plan to a file to be sure
@@ -282,8 +286,10 @@ class Round:
             CurrentTPModule, self.training_plan = utils.import_class_object_from_file(
                 training_plan_file, self.training_plan_class
             )
-        except Exception:
+        except Exception as e:
             error_message = "Cannot load training plan object from file."
+            if self._debug:
+                logger.error(f"{error_message} Details: {repr(e)}")
             return self._send_round_reply(success=False, message=error_message)
 
         try:
@@ -293,8 +299,10 @@ class Round:
                 aggregator_args=self.aggregator_args,
                 node_id=self._node_id,
             )
-        except Exception:
+        except Exception as e:
             error_message = "Can't initialize training plan with the arguments."
+            if self._debug:
+                logger.error(f"{error_message} Details: {repr(e)}")
             return self._send_round_reply(success=False, message=error_message)
 
         # load node state
@@ -302,8 +310,10 @@ class Round:
         if previous_state_id is not None:
             try:
                 self._load_round_state(previous_state_id)
-            except Exception:
-                # don't send error details
+            except Exception as e:
+                if self._debug:
+                    logger.error(f"Can't read previous node state. Details: {repr(e)}")
+                # don't send error details to researcher
                 return self._send_round_reply(
                     success=False, message="Can't read previous node state."
                 )
@@ -311,14 +321,20 @@ class Round:
         # Load model parameters received from researcher
         try:
             self.training_plan.set_model_params(self.params)
-        except Exception:
+        except Exception as e:
             error_message = "Cannot initialize model parameters."
+            if self._debug:
+                logger.error(f"{error_message} Details: {repr(e)}")
             return self._send_round_reply(success=False, message=error_message)
         # ---------------------------------------------------------------------
 
         # Process Optimizer auxiliary variables, if any.
         error_message = self.process_optim_aux_var()
         if error_message:
+            if self._debug:
+                logger.error(
+                    f"Error while processing optimizer auxiliary variables: {error_message}"
+                )
             return self._send_round_reply(success=False, message=error_message)
 
         # Split training and validation data -------------------------------------
@@ -327,12 +343,16 @@ class Round:
 
         except FedbiomedError as fe:
             error_message = f"Can not create validation/train data: {repr(fe)}"
+            if self._debug:
+                logger.error(error_message)
             return self._send_round_reply(success=False, message=error_message)
         except Exception as e:
             error_message = (
                 f"Undetermined error while creating data for training/validation. Can not create "
                 f"validation/train data: {repr(e)}"
             )
+            if self._debug:
+                logger.error(error_message)
             return self._send_round_reply(success=False, message=error_message)
         # ------------------------------------------------------------------------
 
@@ -382,6 +402,8 @@ class Round:
                     ptime_after = time.process_time()
                 except Exception as exc:
                     error_message = f"Cannot train model in round: {repr(exc)}"
+                    if self._debug:
+                        logger.error(error_message)
                     return self._send_round_reply(success=False, message=error_message)
 
             # Collect Optimizer auxiliary variables, if any.
@@ -392,6 +414,8 @@ class Round:
                 error_message = (
                     f"Cannot collect Optimizer auxiliary variables: {repr(exc)}"
                 )
+                if self._debug:
+                    logger.error(error_message)
                 return self._send_round_reply(success=False, message=error_message)
 
             # Validation after training
@@ -452,8 +476,10 @@ class Round:
 
             try:
                 self._save_round_state()
-            except Exception:
+            except Exception as e:
                 # don't send details to researcher
+                if self._debug:
+                    logger.error(f"Error while saving round state: {repr(e)}")
                 return self._send_round_reply(
                     success=False, message="Can't save new node state."
                 )
@@ -462,8 +488,12 @@ class Round:
             try:
                 del self.training_plan
                 del CurrentTPModule
-            except Exception:
+            except Exception as e:
                 logger.debug("Exception raised while deleting training plan instance")
+                if self._debug:
+                    logger.error(
+                        f"Exception raised while deleting training plan instance: {repr(e)}"
+                    )
 
             return self._send_round_reply(
                 success=True,

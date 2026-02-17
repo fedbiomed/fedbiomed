@@ -72,6 +72,9 @@ class Node:
             config: Node configuration
             node_args: Command line arguments for node.
         """
+        self._debug = (
+            self.node_args.get("debug", False) if node_args is not None else False
+        )
 
         self._config = config
         self._node_id = self._config.get("default", "id")
@@ -464,6 +467,7 @@ class Node:
             round_number=msg.get_param("round"),
             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
             aux_vars=msg.get_param("optim_aux_var"),
+            debug=self._debug,
         )
 
         # the round raises an error if it cannot initialize
