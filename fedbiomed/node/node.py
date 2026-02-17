@@ -73,9 +73,10 @@ class Node:
             config: Node configuration
             node_args: Command line arguments for node.
         """
-        self._debug = (
-            self.node_args.get("debug", False) if node_args is not None else False
-        ) or os.environ.get("FBM_DEBUG_NODE", "").lower() in ("1", "true", "yes")
+        self.node_args = node_args or {}
+        self._debug = bool(self.node_args.get("debug", False)) or os.environ.get(
+            "FBM_DEBUG_NODE", ""
+        ).lower() in ("1", "true", "yes")
 
         self._config = config
         self._node_id = self._config.get("default", "id")
@@ -141,8 +142,6 @@ class Node:
             node_name=self._node_name,
             config_path=self._config.root,
         )
-
-        self.node_args = node_args
 
     @property
     def node_id(self):
@@ -434,13 +433,11 @@ class Node:
         data = self.dataset_manager.dataset_table.get_by_id(dataset_id)
 
         if data is None:
-            logger.error(
-                f"{ErrorNumbers.FB313.value}: Did not found proper data in local datasets "
-                f"on node={self._node_id} for dataset_id={dataset_id}"
-            )
             return self.send_error(
-                extra_msg="Did not found proper data in local datasets "
-                f"on node={self._node_id}",
+                extra_msg=(
+                    f"{ErrorNumbers.FB313.value}: Did not found proper data in local datasets "
+                    f"on node={self._node_id} for dataset_id={dataset_id}"
+                ),
                 request_id=msg.request_id,
                 researcher_id=msg.researcher_id,
                 errnum=ErrorNumbers.FB313,
@@ -489,21 +486,27 @@ class Node:
         try:
             err_msg = round_.initialize_arguments(msg.get_param("state_id"))
         except Exception:
-            if err_msg is not None:
-                logger.error(
-                    f"{ErrorNumbers.FB300.value}: Could not initialize arguments for training round: {err_msg}"
-                )
-            self._grpc_client.send(
-                ErrorMessage(
-                    node_id=self._node_id,
-                    errnum=ErrorNumbers.FB300,
-                    researcher_id=msg.researcher_id,
-                    extra_msg="Could not initialize arguments",
-                )
+            self.send_error(
+                errnum=ErrorNumbers.FB300,
+                extra_msg=f"{ErrorNumbers.FB300.value}: Could not initialize arguments",
+                researcher_id=msg.researcher_id,
+                request_id=msg.request_id,
             )
             logger.debug(
                 f"Training round initialize arguments error. Details are: {traceback.format_exc()}"
             )
+            return None
+
+        if err_msg is not None:
+            self.send_error(
+                errnum=ErrorNumbers.FB300,
+                extra_msg=(
+                    f"{ErrorNumbers.FB300.value}: Could not initialize arguments for training round: {err_msg}"
+                ),
+                researcher_id=msg.researcher_id,
+                request_id=msg.request_id,
+            )
+            return None
 
         return round_
 

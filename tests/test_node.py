@@ -345,7 +345,39 @@ class TestNode(unittest.TestCase):
         mock_dataset_manager = MagicMock()
         mock_dataset_manager.dataset_table.get_by_id = MagicMock(return_value=None)
         self.n1.dataset_manager = mock_dataset_manager
-        self.n1.parser_task_train(self.train_request)
+        with patch("fedbiomed.node.node.logger.error") as logger_error:
+            self.n1.parser_task_train(self.train_request)
+
+            self.assertGreaterEqual(logger_error.call_count, 1)
+            messages = [call.args[0] for call in logger_error.call_args_list]
+            self.assertTrue(any(ErrorNumbers.FB313.value in m for m in messages))
+
+        error = self.grpc_send_mock.call_args.args[1]
+        self.assertIsInstance(error, ErrorMessage)
+
+    @patch("fedbiomed.node.node.Round", autospec=True)
+    @patch("fedbiomed.node.history_monitor.HistoryMonitor.__init__", spec=True)
+    def test_node_13b_parser_task_train_initialize_arguments_failure_returns_none_and_sends_error(
+        self,
+        history_monitor_patch,
+        round_patch,
+    ):
+        """If Round.initialize_arguments raises, parser_task_train must send an error and return None."""
+
+        history_monitor_patch.return_value = None
+        round_patch.return_value.initialize_arguments.side_effect = Exception(
+            "init-args-boom"
+        )
+
+        with (
+            patch("fedbiomed.node.node.logger.error") as logger_error,
+            patch("fedbiomed.node.node.logger.debug") as logger_debug,
+        ):
+            round_ = self.n1.parser_task_train(self.train_request)
+
+        self.assertIsNone(round_)
+        self.assertTrue(logger_error.called)
+        self.assertTrue(logger_debug.called)
 
         error = self.grpc_send_mock.call_args.args[1]
         self.assertIsInstance(error, ErrorMessage)
@@ -408,7 +440,7 @@ class TestNode(unittest.TestCase):
             researcher_id=dict_msg_1_dataset["researcher_id"],
             history_monitor=unittest.mock.ANY,
             aggregator_args=None,
-            node_args=None,
+            node_args={},
             tp_security_manager=ANY,
             round_number=1,
             dlp_and_loading_block_metadata=None,
@@ -470,7 +502,7 @@ class TestNode(unittest.TestCase):
             experiment_id=dict_msg_1_dataset["experiment_id"],
             researcher_id=dict_msg_1_dataset["researcher_id"],
             history_monitor=unittest.mock.ANY,
-            node_args=None,
+            node_args={},
             aggregator_args=None,
             round_number=0,
             dlp_and_loading_block_metadata=None,

@@ -284,11 +284,9 @@ class TestRound(unittest.TestCase):
     def test_round_02b_run_model_training_debug_flag_controls_error_details_logging(
         self,
     ):
-        """Tests that `Round._debug` controls whether detailed error logs are emitted.
+        """Tests that `run_model_training` logs details on early failures.
 
-        `run_model_training` has multiple `if self._debug: logger.error(... Details: ...)` branches.
-        Here we force an early failure and assert that the detailed log is only emitted when
-        debug is enabled.
+        The code logs an error with exception details and a debug traceback extract.
         """
 
         # Force training plan import/instantiation failure at the start of `run_model_training`.
@@ -296,36 +294,39 @@ class TestRound(unittest.TestCase):
         self.ic_from_spec_mock.side_effect = Exception("boom")
 
         try:
-            for debug in (False, True):
-                with self.subTest(debug=debug):
-                    self.r1._debug = debug
-                    self.r1.initialize_arguments()
+            self.r1.initialize_arguments()
 
-                    with patch("fedbiomed.node.round.logger.error") as logger_error:
-                        msg = self.r1.run_model_training(
-                            tp_approval=False,
-                            secagg_active=False,
-                            force_secagg=False,
-                            secagg_insecure_validation=True,
-                        )
+            with (
+                patch("fedbiomed.node.round.logger.error") as logger_error,
+                patch("fedbiomed.node.round.logger.debug") as logger_debug,
+            ):
+                msg = self.r1.run_model_training(
+                    tp_approval=False,
+                    secagg_active=False,
+                    force_secagg=False,
+                    secagg_insecure_validation=True,
+                )
 
-                        # Always fail with the generic message returned to the researcher.
-                        self.assertFalse(msg.get_dict().get("success", True))
-                        self.assertEqual(
-                            msg.get_dict().get("msg"),
-                            "Cannot instantiate training plan object.",
-                        )
+                self.assertFalse(msg.get_dict().get("success", True))
+                self.assertEqual(
+                    msg.get_dict().get("msg"),
+                    "Cannot instantiate training plan object.",
+                )
 
-                        if debug:
-                            logger_error.assert_called_once()
-                            log_msg = logger_error.call_args.args[0]
-                            self.assertIn(
-                                "Cannot instantiate training plan object.", log_msg
-                            )
-                            self.assertIn("Details:", log_msg)
-                            self.assertIn("boom", log_msg)
-                        else:
-                            logger_error.assert_not_called()
+                logger_error.assert_called_once()
+                log_msg = logger_error.call_args.args[0]
+                self.assertIn("Cannot instantiate training plan object.", log_msg)
+                self.assertIn("Details:", log_msg)
+                self.assertIn("boom", log_msg)
+
+                self.assertTrue(logger_debug.called)
+                debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+                self.assertTrue(
+                    any(
+                        "Training plan instantiation error details" in m
+                        for m in debug_messages
+                    )
+                )
         finally:
             self.ic_from_spec_mock.side_effect = original_side_effect
 
@@ -335,7 +336,7 @@ class TestRound(unittest.TestCase):
         """Tests the `training_routine` exception path in `run_model_training`.
 
         When `training_routine` raises, `run_model_training` must return a failure reply with
-        the exception details in the message, and only log an error if debug is enabled.
+        exception details in the message and log error + debug traceback.
         """
 
         def _fake_set_loaders():
@@ -353,31 +354,34 @@ class TestRound(unittest.TestCase):
                 FakeModel, "training_routine", side_effect=Exception("boom-train")
             ),
         ):
-            for debug in (False, True):
-                with self.subTest(debug=debug):
-                    self.r1._debug = debug
-                    self.r1.initialize_arguments()
+            self.r1.initialize_arguments()
 
-                    with patch("fedbiomed.node.round.logger.error") as logger_error:
-                        msg = self.r1.run_model_training(
-                            tp_approval=False,
-                            secagg_active=False,
-                            force_secagg=False,
-                            secagg_insecure_validation=True,
-                        )
+            with (
+                patch("fedbiomed.node.round.logger.error") as logger_error,
+                patch("fedbiomed.node.round.logger.debug") as logger_debug,
+            ):
+                msg = self.r1.run_model_training(
+                    tp_approval=False,
+                    secagg_active=False,
+                    force_secagg=False,
+                    secagg_insecure_validation=True,
+                )
 
-                        self.assertFalse(msg.get_dict().get("success", True))
-                        self.assertIn(
-                            "Cannot train model in round:",
-                            msg.get_dict().get("msg", ""),
-                        )
+                self.assertFalse(msg.get_dict().get("success", True))
+                self.assertIn(
+                    "Cannot train model in round:",
+                    msg.get_dict().get("msg", ""),
+                )
 
-                        if debug:
-                            logger_error.assert_called_once_with(
-                                "Cannot train model in round: Exception('boom-train')"
-                            )
-                        else:
-                            logger_error.assert_not_called()
+                logger_error.assert_called_once_with(
+                    "Cannot train model in round: Exception('boom-train')"
+                )
+
+                self.assertTrue(logger_debug.called)
+                debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+                self.assertTrue(
+                    any("Training error details" in m for m in debug_messages)
+                )
 
     @patch("fedbiomed.node.round.Round._split_train_and_test_data")
     @patch(

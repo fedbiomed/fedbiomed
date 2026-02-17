@@ -346,12 +346,17 @@ class Round:
         try:
             error_message = self.process_optim_aux_var()
         except Exception as e:
-            if error_message:
-                logger.error(
-                    f"Error while processing optimizer auxiliary variables: {error_message}. Details: {repr(e)}"
-                )
+            logger.error(
+                f"Error while processing optimizer auxiliary variables: Details: {repr(e)}"
+            )
             logger.debug(
                 f"Optimizer auxiliary variables processing error details: {traceback.format_exc()}"
+            )
+            return self._send_round_reply(success=False, message=error_message)
+
+        if error_message is not None:
+            logger.error(
+                f"Error while processing optimizer auxiliary variables: {error_message}"
             )
             return self._send_round_reply(success=False, message=error_message)
 

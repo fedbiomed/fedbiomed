@@ -28,8 +28,8 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise BaseException
 
-        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
-            with self.assertRaises(BaseException):
+        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
+            with self.assertRaises(SystemExit):
                 decFunction()
 
     def test_exp_exceptions_2_system_Exit(self):
@@ -40,7 +40,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise SystemExit
 
-        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
             with self.assertRaises(SystemExit):
                 decFunction()
 
@@ -51,7 +51,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise KeyboardInterrupt
 
-        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
             with self.assertRaises(SystemExit):
                 decFunction()
 
@@ -62,7 +62,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise FedbiomedError
 
-        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
             # on notebook
             with patch.object(
                 fedbiomed.researcher.federated_workflows._federated_workflow,
@@ -83,7 +83,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise FedbiomedSilentTerminationError
 
-        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
             # SystemExit on notebook
             with self.assertRaises(FedbiomedSilentTerminationError):
                 decFunction()
@@ -95,7 +95,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise FedbiomedError
 
-        with patch.dict(os.environ, {"FEDBIOMED_DEBUG": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
             # SystemExit on python shell
             with patch.object(
                 fedbiomed.researcher.federated_workflows._federated_workflow,
@@ -115,7 +115,7 @@ class TestExpExceptions(unittest.TestCase):
 
         stdout = io.StringIO()
         with (
-            patch.dict(os.environ, {"FEDBIOMED_DEBUG": "1"}, clear=False),
+            patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": "1"}, clear=False),
             patch("sys.stdout", stdout),
         ):
             with self.assertRaises(ValueError):
@@ -134,7 +134,7 @@ class TestExpExceptions(unittest.TestCase):
 
         stdout = io.StringIO()
         with (
-            patch.dict(os.environ, {"FEDBIOMED_DEBUG": "1"}, clear=False),
+            patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": "1"}, clear=False),
             patch("sys.stdout", stdout),
         ):
             with self.assertRaises(FedbiomedExperimentError):
@@ -143,6 +143,27 @@ class TestExpExceptions(unittest.TestCase):
         out = stdout.getvalue()
         self.assertIn("FedbiomedExperimentError", out)
         self.assertIn("boom-exp", out)
+
+    def test_exp_exceptions_8_debug_mode_fedbiomed_silent_termination_error_prints_traceback_and_reraises(
+        self,
+    ):
+        """In debug mode, FedbiomedSilentTerminationError should print a traceback and re-raise."""
+
+        @exp_exceptions
+        def decFunction():
+            raise FedbiomedSilentTerminationError("boom-silent")
+
+        stdout = io.StringIO()
+        with (
+            patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": "1"}, clear=False),
+            patch("sys.stdout", stdout),
+        ):
+            with self.assertRaises(FedbiomedSilentTerminationError):
+                decFunction()
+
+        out = stdout.getvalue()
+        self.assertIn("FedbiomedSilentTerminationError", out)
+        self.assertIn("boom-silent", out)
 
 
 if __name__ == "__main__":  # pragma: no cover

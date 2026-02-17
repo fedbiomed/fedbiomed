@@ -127,7 +127,7 @@ def start_node(config, node_args):
             time.sleep(0.5)
             sys.exit(signum)
 
-    if _node._debug:
+    if getattr(_node, "_debug", False):
         logger.setLevel("DEBUG")
     else:
         logger.setLevel("INFO")
