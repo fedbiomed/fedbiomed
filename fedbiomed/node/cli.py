@@ -127,7 +127,10 @@ def start_node(config, node_args):
             time.sleep(0.5)
             sys.exit(signum)
 
-    logger.setLevel("DEBUG")
+    if _node._debug:
+        logger.setLevel("DEBUG")
+    else:
+        logger.setLevel("INFO")
 
     try:
         signal.signal(signal.SIGTERM, _node_signal_handler)
@@ -485,7 +488,7 @@ class NodeControl(CLIArgumentParser):
 
         start.add_argument(
             "--debug",
-            "-dbg",
+            "-D",
             action="store_true",
             required=False,
             help="Activate debug mode for the Node. Default is `False`",

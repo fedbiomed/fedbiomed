@@ -119,6 +119,8 @@ class ComponentDirectoryAction(ABC, argparse.Action):
         self.set_component(component_dir)
 
         # this may be changed on command line or in the config_node.ini
+        # FIXME: alitolga: this may remain for debugging purposes until node and researcher components are started
+        # however I don't think the logger level should be set here, and instead be set when node and researcher get started.
         logger.setLevel("DEBUG")
 
 

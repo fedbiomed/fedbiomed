@@ -628,7 +628,9 @@ class FedLogger(metaclass=SingletonMeta):
         self._internal_add_handler("GRPC", handler)
 
         # as a side effect this will set the minimal level to ERROR
-        self.setLevel(level, "GRPC")
+        # FIXME: alitolga: This could cause problems in the logging level,
+        # I believe the level should be set when node and researcher get started.
+        # self.setLevel(level, "GRPC")
 
         pass
 

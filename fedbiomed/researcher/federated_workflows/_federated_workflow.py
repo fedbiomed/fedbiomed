@@ -71,7 +71,11 @@ def exp_exceptions(function):
     def payload(*args, **kwargs):
         code = 0
 
-        if not os.environ.get("FEDBIOMED_DEBUG"):
+        if os.environ.get("FBM_DEBUG_RESEARCHER", "").lower() not in (
+            "1",
+            "true",
+            "yes",
+        ):
             try:
                 ret = function(*args, **kwargs)
             except FedbiomedSilentTerminationError:
