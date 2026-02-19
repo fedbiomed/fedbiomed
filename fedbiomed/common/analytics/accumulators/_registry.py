@@ -11,6 +11,7 @@ from fedbiomed.common.exceptions import FedbiomedError
 from ._base import Accumulator
 from ._scalar_1d import (
     CountAccumulator,
+    HistogramAccumulator,
     MaxAccumulator,
     MeanAccumulator,
     MinAccumulator,
@@ -81,13 +82,13 @@ _REGISTRY_STATS = [
         "optional_args": {"aggregate_channels"},
     },
     # ===== Complex stats (shared or type-specific) =====
-    # {
-    #     "name": "histogram",
-    #     "required_args": "bin_edges",
-    #     "optional_args": {"bins"},  # bin_edges overrides bins usually
-    #     "valid_for": {DatasetElementType.ROW, DatasetElementType.IMAGE},
-    #     "is_vectorizable": False,
-    # },
+    {
+        "name": "histogram",
+        "required_args": {"bin_edges"},
+        "valid_for": DatasetElementType.ROW,
+        "accumulator_class": HistogramAccumulator,
+        "is_vectorizable": False,
+    },
     # {
     #     "name": "quantiles",
     #     "required_args": {"q"},

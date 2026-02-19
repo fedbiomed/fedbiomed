@@ -1,9 +1,9 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Scalar and 1D streaming accumulators: Count, Min, Max, Mean, Variance, ScalarBuffer."""
+"""Scalar and 1D streaming accumulators: Count, Min, Max, Mean, Variance, ScalarBuffer, Histogram."""
 
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -83,7 +83,7 @@ class BaseStatAccumulator(Accumulator):
 
 
 # =============================================================================
-# SIMPLE PRIMITIVES
+# SIMPLE STATS
 # =============================================================================
 
 
@@ -142,7 +142,7 @@ class MaxAccumulator(BaseStatAccumulator):
 
 
 # =============================================================================
-# COMPLEX PRIMITIVES
+# COMPLEX STATS
 # =============================================================================
 
 
@@ -218,3 +218,58 @@ class VarianceAccumulator(BaseStatAccumulator):
             where=self.counts > 1,
         )
         return {"variance": variance, "mean": mean, "count": self.counts}
+
+
+# =============================================================================
+# NOT VECTOR-AGGREGATED STATS
+# =============================================================================
+
+
+class HistogramAccumulator(Accumulator):
+    """Streaming histogram accumulator for scalar values.
+
+    Accumulates counts per bin given pre-specified bin edges. Using explicit
+    bin_edges ensures consistent boundaries across federated nodes, which is
+    required for histogram aggregation.
+
+    Args:
+        bin_edges: Monotonically increasing sequence defining bin boundaries.
+            Must define at least _MIN_BINS bins (len >= _MIN_BINS + 1).
+    """
+
+    _MIN_BINS: int = 2
+
+    def __init__(self, bin_edges: List[float]):
+        edges = np.asarray(bin_edges, dtype=np.float32)
+
+        # Validate bin edges: must be 1D, have at least _MIN_BINS bins, and be strictly increasing
+        if edges.ndim != 1 or len(edges) <= self._MIN_BINS:
+            raise FedbiomedError(
+                f"'bin_edges' must define at least {self._MIN_BINS} bins"
+            )
+        if not np.all(np.diff(edges) > 0):
+            raise FedbiomedError("'bin_edges' must be strictly increasing")
+
+        self._bin_edges = edges
+        self._counts = np.zeros(len(edges) - 1, dtype=np.int32)
+
+    def update(self, value: Union[float, int]) -> None:
+        v = float(value)
+
+        # Validate value: must be finite and within bin edges
+        if not np.isfinite(v):
+            return
+        if v < self._bin_edges[0] or v > self._bin_edges[-1]:
+            return
+
+        # Indexing: find the right bin for v and increment count
+        idx = np.searchsorted(self._bin_edges, v, side="right") - 1
+        if idx == len(self._counts):  # Handle rightmost edge explicitly
+            idx -= 1
+        self._counts[idx] += 1
+
+    def finalize(self) -> Dict[str, Any]:
+        return {
+            "bin_edges": self._bin_edges.tolist(),
+            "counts": self._counts.tolist(),
+        }
