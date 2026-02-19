@@ -358,6 +358,11 @@ class Dataset(ABC):
         )
 
     def __len__(self) -> int:
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
+            )
         return len(self._controller)
 
     def __iter__(self):
