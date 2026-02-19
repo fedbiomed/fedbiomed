@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Type
 
 import numpy as np
 
@@ -52,6 +52,7 @@ class RowAccumulator(Accumulator):
         # O(1) lookup for column index
         self.col_map = {name: i for i, name in enumerate(self.column_order)}
 
+        # Iterate over each column configuration to determine which accumulator to use
         for col_name, stats in self.column_configs.items():
             idx = self.col_map.get(col_name)
             if idx is None:
@@ -72,7 +73,9 @@ class RowAccumulator(Accumulator):
                     self.vectorized_indices[stat].append(idx)
                 # Case B: Complex or Argument-Dependent Stat
                 else:
-                    self._add_independent_accumulator(idx, stat, stat_args)
+                    self._add_independent_accumulator(
+                        idx, stat, stat_args, accumulator_class
+                    )
 
         # Instantiate vectorized accumulators and build output map
         for stat, indices in self.vectorized_indices.items():
@@ -93,21 +96,25 @@ class RowAccumulator(Accumulator):
         logger.info("Vectorized accumulators initialized")
 
     def _add_independent_accumulator(
-        self, col_idx: int, stat_name: str, args: Dict[str, Any]
+        self,
+        col_idx: int,
+        stat_name: str,
+        args: Dict[str, Any],
+        accumulator_class: Type[Accumulator],
     ):
-        """Factory for independent/complex accumulators."""
-        acc = None
-        if stat_name == "histogram":
-            # Placeholder for histogram
-            pass
-
-        if acc:
-            if col_idx not in self.independent_accumulators:
-                self.independent_accumulators[col_idx] = []
-            self.independent_accumulators[col_idx].append((stat_name, acc))
+        """Instantiates a per-column accumulator from the registry class and registers it."""
+        acc = accumulator_class(**args)
+        if col_idx not in self.independent_accumulators:
+            self.independent_accumulators[col_idx] = []
+        self.independent_accumulators[col_idx].append((stat_name, acc))
 
     def update(self, value: np.ndarray) -> None:
-        """Update state with a new row sample."""
+        """Update state with a new row sample.
+
+        This method distributes the row values into:
+        1. Vectorized accumulators (taking slices of the row array for efficiency)
+        2. Independent accumulators (one value at a time)
+        """
         # Ensure NumPy array
         value = np.asarray(value)
 
@@ -116,12 +123,12 @@ class RowAccumulator(Accumulator):
                 f"RowAccumulator.update: Expected 1D array, got ndim={value.ndim}"
             )
 
-        # Vectorized Updates
+        # Vectorized Updates: select multiple columns from the row for each statistic type
         for stat, indices in self.vectorized_indices.items():
             if stat in self.vectorized_accumulators:
                 self.vectorized_accumulators[stat].update(value[indices])
 
-        # Independent Updates
+        # Independent Updates: update specific column accumulators one by one
         for col_idx, acc_list in self.independent_accumulators.items():
             if col_idx < len(value):
                 val = value[col_idx]
@@ -129,15 +136,23 @@ class RowAccumulator(Accumulator):
                     acc.update(val)
 
     def finalize(self) -> Dict[str, Dict[str, Any]]:
-        """Return the final state by column."""
+        """Return the final state by column.
+
+        This method retrieves results from both the vectorized and independent accumulators,
+        and then reorganizes them to match the original column-by-column structure expected
+        by the caller.
+
+        Returns:
+            A dictionary mapping column names to another dictionary of statistic names and their values.
+        """
         results: Dict[str, Dict[str, Any]] = {}
 
-        # Retrieve all vectorized results once
+        # Retrieve all results from vectorized accumulators (usually an array of results)
         vec_results = {
             stat: acc.finalize() for stat, acc in self.vectorized_accumulators.items()
         }
 
-        # Re-distribute to columns
+        # Iterate through columns to pick the right result from vec_results or independent accumulators
         for col_name, col_conf in self.column_configs.items():
             idx = self.col_map.get(col_name)
             if idx is None:
@@ -147,24 +162,26 @@ class RowAccumulator(Accumulator):
 
             # Process stats defined for this column
             for stat in col_conf:
-                # Check Vectorized
+                # Check if this stat was calculated using a vectorized accumulator
                 vec_indices_map = self.vectorized_output_map.get(stat)
                 if vec_indices_map and idx in vec_indices_map:
                     pos = vec_indices_map[idx]
                     val_result = vec_results[stat]
 
                     if isinstance(val_result, dict):
+                        # Some accumulators return dicts (e.g. {mean: ..., std: ...})
                         for key, val_array in val_result.items():
                             if np.isscalar(val_array):
                                 col_res[key] = val_array
                             else:
                                 col_res[key] = val_array[pos]
                     else:
+                        # Simple accumulators return a single array
                         col_res[stat] = (
                             val_result if np.isscalar(val_result) else val_result[pos]
                         )
 
-            # Process Independent
+            # Process Independent accumulators for this column
             if idx in self.independent_accumulators:
                 for stat_name, accumulator in self.independent_accumulators[idx]:
                     col_res[stat_name] = accumulator.finalize()

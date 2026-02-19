@@ -8,6 +8,7 @@ import pytest
 
 from fedbiomed.common.analytics.accumulators._scalar_1d import (
     CountAccumulator,
+    HistogramAccumulator,
     MaxAccumulator,
     MeanAccumulator,
     MinAccumulator,
@@ -690,3 +691,97 @@ def test_integration_vectorized_multi_column():
     assert result["mean"][0] == pytest.approx(np.mean(col1))
     assert result["mean"][1] == pytest.approx(np.mean(col2))
     assert result["mean"][2] == pytest.approx(np.mean(col3))
+
+
+# =============================================================================
+# HistogramAccumulator Tests
+# =============================================================================
+
+
+def test_histogram_accumulator_init_valid():
+    """Test valid initialization."""
+    edges = [0.0, 1.0, 2.0]
+    acc = HistogramAccumulator(edges)
+
+    np.testing.assert_array_equal(acc._bin_edges, np.array(edges, dtype=np.float32))
+    np.testing.assert_array_equal(acc._counts, np.zeros(2, dtype=np.int32))
+
+
+def test_histogram_accumulator_init_too_few_bins():
+    """Test initialization with too few bins."""
+    with pytest.raises(FedbiomedError, match="must define at least 2 bins"):
+        HistogramAccumulator([0.0, 1.0])  # Only 1 bin
+
+
+def test_histogram_accumulator_init_not_strictly_increasing():
+    """Test initialization with non-increasing edges."""
+    with pytest.raises(FedbiomedError, match="must be strictly increasing"):
+        HistogramAccumulator([0.0, 2.0, 1.0])
+
+    with pytest.raises(FedbiomedError, match="must be strictly increasing"):
+        HistogramAccumulator([0.0, 1.0, 1.0])
+
+
+def test_histogram_accumulator_init_multidimensional_edges():
+    """Test initialization with multidimensional bin edges."""
+    with pytest.raises(FedbiomedError, match="at least 2 bins"):
+        HistogramAccumulator([[0.0, 1.0], [2.0, 3.0]])
+
+
+def test_histogram_accumulator_update_basic():
+    """Test basic updates increment correct bins."""
+    acc = HistogramAccumulator([0.0, 10.0, 20.0, 30.0])
+
+    acc.update(5.0)  # Bin 0
+    acc.update(15.0)  # Bin 1
+    acc.update(25.0)  # Bin 2
+
+    np.testing.assert_array_equal(acc._counts, np.array([1, 1, 1], dtype=np.int32))
+
+
+def test_histogram_accumulator_update_edges():
+    """Test updates on bin edges."""
+    acc = HistogramAccumulator([0.0, 10.0, 20.0])
+
+    acc.update(0.0)  # Bin 0
+    acc.update(9.99)  # Bin 0
+    acc.update(10.0)  # Bin 1
+    acc.update(20.0)  # Bin 1
+
+    np.testing.assert_array_equal(acc._counts, np.array([2, 2], dtype=np.int32))
+
+
+def test_histogram_accumulator_update_out_of_bounds():
+    """Test values outside range are ignored."""
+    acc = HistogramAccumulator([0.0, 10.0, 20.0])
+
+    acc.update(-1.0)  # Below min
+    acc.update(20.1)  # Above max
+
+    np.testing.assert_array_equal(acc._counts, np.array([0, 0], dtype=np.int32))
+
+
+def test_histogram_accumulator_update_nan_inf():
+    """Test NaN and Inf are ignored."""
+    acc = HistogramAccumulator([0.0, 5.0, 10.0])
+
+    acc.update(np.nan)
+    acc.update(np.inf)
+    acc.update(-np.inf)
+
+    np.testing.assert_array_equal(acc._counts, np.array([0, 0], dtype=np.int32))
+
+
+def test_histogram_accumulator_finalize():
+    """Test finalize returns correct structure."""
+    edges = [0.0, 1.0, 2.0]
+    acc = HistogramAccumulator(edges)
+    acc.update(0.5)
+    acc.update(1.5)
+
+    result = acc.finalize()
+
+    assert "bin_edges" in result
+    assert "counts" in result
+    assert result["bin_edges"] == edges
+    assert result["counts"] == [1, 1]
