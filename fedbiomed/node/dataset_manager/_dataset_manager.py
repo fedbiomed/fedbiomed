@@ -211,6 +211,13 @@ class DatasetManager:
             FedbiomedError:
             - If the parent dataset is not found in the database
         """
+        if self._dynamic_datasets_path is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dynamic datasets path is not configured."
+            )
+
+        # Validate parent
+        parent_entry = self._get_dataset_entry(parent_dataset_id)
 
         # Insert partial DB entry
         entry = {
@@ -236,23 +243,8 @@ class DatasetManager:
         data_path = os.path.join(dataset_dir, "data.csv")
         data.to_csv(data_path, index=False)
 
-        # Get data type from parent dataset
-        parent_dataset_entry = self.dataset_table.get_by_id(parent_dataset_id)
-        parent_dynamic_dataset_entry = self.dynamic_dataset_table.get_by_id(
-            parent_dataset_id
-        )
-        if parent_dataset_entry is None and parent_dynamic_dataset_entry is None:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Parent dataset with id {parent_dataset_id} not found."
-            )
-        parent_entry = (
-            parent_dataset_entry
-            if parent_dataset_entry is not None
-            else parent_dynamic_dataset_entry
-        )
+        # Get controller
         data_type = parent_entry["data_type"]
-
-        # Get controller for data type
         controller = get_controller(
             data_type,
             controller_parameters={
@@ -274,6 +266,34 @@ class DatasetManager:
 
         return dataset_id
 
+    def _get_dataset_entry(self, dataset_id: str) -> dict:
+        """
+        Validates that the dataset exists and returns its DB entry.
+
+        The dataset can be either:
+            - a dataset (DatasetTable)
+            - a dynamic dataset (DynamicDatasetTable)
+
+        Args:
+            dataset_id: the id of the dataset to validate
+
+        Raises:
+            FedbiomedError:
+            - If dataset or dynamic dataset does not exist.
+        """
+
+        dataset_entry = self.dataset_table.get_by_id(dataset_id)
+        if dataset_entry is not None:
+            return dataset_entry
+
+        dynamic_dataset_entry = self.dynamic_dataset_table.get_by_id(dataset_id)
+        if dynamic_dataset_entry is not None:
+            return dynamic_dataset_entry
+
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."
+        )
+
     def delete_dataset_by_id(
         self,
         dataset_id: str,
@@ -292,23 +312,19 @@ class DatasetManager:
             - If the dataset has children and neither recursive nor force is True
             - If no dataset is found with the given ID
         """
-        raw_entry = self.dataset_table.get_by_id(dataset_id)
-        dynamic_entry = self.dynamic_dataset_table.get_by_id(dataset_id)
-        if raw_entry is None and dynamic_entry is None:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: No dataset found with id={dataset_id}"
-            )
+        dataset_entry = self._get_dataset_entry(dataset_id)
+        is_dynamic = "parent_dataset_id" in dataset_entry
 
         children = self.dynamic_dataset_table.get_all_by_value(
             "parent_dataset_id", dataset_id
         )
 
-        # Case 1: raw dataset
-        if raw_entry is not None:
+        # Case 1: dataset
+        if not is_dynamic:
             if children:
                 if force:
                     raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Cannot force delete a raw dataset with children. Use recursive=True to delete subtree."
+                        f"{ErrorNumbers.FB632.value}: Cannot force delete a dataset with children. Use recursive=True to delete subtree."
                     )
 
                 if not recursive:
@@ -316,34 +332,25 @@ class DatasetManager:
                         f"{ErrorNumbers.FB632.value}: Dataset has derived dynamic datasets. Use recursive=True to delete subtree."
                     )
 
-                subtree = self.dynamic_dataset_table.collect_subtree(dataset_id)
-                for dyn_id in reversed(subtree):
-                    self._delete_dynamic_dataset_files(dyn_id)
-                    self.dynamic_dataset_table.delete_by_id(dyn_id)
+                self._delete_dynamic_subtree(dataset_id, is_dynamic)
 
             # Delete raw dataset entry (no filesystem removal)
             self.dataset_table.delete_by_id(dataset_id)
             return
 
         # Case 2: dynamic dataset
-        if not children:
-            # Simple delete
-            self._delete_dynamic_dataset_files(dataset_id)
-            self.dynamic_dataset_table.delete_by_id(dataset_id)
-            return
+        if children and not recursive and not force:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset has children. Use recursive=True to delete subtree "
+                "or force=True to reassign children."
+            )
 
-        # Has children
         if recursive:
-            subtree = self.dynamic_dataset_table.collect_subtree(dataset_id)
-
-            for dyn_id in reversed(subtree):
-                self._delete_dynamic_dataset_files(dyn_id)
-                self.dynamic_dataset_table.delete_by_id(dyn_id)
-
+            self._delete_dynamic_subtree(dataset_id, is_dynamic)
             return
 
         if force:
-            parent_id = dynamic_entry.get("parent_dataset_id")
+            parent_id = dataset_entry.get("parent_dataset_id")
 
             for child in children:
                 self.dynamic_dataset_table.update_by_id(
@@ -351,14 +358,20 @@ class DatasetManager:
                     {"parent_dataset_id": parent_id},
                 )
 
-            self._delete_dynamic_dataset_files(dataset_id)
-            self.dynamic_dataset_table.delete_by_id(dataset_id)
-            return
+        self._delete_dynamic_single(dataset_id)
 
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB632.value}: Dataset has children. Use recursive=True to delete subtree "
-            "or force=True to reassign children."
-        )
+    def _delete_dynamic_subtree(self, dataset_id: str, is_dynamic: bool) -> None:
+        subtree = self.dynamic_dataset_table.collect_subtree(dataset_id)
+        if not is_dynamic:
+            # Remove the parent dataset
+            subtree = subtree[1:]
+        # Delete children first
+        for dyn_id in reversed(subtree):
+            self._delete_dynamic_single(dyn_id)
+
+    def _delete_dynamic_single(self, dataset_id: str) -> None:
+        self._delete_dynamic_dataset_files(dataset_id)
+        self.dynamic_dataset_table.delete_by_id(dataset_id)
 
     def _delete_dynamic_dataset_files(self, dataset_id: str) -> None:
         """Deletes filesystem folder of a dynamic dataset.
