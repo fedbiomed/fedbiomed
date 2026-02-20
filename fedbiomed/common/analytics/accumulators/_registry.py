@@ -15,6 +15,7 @@ from ._scalar_1d import (
     MaxAccumulator,
     MeanAccumulator,
     MinAccumulator,
+    QuantileAccumulator,
     VarianceAccumulator,
 )
 
@@ -89,12 +90,14 @@ _REGISTRY_STATS = [
         "accumulator_class": HistogramAccumulator,
         "is_vectorizable": False,
     },
-    # {
-    #     "name": "quantiles",
-    #     "required_args": {"q"},
-    #     "valid_for": DatasetElementType.ROW,
-    #     "is_vectorizable": False,
-    # },
+    {
+        "name": "quantile",
+        "required_args": {"quantiles"},
+        "valid_for": DatasetElementType.ROW,
+        "accumulator_class": QuantileAccumulator,
+        "is_vectorizable": False,
+        "uses_buffer": True,
+    },
 ]
 
 
@@ -109,6 +112,7 @@ class StatConfig:
         optional_args: Set of optional argument names.
         is_descriptor: If True, descriptor is generated from image (IMAGE only).
         is_vectorizable: If True, computation can be applied across multiple columns at once (ROW only).
+        uses_buffer: If True, n_samples is passed by the orchestrator as 'buffer_size'. Cannot be set by the user.
     """
 
     accumulator_class: Type["Accumulator"]
@@ -117,6 +121,7 @@ class StatConfig:
     optional_args: Set[str] = field(default_factory=set)
     is_descriptor: bool = False
     is_vectorizable: bool = False
+    uses_buffer: bool = False
 
 
 class AnalyticsRegistry:
@@ -140,6 +145,7 @@ class AnalyticsRegistry:
         optional_args: Optional[Union[str, Set[str], Iterable[str]]] = None,
         is_descriptor: bool = False,
         is_vectorizable: bool = True,
+        uses_buffer: bool = False,
     ):
         """Registers a statistic configuration.
 
@@ -152,6 +158,7 @@ class AnalyticsRegistry:
             optional_args: Set of optional argument names, or single name.
             is_descriptor: If True, indicates a descriptor is generated from an image (IMAGE only).
             is_vectorizable: If True, computation can be applied across multiple columns at once (ROW only).
+            uses_buffer: If True, 'n_samples' will be passed to the accumulator as 'buffer_size' by the orchestrator.
 
         Raises:
             FedbiomedError: If argument sets overlap or if the statistic is already registered for a target dataset element type.
@@ -199,6 +206,7 @@ class AnalyticsRegistry:
                 optional_args=optional_args_set.copy(),
                 is_descriptor=current_is_descriptor,
                 is_vectorizable=current_is_vectorizable,
+                uses_buffer=uses_buffer,
             )
             # Parent dictionary guaranteed to exist by previous loop
             cls._registry[et][name] = config
