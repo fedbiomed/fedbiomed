@@ -107,6 +107,19 @@ def test_get_nonexistent():
     assert AnalyticsRegistry.get("nonexistent_stat") is None
 
 
+def test_is_known_stat():
+    """Test internal helper _is_known_stat."""
+    stat_name = "test_stat"
+    AnalyticsRegistry.register(
+        name=stat_name,
+        valid_for={DatasetElementType.ROW},
+        accumulator_class=MockAccumulator,
+    )
+
+    assert AnalyticsRegistry._is_known_stat(stat_name) is True
+    assert AnalyticsRegistry._is_known_stat("unknown") is False
+
+
 def test_validate_args_success():
     name = "stat_with_args"
     AnalyticsRegistry.register(
@@ -123,7 +136,8 @@ def test_validate_args_success():
     )
 
 
-def test_validate_args_unexpected():
+def test_validate_args_failures():
+    """Parametrized test for validate_args failures."""
     name = "stat_unexpected_args"
     AnalyticsRegistry.register(
         name=name,
@@ -132,39 +146,25 @@ def test_validate_args_unexpected():
         accumulator_class=MockAccumulator,
     )
 
-    # Validation should fail because of 'extra' argument
-    with pytest.raises(FedbiomedError, match="received unexpected args"):
-        AnalyticsRegistry.validate_args(
-            name, DatasetElementType.ROW, {"arg1": 1, "extra": 2}
-        )
+    scenarios = [
+        # Unexpected args
+        (
+            name,
+            DatasetElementType.ROW,
+            {"arg1": 1, "extra": 2},
+            "received unexpected args",
+        ),
+        # Missing required args
+        (name, DatasetElementType.ROW, {"other": 1}, "missing required args"),
+        # Unknown stat
+        ("unknown_stat", DatasetElementType.ROW, {}, "Unknown statistic"),
+        # Invalid type
+        (name, DatasetElementType.IMAGE, {}, "not valid for type"),
+    ]
 
-
-def test_validate_args_missing_required():
-    name = "stat_missing_args"
-    AnalyticsRegistry.register(
-        name=name,
-        required_args={"arg1"},
-        valid_for={DatasetElementType.ROW},
-        accumulator_class=MockAccumulator,
-    )
-    with pytest.raises(FedbiomedError, match="missing required args"):
-        AnalyticsRegistry.validate_args(name, DatasetElementType.ROW, {"other": 1})
-
-
-def test_validate_args_unknown_stat():
-    # Should raise FedbiomedError for unknown stat
-    with pytest.raises(FedbiomedError, match="Unknown statistic"):
-        AnalyticsRegistry.validate_args("unknown_stat", DatasetElementType.ROW, {})
-
-
-def test_validate_args_invalid_type():
-    name = "stat_row_only"
-    AnalyticsRegistry.register(
-        name=name, valid_for={DatasetElementType.ROW}, accumulator_class=MockAccumulator
-    )
-
-    with pytest.raises(FedbiomedError, match="not valid for type"):
-        AnalyticsRegistry.validate_args(name, DatasetElementType.IMAGE, {})
+    for stat, dtype, args, match in scenarios:
+        with pytest.raises(FedbiomedError, match=match):
+            AnalyticsRegistry.validate_args(stat, dtype, args)
 
 
 def test_vectorizable_flag():
@@ -438,3 +438,29 @@ def test_register_invalid_stat_name():
             valid_for={DatasetElementType.ROW},
             accumulator_class=MockAccumulator,
         )
+
+
+def test_get_accumulator_class():
+    """Test get_accumulator_class retrieval logic."""
+    stat_name = "test_stat"
+    AnalyticsRegistry.register(
+        name=stat_name,
+        valid_for={DatasetElementType.ROW},
+        accumulator_class=MockAccumulator,
+    )
+
+    # 1. Success
+    cls_obj = AnalyticsRegistry.get_accumulator_class(stat_name, DatasetElementType.ROW)
+    assert cls_obj is MockAccumulator
+
+    # 2. Failure: specific type check
+    cls_obj_img = AnalyticsRegistry.get_accumulator_class(
+        stat_name, DatasetElementType.IMAGE
+    )
+    assert cls_obj_img is None
+
+    # 3. Failure: unknown stat
+    assert (
+        AnalyticsRegistry.get_accumulator_class("unknown", DatasetElementType.ROW)
+        is None
+    )

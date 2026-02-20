@@ -10,6 +10,7 @@ from fedbiomed.common.analytics.accumulators import (
     ImageAccumulator,
     RowAccumulator,
     SequenceAccumulator,
+    SkipAccumulator,
 )
 from fedbiomed.common.dataset_types import (
     DatasetElementSpec,
@@ -36,7 +37,7 @@ class AnalyticsOrchestrator:
 
         Args:
             dataset: The dataset to compute statistics for.
-            subschema: Selection to filter the schema (e.g. subset of columns/keys).
+            dataset_schema: Selection to filter the schema (e.g. subset of columns/keys).
             stats: Default list of statistics to compute (e.g. ['mean', 'std']).
             fa_args: Specific arguments for statistics, structured matching the schema.
                      e.g. {'image': {'histogram': {'bin_edges': [...]}}}
@@ -47,30 +48,34 @@ class AnalyticsOrchestrator:
         Raises:
             FedbiomedError: If validation fails or dataset capability is missing.
         """
-        # 1. Check Capability
+        # Check Capability
         if not all(
             hasattr(dataset, _) for _ in ("get_analytics_schema", "get_analytics_item")
         ):
             raise FedbiomedError(
-                "Dataset does not implement 'get_analytics_schema' and/or 'get_analytics_item'."
+                "Dataset does not implement 'get_analytics_schema' and 'get_analytics_item'."
             )
 
-        # 2. Get Schema
+        # Get Schema
         schema = dataset.get_analytics_schema()
 
-        # 3. Build & Validate Configuration
-        config = self._build_and_validate_config(schema, dataset_schema, stats, fa_args)
+        # Get dataset size (needed by buffer-backed accumulators like quantile)
+        n_samples = len(dataset)
 
-        # 4. Build Accumulator Tree
+        # Build & Validate Configuration
+        config = self._build_and_validate_config(
+            schema, dataset_schema, stats, fa_args, n_samples
+        )
+
+        # Build Accumulator Tree
         accumulator = self._create_accumulator(config)
 
-        # 5. Iterate and Accumulate
-        n_samples = len(dataset)
+        # Iterate and Accumulate
         for idx in range(n_samples):
             sample = dataset.get_analytics_item(idx)
             accumulator.update(sample)
 
-        # 6. Finalize
+        # Finalize
         return accumulator.finalize()
 
     def _create_accumulator(self, config: Any) -> Accumulator:
@@ -96,6 +101,8 @@ class AnalyticsOrchestrator:
             return RowAccumulator(config)
         if config["type"] == DatasetElementType.IMAGE:
             return ImageAccumulator(config)
+        if config["type"] == "skip":
+            return SkipAccumulator()
 
         # Unhandled types
         raise FedbiomedError(f"Unsupported accumulator type: {config['type']}")
@@ -106,25 +113,26 @@ class AnalyticsOrchestrator:
         subschema: Optional[Any],
         stats: Optional[List[str]],
         args: Optional[Dict[str, Any]],
+        n_samples: int,
     ) -> Dict[str, Any]:
         """Validates inputs and builds the configuration tree in a single pass."""
         # Dispatch based on schema type
         if isinstance(schema, dict):
-            return self._handle_dict(schema, subschema, stats, args)
+            return self._handle_dict(schema, subschema, stats, args, n_samples)
         if isinstance(schema, (list, tuple)):
-            return self._handle_sequence(schema, subschema, stats, args)
+            return self._handle_sequence(schema, subschema, stats, args, n_samples)
 
         # Leaf Handling
         element_type = schema.type if isinstance(schema, DatasetElementSpec) else None
         if element_type == DatasetElementType.ROW:
-            return self._handle_row(schema, subschema, stats, args)
+            return self._handle_row(schema, subschema, stats, args, n_samples)
         if element_type == DatasetElementType.IMAGE:
             # Image does not support subschema selection
             if subschema is not None:
                 raise FedbiomedError(
                     "Subschema selection is not applicable for IMAGE type."
                 )
-            return self._handle_image(stats, args)
+            return self._handle_image(stats, args, n_samples)
 
         raise FedbiomedError(f"Unsupported schema type or element type: {type(schema)}")
 
@@ -132,8 +140,9 @@ class AnalyticsOrchestrator:
         self,
         schema: Dict,
         subschema: Optional[Union[List[Union[str, Dict[str, Any]]], Dict[str, Any]]],
-        stats: Optional[str],
+        stats: Optional[List[str]],
         args: Optional[Dict[str, Any]],
+        n_samples: int,
     ) -> Dict[str, Any]:
         # Validate Args
         if args is not None:
@@ -191,7 +200,7 @@ class AnalyticsOrchestrator:
         for k, child_sub in keys_map.items():
             child_args = args.get(k) if args else None
             children[k] = self._build_and_validate_config(
-                schema[k], child_sub, stats, child_args
+                schema[k], child_sub, stats, child_args, n_samples
             )
 
         return {"type": "dict", "children": children}
@@ -202,6 +211,7 @@ class AnalyticsOrchestrator:
         subschema: Optional[Union[List, Tuple]],
         stats: Optional[List[str]],
         args: Optional[Union[List, Tuple]],
+        n_samples: int,
     ) -> Dict[str, Any]:
         # Validate Subschema
         if subschema is not None:
@@ -227,15 +237,21 @@ class AnalyticsOrchestrator:
 
         children = []
         for idx, item_schema in enumerate(schema):
-            child_sub = subschema[idx] if subschema else None
-            child_args = args[idx] if args else None
-            children.append(
-                self._build_and_validate_config(
-                    item_schema, child_sub, stats, child_args
+            child_sub = subschema[idx] if subschema is not None else None
+            child_args = args[idx] if args is not None else None
+            if subschema is not None and child_sub is None:
+                children.append({"type": "skip"})
+            else:
+                children.append(
+                    self._build_and_validate_config(
+                        item_schema, child_sub, stats, child_args, n_samples
+                    )
                 )
-            )
 
-        return {"type": "tuple", "children": children}
+        return {
+            "type": "tuple" if isinstance(schema, tuple) else "list",
+            "children": children,
+        }
 
     def _handle_row(
         self,
@@ -243,11 +259,8 @@ class AnalyticsOrchestrator:
         subschema: Optional[List[str]],
         stats: Optional[List[str]],
         args: Optional[Dict[str, Any]],
+        n_samples: int,
     ) -> Dict[str, Any]:
-        # Ensure Schema Type
-        if not isinstance(schema, RowSpec):
-            raise FedbiomedError("Schema for ROW type must be a RowSpec instance.")
-
         # Validate Subschema
         if subschema is not None:
             if not isinstance(subschema, (list, tuple)):
@@ -270,7 +283,7 @@ class AnalyticsOrchestrator:
         for col in selected_cols:
             col_args = args.get(col) if args else None
             col_configs[col] = self._compile_leaf_stats(
-                DatasetElementType.ROW, stats, col_args
+                DatasetElementType.ROW, stats, col_args, n_samples
             )
 
         return {
@@ -280,13 +293,15 @@ class AnalyticsOrchestrator:
         }
 
     def _handle_image(
-        self, stats: Optional[List[str]], args: Optional[Dict[str, Any]]
+        self, stats: Optional[List[str]], args: Optional[Dict[str, Any]], n_samples: int
     ) -> Dict[str, Any]:
         """Validates and builds config for IMAGE type."""
         if args is not None and not isinstance(args, dict):
             raise FedbiomedError("Args for IMAGE must be a dict.")
 
-        stats_config = self._compile_leaf_stats(DatasetElementType.IMAGE, stats, args)
+        stats_config = self._compile_leaf_stats(
+            DatasetElementType.IMAGE, stats, args, n_samples
+        )
         return {"type": DatasetElementType.IMAGE, "stats": stats_config}
 
     def _compile_leaf_stats(
@@ -294,6 +309,7 @@ class AnalyticsOrchestrator:
         element_type: DatasetElementType,
         stats: Optional[List[str]],
         args: Optional[Dict[str, Any]],
+        n_samples: int,
     ) -> Dict[str, Dict[str, Any]]:
         """Compiles valid statistics configuration for a leaf node.
 
@@ -306,14 +322,22 @@ class AnalyticsOrchestrator:
 
         candidates = set(stats).union(args.keys())
 
-        # Validate and Filter Candidates
+        # Validate and filter candidates
         for stat in candidates:
-            # Check explicit presence or default
             is_explicit = stat in args
             current_args = args.get(stat, {})
-
             if self._validate_leaf_stat(element_type, stat, current_args, is_explicit):
                 requested_config[stat] = current_args
+
+        # Inject 'buffer_size' for stats with 'uses_buffer' flag in the registry
+        for stat_name in list(requested_config):
+            type_map = AnalyticsRegistry.get(stat_name)
+            stat_cfg = type_map.get(element_type) if type_map else None
+            if stat_cfg and stat_cfg.uses_buffer:
+                requested_config[stat_name] = {
+                    **requested_config[stat_name],
+                    "buffer_size": n_samples,
+                }
 
         # Resolve roots and ensure consistency for requested stats
         return self._resolve_and_validate_roots(element_type, requested_config)
@@ -338,7 +362,7 @@ class AnalyticsOrchestrator:
         # 2. Argument Validation
         try:
             AnalyticsRegistry.validate_args(stat, element_type, args)
-        except ValueError as e:
+        except FedbiomedError as e:
             if is_explicit:
                 raise FedbiomedError(
                     f"Invalid arguments for statistic '{stat}': {e}"
@@ -364,23 +388,23 @@ class AnalyticsOrchestrator:
         Returns:
             Flat dict with root stats and their args.
         """
-        # 1. Map to track arguments for every stat (explicit or implied)
-        # stat_name -> (args, source_stat_name)
+        # Map to track arguments for every stat (explicit or implied)
+        # stat_name -> (stat_args, source_stat_name)
         stat_arg_map: Dict[str, Tuple[Dict[str, Any], str]] = {}
 
-        for stat, args in requested_config.items():
+        for stat, stat_args in requested_config.items():
             # Check if this stat was already implied by a previous stat in the loop
             if stat in stat_arg_map:
                 existing_args, source = stat_arg_map[stat]
-                if existing_args != args:
+                if existing_args != stat_args:
                     raise FedbiomedError(
                         f"Conflicting arguments for statistic '{stat}': "
                         f"implied by '{source}' with {existing_args}, "
-                        f"but explicitly requested with {args}"
+                        f"but explicitly requested with {stat_args}"
                     )
 
             # Record it (overwrite is fine as we checked equality or it's new)
-            stat_arg_map[stat] = (args, stat)
+            stat_arg_map[stat] = (stat_args, stat)
 
             # Check dependencies
             # get_dependencies returns all recursive dependencies
@@ -389,7 +413,7 @@ class AnalyticsOrchestrator:
             for dep in dependencies:
                 # Validate that dependency accepts these arguments
                 try:
-                    AnalyticsRegistry.validate_args(dep, element_type, args)
+                    AnalyticsRegistry.validate_args(dep, element_type, stat_args)
                 except FedbiomedError as e:
                     raise FedbiomedError(
                         f"Statistic '{stat}' implies dependency '{dep}', but arguments are invalid for '{dep}': {e}"
@@ -397,20 +421,20 @@ class AnalyticsOrchestrator:
 
                 if dep in stat_arg_map:
                     existing_args, source = stat_arg_map[dep]
-                    if existing_args != args:
+                    if existing_args != stat_args:
                         raise FedbiomedError(
                             f"Conflicting arguments for dependency '{dep}': "
                             f"required by '{source}' with {existing_args}, "
-                            f"but required by '{stat}' with {args}"
+                            f"but required by '{stat}' with {stat_args}"
                         )
                 else:
-                    stat_arg_map[dep] = (args, stat)
+                    stat_arg_map[dep] = (stat_args, stat)
 
-        # 2. Get roots
+        # Get roots
         # Roots are stats in specific requested list that are not implied by others in the list
         roots = AnalyticsRegistry.get_roots(requested_config.keys(), element_type)
 
-        # 3. Construct final config from roots
+        # Construct final config from roots
         final_config = {root: requested_config[root] for root in roots}
 
         return final_config
