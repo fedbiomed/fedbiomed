@@ -3,8 +3,15 @@ import unittest
 
 from fedbiomed.common.constants import DatasetTypes
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager._db_dataclasses import DatasetEntry
-from fedbiomed.node.dataset_manager._db_tables import DatasetTable, DlpTable
+from fedbiomed.node.dataset_manager._db_dataclasses import (
+    DatasetEntry,
+    DynamicDatasetEntry,
+)
+from fedbiomed.node.dataset_manager._db_tables import (
+    DatasetTable,
+    DlpTable,
+    DynamicDatasetTable,
+)
 
 
 class TestDatasetEntry(unittest.TestCase):
@@ -35,6 +42,57 @@ class TestDatasetEntry(unittest.TestCase):
         self.assertIn("name", dict_rep)
         self.assertIn("data_type", dict_rep)
         self.assertEqual(dict_rep["name"], "Test Dataset")
+
+
+class TestDynamicDatasetEntry(unittest.TestCase):
+    def test_dataclass_initialization(self):
+        entry = DynamicDatasetEntry(
+            researcher_id="res_123",
+            experiment_id="exp_456",
+            processing_id="proc_789",
+            parent_dataset_id="dataset_000",
+            name="Dynamic Dataset",
+        )
+        self.assertEqual(entry.researcher_id, "res_123")
+        self.assertEqual(entry.experiment_id, "exp_456")
+        self.assertEqual(entry.name, "Dynamic Dataset")
+        self.assertTrue(entry.dataset_id.startswith("dynamic_dataset_"))
+
+    def test_preserve_given_dataset_id(self):
+        entry = DynamicDatasetEntry(
+            researcher_id="res_123",
+            experiment_id="exp_456",
+            processing_id="proc_789",
+            parent_dataset_id="dataset_000",
+            dataset_id="custom_dynamic_id",
+        )
+        self.assertEqual(entry.dataset_id, "custom_dynamic_id")
+
+    def test_dataclass_todict(self):
+        entry = DynamicDatasetEntry(
+            researcher_id="res_123",
+            experiment_id="exp_456",
+            processing_id="proc_789",
+            parent_dataset_id="dataset_000",
+        )
+        dict_rep = entry.to_dict()
+        self.assertIn("researcher_id", dict_rep)
+        self.assertIn("experiment_id", dict_rep)
+        self.assertEqual(dict_rep["researcher_id"], "res_123")
+        self.assertNotIn("name", dict_rep)
+
+    def test_from_dict(self):
+        dict_data = {
+            "researcher_id": "res_123",
+            "experiment_id": "exp_456",
+            "processing_id": "proc_789",
+            "parent_dataset_id": "dataset_000",
+            "name": "Dynamic Dataset",
+        }
+        entry = DynamicDatasetEntry.from_dict(dict_data)
+        self.assertEqual(entry.researcher_id, "res_123")
+        self.assertEqual(entry.experiment_id, "exp_456")
+        self.assertEqual(entry.name, "Dynamic Dataset")
 
 
 class TestDatasetTable(unittest.TestCase):
@@ -124,6 +182,56 @@ class TestDatasetTable(unittest.TestCase):
         self.assertIsNone(not_found)
         validated = self.table.get_validated_entry(dataset_id)
         self.assertEqual(validated.name, "dataset_get")
+
+
+class TestDynamicDatasetTable(unittest.TestCase):
+    def setUp(self):
+        self.dbfile = tempfile.NamedTemporaryFile(delete=True)
+        self.table = DynamicDatasetTable(self.dbfile.name)
+
+    def tearDown(self):
+        self.dbfile.close()
+
+    def test_insert_and_get_by_id(self):
+        entry = {
+            "researcher_id": "res_001",
+            "experiment_id": "exp_001",
+            "processing_id": "proc_001",
+            "parent_dataset_id": "dataset_001",
+            "name": "Dynamic Dataset 1",
+        }
+        dataset_id = self.table.insert(entry)
+        found = self.table.get_by_id(dataset_id)
+        self.assertEqual(found["researcher_id"], "res_001")
+        self.assertEqual(found["experiment_id"], "exp_001")
+        self.assertEqual(found["name"], "Dynamic Dataset 1")
+        not_found = self.table.get_by_id("NON_EXISTENT")
+        self.assertIsNone(not_found)
+
+    def test_collect_subtree(self):
+        dataset_root_id = "dataset_root_id"
+        dyn_dataset_child1 = {
+            "researcher_id": "res_child1",
+            "experiment_id": "exp_child1",
+            "processing_id": "proc_child1",
+            "parent_dataset_id": dataset_root_id,
+        }
+        dyn_dataset_child1_id = self.table.insert(dyn_dataset_child1)
+        dyn_dataset_grandchild1_id = {
+            "researcher_id": "res_grandchild1",
+            "experiment_id": "exp_grandchild1",
+            "processing_id": "proc_grandchild1",
+            "parent_dataset_id": dyn_dataset_child1_id,
+        }
+        dyn_dataset_grandchild1_id = self.table.insert(dyn_dataset_grandchild1_id)
+        subtree = self.table.collect_subtree(dataset_root_id)
+        self.assertEqual(
+            subtree,
+            [dataset_root_id, dyn_dataset_child1_id, dyn_dataset_grandchild1_id],
+        )
+        subtree_inexistent = self.table.collect_subtree("unknown_id")
+        # current implementation still returns the id itself
+        self.assertEqual(subtree_inexistent, ["unknown_id"])
 
 
 class TestDlpTable(unittest.TestCase):
