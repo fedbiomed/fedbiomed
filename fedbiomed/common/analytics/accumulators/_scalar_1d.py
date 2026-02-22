@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Scalar and 1D streaming accumulators: Count, Min, Max, Mean, Variance, ScalarBuffer, Histogram."""
+"""Scalar and 1D streaming accumulators: Count, Min, Max, Mean, Variance, ScalarBuffer, Histogram, Quantile."""
 
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -273,3 +273,49 @@ class HistogramAccumulator(Accumulator):
             "bin_edges": self._bin_edges.tolist(),
             "counts": self._counts.tolist(),
         }
+
+
+# =============================================================================
+# BUFFER-BACKED STATS
+# =============================================================================
+
+
+class QuantileAccumulator(Accumulator):
+    """Quantile accumulator backed by ScalarBuffer.
+
+    Buffers all scalar values and computes requested quantiles on finalization.
+    Uses the (0, 1] convention (e.g. 0.5 = median).
+
+    Args:
+        quantiles: Non-empty list of distinct quantile levels in (0, 1].
+        buffer_size: Maximum number of samples to store (typically len(dataset)).
+    """
+
+    def __init__(self, quantiles: List[float], buffer_size: int):
+        if not quantiles:
+            raise FedbiomedError("'quantiles' must not be empty")
+        for q in quantiles:
+            if not isinstance(q, (int, float)) or not (0 < q <= 1):
+                raise FedbiomedError(f"Each quantile must be in (0, 1], got {q!r}")
+        if len(set(quantiles)) != len(quantiles):
+            raise FedbiomedError("'quantiles' must not contain duplicates")
+
+        # Keep sorted list for deterministic key order when finalizing
+        self._quantiles = sorted(quantiles)
+        # scalar buffer simply stores values; quantile computation is handled
+        # in finalize so we only need a plain buffer without stat functions.
+        self._buffer = ScalarBuffer(length=buffer_size)
+
+    def update(self, val: Union[float, int]) -> None:
+        self._buffer.update(val)
+
+    def finalize(self) -> Dict[str, Any]:
+        # compute quantiles in a single numpy call to avoid repeated sorting
+        data = self._buffer.buffer[np.isfinite(self._buffer.buffer)]
+        if len(data) == 0:
+            return {f"q_{q}": np.nan for q in self._quantiles}
+
+        # numpy.quantile accepts a sequence of q values and returns all at once
+        qvals = np.quantile(data, self._quantiles)
+        # ensure all returned values are plain floats
+        return {f"q_{q}": float(v) for q, v in zip(self._quantiles, qvals, strict=True)}

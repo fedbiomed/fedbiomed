@@ -12,6 +12,7 @@ from fedbiomed.common.analytics.accumulators._scalar_1d import (
     MaxAccumulator,
     MeanAccumulator,
     MinAccumulator,
+    QuantileAccumulator,
     ScalarBuffer,
     VarianceAccumulator,
 )
@@ -785,3 +786,103 @@ def test_histogram_accumulator_finalize():
     assert "counts" in result
     assert result["bin_edges"] == edges
     assert result["counts"] == [1, 1]
+
+
+# =============================================================================
+# QuantileAccumulator Tests
+# =============================================================================
+
+
+def test_quantile_accumulator_init_valid():
+    """Test valid initialization."""
+    acc = QuantileAccumulator(quantiles=[0.25, 0.5, 0.75], buffer_size=100)
+    assert acc._quantiles == [0.25, 0.5, 0.75]
+    assert len(acc._buffer) == 100
+
+
+def test_quantile_accumulator_init_sorted_quantiles():
+    """Test that quantiles are sorted on init."""
+    acc = QuantileAccumulator(quantiles=[0.75, 0.25, 0.5], buffer_size=10)
+    assert acc._quantiles == [0.25, 0.5, 0.75]
+
+
+def test_quantile_accumulator_init_empty_quantiles():
+    """Test initialization with empty quantiles raises error."""
+    with pytest.raises(FedbiomedError, match="must not be empty"):
+        QuantileAccumulator(quantiles=[], buffer_size=10)
+
+
+@pytest.mark.parametrize("bad_q", [0.0, -0.1, 1.1, 2.0])
+def test_quantile_accumulator_init_out_of_range(bad_q):
+    """Test initialization with out-of-range quantile raises error."""
+    with pytest.raises(FedbiomedError, match="must be in"):
+        QuantileAccumulator(quantiles=[bad_q], buffer_size=10)
+
+
+def test_quantile_accumulator_init_duplicates():
+    """Test initialization with duplicate quantiles raises error."""
+    with pytest.raises(FedbiomedError, match="must not contain duplicates"):
+        QuantileAccumulator(quantiles=[0.5, 0.5], buffer_size=10)
+
+
+def test_quantile_accumulator_init_quantile_one_included():
+    """Test that q=1.0 (max) is valid."""
+    acc = QuantileAccumulator(quantiles=[1.0], buffer_size=5)
+    assert acc._quantiles == [1.0]
+
+
+def test_quantile_accumulator_update_and_finalize_basic():
+    """Test update and finalize with known values."""
+    data = list(range(1, 101))  # 1 to 100
+    acc = QuantileAccumulator(quantiles=[0.25, 0.5, 0.75], buffer_size=100)
+    for v in data:
+        acc.update(v)
+
+    result = acc.finalize()
+
+    assert set(result.keys()) == {"q_0.25", "q_0.5", "q_0.75"}
+    assert result["q_0.5"] == pytest.approx(np.quantile(data, 0.5))
+    assert result["q_0.25"] == pytest.approx(np.quantile(data, 0.25))
+    assert result["q_0.75"] == pytest.approx(np.quantile(data, 0.75))
+
+
+def test_quantile_accumulator_finalize_all_nan():
+    """Test finalize with all NaN input returns NaN per key."""
+    acc = QuantileAccumulator(quantiles=[0.5], buffer_size=5)
+    for _ in range(5):
+        acc.update(np.nan)
+
+    result = acc.finalize()
+    assert "q_0.5" in result
+    assert np.isnan(result["q_0.5"])
+
+
+def test_quantile_accumulator_buffer_full_raises():
+    """Test that updating beyond buffer_size raises FedbiomedError."""
+    acc = QuantileAccumulator(quantiles=[0.5], buffer_size=3)
+    acc.update(1.0)
+    acc.update(2.0)
+    acc.update(3.0)
+
+    with pytest.raises(FedbiomedError, match="Buffer full"):
+        acc.update(4.0)
+
+
+def test_quantile_accumulator_single_quantile():
+    """Test with a single median quantile."""
+    acc = QuantileAccumulator(quantiles=[0.5], buffer_size=5)
+    for v in [1.0, 2.0, 3.0, 4.0, 5.0]:
+        acc.update(v)
+
+    result = acc.finalize()
+    assert result["q_0.5"] == pytest.approx(3.0)
+
+
+def test_quantile_accumulator_output_is_float():
+    """Test that finalize returns Python floats, not numpy scalars."""
+    acc = QuantileAccumulator(quantiles=[0.5], buffer_size=5)
+    for v in [1.0, 2.0, 3.0, 4.0, 5.0]:
+        acc.update(v)
+
+    result = acc.finalize()
+    assert isinstance(result["q_0.5"], float)
