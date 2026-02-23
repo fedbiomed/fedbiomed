@@ -93,16 +93,18 @@ def test_aggregate_count():
 def test_aggregate_sum():
     """Test aggregate_sum function."""
     # Normal case
-    sums = [2, 4, 6]
-    assert aggregate_sum(sums) == 12
+    means = [2.0, 4.0, 6.0]
+    counts = [1, 1, 1]
+    assert aggregate_sum(means, counts) == 12.0
 
     # Floats
-    sums = [1.5, 2.5]
-    assert aggregate_sum(sums) == 4.0
+    means = [1.5, 2.5]
+    counts = [1, 1]
+    assert aggregate_sum(means, counts) == 4.0
 
     # Empty
     with pytest.raises(FedbiomedError):
-        aggregate_sum([])
+        aggregate_sum([], [])
 
 
 def test_aggregate_mean():
@@ -154,11 +156,11 @@ def test_aggregate_std():
     """Test aggregate_std function."""
     # Same logic as variance
     means = [2.0, 6.0]
-    stds = [np.sqrt(2.0), np.sqrt(2.0)]
+    variances = [2.0, 2.0]
     counts = [2, 2]
 
     expected_std = np.sqrt(20.0 / 3.0)
-    res = aggregate_std(means, stds, counts)
+    res = aggregate_std(means, variances, counts)
     assert np.isclose(res, expected_std)
 
 
@@ -184,40 +186,38 @@ def test_aggregate_histogram():
 
 
 def test_aggregate_quantile():
-    """Test aggregate_quantile function."""
+    """Test aggregate_quantile function (histogram-based, range output)."""
 
-    # 1. Single quantile
-    q1 = {"q": [0.5], "values": [10.0]}
-    q2 = {"q": [0.5], "values": [20.0]}
-    res = aggregate_quantile([q1, q2])
-    assert res["q"] == [0.5]
-    assert np.isclose(res["values"][0], 15.0)
+    bin_edges = [0.0, 10.0, 20.0, 30.0]
+    q_levels = [0.25, 0.5, 0.75]
 
-    # 2. Multiple quantiles
-    q1 = {"q": [0.25, 0.5], "values": [10.0, 5.0]}
-    q2 = {"q": [0.25, 0.5], "values": [20.0, 15.0]}
+    h1 = {"bin_edges": bin_edges, "counts": [5, 10, 5]}
+    h2 = {"bin_edges": bin_edges, "counts": [5, 10, 5]}
 
-    # Normal case
-    res = aggregate_quantile([q1, q2])
-    assert res["q"] == [0.25, 0.5]
-    assert np.allclose(res["values"], [15.0, 10.0])
+    # 1. Normal case — two identical nodes
+    res = aggregate_quantile([h1, h2], q_levels)
+    assert set(res.keys()) == set(q_levels)
+    for q in q_levels:
+        entry = res[q]
+        assert "value" in entry and "min" in entry and "max" in entry
+        assert entry["min"] < entry["max"]
+        assert entry["min"] <= entry["value"] <= entry["max"]
 
-    # 3. Mismatched q -> None
-    q1 = {"q": [0.25, 0.5], "values": [10.0, 5.0]}
-    q2 = {"q": [0.5], "values": [20.0]}
-    assert aggregate_quantile([q1, q2]) is None
+    # 2. Mismatched bin_edges -> None
+    h3 = {"bin_edges": [0.0, 5.0, 20.0, 30.0], "counts": [5, 10, 5]}
+    assert aggregate_quantile([h1, h3], q_levels) is None
 
-    # Mismatched q values (different order or values)
-    q3 = {"q": [0.5, 0.25], "values": [5.0, 10.0]}
-    assert aggregate_quantile([q1, q3]) is None
-
-    # 4. Empty inputs
+    # 3. Empty histogram list -> FedbiomedError
     with pytest.raises(FedbiomedError):
-        aggregate_quantile([])
+        aggregate_quantile([], q_levels)
 
-    # 5. Empty content (valid structure but empty lists)
-    # Ideally should handle or return empty lists
-    q_empty = {"q": [], "values": []}
-    res = aggregate_quantile([q_empty, q_empty])
-    assert res["q"] == []
-    assert res["values"] == []
+    # 4. Empty quantile list -> FedbiomedError
+    with pytest.raises(FedbiomedError):
+        aggregate_quantile([h1, h2], [])
+
+    # 5. All-zero counts -> NaN values for every quantile level
+    h_zero = {"bin_edges": bin_edges, "counts": [0, 0, 0]}
+    res_zero = aggregate_quantile([h_zero], q_levels)
+    assert set(res_zero.keys()) == set(q_levels)
+    for q in q_levels:
+        assert np.isnan(res_zero[q]["value"])

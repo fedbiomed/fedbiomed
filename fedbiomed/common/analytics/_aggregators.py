@@ -3,7 +3,7 @@
 
 import functools
 import inspect
-from typing import Dict, List, Union
+from typing import Callable, Dict, List, Union
 
 import numpy as np
 
@@ -11,8 +11,25 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
+# Maps every stat to its aggregator function.
+AGGREGATORS_MAP: Dict[str, Callable] = {}
+
+
+def register_aggregator(stat: str):
+    """Registers an aggregator function for the given stat in AGGREGATORS_MAP."""
+
+    def decorator(func):
+        AGGREGATORS_MAP[stat] = func
+        return func
+
+    return decorator
+
 
 def validate_aggregator_args(func):
+    """Decorator to validate aggregator function arguments.
+    Ensures all required arguments are present and are lists.
+    Also filters out any extra kwargs not in the function signature.
+    """
     # Fetch signature once at decoration time for efficiency
     sig = inspect.signature(func)
     params = sig.parameters
@@ -44,6 +61,7 @@ def validate_aggregator_args(func):
     return wrapper
 
 
+@register_aggregator("min")
 @validate_aggregator_args
 def aggregate_min(min: List[float]) -> float:
     """Aggregates minimum values.
@@ -57,6 +75,7 @@ def aggregate_min(min: List[float]) -> float:
     return np.min(min)
 
 
+@register_aggregator("max")
 @validate_aggregator_args
 def aggregate_max(max: List[float]) -> float:
     """Aggregates maximum values.
@@ -70,6 +89,7 @@ def aggregate_max(max: List[float]) -> float:
     return np.max(max)
 
 
+@register_aggregator("count")
 @validate_aggregator_args
 def aggregate_count(count: List[int]) -> int:
     """Aggregates count values.
@@ -87,19 +107,23 @@ def aggregate_count(count: List[int]) -> int:
     return sum(count)
 
 
+@register_aggregator("sum")
 @validate_aggregator_args
-def aggregate_sum(sum: List[float]) -> float:
-    """Aggregates sums.
+def aggregate_sum(mean: List[float], count: List[int]) -> float:
+    """Aggregates sum values using means and counts.
 
     Args:
-        sum: List of sums from nodes.
+        mean: List of means from nodes.
+        count: List of counts from nodes.
 
     Returns:
         The total sum.
     """
-    return np.sum(sum)
+    total_sum = sum(m * c for m, c in zip(mean, count, strict=True))
+    return total_sum
 
 
+@register_aggregator("mean")
 @validate_aggregator_args
 def aggregate_mean(mean: List[float], count: List[int]) -> float:
     """Aggregates mean values using counts as weights.
@@ -118,6 +142,7 @@ def aggregate_mean(mean: List[float], count: List[int]) -> float:
     return total_sum / total_count
 
 
+@register_aggregator("variance")
 @validate_aggregator_args
 def aggregate_variance(
     mean: List[float], variance: List[float], count: List[int]
@@ -155,23 +180,24 @@ def aggregate_variance(
     return (ss_within + ss_between) / (total_count - 1)
 
 
+@register_aggregator("std")
 @validate_aggregator_args
-def aggregate_std(mean: List[float], std: List[float], count: List[int]) -> float:
-    """Aggregates standard deviation using means, stds, and counts.
+def aggregate_std(mean: List[float], variance: List[float], count: List[int]) -> float:
+    """Aggregates standard deviation using means, variances, and counts.
 
     Args:
         mean: List of means from nodes.
-        std: List of standard deviations from nodes.
+        variance: List of variances from nodes.
         count: List of counts from nodes.
 
     Returns:
         The global sample standard deviation.
     """
-    variance = [s**2 for s in std]
     var = aggregate_variance(mean, variance, count)
     return np.sqrt(var)
 
 
+@register_aggregator("histogram")
 @validate_aggregator_args
 def aggregate_histogram(
     histogram: List[Dict[str, Union[List[int], List[float]]]],
@@ -194,35 +220,52 @@ def aggregate_histogram(
     }
 
 
+@register_aggregator("quantile")
 @validate_aggregator_args
 def aggregate_quantile(
-    quantile: List[Dict[str, List[float]]],
-) -> Dict[str, List[float]]:
-    """Aggregates quantiles from nodes.
+    histogram: List[Dict[str, Union[List[int], List[float]]]],
+    quantile: List[float],
+) -> Dict[float, Dict[str, float]]:
+    """Estimates quantiles from per-node histograms.
 
     Args:
-        quantile: List of quantile dictionaries from nodes.
-                  Each dict must contain "q" (list of quantiles) and "values" (list of values).
+        histogram: List of per-node dicts, each with:
+            - ``"bin_edges"``: monotonically increasing bin boundaries (length n+1)
+            - ``"counts"``: per-bin counts (length n)
+        quantile: Requested quantile levels in (0, 1] (e.g. ``[0.25, 0.5, 0.75]``).
 
     Returns:
-        The aggregated quantile dictionary with "q" and "values".
-    """
-    aggregated = {}
-    if not quantile:
-        return aggregated
+        Dict keyed by each requested quantile level. Each value is a dict with:
+        - ``"value"``: linearly interpolated point estimate within the target bin
+        - ``"min"``:   lower bin-edge bound (range lower bound)
+        - ``"max"``:   upper bin-edge bound (range upper bound)
 
-    # Check key consistency regarding "q" across all nodes
-    reference_q = quantile[0]["q"]
-    if not all(node_q["q"] == reference_q for node_q in quantile):
-        logger.info("Quantiles 'q' do not match across nodes; cannot aggregate.")
+        Returns ``None`` if ``bin_edges`` do not match across nodes.
+    """
+    aggregated_histogram = aggregate_histogram(histogram)
+    if aggregated_histogram is None:
         return None
 
-    # Aggregate values (averaging across nodes)
-    # Each value in 'values' corresponds to the q at the same index in 'q'
-    all_values = [node_q["values"] for node_q in quantile]
-    aggregated_values = np.mean(all_values, axis=0).tolist()
+    total_counts = np.array(aggregated_histogram["counts"])
+    total_n = int(total_counts.sum())
 
-    return {
-        "q": reference_q,
-        "values": aggregated_values,
-    }
+    if total_n == 0:
+        return {q: {"value": np.nan, "min": np.nan, "max": np.nan} for q in quantile}
+
+    edges = np.array(aggregated_histogram["bin_edges"])
+    cumulative = np.cumsum(total_counts)
+
+    result = {}
+    for q in quantile:
+        target = q * total_n
+        bin_idx = int(np.searchsorted(cumulative, target, side="left"))
+        bin_idx = min(bin_idx, len(total_counts) - 1)  # clamp to last bin
+
+        lo, hi = float(edges[bin_idx]), float(edges[bin_idx + 1])
+        prev_cum = float(cumulative[bin_idx - 1]) if bin_idx > 0 else 0.0
+        bin_count = float(total_counts[bin_idx])
+        frac = (target - prev_cum) / bin_count if bin_count > 0 else 0.5
+
+        result[q] = {"value": lo + frac * (hi - lo), "min": lo, "max": hi}
+
+    return result
