@@ -15,7 +15,7 @@ from ._scalar_1d import (
     MaxAccumulator,
     MeanAccumulator,
     MinAccumulator,
-    QuantileAccumulator,
+    # QuantileAccumulator,
     VarianceAccumulator,
 )
 
@@ -90,14 +90,14 @@ _REGISTRY_STATS = [
         "accumulator_class": HistogramAccumulator,
         "is_vectorizable": False,
     },
-    {
-        "name": "quantile",
-        "required_args": {"quantiles"},
-        "valid_for": DatasetElementType.ROW,
-        "accumulator_class": QuantileAccumulator,
-        "is_vectorizable": False,
-        "uses_buffer": True,
-    },
+    # {
+    #     "name": "quantile",
+    #     "required_args": {"quantiles"},
+    #     "valid_for": DatasetElementType.ROW,
+    #     "accumulator_class": QuantileAccumulator,
+    #     "is_vectorizable": False,
+    #     "uses_buffer": True,
+    # },
 ]
 
 

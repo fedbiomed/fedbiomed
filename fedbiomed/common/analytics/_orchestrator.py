@@ -7,7 +7,7 @@ from fedbiomed.common.analytics.accumulators import (
     Accumulator,
     AnalyticsRegistry,
     DictAccumulator,
-    ImageAccumulator,
+    ImageNDAccumulator,
     RowAccumulator,
     SequenceAccumulator,
     SkipAccumulator,
@@ -100,7 +100,7 @@ class AnalyticsOrchestrator:
         if config["type"] == DatasetElementType.ROW:
             return RowAccumulator(config)
         if config["type"] == DatasetElementType.IMAGE:
-            return ImageAccumulator(config)
+            return ImageNDAccumulator(config)
         if config["type"] == "skip":
             return SkipAccumulator()
 
