@@ -9,7 +9,6 @@ import numpy as np
 
 from fedbiomed.common.constants import ErrorNumbers, Stats
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.logger import logger
 
 # Maps every stat to its aggregator function.
 AGGREGATORS_MAP: Dict[str, Callable] = {}
@@ -101,11 +100,11 @@ def aggregate_count(count: List[int]) -> int:
     Returns:
         The total count.
     """
-    if not all(isinstance(c, int) and c >= 0 for c in count):
+    if not all(isinstance(c, (int, np.integer)) and c >= 0 for c in count):
         raise FedbiomedError(
             f"{ErrorNumbers.FB633.value}: All count values must be non-negative integers."
         )
-    return sum(count)
+    return int(np.sum(count))
 
 
 @aggregator("sum")
@@ -207,8 +206,9 @@ def aggregate_histogram(
         The aggregated histogram as a dict with 'bin_edges' and 'counts'.
     """
     if not all(h["bin_edges"] == histogram[0]["bin_edges"] for h in histogram):
-        logger.info("Bin edges do not match across histograms; cannot aggregate.")
-        return None
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB633.value}: Bin edges do not match across histograms; cannot aggregate."
+        )
 
     return {
         "bin_edges": histogram[0]["bin_edges"],
@@ -235,12 +235,10 @@ def aggregate_quantile(
         - ``"min"``:   lower bin-edge bound (range lower bound)
         - ``"max"``:   upper bin-edge bound (range upper bound)
 
-        Returns ``None`` if ``bin_edges`` do not match across nodes.
+    Raises:
+        FedbiomedError: If ``bin_edges`` do not match across nodes.
     """
     aggregated_histogram = aggregate_histogram(histogram)
-    if aggregated_histogram is None:
-        return None
-
     total_counts = np.array(aggregated_histogram["counts"])
     total_n = int(total_counts.sum())
 

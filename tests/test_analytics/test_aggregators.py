@@ -202,8 +202,8 @@ def test_aggregate_histogram():
 
     # Mismatched bin_edges
     hist3 = {"bin_edges": [0, 1, 3], "counts": [1, 2]}
-    res_mismatch = aggregate_histogram([hist1, hist3])
-    assert res_mismatch is None
+    with pytest.raises(FedbiomedError):
+        aggregate_histogram([hist1, hist3])
 
     # Empty list -> FedbiomedError
     with pytest.raises(FedbiomedError):
@@ -228,9 +228,10 @@ def test_aggregate_quantile():
         assert entry["min"] < entry["max"]
         assert entry["min"] <= entry["value"] <= entry["max"]
 
-    # 2. Mismatched bin_edges -> None
+    # 2. Mismatched bin_edges -> FedbiomedError
     h3 = {"bin_edges": [0.0, 5.0, 20.0, 30.0], "counts": [5, 10, 5]}
-    assert aggregate_quantile([h1, h3], q_levels) is None
+    with pytest.raises(FedbiomedError):
+        aggregate_quantile([h1, h3], q_levels)
 
     # 3. Empty histogram list -> FedbiomedError
     with pytest.raises(FedbiomedError):

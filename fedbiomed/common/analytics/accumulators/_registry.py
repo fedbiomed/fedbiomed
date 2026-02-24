@@ -49,39 +49,6 @@ _REGISTRY_STATS = [
         "valid_for": DatasetElementType.ROW,
         "accumulator_class": VarianceAccumulator,
     },
-    # ===== IMAGE Primitives (with aggregate_channels support) =====
-    {
-        "name": "count",
-        "valid_for": DatasetElementType.IMAGE,
-        "accumulator_class": CountAccumulator,
-        "optional_args": {"aggregate_channels"},
-    },
-    {
-        "name": "min",
-        "valid_for": DatasetElementType.IMAGE,
-        "accumulator_class": MinAccumulator,
-        "optional_args": {"aggregate_channels"},
-    },
-    {
-        "name": "max",
-        "valid_for": DatasetElementType.IMAGE,
-        "accumulator_class": MaxAccumulator,
-        "optional_args": {"aggregate_channels"},
-    },
-    {
-        "name": "mean",
-        "dependencies": "count",
-        "valid_for": DatasetElementType.IMAGE,
-        "accumulator_class": MeanAccumulator,
-        "optional_args": {"aggregate_channels"},
-    },
-    {
-        "name": "variance",
-        "dependencies": ["mean", "count"],
-        "valid_for": DatasetElementType.IMAGE,
-        "accumulator_class": VarianceAccumulator,
-        "optional_args": {"aggregate_channels"},
-    },
     # ===== Complex stats (shared or type-specific) =====
     {
         "name": "histogram",
@@ -98,6 +65,39 @@ _REGISTRY_STATS = [
         "is_vectorizable": False,
         "uses_buffer": True,
     },
+    # ===== IMAGE Primitives (with aggregate_channels support) =====
+    # {
+    #     "name": "count",
+    #     "valid_for": DatasetElementType.IMAGE,
+    #     "accumulator_class": CountAccumulator,
+    #     "optional_args": {"aggregate_channels"},
+    # },
+    # {
+    #     "name": "min",
+    #     "valid_for": DatasetElementType.IMAGE,
+    #     "accumulator_class": MinAccumulator,
+    #     "optional_args": {"aggregate_channels"},
+    # },
+    # {
+    #     "name": "max",
+    #     "valid_for": DatasetElementType.IMAGE,
+    #     "accumulator_class": MaxAccumulator,
+    #     "optional_args": {"aggregate_channels"},
+    # },
+    # {
+    #     "name": "mean",
+    #     "dependencies": "count",
+    #     "valid_for": DatasetElementType.IMAGE,
+    #     "accumulator_class": MeanAccumulator,
+    #     "optional_args": {"aggregate_channels"},
+    # },
+    # {
+    #     "name": "variance",
+    #     "dependencies": ["mean", "count"],
+    #     "valid_for": DatasetElementType.IMAGE,
+    #     "accumulator_class": VarianceAccumulator,
+    #     "optional_args": {"aggregate_channels"},
+    # },
 ]
 
 
