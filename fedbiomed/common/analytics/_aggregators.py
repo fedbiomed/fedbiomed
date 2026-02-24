@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Union
 
 import numpy as np
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, Stats
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
@@ -15,54 +15,57 @@ from fedbiomed.common.logger import logger
 AGGREGATORS_MAP: Dict[str, Callable] = {}
 
 
-def register_aggregator(stat: str):
-    """Registers an aggregator function for the given stat in AGGREGATORS_MAP."""
+def aggregator(stat: str):
+    """Register, validate, and wrap an aggregator function.
+
+    Decoration time:
+      - Raises FedbiomedError if any parameter name is not a Stats enum value.
+      - Registers the wrapped function in AGGREGATORS_MAP under *stat*.
+
+    Call time:
+      - Filters out unknown kwargs.
+    """
 
     def decorator(func):
-        AGGREGATORS_MAP[stat] = func
-        return func
+        sig = inspect.signature(func)
+        params = sig.parameters
+
+        # Validation of parameter names against Stats enum values
+        invalid = [p for p in params if p not in {s.value for s in Stats}]
+        if invalid:
+            raise FedbiomedError(
+                f"Aggregator '{func.__name__}' has parameter(s) {invalid} "
+                f"that are not valid Stats enum values. "
+                f"Valid values: {sorted(s.value for s in Stats)}"
+            )
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            filtered_kwargs = {k: v for k, v in kwargs.items() if k in params}
+            try:
+                bound = sig.bind(*args, **filtered_kwargs)
+            except TypeError as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB633.value}: Missing required argument: {e}"
+                ) from e
+            for name, val in bound.arguments.items():
+                if not isinstance(val, list):
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB633.value}: Argument {name} must be a list"
+                    )
+                if not val:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB633.value}: Argument {name} is empty"
+                    )
+            return func(*bound.args, **bound.kwargs)
+
+        AGGREGATORS_MAP[stat] = wrapper
+        return wrapper
 
     return decorator
 
 
-def validate_aggregator_args(func):
-    """Decorator to validate aggregator function arguments.
-    Ensures all required arguments are present and are lists.
-    Also filters out any extra kwargs not in the function signature.
-    """
-    # Fetch signature once at decoration time for efficiency
-    sig = inspect.signature(func)
-    params = sig.parameters
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # Filter kwargs to keep only arguments present in function signature
-        filtered_kwargs = {k: v for k, v in kwargs.items() if k in params}
-
-        # Bind arguments to check for missing required arguments
-        try:
-            bound = sig.bind(*args, **filtered_kwargs)
-        except TypeError as e:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB633.value}: Missing required argument: {e}"
-            ) from e
-
-        for name, val in bound.arguments.items():
-            if not isinstance(val, list):
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB633.value}: Argument {name} must be a list"
-                )
-            if not val:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB633.value}: Argument {name} is empty"
-                )
-        return func(*bound.args, **bound.kwargs)
-
-    return wrapper
-
-
-@register_aggregator("min")
-@validate_aggregator_args
+@aggregator("min")
 def aggregate_min(min: List[float]) -> float:
     """Aggregates minimum values.
 
@@ -75,8 +78,7 @@ def aggregate_min(min: List[float]) -> float:
     return np.min(min)
 
 
-@register_aggregator("max")
-@validate_aggregator_args
+@aggregator("max")
 def aggregate_max(max: List[float]) -> float:
     """Aggregates maximum values.
 
@@ -89,8 +91,7 @@ def aggregate_max(max: List[float]) -> float:
     return np.max(max)
 
 
-@register_aggregator("count")
-@validate_aggregator_args
+@aggregator("count")
 def aggregate_count(count: List[int]) -> int:
     """Aggregates count values.
 
@@ -107,8 +108,7 @@ def aggregate_count(count: List[int]) -> int:
     return sum(count)
 
 
-@register_aggregator("sum")
-@validate_aggregator_args
+@aggregator("sum")
 def aggregate_sum(mean: List[float], count: List[int]) -> float:
     """Aggregates sum values using means and counts.
 
@@ -123,8 +123,7 @@ def aggregate_sum(mean: List[float], count: List[int]) -> float:
     return total_sum
 
 
-@register_aggregator("mean")
-@validate_aggregator_args
+@aggregator("mean")
 def aggregate_mean(mean: List[float], count: List[int]) -> float:
     """Aggregates mean values using counts as weights.
 
@@ -142,8 +141,7 @@ def aggregate_mean(mean: List[float], count: List[int]) -> float:
     return total_sum / total_count
 
 
-@register_aggregator("variance")
-@validate_aggregator_args
+@aggregator("variance")
 def aggregate_variance(
     mean: List[float], variance: List[float], count: List[int]
 ) -> float:
@@ -180,8 +178,7 @@ def aggregate_variance(
     return (ss_within + ss_between) / (total_count - 1)
 
 
-@register_aggregator("std")
-@validate_aggregator_args
+@aggregator("std")
 def aggregate_std(mean: List[float], variance: List[float], count: List[int]) -> float:
     """Aggregates standard deviation using means, variances, and counts.
 
@@ -197,15 +194,14 @@ def aggregate_std(mean: List[float], variance: List[float], count: List[int]) ->
     return np.sqrt(var)
 
 
-@register_aggregator("histogram")
-@validate_aggregator_args
+@aggregator("histogram")
 def aggregate_histogram(
     histogram: List[Dict[str, Union[List[int], List[float]]]],
 ) -> Dict[str, Union[List[int], List[float]]]:
     """Aggregates histograms from nodes.
 
     Args:
-        histograms: List of histograms from nodes, each as a dict with 'bin_edges' and 'counts'.
+        histogram: List of histograms from nodes, each as a dict with 'bin_edges' and 'counts'.
 
     Returns:
         The aggregated histogram as a dict with 'bin_edges' and 'counts'.
@@ -220,8 +216,7 @@ def aggregate_histogram(
     }
 
 
-@register_aggregator("quantile")
-@validate_aggregator_args
+@aggregator("quantile")
 def aggregate_quantile(
     histogram: List[Dict[str, Union[List[int], List[float]]]],
     quantile: List[float],

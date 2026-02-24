@@ -1,10 +1,13 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+import inspect
+
 import numpy as np
 import pytest
 
 from fedbiomed.common.analytics._aggregators import (
+    AGGREGATORS_MAP,
     aggregate_count,
     aggregate_histogram,
     aggregate_max,
@@ -14,9 +17,31 @@ from fedbiomed.common.analytics._aggregators import (
     aggregate_std,
     aggregate_sum,
     aggregate_variance,
+    aggregator,
 )
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, Stats
 from fedbiomed.common.exceptions import FedbiomedError
+
+
+def test_all_aggregator_params_are_valid_stats():
+    """Every parameter name in every registered aggregator must be a Stats value."""
+    valid = {s.value for s in Stats}
+    for stat_name, func in AGGREGATORS_MAP.items():
+        params = list(inspect.signature(func).parameters)
+        invalid = [p for p in params if p not in valid]
+        assert not invalid, (
+            f"Aggregator for '{stat_name}' has invalid parameter(s) {invalid}. "
+            f"Valid Stats values: {sorted(valid)}"
+        )
+
+
+def test_aggregator_invalid_param_raises_at_decoration():
+    """Decorating a function with a non-Stats parameter name raises FedbiomedError."""
+    with pytest.raises(FedbiomedError, match="not valid Stats enum values"):
+
+        @aggregator("test_stat")
+        def _bad(not_a_stat_name: list):
+            pass
 
 
 def test_aggregator_validation_args():
