@@ -10,6 +10,8 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
 
+from fedbiomed.common.logger import logger
+
 
 def cast_(func):
     """Decorator function for typing casting"""
@@ -116,6 +118,12 @@ class TinyTableConnector:
             The document if found, otherwise None.
         """
         response = self._table.search(self._query[self._id_name] == id_value)
+        logger.security_event(
+            operation="Database search",
+            **{self._id_name: id_value},
+            table_name=self._table_name,
+            result="Found" if response else "Not found",
+        )
         assert len(response) < 2, (
             f"Multiple entries found for {self._id_name}={id_value}, "
             "which should be unique."
@@ -140,6 +148,12 @@ class TinyTableConnector:
                 f"Entry with {self._id_name}={entry[self._id_name]} already exists."
             )
         _ = self._table.insert(entry)
+        logger.security_event(
+            operation="Database insert",
+            **{self._id_name: entry[self._id_name]},
+            table_name=self._table_name,
+            result="Success",
+        )
         return entry[self._id_name]
 
     def all(self) -> List[dict]:
@@ -148,7 +162,13 @@ class TinyTableConnector:
         Returns:
             The list of entries as dicts, or empty list if none found.
         """
-        return self._table.all()
+        result = self._table.all()
+        logger.security_event(
+            operation="Database fetch all",
+            table_name=self._table_name,
+            result=f"Found {len(result)} entries" if result else "No entries found",
+        )
+        return result
 
     def get_all_by_value(self, by: str, value: Any) -> List[dict]:
         """Get all entries by a field value (or empty list if none found).
@@ -160,11 +180,18 @@ class TinyTableConnector:
         Returns:
             The list of entries as dicts, or empty list if none found.
         """
-        return self._table.search(
+        result = self._table.search(
             self._query[by].one_of(value)
             if isinstance(value, (list, tuple))
             else self._query[by] == value
         )
+        logger.security_event(
+            operation="Database search",
+            **{by: value},
+            table_name=self._table_name,
+            result=f"Found {len(result)} entries" if result else "Not found",
+        )
+        return result
 
     def get_all_by_condition(self, by: str, cond: Callable) -> List[dict]:
         """Search entries by a test condition on a field.
@@ -176,7 +203,15 @@ class TinyTableConnector:
         Returns:
             The list of entries as dicts, or empty list if none found.
         """
-        return self._table.search(self._query[by].test(cond))
+        result = self._table.search(self._query[by].test(cond))
+        logger.security_event(
+            operation="Database search",
+            search_field=by,
+            search_condition=cond,
+            table_name=self._table_name,
+            result=f"Found {len(result)} entries" if result else "Not found",
+        )
+        return result
 
     def delete_by_id(self, id_value: Union[str, list[str]]) -> List[int]:
         """Delete a document by its ID.
@@ -192,10 +227,17 @@ class TinyTableConnector:
         for value in id_value:
             if not isinstance(value, str):
                 raise TypeError(f"Expected id to be string, got {type(value)} instead.")
-            if not id_value:
+            if not value:
                 raise ValueError("Expected id not to be an empty str.")
 
-        return self._table.delete(self._query[self._id_name].one_of(id_value))
+        result = self._table.delete(self._query[self._id_name].one_of(id_value))
+        logger.security_event(
+            operation="Database delete",
+            **{self._id_name: id_value},
+            table_name=self._table_name,
+            result=f"Deleted {len(result)} entries" if result else "No entries deleted",
+        )
+        return result
 
     def update_by_id(self, id_value: str, update: Dict[str, Any]) -> dict:
         """Update a document by its ID.
@@ -211,5 +253,11 @@ class TinyTableConnector:
             raise KeyError(f"No entry found with {self._id_name}={id_value}")
 
         _ = self._table.update(update, self._query[self._id_name] == id_value)
+        logger.security_event(
+            operation="Database update",
+            **{self._id_name: id_value},
+            table_name=self._table_name,
+            result="Success",
+        )
 
         return self.get_by_id(id_value)
