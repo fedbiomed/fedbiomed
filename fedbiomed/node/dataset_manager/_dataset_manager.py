@@ -193,6 +193,16 @@ class DatasetManager:
         # Validate parent
         parent_entry = self.get_dataset_entry_by_id(parent_dataset_id)
 
+        # Get controller
+        data_type = parent_entry["data_type"]
+        controller = get_controller(
+            data_type,
+            controller_parameters={
+                "root": path,
+                **(dataset_parameters if dataset_parameters is not None else {}),
+            },
+        )
+
         # Insert partial DB entry
         entry = {
             "path": path,
@@ -205,28 +215,11 @@ class DatasetManager:
             "description": description,
             "dataset_id": dataset_id,
             "dataset_parameters": dataset_parameters,
+            "shape": controller.shape(),
+            "dtypes": controller.get_types(),
+            "data_type": data_type,
         }
         dataset_id = self.dynamic_dataset_table.insert(entry)
-
-        # Get controller
-        data_type = parent_entry["data_type"]
-        controller = get_controller(
-            data_type,
-            controller_parameters={
-                "root": path,
-                **(dataset_parameters if dataset_parameters is not None else {}),
-            },
-        )
-
-        # Update DB entry with path, shape and dtypes
-        self.dynamic_dataset_table.update_by_id(
-            dataset_id,
-            {
-                "shape": controller.shape(),
-                "dtypes": controller.get_types(),
-                "data_type": data_type,
-            },
-        )
 
         return dataset_id
 
