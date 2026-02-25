@@ -498,7 +498,7 @@ FROM fedbiomed/node:<version-tag>
 # Install additional Python packages
 RUN pip install <a-package-required-for-your-setup>
 
-# Add your custom Docker instructions here...
+# Add your custom Docker instructions here, this will overwrite default entrypoint
 
 ENTRYPOINT ["/entrypoint.bash"] # Optional
 ```
