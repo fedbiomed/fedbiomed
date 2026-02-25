@@ -47,12 +47,14 @@ class TestDatasetEntry(unittest.TestCase):
 class TestDynamicDatasetEntry(unittest.TestCase):
     def test_dataclass_initialization(self):
         entry = DynamicDatasetEntry(
+            path="/path/to/dynamic",
             researcher_id="res_123",
             experiment_id="exp_456",
             processing_id="proc_789",
             parent_dataset_id="dataset_000",
             name="Dynamic Dataset",
         )
+        self.assertEqual(entry.path, "/path/to/dynamic")
         self.assertEqual(entry.researcher_id, "res_123")
         self.assertEqual(entry.experiment_id, "exp_456")
         self.assertEqual(entry.name, "Dynamic Dataset")
@@ -60,6 +62,7 @@ class TestDynamicDatasetEntry(unittest.TestCase):
 
     def test_preserve_given_dataset_id(self):
         entry = DynamicDatasetEntry(
+            path="/path/to/dynamic",
             researcher_id="res_123",
             experiment_id="exp_456",
             processing_id="proc_789",
@@ -70,6 +73,7 @@ class TestDynamicDatasetEntry(unittest.TestCase):
 
     def test_dataclass_todict(self):
         entry = DynamicDatasetEntry(
+            path="/path/to/dynamic",
             researcher_id="res_123",
             experiment_id="exp_456",
             processing_id="proc_789",
@@ -83,6 +87,7 @@ class TestDynamicDatasetEntry(unittest.TestCase):
 
     def test_from_dict(self):
         dict_data = {
+            "path": "/path/to/dynamic",
             "researcher_id": "res_123",
             "experiment_id": "exp_456",
             "processing_id": "proc_789",
@@ -90,6 +95,7 @@ class TestDynamicDatasetEntry(unittest.TestCase):
             "name": "Dynamic Dataset",
         }
         entry = DynamicDatasetEntry.from_dict(dict_data)
+        self.assertEqual(entry.path, "/path/to/dynamic")
         self.assertEqual(entry.researcher_id, "res_123")
         self.assertEqual(entry.experiment_id, "exp_456")
         self.assertEqual(entry.name, "Dynamic Dataset")
@@ -194,6 +200,7 @@ class TestDynamicDatasetTable(unittest.TestCase):
 
     def test_insert_and_get_by_id(self):
         entry = {
+            "path": "/path/to/dynamic",
             "researcher_id": "res_001",
             "experiment_id": "exp_001",
             "processing_id": "proc_001",
@@ -202,6 +209,7 @@ class TestDynamicDatasetTable(unittest.TestCase):
         }
         dataset_id = self.table.insert(entry)
         found = self.table.get_by_id(dataset_id)
+        self.assertEqual(found["path"], "/path/to/dynamic")
         self.assertEqual(found["researcher_id"], "res_001")
         self.assertEqual(found["experiment_id"], "exp_001")
         self.assertEqual(found["name"], "Dynamic Dataset 1")
@@ -211,6 +219,7 @@ class TestDynamicDatasetTable(unittest.TestCase):
     def test_collect_subtree(self):
         dataset_root_id = "dataset_root_id"
         dyn_dataset_child1 = {
+            "path": "/path/to/dynamic/child1",
             "researcher_id": "res_child1",
             "experiment_id": "exp_child1",
             "processing_id": "proc_child1",
@@ -218,6 +227,7 @@ class TestDynamicDatasetTable(unittest.TestCase):
         }
         dyn_dataset_child1_id = self.table.insert(dyn_dataset_child1)
         dyn_dataset_grandchild1_id = {
+            "path": "/path/to/dynamic/grandchild1",
             "researcher_id": "res_grandchild1",
             "experiment_id": "exp_grandchild1",
             "processing_id": "proc_grandchild1",

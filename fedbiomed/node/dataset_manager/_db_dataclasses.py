@@ -56,13 +56,13 @@ class DatasetEntry(TableEntry):
 class DynamicDatasetEntry(TableEntry):
     """Dynamic dataset entry"""
 
+    path: str
     researcher_id: str
     experiment_id: str
     processing_id: str
     parent_dataset_id: str
     shape: Optional[List[int] | Dict[str, List[int]]] = None
     dtypes: Optional[Dict[str, str]] = None
-    path: Optional[str] = None
     name: Optional[str] = None
     tags: Optional[List[str]] = None
     data_type: Optional[str] = None
