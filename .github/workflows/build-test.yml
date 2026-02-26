@@ -77,6 +77,7 @@ jobs:
           - macos-m1
         python-version:
           - "3.11"
+      
     runs-on: ${{ matrix.os }}
     if: github.event.pull_request.draft == false
     steps:
@@ -119,7 +120,7 @@ jobs:
       - name: Verify Tox Config
         if: steps.filter.outputs.module == 'true'
         run: |
-          tox --showconfig
+          tox --showconfig -e py${{ matrix.python-version }}-unit
         shell: bash -l {0}
 
       - name: Run tests
@@ -195,7 +196,7 @@ jobs:
       - name: Verify Tox Config
         if: steps.filter.outputs.module == 'true'
         run: |
-          tox --showconfig
+          tox --showconfig -e py${{ matrix.python-version }}-unit
         shell: bash -l {0}
 
       - name: Run tests
