@@ -30,7 +30,7 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
             n_phenotypes: int,
         ):
             super().__init__()
-            self.linear = nn.Linear(n_covariates, n_phenotypes, bias=True)
+            self.linear = nn.Linear(n_covariates, n_phenotypes, bias=False)
 
         def forward(self, x):
             return self.linear(x)

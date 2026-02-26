@@ -93,6 +93,11 @@ class _FedComBat_jobs:
         self.standardized_phenotypes = (
             self.phenotypes - global_mean_phenotypes
         ) / global_std_phenotypes
+
+        # Save the standardized data
+        self.save_data_locally(self.standardized_covariates)
+        self.save_data_locally(self.standardized_phenotypes)
+
         return {}
 
     def _compute_residual_variance(self, params):
@@ -107,13 +112,13 @@ class _FedComBat_jobs:
                   Keys: ["residual_variance", "n_samples"]
         """
         ########## TODO Replace by proper functions to read the data from the node ##########
-        biological_model = self.read_biological_model(params["biological_model_id"])
-        global_bias = self.read_bias_model(params["global_bias_model_id"])
-        local_bias = self.read_bias_model(params["local_bias_model_id"])
+        biological_model = params["biological_model"]
+        global_bias = params["global_bias_model_id"]
+        local_bias = self.read_bias_model(1234)
 
         standardized_covariates = self.read_standardized_covariates(123)
         standardized_phenotypes = self.read_standardized_phenotypes(123)
-        ################################################################################
+        #####################################################################################
         bias_param = torch.ones((len(standardized_covariates), 1))
         preds = (
             biological_model(standardized_covariates)
@@ -149,6 +154,8 @@ class _FedComBat_jobs:
         residuals = standardized_phenotypes - preds
         z = residuals / sigma_hat_g
 
+        # Save standardized residuals
+        self.save_data_locally(z)
         return {"gamma_hat_ig": z.mean(0), "delta_hat_ig": z.var(0)}
 
     def _compute_fedcombat_params(self, params):
@@ -225,3 +232,6 @@ class _FedComBat_jobs:
     def save_dataset(self, dataset):
         new_dataset_id = 12345
         return new_dataset_id
+
+    def save_data_locally(self, data):
+        return

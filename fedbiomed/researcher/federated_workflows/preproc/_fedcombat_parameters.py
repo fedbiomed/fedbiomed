@@ -140,7 +140,7 @@ class _FedComBatParameters:
         Args:
             values: a torch.Tensor of size (N x M) containing the values to average
             weights: a torch.Tensor of size (N) containing the weights
-            ddof: an int to subtract the degrees of freedom (useul for unbiased variance)
+            ddof: an int to subtract the degrees of freedom (useful for unbiased variance)
 
         Returns:
             torch.Tensor: computed weighted mean of shape (1 x M)
