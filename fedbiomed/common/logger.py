@@ -683,11 +683,16 @@ class FedLogger(metaclass=SingletonMeta):
         # Merge extra dicts properly to support is_security flag
         extra = kwargs.pop("extra", {})
         extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
+
+        # Ensure caller attribution points to the real call site, not this wrapper.
+        # Users may override by explicitly passing stacklevel=...
+        stacklevel = kwargs.pop("stacklevel", 2)
         self._logger.info(
             msg,
             *args,
             **kwargs,
             extra=extra,
+            stacklevel=stacklevel,
         )
 
     def debug(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
@@ -695,11 +700,14 @@ class FedLogger(metaclass=SingletonMeta):
         # Merge extra dicts properly to support is_security flag
         extra = kwargs.pop("extra", {})
         extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
+
+        stacklevel = kwargs.pop("stacklevel", 2)
         self._logger.debug(
             msg,
             *args,
             **kwargs,
             extra=extra,
+            stacklevel=stacklevel,
         )
 
     def warning(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
@@ -707,11 +715,14 @@ class FedLogger(metaclass=SingletonMeta):
         # Merge extra dicts properly to support is_security flag
         extra = kwargs.pop("extra", {})
         extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
+
+        stacklevel = kwargs.pop("stacklevel", 2)
         self._logger.warning(
             msg,
             *args,
             **kwargs,
             extra=extra,
+            stacklevel=stacklevel,
         )
 
     def critical(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
@@ -719,11 +730,14 @@ class FedLogger(metaclass=SingletonMeta):
         # Merge extra dicts properly to support is_security flag
         extra = kwargs.pop("extra", {})
         extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
+
+        stacklevel = kwargs.pop("stacklevel", 2)
         self._logger.critical(
             msg,
             *args,
             **kwargs,
             extra=extra,
+            stacklevel=stacklevel,
         )
 
     def error(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
@@ -731,11 +745,14 @@ class FedLogger(metaclass=SingletonMeta):
         # Merge extra dicts properly to support is_security flag
         extra = kwargs.pop("extra", {})
         extra.update({"researcher_id": researcher_id, "broadcast": broadcast})
+
+        stacklevel = kwargs.pop("stacklevel", 2)
         self._logger.error(
             msg,
             *args,
             **kwargs,
             extra=extra,
+            stacklevel=stacklevel,
         )
 
     def __getattr__(self, s: Any):

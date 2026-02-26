@@ -587,11 +587,19 @@ class TestLogger(unittest.TestCase):
                 self.assertEqual(info_entry["message"], "Info msg")
                 self.assertEqual(info_entry["level"], "INFO")
                 self.assertEqual(info_entry["operation"], "test_op")
+                self.assertEqual(
+                    info_entry.get("caller_function"),
+                    "test_logger_14_is_security_flag_behavior",
+                )
 
                 error_entry = json.loads(lines[1])
                 self.assertEqual(error_entry["message"], "Error msg")
                 self.assertEqual(error_entry["level"], "ERROR")
                 self.assertEqual(error_entry["researcher_id"], "researcher_1")
+                self.assertEqual(
+                    error_entry.get("caller_function"),
+                    "test_logger_14_is_security_flag_behavior",
+                )
 
             finally:
                 security_handler = logger._handlers.get("SECURITY_FILE")
