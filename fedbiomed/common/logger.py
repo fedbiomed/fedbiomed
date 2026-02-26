@@ -378,6 +378,7 @@ class FedLogger(metaclass=SingletonMeta):
         operation: Optional[str] = None,
         status: Optional[str] = None,
         researcher_id: Optional[str] = None,
+        stacklevel: int = 1,
         **fields: Any,
     ) -> None:
         """
@@ -394,6 +395,8 @@ class FedLogger(metaclass=SingletonMeta):
             operation: Name of the operation being logged (e.g., 'dataset_search', 'training_execute')
             status: Status of the operation (e.g., 'success', 'failure', 'pending')
             researcher_id: ID of the researcher performing the operation
+            stacklevel: How many frames to skip when attributing the caller.
+                Use higher values when calling `security_event` from within wrappers.
             **fields: Additional fields to log (e.g., dataset_id, experiment_id, node_id)
         """
         ctx = dict(SECURITY_CONTEXT.get() or {})
@@ -402,10 +405,15 @@ class FedLogger(metaclass=SingletonMeta):
         st = status or ctx.get("status")
         rid = researcher_id or ctx.get("researcher_id")
 
-        # Capture caller information from the stack
+        # Capture caller information from the stack.
+        # `stacklevel` follows Python logging semantics: stacklevel=2 points to the
+        # caller of this wrapper method.
         try:
             frame = inspect.currentframe()
-            caller_frame = frame.f_back if frame else None
+            caller_frame = frame
+            steps = max(int(stacklevel), 0)
+            for _ in range(steps):
+                caller_frame = caller_frame.f_back if caller_frame else None
             caller_info = {
                 "caller_function": caller_frame.f_code.co_name
                 if caller_frame
@@ -470,6 +478,7 @@ class FedLogger(metaclass=SingletonMeta):
         self._logger.info(
             json.dumps(entry, default=str, separators=(",", ":")),
             extra={"is_security": True},
+            stacklevel=stacklevel,
         )
 
     def _internal_add_handler(
