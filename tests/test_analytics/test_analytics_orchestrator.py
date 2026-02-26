@@ -5,7 +5,7 @@ import pytest
 from fedbiomed.common.analytics import AnalyticsOrchestrator
 from fedbiomed.common.analytics.accumulators import (
     DictAccumulator,
-    ImageAccumulator,
+    # ImageAccumulator,
     RowAccumulator,
     SequenceAccumulator,
     SkipAccumulator,
@@ -126,10 +126,11 @@ def test_create_accumulator_row(orchestrator):
 
 
 def test_create_accumulator_image(orchestrator):
-    acc = orchestrator._create_accumulator(
-        {"type": DatasetElementType.IMAGE, "stats": {}}
-    )
-    assert isinstance(acc, ImageAccumulator)
+    # TODO: Implement ImageAccumulator and remove the expected error.
+    with pytest.raises(FedbiomedError, match="ImageAccumulator is not yet implemented"):
+        orchestrator._create_accumulator(
+            {"type": DatasetElementType.IMAGE, "stats": {}}
+        )
 
 
 def test_create_accumulator_unsupported_type(orchestrator):
@@ -453,44 +454,39 @@ def test_compile_leaf_stats(mock_registry, orchestrator):
     )
     assert "mean" in config
 
-    # Args only
-    config = orchestrator._compile_leaf_stats(
-        DatasetElementType.ROW, stats=[], args={"max": {"some": "arg"}}, n_samples=10
-    )
-    assert "max" in config
-    assert config["max"] == {"some": "arg"}
+    # TODO: Re-enable once stats are approved and the temporary protection is removed
 
-    # Invalid explicit stat raises
-    mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "invalid"
-    with pytest.raises(FedbiomedError, match="is not valid for type"):
-        orchestrator._compile_leaf_stats(
-            DatasetElementType.ROW, stats=[], args={"invalid": {}}, n_samples=10
-        )
+    # # Invalid explicit stat raises
+    # mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "invalid"
+    # with pytest.raises(FedbiomedError, match="is not valid for type"):
+    #     orchestrator._compile_leaf_stats(
+    #         DatasetElementType.ROW, stats=[], args={"invalid": {}}, n_samples=10
+    #     )
 
-    # Invalid default stat is silently skipped
-    mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "bad_default"
-    config = orchestrator._compile_leaf_stats(
-        DatasetElementType.ROW, stats=["bad_default"], args={}, n_samples=10
-    )
-    assert "bad_default" not in config
+    # # Invalid default stat is silently skipped
+    # mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "bad_default"
+    # config = orchestrator._compile_leaf_stats(
+    #     DatasetElementType.ROW, stats=["bad_default"], args={}, n_samples=10
+    # )
+    # assert "bad_default" not in config
 
 
-@patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
-def test_compile_leaf_stats_buffer_injection(mock_registry, orchestrator):
-    """Stats with uses_buffer=True get buffer_size injected."""
-    mock_registry.check_stat_compatibility.return_value = True
-    mock_registry.validate_args.return_value = None
-    mock_registry.get_dependencies.return_value = set()
-    mock_registry.get_roots.side_effect = lambda stats, et: set(stats)
+# @patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
+# def test_compile_leaf_stats_buffer_injection(mock_registry, orchestrator):
+#     """Stats with uses_buffer=True get buffer_size injected."""
+#     mock_registry.check_stat_compatibility.return_value = True
+#     mock_registry.validate_args.return_value = None
+#     mock_registry.get_dependencies.return_value = set()
+#     mock_registry.get_roots.side_effect = lambda stats, et: set(stats)
 
-    stat_cfg = MagicMock()
-    stat_cfg.uses_buffer = True
-    mock_registry.get.return_value = {DatasetElementType.ROW: stat_cfg}
+#     stat_cfg = MagicMock()
+#     stat_cfg.uses_buffer = True
+#     mock_registry.get.return_value = {DatasetElementType.ROW: stat_cfg}
 
-    config = orchestrator._compile_leaf_stats(
-        DatasetElementType.ROW, stats=["quantile"], args={}, n_samples=42
-    )
-    assert config["quantile"].get("buffer_size") == 42
+#     config = orchestrator._compile_leaf_stats(
+#         DatasetElementType.ROW, stats=["quantile"], args={}, n_samples=42
+#     )
+#     assert config["quantile"].get("buffer_size") == 42
 
 
 @patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")

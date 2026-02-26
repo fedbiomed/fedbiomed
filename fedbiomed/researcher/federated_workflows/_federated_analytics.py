@@ -1,6 +1,9 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+"""Module defining the FederatedAnalytics class, which manages federated analytics workflows within an Experiment."""
+
+import copy
 import hashlib
 import inspect
 import json
@@ -22,46 +25,35 @@ from fedbiomed.researcher.requests import Requests
 class FAResult:
     """Stores per-node analytics results and computes global aggregations."""
 
-    def __init__(self, replies: dict[str, FAReply]) -> None:
+    def __init__(self, replies: Optional[dict[str, FAReply]]) -> None:
         """Initialise from a mapping of per-node FA replies.
 
         Args:
             replies: Mapping of node_id to FAReply.
         """
         self._data: dict[str, Any] = {}  # {node_id: raw_orchestrator_output}
+        # Cache for the list of computable stats, set to None on every merge.
+        self._computable_stats_cache: Optional[list[str]] = None
         if replies:
-            self._parse_replies(replies)
+            self.merge(replies)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _validate_reply(node_id: str, reply: FAReply) -> None:
-        """Raise :exc:`FedbiomedError` if *reply* carries no usable output."""
-        if not reply.output:
-            raise FedbiomedError(f"Node '{node_id}' returned empty output.")
-
-    @staticmethod
     def _is_stat_leaf(obj: dict) -> bool:
-        """Return ``True`` if *obj* is a stat-leaf dict.
-
-        A stat-leaf dict contains at least one key registered in
-        :data:`AGGREGATORS_MAP`.
-        """
-        return any(k in AGGREGATORS_MAP for k in obj)
+        """Return 'True' if all dict keys are registered in 'AGGREGATORS_MAP'."""
+        return isinstance(obj, dict) and obj and all(k in AGGREGATORS_MAP for k in obj)
 
     @staticmethod
     def _traverse_stat_leaves(obj: Any) -> Iterator[dict]:
         """Yield every stat-leaf dict found in *obj* (depth-first).
 
-        Structural dicts and sequences are traversed recursively. ``None``
-        elements within sequences are skipped. Yields stop at stat-leaf dicts
-        — their contents are not descended into further.
-
         Args:
             obj: A nested structure of dicts, lists, tuples, and scalar leaves.
         """
+        # pyStructural dicts and sequences are traversed recursively
         if isinstance(obj, dict):
             if FAResult._is_stat_leaf(obj):
                 yield obj
@@ -74,16 +66,7 @@ class FAResult:
                     yield from FAResult._traverse_stat_leaves(item)
 
     def _leaf_stat_keys(self) -> set[str]:
-        """Return all keys found inside stat-leaf dicts (any depth, first node).
-
-        Stat-leaf dicts are identified by having at least one key present in
-        :data:`AGGREGATORS_MAP`.  All keys of those dicts are collected,
-        including helper keys (e.g. ``"bin_edges"``) that are not themselves
-        registered aggregators.
-
-        Returns:
-            Set of raw stat key strings present at leaf positions.
-        """
+        """Return Set of raw stat key strings present at leaf positions (any depth, first node)."""
         if not self._data:
             return set()
         return {
@@ -92,39 +75,52 @@ class FAResult:
             for k in leaf
         }
 
-    def _parse_replies(self, replies: dict[str, FAReply]) -> None:
-        """Store each node's raw output verbatim."""
-        for node_id, reply in replies.items():
-            FAResult._validate_reply(node_id, reply)
-            self._data[node_id] = reply.output
-
     @property
     def _first_output(self) -> Any:
-        """Raw output of the first stored node. Only call when ``_data`` is non-empty."""
+        """Raw output of the first stored node.
+
+        Raises:
+            FedbiomedError: If no data has been stored yet.
+        """
+        if not self._data:
+            raise FedbiomedError("FAResult contains no node data.")
         return next(iter(self._data.values()))
 
     @staticmethod
     def _deep_merge(existing: Any, new: Any) -> Any:
         """Recursively merge *new* into *existing*.
 
-        Dicts are merged key-by-key. Same-typed sequences are merged
-        element-wise; both sequences must have the same length.
-
         Raises:
-            ValueError: If *existing* and *new* are sequences of different
-                lengths.
+            FedbiomedError: If *existing* and *new* are sequences of different
+                lengths, or if their types are structurally incompatible.
         """
+        # pyStructural dicts and sequences are are merged element-wise
         if isinstance(existing, dict) and isinstance(new, dict):
             result = dict(existing)
             for k, v in new.items():
                 result[k] = FAResult._deep_merge(result[k], v) if k in result else v
             return result
         if isinstance(existing, (list, tuple)) and type(existing) is type(new):
-            merged = [
-                FAResult._deep_merge(e, n) for e, n in zip(existing, new, strict=True)
-            ]
+            try:
+                merged = [
+                    FAResult._deep_merge(e, n)
+                    for e, n in zip(existing, new, strict=True)
+                ]
+            except ValueError as e:
+                raise FedbiomedError(
+                    f"Cannot merge sequences of different lengths "
+                    f"({len(existing)} vs {len(new)})."
+                ) from e
             return type(existing)(merged)
-        # Scalar leaves are overwritten by the new value.
+        # Raise instead of silently overwriting when types are structurally incompatible.
+        if isinstance(existing, (dict, list, tuple)) or isinstance(
+            new, (dict, list, tuple)
+        ):
+            raise FedbiomedError(
+                f"Cannot deep-merge incompatible types: "
+                f"{type(existing).__name__} and {type(new).__name__}."
+            )
+        # Both scalars: new overwrites.
         return new
 
     # ------------------------------------------------------------------
@@ -137,15 +133,24 @@ class FAResult:
 
         Args:
             replies: Mapping of node_id to FAReply from the new request.
+
+        Raises:
+            FedbiomedError: If any reply carries no usable output, or if the new output
+                is structurally incompatible with the existing data.
         """
+        # Validate everything before touching _data (avoid partial-state).
         for node_id, reply in replies.items():
-            FAResult._validate_reply(node_id, reply)
+            if reply.output is None:
+                raise FedbiomedError(f"Node '{node_id}' returned None output.")
+
+        for node_id, reply in replies.items():
             if node_id not in self._data:
                 self._data[node_id] = reply.output
             else:
                 self._data[node_id] = FAResult._deep_merge(
                     self._data[node_id], reply.output
                 )
+        self._computable_stats_cache = None
 
     # ------------------------------------------------------------------
     # Introspection
@@ -161,9 +166,7 @@ class FAResult:
         """Schema of the result tree, useful for inspecting output structure without raw values.
 
         Returns:
-            A nested structure mirroring the data schema, where each
-            stat-leaf position is represented as ``{}``.  Returns ``None``
-            when no data has been stored yet.
+            A nested structure mirroring the data schema, where each stat-leaf position is represented as ``{}``.
         """
         if not self._data:
             return None
@@ -176,16 +179,12 @@ class FAResult:
             if isinstance(obj, (list, tuple)):
                 items = [_schema(item) for item in obj]
                 return type(obj)(items)
-            return {}
+            return None
 
         return _schema(self._first_output)
 
     def has_stat(self, stat_name: str) -> bool:
-        """Return ``True`` if *stat_name* is present at every stat-leaf of every node's output.
-
-        ``None`` elements within sequence outputs are skipped: a sequence position
-        holding ``None`` does not cause the stat to be considered absent.
-        """
+        """Return ``True`` if *stat_name* is present at every stat-leaf of every node's output."""
         if not self._data:
             return False
         for out in self._data.values():
@@ -196,9 +195,6 @@ class FAResult:
 
     def available_stats(self) -> list[str]:
         """Return statistic names found anywhere in the first node's output.
-
-        Only names that have a registered aggregator in :data:`AGGREGATORS_MAP`
-        are included, so internal helper keys are excluded.
 
         Returns:
             Sorted list of statistic names.
@@ -219,27 +215,28 @@ class FAResult:
 
         A statistic is *computable* if every parameter required by its registered
         aggregator function is present as a key in the data's stat-leaf dicts.
-        This includes both stats that are directly stored (e.g. ``"mean"``) and
-        derived stats (e.g. ``"std"`` when ``mean``, ``variance``, and ``count``
-        are all present, even though ``std`` is not itself a stored key).
+        The result is cached and invalidated automatically when 'merge' is called.
 
         Returns:
             Sorted list of computable stat names.
         """
+        if self._computable_stats_cache is not None:
+            return self._computable_stats_cache
         raw_keys = self._leaf_stat_keys()
-        result = [
+        result = sorted(
             stat_name
             for stat_name, fn in AGGREGATORS_MAP.items()
             if set(inspect.signature(fn).parameters).issubset(raw_keys)
-        ]
-        return sorted(result)
+        )
+        self._computable_stats_cache = result
+        return result
 
     # ------------------------------------------------------------------
     # Access & Aggregation
     # ------------------------------------------------------------------
 
     def node_stats(self, node_id: str) -> Any:
-        """Return the raw statistics output for *node_id*.
+        """Return a copy of the raw statistics output for *node_id*.
 
         Args:
             node_id: Identifier of the node.
@@ -256,26 +253,13 @@ class FAResult:
                 f"Node '{node_id}' not found in results. "
                 f"Available nodes: {self.node_ids}."
             )
-        return self._data[node_id]
+        return copy.deepcopy(self._data[node_id])
 
-    def all_node_stats(
-        self,
-        include_node_id: bool = True,
-    ) -> dict[str, Any] | list[Any]:
-        """Return statistics for every node in a single call.
-
-        Args:
-            include_node_id: When ``True`` (default) the result is a dict
-                keyed by node ID.  When ``False`` a plain list of per-node
-                outputs is returned in the same order as :attr:`node_ids`.
-
-        Returns:
-            When *include_node_id* is ``True``: ``{node_id: output}``.
-            When *include_node_id* is ``False``: ``[output, ...]``.
-        """
-        if include_node_id:
-            return dict(self._data)
-        return list(self._data.values())
+    def all_node_stats(self) -> dict[str, Any]:
+        """Return a Dict mapping each node ID to a deep copy of its output."""
+        return {
+            node_id: copy.deepcopy(output) for node_id, output in self._data.items()
+        }
 
     @staticmethod
     def _aggregate_tree(
@@ -284,14 +268,9 @@ class FAResult:
     ) -> Any:
         """Recursively aggregate *outputs* using *aggregator* at every stat-leaf dict.
 
-        Dicts containing at least one registered stat key are treated as stat-leaf
-        nodes and passed directly to *aggregator*. Structural dicts and sequences
-        are traversed recursively.
-
         Args:
             outputs: List of per-node output values, all sharing the same structure.
-            aggregator: Callable registered in :data:`AGGREGATORS_MAP` for the
-                target statistic.
+            aggregator: Callable registered in 'AGGREGATORS_MAP' for the target statistic.
 
         Raises:
             FedbiomedError: If a node output contains an unexpected bare scalar leaf.
@@ -321,16 +300,22 @@ class FAResult:
     def _merge_stat_results(stat_results: dict[str, Any]) -> Any:
         """Transpose ``{stat_name: tree}`` into tree-first grouping with stat names at leaves.
 
-        Given a mapping from stat name to its aggregated tree (all trees share
-        the same structure), produces a single tree where every leaf position
-        becomes a ``{stat_name: value}`` dict for every stat.
-
         Args:
             stat_results: Mapping ``{stat_name: aggregated_tree}`` where all
                 trees share identical structure.
 
         Returns:
             A single tree whose leaves are ``{stat_name: value}`` dicts.
+
+        Example:
+            Input: {
+                "mean": {"age": 47.2, "income": 55000},
+                "count": {"age": 100, "income": 100}
+            }
+            Output: {
+                "age": {"mean": 47.2, "count": 100},
+                "income": {"mean": 55000, "count": 100}
+            }
         """
         if not stat_results:
             return {}
@@ -353,54 +338,55 @@ class FAResult:
         # Scalar leaf: collect all stat values at this position
         return stat_results
 
-    def global_stats(self, stat_name: Optional[str] = None) -> Any:
-        """Compute globally aggregated value(s) across all nodes.
+    def global_stat(self, stat_name: str) -> Any:
+        """Compute the globally aggregated value for *stat_name* across all nodes.
 
-        The result preserves the schema structure of the node output: every
-        stat-leaf dict is replaced by the value returned by the registered
-        aggregator.  Structural dicts and sequences are traversed recursively.
-
-        Stat-leaf dicts are detected by the presence of any key that appears
-        in :data:`AGGREGATORS_MAP`, so *derived* stats (e.g. ``"std"`` when
-        the data contains ``mean``, ``variance``, and ``count``) are supported
-        even when the stat's name is not itself a stored key.
+        The result preserves the schema structure of the node output.
 
         Args:
             stat_name: Name of the statistic to aggregate (e.g. ``"mean"``).
-                When ``None`` (default), all computable statistics are
-                aggregated and the result preserves the original data-tree
-                structure with stat names grouped at the leaves.  When
-                provided, the name must appear in :meth:`computable_stats`.
+                Must appear in 'computable_stats'.
 
         Returns:
-            When *stat_name* is ``None``: the aggregated tree where every
-            stat-leaf position becomes ``{stat_name: value}`` for every
-            computable statistic, e.g.
-            ``{"price": {"mean": 42.5, "count": 100}}``.
-            Otherwise: aggregated value with the same shape as the node output
-            tree.
+            Aggregated value with the same structural shape as the per-node output tree
 
         Raises:
-            FedbiomedError: If *stat_name* is not computable, or if a node
-                output contains an unexpected scalar leaf.
+            FedbiomedError: If no node data is stored, if *stat_name* is not
+                computable, or if a node output contains an unexpected scalar leaf.
         """
+        if not self._data:
+            raise FedbiomedError(
+                "Cannot compute global stat: FAResult contains no node data."
+            )
         computable = self.computable_stats()
-        all_outputs = list(self._data.values())
-
-        if stat_name is None:
-            per_stat = {
-                s: FAResult._aggregate_tree(all_outputs, AGGREGATORS_MAP[s])
-                for s in computable
-            }
-            return FAResult._merge_stat_results(per_stat)
-
         if stat_name not in computable:
             raise FedbiomedError(
                 f"Statistic '{stat_name}' is not computable from the stored results. "
                 f"Computable stats: {computable}."
             )
+        return FAResult._aggregate_tree(
+            list(self._data.values()), AGGREGATORS_MAP[stat_name]
+        )
 
-        return FAResult._aggregate_tree(all_outputs, AGGREGATORS_MAP[stat_name])
+    def global_stats(self) -> Any:
+        """Compute globally aggregated values for all computable statistics.
+
+        Aggregates every stat returned and merges the results into a single tree.
+
+        Returns:
+            A tree whose leaves are ``{stat_name: value}``
+
+        Raises:
+            FedbiomedError: If a node output contains an unexpected scalar leaf.
+        """
+        if not self._data:
+            return {}
+        all_outputs = list(self._data.values())
+        per_stat = {
+            s: FAResult._aggregate_tree(all_outputs, AGGREGATORS_MAP[s])
+            for s in self.computable_stats()
+        }
+        return FAResult._merge_stat_results(per_stat)
 
 
 class FederatedAnalytics:
@@ -675,44 +661,4 @@ class FederatedAnalytics:
         return self.compute_analytics(
             stats=Stats.COUNT.value,
             dataset_schema=dataset_schema,
-        )
-
-    def histogram(
-        self,
-        dataset_schema: Optional[str | list[str | dict]] = None,
-        fa_args: Optional[dict] = None,
-    ) -> FAResult:
-        """Compute histograms across all nodes.
-
-        Args:
-            dataset_schema: Schema used to interpret the dataset.
-            fa_args: FA-specific arguments (e.g. ``bin_edges``).
-
-        Returns:
-            A :class:`FAResult`.
-        """
-        return self.compute_analytics(
-            stats=Stats.HISTOGRAM.value,
-            dataset_schema=dataset_schema,
-            fa_args=fa_args,
-        )
-
-    def quantile(
-        self,
-        dataset_schema: Optional[str | list[str | dict]] = None,
-        fa_args: Optional[dict] = None,
-    ) -> FAResult:
-        """Compute quantiles across all nodes.
-
-        Args:
-            dataset_schema: Schema used to interpret the dataset.
-            fa_args: FA-specific arguments (e.g. ``quantiles``).
-
-        Returns:
-            A :class:`FAResult`.
-        """
-        return self.compute_analytics(
-            stats=Stats.QUANTILE.value,
-            dataset_schema=dataset_schema,
-            fa_args=fa_args,
         )

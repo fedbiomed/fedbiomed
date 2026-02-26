@@ -7,7 +7,7 @@ from fedbiomed.common.analytics.accumulators import (
     Accumulator,
     AnalyticsRegistry,
     DictAccumulator,
-    ImageAccumulator,
+    # ImageAccumulator,
     RowAccumulator,
     SequenceAccumulator,
     SkipAccumulator,
@@ -100,7 +100,9 @@ class AnalyticsOrchestrator:
         if config["type"] == DatasetElementType.ROW:
             return RowAccumulator(config)
         if config["type"] == DatasetElementType.IMAGE:
-            return ImageAccumulator(config)
+            # TODO: Implement ImageAccumulator and uncomment this block
+            # return ImageAccumulator(config)
+            raise FedbiomedError("ImageAccumulator is not yet implemented.")
         if config["type"] == "skip":
             return SkipAccumulator()
 
@@ -324,6 +326,10 @@ class AnalyticsOrchestrator:
 
         # Validate and filter candidates
         for stat in candidates:
+            # TODO: Temporal protection to allow just approved stats to be called
+            if stat not in ["count", "mean", "variance"]:
+                raise FedbiomedError(f"Statistic '{stat}' is not implemented yet.")
+
             is_explicit = stat in args
             current_args = args.get(stat, {})
             if self._validate_leaf_stat(element_type, stat, current_args, is_explicit):

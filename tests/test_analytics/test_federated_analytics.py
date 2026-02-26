@@ -91,11 +91,6 @@ class TestFAResult:
         result = FAResult(replies)
         assert sorted(result.node_ids) == ["n1", "n2"]
 
-    def test_empty_output_raises(self):
-        bad_reply = _make_reply({})
-        with pytest.raises(FedbiomedError):
-            FAResult({"n1": bad_reply})
-
     def test_none_output_raises(self):
         with pytest.raises(FedbiomedError):
             FAResult({"n1": _make_reply(None)})
@@ -176,14 +171,6 @@ class TestFAResult:
         replies = {"n1": _make_reply({"min": 0.0, "max": 255.0})}
         result = FAResult(replies)
         assert sorted(result.available_stats()) == ["max", "min"]
-
-    def test_available_stats_nested(self):
-        # Internal keys that have no aggregator (e.g. "bin_edges") are excluded
-        replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "not_a_stat": "something"}})
-        }
-        result = FAResult(replies)
-        assert result.available_stats() == ["mean"]
 
     def test_available_stats_empty(self):
         assert FAResult({}).available_stats() == []
@@ -288,7 +275,7 @@ class TestFAResult:
             "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
         }
         result = FAResult(replies)
-        global_mean = result.global_stats("mean")
+        global_mean = result.global_stat("mean")
         expected_age = (45.0 * 100 + 50.0 * 80) / 180
         assert isinstance(global_mean, dict)
         assert abs(global_mean["age"] - expected_age) < 1e-9
@@ -300,7 +287,7 @@ class TestFAResult:
             "n2": _make_reply({"mean": 130.0, "count": 80}),
         }
         result = FAResult(replies)
-        global_mean = result.global_stats("mean")
+        global_mean = result.global_stat("mean")
         expected = (128.0 * 100 + 130.0 * 80) / 180
         assert abs(global_mean - expected) < 1e-9
 
@@ -310,7 +297,7 @@ class TestFAResult:
             "n2": _make_reply({"age": {"min": 18.0}}),
         }
         result = FAResult(replies)
-        global_min = result.global_stats("min")
+        global_min = result.global_stat("min")
         assert global_min == {"age": 18.0}
 
     def test_global_stats_max_row(self):
@@ -319,7 +306,7 @@ class TestFAResult:
             "n2": _make_reply({"age": {"max": 90.0}}),
         }
         result = FAResult(replies)
-        assert result.global_stats("max") == {"age": 90.0}
+        assert result.global_stat("max") == {"age": 90.0}
 
     def test_global_stats_count_row(self):
         replies = {
@@ -327,7 +314,7 @@ class TestFAResult:
             "n2": _make_reply({"age": {"count": 80}}),
         }
         result = FAResult(replies)
-        assert result.global_stats("count") == {"age": 180}
+        assert result.global_stat("count") == {"age": 180}
 
     def test_global_stats_nested_dict_schema(self):
         # Nested: {key: {col: {stat: val}}} — result is {key: {col: val}}
@@ -336,7 +323,7 @@ class TestFAResult:
             "n2": _make_reply({"tabular": {"age": {"mean": 50.0, "count": 80}}}),
         }
         result = FAResult(replies)
-        global_mean = result.global_stats("mean")
+        global_mean = result.global_stat("mean")
         expected_age = (45.0 * 100 + 50.0 * 80) / 180
         assert isinstance(global_mean, dict)
         assert abs(global_mean["tabular"]["age"] - expected_age) < 1e-9
@@ -345,7 +332,7 @@ class TestFAResult:
         replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         result = FAResult(replies)
         with pytest.raises(FedbiomedError, match="not computable"):
-            result.global_stats("variance")
+            result.global_stat("variance")
 
     def test_global_stats_unregistered_stat_raises(self):
         # A stat key exists in the data but has no registered aggregator;
@@ -353,7 +340,7 @@ class TestFAResult:
         replies = {"n1": _make_reply({"skewness": 0.5})}
         result = FAResult(replies)
         with pytest.raises(FedbiomedError, match="not computable"):
-            result.global_stats("skewness")
+            result.global_stat("skewness")
 
     # --- merge ---
 
@@ -395,7 +382,7 @@ class TestFAResult:
         assert "mean" in stats["age"]
 
     def test_deep_merge_mismatched_sequences_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(FedbiomedError):
             FAResult._deep_merge((1, 2, 3), (1, 2))
 
     # --- all_node_stats ---
@@ -412,22 +399,9 @@ class TestFAResult:
         assert all_stats["n1"] == result.node_stats("n1")
         assert all_stats["n2"] == result.node_stats("n2")
 
-    def test_all_node_stats_returns_list_without_node_id(self):
-        replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
-            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
-        }
-        result = FAResult(replies)
-        all_stats = result.all_node_stats(include_node_id=False)
-        assert isinstance(all_stats, list)
-        assert len(all_stats) == 2
-        for i, nid in enumerate(result.node_ids):
-            assert all_stats[i] == result.node_stats(nid)
-
     def test_all_node_stats_empty_result(self):
         result = FAResult({})
         assert result.all_node_stats() == {}
-        assert result.all_node_stats(include_node_id=False) == []
 
 
 # ---------------------------------------------------------------------------
@@ -758,7 +732,7 @@ class TestGlobalStats:
         }
         result = FAResult(replies)
         assert "std" in result.computable_stats()
-        global_std = result.global_stats("std")
+        global_std = result.global_stat("std")
         assert isinstance(global_std, dict)
         assert "age" in global_std
         assert global_std["age"] > 0
@@ -768,7 +742,7 @@ class TestGlobalStats:
         replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         result = FAResult(replies)
         with pytest.raises(FedbiomedError, match="not computable"):
-            result.global_stats("variance")
+            result.global_stat("variance")
 
     def test_no_stat_name_all_stats_match_individual_calls(self):
         replies = {
@@ -778,7 +752,7 @@ class TestGlobalStats:
         result = FAResult(replies)
         all_at_once = result.global_stats()
         for stat in result.computable_stats():
-            individual = result.global_stats(stat)
+            individual = result.global_stat(stat)
             # individual is {"age": value}; all_at_once is {"age": {stat: value, ...}}
             for col_key, col_val in individual.items():
                 assert all_at_once[col_key][stat] == col_val
@@ -791,4 +765,4 @@ class TestGlobalStats:
         result._data = {"n1": 42.0}
         with patch.object(FAResult, "computable_stats", return_value=["mean"]):
             with pytest.raises(FedbiomedError, match="Unexpected scalar"):
-                result.global_stats("mean")
+                result.global_stat("mean")
