@@ -158,7 +158,9 @@ class Config(metaclass=ABCMeta):
                 component_type=self.COMPONENT_TYPE,
                 fedbiomed_version=__version__,
             )
-            raise
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: cannot read config file:  {self.path}"
+            ) from e
 
     def get(self, section, key, **kwargs) -> str:
         """Returns value for given key and section"""
