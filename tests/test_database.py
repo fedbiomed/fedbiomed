@@ -237,11 +237,10 @@ class TestDynamicDatasetTable(unittest.TestCase):
         subtree = self.table.collect_subtree(dataset_root_id)
         self.assertEqual(
             subtree,
-            [dataset_root_id, dyn_dataset_child1_id, dyn_dataset_grandchild1_id],
+            [dyn_dataset_child1_id, dyn_dataset_grandchild1_id],
         )
         subtree_inexistent = self.table.collect_subtree("unknown_id")
-        # current implementation still returns the id itself
-        self.assertEqual(subtree_inexistent, ["unknown_id"])
+        self.assertEqual(subtree_inexistent, [])
 
 
 class TestDlpTable(unittest.TestCase):

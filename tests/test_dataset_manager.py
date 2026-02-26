@@ -15,7 +15,6 @@ class FakeTable:
     def __init__(self, *_, **__):
         self._items = []
         self._by = {}
-        self._fake_subtrees = {}
 
     def insert(self, entry: dict):
         # identify a reasonable key or generate one
@@ -54,8 +53,20 @@ class FakeTable:
         if item is not None:
             item.update(updates)
 
+
+class FakeDatasetTable(FakeTable):
+    _table_name = "Datasets"
+
+
+class FakeDynamicDatasetTable(FakeTable):
+    _table_name = "DynamicDatasets"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._fake_subtrees = {}
+
     def collect_subtree(self, parent_id):
-        return self._fake_subtrees.get(parent_id, [parent_id])
+        return self._fake_subtrees.get(parent_id, [])
 
 
 class FakeController:
@@ -88,8 +99,10 @@ def patch_dependencies(monkeypatch):
     Replace the concrete table classes and the controller getter *on the module under test*
     so we don't need to mess with sys.modules. Each test starts with a clean in-memory DB.
     """
-    monkeypatch.setattr(dm_mod, "DatasetTable", FakeTable, raising=True)
-    monkeypatch.setattr(dm_mod, "DynamicDatasetTable", FakeTable, raising=True)
+    monkeypatch.setattr(dm_mod, "DatasetTable", FakeDatasetTable, raising=True)
+    monkeypatch.setattr(
+        dm_mod, "DynamicDatasetTable", FakeDynamicDatasetTable, raising=True
+    )
     monkeypatch.setattr(dm_mod, "DlpTable", FakeTable, raising=True)
     monkeypatch.setattr(dm_mod, "DlbTable", FakeTable, raising=True)
 
@@ -247,8 +260,13 @@ def test_get_dataset_entry_from_both_tables():
         {"dataset_id": "dyn1", "parent_dataset_id": "raw1"}
     )
 
-    assert dm.get_dataset_entry_by_id("raw1")["dataset_id"] == raw_id
-    assert dm.get_dataset_entry_by_id("dyn1")["dataset_id"] == dyn_id
+    raw_dataset_entry, raw_table_name = dm.get_dataset_entry_by_id("raw1")
+    dyn_dataset_entry, dyn_table_name = dm.get_dataset_entry_by_id("dyn1")
+
+    assert raw_dataset_entry["dataset_id"] == raw_id
+    assert dyn_dataset_entry["dataset_id"] == dyn_id
+    assert raw_table_name == "Datasets"
+    assert dyn_table_name == "DynamicDatasets"
 
     with pytest.raises(FedbiomedError):
         dm.get_dataset_entry_by_id("does-not-exist")
@@ -314,18 +332,36 @@ def test_delete_dynamic_dataset_recursive():
         processing_id="p2",
         parent_dataset_id=child1,
     )
+    child3 = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child3",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p3",
+        parent_dataset_id=child2,
+    )
+    child4 = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child4",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p4",
+        parent_dataset_id=parent,
+    )
 
     # Inject fake subtree behavior
-    dm.dynamic_dataset_table._fake_subtrees = {child1: [child1, child2]}
+    dm.dynamic_dataset_table._fake_subtrees = {child1: [child2, child3]}
 
     dm.delete_dataset_by_id(child1, recursive=True)
+    # Test recursive works even with no children
+    dm.delete_dataset_by_id(child4, recursive=True)
 
     assert dm.dataset_table.get_by_id(parent) is not None
     assert dm.dynamic_dataset_table.get_by_id(child1) is None
     assert dm.dynamic_dataset_table.get_by_id(child2) is None
+    assert dm.dynamic_dataset_table.get_by_id(child3) is None
+    assert dm.dynamic_dataset_table.get_by_id(child4) is None
 
 
-def test_delete_dynamic_dataset_with_force_reassigns_children():
+def test_delete_dynamic_dataset_with_reassign_children():
     dm = dm_mod.DatasetManager(path="/db")
 
     parent = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
@@ -345,7 +381,7 @@ def test_delete_dynamic_dataset_with_force_reassigns_children():
         parent_dataset_id=child1,
     )
 
-    dm.delete_dataset_by_id(child1, force=True)
+    dm.delete_dataset_by_id(child1, reassign_children=True)
 
     # child2 should now point to raw parent
     updated = dm.dynamic_dataset_table.get_by_id(child2)
@@ -379,7 +415,7 @@ def test_delete_dataset_by_id_raises():
     with pytest.raises(FedbiomedError):
         dm.delete_dataset_by_id(parent)
     with pytest.raises(FedbiomedError):
-        dm.delete_dataset_by_id(parent, force=True)
+        dm.delete_dataset_by_id(parent, reassign_children=True)
 
 
 def test_delete_dataset_without_children():
@@ -416,7 +452,7 @@ def test_delete_dataset_with_children_recursive():
     )
 
     # Inject fake subtree behavior
-    dm.dynamic_dataset_table._fake_subtrees = {parent: [parent, child]}
+    dm.dynamic_dataset_table._fake_subtrees = {parent: [child]}
 
     dm.delete_dataset_by_id(parent, recursive=True)
 

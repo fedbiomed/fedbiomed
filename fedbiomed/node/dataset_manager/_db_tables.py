@@ -149,16 +149,17 @@ class DynamicDatasetTable(BaseTable):
     def collect_subtree(self, parent_id: str) -> List[str]:
         """Return a list of dataset_ids in the subtree rooted at parent_id.
 
-        The returned list starts with parent_id, then its children recursively.
+        The returned list contains only descendants of parent_id (children, grandchildren, ...).
+        The parent_id itself is NOT included. Returns an empty list if there are no descendants.
         """
         collected: List[str] = []
 
         def _dfs(current_id: str):
-            collected.append(current_id)
             children = self.get_all_by_value("parent_dataset_id", current_id)
             for c in children:
                 child_id = c.get(self._id_name)
                 if child_id:
+                    collected.append(child_id)
                     _dfs(child_id)
 
         _dfs(parent_id)

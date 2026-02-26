@@ -123,33 +123,17 @@ class DatasetManager:
             - If the data loading plan name is invalid or not unique
             - If the data_type is not supported
         """
-        controller = get_controller(
-            data_type,
-            controller_parameters={
-                "root": path,
-                "dlp": data_loading_plan,
-                **(dataset_parameters if dataset_parameters is not None else {}),
-            },
+        entry = self._build_dataset_entry(
+            data_type=data_type,
+            path=path,
+            dataset_id=dataset_id,
+            dataset_parameters=dataset_parameters,
+            name=name,
+            tags=tags,
+            description=description,
+            data_loading_plan=data_loading_plan,
         )
-
-        dataset_entry = self.dataset_table.insert(
-            entry=dict(
-                dataset_id=dataset_id,
-                name=name,
-                data_type=data_type,
-                tags=tags,
-                description=description,
-                path=controller._controller_kwargs["root"],
-                shape=controller.shape(),
-                dtypes=controller.get_types(),
-                dataset_parameters={
-                    _k: _v
-                    for _k, _v in controller._controller_kwargs.items()
-                    if _k not in ["root", "dlp"]
-                },
-                dlp_id=None if data_loading_plan is None else data_loading_plan.dlp_id,
-            )
-        )
+        dataset_entry = self.dataset_table.insert(entry)
 
         if save_dlp:
             self.save_data_loading_plan(data_loading_plan)
@@ -191,41 +175,86 @@ class DatasetManager:
             - If the parent dataset is not found in the database
         """
         # Validate parent
-        parent_entry = self.get_dataset_entry_by_id(parent_dataset_id)
+        parent_entry, _ = self.get_dataset_entry_by_id(parent_dataset_id)
 
-        # Get controller
+        # Get data type from parent dataset
         data_type = parent_entry["data_type"]
-        controller = get_controller(
-            data_type,
-            controller_parameters={
-                "root": path,
-                **(dataset_parameters if dataset_parameters is not None else {}),
+
+        # Build entry
+        entry = self._build_dataset_entry(
+            data_type=data_type,
+            path=path,
+            dataset_id=dataset_id,
+            dataset_parameters=dataset_parameters,
+            name=name,
+            tags=tags,
+            description=description,
+            data_loading_plan=None,  # DLP is not supported for dynamic datasets for now
+            extra_fields={
+                "researcher_id": researcher_id,
+                "experiment_id": experiment_id,
+                "processing_id": processing_id,
+                "parent_dataset_id": parent_dataset_id,
             },
         )
-
-        # Insert partial DB entry
-        entry = {
-            "path": path,
-            "researcher_id": researcher_id,
-            "experiment_id": experiment_id,
-            "processing_id": processing_id,
-            "parent_dataset_id": parent_dataset_id,
-            "name": name,
-            "tags": tags,
-            "description": description,
-            "dataset_id": dataset_id,
-            "dataset_parameters": dataset_parameters,
-            "shape": controller.shape(),
-            "dtypes": controller.get_types(),
-            "data_type": data_type,
-        }
         dataset_id = self.dynamic_dataset_table.insert(entry)
 
         return dataset_id
 
-    def get_dataset_entry_by_id(self, dataset_id: str) -> dict:
+    def _build_dataset_entry(
+        self,
+        *,
+        data_type: str,
+        path: str,
+        dataset_id: Optional[str],
+        dataset_parameters: Optional[dict],
+        name: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        description: Optional[str] = None,
+        data_loading_plan: Optional[DataLoadingPlan] = None,
+        extra_fields: Optional[dict] = None,
+    ):
+        controller_params = {
+            "root": path,
+            **(dataset_parameters or {}),
+        }
+
+        if data_loading_plan is not None:
+            controller_params["dlp"] = data_loading_plan
+
+        controller = get_controller(
+            data_type,
+            controller_parameters=controller_params,
+        )
+
+        # Creating common entry fields
+        entry = {
+            "dataset_id": dataset_id,
+            "data_type": data_type,
+            "name": name,
+            "tags": tags,
+            "description": description,
+            "path": controller._controller_kwargs["root"],
+            "shape": controller.shape(),
+            "dtypes": controller.get_types(),
+            "dataset_parameters": {
+                k: v
+                for k, v in controller._controller_kwargs.items()
+                if k not in ["root", "dlp"]
+            },
+        }
+
+        if data_loading_plan is not None:
+            entry["dlp_id"] = data_loading_plan.dlp_id
+        # Adding extra fields
+        if extra_fields:
+            entry.update(extra_fields)
+
+        return entry
+
+    def get_dataset_entry_by_id(self, dataset_id: str) -> Tuple[dict, str]:
         """
-        Validates that the dataset exists and returns its DB entry.
+        Validates that the dataset exists and returns its DB entry and dataset type.
 
         The dataset can be either:
             - a dataset (DatasetTable)
@@ -241,11 +270,11 @@ class DatasetManager:
 
         dataset_entry = self.dataset_table.get_by_id(dataset_id)
         if dataset_entry is not None:
-            return dataset_entry
+            return dataset_entry, self.dataset_table._table_name
 
         dynamic_dataset_entry = self.dynamic_dataset_table.get_by_id(dataset_id)
         if dynamic_dataset_entry is not None:
-            return dynamic_dataset_entry
+            return dynamic_dataset_entry, self.dynamic_dataset_table._table_name
 
         raise FedbiomedError(
             f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."
@@ -255,22 +284,24 @@ class DatasetManager:
         self,
         dataset_id: str,
         recursive: bool = False,
-        force: bool = False,
+        reassign_children: bool = False,
     ) -> None:
         """Deletes a dataset from the database by its ID.
 
         Args:
             dataset_id: the ID of the dataset to delete
             recursive: whether to recursively delete all descendant dynamic datasets (if any). Defaults to False.
-            force: whether to force delete the dataset if it has children, by reassigning its children to its parent dataset. Defaults to False.
+            reassign_children: whether to delete the dataset, and reassign children to the parent dataset if the dataset has children. Defaults to False.
 
         Raises:
             FedbiomedError:
-            - If the dataset has children and neither recursive nor force is True
             - If no dataset is found with the given ID
+            - If the dataset is a raw dataset and has children, and reassign_children is True (to avoid reassigning children of a raw dataset)
+            - If the dataset is a raw dataset and has children, and recursive is not True
+            - If the dynamic dataset has children and neither recursive nor reassign_children is True
         """
-        dataset_entry = self.get_dataset_entry_by_id(dataset_id)
-        is_dynamic = "parent_dataset_id" in dataset_entry
+        dataset_entry, dataset_type = self.get_dataset_entry_by_id(dataset_id)
+        is_dynamic = dataset_type == self.dynamic_dataset_table._table_name
 
         children = self.dynamic_dataset_table.get_all_by_value(
             "parent_dataset_id", dataset_id
@@ -279,9 +310,9 @@ class DatasetManager:
         # Case 1: dataset
         if not is_dynamic:
             if children:
-                if force:
+                if reassign_children:
                     raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Cannot force delete a dataset with children. Use recursive=True to delete subtree."
+                        f"{ErrorNumbers.FB632.value}: Cannot reassign children of a dataset with children. Use recursive=True to delete subtree."
                     )
 
                 if not recursive:
@@ -289,24 +320,23 @@ class DatasetManager:
                         f"{ErrorNumbers.FB632.value}: Dataset has derived dynamic datasets. Use recursive=True to delete subtree."
                     )
 
-                self._delete_dynamic_subtree(dataset_id, is_dynamic)
+                self._delete_dynamic_subtree(dataset_id)
 
-            # Delete raw dataset entry (no filesystem removal)
+            # Delete raw dataset entry
             self.dataset_table.delete_by_id(dataset_id)
             return
 
         # Case 2: dynamic dataset
-        if children and not recursive and not force:
+        if children and not recursive and not reassign_children:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Dataset has children. Use recursive=True to delete subtree "
-                "or force=True to reassign children."
+                "or reassign_children=True to reassign children."
             )
 
         if recursive:
-            self._delete_dynamic_subtree(dataset_id, is_dynamic)
-            return
+            self._delete_dynamic_subtree(dataset_id)
 
-        if force:
+        if reassign_children:
             parent_id = dataset_entry.get("parent_dataset_id")
 
             for child in children:
@@ -317,12 +347,18 @@ class DatasetManager:
 
         self.dynamic_dataset_table.delete_by_id(dataset_id)
 
-    def _delete_dynamic_subtree(self, dataset_id: str, is_dynamic: bool) -> None:
+    def _delete_dynamic_subtree(self, dataset_id: str) -> None:
+        """Helper method to delete a subtree of dynamic datasets rooted at dataset_id.
+
+        The root dataset can be either:
+            - a dataset (DatasetTable)
+            - a dynamic dataset (DynamicDatasetTable)
+
+        Args:
+            dataset_id: the ID of the root of the subtree to delete
+        """
         subtree = self.dynamic_dataset_table.collect_subtree(dataset_id)
-        if not is_dynamic:
-            # Remove the parent dataset
-            subtree = subtree[1:]
-        # Delete children first
+        # Delete children in reversed order
         for dyn_id in reversed(subtree):
             self.dynamic_dataset_table.delete_by_id(dyn_id)
 
