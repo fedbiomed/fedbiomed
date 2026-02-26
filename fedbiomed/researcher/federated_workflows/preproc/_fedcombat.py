@@ -176,15 +176,14 @@ class FedCombatPreproc:
                 # a way for the nodes to access the models
                 # NB: local bias is a local model and the global bias is an average of all local biases
                 ######################## DUMMY ARGS ###############################################
-                all_parameters["biological_model_id"] = (
+                all_parameters["biological_model"] = (
                     fc_training_plan._experimentation_folder
                 )
-                all_parameters["global_bias_model_id"] = (
+                all_parameters["global_bias_model"] = (
                     fc_training_plan._experimentation_folder
                 )
-                all_parameters["local_bias_model_id"] = (
-                    fc_training_plan._experimentation_folder
-                )
+
+                continue
                 ####################################################################################
             preproc_job = PreprocRequestJob(
                 experiment_id=self._experiment_id,
