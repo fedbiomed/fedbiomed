@@ -53,6 +53,29 @@ class DatasetEntry(TableEntry):
 
 
 @dataclass
+class DynamicDatasetEntry(TableEntry):
+    """Dynamic dataset entry"""
+
+    path: str
+    researcher_id: str
+    experiment_id: str
+    processing_id: str
+    parent_dataset_id: str
+    shape: Optional[List[int] | Dict[str, List[int]]] = None
+    dtypes: Optional[Dict[str, str]] = None
+    name: Optional[str] = None
+    tags: Optional[List[str]] = None
+    data_type: Optional[str] = None
+    description: Optional[str] = None
+    dataset_id: Optional[str] = None
+    dataset_parameters: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self):
+        if self.dataset_id is None:
+            self.dataset_id = f"dynamic_dataset_{uuid.uuid4()}"
+
+
+@dataclass
 class DlpEntry(TableEntry):
     """Data Loading Plan entry"""
 

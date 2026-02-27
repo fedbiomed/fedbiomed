@@ -10,7 +10,7 @@ from fedbiomed.node.dataset_manager import _dataset_manager as dm_mod
 
 
 class FakeTable:
-    """In-memory table replacement compatible with DatasetTable/DlpTable/DlbTable."""
+    """In-memory table replacement compatible with DatasetTable/DlpTable/DlbTable/DynamicDatasetTable."""
 
     def __init__(self, *_, **__):
         self._items = []
@@ -35,6 +35,8 @@ class FakeTable:
         return self._by.get(key)
 
     def get_all_by_value(self, field, values):
+        if not isinstance(values, (list, tuple)):
+            values = [values]
         s = set(values)
         return [row for row in self._items if row.get(field) in s]
 
@@ -45,6 +47,26 @@ class FakeTable:
 
     def all(self):
         return [dict(x) for x in self._items]
+
+    def update_by_id(self, key, updates):
+        item = self._by.get(key)
+        if item is not None:
+            item.update(updates)
+
+
+class FakeDatasetTable(FakeTable):
+    _table_name = "Datasets"
+
+
+class FakeDynamicDatasetTable(FakeTable):
+    _table_name = "DynamicDatasets"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._fake_subtrees = {}
+
+    def collect_subtree(self, parent_id):
+        return self._fake_subtrees.get(parent_id, [])
 
 
 class FakeController:
@@ -77,7 +99,10 @@ def patch_dependencies(monkeypatch):
     Replace the concrete table classes and the controller getter *on the module under test*
     so we don't need to mess with sys.modules. Each test starts with a clean in-memory DB.
     """
-    monkeypatch.setattr(dm_mod, "DatasetTable", FakeTable, raising=True)
+    monkeypatch.setattr(dm_mod, "DatasetTable", FakeDatasetTable, raising=True)
+    monkeypatch.setattr(
+        dm_mod, "DynamicDatasetTable", FakeDynamicDatasetTable, raising=True
+    )
     monkeypatch.setattr(dm_mod, "DlpTable", FakeTable, raising=True)
     monkeypatch.setattr(dm_mod, "DlbTable", FakeTable, raising=True)
 
@@ -222,3 +247,214 @@ def test_obfuscate_private_information_hides_sensitive_fields():
 def test_obfuscate_private_information_raises_on_bad_item():
     with pytest.raises(FedbiomedError):
         list(dm_mod.DatasetManager.obfuscate_private_information([{"path": "x"}, 123]))
+
+
+def test_get_dataset_entry_from_both_tables():
+    dm = dm_mod.DatasetManager(path="/db")
+
+    # Insert raw dataset
+    raw_id = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+
+    # Insert dynamic dataset
+    dyn_id = dm.dynamic_dataset_table.insert(
+        {"dataset_id": "dyn1", "parent_dataset_id": "raw1"}
+    )
+
+    raw_dataset_entry, raw_table_name = dm.get_dataset_entry_by_id("raw1")
+    dyn_dataset_entry, dyn_table_name = dm.get_dataset_entry_by_id("dyn1")
+
+    assert raw_dataset_entry["dataset_id"] == raw_id
+    assert dyn_dataset_entry["dataset_id"] == dyn_id
+    assert raw_table_name == "Datasets"
+    assert dyn_table_name == "DynamicDatasets"
+
+    with pytest.raises(FedbiomedError):
+        dm.get_dataset_entry_by_id("does-not-exist")
+
+
+def test_add_dynamic_dataset():
+    dm = dm_mod.DatasetManager(path="/db")
+
+    # Insert parent raw dataset
+    parent_id = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+
+    dyn_id = dm.add_dynamic_dataset(
+        path="/path/to/dynamic",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p",
+        parent_dataset_id=parent_id,
+    )
+
+    # DB entry exists
+    entry = dm.dynamic_dataset_table.get_by_id(dyn_id)
+    assert entry is not None
+    assert entry["path"] == "/path/to/dynamic"
+    assert entry["data_type"] == "tabular"
+    assert entry["shape"] == (3, 4)
+    assert entry["dtypes"] == {"col1": "float", "col2": "int"}
+
+
+def test_delete_dynamic_single():
+    dm = dm_mod.DatasetManager(path="/db")
+
+    parent_id = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+
+    dyn_id = dm.add_dynamic_dataset(
+        path="/path/to/dynamic",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p",
+        parent_dataset_id=parent_id,
+    )
+
+    dm.delete_dataset_by_id(dyn_id)
+
+    assert dm.dynamic_dataset_table.get_by_id(dyn_id) is None
+
+
+def test_delete_dynamic_dataset_recursive():
+    dm = dm_mod.DatasetManager(path="/db")
+
+    parent = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+
+    child1 = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child1",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p1",
+        parent_dataset_id=parent,
+    )
+    child2 = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child2",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p2",
+        parent_dataset_id=child1,
+    )
+    child3 = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child3",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p3",
+        parent_dataset_id=child2,
+    )
+    child4 = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child4",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p4",
+        parent_dataset_id=parent,
+    )
+
+    # Inject fake subtree behavior
+    dm.dynamic_dataset_table._fake_subtrees = {child1: [child2, child3]}
+
+    dm.delete_dataset_by_id(child1, recursive=True)
+    # Test recursive works even with no children
+    dm.delete_dataset_by_id(child4, recursive=True)
+
+    assert dm.dataset_table.get_by_id(parent) is not None
+    assert dm.dynamic_dataset_table.get_by_id(child1) is None
+    assert dm.dynamic_dataset_table.get_by_id(child2) is None
+    assert dm.dynamic_dataset_table.get_by_id(child3) is None
+    assert dm.dynamic_dataset_table.get_by_id(child4) is None
+
+
+def test_delete_dynamic_dataset_with_reassign_children():
+    dm = dm_mod.DatasetManager(path="/db")
+
+    parent = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+
+    child1 = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child1",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p1",
+        parent_dataset_id=parent,
+    )
+    child2 = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child2",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p2",
+        parent_dataset_id=child1,
+    )
+
+    dm.delete_dataset_by_id(child1, reassign_children=True)
+
+    # child2 should now point to raw parent
+    updated = dm.dynamic_dataset_table.get_by_id(child2)
+    assert updated["parent_dataset_id"] == parent
+
+    assert dm.dynamic_dataset_table.get_by_id(child1) is None
+
+
+def test_delete_dataset_by_id_raises():
+    dm = dm_mod.DatasetManager(path="/db")
+
+    parent = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+
+    child1 = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child1",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p1",
+        parent_dataset_id=parent,
+    )
+    _ = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child2",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p2",
+        parent_dataset_id=child1,
+    )
+
+    with pytest.raises(FedbiomedError):
+        dm.delete_dataset_by_id(child1)
+    with pytest.raises(FedbiomedError):
+        dm.delete_dataset_by_id(parent)
+    with pytest.raises(FedbiomedError):
+        dm.delete_dataset_by_id(parent, reassign_children=True)
+
+
+def test_delete_dataset_without_children():
+    dm = dm_mod.DatasetManager(path="/db")
+
+    parent1 = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    parent2 = dm.dataset_table.insert({"dataset_id": "raw2", "data_type": "tabular"})
+
+    _ = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child1",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p1",
+        parent_dataset_id=parent1,
+    )
+
+    dm.delete_dataset_by_id(parent2)
+
+    assert dm.dataset_table.get_by_id(parent2) is None
+    assert dm.dataset_table.get_by_id(parent1) is not None
+
+
+def test_delete_dataset_with_children_recursive():
+    dm = dm_mod.DatasetManager(path="/db")
+
+    parent = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+
+    child = dm.add_dynamic_dataset(
+        path="/path/to/dynamic/child1",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p1",
+        parent_dataset_id=parent,
+    )
+
+    # Inject fake subtree behavior
+    dm.dynamic_dataset_table._fake_subtrees = {parent: [child]}
+
+    dm.delete_dataset_by_id(parent, recursive=True)
+
+    assert dm.dataset_table.get_by_id(parent) is None
+    assert dm.dynamic_dataset_table.get_by_id(child) is None
