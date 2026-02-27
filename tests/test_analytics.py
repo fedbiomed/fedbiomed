@@ -4,15 +4,8 @@
 import numpy as np
 import pytest
 
-from fedbiomed.common.analytics import (
-    TabularAnalytics,
-    validate_dataset_arguments_for_fa,
-)
-from fedbiomed.common.constants import DatasetTypes
-from fedbiomed.common.exceptions import FedbiomedError
 
-
-class MockTabularDataset(TabularAnalytics):
+class MockTabularDataset:
     """Mock dataset class that implements TabularAnalytics for testing"""
 
     def __init__(self, data_list, input_columns):
@@ -111,20 +104,6 @@ def zero_dataset():
 
 
 # ==================== MEAN TESTS ====================
-
-
-def test_validate_dataset_arguments_for_fa():
-    # Valid arguments
-    dataset_args = {"col_names": ["age", "sex"]}
-
-    validate_dataset_arguments_for_fa(dataset_args, DatasetTypes.TABULAR)
-
-    pytest.raises(
-        FedbiomedError,
-        validate_dataset_arguments_for_fa,
-        {"invalid_arg": 123},
-        DatasetTypes.TABULAR,
-    )
 
 
 def test_tabular_analytics_mean_simple(simple_dataset):

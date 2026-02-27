@@ -8,7 +8,7 @@ Definition of messages exchanged by the researcher and the nodes
 import functools
 import inspect
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Union, get_args
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, get_args
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.message import Message as ProtobufMessage
@@ -904,10 +904,11 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     experiment_id: str
     dataset_id: str
-    analytics_type: str
+    stats: str | List
     fa_id: str
     fa_args: Optional[Dict] = None
     dataset_args: Optional[Dict] = None
+    dataset_schema: Optional[str | List | Tuple | Dict] = None
 
 
 @catch_dataclass_exception
@@ -932,8 +933,8 @@ class FAReply(RequestReply, RequiresProtocolVersion):
     fa_id: str
     node_id: str
     node_name: str
-    analytics_type: str
-    output: Dict
+    stats: str | List
+    output: Dict | Tuple
 
 
 # Train messages

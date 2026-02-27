@@ -8,20 +8,23 @@ import torch
 import torchvision.transforms as T
 from PIL import Image
 
-from fedbiomed.common.analytics import ImageAnalytics
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import (
     ImageFolderController,
     MedNistController,
     MnistController,
 )
-from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
+from fedbiomed.common.dataset_types import (
+    DataReturnFormat,
+    DatasetDataItem,
+    ImageSpec,
+)
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from ._dataset import Dataset
 
 
-class _ImageLabelDataset(Dataset, ImageAnalytics):
+class _ImageLabelDataset(Dataset):
     "Dataset where data and target are implicitly predefined by the controller"
 
     _native_to_framework = {
@@ -83,6 +86,20 @@ class _ImageLabelDataset(Dataset, ImageAnalytics):
         sample = self.apply_transforms(sample)
 
         return sample["data"], sample["target"]
+
+    def get_analytics_item(self, idx: int) -> DatasetDataItem:
+        """Return image item at index `idx` in numpy format for analytics purposes."""
+        data, _ = self.__getitem__(idx)
+
+        # Cast to numpy if needed
+        if self.to_format == DataReturnFormat.TORCH:
+            data = data.numpy()
+
+        return data
+
+    def get_analytics_schema(self):
+        """Return schema associated with get_analytics_item"""
+        return ImageSpec()
 
 
 class ImageFolderDataset(_ImageLabelDataset):

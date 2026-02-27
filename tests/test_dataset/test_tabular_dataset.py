@@ -413,3 +413,76 @@ def test_apply_transforms_error_cases(mocker):
         ds.apply_transforms(sample)
 
     assert "Failed to apply default training plan types to `target`" in str(exc4.value)
+
+
+# ---------- analytics ----------
+
+
+def test_get_analytics_item(mocker):
+    ds = TabularDataset(input_columns=["a"], target_columns=["b"])
+    ds.to_format = DataReturnFormat.SKLEARN
+
+    class StubController:
+        def get_sample(self, idx):
+            # Return polars DataFrame
+            return pl.DataFrame({"a": [1.0], "b": [2.0]})
+
+        def normalize_columns(self, cols):
+            return cols
+
+    ds._controller = StubController()
+
+    data, target = ds.get_analytics_item(0)
+    assert isinstance(data, np.ndarray)
+    assert isinstance(target, np.ndarray)
+    assert data[0] == 1.0
+    assert target[0] == 2.0
+
+
+def test_get_analytics_item_no_target(mocker):
+    ds = TabularDataset(input_columns=["a"], target_columns=None)
+    ds.to_format = DataReturnFormat.SKLEARN
+
+    class StubController:
+        def get_sample(self, idx):
+            return pl.DataFrame({"a": [1.0]})
+
+        def normalize_columns(self, cols):
+            return cols
+
+    ds._controller = StubController()
+
+    data = ds.get_analytics_item(0)
+    # Should return only data
+    assert isinstance(data, np.ndarray)
+    assert data[0] == 1.0
+
+
+def test_get_analytics_schema(mocker):
+    ds = TabularDataset(input_columns=["a"], target_columns=["b"])
+
+    class StubController:
+        def normalize_columns(self, cols):
+            return [c + "_norm" for c in cols]
+
+    ds._controller = StubController()
+    ds._input_columns = ds._controller.normalize_columns(ds._input_columns)
+    ds._target_columns = ds._controller.normalize_columns(ds._target_columns)
+
+    input_spec, target_spec = ds.get_analytics_schema()
+    assert input_spec.columns == ["a_norm"]
+    assert target_spec.columns == ["b_norm"]
+
+
+def test_get_analytics_schema_no_target(mocker):
+    ds = TabularDataset(input_columns=["a"], target_columns=None)
+
+    class StubController:
+        def normalize_columns(self, cols):
+            return [c + "_norm" for c in cols]
+
+    ds._controller = StubController()
+    ds._input_columns = ds._controller.normalize_columns(ds._input_columns)
+
+    input_spec = ds.get_analytics_schema()
+    assert input_spec.columns == ["a_norm"]
