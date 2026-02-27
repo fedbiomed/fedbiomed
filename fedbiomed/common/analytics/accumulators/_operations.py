@@ -3,6 +3,7 @@
 
 """Scalar and 1D streaming accumulators: Count, Min, Max, Mean, Variance, ScalarBuffer, Histogram, Quantile."""
 
+from abc import abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
@@ -319,3 +320,82 @@ class QuantileAccumulator(Accumulator):
         qvals = np.quantile(data, self._quantiles)
         # ensure all returned values are plain floats
         return {f"q_{q}": float(v) for q, v in zip(self._quantiles, qvals, strict=True)}
+
+
+# =============================================================================
+# IMAGE-SPECIFIC STATS
+# =============================================================================
+
+
+class ImageShapeAccumulator(Accumulator):
+    """Accumulates the shape of images into a dictionary of tuples."""
+
+    def __init__(self):
+        self._shapes = {}
+
+    def update(self, image: np.ndarray) -> None:
+        """Update the accumulator with the shape of the given image.
+
+        Args:
+            image: Image as a numpy array of arbitrary shape
+        """
+        shape = tuple(image.shape)
+        self._shapes[shape] = self._shapes.get(shape, 0) + 1
+
+    def finalize(self) -> Dict[str, Any]:
+        """Return the accumulated image shapes and their counts.
+
+        Returns:
+            A dictionary where keys are image shapes (as tuples) and values are
+            the counts of images with those shapes.
+        """
+        return self._shapes
+
+
+class ImageBaseAccumulator(Accumulator):
+    """Abstract base for image statistics that reduce each image to a scalar."""
+
+    _DESCRIBE_FUNCTIONS: Dict[str, Callable] = {
+        "count": len,
+        "mean": np.mean,
+        "std": np.std,
+        "q05": lambda data: np.quantile(data, 0.05),
+        "q25": lambda data: np.quantile(data, 0.25),
+        "q50": lambda data: np.quantile(data, 0.50),
+        "q75": lambda data: np.quantile(data, 0.75),
+        "q95": lambda data: np.quantile(data, 0.95),
+    }
+
+    def __init__(self, buffer_size: int):
+        self._buffer = ScalarBuffer(buffer_size, self._DESCRIBE_FUNCTIONS)
+
+    @abstractmethod
+    def reduce(self, image: np.ndarray) -> float:
+        pass
+
+    def update(self, image: np.ndarray) -> None:
+        try:
+            self._buffer.update(self.reduce(image))
+        except Exception as e:
+            raise FedbiomedError(f"Error reducing image: {e}") from e
+
+    def finalize(self) -> Dict[str, Any]:
+        """Return descriptive statistics over all stored per-image scalars."""
+        try:
+            return self._buffer.finalize()
+        except Exception as e:
+            raise FedbiomedError(f"Error finalizing image statistics: {e}") from e
+
+
+class ImageMeanAccumulator(ImageBaseAccumulator):
+    """Accumulates the per-image pixel mean (``np.nanmean``)."""
+
+    def reduce(self, image: np.ndarray) -> float:
+        return float(np.nanmean(image))
+
+
+class ImageVarianceAccumulator(ImageBaseAccumulator):
+    """Accumulates the per-image pixel variance (``np.nanvar``)."""
+
+    def reduce(self, image: np.ndarray) -> float:
+        return float(np.nanvar(image))

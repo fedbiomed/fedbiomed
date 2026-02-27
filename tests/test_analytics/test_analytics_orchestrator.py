@@ -5,7 +5,7 @@ import pytest
 from fedbiomed.common.analytics import AnalyticsOrchestrator
 from fedbiomed.common.analytics.accumulators import (
     DictAccumulator,
-    # ImageAccumulator,
+    ImageAccumulator,
     RowAccumulator,
     SequenceAccumulator,
     SkipAccumulator,
@@ -126,11 +126,10 @@ def test_create_accumulator_row(orchestrator):
 
 
 def test_create_accumulator_image(orchestrator):
-    # TODO: Implement ImageAccumulator and remove the expected error.
-    with pytest.raises(FedbiomedError, match="ImageAccumulator is not yet implemented"):
-        orchestrator._create_accumulator(
-            {"type": DatasetElementType.IMAGE, "stats": {}}
-        )
+    acc = orchestrator._create_accumulator(
+        {"type": DatasetElementType.IMAGE, "stats": {"mean": {"buffer_size": 10}}}
+    )
+    assert isinstance(acc, ImageAccumulator)
 
 
 def test_create_accumulator_unsupported_type(orchestrator):

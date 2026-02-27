@@ -544,14 +544,14 @@ class TestFederatedAnalytics:
 
     # --- dataset_args session default ---
 
-    def test_dataset_args_default_is_none(self, base_fa):
-        assert base_fa.dataset_args is None
+    def test_dataset_args_default_is_empty_dict(self, base_fa):
+        assert base_fa.dataset_args == {}
 
     def test_set_dataset_args(self, base_fa):
         base_fa.set_dataset_args({"input_columns": ["age"]})
         assert base_fa.dataset_args == {"input_columns": ["age"]}
         base_fa.set_dataset_args(None)
-        assert base_fa.dataset_args is None
+        assert base_fa.dataset_args == {}
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_instance_dataset_args_used_when_not_passed(self, mock_fa_job_cls, base_fa):
