@@ -437,8 +437,8 @@ class FederatedAnalytics:
 
     @property
     def dataset_args(self) -> Optional[dict]:
-        """Session-level dataset arguments, or ``None`` if none are set."""
-        return self._dataset_args
+        """Session-level dataset arguments, or ``{}`` if none are set."""
+        return self._dataset_args or {}
 
     def set_dataset_args(self, dataset_args: Optional[dict]) -> None:
         """Set session-level dataset arguments.

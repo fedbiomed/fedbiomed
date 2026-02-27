@@ -3,12 +3,17 @@
 
 """Tests for scalar and 1D accumulator classes."""
 
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
 
-from fedbiomed.common.analytics.accumulators._scalar_1d import (
+from fedbiomed.common.analytics.accumulators._operations import (
     CountAccumulator,
     HistogramAccumulator,
+    ImageMeanAccumulator,
+    ImageShapeAccumulator,
+    ImageVarianceAccumulator,
     MaxAccumulator,
     MeanAccumulator,
     MinAccumulator,
@@ -886,3 +891,201 @@ def test_quantile_accumulator_output_is_float():
 
     result = acc.finalize()
     assert isinstance(result["q_0.5"], float)
+
+
+# =============================================================================
+# ImageShapeAccumulator Tests
+# =============================================================================
+
+
+def test_image_shape_accumulator_init():
+    """Test initialization."""
+    acc = ImageShapeAccumulator()
+    assert acc._shapes == {}
+
+
+def test_image_shape_accumulator_update_single():
+    """Test update with a single image."""
+    acc = ImageShapeAccumulator()
+    img = np.zeros((10, 20, 3), dtype=np.uint8)
+    acc.update(img)
+
+    assert acc._shapes == {(10, 20, 3): 1}
+
+
+def test_image_shape_accumulator_update_multiple_same_shape():
+    """Test update with multiple images of same shape."""
+    acc = ImageShapeAccumulator()
+    img1 = np.zeros((10, 20), dtype=np.uint8)
+    img2 = np.ones((10, 20), dtype=np.uint8)
+
+    acc.update(img1)
+    acc.update(img2)
+
+    assert acc._shapes == {(10, 20): 2}
+
+
+def test_image_shape_accumulator_update_different_shapes():
+    """Test update with different shapes."""
+    acc = ImageShapeAccumulator()
+    img1 = np.zeros((10, 10))
+    img2 = np.zeros((20, 20))
+
+    acc.update(img1)
+    acc.update(img2)
+
+    assert acc._shapes == {(10, 10): 1, (20, 20): 1}
+
+
+def test_image_shape_accumulator_finalize():
+    """Test finalize returns shape counts."""
+    acc = ImageShapeAccumulator()
+    acc.update(np.zeros((5, 5)))
+    acc.update(np.zeros((5, 5)))
+    acc.update(np.zeros((3, 3)))
+
+    result = acc.finalize()
+    assert result == {(5, 5): 2, (3, 3): 1}
+
+
+# =============================================================================
+# ImageMeanAccumulator Tests
+# =============================================================================
+
+
+def test_image_mean_accumulator_init():
+    """Test initialization."""
+    acc = ImageMeanAccumulator(buffer_size=10)
+    assert len(acc._buffer) == 10
+    # Check that describe functions are set (at least some keys)
+    assert "mean" in acc._buffer.stat_functions
+
+
+def test_image_mean_accumulator_reduce():
+    """Test the reduce method (pixel mean)."""
+    acc = ImageMeanAccumulator(buffer_size=5)
+    img = np.array([[1.0, 2.0], [3.0, 4.0]])
+    reduced = acc.reduce(img)
+    assert reduced == pytest.approx(2.5)
+
+
+def test_image_mean_accumulator_reduce_with_nan():
+    """Test reduce method handles NaN (using nanmean)."""
+    acc = ImageMeanAccumulator(buffer_size=5)
+    img = np.array([[1.0, np.nan], [3.0, 4.0]])
+    reduced = acc.reduce(img)
+    # Mean of 1, 3, 4 is 8/3 ~= 2.666
+    assert reduced == pytest.approx(8.0 / 3.0)
+
+
+def test_image_mean_accumulator_update_and_finalize():
+    """Test end-to-end accumulation of image means."""
+    acc = ImageMeanAccumulator(buffer_size=10)
+
+    # Image 1 mean: 2.0
+    img1 = np.full((10, 10), 2.0)
+    # Image 2 mean: 4.0
+    img2 = np.full((10, 10), 4.0)
+
+    acc.update(img1)
+    acc.update(img2)
+
+    result = acc.finalize()
+
+    # We are aggregating the MEANS of the images.
+    # buffer contains [2.0, 4.0]
+    # stats on buffer: mean=3.0, etc.
+
+    assert "mean" in result
+    assert result["mean"] == pytest.approx(3.0)
+    assert "count" in result
+    assert result["count"] == 2
+    assert "std" in result
+    assert result["std"] == pytest.approx(1.0)  # std of [2, 4] is 1
+
+    # Check quantiles
+    # data is [2.0, 4.0]
+    # q50 (median) = 3.0
+    assert "q50" in result
+    assert result["q50"] == pytest.approx(3.0)
+    assert "q05" in result
+    assert "q25" in result
+    assert "q75" in result
+    assert "q95" in result
+
+
+def test_image_mean_accumulator_buffer_full():
+    """Test buffer full behavior."""
+    acc = ImageMeanAccumulator(buffer_size=1)
+    acc.update(np.zeros((2, 2)))
+    with pytest.raises(FedbiomedError, match="Buffer full"):
+        acc.update(np.zeros((2, 2)))
+
+
+# =============================================================================
+# ImageVarianceAccumulator Tests
+# =============================================================================
+
+
+def test_image_variance_accumulator_reduce():
+    """Test reduce method (pixel variance)."""
+    acc = ImageVarianceAccumulator(buffer_size=5)
+    # Variance of [1, 2, 3, 4] is 1.25 (population var)
+    img = np.array([[1.0, 2.0], [3.0, 4.0]])
+    reduced = acc.reduce(img)
+    assert reduced == pytest.approx(np.var(img))
+
+
+def test_image_variance_accumulator_reduce_with_nan():
+    """Test reduce method with NaN."""
+    acc = ImageVarianceAccumulator(buffer_size=5)
+    img = np.array([[1.0, np.nan], [3.0, 4.0]])
+    reduced = acc.reduce(img)
+    assert reduced == pytest.approx(np.nanvar(img))
+
+
+def test_image_variance_accumulator_integration():
+    """Test accumulation of image variances."""
+    acc = ImageVarianceAccumulator(buffer_size=10)
+
+    # Image 1: var = 0
+    img1 = np.ones((5, 5))
+    # Image 2: var = 1.0
+    img2 = np.array([0.0, 2.0])  # var = 1.0
+
+    acc.update(img1)
+    acc.update(img2)
+
+    result = acc.finalize()
+
+    # buffer contains [0.0, 1.0]
+    # stat mean on buffer = 0.5
+    assert result["mean"] == pytest.approx(0.5)
+
+
+# =============================================================================
+# ImageBaseAccumulator Error Handling
+# =============================================================================
+
+
+def test_image_accumulator_reduce_error():
+    """Test error handling in update when reduce fails."""
+    acc = ImageMeanAccumulator(buffer_size=5)
+
+    # Monkeypatch reduce to raise ValueError
+    acc.reduce = MagicMock(side_effect=ValueError("Reduce failed"))
+
+    with pytest.raises(FedbiomedError, match="Error reducing image"):
+        acc.update(np.zeros((2, 2)))
+
+
+def test_image_accumulator_finalize_error():
+    """Test error handling in finalize."""
+    acc = ImageMeanAccumulator(buffer_size=5)
+    acc.update(np.zeros((2, 2)))
+
+    # Monkeypatch buffer.finalize to raise ValueError
+    acc._buffer.finalize = MagicMock(side_effect=ValueError("Finalize failed"))
+
+    with pytest.raises(FedbiomedError, match="Error finalizing image statistics"):
+        acc.finalize()

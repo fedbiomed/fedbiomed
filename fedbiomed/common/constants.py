@@ -467,8 +467,7 @@ class Stats(_BaseEnum):
         VARIANCE: Variance of values
         HISTOGRAM: histogram of values
         QUANTILE: quantile of values
-        SKEWNESS: skewness of values
-        KURTOSIS: kurtosis of values
+        SHAPE: shape (associated to images)
     """
 
     MIN: str = "min"
@@ -478,5 +477,4 @@ class Stats(_BaseEnum):
     VARIANCE: str = "variance"
     HISTOGRAM: str = "histogram"
     QUANTILE: str = "quantile"
-    SKEWNESS: str = "skewness"
-    KURTOSIS: str = "kurtosis"
+    SHAPE: str = "shape"

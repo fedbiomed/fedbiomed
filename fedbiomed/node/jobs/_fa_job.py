@@ -55,8 +55,8 @@ class FAJob(_BaseJob):
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
         """Validate and pass the dataset arguments from the request to the dataset constructor."""
         type_ = dataset_entry.get("data_type")
-        validate_dataset_args(type_, self._dataset_args)
-        return self._dataset_args
+        validate_dataset_args(type_, self._dataset_args or {})
+        return self._dataset_args or {}
 
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""

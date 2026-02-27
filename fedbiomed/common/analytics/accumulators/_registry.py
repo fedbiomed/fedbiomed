@@ -9,9 +9,12 @@ from fedbiomed.common.dataset_types import DatasetElementType
 from fedbiomed.common.exceptions import FedbiomedError
 
 from ._base import Accumulator
-from ._scalar_1d import (
+from ._operations import (
     CountAccumulator,
     HistogramAccumulator,
+    ImageMeanAccumulator,
+    ImageShapeAccumulator,
+    ImageVarianceAccumulator,
     MaxAccumulator,
     MeanAccumulator,
     MinAccumulator,
@@ -21,7 +24,7 @@ from ._scalar_1d import (
 
 # --- Registration of Statistics ---
 _REGISTRY_STATS = [
-    # ===== ROW Primitives (no aggregate_channels) =====
+    # ===== ROW Primitive Stats =====
     {
         "name": "count",
         "valid_for": DatasetElementType.ROW,
@@ -49,7 +52,7 @@ _REGISTRY_STATS = [
         "valid_for": DatasetElementType.ROW,
         "accumulator_class": VarianceAccumulator,
     },
-    # ===== Complex stats (shared or type-specific) =====
+    # ===== Complex Row stats =====
     {
         "name": "histogram",
         "required_args": {"bin_edges"},
@@ -65,39 +68,27 @@ _REGISTRY_STATS = [
         "is_vectorizable": False,
         "uses_buffer": True,
     },
-    # ===== IMAGE Primitives (with aggregate_channels support) =====
-    # {
-    #     "name": "count",
-    #     "valid_for": DatasetElementType.IMAGE,
-    #     "accumulator_class": CountAccumulator,
-    #     "optional_args": {"aggregate_channels"},
-    # },
-    # {
-    #     "name": "min",
-    #     "valid_for": DatasetElementType.IMAGE,
-    #     "accumulator_class": MinAccumulator,
-    #     "optional_args": {"aggregate_channels"},
-    # },
-    # {
-    #     "name": "max",
-    #     "valid_for": DatasetElementType.IMAGE,
-    #     "accumulator_class": MaxAccumulator,
-    #     "optional_args": {"aggregate_channels"},
-    # },
-    # {
-    #     "name": "mean",
-    #     "dependencies": "count",
-    #     "valid_for": DatasetElementType.IMAGE,
-    #     "accumulator_class": MeanAccumulator,
-    #     "optional_args": {"aggregate_channels"},
-    # },
-    # {
-    #     "name": "variance",
-    #     "dependencies": ["mean", "count"],
-    #     "valid_for": DatasetElementType.IMAGE,
-    #     "accumulator_class": VarianceAccumulator,
-    #     "optional_args": {"aggregate_channels"},
-    # },
+    # ===== IMAGE Stats =====
+    {
+        "name": "shape",
+        "valid_for": DatasetElementType.IMAGE,
+        "accumulator_class": ImageShapeAccumulator,
+        "uses_buffer": True,
+    },
+    {
+        "name": "mean",
+        "valid_for": DatasetElementType.IMAGE,
+        # "optional_args": {"aggregation_strategy"},
+        "accumulator_class": ImageMeanAccumulator,
+        "uses_buffer": True,
+    },
+    {
+        "name": "variance",
+        "valid_for": DatasetElementType.IMAGE,
+        # "optional_args": {"aggregation_strategy"},
+        "accumulator_class": ImageVarianceAccumulator,
+        "uses_buffer": True,
+    },
 ]
 
 
@@ -110,7 +101,6 @@ class StatConfig:
         dependencies: Set of dependency names required to compute this statistic.
         required_args: Set of argument names that must be provided by the user.
         optional_args: Set of optional argument names.
-        is_descriptor: If True, descriptor is generated from image (IMAGE only).
         is_vectorizable: If True, computation can be applied across multiple columns at once (ROW only).
         uses_buffer: If True, n_samples is passed by the orchestrator as 'buffer_size'. Cannot be set by the user.
     """
@@ -119,8 +109,7 @@ class StatConfig:
     dependencies: Set[str] = field(default_factory=set)
     required_args: Set[str] = field(default_factory=set)
     optional_args: Set[str] = field(default_factory=set)
-    is_descriptor: bool = False
-    is_vectorizable: bool = False
+    is_vectorizable: bool = True
     uses_buffer: bool = False
 
 
@@ -143,7 +132,6 @@ class AnalyticsRegistry:
         dependencies: Optional[Union[str, Set[str], Iterable[str]]] = None,
         required_args: Optional[Union[str, Set[str], Iterable[str]]] = None,
         optional_args: Optional[Union[str, Set[str], Iterable[str]]] = None,
-        is_descriptor: bool = False,
         is_vectorizable: bool = True,
         uses_buffer: bool = False,
     ):
@@ -156,7 +144,6 @@ class AnalyticsRegistry:
             dependencies: Set of dependency names, or single name, required to compute this statistic.
             required_args: Set of argument names, or single name, that must be provided by the user.
             optional_args: Set of optional argument names, or single name.
-            is_descriptor: If True, indicates a descriptor is generated from an image (IMAGE only).
             is_vectorizable: If True, computation can be applied across multiple columns at once (ROW only).
             uses_buffer: If True, 'n_samples' will be passed to the accumulator as 'buffer_size' by the orchestrator.
 
@@ -186,12 +173,6 @@ class AnalyticsRegistry:
                     "Cannot overwrite existing registration."
                 )
 
-            # Handle is_descriptor flag intelligently (IMAGE only)
-            current_is_descriptor = is_descriptor
-            if current_is_descriptor and et != DatasetElementType.IMAGE:
-                # If explicitly asked for multiple types, just disable descriptor for non-IMAGE
-                current_is_descriptor = False
-
             # Handle is_vectorizable flag intelligently (ROW only)
             current_is_vectorizable = is_vectorizable
             if current_is_vectorizable and et != DatasetElementType.ROW:
@@ -204,7 +185,6 @@ class AnalyticsRegistry:
                 dependencies=dependencies_set.copy(),
                 required_args=required_args_set.copy(),
                 optional_args=optional_args_set.copy(),
-                is_descriptor=current_is_descriptor,
                 is_vectorizable=current_is_vectorizable,
                 uses_buffer=uses_buffer,
             )
