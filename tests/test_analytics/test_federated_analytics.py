@@ -447,9 +447,7 @@ class TestFederatedAnalytics:
         replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = (replies, {})
 
-        result = base_fa.compute_analytics(
-            "mean", dataset_args={"input_columns": ["col"]}, fa_args={}
-        )
+        result = base_fa.compute_analytics("mean", fa_args={})
 
         assert isinstance(result, FAResult)
         mock_fa_job_cls.assert_called_once()
@@ -480,12 +478,12 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_different_args_bypass_cache(self, mock_fa_job_cls, base_fa):
-        """Different dataset_args must cause a separate network request."""
+        """Different fa_args must cause a separate network request."""
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = (replies, {})
 
-        base_fa.compute_analytics("mean", dataset_args={"input_columns": ["a"]})
-        base_fa.compute_analytics("mean", dataset_args={"input_columns": ["b"]})
+        base_fa.compute_analytics("mean", fa_args={"key": "a"})
+        base_fa.compute_analytics("mean", fa_args={"key": "b"})
 
         assert mock_fa_job_cls.call_count == 2
 
@@ -541,58 +539,6 @@ class TestFederatedAnalytics:
         assert result.has_stat("mean")
         assert result.has_stat("min")
         assert mock_fa_job_cls.call_count == 1
-
-    # --- dataset_args session default ---
-
-    def test_dataset_args_default_is_empty_dict(self, base_fa):
-        assert base_fa.dataset_args == {}
-
-    def test_set_dataset_args(self, base_fa):
-        base_fa.set_dataset_args({"input_columns": ["age"]})
-        assert base_fa.dataset_args == {"input_columns": ["age"]}
-        base_fa.set_dataset_args(None)
-        assert base_fa.dataset_args == {}
-
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_instance_dataset_args_used_when_not_passed(self, mock_fa_job_cls, base_fa):
-        """When no call-level dataset_args is given, the instance default is forwarded."""
-        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
-
-        base_fa.set_dataset_args({"input_columns": ["age"]})
-        base_fa.mean()
-
-        call_kwargs = mock_fa_job_cls.call_args.kwargs
-        assert call_kwargs["dataset_args"] == {"input_columns": ["age"]}
-
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_explicit_dataset_args_overrides_instance_default(
-        self, mock_fa_job_cls, base_fa
-    ):
-        """Call-level dataset_args takes priority over the instance default."""
-        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
-
-        base_fa.set_dataset_args({"input_columns": ["age"]})
-        base_fa.compute_analytics("mean", dataset_args={"input_columns": ["height"]})
-
-        call_kwargs = mock_fa_job_cls.call_args.kwargs
-        assert call_kwargs["dataset_args"] == {"input_columns": ["height"]}
-
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_instance_dataset_args_affects_cache_key(self, mock_fa_job_cls, base_fa):
-        """Changing the instance default creates a new cache entry."""
-        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
-
-        base_fa.set_dataset_args({"input_columns": ["age"]})
-        base_fa.mean()
-        base_fa.mean()
-        assert mock_fa_job_cls.call_count == 1  # second call is a cache hit
-
-        base_fa.set_dataset_args({"input_columns": ["height"]})
-        base_fa.mean()
-        assert mock_fa_job_cls.call_count == 2  # new cache key → new request
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_node_change_invalidates_cache(self, mock_fa_job_cls, base_fa, mock_fds):

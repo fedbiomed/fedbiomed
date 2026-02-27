@@ -7,8 +7,7 @@ Implementation of Federated Analytics Job class of the node component
 
 from typing import Dict
 
-from fedbiomed.common.constants import ErrorNumbers, Stats
-from fedbiomed.common.dataset import validate_dataset_args
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, FedbiomedError, Stats
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
@@ -48,15 +47,33 @@ class FAJob(_BaseJob):
         self._experiment_id = request.experiment_id
         self._fa_id = request.fa_id
         self._fa_args = request.fa_args
-        self._dataset_args = request.dataset_args
         self._dataset_schema = request.dataset_schema
         self._allow_fa = allow_fa
 
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
-        """Validate and pass the dataset arguments from the request to the dataset constructor."""
-        type_ = dataset_entry.get("data_type")
-        validate_dataset_args(type_, self._dataset_args or {})
-        return self._dataset_args or {}
+        """Generate dataset arguments based on the dataset type by default."""
+        data_type = dataset_entry.get("data_type")
+        dataset_type = DatasetTypes.get_type_by_value(data_type)
+
+        match dataset_type:
+            case None:
+                # This should not happen, but this check is added for safety
+                raise FedbiomedError(
+                    f"Dataset entry contains unsupported dataset type '{data_type}'."
+                )
+            case DatasetTypes.TABULAR:
+                # Take keys in 'dtypes' and pass them as ``input_columns`` to the dataset constructor
+                return {"input_columns": list(dataset_entry.get("dtypes", {}))}
+            case DatasetTypes.IMAGES | DatasetTypes.DEFAULT | DatasetTypes.MEDNIST:
+                # For image datasets, no dataset arguments are passed by default
+                return {}
+            case DatasetTypes.MEDICAL_FOLDER:
+                # Take keys in 'shape' and pass them as ``data_modalities`` to the dataset constructor
+                return {"data_modalities": list(dataset_entry.get("shape", {}))}
+            case _:
+                raise FedbiomedError(
+                    f"Dataset arguments by default are not implemented for dataset type '{data_type}'."
+                )
 
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""

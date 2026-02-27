@@ -907,7 +907,6 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     stats: str | List
     fa_id: str
     fa_args: Optional[Dict] = None
-    dataset_args: Optional[Dict] = None
     dataset_schema: Optional[str | List | Tuple | Dict] = None
 
 

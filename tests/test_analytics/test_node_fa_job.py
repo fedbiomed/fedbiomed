@@ -19,7 +19,6 @@ def request_args():
         "fa_id": "fa_1",
         "stats": Stats.MEAN.value,
         "fa_args": {},
-        "dataset_args": {"input_columns": ["age", "weight"]},
         "dataset_schema": ["col1", "col2"],
     }
 
@@ -260,28 +259,6 @@ def test_run_federated_analytics_not_allowed(fa_job_args):
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
     assert "not allowed" in reply.extra_msg
-
-
-def test_run_no_dataset_args(fa_job_args):
-    """Test run method when no dataset_args are provided."""
-    req_args = fa_job_args["request"].__dict__.copy()
-    req_args["dataset_args"] = {}
-    request = FARequest(**req_args)
-
-    args = fa_job_args.copy()
-    args["request"] = request
-    job = FAJob(**args)
-
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": 2.0}
-
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
-
-        assert isinstance(reply, FAReply)
-        assert reply.output == {"col1": 2.0}
-        assert reply.request_id == job._request_id
-        assert reply.node_id == job._node_id
 
 
 def test_run_unsupported_analytics_type(

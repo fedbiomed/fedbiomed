@@ -30,7 +30,6 @@ def test_fa_request_message_creation():
         dataset_id="dataset_1234",
         stats=Stats.MEAN.value,
         fa_args={"test": "output_data"},
-        dataset_args={"test": "dataset_data"},
     )
 
 
