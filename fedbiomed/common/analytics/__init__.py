@@ -5,18 +5,10 @@
 Classes that simplify imports from fedbiomed.common.analytics
 """
 
-from ._analytics_strategy import (
-    AnalyticsStrategy,
-    DatasetArgumentsFA,
-    validate_dataset_arguments_for_fa,
-)
-from ._image_analytics import ImageAnalytics
-from ._tabular_analytics import TabularAnalytics
+from ._aggregators import AGGREGATORS_MAP
+from ._orchestrator import AnalyticsOrchestrator
 
 __all__ = [
-    "DatasetArgumentsFA",
-    "AnalyticsStrategy",
-    "ImageAnalytics",
-    "TabularAnalytics",
-    "validate_dataset_arguments_for_fa",
+    "AnalyticsOrchestrator",
+    "AGGREGATORS_MAP",
 ]

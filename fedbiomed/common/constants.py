@@ -456,17 +456,27 @@ class UserRequestStatus(str, _BaseEnum):
     REJECTED = "REJECTED"
 
 
-class AnalyticsTypes(_BaseEnum):
+class Stats(_BaseEnum):
     """Enumeration class for Federated Analytics types
 
     Attributes:
-        BASIC_STATS: min, max, count, mean, std
-        MIN_MAX: min and max only
-        MEAN: Mean analytics type
+        MIN: Minimum value
+        MAX: Maximum value
+        COUNT: Count of values
+        MEAN: Mean value
+        VARIANCE: Variance of values
+        HISTOGRAM: histogram of values
+        QUANTILE: quantile of values
+        SKEWNESS: skewness of values
+        KURTOSIS: kurtosis of values
     """
 
-    BASIC_STATS: str = "basic_stats"
-    MIN_MAX: str = "min_max"
+    MIN: str = "min"
+    MAX: str = "max"
+    COUNT: str = "count"
     MEAN: str = "mean"
+    VARIANCE: str = "variance"
     HISTOGRAM: str = "histogram"
     QUANTILE: str = "quantile"
+    SKEWNESS: str = "skewness"
+    KURTOSIS: str = "kurtosis"

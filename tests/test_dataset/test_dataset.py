@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pytest
 import torch
@@ -217,3 +219,164 @@ def test_18_iter():
     items = list(ds)
     assert len(items) == 42
     assert all(item == (1, 2) for item in items)
+
+
+def test_19_complete_initialization_calls_super():
+    """Covers abstract body at line 51."""
+    ds = DummyDataset()
+    ds.complete_initialization()  # DummyDataset calls super() → hits `pass`
+
+
+def test_20_abstract_getitem_body():
+    """Covers abstract body at line 55 by calling super().__getitem__."""
+
+    class SuperCallingDataset(Dataset):
+        _native_to_framework = {DataReturnFormat.SKLEARN: lambda x: x}
+        _controller_cls = DummyController
+        _transform = staticmethod(lambda x: x)
+        _target_transform = staticmethod(lambda x: x)
+
+        def complete_initialization(self):
+            pass
+
+        def __getitem__(self, idx):
+            return super().__getitem__(idx)  # hits the abstract `pass`
+
+    ds = SuperCallingDataset()
+    result = ds.__getitem__(0)
+    assert result is None
+
+
+def test_21_get_default_types_callable_not_set():
+    """Covers line 133: AttributeError when _to_format is not set."""
+    ds = DummyDataset()
+    with pytest.raises(AttributeError):
+        ds._get_default_types_callable()
+
+
+def test_22_validate_format_and_transformations_success():
+    """Covers lines 243-253: full format + transform pipeline."""
+    ds = DummyDataset()
+    ds.to_format = DataReturnFormat.SKLEARN
+    ds._native_to_framework = {DataReturnFormat.SKLEARN: lambda x: x}
+
+    arr = np.array([1.0, 2.0])
+    out = ds._validate_format_and_transformations(arr, lambda x: x, label="col1")
+    np.testing.assert_array_equal(out, arr)
+
+
+def test_23_validate_format_and_transformations_no_label():
+    """Covers the `label=None` branch in _validate_format_and_transformations."""
+    ds = DummyDataset()
+    ds.to_format = DataReturnFormat.SKLEARN
+    ds._native_to_framework = {DataReturnFormat.SKLEARN: lambda x: x}
+
+    arr = np.array([3.0])
+    out = ds._validate_format_and_transformations(arr, lambda x: x)
+    np.testing.assert_array_equal(out, arr)
+
+
+def test_24_init_controller_instantiation_failure():
+    """Covers lines 275-276: FedbiomedError when controller __init__ raises."""
+
+    class BrokenController:
+        def __init__(self, **kwargs):
+            raise RuntimeError("broken")
+
+    class BrokenDataset(Dataset):
+        _native_to_framework = {}
+        _controller_cls = BrokenController
+        _transform = staticmethod(lambda x: x)
+        _target_transform = staticmethod(lambda x: x)
+
+        def complete_initialization(self):
+            pass
+
+        def __getitem__(self, idx):
+            pass
+
+    ds = BrokenDataset()
+    with pytest.raises(FedbiomedError, match="Failed to create Controller"):
+        ds._init_controller({})
+
+
+def test_25_apply_transforms_no_target():
+    """Covers apply_transforms when sample has no target (lines 289-308)."""
+    ds = DummyDataset()
+    ds.to_format = DataReturnFormat.SKLEARN
+    ds._native_to_framework = {DataReturnFormat.SKLEARN: lambda x: x}
+
+    sample = {"data": np.array([1.0, 2.0]), "target": None}
+    result = ds.apply_transforms(sample)
+    assert isinstance(result["data"], np.ndarray)
+    assert result["target"] is None
+
+
+def test_26_apply_transforms_with_target():
+    """Covers apply_transforms when sample has a target (lines 309-328)."""
+    ds = DummyDataset()
+    ds.to_format = DataReturnFormat.SKLEARN
+    ds._native_to_framework = {DataReturnFormat.SKLEARN: lambda x: x}
+
+    sample = {"data": np.array([1.0, 2.0]), "target": np.array([0.0])}
+    result = ds.apply_transforms(sample)
+    assert isinstance(result["data"], np.ndarray)
+    assert isinstance(result["target"], np.ndarray)
+
+
+def test_27_apply_transforms_transform_failure():
+    """Covers the except branch in apply_transforms data transform (line 296)."""
+
+    def boom(_):
+        raise ValueError("boom")
+
+    ds = DummyDataset()
+    ds.to_format = DataReturnFormat.SKLEARN
+    ds._native_to_framework = {DataReturnFormat.SKLEARN: lambda x: x}
+    ds._transform = boom  # instance attribute shadows class one
+
+    with pytest.raises(FedbiomedError, match="Failed to apply `transform` to `data`"):
+        ds.apply_transforms({"data": np.array([1.0]), "target": None})
+
+
+def test_28_apply_transforms_target_transform_failure():
+    """Covers the except branch for target_transform failure (line 317)."""
+
+    def boom(_):
+        raise ValueError("boom")
+
+    ds = DummyDataset()
+    ds.to_format = DataReturnFormat.SKLEARN
+    ds._native_to_framework = {DataReturnFormat.SKLEARN: lambda x: x}
+    ds._target_transform = boom  # instance attribute shadows class one
+
+    with pytest.raises(FedbiomedError, match="Failed to apply `target_transform`"):
+        ds.apply_transforms({"data": np.array([1.0]), "target": np.array([0.0])})
+
+
+def test_29_compute_stats():
+    """Covers lines 352-353: compute_stats delegates to AnalyticsOrchestrator."""
+    ds = DummyDataset()
+
+    mock_result = {"mean": 1.0}
+    with patch(
+        "fedbiomed.common.dataset._dataset.AnalyticsOrchestrator"
+    ) as MockOrchestrator:
+        mock_instance = MagicMock()
+        mock_instance.compute_stats.return_value = mock_result
+        MockOrchestrator.return_value = mock_instance
+
+        result = ds.compute_stats(stats=["mean"])
+
+    MockOrchestrator.assert_called_once()
+    mock_instance.compute_stats.assert_called_once_with(
+        ds, dataset_schema=None, stats=["mean"], fa_args=None
+    )
+    assert result == mock_result
+
+
+def test_30_len_no_controller():
+    """Covers line 362: FedbiomedError when __len__ called before _init_controller."""
+    ds = DummyDataset()
+    with pytest.raises(FedbiomedError, match="has not completed"):
+        len(ds)

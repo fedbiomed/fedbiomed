@@ -5,6 +5,7 @@
 Registry for dataset controllers and their parameters
 """
 
+import inspect
 from dataclasses import asdict, dataclass, fields
 from typing import Optional
 
@@ -128,3 +129,57 @@ def get_controller(
         raise FedbiomedError(
             f"{ErrorNumbers.FB632.value}: Unhandled exception occurred: {str(e)}"
         ) from e
+
+
+def validate_dataset_args(data_type: str, dataset_args: dict) -> None:
+    """Validate dataset_parameters for a given data_type. Dataset constructors must have
+    explicit arguments for all parameters that can be passed via dataset_args.
+
+    Args:
+        data_type: Dataset type as string_
+        dataset_args: Arguments to validate against the dataset class constructor
+
+    Raises:
+        FedbiomedError: If dataset type is unsupported or arguments are invalid.
+    """
+    dataset_type = DatasetTypes.get_type_by_value(data_type)
+
+    if dataset_type not in DATASET_CLASSES_PER_TYPE:
+        raise FedbiomedError(f"Unsupported dataset type '{data_type}' for analytics.")
+
+    dataset_cls = DATASET_CLASSES_PER_TYPE[dataset_type]
+
+    # Get signature of the __init__ method
+    sig = inspect.signature(dataset_cls.__init__)
+
+    # Filter parameters to identify valid and required arguments
+    valid_keys = set()
+    required_keys = set()
+
+    # Skip 'self' and consider only positional or keyword parameters
+    for p in sig.parameters.values():
+        if p.name == "self":
+            continue
+        if p.kind in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        ):
+            valid_keys.add(p.name)
+            if p.default == inspect.Parameter.empty:
+                required_keys.add(p.name)
+
+    given_keys = set(dataset_args.keys())
+
+    # Check for invalid keys: arguments provided but not expected by the constructor
+    invalid_keys = given_keys - valid_keys
+    if invalid_keys:
+        raise FedbiomedError(
+            f"Invalid dataset_args {invalid_keys} for dataset type '{data_type}'."
+        )
+
+    # Check for missing keys: required arguments that were not provided
+    missing_keys = required_keys - given_keys
+    if missing_keys:
+        raise FedbiomedError(
+            f"Missing required dataset_args {missing_keys} for dataset type '{data_type}'."
+        )

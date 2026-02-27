@@ -7,11 +7,8 @@ Implementation of Federated Analytics Job class of the node component
 
 from typing import Dict
 
-from fedbiomed.common.analytics import (
-    DatasetArgumentsFA,
-    validate_dataset_arguments_for_fa,
-)
-from fedbiomed.common.constants import AnalyticsTypes, DatasetTypes, ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, Stats
+from fedbiomed.common.dataset import validate_dataset_args
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
@@ -46,37 +43,20 @@ class FAJob(_BaseJob):
         """
         super().__init__(root_dir, dataset_manager, node_id, node_name, request)
 
-        self._analytics_type = request.analytics_type
+        self._stats = request.stats
         self._dataset_id = request.dataset_id
         self._experiment_id = request.experiment_id
         self._fa_id = request.fa_id
         self._fa_args = request.fa_args
         self._dataset_args = request.dataset_args
+        self._dataset_schema = request.dataset_schema
         self._allow_fa = allow_fa
 
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
-        """Build arguments for dataset initialization.
-
-        Args:
-            dataset_entry: dataset entry from dataset manager
-
-        Returns:
-            Dict of arguments for dataset initialization
-        """
-
+        """Validate and pass the dataset arguments from the request to the dataset constructor."""
         type_ = dataset_entry.get("data_type")
-        dataset_type = DatasetTypes.get_type_by_value(type_)
-        validate_dataset_arguments_for_fa(self._dataset_args, dataset_type)
-
-        args = {}
-
-        if self._dataset_args:
-            for key, value in self._dataset_args.items():
-                args.update(
-                    {DatasetArgumentsFA[dataset_type].get(key).get("arg_name"): value}
-                )
-
-        return args
+        validate_dataset_args(type_, self._dataset_args)
+        return self._dataset_args
 
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
@@ -87,11 +67,12 @@ class FAJob(_BaseJob):
                 errnum=ErrorNumbers.FB325.value,
             )
 
-        # Retrieve dataset ready-to-use from self._dataset_id
-
-        if self._analytics_type not in [t.value for t in AnalyticsTypes]:
+        # Validate that all requested stats are valid enum values
+        if not isinstance(self._stats, list):
+            self._stats = [self._stats]
+        if not all(stat in [_.value for _ in Stats] for stat in self._stats):
             return self._build_error_msg(
-                msg=f"Analytics type '{self._analytics_type}' not supported.",
+                msg=f"Analytics type '{self._stats}' contain unsupported values.",
                 errnum=ErrorNumbers.FB325.value,
             )
 
@@ -100,24 +81,31 @@ class FAJob(_BaseJob):
         except _InternalJobError as e:
             return self._build_error_msg(msg=repr(e), errnum=ErrorNumbers.FB325.value)
 
-        if hasattr(dataset, self._analytics_type) is False:
+        # Use compute_stats to handle all statistics
+        if not hasattr(dataset, "compute_stats"):
             return self._build_error_msg(
-                msg=f"Dataset does not support analytics type '{self._analytics_type}'.",
+                msg="Dataset does not support analytics method 'compute_stats'.",
                 errnum=ErrorNumbers.FB325.value,
             )
 
         logger.debug(
-            f"FA Request received and database built, executing analytics: {self._analytics_type}"
+            f"FA Request received and database built, executing analytics: compute_stats (requested: {self._stats})"
         )
-        analytics = getattr(dataset, self._analytics_type)
+
+        # Prepare kwargs
+        kwargs = {
+            "stats": self._stats,
+            "fa_args": self._fa_args,
+            "dataset_schema": self._dataset_schema,
+        }
 
         try:
-            output: Dict = analytics(**self._fa_args if self._fa_args else {})
+            output: Dict = dataset.compute_stats(**kwargs)
             logger.debug(f"Analytics executed, output: {output}")
         except Exception as e:
             return self._build_error_msg(
                 msg=(
-                    f"Error during execution of analytics '{self._analytics_type}' "
+                    f"Error during execution of analytics '{self._stats}' "
                     f"on node='{self._node_id}': {repr(e)}"
                 ),
                 errnum=ErrorNumbers.FB325.value,
@@ -128,7 +116,7 @@ class FAJob(_BaseJob):
             researcher_id=self._researcher_id,
             experiment_id=self._experiment_id,
             fa_id=self._fa_id,
-            analytics_type=self._analytics_type,
+            stats=self._stats[0] if len(self._stats) == 1 else self._stats,
             node_id=self._node_id,
             node_name=self._node_name,
             output=output,

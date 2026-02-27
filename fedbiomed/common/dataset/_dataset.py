@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
 import torch
 
+from fedbiomed.common.analytics import AnalyticsOrchestrator
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import Controller
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
@@ -328,7 +329,40 @@ class Dataset(ABC):
 
         return sample
 
+    def compute_stats(
+        self,
+        dataset_schema: Optional[Union[str, List[str], Dict[str, Any]]] = None,
+        stats: Optional[List[str]] = None,
+        fa_args: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Computes statistics over the dataset using the AnalyticsOrchestrator.
+
+        Args:
+            schema_args: Selection arguments to filter the schema (e.g. subset of columns/keys).
+            stats: List of statistics names to compute (e.g. ['mean', 'std']).
+                   If None or empty, default statistics are chosen based on data type.
+            fa_args: Specific arguments for statistics, structured matching the schema.
+
+        Returns:
+            Computed statistics structure.
+
+        Raises:
+            FedbiomedError: If the dataset does not support analytics (missing get_schema_for_analytics).
+        """
+        orchestrator = AnalyticsOrchestrator()
+        return orchestrator.compute_stats(
+            self,
+            dataset_schema=dataset_schema,
+            stats=stats,
+            fa_args=fa_args,
+        )
+
     def __len__(self) -> int:
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
+            )
         return len(self._controller)
 
     def __iter__(self):
