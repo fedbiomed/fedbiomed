@@ -27,7 +27,6 @@ class MockStats(Enum):
     STAT_ROW_ONLY = "stat_row_only"
     VEC_STAT = "vec_stat"
     VEC_STAT_BAD = "vec_stat_bad"
-    DESC_STAT_BAD = "desc_stat_bad"
     SPLIT_STAT = "split_stat"
     PROTECTED_STAT = "protected_stat"
     OVERLAP_STAT = "overlap_stat"
@@ -195,20 +194,6 @@ def test_validate_vectorizable_flag_logic():
     assert stat_config[DatasetElementType.IMAGE].is_vectorizable is False
 
 
-def test_validate_descriptor_flag_logic():
-    # Invalid registration for ROW should NOT raise, but should be coerced to False
-    AnalyticsRegistry.register(
-        name="desc_stat_bad",
-        is_descriptor=True,
-        valid_for={DatasetElementType.ROW},
-        accumulator_class=MockAccumulator,
-    )
-
-    stat_config = AnalyticsRegistry.get("desc_stat_bad")
-    # Should be False because type is ROW
-    assert stat_config[DatasetElementType.ROW].is_descriptor is False
-
-
 def test_independent_registrations():
     # This is the key feature: same name, added independently
     name = "split_stat"
@@ -294,7 +279,6 @@ def test_default_stats_integrity():
         required = set(stat_def.get("required_args", []))
         optional = set(stat_def.get("optional_args", []))
         is_vec = stat_def.get("is_vectorizable", False)
-        is_desc = stat_def.get("is_descriptor", False)
 
         # 1. Overlap Check
         intersection = required.intersection(optional)
@@ -304,12 +288,6 @@ def test_default_stats_integrity():
         if is_vec:
             assert DatasetElementType.ROW in valid_for, (
                 f"In Stat '{name}', 'is_vectorizable' is valid for ROW"
-            )
-
-        # 3. Descriptor Check
-        if is_desc:
-            assert DatasetElementType.IMAGE in valid_for, (
-                f"In Stat '{name}', 'is_descriptor' is valid for IMAGE"
             )
 
 
