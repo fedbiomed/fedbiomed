@@ -101,7 +101,7 @@ class ResearcherConfig(Config):
         os.makedirs(self.vars["EXPERIMENTS_DIR"], exist_ok=True)
 
 
-if os.environ.get("FBM_DEBUG_RESEARCHER", "").lower() in ("1", "true", "yes"):
+if os.environ.get("FBM_DEBUG", "").lower() in ("1", "true", "yes"):
     logger.setLevel("DEBUG")
 else:
     logger.setLevel("INFO")

@@ -28,7 +28,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise BaseException
 
-        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG": ""}, clear=False):
             with self.assertRaises(SystemExit):
                 decFunction()
 
@@ -40,7 +40,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise SystemExit
 
-        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG": ""}, clear=False):
             with self.assertRaises(SystemExit):
                 decFunction()
 
@@ -51,7 +51,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise KeyboardInterrupt
 
-        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG": ""}, clear=False):
             with self.assertRaises(SystemExit):
                 decFunction()
 
@@ -62,7 +62,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise FedbiomedError
 
-        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG": ""}, clear=False):
             # on notebook
             with patch.object(
                 fedbiomed.researcher.federated_workflows._federated_workflow,
@@ -83,7 +83,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise FedbiomedSilentTerminationError
 
-        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG": ""}, clear=False):
             # SystemExit on notebook
             with self.assertRaises(FedbiomedSilentTerminationError):
                 decFunction()
@@ -95,7 +95,7 @@ class TestExpExceptions(unittest.TestCase):
         def decFunction():
             raise FedbiomedError
 
-        with patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": ""}, clear=False):
+        with patch.dict(os.environ, {"FBM_DEBUG": ""}, clear=False):
             # SystemExit on python shell
             with patch.object(
                 fedbiomed.researcher.federated_workflows._federated_workflow,
@@ -115,7 +115,7 @@ class TestExpExceptions(unittest.TestCase):
 
         stdout = io.StringIO()
         with (
-            patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": "1"}, clear=False),
+            patch.dict(os.environ, {"FBM_DEBUG": "1"}, clear=False),
             patch("sys.stdout", stdout),
         ):
             with self.assertRaises(ValueError):
@@ -134,7 +134,7 @@ class TestExpExceptions(unittest.TestCase):
 
         stdout = io.StringIO()
         with (
-            patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": "1"}, clear=False),
+            patch.dict(os.environ, {"FBM_DEBUG": "1"}, clear=False),
             patch("sys.stdout", stdout),
         ):
             with self.assertRaises(FedbiomedExperimentError):
@@ -155,7 +155,7 @@ class TestExpExceptions(unittest.TestCase):
 
         stdout = io.StringIO()
         with (
-            patch.dict(os.environ, {"FBM_DEBUG_RESEARCHER": "1"}, clear=False),
+            patch.dict(os.environ, {"FBM_DEBUG": "1"}, clear=False),
             patch("sys.stdout", stdout),
         ):
             with self.assertRaises(FedbiomedSilentTerminationError):

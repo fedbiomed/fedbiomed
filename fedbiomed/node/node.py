@@ -75,7 +75,7 @@ class Node:
         """
         self.node_args = node_args or {}
         self._debug = bool(self.node_args.get("debug", False)) or os.environ.get(
-            "FBM_DEBUG_NODE", ""
+            "FBM_DEBUG", ""
         ).lower() in ("1", "true", "yes")
 
         self._config = config

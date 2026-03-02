@@ -71,7 +71,7 @@ def exp_exceptions(function):
     def payload(*args, **kwargs):
         code = 0
 
-        if os.environ.get("FBM_DEBUG_RESEARCHER", "").lower() not in (
+        if os.environ.get("FBM_DEBUG", "").lower() not in (
             "1",
             "true",
             "yes",
@@ -123,17 +123,7 @@ def exp_exceptions(function):
             return ret
 
         else:
-            try:
-                return function(*args, **kwargs)
-            except FedbiomedSilentTerminationError:
-                traceback.print_exc(file=sys.stdout)
-                logger.debug("FedbiomedSilentTerminationError raised.")
-                raise
-            except FedbiomedExperimentError as exp:
-                traceback.print_exc(file=sys.stdout)
-                logger.error(f"FedbiomedExperimentError raised: {repr(exp)}")
-                logger.debug(f"Error details: {traceback.format_exc()}")
-                raise
+            return function(*args, **kwargs)
 
     return payload
 
