@@ -90,9 +90,10 @@ Once the Jupyter Notebook has started, you can define your training plan and set
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import datasets, transforms
+from torchvision import transforms
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.datamanager import DataManager
+from fedbiomed.common.dataset import MnistDataset
 
 
 class MyRemoteTrainingPlan(TorchTrainingPlan):
@@ -104,7 +105,8 @@ class MyRemoteTrainingPlan(TorchTrainingPlan):
         return torch.optim.SGD(self.parameters(), lr=0.01)
 
     def init_dependencies(self):
-        return ["from torchvision import datasets, transforms"]
+        return ["from torchvision import transforms",
+                "from fedbiomed.common.dataset import MnistDataset"]
 
     class Net(nn.Module):
         def __init__(self, model_args: dict = {}):
@@ -129,14 +131,10 @@ class MyRemoteTrainingPlan(TorchTrainingPlan):
         return loss
 
     def training_data(self):
-        # Custom torch Dataloader for MNIST data
-        transform = transforms.Compose([transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))])
-        mnist_dataset = datasets.MNIST(self.dataset_path,
-                                       train=True,
-                                       download=False,
-                                       transform=transform)
-        return DataManager(mnist_dataset,  shuffle=True)
+        transform = transforms.Normalize((0.1307,), (0.3081,))
+        dataset1 = MnistDataset(transform=transform)
+        loader_arguments = {'shuffle': True}
+        return DataManager(dataset1, **loader_arguments)
 
 ```
 
