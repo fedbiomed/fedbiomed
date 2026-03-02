@@ -435,7 +435,7 @@ class Node:
         if data is None:
             return self.send_error(
                 extra_msg=(
-                    f"{ErrorNumbers.FB313.value}: Did not found proper data in local datasets "
+                    f"{ErrorNumbers.FB313.value}: Did not find proper data in local datasets "
                     f"on node={self._node_id} for dataset_id={dataset_id}"
                 ),
                 request_id=msg.request_id,
