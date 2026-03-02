@@ -109,6 +109,7 @@ Fed-BioMed provides the following getter functions to access Training Plan attri
 | model arguments     | `model_args()`     | :heavy_check_mark: | :heavy_check_mark:  | |
 | training arguments  | `training_args()`  | :heavy_check_mark: | :heavy_check_mark:  | |
 | optimizer arguments | `optimizer_args()` | :heavy_check_mark: | :heavy_check_mark:  | |
+| node is | `node_id()` | :heavy_check_mark: | :heavy_check_mark:  | |
 
 ####
 
@@ -382,3 +383,23 @@ Of course, loaded model needs to be identical to the training plan's model.
 !!! warning "Usage through `Experiment`"
     Both **exports** and **imports** must be used through [Experiment](../../researcher/experiment) interface. Indeed, `Experiment` class has methods to load Training Plans and for initializing Model. Once the Model is initialized, you can
     use both `export_model` and `import_model` for saving model into a file and respectively load it from a file.
+
+## Advanced: node-specific behaviour
+
+Fed-BioMed exposes the ID of the local node through the `TrainingPlan.node_id()` getter function. 
+This function returns an alphanumeric string corresponding to the unique identifier, such as e.g. `NODE_e5fb7b0e-404d-44fe-904b-259036551e99`. 
+It does not return the human-readable node name that may be additionally specified at node creation. 
+With this ID, it is possible to implement node-specific behaviour with `if` statements, or through the following model args pattern:
+```python
+class MyTrainingPlan(TorchTrainingPlan):
+    def init_model(self, model_args):
+        return MyModel(my_param=model_args['my_param'][self.node_id()])
+    # Remaining training plan definition...
+
+model_args = {
+    'my_param': {
+        'NODE_e5fb7b0e-404d-44fe-904b-259036551e99': 1.0,
+        'NODE_dsl39m23-5551-4242-6767-ao832jkavj2m': 2.0
+    }
+}
+```
