@@ -1,11 +1,146 @@
+import configparser
 import shutil
 import unittest
 from unittest.mock import patch
 
+import pytest
+from packaging.version import Version
+
 from fedbiomed.common.config import Config
-from fedbiomed.common.exceptions import FedbiomedVersionError
+from fedbiomed.common.exceptions import (
+    FedbiomedConfigurationError,
+)
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.researcher.config import ResearcherConfig
+
+# -----------------------------------------------------------------------------
+# Fixtures
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def patch_security_logger(mocker):
+    """Patch security logging hooks in the module where Config uses them."""
+    set_security_logs = mocker.patch("fedbiomed.common.config.logger.set_security_logs")
+    security_event = mocker.patch("fedbiomed.common.config.logger.security_event")
+    mocker.patch("fedbiomed.common.config.logger.setLevel")
+    return set_security_logs, security_event
+
+
+@pytest.fixture()
+def DummyConfig():
+    """Concrete Config for tests (avoid patching abstractmethods)."""
+
+    class _DummyConfig(Config):
+        _CONFIG_VERSION = Version("1.0")
+        COMPONENT_TYPE = "DUMMY"
+
+        def add_parameters(self):
+            self._cfg["dummy"] = {"x": "y"}
+
+        def migrate(self):
+            return
+
+    return _DummyConfig
+
+
+@pytest.fixture()
+def patch_cert_generation(mocker, tmp_path):
+    """Avoid crypto/fs side effects for Node/Researcher configs."""
+    mocker.patch(
+        "fedbiomed.node.config.generate_certificate",
+        lambda **kwargs: (str(tmp_path / "k.key"), str(tmp_path / "c.pem")),
+    )
+    mocker.patch(
+        "fedbiomed.researcher.config.generate_certificate",
+        lambda **kwargs: (str(tmp_path / "k.key"), str(tmp_path / "c.pem")),
+    )
+
+
+###################################
+##### Tests for security logging
+###################################
+
+
+def test_security_logging_called_on_init_load_generate(
+    tmp_path, mocker, patch_security_logger, DummyConfig
+):
+    set_security_logs, security_event = patch_security_logger
+
+    mocker.patch.object(DummyConfig, "is_config_existing", return_value=False)
+    DummyConfig(root=str(tmp_path))
+
+    # logger.set_security_logs(root_path=...) called
+    set_security_logs.assert_called()
+    assert set_security_logs.call_args.kwargs["root_path"] == str(tmp_path)
+
+    # config_load_start initiated
+    assert any(
+        c.kwargs.get("operation") == "config_load_start"
+        and c.kwargs.get("status") == "initiated"
+        for c in security_event.call_args_list
+    )
+
+    # config_generate success
+    assert any(
+        c.kwargs.get("operation") == "config_generate"
+        and c.kwargs.get("status") == "success"
+        for c in security_event.call_args_list
+    )
+
+
+def test_security_logging_config_set_emits_event(
+    tmp_path, mocker, patch_security_logger, DummyConfig
+):
+    _, security_event = patch_security_logger
+    mocker.patch.object(DummyConfig, "is_config_existing", return_value=False)
+
+    cfg = DummyConfig(root=str(tmp_path))
+    cfg.set("dummy", "x", "z")
+
+    assert any(
+        c.kwargs.get("operation") == "config_set"
+        and c.kwargs.get("status") == "success"
+        and c.kwargs.get("config_section") == "dummy"
+        and c.kwargs.get("config_key") == "x"
+        for c in security_event.call_args_list
+    )
+
+
+def test_security_logging_write_success_and_failure(
+    tmp_path, mocker, patch_security_logger, DummyConfig
+):
+    _, security_event = patch_security_logger
+    mocker.patch.object(DummyConfig, "is_config_existing", return_value=False)
+
+    mocker.patch("fedbiomed.common.config.create_fedbiomed_setup_folders")
+    mocker.patch("fedbiomed.common.config.open", mocker.mock_open())
+
+    cfg = DummyConfig(root=str(tmp_path))
+
+    # Success
+    cfg.write()
+    assert any(
+        c.kwargs.get("operation") == "config_write"
+        and c.kwargs.get("status") == "success"
+        for c in security_event.call_args_list
+    )
+
+    # Failure: ConfigParser.write raises configparser.Error
+    def boom(*args, **kwargs):
+        raise configparser.Error("boom")
+
+    mocker.patch.object(cfg._cfg, "write", side_effect=boom)
+
+    with pytest.raises(FedbiomedConfigurationError):
+        cfg.write()
+
+    assert any(
+        c.kwargs.get("operation") == "config_write"
+        and c.kwargs.get("status") == "failure"
+        and "error_message" in c.kwargs
+        for c in security_event.call_args_list
+    )
 
 
 class BaseConfigTest(unittest.TestCase):
@@ -48,7 +183,7 @@ class TestConfig(BaseConfigTest):
         config = Config(root="dummy-root")
         config._CONFIG_VERSION = "0.99"
 
-        with self.assertRaises(FedbiomedVersionError):
+        with self.assertRaises(FedbiomedConfigurationError):
             config.read()
 
         config_parser.return_value.read.assert_called_once()
