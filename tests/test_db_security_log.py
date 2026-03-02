@@ -52,16 +52,16 @@ def test_security_log_success_strips_forbidden_and_truncates(
     assert logged["stacklevel"] == 42
 
     # Forbidden keys stripped from payload/kwargs logging
-    assert "certificate" not in logged
-    assert "key" not in logged
-    assert logged["nested"] == {"keep": 1}
+    assert "certificate" not in logged["db_args"]
+    assert "key" not in logged["db_args"]
+    assert logged["db_args"]["nested"] == {"keep": 1}
 
     # Truncation applied (50 chars + '...')
-    assert isinstance(logged["long"], str)
-    assert logged["long"].endswith("...")
-    assert len(logged["long"]) <= 53
-    assert isinstance(logged["extra_kw"], str)
-    assert logged["extra_kw"].endswith("...")
+    assert isinstance(logged["db_args"]["long"], str)
+    assert logged["db_args"]["long"].endswith("...")
+    assert len(logged["db_args"]["long"]) <= 53
+    assert isinstance(logged["db_kwargs"]["extra_kw"], str)
+    assert logged["db_kwargs"]["extra_kw"].endswith("...")
 
 
 def test_security_log_success_summarizes_search_results(
@@ -85,7 +85,7 @@ def test_security_log_success_summarizes_search_results(
     logged = security_event.call_args.kwargs
     assert logged["status"] == "success"
     assert logged["doc_id"] == "3 documents"
-    assert logged["arg0"] == "hello"
+    assert logged["db_args"]["arg0"] == "hello"
     assert logged["stacklevel"] == 3
 
 
@@ -117,5 +117,5 @@ def test_security_log_failure_logs_and_wraps_exception(
     assert logged["stacklevel"] == 9
 
     # Forbidden keys stripped from args logging even on failure
-    assert "certificate" not in logged
-    assert logged["keep"] == "ok"
+    assert "certificate" not in logged["db_args"]
+    assert logged["db_args"]["keep"] == "ok"
