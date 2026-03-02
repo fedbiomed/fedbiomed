@@ -385,6 +385,17 @@ class TestFAResult:
         with pytest.raises(FedbiomedError):
             FAResult._deep_merge((1, 2, 3), (1, 2))
 
+    def test_deep_merge_incompatible_types_raises(self):
+        with pytest.raises(FedbiomedError):
+            FAResult._deep_merge({"a": 1}, [1])
+
+        with pytest.raises(FedbiomedError):
+            FAResult._deep_merge([1], {"a": 1})
+
+        with pytest.raises(FedbiomedError):
+            # One sequence, one scalar
+            FAResult._deep_merge([1], 1)
+
     # --- all_node_stats ---
 
     def test_all_node_stats_returns_dict_by_default(self):
@@ -712,3 +723,8 @@ class TestGlobalStats:
         with patch.object(FAResult, "computable_stats", return_value=["mean"]):
             with pytest.raises(FedbiomedError, match="Unexpected scalar"):
                 result.global_stat("mean")
+
+    def test_global_stat_no_data_raises(self):
+        result = FAResult({})
+        with pytest.raises(FedbiomedError, match="contains no node data"):
+            result.global_stat("mean")
