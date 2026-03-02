@@ -159,7 +159,7 @@ class Config(metaclass=ABCMeta):
                 fedbiomed_version=__version__,
             )
             raise FedbiomedConfigurationError(
-                f"{ErrorNumbers.FB600.value}: cannot read config file:  {self.path}"
+                f"{ErrorNumbers.FB600.value}: cannot read config file:  {self.config_path}"
             ) from e
 
     def get(self, section, key, **kwargs) -> str:
@@ -231,7 +231,7 @@ class Config(metaclass=ABCMeta):
                 fedbiomed_version=__version__,
             )
             raise FedbiomedConfigurationError(
-                f"{ErrorNumbers.FB600.value}: cannot save config file:  {self.path}"
+                f"{ErrorNumbers.FB600.value}: cannot save config file:  {self.config_path}"
             ) from exp
 
     def generate(self, id: Optional[str] = None) -> None:
