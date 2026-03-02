@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 from packaging.version import Version
 
+from fedbiomed import __version__
 from fedbiomed.common.constants import (
     CERTS_FOLDER_NAME,
     CONFIG_FOLDER_NAME,
@@ -17,6 +18,7 @@ from fedbiomed.common.constants import (
     ErrorNumbers,
 )
 from fedbiomed.common.exceptions import FedbiomedConfigurationError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import (
     create_fedbiomed_setup_folders,
     raise_for_version_compatibility,
@@ -70,6 +72,10 @@ class Config(metaclass=ABCMeta):
             root: Root directory for the component.
         """
         self._cfg = configparser.ConfigParser()
+        # Set up security logging for config operations
+        # This ensures security events are captured even before Node/Researcher initialization
+        logger.set_security_logs(root_path=root)
+        logger.setLevel("INFO")
         self.load(root)
 
     @classmethod
@@ -98,6 +104,15 @@ class Config(metaclass=ABCMeta):
 
         self.root = root
         self.config_path = os.path.join(self.root, "etc", self._CONFIG_FILE_NAME)
+        # import pdb; pdb.set_trace()
+        logger.security_event(
+            operation="config_load_start",
+            status="initiated",
+            config_path=self.config_path,
+            config_root=self.root,
+            component_type=self.COMPONENT_TYPE,
+            fedbiomed_version=__version__,
+        )
         self.generate()
 
     def is_config_existing(self) -> bool:
@@ -114,16 +129,38 @@ class Config(metaclass=ABCMeta):
 
         Raises version compatibility error
         """
-        self._cfg.read(self.config_path)
+        try:
+            self._cfg.read(self.config_path)
 
-        # Validate config version
-        raise_for_version_compatibility(
-            self._cfg["default"]["version"],
-            self._CONFIG_VERSION,
-            f"Configuration file {self.config_path}: found version %s expected version %s",
-        )
+            # Validate config version
+            raise_for_version_compatibility(
+                self._cfg["default"]["version"],
+                self._CONFIG_VERSION,
+                f"Configuration file {self.config_path}: found version %s expected version %s",
+            )
 
-        return True
+            logger.security_event(
+                operation="config_read",
+                status="success",
+                config_path=self.config_path,
+                config_version=self._cfg["default"]["version"],
+                component_type=self.COMPONENT_TYPE,
+                fedbiomed_version=__version__,
+            )
+
+            return True
+        except Exception as e:
+            logger.security_event(
+                operation="config_read",
+                status="failure",
+                config_path=self.config_path,
+                error_message=str(e),
+                component_type=self.COMPONENT_TYPE,
+                fedbiomed_version=__version__,
+            )
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: cannot read config file:  {self.config_path}"
+            ) from e
 
     def get(self, section, key, **kwargs) -> str:
         """Returns value for given key and section"""
@@ -157,6 +194,14 @@ class Config(metaclass=ABCMeta):
             value: the value of the attribute that was just set
         """
         self._cfg.set(section, key, value)
+        logger.security_event(
+            operation="config_set",
+            status="success",
+            config_section=section,
+            config_key=key,
+            component_type=self.COMPONENT_TYPE,
+            fedbiomed_version=__version__,
+        )
 
     def sections(self) -> list:
         """Returns sections of the config"""
@@ -169,9 +214,24 @@ class Config(metaclass=ABCMeta):
         try:
             with open(self.config_path, "w", encoding="UTF-8") as f:
                 self._cfg.write(f)
+            logger.security_event(
+                operation="config_write",
+                status="success",
+                config_path=self.config_path,
+                component_type=self.COMPONENT_TYPE,
+                fedbiomed_version=__version__,
+            )
         except configparser.Error as exp:
+            logger.security_event(
+                operation="config_write",
+                status="failure",
+                config_path=self.config_path,
+                error_message=str(exp),
+                component_type=self.COMPONENT_TYPE,
+                fedbiomed_version=__version__,
+            )
             raise FedbiomedConfigurationError(
-                f"{ErrorNumbers.FB600.value}: cannot save config file:  {self.path}"
+                f"{ErrorNumbers.FB600.value}: cannot save config file:  {self.config_path}"
             ) from exp
 
     def generate(self, id: Optional[str] = None) -> None:
@@ -202,10 +262,30 @@ class Config(metaclass=ABCMeta):
 
             # Calls child class add_parameterss
             self.add_parameters()
+
+            logger.security_event(
+                operation="config_generate",
+                status="success",
+                config_path=self.config_path,
+                component_id=component_id,
+                component_type=self.COMPONENT_TYPE,
+                config_version=str(self._CONFIG_VERSION),
+                fedbiomed_version=__version__,
+            )
         else:
             self.read()
             # Provide migration
             self.migrate()
+
+            logger.security_event(
+                operation="config_load_existing",
+                status="success",
+                config_path=self.config_path,
+                component_id=self._cfg["default"]["id"],
+                component_type=self.COMPONENT_TYPE,
+                config_version=self._cfg["default"]["version"],
+                fedbiomed_version=__version__,
+            )
 
         self._update_vars()
 

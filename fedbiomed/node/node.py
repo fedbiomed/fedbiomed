@@ -131,7 +131,7 @@ class Node:
 
         # Log node creation
         logger.security_event(
-            operation="node_created",
+            operation="node_initialized",
             status="success",
             researcher_id=None,
             node_name=self._node_name,

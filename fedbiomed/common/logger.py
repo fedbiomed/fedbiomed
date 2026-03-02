@@ -446,8 +446,8 @@ class FedLogger(metaclass=SingletonMeta):
 
         entry = {
             "timestamp": _utc_timestamp(),
-            "node_id": self._security_defaults.get("component_id"),
-            "node_name": self._security_defaults.get("component_name"),
+            "component_id": self._security_defaults.get("component_id"),
+            "component_name": self._security_defaults.get("component_name"),
             "researcher_id": rid,
             "operation": op,
             "status": st,
