@@ -773,6 +773,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def node_id(self) -> Optional[str]:
         """Retrieve node id
 
+        Node id is the unique identifier of the node that executes the training plan. It is set by the node when calling `post_init` method.
+        It looks something like "NODE_1234abcd-5678-efgh-9012-ijklmnopqrst".
+        It is not the human-readable name of the node, which is set by the node creator.
+
+        The returned node id can be `None` in the following cases:
+        1. The 'post_init' method has not been called yet, which means the training plan has not yet been fully initialized by the node.
+        2. The training plan is being initialized by the researcher.
+
         Returns:
             Node id
         """

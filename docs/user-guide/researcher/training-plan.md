@@ -377,9 +377,10 @@ Of course, loaded model needs to be identical to the training plan's model.
 ## Advanced: node-specific behaviour
 
 Fed-BioMed exposes the ID of the local node through the `TrainingPlan.node_id()` getter function. 
-This function returns an alphanumeric string corresponding to the unique identifier, such as e.g. `NODE_e5fb7b0e-404d-44fe-904b-259036551e99`. 
-It does not return the human-readable node name that may be additionally specified at node creation. 
-With this ID, it is possible to implement node-specific behaviour with `if` statements, or through the following model args pattern:
+This function returns an alphanumeric string corresponding to the unique identifier, such as e.g. `NODE_e5fb7b0e-404d-44fe-904b-259036551e99`, or `None` when the training plan was not fully initialized (i.e. `post_init` has not yet been called) or when the training plan was constructed on the researcher side.
+Note that the `node_id` function does not return the human-readable node name that may have been additionally specified at node creation. 
+
+With the `node_id`, it is possible to implement node-specific behaviour using `if` statements, or through the following model args pattern:
 ```python
 class MyTrainingPlan(TorchTrainingPlan):
     def init_model(self, model_args):
