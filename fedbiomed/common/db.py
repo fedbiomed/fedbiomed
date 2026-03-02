@@ -101,11 +101,25 @@ def _security_log(operation: str, default_stacklevel: int = 3):
                         **kwargs_for_log,
                         stacklevel=logging_stacklevel,
                     )
+                    logger.debug(
+                        status="failure",
+                        details=str(e),
+                        **args_for_log,
+                        **kwargs_for_log,
+                        stacklevel=logging_stacklevel,
+                    )
                     raise FedbiomedError(
                         f"Failed to {operation} in table {self.name} with error: {e}"
                     ) from e
 
                 logger.security_event(
+                    status="success",
+                    doc_id=result_for_log,
+                    **args_for_log,
+                    **kwargs_for_log,
+                    stacklevel=logging_stacklevel,
+                )
+                logger.debug(
                     status="success",
                     doc_id=result_for_log,
                     **args_for_log,
