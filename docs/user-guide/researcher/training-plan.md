@@ -138,6 +138,11 @@ def training_data(self) -> DataManager:
 You can read the documentation for [training data](../../researcher/training-data) to
 learn more about the `DataManager` class and various use cases.
 
+!!! warning "Be aware of the data types in your dataset"
+    It is ultimately your responsibility to write the code for `training_step` that correctly handles the data types
+    returned by the `__getitem__` function of the dataset you are targeting. Be aware of the specifics of your dataset
+    when writing this function.
+
 ## Initializing the model
 
 In Pytorch training plans, you must also define a `init_model` function with the following signature:
@@ -269,21 +274,6 @@ The `training_step` method of the training class defines how the cost is compute
         loss   = torch.nn.functional.nll_loss(output, target)
         return loss
 ```
-
-### Type of `data` and `target`
-
-The `training_step` function takes as input two arguments, `data` and `target`, which are obtained by cycling through the dataset defined in the `training_data` function. There is some flexibility concerning what type of variables they might be.
-
-In a Pytorch training plan, the following data types are supported:
-
-- a `torch.Tensor`
-- a collection (a `dict`, `tuple` or `list`) of `torch.Tensor`
-- a recursive collection of collections, arbitrarily nested, that ultimately contain `torch.Tensor` objects
-
-!!! warning "Be aware of the data types in your dataset"
-    It is ultimately your responsibility to write the code for `training_step` that correctly handles the data types
-    returned by the `__getitem__` function of the dataset you are targeting. Be aware of the specifics of your dataset
-    when writing this function.
 
 ## Adding Dependencies
 
