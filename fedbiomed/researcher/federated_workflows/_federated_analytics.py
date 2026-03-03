@@ -13,7 +13,6 @@ from typing import Any, Callable, Iterator, Optional
 
 from fedbiomed.common.analytics import AGGREGATORS_MAP
 from fedbiomed.common.constants import ErrorNumbers, Stats
-from fedbiomed.common.dataset import validate_dataset_args
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FAReply
@@ -425,8 +424,6 @@ class FederatedAnalytics:
         self._researcher_id = researcher_id
         self._reqs = reqs
         self._experimentation_folder = experimentation_folder
-        # Session-level dataset arguments applied to every call. Set via set_dataset_args()
-        self._dataset_args: Optional[dict] = None
         # Cache: maps a hash to a FAResult that accumulates stats with the same argument combination
         self._results_store: OrderedDict[str, FAResult] = OrderedDict()
 
@@ -434,23 +431,6 @@ class FederatedAnalytics:
     def fa_id(self) -> str:
         """Unique ID of this federated analytics instance."""
         return self._fa_id
-
-    @property
-    def dataset_args(self) -> Optional[dict]:
-        """Session-level dataset arguments, or ``{}`` if none are set."""
-        return self._dataset_args or {}
-
-    def set_dataset_args(self, dataset_args: Optional[dict]) -> None:
-        """Set session-level dataset arguments.
-
-        Args:
-            dataset_args: Keyword arguments forwarded to the dataset on every analytics
-                call.  Pass ``None`` to clear the session default.
-        """
-        if dataset_args is not None:
-            dataset_type = next(iter(self._fds.data().values())).get("data_type")
-            validate_dataset_args(dataset_type, dataset_args)
-        self._dataset_args = dataset_args
 
     def get_node_ids(self) -> list[str]:
         """Return the list of node IDs participating in this federated analytics.
@@ -475,15 +455,13 @@ class FederatedAnalytics:
     @staticmethod
     def make_cache_key(
         node_ids: list[str],
-        dataset_args: Optional[dict],
         dataset_schema: Optional[str | list[str | dict]],
         fa_args: Optional[dict],
     ) -> str:
-        """Create a stable string key from the node list, dataset and FA arguments.
+        """Create a stable string key from the node list and FA arguments.
 
         Args:
             node_ids: Current list of participating node IDs.
-            dataset_args: Dataset filtering/selection arguments.
             dataset_schema: Schema definition.
             fa_args: FA-specific computation arguments.
 
@@ -492,7 +470,6 @@ class FederatedAnalytics:
         """
         key_data = {
             "node_ids": sorted(node_ids),
-            "dataset_args": dataset_args or {},
             "dataset_schema": dataset_schema,
             "fa_args": fa_args or {},
         }
@@ -504,7 +481,6 @@ class FederatedAnalytics:
     def compute_analytics(
         self,
         stats: str | list[str],
-        dataset_args: Optional[dict] = None,
         dataset_schema: Optional[str | list[str | dict]] = None,
         fa_args: Optional[dict] = None,
     ) -> FAResult:
@@ -512,8 +488,6 @@ class FederatedAnalytics:
 
         Args:
             stats: Statistic name(s) to compute.
-            dataset_args: If provided, updates the session-level dataset arguments via
-                :meth:`set_dataset_args` before executing the request.
             dataset_schema: Schema definition.
             fa_args: Federated analytics arguments.
 
@@ -524,11 +498,7 @@ class FederatedAnalytics:
             stats = [stats]
 
         node_ids = self.get_node_ids()
-        if dataset_args is not None:
-            self.set_dataset_args(dataset_args)
-        cache_key = FederatedAnalytics.make_cache_key(
-            node_ids, self.dataset_args, dataset_schema, fa_args
-        )
+        cache_key = FederatedAnalytics.make_cache_key(node_ids, dataset_schema, fa_args)
         cached = self._results_store.get(cache_key)
 
         missing = [s for s in stats if cached is None or not cached.has_stat(s)]
@@ -538,7 +508,6 @@ class FederatedAnalytics:
                 fa_id=self._fa_id,
                 fa_args=fa_args,
                 stats=missing,
-                dataset_args=self.dataset_args,
                 dataset_schema=dataset_schema,
                 federated_dataset=self._fds,
                 experiment_id=self._experiment_id,

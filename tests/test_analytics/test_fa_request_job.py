@@ -19,7 +19,6 @@ def fa_job_setup():
     }
     fa_args = {"arg1": "value1"}
     stats = Stats.MEAN.value
-    dataset_args = {"d_arg1": "value1"}
     dataset_schema = ["col1", "col2"]
     nodes = ["node1", "node2"]
     policies = MagicMock()
@@ -33,7 +32,6 @@ def fa_job_setup():
         federated_dataset=federated_dataset,
         fa_args=fa_args,
         stats=stats,
-        dataset_args=dataset_args,
         dataset_schema=dataset_schema,
         nodes=nodes,
         requests=reqs,
@@ -48,7 +46,6 @@ def fa_job_setup():
         "federated_dataset": federated_dataset,
         "fa_args": fa_args,
         "stats": stats,
-        "dataset_args": dataset_args,
         "dataset_schema": dataset_schema,
         "nodes": nodes,
         "policies": policies,
@@ -64,7 +61,6 @@ def test_init(fa_job_setup):
     assert job._fa_id == fa_job_setup["fa_id"]
     assert job._federated_dataset == fa_job_setup["federated_dataset"]
     assert job._fa_args == fa_job_setup["fa_args"]
-    assert job._dataset_args == fa_job_setup["dataset_args"]
     assert job._dataset_schema == fa_job_setup["dataset_schema"]
     assert job._stats == fa_job_setup["stats"]
     assert job._researcher_id == fa_job_setup["researcher_id"]

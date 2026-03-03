@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.constants import ErrorNumbers, Stats
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, Stats
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
@@ -19,7 +19,6 @@ def request_args():
         "fa_id": "fa_1",
         "stats": Stats.MEAN.value,
         "fa_args": {},
-        "dataset_args": {"input_columns": ["age", "weight"]},
         "dataset_schema": ["col1", "col2"],
     }
 
@@ -262,28 +261,6 @@ def test_run_federated_analytics_not_allowed(fa_job_args):
     assert "not allowed" in reply.extra_msg
 
 
-def test_run_no_dataset_args(fa_job_args):
-    """Test run method when no dataset_args are provided."""
-    req_args = fa_job_args["request"].__dict__.copy()
-    req_args["dataset_args"] = {}
-    request = FARequest(**req_args)
-
-    args = fa_job_args.copy()
-    args["request"] = request
-    job = FAJob(**args)
-
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": 2.0}
-
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
-
-        assert isinstance(reply, FAReply)
-        assert reply.output == {"col1": 2.0}
-        assert reply.request_id == job._request_id
-        assert reply.node_id == job._node_id
-
-
 def test_run_unsupported_analytics_type(
     fa_job_args, request_args, mocked_dataset_manager
 ):
@@ -399,3 +376,56 @@ def test_run_success_multiple_stats(fa_job_args, request_args):
         # Check passed arguments
         call_kwargs = mock_dataset.compute_stats.call_args[1]
         assert call_kwargs["stats"] == stats_list
+
+
+def test_build_args_for_dataset_methods(fa_job):
+    """Test _build_args_for_dataset method for different dataset types."""
+
+    # Test Tabular
+    # _build_args_for_dataset uses entry.get("dtypes") for input_columns
+    entry = {"data_type": "csv", "dtypes": {"col1": "int", "col2": "float"}}
+    with patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
+    ) as mock_get_type:
+        mock_get_type.return_value = DatasetTypes.TABULAR
+        args = fa_job._build_args_for_dataset(entry)
+        assert args == {"input_columns": ["col1", "col2"]}
+
+    # Test Medical Folder
+    entry = {"data_type": "medical-folder", "shape": [1, 2, 3]}
+    with patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
+    ) as mock_get_type:
+        mock_get_type.return_value = DatasetTypes.MEDICAL_FOLDER
+        args = fa_job._build_args_for_dataset(entry)
+        assert args == {"data_modalities": [1, 2, 3]}
+
+    # Test Images and Default
+    for dtype_enum in [DatasetTypes.IMAGES, DatasetTypes.DEFAULT, DatasetTypes.MEDNIST]:
+        entry = {"data_type": dtype_enum.value}
+        with patch(
+            "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
+        ) as mock_get_type:
+            mock_get_type.return_value = dtype_enum
+            args = fa_job._build_args_for_dataset(entry)
+            assert args == {}
+
+    # Test Custom (Unsupported by default logic in _build_args_for_dataset)
+    entry = {"data_type": "custom"}
+    with patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
+    ) as mock_get_type:
+        mock_get_type.return_value = DatasetTypes.CUSTOM
+        with pytest.raises(FedbiomedError) as exc_info:
+            fa_job._build_args_for_dataset(entry)
+        assert "Dataset arguments by default are not implemented" in str(exc_info.value)
+
+    # Test None
+    entry = {"data_type": "unknown"}
+    with patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
+    ) as mock_get_type:
+        mock_get_type.return_value = None
+        with pytest.raises(FedbiomedError) as exc_info:
+            fa_job._build_args_for_dataset(entry)
+        assert "Dataset entry contains unsupported dataset type" in str(exc_info.value)

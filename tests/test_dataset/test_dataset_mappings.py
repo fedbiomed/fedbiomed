@@ -3,14 +3,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset._mappings import (
-    DATASET_CLASSES_PER_TYPE,
     ControllerParametersBase,
     MedicalFolderParameters,
     get_controller,
-    validate_dataset_args,
 )
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -140,114 +138,3 @@ def test_get_controller_fedbiomed_error_propagation(mock_registry):
     with pytest.raises(FedbiomedError) as excinfo:
         get_controller("csv", {})
     assert "Original error" in str(excinfo.value)
-
-
-@pytest.fixture
-def mock_datasets():
-    """Fixture to mock DATASET_CLASSES_PER_TYPE with controlled classes"""
-
-    class MockDatasetValid:
-        def __init__(self, req_arg, opt_arg=None):
-            pass
-
-    class MockDatasetWithCwd:
-        def __init__(self, data):
-            pass
-
-    with patch.dict(
-        DATASET_CLASSES_PER_TYPE,
-        {
-            DatasetTypes.TABULAR: MockDatasetValid,
-            DatasetTypes.IMAGES: MockDatasetWithCwd,
-        },
-        clear=True,
-    ):
-        yield
-
-
-def test_validate_args_success(mock_datasets):
-    """Test valid arguments pass validation"""
-    validate_dataset_args("csv", {"req_arg": 1})
-    validate_dataset_args("csv", {"req_arg": 1, "opt_arg": 2})
-
-
-def test_validate_args_unsupported_type():
-    """Test validation fails for unsupported type"""
-    with pytest.raises(FedbiomedError) as exc:
-        validate_dataset_args("unknown", {})
-    assert "Unsupported dataset type" in str(exc.value)
-
-
-def test_validate_args_missing_required(mock_datasets):
-    """Test validation fails when required arg is missing"""
-    with pytest.raises(FedbiomedError) as exc:
-        validate_dataset_args("csv", {"opt_arg": 1})
-    assert "Missing required dataset_args" in str(exc.value)
-    assert "req_arg" in str(exc.value)
-
-
-def test_validate_args_invalid_key(mock_datasets):
-    """Test validation fails when extra arg provided"""
-    with pytest.raises(FedbiomedError) as exc:
-        validate_dataset_args("csv", {"req_arg": 1, "extra_arg": 3})
-    assert "Invalid dataset_args" in str(exc.value)
-    assert "extra_arg" in str(exc.value)
-
-
-def test_validate_args_ignores_self_class():
-    """Test that 'self' argument is ignored during validation"""
-
-    class MockSelf:
-        def __init__(self, a):
-            pass
-
-    with patch.dict(
-        DATASET_CLASSES_PER_TYPE, {DatasetTypes.TABULAR: MockSelf}, clear=True
-    ):
-        validate_dataset_args("csv", {"a": 1})
-
-
-def test_validate_args_disallows_kwargs():
-    """Test that validation fails (via invalid keys) even if class accepts kwargs,
-    because strict validation ignores kwargs signature."""
-
-    class MockKwargs:
-        def __init__(self, a, **kwargs):
-            pass
-
-    with patch.dict(
-        DATASET_CLASSES_PER_TYPE, {DatasetTypes.TABULAR: MockKwargs}, clear=True
-    ):
-        validate_dataset_args("csv", {"a": 1})
-
-        with pytest.raises(FedbiomedError) as exc:
-            validate_dataset_args("csv", {"a": 1, "b": 2})
-        assert "Invalid dataset_args" in str(exc.value)
-        assert "b" in str(exc.value)
-
-
-def test_validate_args_real_datasets():
-    """Test validation with actual dataset classes defined in the mappings."""
-    # Test TabularDataset
-    args_tabular = {"input_columns": [1, 2]}
-    validate_dataset_args(DatasetTypes.TABULAR.value, args_tabular)
-
-    # Test ImageFolderDataset
-    args_images = {"transform": None}
-    validate_dataset_args(DatasetTypes.IMAGES.value, args_images)
-
-    # Test MedicalFolderDataset
-    args_medical = {"data_modalities": ["T1"], "target_modalities": None}
-    validate_dataset_args(DatasetTypes.MEDICAL_FOLDER.value, args_medical)
-
-    # Test MedNistDataset
-    args_mednist = {}
-    validate_dataset_args(DatasetTypes.MEDNIST.value, args_mednist)
-
-    # Test MnistDataset
-    args_mnist = {}
-    validate_dataset_args(DatasetTypes.DEFAULT.value, args_mnist)
-
-    # Test CustomDataset
-    args_custom = {}
-    validate_dataset_args(DatasetTypes.CUSTOM.value, args_custom)

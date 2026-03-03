@@ -28,7 +28,6 @@ class FARequestJob(Job):
         federated_dataset: dict,
         fa_args: dict,
         stats: Stats,
-        dataset_args: dict,
         dataset_schema: list,
         **kwargs,
     ) -> None:
@@ -43,7 +42,6 @@ class FARequestJob(Job):
         self._fa_id = fa_id
         self._federated_dataset = federated_dataset
         self._fa_args = fa_args
-        self._dataset_args = dataset_args
         self._dataset_schema = dataset_schema
         self._stats = stats
 
@@ -59,7 +57,6 @@ class FARequestJob(Job):
             stats=self._stats,
             fa_id=self._fa_id,
             fa_args=self._fa_args,
-            dataset_args=self._dataset_args,
             dataset_schema=self._dataset_schema,
         )
 
