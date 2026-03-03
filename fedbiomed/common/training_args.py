@@ -235,17 +235,22 @@ class TrainingArgs:
 
     @staticmethod
     @validator_decorator
-    def _fedprox_mu_validator(val: Union[float, None]) -> Union[Tuple[bool, str], bool]:
-        """Validates fedprox_mu value whether it None or float
+    def _fedprox_mu_validator(
+        val: Union[float, int, None],
+    ) -> Union[Tuple[bool, str], bool]:
+        """Validates fedprox_mu value whether it None or float or int
 
         Returns:
             Validation status  or/and error message
         """
-        if isinstance(val, float):
+        if isinstance(val, float) or isinstance(val, int):
             return True
         elif val is None:
             return True
-        return False, f"Expected `fedprox_mu` value is float, but got {type(val)}. "
+        return (
+            False,
+            f"Expected `fedprox_mu` value is float or int, but got {type(val)}. ",
+        )
 
     @staticmethod
     @validator_decorator
