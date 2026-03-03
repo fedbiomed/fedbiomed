@@ -13,7 +13,6 @@ from ._mappings import (
     ControllerParametersBase,
     MedicalFolderParameters,
     get_controller,
-    validate_dataset_args,
 )
 from ._medical_folder_dataset import MedicalFolderDataset
 from ._native_dataset import NativeDataset
@@ -38,5 +37,4 @@ __all__ = [
     "ControllerParametersBase",
     "MedicalFolderParameters",
     "get_controller",
-    "validate_dataset_args",
 ]
