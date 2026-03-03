@@ -109,6 +109,7 @@ Fed-BioMed provides the following getter functions to access Training Plan attri
 | model arguments     | `model_args()`     | :heavy_check_mark: | :heavy_check_mark:  | |
 | training arguments  | `training_args()`  | :heavy_check_mark: | :heavy_check_mark:  | |
 | optimizer arguments | `optimizer_args()` | :heavy_check_mark: | :heavy_check_mark:  | |
+| node is | `node_id()` | :heavy_check_mark: | :heavy_check_mark:  | |
 
 ####
 
@@ -136,6 +137,11 @@ def training_data(self) -> DataManager:
 
 You can read the documentation for [training data](../../researcher/training-data) to
 learn more about the `DataManager` class and various use cases.
+
+!!! warning "Be aware of the data types in your dataset"
+    It is ultimately your responsibility to write the code for `training_step` that correctly handles the data types
+    returned by the `__getitem__` function of the dataset you are targeting. Be aware of the specifics of your dataset
+    when writing this function.
 
 ## Initializing the model
 
@@ -269,21 +275,6 @@ The `training_step` method of the training class defines how the cost is compute
         return loss
 ```
 
-### Type of `data` and `target`
-
-The `training_step` function takes as input two arguments, `data` and `target`, which are obtained by cycling through the dataset defined in the `training_data` function. There is some flexibility concerning what type of variables they might be.
-
-In a Pytorch training plan, the following data types are supported:
-
-- a `torch.Tensor`
-- a collection (a `dict`, `tuple` or `list`) of `torch.Tensor`
-- a recursive collection of collections, arbitrarily nested, that ultimately contain `torch.Tensor` objects
-
-!!! warning "Be aware of the data types in your dataset"
-    It is ultimately your responsibility to write the code for `training_step` that correctly handles the data types
-    returned by the `__getitem__` function of the dataset you are targeting. Be aware of the specifics of your dataset
-    when writing this function.
-
 ## Adding Dependencies
 
 By dependencies we mean here the python modules that are necessary to build all the various elements of your training
@@ -382,3 +373,24 @@ Of course, loaded model needs to be identical to the training plan's model.
 !!! warning "Usage through `Experiment`"
     Both **exports** and **imports** must be used through [Experiment](../../researcher/experiment) interface. Indeed, `Experiment` class has methods to load Training Plans and for initializing Model. Once the Model is initialized, you can
     use both `export_model` and `import_model` for saving model into a file and respectively load it from a file.
+
+## Advanced: node-specific behaviour
+
+Fed-BioMed exposes the ID of the local node through the `TrainingPlan.node_id()` getter function. 
+This function returns an alphanumeric string corresponding to the unique identifier, such as e.g. `NODE_e5fb7b0e-404d-44fe-904b-259036551e99`, or `None` when the training plan was not fully initialized (i.e. `post_init` has not yet been called) or when the training plan was constructed on the researcher side.
+Note that the `node_id` function does not return the human-readable node name that may have been additionally specified at node creation. 
+
+With the `node_id`, it is possible to implement node-specific behaviour using `if` statements, or through the following model args pattern:
+```python
+class MyTrainingPlan(TorchTrainingPlan):
+    def init_model(self, model_args):
+        return MyModel(my_param=model_args['my_param'][self.node_id()])
+    # Remaining training plan definition...
+
+model_args = {
+    'my_param': {
+        'NODE_e5fb7b0e-404d-44fe-904b-259036551e99': 1.0,
+        'NODE_dsl39m23-5551-4242-6767-ao832jkavj2m': 2.0
+    }
+}
+```

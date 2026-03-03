@@ -133,6 +133,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         training_args: TrainingArgs,
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
+        node_id: Optional[str] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -150,7 +151,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
-        super().post_init(model_args, training_args, aggregator_args)
+        super().post_init(model_args, training_args, aggregator_args, node_id=node_id)
         # Assign scalar attributes.
         self._use_gpu = self._training_args.get("use_gpu")
         self._batch_maxnum = self._training_args.get("batch_maxnum")

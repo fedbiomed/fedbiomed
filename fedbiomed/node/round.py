@@ -291,6 +291,7 @@ class Round:
                 model_args=self.model_arguments,
                 training_args=self.training_arguments,
                 aggregator_args=self.aggregator_args,
+                node_id=self._node_id,
             )
         except Exception:
             error_message = "Can't initialize training plan with the arguments."

@@ -90,6 +90,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         training_args: TrainingArgs,
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
+        node_id: Optional[str] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -103,7 +104,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             initialize_optimizer: Unused.
         """
         model_args.setdefault("verbose", 1)
-        super().post_init(model_args, training_args, aggregator_args)
+        super().post_init(model_args, training_args, aggregator_args, node_id=node_id)
         self._model = SkLearnModel(self._model_cls)
         self._batch_maxnum = self._training_args.get("batch_maxnum", self._batch_maxnum)
         self._warn_about_training_args()

@@ -79,6 +79,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._optimizer_args: Dict[str, Any] = None
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
+        self._node_id: Optional[str] = None
 
         self._error_msg_import_model: str = (
             f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n"
@@ -132,6 +133,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         training_args: Dict[str, Any],
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
+        node_id: Optional[str] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -152,6 +154,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._loader_args = training_args.loader_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
+        self._node_id = node_id
 
         # Set random seed: the seed can be either None or an int provided by the researcher.
         # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
@@ -766,3 +769,19 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             Optimizer arguments
         """
         return self._optimizer_args
+
+    def node_id(self) -> Optional[str]:
+        """Retrieve node id
+
+        Node id is the unique identifier of the node that executes the training plan. It is set by the node when calling `post_init` method.
+        It looks something like "NODE_1234abcd-5678-efgh-9012-ijklmnopqrst".
+        It is not the human-readable name of the node, which is set by the node creator.
+
+        The returned node id can be `None` in the following cases:
+        1. The 'post_init' method has not been called yet, which means the training plan has not yet been fully initialized by the node.
+        2. The training plan is being initialized by the researcher.
+
+        Returns:
+            Node id
+        """
+        return self._node_id

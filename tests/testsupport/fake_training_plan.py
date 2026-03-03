@@ -1,19 +1,21 @@
 """Fake `BaseTrainingPlan` subclass nullifying most methods, for tests use."""
 
+import time
 from typing import Any, Dict, Optional
 from unittest import mock
-import time
-from fedbiomed.common.constants import TrainingPlans
+
 import torch
 from torch.utils.data import Dataset
+
+from fedbiomed.common.constants import TrainingPlans
+from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.models import Model
 from fedbiomed.common.optimizers import BaseOptimizer
 from fedbiomed.common.training_plans import (
     BaseTrainingPlan,
-    TorchTrainingPlan,
     FedSGDRegressor,
+    TorchTrainingPlan,
 )
-from fedbiomed.common.datamanager import DataManager
 
 
 # Fakes TrainingPlan (either `fedbiomed.common.torchnn`` or `fedbiomed.common.fedbiosklearn`)
@@ -47,9 +49,10 @@ class FakeModel(BaseTrainingPlan):
         model_args: Dict[str, Any],
         training_args: Dict[str, Any],
         aggregator_args: Optional[Dict[str, Any]] = None,
+        node_id: Optional[str] = None,
     ) -> None:
         """Fake 'post_init', that does not make use of input arguments."""
-        super().post_init(model_args, training_args, aggregator_args)
+        super().post_init(model_args, training_args, aggregator_args, node_id=node_id)
 
     def model(self):
         return self._model
