@@ -5,6 +5,7 @@ import {
   EuiFlexGroup,
   EuiFlexItem,
   EuiFieldSearch,
+  EuiFieldText,
   EuiFormRow,
   EuiInMemoryTable,
   EuiSelect,
@@ -14,17 +15,18 @@ import {
 } from '@elastic/eui'
 import moment from 'moment'
 
-import { EP_SECURITY_LOG_FILES, EP_SECURITY_LOGS } from '../../constants'
+import { EP_SECURITY_LOGS } from '../../constants'
 
 
 const SecurityLogs = () => {
-  const [files, setFiles] = React.useState([])
-  const [selectedFile, setSelectedFile] = React.useState('')
-
   const [contains, setContains] = React.useState('')
   const [operation, setOperation] = React.useState('')
   const [status, setStatus] = React.useState('')
   const [researcherId, setResearcherId] = React.useState('')
+
+  const [startTs, setStartTs] = React.useState('')
+  const [endTs, setEndTs] = React.useState('')
+  const [maxTotal, setMaxTotal] = React.useState('5000')
 
   const [showCallerInfo, setShowCallerInfo] = React.useState(false)
 
@@ -36,16 +38,13 @@ const SecurityLogs = () => {
   const [nextSkip, setNextSkip] = React.useState(0)
   const [loading, setLoading] = React.useState(false)
 
-  const loadFiles = React.useCallback(async () => {
-    const res = await axios.get(EP_SECURITY_LOG_FILES)
-    const list = res?.data?.result || []
-    setFiles(list)
-
-    // Default selection to newest file if none selected
-    if (!selectedFile && list.length > 0) {
-      setSelectedFile(list[0].name)
-    }
-  }, [selectedFile])
+  const rangeLabel = React.useMemo(() => {
+    const start = startTs ? moment(startTs) : null
+    const end = endTs ? moment(endTs) : null
+    const startTxt = start && start.isValid() ? start.format('YYYY-MM-DD HH:mm') : ''
+    const endTxt = end && end.isValid() ? end.format('YYYY-MM-DD HH:mm') : ''
+    return `${startTxt} - ${endTxt}`
+  }, [startTs, endTs])
 
   const buildParams = React.useCallback((skip) => {
     const params = {
@@ -53,26 +52,56 @@ const SecurityLogs = () => {
       skip: skip || 0,
     }
 
-    if (selectedFile) params.file = selectedFile
     if (contains) params.contains = contains
     if (operation) params.operation = operation
     if (status) params.status = status
     if (researcherId) params.researcher_id = researcherId
 
+    if (startTs) {
+      const m = moment(startTs)
+      if (m.isValid()) params.start_ts = m.toISOString()
+    }
+    if (endTs) {
+      const m = moment(endTs)
+      if (m.isValid()) params.end_ts = m.toISOString()
+    }
+
+    // Apply a default cap for date-range browsing (server also enforces a default).
+    const hasDateFilter = Boolean(startTs || endTs)
+    const mt = parseInt(maxTotal, 10)
+    if (hasDateFilter && Number.isFinite(mt) && mt > 0) {
+      params.max_total = mt
+    }
+
     return params
-  }, [selectedFile, contains, operation, status, researcherId])
+  }, [contains, operation, status, researcherId, startTs, endTs, maxTotal])
+
+  const buildRangeParams = React.useCallback(() => {
+    const params = { limit: 2000, skip: 0 }
+
+    if (startTs) {
+      const m = moment(startTs)
+      if (m.isValid()) params.start_ts = m.toISOString()
+    }
+    if (endTs) {
+      const m = moment(endTs)
+      if (m.isValid()) params.end_ts = m.toISOString()
+    }
+
+    const hasDateFilter = Boolean(startTs || endTs)
+    const mt = parseInt(maxTotal, 10)
+    if (hasDateFilter && Number.isFinite(mt) && mt > 0) {
+      params.max_total = mt
+    }
+
+    return params
+  }, [startTs, endTs, maxTotal])
 
   const loadFacets = React.useCallback(async () => {
-    if (!selectedFile) return
-
     // Fetch a larger unfiltered sample to populate dropdowns.
     // This keeps the implementation simple and avoids a DB.
     const res = await axios.get(EP_SECURITY_LOGS, {
-      params: {
-        file: selectedFile,
-        limit: 2000,
-        skip: 0,
-      },
+      params: buildRangeParams(),
     })
 
     const payload = res?.data?.result || {}
@@ -106,7 +135,7 @@ const SecurityLogs = () => {
     setOperationOptions(opsSorted)
     setStatusOptions(stsSorted)
     setResearcherOptions(ridsSorted)
-  }, [selectedFile])
+  }, [buildRangeParams])
 
   const loadLogs = React.useCallback(async ({ reset = true } = {}) => {
     setLoading(true)
@@ -134,25 +163,15 @@ const SecurityLogs = () => {
     }
   }, [buildParams, nextSkip])
 
-  React.useEffect(() => {
-    loadFiles()
-  }, [loadFiles])
-
-  // Refresh dropdown options when the file changes
+  // Refresh dropdown options when date range changes
   React.useEffect(() => {
     loadFacets()
-  }, [selectedFile, loadFacets])
+  }, [startTs, endTs, loadFacets])
 
   // Reload when file or filters change
   React.useEffect(() => {
-    if (!selectedFile) return
     loadLogs({ reset: true })
-  }, [selectedFile, contains, operation, status, researcherId, loadLogs])
-
-  const fileOptions = files.map((f) => ({
-    value: f.name,
-    text: `${f.name} (${Math.round((f.size || 0) / 1024)} KB)`,
-  }))
+  }, [contains, operation, status, researcherId, startTs, endTs, loadLogs])
 
   const operationSelectOptions = [{ value: '', text: 'All operations' }].concat(
     operationOptions.map((op) => ({ value: op, text: op }))
@@ -161,6 +180,15 @@ const SecurityLogs = () => {
   const statusSelectOptions = [{ value: '', text: 'All statuses' }].concat(
     statusOptions.map((st) => ({ value: st, text: st }))
   )
+
+  const maxTotalOptions = [
+    { value: '1000', text: '1,000' },
+    { value: '5000', text: '5,000' },
+    { value: '20000', text: '20,000' },
+  ]
+
+  const maxTotalNumber = Number.isFinite(parseInt(maxTotal, 10)) ? parseInt(maxTotal, 10) : null
+  const hasMore = maxTotalNumber ? nextSkip < maxTotalNumber : true
 
   const researcherSelectOptions = [{ value: '', text: 'All researchers' }].concat(
     researcherOptions.map((rid) => ({
@@ -199,20 +227,11 @@ const SecurityLogs = () => {
     <React.Fragment>
       <EuiText>
         <h2>Security Logs</h2>
+        <p>{rangeLabel}</p>
       </EuiText>
       <EuiSpacer size="m" />
 
       <EuiFlexGroup gutterSize="m" wrap>
-        <EuiFlexItem grow={false} style={{ minWidth: 320 }}>
-          <EuiFormRow label="Log file">
-            <EuiSelect
-              options={fileOptions}
-              value={selectedFile}
-              onChange={(e) => setSelectedFile(e.target.value)}
-            />
-          </EuiFormRow>
-        </EuiFlexItem>
-
         <EuiFlexItem grow={false} style={{ minWidth: 260 }}>
           <EuiFormRow label="Contains">
             <EuiFieldSearch
@@ -253,6 +272,36 @@ const SecurityLogs = () => {
           </EuiFormRow>
         </EuiFlexItem>
 
+        <EuiFlexItem grow={false} style={{ minWidth: 240 }}>
+          <EuiFormRow label="From">
+            <EuiFieldText
+              type="datetime-local"
+              value={startTs}
+              onChange={(e) => setStartTs(e.target.value)}
+            />
+          </EuiFormRow>
+        </EuiFlexItem>
+
+        <EuiFlexItem grow={false} style={{ minWidth: 240 }}>
+          <EuiFormRow label="To">
+            <EuiFieldText
+              type="datetime-local"
+              value={endTs}
+              onChange={(e) => setEndTs(e.target.value)}
+            />
+          </EuiFormRow>
+        </EuiFlexItem>
+
+        <EuiFlexItem grow={false} style={{ minWidth: 220 }}>
+          <EuiFormRow label="Max logs">
+            <EuiSelect
+              options={maxTotalOptions}
+              value={maxTotal}
+              onChange={(e) => setMaxTotal(e.target.value)}
+            />
+          </EuiFormRow>
+        </EuiFlexItem>
+
         <EuiFlexItem grow={false} style={{ minWidth: 220 }}>
           <EuiFormRow label="Caller info">
             <EuiSwitch
@@ -284,7 +333,7 @@ const SecurityLogs = () => {
       <EuiSpacer size="m" />
       <EuiFlexGroup justifyContent="center">
         <EuiFlexItem grow={false}>
-          <EuiButton onClick={loadMore} isLoading={loading}>
+          <EuiButton onClick={loadMore} isLoading={loading} isDisabled={!hasMore}>
             Load more
           </EuiButton>
         </EuiFlexItem>
