@@ -1,29 +1,27 @@
-import pandas as pd
-import time
-import tqdm
 import os
-import pytest
-import requests
 import shutil
-from sklearn.model_selection import train_test_split
+import time
 from zipfile import ZipFile
 
-
+import pandas as pd
+import pytest
+import requests
+import tqdm
+from experiments.training_plans.ixi_brain_segmentation import UNetTrainingPlan
 from helpers import (
     add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
-    clear_experiment_data,
     clear_component_data,
-    get_data_folder,
-    create_researcher,
+    clear_experiment_data,
     create_multiple_nodes,
+    create_researcher,
+    get_data_folder,
+    kill_subprocesses,
+    start_nodes,
 )
+from sklearn.model_selection import train_test_split
 
-from experiments.training_plans.ixi_brain_segmentation import UNetTrainingPlan
-
-from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.experiment import Experiment
 
 
 def download_file(url, filename):
@@ -42,7 +40,7 @@ def download_file(url, filename):
 
 
 def download_and_extract_ixi_sample(root_folder):
-    url = "https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/7kd5wj7v7p-3.zip"
+    url = "https://data.mendeley.com/public-api/zip/7kd5wj7v7p/download/3"
     zip_filename = os.path.join(root_folder, "7kd5wj7v7p-3.zip")
     data_folder = os.path.join(root_folder)
     extracted_folder = os.path.join(data_folder, "7kd5wj7v7p-3", "IXI_sample")
