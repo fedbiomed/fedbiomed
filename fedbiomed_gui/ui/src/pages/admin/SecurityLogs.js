@@ -1,21 +1,66 @@
 import React from 'react'
 import axios from 'axios'
 import {
+  EuiBasicTable,
   EuiButton,
   EuiFlexGroup,
   EuiFlexItem,
+  EuiFieldNumber,
   EuiFieldSearch,
   EuiFieldText,
   EuiFormRow,
-  EuiInMemoryTable,
   EuiSelect,
   EuiSpacer,
   EuiSwitch,
+  EuiTablePagination,
   EuiText,
 } from '@elastic/eui'
 import moment from 'moment'
 
 import { EP_SECURITY_LOGS } from '../../constants'
+
+
+function normalizeItem(it) {
+  if (!it || typeof it !== 'object') return { details: '' }
+
+  const excluded = new Set([
+    'timestamp',
+    'operation',
+    'status',
+    'researcher_id',
+    'caller_module',
+    'caller_function',
+    'caller_file',
+    'caller_line',
+    // internal/computed
+    'details',
+  ])
+
+  const keys = Object.keys(it).filter((k) => !excluded.has(k))
+
+  // Prefer showing "message" first if present, then remaining keys sorted.
+  const messageIdx = keys.indexOf('message')
+  if (messageIdx >= 0) {
+    keys.splice(messageIdx, 1)
+    keys.unshift('message')
+  }
+
+  const otherKeys = keys.filter((k) => k !== 'message').sort((a, b) => a.localeCompare(b))
+  const orderedKeys = keys[0] === 'message' ? ['message'].concat(otherKeys) : otherKeys
+
+  const parts = orderedKeys.map((k) => {
+    const v = it[k]
+    if (v === null || v === undefined) return `${k}=`
+    if (typeof v === 'string') return `${k}=${v}`
+    try {
+      return `${k}=${JSON.stringify(v)}`
+    } catch (e) {
+      return `${k}=${String(v)}`
+    }
+  })
+
+  return { ...it, details: parts.join(' | ') }
+}
 
 
 const SecurityLogs = () => {
@@ -26,8 +71,42 @@ const SecurityLogs = () => {
 
   const [startTs, setStartTs] = React.useState('')
   const [endTs, setEndTs] = React.useState('')
-  const [maxTotal, setMaxTotal] = React.useState('5000')
+  const [maxTotal, setMaxTotal] = React.useState('2000')
 
+  const onStartTsChange = React.useCallback((e) => {
+    const value = e.target.value
+    setStartTs(value)
+
+    // Keep the range valid: if From moves past To, clamp To to From.
+    if (!value || !endTs) return
+    const start = moment(value)
+    const end = moment(endTs)
+    if (start.isValid() && end.isValid() && end.isBefore(start)) {
+      setEndTs(value)
+    }
+  }, [endTs])
+
+  const onEndTsChange = React.useCallback((e) => {
+    const value = e.target.value
+
+    // Prevent selecting/typing a To earlier than From.
+    if (!value) {
+      setEndTs(value)
+      return
+    }
+    if (startTs) {
+      const start = moment(startTs)
+      const end = moment(value)
+      if (start.isValid() && end.isValid() && end.isBefore(start)) {
+        setEndTs(startTs)
+        return
+      }
+    }
+
+    setEndTs(value)
+  }, [startTs])
+
+  const [showDetails, setShowDetails] = React.useState(true)
   const [showCallerInfo, setShowCallerInfo] = React.useState(false)
 
   const [operationOptions, setOperationOptions] = React.useState([])
@@ -37,6 +116,11 @@ const SecurityLogs = () => {
   const [items, setItems] = React.useState([])
   const [nextSkip, setNextSkip] = React.useState(0)
   const [loading, setLoading] = React.useState(false)
+
+  const [pageIndex, setPageIndex] = React.useState(0)
+  const [pageSize, setPageSize] = React.useState(20)
+  const [sortField, setSortField] = React.useState('timestamp')
+  const [sortDirection, setSortDirection] = React.useState('desc')
 
   const rangeLabel = React.useMemo(() => {
     const start = startTs ? moment(startTs) : null
@@ -142,26 +226,29 @@ const SecurityLogs = () => {
     try {
       const res = await axios.get(EP_SECURITY_LOGS, { params: buildParams(0) })
       const payload = res?.data?.result || {}
-      const newItems = payload.items || []
+      const rawItems = payload.items || []
+      const newItems = rawItems.map((it) => normalizeItem(it))
       setItems(newItems)
       setNextSkip(payload.next_skip || newItems.length)
+      if (reset) setPageIndex(0)
     } finally {
       setLoading(false)
     }
-  }, [buildParams])
+  }, [buildParams, normalizeItem])
 
   const loadMore = React.useCallback(async () => {
     setLoading(true)
     try {
       const res = await axios.get(EP_SECURITY_LOGS, { params: buildParams(nextSkip) })
       const payload = res?.data?.result || {}
-      const more = payload.items || []
+      const rawMore = payload.items || []
+      const more = rawMore.map((it) => normalizeItem(it))
       setItems((prev) => prev.concat(more))
       setNextSkip(payload.next_skip || (nextSkip + more.length))
     } finally {
       setLoading(false)
     }
-  }, [buildParams, nextSkip])
+  }, [buildParams, nextSkip, normalizeItem])
 
   // Refresh dropdown options when date range changes
   React.useEffect(() => {
@@ -181,12 +268,6 @@ const SecurityLogs = () => {
     statusOptions.map((st) => ({ value: st, text: st }))
   )
 
-  const maxTotalOptions = [
-    { value: '1000', text: '1,000' },
-    { value: '5000', text: '5,000' },
-    { value: '20000', text: '20,000' },
-  ]
-
   const maxTotalNumber = Number.isFinite(parseInt(maxTotal, 10)) ? parseInt(maxTotal, 10) : null
   const hasMore = maxTotalNumber ? nextSkip < maxTotalNumber : true
 
@@ -197,29 +278,132 @@ const SecurityLogs = () => {
     }))
   )
 
+  const cellNoWrap = { whiteSpace: 'nowrap' }
+  const cellWrap = { whiteSpace: 'normal', wordBreak: 'break-word' }
+
+  const sortedItems = React.useMemo(() => {
+    const arr = items.slice()
+
+    const dir = sortDirection === 'asc' ? 1 : -1
+    const getVal = (it) => {
+      const v = it?.[sortField]
+      if (sortField === 'timestamp') {
+        const m = moment(v)
+        return m.isValid() ? m.valueOf() : 0
+      }
+      if (typeof v === 'number') return v
+      return String(v ?? '')
+    }
+
+    arr.sort((a, b) => {
+      const av = getVal(a)
+      const bv = getVal(b)
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+      return String(av).localeCompare(String(bv)) * dir
+    })
+
+    return arr
+  }, [items, sortField, sortDirection])
+
+  const pageCount = Math.max(1, Math.ceil(sortedItems.length / pageSize))
+  const safePageIndex = Math.min(pageIndex, pageCount - 1)
+  const pagedItems = React.useMemo(() => {
+    const start = safePageIndex * pageSize
+    return sortedItems.slice(start, start + pageSize)
+  }, [sortedItems, safePageIndex, pageSize])
+
+  const onTableChange = React.useCallback(({ sort }) => {
+    if (sort && sort.field) {
+      setSortField(sort.field)
+      setSortDirection(sort.direction)
+      setPageIndex(0)
+    }
+  }, [])
+
   const columns = [
     {
       field: 'timestamp',
       name: 'Timestamp',
-      truncateText: true,
+      width: '180px',
+      truncateText: false,
+      sortable: true,
       render: (ts) => {
         if (!ts) return ''
         const m = moment(ts)
-        return m.isValid() ? m.format('YYYY-MM-DD HH:mm:ss') : String(ts)
+        const txt = m.isValid() ? m.format('YYYY-MM-DD HH:mm:ss') : String(ts)
+        return <span style={cellNoWrap}>{txt}</span>
       },
     },
-    { field: 'operation', name: 'Operation', truncateText: true },
-    { field: 'status', name: 'Status', truncateText: true },
-    { field: 'researcher_id', name: 'Researcher', truncateText: true },
-    { field: 'message', name: 'Message', truncateText: true },
+    {
+      field: 'operation',
+      name: 'Operation',
+      width: '220px',
+      truncateText: false,
+      sortable: true,
+      render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
+    },
+    {
+      field: 'status',
+      name: 'Status',
+      width: '140px',
+      truncateText: false,
+      sortable: true,
+      render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
+    },
+    {
+      field: 'researcher_id',
+      name: 'Researcher',
+      width: '280px',
+      truncateText: false,
+      sortable: true,
+      render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
+    },
   ]
+
+  if (showDetails) {
+    columns.push({
+      field: 'details',
+      name: 'Details',
+      width: '1100px',
+      truncateText: false,
+      render: (v) => <div style={cellWrap}>{String(v ?? '')}</div>,
+    })
+  }
 
   if (showCallerInfo) {
     columns.push(
-      { field: 'caller_module', name: 'Caller module', truncateText: true },
-      { field: 'caller_function', name: 'Caller function', truncateText: true },
-      { field: 'caller_file', name: 'Caller file', truncateText: true },
-      { field: 'caller_line', name: 'Caller line', truncateText: true },
+      {
+        field: 'caller_module',
+        name: 'Caller module',
+        width: '220px',
+        truncateText: false,
+        sortable: true,
+        render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
+      },
+      {
+        field: 'caller_function',
+        name: 'Caller function',
+        width: '220px',
+        truncateText: false,
+        sortable: true,
+        render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
+      },
+      {
+        field: 'caller_file',
+        name: 'Caller file',
+        width: '520px',
+        truncateText: false,
+        sortable: true,
+        render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
+      },
+      {
+        field: 'caller_line',
+        name: 'Caller line',
+        width: '120px',
+        truncateText: false,
+        sortable: true,
+        render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
+      },
     )
   }
 
@@ -237,7 +421,7 @@ const SecurityLogs = () => {
             <EuiFieldSearch
               value={contains}
               onChange={(e) => setContains(e.target.value)}
-              placeholder="Search in message"
+              placeholder="Search in entry"
             />
           </EuiFormRow>
         </EuiFlexItem>
@@ -277,7 +461,8 @@ const SecurityLogs = () => {
             <EuiFieldText
               type="datetime-local"
               value={startTs}
-              onChange={(e) => setStartTs(e.target.value)}
+              max={endTs || undefined}
+              onChange={onStartTsChange}
             />
           </EuiFormRow>
         </EuiFlexItem>
@@ -287,15 +472,16 @@ const SecurityLogs = () => {
             <EuiFieldText
               type="datetime-local"
               value={endTs}
-              onChange={(e) => setEndTs(e.target.value)}
+              min={startTs || undefined}
+              onChange={onEndTsChange}
             />
           </EuiFormRow>
         </EuiFlexItem>
 
         <EuiFlexItem grow={false} style={{ minWidth: 220 }}>
           <EuiFormRow label="Max logs">
-            <EuiSelect
-              options={maxTotalOptions}
+            <EuiFieldNumber
+              min={1}
               value={maxTotal}
               onChange={(e) => setMaxTotal(e.target.value)}
             />
@@ -311,6 +497,16 @@ const SecurityLogs = () => {
             />
           </EuiFormRow>
         </EuiFlexItem>
+
+        <EuiFlexItem grow={false} style={{ minWidth: 220 }}>
+          <EuiFormRow label="Details">
+            <EuiSwitch
+              label="Show details column"
+              checked={showDetails}
+              onChange={(e) => setShowDetails(e.target.checked)}
+            />
+          </EuiFormRow>
+        </EuiFlexItem>
       </EuiFlexGroup>
 
       <EuiFlexGroup gutterSize="s" justifyContent="flexEnd">
@@ -322,16 +518,35 @@ const SecurityLogs = () => {
       </EuiFlexGroup>
 
       <EuiSpacer size="m" />
-      <EuiInMemoryTable
-        items={items}
-        columns={columns}
-        loading={loading}
-        pagination={{ initialPageSize: 20, pageSizeOptions: [20, 50, 100] }}
-        sorting={true}
-      />
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth: showCallerInfo ? 3600 : showDetails ? 2200 : 1200 }}>
+          <EuiBasicTable
+            items={pagedItems}
+            columns={columns}
+            loading={loading}
+            tableLayout="auto"
+            sorting={{ sort: { field: sortField, direction: sortDirection } }}
+            onChange={onTableChange}
+          />
+        </div>
+      </div>
 
       <EuiSpacer size="m" />
-      <EuiFlexGroup justifyContent="center">
+      <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" gutterSize="m" wrap>
+        <EuiFlexItem grow={false}>
+          <EuiTablePagination
+            activePage={safePageIndex}
+            pageCount={pageCount}
+            onChangePage={(page) => setPageIndex(page)}
+            itemsPerPage={pageSize}
+            onChangeItemsPerPage={(size) => {
+              setPageSize(size)
+              setPageIndex(0)
+            }}
+            itemsPerPageOptions={[20, 50, 100]}
+          />
+        </EuiFlexItem>
+
         <EuiFlexItem grow={false}>
           <EuiButton onClick={loadMore} isLoading={loading} isDisabled={!hasMore}>
             Load more

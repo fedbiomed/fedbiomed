@@ -190,6 +190,39 @@ def _parse_json_lines(lines: List[str]) -> List[Dict[str, Any]]:
 FilterValue = Union[str, datetime, None]
 
 
+def _item_to_search_text(item: Dict[str, Any]) -> str:
+    """Build a search string for 'contains' filtering.
+
+    Includes both JSON formatting ("k": "v") and a human-oriented
+    key=value formatting (k=v) that matches the GUI Details column.
+    """
+
+    try:
+        as_json = json.dumps(item, ensure_ascii=False, sort_keys=True)
+    except Exception:
+        as_json = str(item)
+
+    parts: List[str] = []
+    try:
+        for k, v in item.items():
+            if v is None:
+                parts.append(f"{k}=")
+            elif isinstance(v, str):
+                parts.append(f"{k}={v}")
+            else:
+                try:
+                    parts.append(
+                        f"{k}={json.dumps(v, ensure_ascii=False, sort_keys=True)}"
+                    )
+                except Exception:
+                    parts.append(f"{k}={v}")
+    except Exception:
+        parts = []
+
+    as_kv = " | ".join(parts)
+    return f"{as_json}\n{as_kv}" if as_kv else as_json
+
+
 def _matches_filters(item: Dict[str, Any], filters: Dict[str, FilterValue]) -> bool:
     operation = filters.get("operation")
     if operation and str(item.get("operation")) != operation:
@@ -211,8 +244,13 @@ def _matches_filters(item: Dict[str, Any], filters: Dict[str, FilterValue]) -> b
 
     contains = filters.get("contains")
     if contains:
-        msg = str(item.get("message", ""))
-        if contains.lower() not in msg.lower():
+        needle = str(contains).strip().lower()
+        if not needle:
+            # Treat whitespace-only queries as "no filter".
+            needle = ""
+
+        candidate = _item_to_search_text(item)
+        if needle and needle not in candidate.lower():
             return False
 
     start_dt = filters.get("start_dt")
@@ -302,7 +340,7 @@ def get_security_logs():
         limit: number of items to return (default 200, max 2000)
         skip: skip newest N matching items (for pagination)
         operation/status/researcher_id: exact match filters
-        contains: substring match on message
+        contains: substring match on entry content (any field)
         start_ts/end_ts: ISO 8601 or epoch seconds/ms (inclusive range)
 
     Returns:
