@@ -53,7 +53,6 @@ export const EP_RESET_USER_PASSWORD     = '/api/admin/users/reset-password'
 export const EP_CHANGE_USER_ROLE        = '/api/admin/users/change-role'
 
 // Security logs (admin)
-export const EP_SECURITY_LOG_FILES     = '/api/admin/security/log-files'
 export const EP_SECURITY_LOGS          = '/api/admin/security/logs'
 
 

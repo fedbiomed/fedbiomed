@@ -17,7 +17,17 @@ def _security_log_dir() -> str:
     return os.path.join(config["NODE_FEDBIOMED_ROOT"], "log")
 
 
-def _list_security_log_files() -> List[Dict[str, Any]]:
+def _get_security_log_files() -> List[Dict[str, Any]]:
+    """Retrieve a list of security log files with their metadata.
+
+    Returns:
+        A list of dicts with keys: name, size, mtime.
+        Sorted by mtime descending (newest first).
+
+    Raises:
+        FileNotFoundError: If the log directory does not exist.
+        OSError: If there is an error accessing the log files.
+    """
     log_dir = _security_log_dir()
     try:
         entries = os.listdir(log_dir)
@@ -51,8 +61,9 @@ def _file_date_from_name(name: str) -> Optional[datetime]:
     """Extract a file's logical date (UTC midnight) from its rotated filename.
 
     Supports: security_audit.log.YYYY-MM-DD
-    Returns a timezone-aware datetime at 00:00:00 in *local timezone* (matching
-    typical rotation behavior) or None if not parseable.
+    Returns:
+        A timezone-aware datetime at 00:00:00 in *local timezone* (matching
+        typical rotation behavior) or None if not parsable.
     """
 
     prefix = _SECURITY_LOG_BASENAME + "."
@@ -60,7 +71,7 @@ def _file_date_from_name(name: str) -> Optional[datetime]:
         return None
 
     suffix = name[len(prefix) :]
-    # Some logrotate setups may append extra segments; we only care about the date.
+    # Some log rotate setups may append extra segments; we only care about the date.
     date_part = suffix.split(".", 1)[0]
     try:
         dt = datetime.strptime(date_part, "%Y-%m-%d")
@@ -70,15 +81,14 @@ def _file_date_from_name(name: str) -> Optional[datetime]:
         return None
 
 
-def _resolve_security_log_path(file_name: Optional[str]) -> str:
-    file_name = file_name or _SECURITY_LOG_BASENAME
+def _resolve_current_security_log_path() -> Optional[str]:
+    """Resolve the current (non-rotated) security audit log path.
 
-    # Prevent path traversal: only accept basenames that appear in the log dir listing.
-    allowed = {f["name"] for f in _list_security_log_files()}
-    if file_name not in allowed:
-        raise ValueError("Invalid log file")
+    Returns None if the file does not exist.
+    """
 
-    return os.path.join(_security_log_dir(), file_name)
+    path = os.path.join(_security_log_dir(), _SECURITY_LOG_BASENAME)
+    return path if os.path.isfile(path) else None
 
 
 def _iter_security_log_paths(
@@ -89,9 +99,15 @@ def _iter_security_log_paths(
     When a date range is provided, it selects rotated files by the date embedded
     in the filename (security_audit.log.YYYY-MM-DD) and avoids scanning unrelated
     days, which also fixes empty results caused by early stopping on newer files.
+
+        Args:
+            start_dt: The start datetime for filtering log files.
+            end_dt: The end datetime for filtering log files.
+        Returns:
+            A list of log file paths matching the date range.
     """
 
-    files = _list_security_log_files()
+    files = _get_security_log_files()
     if not files:
         return []
 
@@ -139,6 +155,16 @@ def _iter_security_log_paths(
 
 
 def _tail_lines(path: str, max_lines: int, block_size: int = 8192) -> List[str]:
+    """Read the last max_lines lines from a file efficiently without loading the entire file into memory.
+
+    Args:
+        path: The path to the file.
+        max_lines: The maximum number of lines to read from the end of the file.
+        block_size: The size of the block to read at a time.
+
+    Returns:
+        A list of the last max_lines lines from the file.
+    """
     if max_lines <= 0:
         return []
 
@@ -176,6 +202,14 @@ def _tail_lines(path: str, max_lines: int, block_size: int = 8192) -> List[str]:
 
 
 def _parse_json_lines(lines: List[str]) -> List[Dict[str, Any]]:
+    """Parse a list of JSON lines into a list of dicts, skipping invalid lines.
+
+    Args:
+        lines: A list of JSON strings.
+
+    Returns:
+        A list of dictionaries parsed from the JSON lines.
+    """
     items: List[Dict[str, Any]] = []
     for line in lines:
         try:
@@ -323,22 +357,15 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
         return None
 
 
-@api.route("/admin/security/log-files", methods=["GET"])
-@admin_required
-def list_security_log_files():
-    """Lists available security audit log files under <node_root>/log."""
-    return response(_list_security_log_files()), 200
-
-
 @api.route("/admin/security/logs", methods=["GET"])
 @admin_required
 def get_security_logs():
     """Returns recent security log entries from security audit logs (JSONL).
 
     Query args:
-        file: optional file name from /log-files (advanced/debug)
-        limit: number of items to return (default 200, max 2000)
-        skip: skip newest N matching items (for pagination)
+        page_size: number of items per page (default 200, max 2000)
+        current_page: 0-based page index (default 0)
+        max_num_of_logs: maximum total items to paginate through (default None = no limit)
         operation/status/researcher_id: exact match filters
         contains: substring match on entry content (any field)
         start_ts/end_ts: ISO 8601 or epoch seconds/ms (inclusive range)
@@ -347,30 +374,39 @@ def get_security_logs():
         {"items": [...], "next_skip": int, "files": [str, ...]}
     """
 
-    file_name = request.args.get("file")
-
+    # --- Pagination params (new names only) ---
+    page_size_arg = request.args.get("page_size", 200)
     try:
-        limit = int(request.args.get("limit", 200))
+        page_size = int(page_size_arg)
     except Exception:
-        return error("Invalid 'limit'"), 400
+        return error("Invalid 'page_size'"), 400
 
-    max_total_arg = request.args.get("max_total")
-    max_total: Optional[int] = None
-    if max_total_arg not in (None, ""):
+    current_page_arg = request.args.get("current_page")
+    current_page: Optional[int] = None
+    if current_page_arg not in (None, ""):
         try:
-            max_total = int(max_total_arg)
+            current_page = int(current_page_arg)
         except Exception:
-            return error("Invalid 'max_total'"), 400
+            return error("Invalid 'current_page'"), 400
+        if current_page < 0:
+            return error("Invalid 'current_page'"), 400
+
+    max_num_arg = request.args.get("max_num_of_logs")
+
+    max_total: Optional[int] = None
+    if max_num_arg not in (None, ""):
+        try:
+            max_total = int(max_num_arg)
+        except Exception:
+            return error("Invalid 'max_num_of_logs'"), 400
         if max_total <= 0:
             max_total = None
 
-    try:
-        skip = int(request.args.get("skip", 0))
-    except Exception:
-        return error("Invalid 'skip'"), 400
+    if current_page is None:
+        current_page = 0
 
-    limit = max(1, min(limit, 2000))
-    skip = max(0, skip)
+    page_size = max(1, min(page_size, 2000))
+    skip = current_page * max(1, page_size)
 
     filters: Dict[str, FilterValue] = {
         "operation": request.args.get("operation"),
@@ -411,42 +447,46 @@ def get_security_logs():
     if has_date_filter and max_total is None:
         max_total = 5000
 
-    # Enforce max_total for pagination.
+    # Enforce max_num_of_logs for pagination.
     if max_total is not None:
         if skip >= max_total:
-            return response({"items": [], "next_skip": max_total, "files": []}), 200
+            return (
+                response(
+                    {
+                        "items": [],
+                        "next_skip": max_total,
+                        "files": [],
+                        "page_size": page_size,
+                        "current_page": current_page or 0,
+                        "next_page": (current_page or 0),
+                    }
+                ),
+                200,
+            )
         # Do not return more than remaining budget.
-        limit = min(limit, max_total - skip)
+        page_size = min(page_size, max_total - skip)
 
     paths: List[str] = []
-    if file_name:
-        try:
-            paths = [_resolve_security_log_path(file_name)]
-        except ValueError:
-            return error("Invalid log file"), 400
+    if not has_date_filter:
+        # Default: only current file (fast path).
+        current = _resolve_current_security_log_path()
+        paths = [current] if current else []
     else:
-        if not has_date_filter:
-            # Default: only current file (fast path).
-            try:
-                paths = [_resolve_security_log_path(None)]
-            except ValueError:
-                paths = []
-        else:
-            paths = _iter_security_log_paths(
-                start_dt=filters.get("start_dt")
-                if isinstance(filters.get("start_dt"), datetime)
-                else None,
-                end_dt=filters.get("end_dt")
-                if isinstance(filters.get("end_dt"), datetime)
-                else None,
-            )
+        paths = _iter_security_log_paths(
+            start_dt=filters.get("start_dt")
+            if isinstance(filters.get("start_dt"), datetime)
+            else None,
+            end_dt=filters.get("end_dt")
+            if isinstance(filters.get("end_dt"), datetime)
+            else None,
+        )
 
     if not paths:
         return response({"items": [], "next_skip": 0, "files": []}), 200
 
     # Read tail windows big enough for basic filtering + pagination without DB.
     # If filters are restrictive, users can increase limit or use a smaller range.
-    window = min(50000, max(5000, skip + (limit * 5)))
+    window = min(50000, max(5000, skip + (page_size * 5)))
     items: List[Dict[str, Any]] = []
     scanned_files: List[str] = []
     for path in paths:
@@ -455,7 +495,7 @@ def get_security_logs():
         items.extend(_parse_json_lines(lines))
 
         # Stop early once we have a decent pool for pagination.
-        if len(items) >= (skip + (limit * 10)):
+        if len(items) >= (skip + (page_size * 10)):
             break
 
     # Sort newest-first by parsed timestamp; unparseable timestamps go last.
@@ -465,9 +505,24 @@ def get_security_logs():
     items = [it for _, it in decorated]
     items = [it for it in items if _matches_filters(it, filters)]
 
-    page = items[skip : skip + limit]
+    page = items[skip : skip + page_size]
     next_skip = skip + len(page)
 
+    # Always provide page metadata for clients using page-based pagination.
+    resolved_current_page = (
+        current_page
+        if current_page is not None
+        else (skip // page_size if page_size else 0)
+    )
+    next_page = resolved_current_page + 1 if len(page) > 0 else resolved_current_page
+
     return response(
-        {"items": page, "next_skip": next_skip, "files": scanned_files}
+        {
+            "items": page,
+            "next_skip": next_skip,
+            "files": scanned_files,
+            "page_size": page_size,
+            "current_page": resolved_current_page,
+            "next_page": next_page,
+        }
     ), 200
