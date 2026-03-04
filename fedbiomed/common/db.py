@@ -5,10 +5,15 @@
 Interfaces with a tinyDB database for converting search results to dict.
 """
 
+from __future__ import annotations
+
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
+
+from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.logger import logger
 
 
 def cast_(func):
@@ -40,31 +45,173 @@ def cast_(func):
     return wrapped
 
 
+def _security_log(operation: str, default_stacklevel: int = 3):
+    """Decorator for DBTable methods to add security logging."""
+
+    def _security_log(func):
+        """The actual decorator function that will be applied to the method.
+        It takes the method as an argument and returns a wrapped version of it with security logging."""
+
+        def wrapper(self, *args, **kwargs):
+            """Wrapper function of the actual decorator
+            This wrapper will be called with the same args/kwargs as the original method, and is responsible for:
+            Extracting/logging relevant information from args/kwargs for security events."""
+
+            logging_stacklevel = kwargs.pop("stacklevel", default_stacklevel)
+
+            LOG_VALUE_MAX_LENGTH = 50
+
+            # Reuse your helpers
+            kwargs_stripped = _strip_forbidden_keys(kwargs)
+            args_stripped = _strip_forbidden_keys(args)
+
+            # Log fields from args like you do today
+            arg_fields: dict[str, Any] = {}
+            if len(args_stripped) == 1 and isinstance(args_stripped[0], dict):
+                arg_fields.update(args_stripped[0])
+            else:
+                for i, v in enumerate(args_stripped):
+                    arg_fields[f"arg{i}"] = v
+
+            kwargs_for_log = _truncate_for_logging(
+                kwargs_stripped, max_len=LOG_VALUE_MAX_LENGTH
+            )
+            args_for_log = _truncate_for_logging(
+                arg_fields, max_len=LOG_VALUE_MAX_LENGTH
+            )
+
+            with logger.security_context(operation=operation, table=self.name):
+                try:
+                    result = func(self, *args, **kwargs)
+
+                    result_for_log = result
+                    if operation in {"get", "all", "search"}:
+                        if isinstance(result, list):
+                            result_for_log = f"{len(result)} documents"
+                        elif result is not None:
+                            result_for_log = "1 document"
+                        else:
+                            result_for_log = "0 documents"
+
+                except Exception as e:
+                    logger.security_event(
+                        status="failure",
+                        details=str(e),
+                        db_args={**args_for_log},
+                        db_kwargs={**kwargs_for_log},
+                        stacklevel=logging_stacklevel,
+                    )
+                    logger.debug(
+                        f"Failed to {operation} in table {self.name} with error: {repr(e)}",
+                        extra={
+                            "db_args": {**args_for_log},
+                            "db_kwargs": {**kwargs_for_log},
+                        },
+                        stacklevel=logging_stacklevel,
+                    )
+                    raise FedbiomedError(
+                        f"Failed to {operation} in table {self.name} with error: {e}"
+                    ) from e
+
+                logger.security_event(
+                    status="success",
+                    doc_id=result_for_log,
+                    db_args={**args_for_log},
+                    db_kwargs={**kwargs_for_log},
+                    stacklevel=logging_stacklevel,
+                )
+                logger.debug(
+                    f"Successfully performed {operation} in table {self.name}, result: {result_for_log}",
+                    extra={
+                        "db_args": {**args_for_log},
+                        "db_kwargs": {**kwargs_for_log},
+                    },
+                    stacklevel=logging_stacklevel,
+                )
+            return result
+
+        return wrapper
+
+    return _security_log
+
+
+def _is_forbidden(key: str) -> bool:
+    """Set of keys/strings that are not allowed in the database entries"""
+    forbidden_strings = {"certificate", "key", "secagg_elem"}
+    for forbidden in forbidden_strings:
+        if forbidden in key.lower():
+            return True
+    return False
+
+
+def _strip_forbidden_keys(value: Any) -> Any:
+    """Recursively removes forbidden keys from dict-like payloads.
+
+    This is used to avoid storing or logging sensitive material such as
+    private keys or certificates.
+    """
+    if isinstance(value, dict):
+        return {
+            k: _strip_forbidden_keys(v)
+            for k, v in value.items()
+            if not _is_forbidden(str(k))
+        }
+    if isinstance(value, (list, tuple)):
+        stripped = [_strip_forbidden_keys(v) for v in value]
+        return tuple(stripped) if isinstance(value, tuple) else stripped
+    return value
+
+
+def _truncate_for_logging(value: Any, max_len: int) -> Any:
+    """Recursively truncates long stringified values for logging."""
+    if isinstance(value, dict):
+        out: dict[Any, Any] = {}
+        for k, v in value.items():
+            out[k] = _truncate_for_logging(v, max_len=max_len)
+        return out
+
+    if isinstance(value, (list, tuple)):
+        truncated = [_truncate_for_logging(v, max_len=max_len) for v in value]
+        return tuple(truncated) if isinstance(value, tuple) else truncated
+
+    s = str(value)
+    if len(s) > max_len:
+        return s[:max_len] + "..."
+    return value
+
+
 class DBTable(Table):
     """Extends TinyDB table to cast Document type to dict"""
 
     @cast_
+    @_security_log("insert", default_stacklevel=3)
     def insert(self, *args, **kwargs):
         return super().insert(*args, **kwargs)
 
     @cast_
+    @_security_log("search", default_stacklevel=3)
     def search(self, *args, **kwargs):
         return super().search(*args, **kwargs)
 
     @cast_
+    @_security_log("get", default_stacklevel=3)
     def get(self, *args, **kwargs):
         return super().get(*args, **kwargs)
 
     @cast_
+    @_security_log("all", default_stacklevel=3)
     def all(self, *args, **kwargs):
         return super().all(*args, **kwargs)
 
     @cast_
+    @_security_log("update", default_stacklevel=3)
     def update(self, *args, **kwargs):
+        # update takes a dict of fields as positional arg in the common case
         return super().update(*args, **kwargs)
 
     @cast_
-    def delete(self, *args, **kwargs):
+    @_security_log("remove", default_stacklevel=3)
+    def remove(self, *args, **kwargs):
         return super().remove(*args, **kwargs)
 
 
@@ -115,7 +262,9 @@ class TinyTableConnector:
         Returns:
             The document if found, otherwise None.
         """
-        response = self._table.search(self._query[self._id_name] == id_value)
+        response = self._table.search(
+            self._query[self._id_name] == id_value, stacklevel=4
+        )
         assert len(response) < 2, (
             f"Multiple entries found for {self._id_name}={id_value}, "
             "which should be unique."
@@ -139,7 +288,7 @@ class TinyTableConnector:
             raise KeyError(
                 f"Entry with {self._id_name}={entry[self._id_name]} already exists."
             )
-        _ = self._table.insert(entry)
+        _ = self._table.insert(entry, stacklevel=4)
         return entry[self._id_name]
 
     def all(self) -> List[dict]:
@@ -148,7 +297,7 @@ class TinyTableConnector:
         Returns:
             The list of entries as dicts, or empty list if none found.
         """
-        return self._table.all()
+        return self._table.all(stacklevel=4)
 
     def get_all_by_value(self, by: str, value: Any) -> List[dict]:
         """Get all entries by a field value (or empty list if none found).
@@ -163,7 +312,8 @@ class TinyTableConnector:
         return self._table.search(
             self._query[by].one_of(value)
             if isinstance(value, (list, tuple))
-            else self._query[by] == value
+            else self._query[by] == value,
+            stacklevel=4,
         )
 
     def get_all_by_condition(self, by: str, cond: Callable) -> List[dict]:
@@ -176,7 +326,7 @@ class TinyTableConnector:
         Returns:
             The list of entries as dicts, or empty list if none found.
         """
-        return self._table.search(self._query[by].test(cond))
+        return self._table.search(self._query[by].test(cond), stacklevel=4)
 
     def delete_by_id(self, id_value: Union[str, list[str]]) -> List[int]:
         """Delete a document by its ID.
@@ -195,7 +345,9 @@ class TinyTableConnector:
             if not id_value:
                 raise ValueError("Expected id not to be an empty str.")
 
-        return self._table.delete(self._query[self._id_name].one_of(id_value))
+        return self._table.remove(
+            self._query[self._id_name].one_of(id_value), stacklevel=4
+        )
 
     def update_by_id(self, id_value: str, update: Dict[str, Any]) -> dict:
         """Update a document by its ID.
@@ -210,6 +362,8 @@ class TinyTableConnector:
         if self.get_by_id(id_value) is None:
             raise KeyError(f"No entry found with {self._id_name}={id_value}")
 
-        _ = self._table.update(update, self._query[self._id_name] == id_value)
+        _ = self._table.update(
+            update, self._query[self._id_name] == id_value, stacklevel=4
+        )
 
         return self.get_by_id(id_value)
