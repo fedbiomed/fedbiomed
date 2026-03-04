@@ -7,6 +7,11 @@ Classes that simplify imports from fedbiomed.common.dataset
 
 from ._custom_dataset import CustomDataset
 from ._dataset import Dataset
+from ._image_label_dataset import (
+    ImageFolderDataset,
+    MedNistDataset,
+    MnistDataset,
+)
 from ._mappings import (
     DATASET_CLASSES_PER_TYPE,
     REGISTRY_CONTROLLERS,
@@ -16,11 +21,6 @@ from ._mappings import (
 )
 from ._medical_folder_dataset import MedicalFolderDataset
 from ._native_dataset import NativeDataset
-from ._simple_dataset import (
-    ImageFolderDataset,
-    MedNistDataset,
-    MnistDataset,
-)
 from ._tabular_dataset import TabularDataset
 
 __all__ = [

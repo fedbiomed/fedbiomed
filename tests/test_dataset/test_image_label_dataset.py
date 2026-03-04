@@ -7,7 +7,7 @@ from PIL import Image
 from torchvision import transforms
 
 from fedbiomed.common.dataset import ImageFolderDataset, MedNistDataset, MnistDataset
-from fedbiomed.common.dataset._simple_dataset import _ImageLabelDataset
+from fedbiomed.common.dataset._image_label_dataset import _ImageLabelDataset
 from fedbiomed.common.dataset_controller import MedNistController, MnistController
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
@@ -69,10 +69,10 @@ def test_init_controller_instantiation_failure(tmp_path):
         dataset._init_controller({"root": tmp_path})
 
 
-# === Tests for SimpleDataset ===
+# === Tests for ImageLabelDataset ===
 
 
-def test_simple_dataset_cannot_be_instantiated():
+def test_image_label_dataset_cannot_be_instantiated():
     with pytest.raises(FedbiomedError) as excinfo:
         _ = _ImageLabelDataset()
     assert "cannot be instantiated directly" in str(excinfo.value)
