@@ -92,6 +92,14 @@ class _SecurityOnlyFilter(logging.Filter):
         return bool(getattr(record, "is_security", False))
 
 
+class _ExcludeSecurityFilter(logging.Filter):
+    """Filter that blocks security log records (is_security=True)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # If record.is_security is True, drop it from this handler.
+        return not bool(getattr(record, "is_security", False))
+
+
 class _SecurityFormatter(logging.Formatter):
     """Formats security log records as JSON with consistent structure."""
 
@@ -583,6 +591,10 @@ class FedLogger(metaclass=SingletonMeta):
 
         formatter = logging.Formatter(format.replace(LOG_PREFIX, ""))
         handler.setFormatter(formatter)
+
+        # Prevent security audit logs from appearing in interactive console (e.g., IPython).
+        handler.addFilter(_ExcludeSecurityFilter())
+
         self._internal_add_handler("CONSOLE", handler, format)
 
         pass
@@ -609,6 +621,10 @@ class FedLogger(metaclass=SingletonMeta):
         formatter = _GrpcFormatter(node_id)
 
         handler.setFormatter(formatter)
+
+        # Never transmit security audit logs to the researcher via gRPC.
+        handler.addFilter(_ExcludeSecurityFilter())
+
         self._internal_add_handler("GRPC", handler)
 
         # as a side effect this will set the minimal level to ERROR
