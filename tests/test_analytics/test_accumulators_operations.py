@@ -787,10 +787,9 @@ def test_histogram_accumulator_finalize():
 
     result = acc.finalize()
 
-    assert "bin_edges" in result
-    assert "counts" in result
-    assert result["bin_edges"] == edges
-    assert result["counts"] == [1, 1]
+    assert "histogram" in result
+    assert result["histogram"]["bin_edges"] == edges
+    assert result["histogram"]["counts"] == [1, 1]
 
 
 # =============================================================================
@@ -945,7 +944,7 @@ def test_image_shape_accumulator_finalize():
     acc.update(np.zeros((3, 3)))
 
     result = acc.finalize()
-    assert result == {(5, 5): 2, (3, 3): 1}
+    assert result["count"] == {(5, 5): 2, (3, 3): 1}
 
 
 # =============================================================================
@@ -1003,15 +1002,12 @@ def test_image_mean_accumulator_update_and_finalize():
     assert "std" in result
     assert result["std"] == pytest.approx(1.0)  # std of [2, 4] is 1
 
-    # Check quantiles
-    # data is [2.0, 4.0]
-    # q50 (median) = 3.0
-    assert "q50" in result
-    assert result["q50"] == pytest.approx(3.0)
-    assert "q05" in result
-    assert "q25" in result
-    assert "q75" in result
-    assert "q95" in result
+    # Check quartiles key (q25, q50, q75 returned as a list)
+    assert "quartiles" in result
+    quartiles = result["quartiles"]
+    assert quartiles[0] == pytest.approx(2.5)  # q25
+    assert quartiles[1] == pytest.approx(3.0)  # q50 (median)
+    assert quartiles[2] == pytest.approx(3.5)  # q75
 
 
 def test_image_mean_accumulator_buffer_full():

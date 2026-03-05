@@ -70,7 +70,7 @@ _REGISTRY_STATS = [
     },
     # ===== IMAGE Stats =====
     {
-        "name": "shape",
+        "name": "count",
         "valid_for": DatasetElementType.IMAGE,
         "accumulator_class": ImageShapeAccumulator,
         "uses_buffer": True,
@@ -78,14 +78,12 @@ _REGISTRY_STATS = [
     {
         "name": "mean",
         "valid_for": DatasetElementType.IMAGE,
-        # "optional_args": {"aggregation_strategy"},
         "accumulator_class": ImageMeanAccumulator,
         "uses_buffer": True,
     },
     {
         "name": "variance",
         "valid_for": DatasetElementType.IMAGE,
-        # "optional_args": {"aggregation_strategy"},
         "accumulator_class": ImageVarianceAccumulator,
         "uses_buffer": True,
     },

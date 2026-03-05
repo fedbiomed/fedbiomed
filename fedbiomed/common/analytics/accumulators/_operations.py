@@ -270,9 +270,12 @@ class HistogramAccumulator(Accumulator):
         self._counts[idx] += 1
 
     def finalize(self) -> Dict[str, Any]:
+        # Return key ``histogram`` for consistent output format with other accumulators
         return {
-            "bin_edges": self._bin_edges.tolist(),
-            "counts": self._counts.tolist(),
+            "histogram": {
+                "bin_edges": self._bin_edges.tolist(),
+                "counts": self._counts.tolist(),
+            },
         }
 
 
@@ -349,7 +352,7 @@ class ImageShapeAccumulator(Accumulator):
             A dictionary where keys are image shapes (as tuples) and values are
             the counts of images with those shapes.
         """
-        return self._shapes
+        return {"count": self._shapes}
 
 
 class ImageBaseAccumulator(Accumulator):
@@ -359,11 +362,9 @@ class ImageBaseAccumulator(Accumulator):
         "count": len,
         "mean": np.mean,
         "std": np.std,
-        "q05": lambda data: np.quantile(data, 0.05),
-        "q25": lambda data: np.quantile(data, 0.25),
-        "q50": lambda data: np.quantile(data, 0.50),
-        "q75": lambda data: np.quantile(data, 0.75),
-        "q95": lambda data: np.quantile(data, 0.95),
+        "min": np.min,
+        "max": np.max,
+        "quartiles": lambda data: np.quantile(data, [0.25, 0.5, 0.75]).tolist(),
     }
 
     def __init__(self, buffer_size: int):
