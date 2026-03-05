@@ -52,6 +52,9 @@ export const EP_CREATE_USER             = '/api/admin/users/create'
 export const EP_RESET_USER_PASSWORD     = '/api/admin/users/reset-password'
 export const EP_CHANGE_USER_ROLE        = '/api/admin/users/change-role'
 
+// Security logs (admin)
+export const EP_SECURITY_LOGS          = '/api/admin/security/logs'
+
 
 //Models
 export const EP_LIST_TRAINING_PLANS     = '/api/training-plan/list'

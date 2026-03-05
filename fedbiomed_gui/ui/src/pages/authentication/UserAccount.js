@@ -57,6 +57,15 @@ const UserAccount = () => {
                   prepend: <EuiIcon type="lockOpen" />
 
              },
+              {
+                  id: 'security-logs',
+                  to:'/user-account/security-logs',
+                  label: 'Security Logs',
+                  isSelected: location.pathname.includes('user-account/security-logs'),
+                  color: "default",
+                  display: userInfo.role === 'Admin',
+                  prepend: <EuiIcon type="inspect" />
+             },
     ]
     const onSelectedTabChanged = (to, id) => {
         navigate(to)
