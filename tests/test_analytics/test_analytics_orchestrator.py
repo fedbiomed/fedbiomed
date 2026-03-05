@@ -36,7 +36,16 @@ def test_compute_stats_missing_capability(orchestrator):
     del dataset.get_analytics_schema
 
     with pytest.raises(FedbiomedError, match="Dataset does not implement"):
-        orchestrator.compute_stats(dataset)
+        orchestrator.compute_stats(dataset, stats=["mean"])
+
+
+def test_compute_stats_no_stats_no_stats_args_raises(orchestrator, mock_dataset):
+    """Both stats and stats_args being empty/None must raise immediately."""
+    with pytest.raises(FedbiomedError, match="At least one of 'stats' or 'stats_args'"):
+        orchestrator.compute_stats(mock_dataset)
+
+    with pytest.raises(FedbiomedError, match="At least one of 'stats' or 'stats_args'"):
+        orchestrator.compute_stats(mock_dataset, stats=[], stats_args={})
 
 
 @patch.object(AnalyticsOrchestrator, "_create_accumulator")
@@ -45,7 +54,7 @@ def test_compute_stats_flow(mock_create_acc, orchestrator, mock_dataset):
     mock_create_acc.return_value = mock_acc
     mock_acc.finalize.return_value = "results"
 
-    res = orchestrator.compute_stats(mock_dataset)
+    res = orchestrator.compute_stats(mock_dataset, stats=["mean"])
 
     mock_dataset.get_analytics_schema.assert_called_once()
     mock_create_acc.assert_called_once()
@@ -408,19 +417,12 @@ def test_validate_leaf_stat_incompatible(mock_registry, orchestrator, is_explici
 @pytest.mark.parametrize("is_explicit", [True, False])
 @patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
 def test_validate_leaf_stat_invalid_args(mock_registry, orchestrator, is_explicit):
+    # Invalid args always raise, regardless of whether the stat came from stats_args or stats list.
     mock_registry.check_stat_compatibility.return_value = True
     mock_registry.validate_args.side_effect = FedbiomedError("bad args")
-    if is_explicit:
-        with pytest.raises(FedbiomedError, match="Invalid arguments for statistic"):
-            orchestrator._validate_leaf_stat(
-                DatasetElementType.ROW, "mean", {}, is_explicit=True
-            )
-    else:
-        assert (
-            orchestrator._validate_leaf_stat(
-                DatasetElementType.ROW, "mean", {}, is_explicit=False
-            )
-            is False
+    with pytest.raises(FedbiomedError, match="Invalid arguments for statistic"):
+        orchestrator._validate_leaf_stat(
+            DatasetElementType.ROW, "mean", {}, is_explicit=is_explicit
         )
 
 
@@ -449,7 +451,7 @@ def test_compile_leaf_stats(mock_registry, orchestrator):
 
     # Default stats
     config = orchestrator._compile_leaf_stats(
-        DatasetElementType.ROW, stats=["mean"], args={}, n_samples=10
+        DatasetElementType.ROW, stats=["mean"], stats_args={}, n_samples=10
     )
     assert "mean" in config
 
@@ -459,15 +461,23 @@ def test_compile_leaf_stats(mock_registry, orchestrator):
     # mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "invalid"
     # with pytest.raises(FedbiomedError, match="is not valid for type"):
     #     orchestrator._compile_leaf_stats(
-    #         DatasetElementType.ROW, stats=[], args={"invalid": {}}, n_samples=10
+    #         DatasetElementType.ROW, stats=[], stats_args={"invalid": {}}, n_samples=10
     #     )
 
     # # Invalid default stat is silently skipped
     # mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "bad_default"
     # config = orchestrator._compile_leaf_stats(
-    #     DatasetElementType.ROW, stats=["bad_default"], args={}, n_samples=10
+    #     DatasetElementType.ROW, stats=["bad_default"], stats_args={}, n_samples=10
     # )
     # assert "bad_default" not in config
+
+
+def test_compile_leaf_stats_histogram_without_bin_edges_raises(orchestrator):
+    """Requesting histogram raises an error (either not-yet-available or missing bin_edges)."""
+    with pytest.raises(FedbiomedError, match="histogram"):
+        orchestrator._compile_leaf_stats(
+            DatasetElementType.ROW, stats=["histogram"], stats_args={}, n_samples=10
+        )
 
 
 # @patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
@@ -483,7 +493,7 @@ def test_compile_leaf_stats(mock_registry, orchestrator):
 #     mock_registry.get.return_value = {DatasetElementType.ROW: stat_cfg}
 
 #     config = orchestrator._compile_leaf_stats(
-#         DatasetElementType.ROW, stats=["quantile"], args={}, n_samples=42
+#         DatasetElementType.ROW, stats=["quantile"], stats_args={}, n_samples=42
 #     )
 #     assert config["quantile"].get("buffer_size") == 42
 
@@ -499,7 +509,7 @@ def test_dependencies(mock_registry, orchestrator):
     mock_registry.get.return_value = None
 
     config = orchestrator._compile_leaf_stats(
-        DatasetElementType.ROW, stats=["mean"], args={}, n_samples=10
+        DatasetElementType.ROW, stats=["mean"], stats_args={}, n_samples=10
     )
 
     assert "mean" in config

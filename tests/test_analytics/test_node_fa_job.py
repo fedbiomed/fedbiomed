@@ -17,8 +17,8 @@ def request_args():
         "experiment_id": "exp_1",
         "dataset_id": "dataset_123",
         "fa_id": "fa_1",
-        "stats": Stats.MEAN.value,
-        "fa_args": {},
+        "stats": [Stats.MEAN.value],
+        "stats_args": {},
         "dataset_schema": ["col1", "col2"],
     }
 
@@ -78,21 +78,21 @@ def test_fa_job_init(fa_job, fa_job_args, request_args):
     assert fa_job._fa_id == request_args["fa_id"]
     assert fa_job._researcher_id == request_args["researcher_id"]
     assert fa_job._request_id == request_args["request_id"]
-    assert fa_job._fa_args == request_args["fa_args"]
+    assert fa_job._stats_args == request_args["stats_args"]
 
 
 def test_fa_job_init_defaults(fa_job_args, request_args):
     """Test FAJob initialization with default arguments."""
-    # Create a request with empty fa_args
+    # Create a request with empty stats_args
     req_args = request_args.copy()
-    req_args["fa_args"] = {}
+    req_args["stats_args"] = {}
     request = FARequest(**req_args)
 
     args = fa_job_args.copy()
     args["request"] = request
 
     job = FAJob(**args)
-    assert job._fa_args == {}
+    assert job._stats_args == {}
 
 
 def test_build_error_msg(fa_job):
@@ -266,7 +266,7 @@ def test_run_unsupported_analytics_type(
 ):
     """Test run method with unsupported analytics type."""
     req_args = request_args.copy()
-    req_args["stats"] = "unsupported_type"
+    req_args["stats"] = ["unsupported_type"]
     request = FARequest(**req_args)
 
     args = fa_job_args.copy()
@@ -317,8 +317,8 @@ def test_run_compute_stats_args(fa_job):
     mock_dataset = MagicMock()
     mock_dataset.compute_stats.return_value = {"res": 1}
 
-    # Manually set fa_args to simulate extra arguments
-    fa_job._fa_args = {"some_arg_key": "some_arg_val"}
+    # Manually set stats_args using a valid Stats key
+    fa_job._stats_args = {Stats.MEAN.value: {"some_arg": "some_val"}}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         fa_job.run()
@@ -326,13 +326,13 @@ def test_run_compute_stats_args(fa_job):
         mock_dataset.compute_stats.assert_called_once()
         call_kwargs = mock_dataset.compute_stats.call_args[1]
 
-        # Check if requested_stats is passed correctly (converted to list)
+        # Check that stats are passed through as-is
         assert "stats" in call_kwargs
         assert call_kwargs["stats"] == [Stats.MEAN.value]
 
-        # Check if original fa_args are present
-        assert "fa_args" in call_kwargs
-        assert call_kwargs["fa_args"]["some_arg_key"] == "some_arg_val"
+        # Check if original stats_args are present
+        assert "stats_args" in call_kwargs
+        assert call_kwargs["stats_args"][Stats.MEAN.value]["some_arg"] == "some_val"
 
         # Check dataset_schema
         assert "dataset_schema" in call_kwargs

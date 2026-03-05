@@ -31,7 +31,7 @@ class AnalyticsOrchestrator:
         dataset: "Dataset",
         dataset_schema: Optional[Union[str, List[str], Dict[str, Any]]] = None,
         stats: Optional[List[str]] = None,
-        fa_args: Optional[Dict[str, Any]] = None,
+        stats_args: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """Computes the requested statistics over the dataset.
 
@@ -39,15 +39,21 @@ class AnalyticsOrchestrator:
             dataset: The dataset to compute statistics for.
             dataset_schema: Selection to filter the schema (e.g. subset of columns/keys).
             stats: Default list of statistics to compute (e.g. ['mean', 'std']).
-            fa_args: Specific arguments for statistics, structured matching the schema.
-                     e.g. {'image': {'histogram': {'bin_edges': [...]}}}
+            stats_args: Specific arguments for statistics, structured matching the schema.
+                        e.g. {'image': {'histogram': {'bin_edges': [...]}}}
 
         Returns:
             The computed statistics.
 
         Raises:
-            FedbiomedError: If validation fails or dataset capability is missing.
+            FedbiomedError: If both 'stats' and 'stats_args' are empty/None, if validation
+                fails, or if the dataset is missing required analytics capabilities.
         """
+        if not stats and not stats_args:
+            raise FedbiomedError(
+                "At least one of 'stats' or 'stats_args' must be provided."
+            )
+
         # Check Capability
         if not all(
             hasattr(dataset, _) for _ in ("get_analytics_schema", "get_analytics_item")
@@ -64,7 +70,7 @@ class AnalyticsOrchestrator:
 
         # Build & Validate Configuration
         config = self._build_and_validate_config(
-            schema, dataset_schema, stats, fa_args, n_samples
+            schema, dataset_schema, stats, stats_args, n_samples
         )
 
         # Build Accumulator Tree
@@ -308,7 +314,7 @@ class AnalyticsOrchestrator:
         self,
         element_type: DatasetElementType,
         stats: Optional[List[str]],
-        args: Optional[Dict[str, Any]],
+        stats_args: Optional[Dict[str, Any]],
         n_samples: int,
     ) -> Dict[str, Dict[str, Any]]:
         """Compiles valid statistics configuration for a leaf node.
@@ -317,10 +323,10 @@ class AnalyticsOrchestrator:
         Primitives are implicitly handled by the Accumulator based on root stats.
         """
         requested_config = {}
-        args = args or {}
+        stats_args = stats_args or {}
         stats = stats or []
 
-        candidates = set(stats).union(args.keys())
+        candidates = set(stats).union(stats_args.keys())
 
         # Validate and filter candidates
         for stat in candidates:
@@ -328,8 +334,8 @@ class AnalyticsOrchestrator:
             if stat not in ["count", "mean", "variance"]:
                 raise FedbiomedError(f"Statistic '{stat}' is not implemented yet.")
 
-            is_explicit = stat in args
-            current_args = args.get(stat, {})
+            is_explicit = stat in stats_args
+            current_args = stats_args.get(stat, {})
             if self._validate_leaf_stat(element_type, stat, current_args, is_explicit):
                 requested_config[stat] = current_args
 
@@ -367,11 +373,9 @@ class AnalyticsOrchestrator:
         try:
             AnalyticsRegistry.validate_args(stat, element_type, args)
         except FedbiomedError as e:
-            if is_explicit:
-                raise FedbiomedError(
-                    f"Invalid arguments for statistic '{stat}': {e}"
-                ) from e
-            return False  # Skip default with missing args
+            raise FedbiomedError(
+                f"Invalid arguments for statistic '{stat}': {e}"
+            ) from e
 
         return True
 

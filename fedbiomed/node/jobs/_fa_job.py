@@ -46,7 +46,7 @@ class FAJob(_BaseJob):
         self._dataset_id = request.dataset_id
         self._experiment_id = request.experiment_id
         self._fa_id = request.fa_id
-        self._fa_args = request.fa_args
+        self._stats_args = request.stats_args
         self._dataset_schema = request.dataset_schema
         self._allow_fa = allow_fa
 
@@ -84,14 +84,29 @@ class FAJob(_BaseJob):
                 errnum=ErrorNumbers.FB325.value,
             )
 
-        # Validate that all requested stats are valid enum values
-        if not isinstance(self._stats, list):
-            self._stats = [self._stats]
-        if not all(stat in [_.value for _ in Stats] for stat in self._stats):
+        # Validate that at least one of stats or stats_args is provided
+        if self._stats is None and not self._stats_args:
             return self._build_error_msg(
-                msg=f"Analytics type '{self._stats}' contain unsupported values.",
+                msg="At least one of 'stats' or 'stats_args' must be provided.",
                 errnum=ErrorNumbers.FB325.value,
             )
+
+        # Validate that all requested stats and stats_args keys are valid enum values
+        valid_stats = {s.value for s in Stats}
+        if self._stats is not None:
+            invalid = [s for s in self._stats if s not in valid_stats]
+            if invalid:
+                return self._build_error_msg(
+                    msg=f"'stats' contains unsupported values: {invalid}",
+                    errnum=ErrorNumbers.FB325.value,
+                )
+        if self._stats_args is not None:
+            invalid = [k for k in self._stats_args if k not in valid_stats]
+            if invalid:
+                return self._build_error_msg(
+                    msg=f"'stats_args' contains unsupported keys: {invalid}",
+                    errnum=ErrorNumbers.FB325.value,
+                )
 
         try:
             dataset = self._build_dataset(DataReturnFormat.SKLEARN)
@@ -112,7 +127,7 @@ class FAJob(_BaseJob):
         # Prepare kwargs
         kwargs = {
             "stats": self._stats,
-            "fa_args": self._fa_args,
+            "stats_args": self._stats_args,
             "dataset_schema": self._dataset_schema,
         }
 
@@ -133,7 +148,7 @@ class FAJob(_BaseJob):
             researcher_id=self._researcher_id,
             experiment_id=self._experiment_id,
             fa_id=self._fa_id,
-            stats=self._stats[0] if len(self._stats) == 1 else self._stats,
+            stats=self._stats,
             node_id=self._node_id,
             node_name=self._node_name,
             output=output,
