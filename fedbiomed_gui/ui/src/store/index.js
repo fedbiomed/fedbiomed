@@ -9,6 +9,7 @@ import {dataLoadingPlanReducer} from "./dataLoadingPlanReducer";
 import { authReducer } from "./authReducer";
 import {usersReducer} from "./userManagementReducers";
 import {accountRequestReducer } from "./accountRequestReducer";
+import { securityLogsReducer } from "./securityLogsReducer";
 
 
 /**
@@ -26,4 +27,5 @@ export default combineReducers({
     auth                    : authReducer,
     users                   : usersReducer,
     user_requests           : accountRequestReducer,
+    security_logs           : securityLogsReducer,
   })

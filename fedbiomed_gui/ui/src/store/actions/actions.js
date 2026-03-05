@@ -23,6 +23,12 @@ export const USER_REQUESTS_SUCCESS_MESSAGE = "USER_REQUEST_SUCCESS"
 
 export const SET_LOADING = "SET_LOADING"
 
+// Security Logs Actions
+export const SECURITY_LOGS_SET_LOADING = 'SECURITY_LOGS_SET_LOADING'
+export const SECURITY_LOGS_SET_ITEMS = 'SECURITY_LOGS_SET_ITEMS'
+export const SECURITY_LOGS_SET_LAST_BATCH_SIZE = 'SECURITY_LOGS_SET_LAST_BATCH_SIZE'
+export const SECURITY_LOGS_SET_FACETS = 'SECURITY_LOGS_SET_FACETS'
+
 /**
  * Dispatch action the display global error modal window
  * @param error
