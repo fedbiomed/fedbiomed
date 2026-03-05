@@ -258,7 +258,6 @@ const SecurityLogs = () => {
     {
       field: 'timestamp',
       name: 'Timestamp',
-      width: '180px',
       truncateText: false,
       render: (ts) => {
         if (!ts) return ''
@@ -270,21 +269,18 @@ const SecurityLogs = () => {
     {
       field: 'operation',
       name: 'Operation',
-      width: '220px',
       truncateText: false,
       render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
     },
     {
       field: 'status',
       name: 'Status',
-      width: '140px',
       truncateText: false,
       render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
     },
     {
       field: 'researcher_id',
       name: 'Researcher',
-      width: '280px',
       truncateText: false,
       render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
     },
@@ -294,7 +290,6 @@ const SecurityLogs = () => {
     columns.push({
       field: 'details',
       name: 'Details',
-      width: '1100px',
       truncateText: false,
       render: (v) => <div style={cellWrap}>{String(v ?? '')}</div>,
     })
@@ -305,28 +300,24 @@ const SecurityLogs = () => {
       {
         field: 'caller_module',
         name: 'Caller module',
-        width: '220px',
         truncateText: false,
         render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
       },
       {
         field: 'caller_function',
         name: 'Caller function',
-        width: '220px',
         truncateText: false,
         render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
       },
       {
         field: 'caller_file',
         name: 'Caller file',
-        width: '520px',
         truncateText: false,
         render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
       },
       {
         field: 'caller_line',
         name: 'Caller line',
-        width: '120px',
         truncateText: false,
         render: (v) => <span style={cellNoWrap}>{String(v ?? '')}</span>,
       },
