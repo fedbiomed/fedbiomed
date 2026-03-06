@@ -5,12 +5,13 @@
 Implementation of Federated Analytics Job class of the node component
 """
 
-from typing import Dict
+from typing import Any, Dict, List, Union
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, FedbiomedError, Stats
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
+from fedbiomed.common.secagg import SecaggCrypter
 from fedbiomed.node.dataset_manager import DatasetManager
 
 from ._base_job import _BaseJob, _InternalJobError
@@ -49,6 +50,111 @@ class FAJob(_BaseJob):
         self._stats_args = request.stats_args
         self._dataset_schema = request.dataset_schema
         self._allow_fa = allow_fa
+        self._secagg = request.secagg if hasattr(request, 'secagg') else False
+        self._secagg_arguments = request.secagg_arguments if hasattr(request, 'secagg_arguments') else {}
+
+    def _encrypt_output(self, output: Dict) -> Dict:
+        """Encrypt output statistics for secure aggregation.
+
+        For histograms, only the counts are encrypted (bin_edges remain in clear).
+        For other stats, the values are encrypted.
+
+        Args:
+            output: The computed statistics output.
+
+        Returns:
+            Encrypted output dictionary.
+        """
+        if not self._secagg or not self._secagg_arguments:
+            return output
+
+        parties = self._secagg_arguments.get("parties", [])
+        num_nodes = len(parties)
+        current_round = 1
+        key = self._secagg_arguments.get("secagg_key", 0)
+        biprime = self._secagg_arguments.get("biprime", 0)
+        clipping_range = self._secagg_arguments.get("secagg_clipping_range")
+
+        if not key or not biprime:
+            logger.warning("Secagg enabled but missing key/biprime, skipping encryption")
+            return output
+
+        crypter = SecaggCrypter()
+
+        def encrypt_value(val: Any) -> Any:
+            if isinstance(val, dict):
+                result = {}
+                for k, v in val.items():
+                    if k == "histogram":
+                        result[k] = self._encrypt_histogram(v)
+                    elif k == "bin_edges":
+                        result[k] = v
+                    else:
+                        result[k] = encrypt_value(v)
+                return result
+            elif isinstance(val, list):
+                return [encrypt_value(item) for item in val]
+            elif isinstance(val, (int, float)):
+                try:
+                    encrypted = crypter.encrypt(
+                        num_nodes=num_nodes,
+                        current_round=current_round,
+                        params=[float(val)],
+                        key=key,
+                        biprime=biprime,
+                        clipping_range=clipping_range,
+                    )
+                    return {"_encrypted": True, "value": encrypted[0]}
+                except Exception as e:
+                    logger.warning(f"Failed to encrypt value {val}: {e}")
+                    return val
+            return val
+
+        return encrypt_value(output)
+
+    def _encrypt_histogram(self, histogram: Dict) -> Dict:
+        """Encrypt histogram counts while keeping bin_edges in clear.
+
+        Args:
+            histogram: Histogram dict with 'bin_edges' and 'counts'.
+
+        Returns:
+            Histogram with encrypted counts.
+        """
+        if not isinstance(histogram, dict):
+            return histogram
+
+        parties = self._secagg_arguments.get("parties", [])
+        num_nodes = len(parties)
+        current_round = 1
+        key = self._secagg_arguments.get("secagg_key", 0)
+        biprime = self._secagg_arguments.get("biprime", 0)
+        clipping_range = self._secagg_arguments.get("secagg_clipping_range")
+
+        if not key or not biprime:
+            return histogram
+
+        crypter = SecaggCrypter()
+
+        result = {"bin_edges": histogram.get("bin_edges")}
+
+        counts = histogram.get("counts", [])
+        if counts:
+            try:
+                encrypted_counts = crypter.encrypt(
+                    num_nodes=num_nodes,
+                    current_round=current_round,
+                    params=[float(c) for c in counts],
+                    key=key,
+                    biprime=biprime,
+                    clipping_range=clipping_range,
+                )
+                result["counts"] = [{"_encrypted": True, "value": c} for c in encrypted_counts]
+            except Exception as e:
+                logger.warning(f"Failed to encrypt histogram counts: {e}")
+                result["counts"] = counts
+
+        return result
 
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
         """Generate dataset arguments based on the dataset type by default."""
@@ -142,6 +248,9 @@ class FAJob(_BaseJob):
                 ),
                 errnum=ErrorNumbers.FB325.value,
             )
+
+        if self._secagg:
+            output = self._encrypt_output(output)
 
         return FAReply(
             request_id=self._request_id,
