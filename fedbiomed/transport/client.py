@@ -590,6 +590,15 @@ class TaskListener(Listener):
                 logger.debug("New task received from researcher")
                 task = Serializer.loads(reply)
 
+                logger.debug(
+                    "[WIRE][S->N][RX] req=%s node=%s type=%s  bytes=%d retry=%d",
+                    task.get("request_id", None),
+                    self._node_id,
+                    Message.from_dict(task).__class__.__name__,
+                    len(reply),
+                    self._retry_count,
+                )
+
                 # Guess ID of connected researcher, for un-authenticated connection
                 await self._update_id(task["researcher_id"])
 
@@ -699,6 +708,15 @@ class Sender(Listener):
             raise FedbiomedCommunicationError(
                 f"Unknown type of stub in gRPC Sender listener {item['stub']}"
             )
+
+        logger.debug(
+            "[WIRE][N->S][TX] req=%s stub=%s node=%s type=%s retry=%d",
+            getattr(item["message"], "request_id", None),
+            self._stub_type.name,
+            getattr(item["message"], "node_id", None),
+            item["message"].__class__.__name__,
+            self._retry_count,
+        )
 
         # If it is a Unary-Unary RPC call
         if isinstance(stub_function, grpc.aio.UnaryUnaryMultiCallable):
