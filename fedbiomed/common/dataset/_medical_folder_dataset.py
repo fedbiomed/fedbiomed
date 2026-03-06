@@ -7,7 +7,13 @@ import torch
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import MedicalFolderController
-from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem, Transform
+from fedbiomed.common.dataset_types import (
+    DataReturnFormat,
+    DatasetDataItem,
+    ImageSpec,
+    RowSpec,
+    Transform,
+)
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from ._dataset import Dataset
@@ -300,3 +306,27 @@ class MedicalFolderDataset(Dataset):
         )
 
         return data, target
+
+    def analytics_schema(self):
+        """Return schema associated with federated analytics."""
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
+            )
+        schema = {}
+
+        # Add demographics schema if available
+        if self._controller.demographics is not None:
+            columns = self._controller.demographics.columns.tolist()
+            schema["demographics"] = RowSpec(columns=columns)
+
+        # Add image schema for all other modalities
+        schema.update(
+            {
+                modality: ImageSpec()
+                for modality in self._data_modalities
+                if modality != "demographics"
+            }
+        )
+        return schema, None

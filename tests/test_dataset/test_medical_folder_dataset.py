@@ -23,6 +23,9 @@ class DummyController:
     def get_sample(self, idx):
         return self.samples[idx]
 
+    def demographics_columns_names(self):
+        return ["age", "sex"]
+
     def __len__(self):
         return len(self.samples)
 
@@ -242,6 +245,37 @@ def test_demographics_transform(monkeypatch, sample_dict):
         data, _ = ds.__getitem__(idx)
         assert "demographics" in data
         assert data["demographics"] in [0, 1, 2]
+
+
+def test_demographics_transform_error(monkeypatch, sample_dict):
+    """Test validation error when demographics transform fails"""
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", DummyController(sample_dict)
+        ),
+    )
+
+    ds = MedicalFolderDataset(
+        data_modalities=["demographics"],
+        target_modalities=None,
+        transform={"demographics": lambda x: (_ for _ in ()).throw(ValueError("fail"))},
+        target_transform=None,
+    )
+    ds._to_format = DataReturnFormat.SKLEARN
+    ds._controller = DummyController(sample_dict)
+
+    # Use _validate_format_and_transformations directly or via complete_initialization
+    # But complete_initialization does side effects.
+    # We can call _validate directly.
+    sample = sample_dict[0]
+    data = {"demographics": sample["demographics"]}
+
+    with pytest.raises(
+        FedbiomedError, match="Failed to apply transform to 'demographics'"
+    ):
+        ds._validate_format_and_transformations(data, ds._transform)
 
 
 @pytest.mark.parametrize(
@@ -638,3 +672,120 @@ def test_torch_format_conversion(monkeypatch, sample_dict):
     assert isinstance(target["label"], torch.Tensor)
     assert data["T1"].shape == torch.Size([3, 4, 5])
     assert target["label"].shape == torch.Size([3, 4, 5])
+
+
+def test_analytics_schema(monkeypatch, sample_dict):
+    """Test analytics_schema method"""
+    from fedbiomed.common.dataset_types import ImageSpec, RowSpec
+
+    class DummyDemographics:
+        columns = type("Columns", (), {"tolist": lambda: ["age", "sex"]})
+
+    class DummyControllerWithDemographics(DummyController):
+        demographics = DummyDemographics()
+
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", DummyControllerWithDemographics(sample_dict)
+        ),
+    )
+
+    ds = MedicalFolderDataset(
+        data_modalities=["T1", "demographics"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+
+    # Init controller
+    ds.complete_initialization({}, DataReturnFormat.SKLEARN)
+
+    schema, _ = ds.analytics_schema()
+
+    assert "T1" in schema
+    assert isinstance(schema["T1"], ImageSpec)
+    assert "demographics" in schema
+    assert isinstance(schema["demographics"], RowSpec)
+    assert schema["demographics"].columns == ["age", "sex"]
+
+
+def test_analytics_schema_error(monkeypatch):
+    """Test analytics_schema raises error if dataset not initialized"""
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+
+    with pytest.raises(
+        FedbiomedError, match="Dataset object has not completed initialization"
+    ):
+        ds.analytics_schema()
+
+
+def test_process_sample_data_default_types_error(monkeypatch, sample_dict):
+    """Test error when default types application fails after transform (dict case)"""
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", DummyController(sample_dict)
+        ),
+    )
+
+    # Transform returns a list, not ndarray. SKLEARN format expects ndarray.
+    def bad_transform(x):
+        return [1, 2, 3]  # Not np.ndarray
+
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=None,
+        transform={"T1": bad_transform},
+        target_transform=None,
+    )
+    ds._to_format = DataReturnFormat.SKLEARN
+    # Because to_format=SKLEARN, _default_types_sklearn is used.
+    # It checks isinstance(x, np.ndarray).
+
+    ds._controller = DummyController(sample_dict)
+
+    sample = sample_dict[0]
+
+    with pytest.raises(
+        FedbiomedError, match="Failed to apply `default training plan types"
+    ):
+        ds._process_sample_data(sample, {"T1"}, ds._transform, idx=0)
+
+
+def test_process_sample_data_whole_dict_default_types_error(monkeypatch, sample_dict):
+    """Test error when default types application fails after transform (whole dict case)"""
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", DummyController(sample_dict)
+        ),
+    )
+
+    def bad_whole_transform(data):
+        # Return dict with list
+        return {"T1": [1, 2, 3]}
+
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=None,
+        transform=bad_whole_transform,
+        target_transform=None,
+    )
+    ds._to_format = DataReturnFormat.SKLEARN
+    ds._controller = DummyController(sample_dict)
+
+    sample = sample_dict[0]
+
+    with pytest.raises(
+        FedbiomedError, match="Failed to apply default training plan types"
+    ):
+        ds._process_sample_data(sample, {"T1"}, ds._transform, idx=0)

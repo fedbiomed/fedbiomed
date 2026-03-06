@@ -10,7 +10,12 @@ from fedbiomed.common.analytics.accumulators import (
     SequenceAccumulator,
     SkipAccumulator,
 )
-from fedbiomed.common.dataset_types import DatasetElementType, ImageSpec, RowSpec
+from fedbiomed.common.dataset_types import (
+    DataReturnFormat,
+    DatasetElementType,
+    ImageSpec,
+    RowSpec,
+)
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -24,7 +29,10 @@ def mock_dataset():
     d = MagicMock()
     d.__len__.return_value = 10
     d.__getitem__.return_value = {"a": [1, 2]}
-    d.get_analytics_schema.return_value = {"a": RowSpec(columns=["col1", "col2"])}
+    # Make it iterable like a Dataset
+    d.__iter__.return_value = iter([{"a": [1, 2]}] * 10)
+    d.analytics_schema.return_value = {"a": RowSpec(columns=["col1", "col2"])}
+    d.to_format = DataReturnFormat.SKLEARN
     return d
 
 
@@ -33,7 +41,8 @@ def mock_dataset():
 
 def test_compute_stats_missing_capability(orchestrator):
     dataset = MagicMock()
-    del dataset.get_analytics_schema
+    del dataset.analytics_schema
+    dataset.to_format = DataReturnFormat.SKLEARN
 
     with pytest.raises(FedbiomedError, match="Dataset does not implement"):
         orchestrator.compute_stats(dataset, stats=["mean"])
@@ -48,6 +57,12 @@ def test_compute_stats_no_stats_no_stats_args_raises(orchestrator, mock_dataset)
         orchestrator.compute_stats(mock_dataset, stats=[], stats_args={})
 
 
+def test_compute_stats_invalid_format(orchestrator, mock_dataset):
+    mock_dataset.to_format = DataReturnFormat.TORCH
+    with pytest.raises(FedbiomedError, match="Dataset format: '.*' is not supported"):
+        orchestrator.compute_stats(mock_dataset, stats=["mean"])
+
+
 @patch.object(AnalyticsOrchestrator, "_create_accumulator")
 def test_compute_stats_flow(mock_create_acc, orchestrator, mock_dataset):
     mock_acc = MagicMock()
@@ -56,7 +71,7 @@ def test_compute_stats_flow(mock_create_acc, orchestrator, mock_dataset):
 
     res = orchestrator.compute_stats(mock_dataset, stats=["mean"])
 
-    mock_dataset.get_analytics_schema.assert_called_once()
+    mock_dataset.analytics_schema.assert_called_once()
     mock_create_acc.assert_called_once()
     assert mock_acc.update.call_count == 10
     mock_acc.finalize.assert_called_once()
@@ -330,6 +345,24 @@ def test_handle_sequence_none_subschema_processes_all(orchestrator):
     assert mock_bvc.call_count == 2
 
 
+def test_handle_sequence_none_schema_item_skips_position(orchestrator):
+    """None at a schema position produces a skip config, as used by (ImageSpec(), None)."""
+    schema = (ImageSpec(), None)
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {"type": DatasetElementType.IMAGE, "stats": {}}
+        result = orchestrator._handle_sequence(
+            schema, subschema=None, stats=None, args=None, n_samples=5
+        )
+
+    # Only the ImageSpec position triggers a recursive call
+    assert mock_bvc.call_count == 1
+
+    # Second child must be the skip sentinel
+    assert result["children"][1] == {"type": "skip"}
+    assert result["type"] == "tuple"
+
+
 # ── _handle_row ──────────────────────────────────────────────────────────────
 
 
@@ -480,22 +513,23 @@ def test_compile_leaf_stats_histogram_without_bin_edges_raises(orchestrator):
         )
 
 
-# @patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
-# def test_compile_leaf_stats_buffer_injection(mock_registry, orchestrator):
-#     """Stats with uses_buffer=True get buffer_size injected."""
-#     mock_registry.check_stat_compatibility.return_value = True
-#     mock_registry.validate_args.return_value = None
-#     mock_registry.get_dependencies.return_value = set()
-#     mock_registry.get_roots.side_effect = lambda stats, et: set(stats)
+@patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
+def test_compile_leaf_stats_buffer_injection(mock_registry, orchestrator):
+    """Stats with uses_buffer=True get buffer_size injected."""
+    mock_registry.check_stat_compatibility.return_value = True
+    mock_registry.validate_args.return_value = None
+    mock_registry.get_dependencies.return_value = set()
+    mock_registry.get_roots.side_effect = lambda stats, et: set(stats)
 
-#     stat_cfg = MagicMock()
-#     stat_cfg.uses_buffer = True
-#     mock_registry.get.return_value = {DatasetElementType.ROW: stat_cfg}
+    stat_cfg = MagicMock()
+    stat_cfg.uses_buffer = True
+    mock_registry.get.return_value = {DatasetElementType.ROW: stat_cfg}
 
-#     config = orchestrator._compile_leaf_stats(
-#         DatasetElementType.ROW, stats=["quantile"], stats_args={}, n_samples=42
-#     )
-#     assert config["quantile"].get("buffer_size") == 42
+    # using 'mean' because it passes the allowed-stats check
+    config = orchestrator._compile_leaf_stats(
+        DatasetElementType.ROW, stats=["mean"], stats_args={}, n_samples=42
+    )
+    assert config["mean"].get("buffer_size") == 42
 
 
 @patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
@@ -532,6 +566,19 @@ def test_resolve_and_validate_roots_conflicting_stat_args(mock_registry, orchest
     with pytest.raises(FedbiomedError, match="Conflicting arguments"):
         orchestrator._resolve_and_validate_roots(
             DatasetElementType.ROW, {"mean": {}, "std": {"ddof": 1}}
+        )
+
+
+@patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
+def test_resolve_and_validate_roots_dependency_conflict(mock_registry, orchestrator):
+    """Two stats imply the same dependency but with conflicting arguments."""
+    # stat1 depends on dep, stat2 depends on dep
+    mock_registry.get_dependencies.side_effect = lambda s, et: {"dep"}
+    mock_registry.validate_args.return_value = None
+
+    with pytest.raises(FedbiomedError, match="Conflicting arguments for dependency"):
+        orchestrator._resolve_and_validate_roots(
+            DatasetElementType.ROW, {"stat1": {"a": 1}, "stat2": {"a": 2}}
         )
 
 

@@ -13,6 +13,7 @@ from fedbiomed.common.analytics.accumulators import (
     SkipAccumulator,
 )
 from fedbiomed.common.dataset_types import (
+    DataReturnFormat,
     DatasetElementSpec,
     DatasetElementType,
     RowSpec,
@@ -49,21 +50,24 @@ class AnalyticsOrchestrator:
             FedbiomedError: If both 'stats' and 'stats_args' are empty/None, if validation
                 fails, or if the dataset is missing required analytics capabilities.
         """
+        # Validation: Ensure at least one of stats or stats_args is provided
         if not stats and not stats_args:
             raise FedbiomedError(
                 "At least one of 'stats' or 'stats_args' must be provided."
             )
 
-        # Check Capability
-        if not all(
-            hasattr(dataset, _) for _ in ("get_analytics_schema", "get_analytics_item")
-        ):
+        # Analytics currently only supports datasets that return data in numpy format
+        if dataset.to_format != DataReturnFormat.SKLEARN:
             raise FedbiomedError(
-                "Dataset does not implement 'get_analytics_schema' and 'get_analytics_item'."
+                f"Dataset format: '{dataset.to_format.value}' is not supported for analytics."
             )
 
+        # Check Capability
+        if not hasattr(dataset, "analytics_schema"):
+            raise FedbiomedError("Dataset does not implement 'analytics_schema'.")
+
         # Get Schema
-        schema = dataset.get_analytics_schema()
+        schema = dataset.analytics_schema()
 
         # Get dataset size (needed by buffer-backed accumulators like quantile)
         n_samples = len(dataset)
@@ -77,8 +81,7 @@ class AnalyticsOrchestrator:
         accumulator = self._create_accumulator(config)
 
         # Iterate and Accumulate
-        for idx in range(n_samples):
-            sample = dataset.get_analytics_item(idx)
+        for sample in dataset:
             accumulator.update(sample)
 
         # Finalize
@@ -245,7 +248,7 @@ class AnalyticsOrchestrator:
         for idx, item_schema in enumerate(schema):
             child_sub = subschema[idx] if subschema is not None else None
             child_args = args[idx] if args is not None else None
-            if subschema is not None and child_sub is None:
+            if item_schema is None or (subschema is not None and child_sub is None):
                 children.append({"type": "skip"})
             else:
                 children.append(
