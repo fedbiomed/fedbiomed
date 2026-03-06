@@ -9,16 +9,17 @@ import inspect
 import json
 import uuid
 from collections import OrderedDict
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 from fedbiomed.common.analytics import AGGREGATORS_MAP
-from fedbiomed.common.constants import ErrorNumbers, Stats
+from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes, Stats
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FAReply
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
 from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.secagg import SecureAggregation
 
 
 class FAResult:
@@ -406,6 +407,7 @@ class FederatedAnalytics:
         researcher_id: str,
         reqs: Requests,
         experimentation_folder: str,
+        secagg: Union[bool, SecureAggregation, None] = None,
         **kwargs,
     ) -> None:
         """Initialise a federated analytics session.
@@ -416,6 +418,8 @@ class FederatedAnalytics:
             researcher_id: Identifier of the researcher.
             reqs: Request handler used to communicate with nodes.
             experimentation_folder: Local folder for storing experiment artefacts.
+            secagg: Secure aggregation configuration. If True, uses default LOM scheme.
+                If False or None, no secure aggregation is used.
             **kwargs: Additional keyword arguments (reserved for future use).
         """
         self._fa_id: str = "FA_" + str(uuid.uuid4())
@@ -424,8 +428,86 @@ class FederatedAnalytics:
         self._researcher_id = researcher_id
         self._reqs = reqs
         self._experimentation_folder = experimentation_folder
+        self._secagg = self._init_secagg(secagg)
         # Cache: maps a hash to a FAResult that accumulates stats with the same argument combination
         self._results_store: OrderedDict[str, FAResult] = OrderedDict()
+
+    def _init_secagg(
+        self, secagg: Union[bool, SecureAggregation, None]
+    ) -> Union[SecureAggregation, bool]:
+        """Initialize secure aggregation.
+
+        Args:
+            secagg: Secure aggregation configuration.
+
+        Returns:
+            SecureAggregation instance if enabled, False otherwise.
+        """
+        if secagg is None or secagg is False:
+            return False
+        if isinstance(secagg, SecureAggregation):
+            return secagg
+        if isinstance(secagg, bool) and secagg:
+            return SecureAggregation(
+                scheme=SecureAggregationSchemes.LOM, active=True
+            )
+        return False
+
+    @property
+    def secagg(self) -> Union[SecureAggregation, bool]:
+        """Return the secure aggregation instance."""
+        return self._secagg
+
+    def set_secagg(
+        self,
+        secagg: Union[bool, SecureAggregation],
+        scheme: SecureAggregationSchemes = SecureAggregationSchemes.LOM,
+    ) -> SecureAggregation:
+        """Configure secure aggregation for federated analytics.
+
+        Args:
+            secagg: Whether to enable secure aggregation (True/False) or provide
+                a pre-configured SecureAggregation instance.
+            scheme: The secure aggregation scheme to use if secagg is True.
+
+        Returns:
+            The configured SecureAggregation instance.
+        """
+        if isinstance(secagg, bool):
+            self._secagg = SecureAggregation(scheme=scheme, active=secagg)
+        elif isinstance(secagg, SecureAggregation):
+            self._secagg = secagg
+        else:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or "
+                f"`SecureAggregation` but got {type(secagg)}"
+            )
+        return self._secagg
+
+    def secagg_setup(self, parties: list[str]) -> dict:
+        """Setup secure aggregation context with participating nodes.
+
+        Args:
+            parties: List of party IDs (node IDs + researcher ID) participating
+                in the secure aggregation.
+
+        Returns:
+            Dictionary containing secagg arguments to be passed to nodes.
+        """
+        if isinstance(self._secagg, bool):
+            return {}
+        if not self._secagg.active:
+            return {}
+
+        logger.info("Setting up secure aggregation for federated analytics...")
+        if not self._secagg.setup(parties=parties):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB415.value}: Failed to setup secure aggregation "
+                "for federated analytics."
+            )
+
+        secagg_arguments = self._secagg.train_arguments()
+        return secagg_arguments
 
     @property
     def fa_id(self) -> str:
@@ -504,6 +586,15 @@ class FederatedAnalytics:
         missing = [s for s in stats if cached is None or not cached.has_stat(s)]
 
         if missing:
+            secagg_active = (
+                isinstance(self._secagg, SecureAggregation) and self._secagg.active
+            )
+
+            secagg_arguments = {}
+            if secagg_active:
+                parties = [self._researcher_id] + node_ids
+                secagg_arguments = self.secagg_setup(parties)
+
             fa_job = FARequestJob(
                 fa_id=self._fa_id,
                 fa_args=fa_args,
@@ -514,6 +605,8 @@ class FederatedAnalytics:
                 researcher_id=self._researcher_id,
                 requests=self._reqs,
                 nodes=node_ids,
+                secagg=secagg_active,
+                secagg_arguments=secagg_arguments,
             )
 
             analytics_replies, errors = fa_job.execute()
@@ -532,6 +625,9 @@ class FederatedAnalytics:
                     "No results available."
                 )
 
+            if secagg_active and analytics_replies:
+                analytics_replies = self._decrypt_replies(analytics_replies)
+
             if cached is None:
                 cached = FAResult(analytics_replies)
             else:
@@ -542,6 +638,225 @@ class FederatedAnalytics:
                 self._results_store.popitem(last=False)  # evict oldest (FIFO)
 
         return cached
+
+    def _decrypt_replies(
+        self, replies: dict[str, FAReply]
+    ) -> dict[str, FAReply]:
+        """Decrypt encrypted federated analytics replies.
+
+        With SecAgg, the encrypted values from all nodes are aggregated first,
+        then decrypted to produce the global result. Individual node contributions
+        remain hidden.
+
+        Args:
+            replies: Dictionary of node_id -> FAReply with potentially encrypted output.
+
+        Returns:
+            Dictionary of FAReply with output containing ONLY global aggregated results.
+        """
+        if not isinstance(self._secagg, SecureAggregation):
+            return replies
+
+        secagg_params = self._get_secagg_params()
+        if not secagg_params:
+            logger.warning("SecAgg enabled but no parameters found, returning raw output")
+            return replies
+
+        try:
+            global_output = self._aggregate_and_decrypt_all(replies, secagg_params)
+        except Exception as e:
+            logger.error(f"Failed to decrypt FA replies: {e}")
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB415.value}: Failed to decrypt FA replies: {e}"
+            )
+
+        for node_id in replies:
+            replies[node_id].output = global_output
+
+        return replies
+
+    def _aggregate_and_decrypt_all(
+        self, replies: dict[str, FAReply], secagg_params: Dict
+    ) -> Dict:
+        """Aggregate encrypted values from all nodes and decrypt the result.
+
+        This implements the core SecAgg logic: sum encrypted values from all nodes,
+        then decrypt once to get the global result.
+
+        Args:
+            replies: Dictionary of node_id -> FAReply with encrypted output.
+            secagg_params: Dictionary with key, biprime, clipping_range.
+
+        Returns:
+            Dictionary with globally aggregated (decrypted) values.
+        """
+        if not replies:
+            return {}
+
+        first_output = next(iter(replies.values())).output
+
+        num_nodes = len(replies)
+
+        def get_encrypted_values_for_stat(replies: dict, stat_path: str) -> List:
+            """Collect encrypted values for a specific stat path from all nodes."""
+            values = []
+            for reply in replies.values():
+                val = reply.output
+                for k in stat_path.split("."):
+                    if isinstance(val, dict):
+                        val = val.get(k)
+                if val is None:
+                    continue
+                if isinstance(val, dict) and "_encrypted" in val:
+                    values.append([val["value"]])
+                elif isinstance(val, (int, float)):
+                    values.append([int(val)])
+            return values
+
+        def process_node_output(output: Any, path: str = "") -> Any:
+            """Process output, replacing encrypted values with global aggregated result."""
+            if isinstance(output, dict):
+                result = {}
+                for k, v in output.items():
+                    current_path = f"{path}.{k}" if path else k
+                    if k == "histogram":
+                        result[k] = self._decrypt_histogram_global(replies, v, secagg_params)
+                    elif isinstance(v, dict) and "_encrypted" in v:
+                        enc_vals = get_encrypted_values_for_stat(replies, current_path)
+                        if enc_vals:
+                            decrypted = self._decrypt_single_value(enc_vals, secagg_params, num_nodes)
+                            result[k] = decrypted
+                        else:
+                            result[k] = v.get("value", 0)
+                    else:
+                        result[k] = process_node_output(v, current_path)
+                return result
+            elif isinstance(output, list):
+                return [process_node_output(item, path) for item in output]
+            return output
+
+        return process_node_output(first_output)
+
+    def _decrypt_histogram_global(
+        self, replies: dict[str, FAReply], histogram: Dict, secagg_params: Dict
+    ) -> Dict:
+        """Decrypt histogram by aggregating encrypted counts from all nodes.
+
+        Args:
+            replies: Dictionary of node_id -> FAReply.
+            histogram: Histogram structure with bin_edges and counts.
+            secagg_params: Dictionary with key, biprime, clipping_range.
+
+        Returns:
+            Decrypted histogram with aggregated counts.
+        """
+        if not isinstance(histogram, dict):
+            return histogram
+
+        bin_edges = histogram.get("bin_edges", [])
+
+        all_encrypted_counts = []
+        has_encrypted = False
+
+        for reply in replies.values():
+            output = reply.output
+            if isinstance(output, dict) and "histogram" in output:
+                hist = output.get("histogram", {})
+                if isinstance(hist, dict) and "counts" in hist:
+                    counts = hist.get("counts", [])
+                    if counts and isinstance(counts[0], dict) and "_encrypted" in counts[0]:
+                        has_encrypted = True
+                        all_encrypted_counts.append([c.get("value", 0) for c in counts])
+
+        if not has_encrypted:
+            return histogram
+
+        if not all_encrypted_counts:
+            return histogram
+
+        try:
+            from fedbiomed.common.secagg import SecaggCrypter
+
+            crypter = SecaggCrypter()
+            num_nodes = len(replies)
+            num_bins = len(all_encrypted_counts[0])
+
+            aggregated = []
+            for i in range(num_bins):
+                bin_values = [enc_counts[i] for enc_counts in all_encrypted_counts]
+                aggregated.append(bin_values)
+
+            decrypted = crypter.aggregate(
+                current_round=1,
+                num_nodes=num_nodes,
+                params=aggregated,
+                key=secagg_params["key"],
+                biprime=secagg_params["biprime"],
+                total_sample_size=num_nodes,
+                clipping_range=secagg_params.get("clipping_range"),
+                num_expected_params=num_bins,
+            )
+
+            return {"bin_edges": bin_edges, "counts": [int(d) for d in decrypted]}
+        except Exception as e:
+            logger.warning(f"Failed to decrypt histogram: {e}")
+            return histogram
+
+    def _decrypt_single_value(
+        self, encrypted_values: List[List[int]], secagg_params: Dict, num_nodes: int
+    ) -> float:
+        """Decrypt a single aggregated value.
+
+        Args:
+            encrypted_values: List of [encrypted_value] from each node.
+            secagg_params: Dictionary with key, biprime, clipping_range.
+            num_nodes: Number of nodes.
+
+        Returns:
+            Decrypted aggregated value.
+        """
+        try:
+            from fedbiomed.common.secagg import SecaggCrypter
+
+            crypter = SecaggCrypter()
+
+            decrypted = crypter.aggregate(
+                current_round=1,
+                num_nodes=num_nodes,
+                params=encrypted_values,
+                key=secagg_params["key"],
+                biprime=secagg_params["biprime"],
+                total_sample_size=num_nodes,
+                clipping_range=secagg_params.get("clipping_range"),
+                num_expected_params=1,
+            )
+
+            return decrypted[0] if decrypted else 0
+        except Exception as e:
+            logger.warning(f"Failed to decrypt value: {e}")
+            return 0
+
+    def _get_secagg_params(self) -> Optional[Dict]:
+        """Get secagg parameters from the secagg instance.
+
+        Returns:
+            Dictionary with key, biprime, and clipping_range.
+        """
+        if not isinstance(self._secagg, SecureAggregation):
+            return None
+
+        try:
+            secagg_context = self._secagg._secagg
+            if hasattr(secagg_context, "_biprime"):
+                return {
+                    "key": getattr(secagg_context, "_key", 0),
+                    "biprime": secagg_context._biprime,
+                    "clipping_range": getattr(secagg_context, "_secagg_clipping_range", None),
+                }
+        except Exception as e:
+            logger.warning(f"Failed to get secagg params: {e}")
+
+        return None
 
     # ------------------------------------------------------------------
     # Convenience methods

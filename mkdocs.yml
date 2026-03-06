@@ -59,6 +59,7 @@ nav:
               - "Local and Central DP Example": "./tutorials/security/non-private-local-central-dp-monai-2d-image-registration.ipynb"
               - "Training with Approved Model Files": "./tutorials/security/training-with-approved-training-plans.ipynb"
               - "Secure Aggregation": "./tutorials/security/secure-aggregation.ipynb"
+              - "Secure Federated Analytics": "./tutorials/security/secure-federated-analytics.ipynb"
               - "End-to-end Privacy Preserving Training and Inference on Medical Data": "./tutorials/concrete-ml/concrete-ml.ipynb"
           - Biomedical data:
               - "Brain image segmentation using IXI dataset": "./tutorials/medical/medical-image-segmentation-unet-library.ipynb"
@@ -98,6 +99,7 @@ nav:
               - "Introduction": "./user-guide/secagg/introduction.md"
               - "Configuration": "./user-guide/secagg/configuration.md"
               - "Managing Secure Aggregation in Researcher": "./user-guide/secagg/researcher-interface.md"
+              - "Secure Federated Analytics": "./user-guide/secagg/secure-federated-analytics.md"
       - Developer:
           - "API Reference":
               - Common:
