@@ -247,16 +247,19 @@ class AnalyticsOrchestrator:
         children = []
         for idx, item_schema in enumerate(schema):
             child_sub = subschema[idx] if subschema is not None else None
-            child_args = args[idx] if args is not None else None
             if item_schema is None or (subschema is not None and child_sub is None):
-                children.append({"type": "skip"})
-            else:
-                children.append(
-                    self._build_and_validate_config(
-                        item_schema, child_sub, stats, child_args, n_samples
-                    )
+                continue  # Omit None schema positions from the output entirely
+            child_args = args[idx] if args is not None else None
+            children.append(
+                self._build_and_validate_config(
+                    item_schema, child_sub, stats, child_args, n_samples
                 )
+            )
 
+        if len(children) == 0:
+            return {"type": "skip"}
+        if len(children) == 1:
+            return children[0]
         return {
             "type": "tuple" if isinstance(schema, tuple) else "list",
             "children": children,

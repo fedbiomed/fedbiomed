@@ -265,7 +265,6 @@ def test_handle_dict_subschema_list_with_nested_dict_key(orchestrator):
     "schema,expected_type",
     [
         ([ImageSpec(), ImageSpec()], "list"),
-        ((ImageSpec(),), "tuple"),
     ],
 )
 def test_handle_sequence(orchestrator, schema, expected_type):
@@ -275,6 +274,17 @@ def test_handle_sequence(orchestrator, schema, expected_type):
         )
     assert result["type"] == expected_type
     assert len(result["children"]) == len(schema)
+
+
+def test_handle_sequence_single_element_unwrapped(orchestrator):
+    """A sequence with a single element is unwrapped to the element's config."""
+    schema = (ImageSpec(),)
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {"type": "mock_child"}
+        result = orchestrator._handle_sequence(
+            schema, subschema=None, stats=None, args=None, n_samples=5
+        )
+    assert result == {"type": "mock_child"}
 
 
 def test_handle_sequence_subschema_errors(orchestrator):
@@ -324,8 +334,9 @@ def test_handle_sequence_explicit_none_skips_position(orchestrator):
     assert mock_bvc.call_count == 1
     assert mock_bvc.call_args[0][1] == sub_for_first
 
-    # Second child must be the skip sentinel
-    assert result["children"][1] == {"type": "skip"}
+    # Since one child is None in schema/subschema, it's skipped.
+    # The remaining single child is unwrapped.
+    assert result == mock_bvc.return_value
 
 
 def test_handle_sequence_none_subschema_processes_all(orchestrator):
@@ -358,9 +369,9 @@ def test_handle_sequence_none_schema_item_skips_position(orchestrator):
     # Only the ImageSpec position triggers a recursive call
     assert mock_bvc.call_count == 1
 
-    # Second child must be the skip sentinel
-    assert result["children"][1] == {"type": "skip"}
-    assert result["type"] == "tuple"
+    # Second child is None schema, so skipped.
+    # The remaining single child is unwrapped.
+    assert result == mock_bvc.return_value
 
 
 # ── _handle_row ──────────────────────────────────────────────────────────────
