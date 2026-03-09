@@ -98,11 +98,11 @@ class AnalyticsOrchestrator:
                 for k, v in config.get("children", {}).items()
             }
             return DictAccumulator(children)
-        if config["type"] in ("list", "tuple"):
+        if config["type"] == "sequence":
             children = [
                 self._create_accumulator(item) for item in config.get("children", [])
             ]
-            return SequenceAccumulator(children, is_tuple=(config["type"] == "tuple"))
+            return SequenceAccumulator(children, indices=config["indices"])
 
         # Leaf Types
         if config["type"] == DatasetElementType.ROW:
@@ -221,15 +221,19 @@ class AnalyticsOrchestrator:
         stats_args: Optional[Union[List, Tuple]],
         n_samples: int,
     ) -> Dict[str, Any]:
+        # subschema and stats_args are indexed against active (non-None) positions only.
+        active = [(orig_idx, s) for orig_idx, s in enumerate(schema) if s is not None]
+
         # Validate Subschema
         if subschema is not None:
             if not isinstance(subschema, (list, tuple)):
                 raise FedbiomedError(
                     f"Subschema for sequence must be list/tuple. Got {type(subschema)}."
                 )
-            if len(subschema) != len(schema):
+            if len(subschema) != len(active):
                 raise FedbiomedError(
-                    "Subschema length mismatch. Pass None to ignore elements in list/tuple."
+                    f"Subschema ({len(subschema)}) does not match schema elements "
+                    f"({len(active)}). Use None at a position to exclude that element."
                 )
 
         # Validate Args
@@ -238,33 +242,37 @@ class AnalyticsOrchestrator:
                 raise FedbiomedError(
                     f"Args for sequence must be list/tuple. Got {type(stats_args)}."
                 )
-            if len(stats_args) != len(schema):
+            if len(stats_args) != len(active):
                 raise FedbiomedError(
                     "Args length mismatch. Pass None to ignore elements in list/tuple."
                 )
 
         children = []
-        for idx, item_schema in enumerate(schema):
-            child_sub = subschema[idx] if subschema is not None else None
-            if item_schema is None or (subschema is not None and child_sub is None):
-                continue  # Omit None schema positions from the output entirely
-            child_args = stats_args[idx] if stats_args is not None else None
+        indices = []
+        for (orig_idx, item_schema), child_sub, child_args in zip(
+            active,
+            subschema if subschema is not None else [None] * len(active),
+            stats_args if stats_args is not None else [None] * len(active),
+            strict=True,
+        ):
+            if subschema is not None and child_sub is None:
+                continue  # User explicitly excluded this element
             children.append(
                 self._build_and_validate_config(
                     item_schema, child_sub, stats, child_args, n_samples
                 )
             )
+            indices.append(orig_idx)
 
         if len(children) == 0:
             raise FedbiomedError(
                 "Sequence schema produced no selectable elements. "
                 "Ensure at least one schema item is non-None and not excluded by subschema."
             )
-        if len(children) == 1:
-            return children[0]
         return {
-            "type": "tuple" if isinstance(schema, tuple) else "list",
+            "type": "sequence",
             "children": children,
+            "indices": indices,
         }
 
     def _handle_row(

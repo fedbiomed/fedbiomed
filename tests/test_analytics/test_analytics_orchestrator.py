@@ -134,11 +134,11 @@ def test_create_accumulator_dict(orchestrator):
     assert isinstance(acc, DictAccumulator)
 
 
-@pytest.mark.parametrize("type_str,is_tuple", [("list", False), ("tuple", True)])
-def test_create_accumulator_sequence(orchestrator, type_str, is_tuple):
-    acc = orchestrator._create_accumulator({"type": type_str, "children": []})
+def test_create_accumulator_sequence(orchestrator):
+    acc = orchestrator._create_accumulator(
+        {"type": "sequence", "children": [], "indices": []}
+    )
     assert isinstance(acc, SequenceAccumulator)
-    assert acc.is_tuple is is_tuple
 
 
 def test_create_accumulator_row(orchestrator):
@@ -160,16 +160,11 @@ def test_create_accumulator_unsupported_type(orchestrator):
         orchestrator._create_accumulator({"type": "unsupported"})
 
 
-def test_create_accumulator_skip_type_unsupported(orchestrator):
-    with pytest.raises(FedbiomedError, match="Unsupported accumulator type"):
-        orchestrator._create_accumulator({"type": "skip"})
-
-
 def test_create_accumulator_dict_recursion(orchestrator):
     """Children are recursively built."""
     config = {
         "type": "dict",
-        "children": {"a": {"type": "list", "children": []}},
+        "children": {"a": {"type": "sequence", "children": [], "indices": []}},
     }
     acc = orchestrator._create_accumulator(config)
     assert isinstance(acc, DictAccumulator)
@@ -264,33 +259,44 @@ def test_handle_dict_subschema_list_with_nested_dict_key(orchestrator):
     assert "b" not in result["children"]
 
 
+def test_handle_dict_subschema_list_with_string_item(orchestrator):
+    """List subschema with a plain string item selects that key."""
+    schema = {"a": ImageSpec(), "b": ImageSpec()}
+    with patch.object(orchestrator, "_build_and_validate_config"):
+        result = orchestrator._handle_dict(
+            schema, subschema=["a"], stats=None, stats_args=None, n_samples=5
+        )
+    assert result["type"] == "dict"
+    assert "a" in result["children"]
+    assert "b" not in result["children"]
+
+
 # ── _handle_sequence ─────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize(
-    "schema,expected_type",
-    [
-        ([ImageSpec(), ImageSpec()], "list"),
-    ],
-)
-def test_handle_sequence(orchestrator, schema, expected_type):
+def test_handle_sequence(orchestrator):
+    schema = [ImageSpec(), ImageSpec()]
     with patch.object(orchestrator, "_build_and_validate_config"):
         result = orchestrator._handle_sequence(
             schema, subschema=None, stats=None, stats_args=None, n_samples=5
         )
-    assert result["type"] == expected_type
+    assert result["type"] == "sequence"
     assert len(result["children"]) == len(schema)
+    assert result["indices"] == [0, 1]
 
 
-def test_handle_sequence_single_element_unwrapped(orchestrator):
-    """A sequence with a single element is unwrapped to the element's config."""
+def test_handle_sequence_single_element(orchestrator):
+    """A single-element sequence returns a sequence config with one child."""
     schema = (ImageSpec(),)
     with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
         mock_bvc.return_value = {"type": "mock_child"}
         result = orchestrator._handle_sequence(
             schema, subschema=None, stats=None, stats_args=None, n_samples=5
         )
-    assert result == {"type": "mock_child"}
+    assert result["type"] == "sequence"
+    assert len(result["children"]) == 1
+    assert result["children"][0] == {"type": "mock_child"}
+    assert result["indices"] == [0]
 
 
 def test_handle_sequence_subschema_errors(orchestrator):
@@ -301,7 +307,7 @@ def test_handle_sequence_subschema_errors(orchestrator):
             schema, subschema="wrong", stats=None, stats_args=None, n_samples=5
         )
 
-    with pytest.raises(FedbiomedError, match="Subschema length mismatch"):
+    with pytest.raises(FedbiomedError, match="does not match schema elements"):
         orchestrator._handle_sequence(
             schema, subschema=[1], stats=None, stats_args=None, n_samples=5
         )
@@ -344,9 +350,10 @@ def test_handle_sequence_explicit_none_skips_position(orchestrator):
     assert mock_bvc.call_count == 1
     assert mock_bvc.call_args[0][1] == sub_for_first
 
-    # Since one child is None in schema/subschema, it's skipped.
-    # The remaining single child is unwrapped.
-    assert result == mock_bvc.return_value
+    # Second position excluded: one child remains, returned as a sequence config
+    assert result["type"] == "sequence"
+    assert len(result["children"]) == 1
+    assert result["indices"] == [0]
 
 
 def test_handle_sequence_none_subschema_processes_all(orchestrator):
@@ -366,6 +373,26 @@ def test_handle_sequence_none_subschema_processes_all(orchestrator):
     assert mock_bvc.call_count == 2
 
 
+def test_handle_sequence_stats_args_routed(orchestrator):
+    """Per-position stats_args are forwarded to the corresponding child call."""
+    schema = [RowSpec(columns=["c1"]), RowSpec(columns=["c2"])]
+    stats_args = [{"mean": {}}, {"variance": {}}]
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "columns": [],
+        }
+        orchestrator._handle_sequence(
+            schema, subschema=None, stats=None, stats_args=stats_args, n_samples=5
+        )
+
+    assert mock_bvc.call_count == 2
+    assert mock_bvc.call_args_list[0].args[3] == {"mean": {}}
+    assert mock_bvc.call_args_list[1].args[3] == {"variance": {}}
+
+
 def test_handle_sequence_none_schema_item_skips_position(orchestrator):
     """None at a schema position is skipped, as used by (ImageSpec(), None)."""
     schema = (ImageSpec(), None)
@@ -379,9 +406,10 @@ def test_handle_sequence_none_schema_item_skips_position(orchestrator):
     # Only the ImageSpec position triggers a recursive call
     assert mock_bvc.call_count == 1
 
-    # Second child is None schema, so skipped.
-    # The remaining single child is unwrapped.
-    assert result == mock_bvc.return_value
+    # None schema item skipped: one child remains, returned as a sequence config
+    assert result["type"] == "sequence"
+    assert len(result["children"]) == 1
+    assert result["indices"] == [0]
 
 
 def test_handle_sequence_all_none_schema_raises(orchestrator):
@@ -419,6 +447,21 @@ def test_handle_row(mock_compile, orchestrator):
 
     with pytest.raises(FedbiomedError, match="Invalid columns in subschema"):
         orchestrator._handle_row(schema, ["z"], None, None, n_samples=5)
+
+
+@patch(
+    "fedbiomed.common.analytics._orchestrator.AnalyticsOrchestrator._compile_leaf_stats"
+)
+def test_handle_row_return_value(mock_compile, orchestrator):
+    """Returned dict has the correct structure with type, conf, and ordered columns."""
+    mock_compile.return_value = {"mean": {}}
+    schema = RowSpec(columns=["c1", "c2"])
+
+    result = orchestrator._handle_row(schema, None, None, None, n_samples=5)
+
+    assert result["type"] == DatasetElementType.ROW
+    assert result["columns"] == ["c1", "c2"]
+    assert set(result["conf"].keys()) == {"c1", "c2"}
 
 
 def test_handle_row_validation_errors(orchestrator):
@@ -649,3 +692,21 @@ def test_resolve_and_validate_roots_returns_only_roots(mock_registry, orchestrat
     )
     assert "mean" in result
     assert "sum" not in result
+
+
+@patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
+def test_resolve_and_validate_roots_nonconflicting_reencounter(
+    mock_registry, orchestrator
+):
+    """A stat already recorded as a dependency is silently accepted when args match."""
+    mock_registry.get_dependencies.side_effect = (
+        lambda s, et: {"a"} if s == "b" else set()
+    )
+    mock_registry.validate_args.return_value = None
+    mock_registry.get_roots.return_value = {"b"}
+
+    # "b" depends on "a"; both requested with matching args — no conflict
+    result = orchestrator._resolve_and_validate_roots(
+        DatasetElementType.ROW, {"b": {}, "a": {}}
+    )
+    assert "b" in result
