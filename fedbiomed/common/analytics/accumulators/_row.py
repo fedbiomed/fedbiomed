@@ -36,7 +36,6 @@ class RowAccumulator(Accumulator):
         # Pre-calculated map for O(1) lookups: stat -> {col_idx: vector_idx}
         self.vectorized_output_map: Dict[str, Dict[int, int]] = {}
 
-        logger.info(f"Initializing RowAccumulator with config: {config}")
         self.column_configs = config.get("conf", {})
         self.column_order = config.get("columns")
 
@@ -93,7 +92,7 @@ class RowAccumulator(Accumulator):
                         self.vectorized_accumulators_classes[stat]()
                     )
 
-        logger.info("Vectorized accumulators initialized")
+        logger.info(f"RowAccumulator initialized with columns: {self.column_order}")
 
     def _add_independent_accumulator(
         self,
