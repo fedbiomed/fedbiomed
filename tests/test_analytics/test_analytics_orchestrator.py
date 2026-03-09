@@ -183,7 +183,7 @@ def test_handle_dict_basic(orchestrator):
     schema = {"a": ImageSpec(), "b": ImageSpec()}
     with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
         orchestrator._handle_dict(
-            schema, subschema=None, stats=None, args=None, n_samples=5
+            schema, subschema=None, stats=None, stats_args=None, n_samples=5
         )
         assert mock_bvc.call_count == 2
 
@@ -192,10 +192,10 @@ def test_handle_dict_errors(orchestrator):
     schema = {"a": 1}
 
     with pytest.raises(FedbiomedError, match="Args for dict schema must be a dict"):
-        orchestrator._handle_dict(schema, None, None, args=[], n_samples=5)
+        orchestrator._handle_dict(schema, None, None, stats_args=[], n_samples=5)
 
     with pytest.raises(FedbiomedError, match="Args keys .* not found"):
-        orchestrator._handle_dict(schema, None, None, args={"z": 1}, n_samples=5)
+        orchestrator._handle_dict(schema, None, None, stats_args={"z": 1}, n_samples=5)
 
     with pytest.raises(FedbiomedError, match="Invalid key in subschema"):
         orchestrator._handle_dict(schema, ["z"], None, None, n_samples=5)
@@ -227,7 +227,11 @@ def test_handle_dict_subschema_as_dict(orchestrator):
     schema = {"a": spec_a, "b": spec_b, "c": spec_c}
     with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
         orchestrator._handle_dict(
-            schema, subschema={"a": None, "c": None}, stats=None, args=None, n_samples=5
+            schema,
+            subschema={"a": None, "c": None},
+            stats=None,
+            stats_args=None,
+            n_samples=5,
         )
         assert mock_bvc.call_count == 2
         called_first_args = [call.args[0] for call in mock_bvc.call_args_list]
@@ -240,7 +244,7 @@ def test_handle_dict_subschema_as_dict_invalid_keys(orchestrator):
     schema = {"a": ImageSpec()}
     with pytest.raises(FedbiomedError, match="Invalid keys in subschema"):
         orchestrator._handle_dict(
-            schema, subschema={"z": None}, stats=None, args=None, n_samples=5
+            schema, subschema={"z": None}, stats=None, stats_args=None, n_samples=5
         )
 
 
@@ -249,7 +253,11 @@ def test_handle_dict_subschema_list_with_nested_dict_key(orchestrator):
     schema = {"a": ImageSpec(), "b": ImageSpec()}
     with patch.object(orchestrator, "_build_and_validate_config"):
         result = orchestrator._handle_dict(
-            schema, subschema=[{"a": "child_sub"}], stats=None, args=None, n_samples=5
+            schema,
+            subschema=[{"a": "child_sub"}],
+            stats=None,
+            stats_args=None,
+            n_samples=5,
         )
     assert result["type"] == "dict"
     assert "a" in result["children"]
@@ -268,7 +276,7 @@ def test_handle_dict_subschema_list_with_nested_dict_key(orchestrator):
 def test_handle_sequence(orchestrator, schema, expected_type):
     with patch.object(orchestrator, "_build_and_validate_config"):
         result = orchestrator._handle_sequence(
-            schema, subschema=None, stats=None, args=None, n_samples=5
+            schema, subschema=None, stats=None, stats_args=None, n_samples=5
         )
     assert result["type"] == expected_type
     assert len(result["children"]) == len(schema)
@@ -280,7 +288,7 @@ def test_handle_sequence_single_element_unwrapped(orchestrator):
     with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
         mock_bvc.return_value = {"type": "mock_child"}
         result = orchestrator._handle_sequence(
-            schema, subschema=None, stats=None, args=None, n_samples=5
+            schema, subschema=None, stats=None, stats_args=None, n_samples=5
         )
     assert result == {"type": "mock_child"}
 
@@ -290,12 +298,12 @@ def test_handle_sequence_subschema_errors(orchestrator):
 
     with pytest.raises(FedbiomedError, match="Subschema for sequence must be list"):
         orchestrator._handle_sequence(
-            schema, subschema="wrong", stats=None, args=None, n_samples=5
+            schema, subschema="wrong", stats=None, stats_args=None, n_samples=5
         )
 
     with pytest.raises(FedbiomedError, match="Subschema length mismatch"):
         orchestrator._handle_sequence(
-            schema, subschema=[1], stats=None, args=None, n_samples=5
+            schema, subschema=[1], stats=None, stats_args=None, n_samples=5
         )
 
 
@@ -304,12 +312,12 @@ def test_handle_sequence_args_errors(orchestrator):
 
     with pytest.raises(FedbiomedError, match="Args for sequence must be list/tuple"):
         orchestrator._handle_sequence(
-            schema, subschema=None, stats=None, args="wrong", n_samples=5
+            schema, subschema=None, stats=None, stats_args="wrong", n_samples=5
         )
 
     with pytest.raises(FedbiomedError, match="Args length mismatch"):
         orchestrator._handle_sequence(
-            schema, subschema=None, stats=None, args=[1], n_samples=5
+            schema, subschema=None, stats=None, stats_args=[1], n_samples=5
         )
 
 
@@ -325,7 +333,11 @@ def test_handle_sequence_explicit_none_skips_position(orchestrator):
             "columns": [],
         }
         result = orchestrator._handle_sequence(
-            schema, subschema=[sub_for_first, None], stats=None, args=None, n_samples=5
+            schema,
+            subschema=[sub_for_first, None],
+            stats=None,
+            stats_args=None,
+            n_samples=5,
         )
 
     # Only first position should trigger a recursive call
@@ -348,7 +360,7 @@ def test_handle_sequence_none_subschema_processes_all(orchestrator):
             "columns": [],
         }
         orchestrator._handle_sequence(
-            schema, subschema=None, stats=None, args=None, n_samples=5
+            schema, subschema=None, stats=None, stats_args=None, n_samples=5
         )
 
     assert mock_bvc.call_count == 2
@@ -361,7 +373,7 @@ def test_handle_sequence_none_schema_item_skips_position(orchestrator):
     with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
         mock_bvc.return_value = {"type": DatasetElementType.IMAGE, "stats": {}}
         result = orchestrator._handle_sequence(
-            schema, subschema=None, stats=None, args=None, n_samples=5
+            schema, subschema=None, stats=None, stats_args=None, n_samples=5
         )
 
     # Only the ImageSpec position triggers a recursive call
@@ -376,7 +388,7 @@ def test_handle_sequence_all_none_schema_raises(orchestrator):
     """A schema where every item is None raises an error."""
     with pytest.raises(FedbiomedError, match="no selectable elements"):
         orchestrator._handle_sequence(
-            [None, None], subschema=None, stats=None, args=None, n_samples=5
+            [None, None], subschema=None, stats=None, stats_args=None, n_samples=5
         )
 
 
@@ -385,7 +397,7 @@ def test_handle_sequence_all_excluded_subschema_raises(orchestrator):
     schema = [ImageSpec(), ImageSpec()]
     with pytest.raises(FedbiomedError, match="no selectable elements"):
         orchestrator._handle_sequence(
-            schema, subschema=[None, None], stats=None, args=None, n_samples=5
+            schema, subschema=[None, None], stats=None, stats_args=None, n_samples=5
         )
 
 
@@ -417,11 +429,11 @@ def test_handle_row_validation_errors(orchestrator):
 
     with pytest.raises(FedbiomedError, match="Args for ROW must be a dict"):
         orchestrator._handle_row(
-            schema, None, None, args=["not", "a", "dict"], n_samples=5
+            schema, None, None, stats_args=["not", "a", "dict"], n_samples=5
         )
 
     with pytest.raises(FedbiomedError, match="Invalid columns in args"):
-        orchestrator._handle_row(schema, None, None, args={"z": {}}, n_samples=5)
+        orchestrator._handle_row(schema, None, None, stats_args={"z": {}}, n_samples=5)
 
 
 # ── _handle_image ────────────────────────────────────────────────────────────
@@ -434,7 +446,7 @@ def test_handle_image(mock_compile, orchestrator):
     mock_compile.return_value = {"mean": {}}
 
     # stats path
-    result = orchestrator._handle_image(stats=["mean"], args=None, n_samples=5)
+    result = orchestrator._handle_image(stats=["mean"], stats_args=None, n_samples=5)
     assert result["type"] == DatasetElementType.IMAGE
     assert "stats" in result
     mock_compile.assert_called_once_with(DatasetElementType.IMAGE, ["mean"], None, 5)
@@ -443,13 +455,13 @@ def test_handle_image(mock_compile, orchestrator):
     # args path
     args = {"histogram": {"bins": 10}}
     mock_compile.return_value = args
-    orchestrator._handle_image(stats=None, args=args, n_samples=5)
+    orchestrator._handle_image(stats=None, stats_args=args, n_samples=5)
     mock_compile.assert_called_once_with(DatasetElementType.IMAGE, None, args, 5)
 
 
 def test_handle_image_args_not_dict_raises(orchestrator):
     with pytest.raises(FedbiomedError, match="Args for IMAGE must be a dict"):
-        orchestrator._handle_image(stats=None, args=["wrong"], n_samples=5)
+        orchestrator._handle_image(stats=None, stats_args=["wrong"], n_samples=5)
 
 
 # ── _validate_leaf_stat ──────────────────────────────────────────────────────
