@@ -113,6 +113,8 @@ class NodeAgentAsync:
     async def on_reply(self, message: Dict) -> None:
         """Callback to execute each time new reply received from the node"""
 
+        ### DEBUG THE RECEIVED REPLY FROM THE NODE
+
         message = Message.from_dict(message)
 
         # Handle overlay messages to relay to a node
@@ -167,6 +169,10 @@ class NodeAgentAsync:
             retry_count: number of retries already done for this message
             first_send_time: time of first send attempt for this message
         """
+
+        ### (OPTIONAL) DEBUG THE SENT MESSAGE TO THE NODE
+        ### THIS IS ALSO COVERED BY THE TRANSPORT LAYER, BUT IT CAN BE USEFUL THE
+        ### DEBUG THE NODES' STATUS' HERE, BEFORE THE MESSAGE IS ACTUALLY SENT TO THE TRANSPORT LAYER
 
         async with self._status_lock:
             if self._status == NodeActiveStatus.DISCONNECTED:

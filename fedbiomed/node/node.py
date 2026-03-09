@@ -188,6 +188,9 @@ class Node:
         Args:
             msg: Incoming message from Researcher.
         """
+        ### (OPTIONAL) DEBUG THE RECEIVED MESSAGE FROM THE RESEARCHER
+        ### WITH MORE DETAILS THAN THE CURRENT DEBUG MESSAGES
+
         message: Message
         try:
             message = Message.from_dict(msg)

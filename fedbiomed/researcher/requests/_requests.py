@@ -84,6 +84,10 @@ class Request:
         Args:
             True if a reply was received from node
         """
+        ### DEBUG REQUEST STATUS
+        # current request status per node
+        # whether node became DISCONNECT
+        # whether request has reply / error / timeout
 
         if self._node.status == NodeActiveStatus.DISCONNECTED:
             self.status = RequestStatus.DISCONNECT
@@ -93,6 +97,11 @@ class Request:
 
     def send(self) -> None:
         """Sends the request"""
+        ### (OPTIONAL) DEBUG REQUEST SENDING
+        # request id
+        # target node
+        # message class
+
         self._message.request_id = self._request_id
         self._node.send(self._message, self.on_reply)
         self.status = RequestStatus.NO_REPLY_YET
@@ -143,6 +152,12 @@ class FederatedRequest:
             nodes: list of nodes that are sent the message
             policy: list of policies for controlling the handling of the request
         """
+        ### DEBUG MESSAGE THAT GIVES INFO ON EACH CREATED FEDERATED REQUEST
+        # federated request id
+        # number of target nodes
+        # message class
+        # policies enabled
+        # one log per node-specific request
 
         self._message = message
         self._nodes = nodes
@@ -209,6 +224,8 @@ class FederatedRequest:
             value: ignored
             traceback: ignored
         """
+        ### (OPTIONAL) DEBUG EXITING FEDERATED REQUEST CONTEXT MANAGER
+        ### THIS SHOULD ALSO BE COVERED BY POLICY CONTROLLER STATUS DEBUG
 
         # Clear the replies that are processed
         has_stopped = self._policy.has_stopped_any()
@@ -248,6 +265,7 @@ class FederatedRequest:
 
     def wait(self) -> None:
         """Waits for the replies of the messages that are sent"""
+        ### DEBUG - SHOULD BE COVERED BY POLICY CONTROLLER STATUS DEBUG
 
         while self._policy.continue_all(self._requests) == PolicyStatus.CONTINUE:
             self._pending_replies.acquire(timeout=REQUEST_STATUS_CHECK_TIMEOUT)
@@ -267,6 +285,8 @@ class Requests(metaclass=SingletonMeta):
         Args:
             config: Object for handling the component configuration
         """
+        ### DEBUG GRPC SERVER INFORMATION
+
         self._monitor_message_callbacks: Dict[str, Callable] = {}
 
         server_host = config.get("server", "host")
@@ -291,6 +311,7 @@ class Requests(metaclass=SingletonMeta):
 
     def start_messaging(self) -> None:
         """Start communications endpoint"""
+        ### DEBUG GRPC SERVER START
         self._grpc_server.start()
 
     def on_message(

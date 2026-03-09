@@ -192,6 +192,12 @@ class PolicyController:
             ]
         )
 
+        ### DEBUG POLICY CONTROLLER STATUS ON CONTINUE ALL
+        # policy name
+        # node id that triggered it
+        # request status that caused it
+        # whether it returned CONTINUE, STOPPED, or COMPLETED
+
         return PolicyStatus.CONTINUE if status else PolicyStatus.COMPLETED
 
     def has_stopped_any(self) -> bool:
@@ -204,6 +210,12 @@ class PolicyController:
         is_stopped = any(
             [policy.status == PolicyStatus.STOPPED for policy in self._policies]
         )
+
+        ### DEBUG POLICY CONTROLLER STATUS ON HAS STOPPED ANY
+        # policy name
+        # node id that triggered it
+        # request status that caused it
+        # whether it returned CONTINUE, STOPPED, or COMPLETED
 
         return is_stopped
 

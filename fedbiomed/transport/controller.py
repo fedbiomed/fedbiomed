@@ -38,6 +38,7 @@ class GrpcAsyncTaskController:
         Raises:
             FedbiomedCommunicationError: bad argument type
         """
+        ### (OPTIONAL) DEBUG THE INITIALIZATION OF GRPC CONTROLLER BY THE NODE
 
         # inform all threads whether communication client is started
         self._is_started = threading.Event()
@@ -61,6 +62,7 @@ class GrpcAsyncTaskController:
 
     async def start(self) -> None:
         """ "Starts the tasks for each GrpcClient"""
+        ### (OPTIONAL) DEBUG THE STARTING OF GRPC CONTROLLER
 
         tasks = []
         for researcher in self._researchers:
@@ -89,6 +91,9 @@ class GrpcAsyncTaskController:
             broadcast: Broadcast the message to all available researcher. This option should be used for general
                 node state messages (e.g. general Error)
         """
+        ### (OPTIONAL) DEBUG THE SENDING OF MESSAGE TO THE RESEARCHER
+        ### THIS IS ALSO NORMALLY COVERED BY THE _CALL_RESEARCHER FUNCTION IN THE CLIENT.PY.
+
         if broadcast:
             return await self._broadcast(message)
 
