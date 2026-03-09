@@ -312,7 +312,7 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
       - ISO 8601 strings, with or without timezone ("Z" supported)
       - epoch seconds or milliseconds (int/float or numeric string)
 
-    Returns timezone-aware datetime in UTC, or None when unparseable.
+    Returns timezone-aware datetime in UTC, or None when unparsable.
     """
 
     if value is None:
@@ -498,7 +498,7 @@ def get_security_logs():
         if len(items) >= (skip + (page_size * 10)):
             break
 
-    # Sort newest-first by parsed timestamp; unparseable timestamps go last.
+    # Sort newest-first by parsed timestamp; unparsable timestamps go last.
     min_dt = datetime.min.replace(tzinfo=timezone.utc)
     decorated = [(_parse_timestamp(it.get("timestamp")) or min_dt, it) for it in items]
     decorated.sort(key=lambda x: x[0], reverse=True)
