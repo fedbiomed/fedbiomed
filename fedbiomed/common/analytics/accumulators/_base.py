@@ -64,13 +64,3 @@ class SequenceAccumulator(Accumulator):
         if self.is_tuple:
             return tuple(results)
         return results
-
-
-class SkipAccumulator(Accumulator):
-    """Accumulator that produces no output; used when a sequence position is explicitly skipped."""
-
-    def update(self, value: Any) -> None:
-        pass
-
-    def finalize(self) -> None:
-        return None

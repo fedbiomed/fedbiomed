@@ -8,7 +8,6 @@ from fedbiomed.common.analytics.accumulators import (
     ImageAccumulator,
     RowAccumulator,
     SequenceAccumulator,
-    SkipAccumulator,
 )
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
@@ -161,10 +160,9 @@ def test_create_accumulator_unsupported_type(orchestrator):
         orchestrator._create_accumulator({"type": "unsupported"})
 
 
-def test_create_accumulator_skip(orchestrator):
-    acc = orchestrator._create_accumulator({"type": "skip"})
-    assert isinstance(acc, SkipAccumulator)
-    assert acc.finalize() is None
+def test_create_accumulator_skip_type_unsupported(orchestrator):
+    with pytest.raises(FedbiomedError, match="Unsupported accumulator type"):
+        orchestrator._create_accumulator({"type": "skip"})
 
 
 def test_create_accumulator_dict_recursion(orchestrator):
@@ -316,7 +314,7 @@ def test_handle_sequence_args_errors(orchestrator):
 
 
 def test_handle_sequence_explicit_none_skips_position(orchestrator):
-    """Explicit None at a subschema position produces a skip config and skips the recursive call."""
+    """Explicit None at a subschema position skips that element from the recursive call."""
     schema = [RowSpec(columns=["c1"]), RowSpec(columns=["c2"])]
     sub_for_first = ["c1"]
 
@@ -357,7 +355,7 @@ def test_handle_sequence_none_subschema_processes_all(orchestrator):
 
 
 def test_handle_sequence_none_schema_item_skips_position(orchestrator):
-    """None at a schema position produces a skip config, as used by (ImageSpec(), None)."""
+    """None at a schema position is skipped, as used by (ImageSpec(), None)."""
     schema = (ImageSpec(), None)
 
     with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
@@ -372,6 +370,23 @@ def test_handle_sequence_none_schema_item_skips_position(orchestrator):
     # Second child is None schema, so skipped.
     # The remaining single child is unwrapped.
     assert result == mock_bvc.return_value
+
+
+def test_handle_sequence_all_none_schema_raises(orchestrator):
+    """A schema where every item is None raises an error."""
+    with pytest.raises(FedbiomedError, match="no selectable elements"):
+        orchestrator._handle_sequence(
+            [None, None], subschema=None, stats=None, args=None, n_samples=5
+        )
+
+
+def test_handle_sequence_all_excluded_subschema_raises(orchestrator):
+    """A subschema that excludes all positions raises an error."""
+    schema = [ImageSpec(), ImageSpec()]
+    with pytest.raises(FedbiomedError, match="no selectable elements"):
+        orchestrator._handle_sequence(
+            schema, subschema=[None, None], stats=None, args=None, n_samples=5
+        )
 
 
 # ── _handle_row ──────────────────────────────────────────────────────────────

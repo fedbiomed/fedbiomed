@@ -10,7 +10,6 @@ from fedbiomed.common.analytics.accumulators import (
     ImageAccumulator,
     RowAccumulator,
     SequenceAccumulator,
-    SkipAccumulator,
 )
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
@@ -110,8 +109,6 @@ class AnalyticsOrchestrator:
             return RowAccumulator(config)
         if config["type"] == DatasetElementType.IMAGE:
             return ImageAccumulator(config)
-        if config["type"] == "skip":
-            return SkipAccumulator()
 
         # Unhandled types
         raise FedbiomedError(f"Unsupported accumulator type: {config['type']}")
@@ -257,7 +254,10 @@ class AnalyticsOrchestrator:
             )
 
         if len(children) == 0:
-            return {"type": "skip"}
+            raise FedbiomedError(
+                "Sequence schema produced no selectable elements. "
+                "Ensure at least one schema item is non-None and not excluded by subschema."
+            )
         if len(children) == 1:
             return children[0]
         return {
