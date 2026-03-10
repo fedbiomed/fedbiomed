@@ -5,7 +5,7 @@
 Classes that simplify imports from fedbiomed.common.analytics.accumulators
 """
 
-from ._base import Accumulator, DictAccumulator, SequenceAccumulator, SkipAccumulator
+from ._base import Accumulator, DictAccumulator, SequenceAccumulator
 from ._image import ImageAccumulator
 from ._registry import AnalyticsRegistry
 from ._row import RowAccumulator
@@ -16,6 +16,5 @@ __all__ = [
     "DictAccumulator",
     "ImageAccumulator",
     "SequenceAccumulator",
-    "SkipAccumulator",
     "RowAccumulator",
 ]

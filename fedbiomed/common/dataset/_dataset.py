@@ -333,7 +333,7 @@ class Dataset(ABC):
         self,
         dataset_schema: Optional[Union[str, List[str], Dict[str, Any]]] = None,
         stats: Optional[List[str]] = None,
-        fa_args: Optional[Dict[str, Any]] = None,
+        stats_args: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """Computes statistics over the dataset using the AnalyticsOrchestrator.
 
@@ -341,7 +341,7 @@ class Dataset(ABC):
             schema_args: Selection arguments to filter the schema (e.g. subset of columns/keys).
             stats: List of statistics names to compute (e.g. ['mean', 'std']).
                    If None or empty, default statistics are chosen based on data type.
-            fa_args: Specific arguments for statistics, structured matching the schema.
+            stats_args: Specific arguments for statistics, structured matching the schema.
 
         Returns:
             Computed statistics structure.
@@ -354,7 +354,7 @@ class Dataset(ABC):
             self,
             dataset_schema=dataset_schema,
             stats=stats,
-            fa_args=fa_args,
+            stats_args=stats_args,
         )
 
     def __len__(self) -> int:

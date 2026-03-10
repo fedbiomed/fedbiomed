@@ -91,24 +91,43 @@ def aggregate_max(max: List[float]) -> float:
 
 
 @aggregator("count")
-def aggregate_count(count: List[int]) -> int:
+def aggregate_count(
+    count: List[Union[int, Dict[str, int]]],
+) -> Union[int, Dict[str, int]]:
     """Aggregates count values.
 
     Args:
-        count: List of counts from nodes.
+        count: List of counts from nodes. Each element is either a non-negative
+            integer or a dict mapping category labels to non-negative integer counts.
 
     Returns:
-        The total count.
+        The total count as an int, or a dict of summed counts.
     """
-    if not all(isinstance(c, (int, np.integer)) and c >= 0 for c in count):
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB633.value}: All count values must be non-negative integers."
-        )
-    return int(np.sum(count))
+    if all(isinstance(c, (int, np.integer)) for c in count):
+        if not all(c >= 0 for c in count):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB633.value}: All count values must be non-negative integers."
+            )
+        return int(np.sum(count))
+
+    if all(isinstance(c, dict) for c in count):
+        result: Dict[str, int] = {}
+        for c in count:
+            for k, v in c.items():
+                if not isinstance(v, (int, np.integer)) or v < 0:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB633.value}: All count dict values must be non-negative integers."
+                    )
+                result[k] = result.get(k, 0) + int(v)
+        return result
+
+    raise FedbiomedError(
+        f"{ErrorNumbers.FB633.value}: count must be a list of ints or a list of dicts."
+    )
 
 
 @aggregator("sum")
-def aggregate_sum(mean: List[float], count: List[int]) -> float:
+def aggregate_sum(mean: List[float], count: List[Union[int, np.integer]]) -> float:
     """Aggregates sum values using means and counts.
 
     Args:
@@ -123,7 +142,7 @@ def aggregate_sum(mean: List[float], count: List[int]) -> float:
 
 
 @aggregator("mean")
-def aggregate_mean(mean: List[float], count: List[int]) -> float:
+def aggregate_mean(mean: List[float], count: List[Union[int, np.integer]]) -> float:
     """Aggregates mean values using counts as weights.
 
     Args:

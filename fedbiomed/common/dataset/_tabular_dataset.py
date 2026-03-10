@@ -10,7 +10,7 @@ import torch
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset._dataset import Dataset
 from fedbiomed.common.dataset_controller._tabular_controller import TabularController
-from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem, RowSpec
+from fedbiomed.common.dataset_types import DataReturnFormat, RowSpec
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
@@ -74,7 +74,9 @@ class TabularDataset(Dataset):
                 self._target_columns
             )
             # Check for overlap between input_columns and target_columns
-            _intersection_cols = list(set(self._input_columns) & set(self._target_columns))
+            _intersection_cols = list(
+                set(self._input_columns) & set(self._target_columns)
+            )
             if _intersection_cols:
                 logger.warning(
                     f"Columns {_intersection_cols} are present in both input_columns and target_columns."
@@ -146,26 +148,6 @@ class TabularDataset(Dataset):
         sample = self.apply_transforms(sample)
         return sample["data"], sample["target"]
 
-    def get_analytics_item(self, idx: int) -> DatasetDataItem:
-        """Return tabular item at index `idx` in numpy format for analytics purposes."""
-        data, target = self.__getitem__(idx)
-
-        # Cast to numpy if needed
-        if self.to_format == DataReturnFormat.TORCH:
-            data = data.numpy()
-            if target is not None:
-                target = target.numpy()
-
-        # Return based on presence of target
-        if target is None:
-            return data
-        return data, target
-
-    def get_analytics_schema(self):
-        """Return schema associated with get_analytics_item"""
-        if self._target_columns is None:
-            return RowSpec(columns=self._input_columns)
-        return (
-            RowSpec(columns=self._input_columns),
-            RowSpec(columns=self._target_columns),
-        )
+    def analytics_schema(self):
+        """Return schema for federated analytics"""
+        return RowSpec(columns=self._input_columns), None

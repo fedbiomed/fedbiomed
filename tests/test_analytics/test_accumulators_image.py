@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 
 from fedbiomed.common.analytics.accumulators._image import ImageAccumulator
-from fedbiomed.common.constants import FedbiomedError
 from fedbiomed.common.dataset_types import DatasetElementType
+from fedbiomed.common.exceptions import FedbiomedError
 
 # =============================================================================
 # Fixtures
@@ -46,11 +46,6 @@ def mock_registry_none(monkeypatch):
         "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
         MagicMock(return_value=None),
     )
-
-
-@pytest.fixture
-def image_2d():
-    return np.ones((64, 64), dtype=np.float32)
 
 
 @pytest.fixture
@@ -120,7 +115,8 @@ def test_init_multiple_stats(monkeypatch):
 def test_init_unregistered_stat_raises(mock_registry_none):
     """Stat with no registered accumulator class raises FedbiomedError."""
     with pytest.raises(
-        FedbiomedError, match="No accumulator registered for stat 'unknown'"
+        FedbiomedError,
+        match=r"No accumulator registered for stat 'unknown' of type IMAGE\.",
     ):
         ImageAccumulator({"stats": {"unknown": {}}})
 
@@ -222,8 +218,7 @@ def test_update_same_array_passed_to_all_stats(monkeypatch):
     acc.update(image)
 
     assert len(received) == 2
-    np.testing.assert_array_equal(received[0], image)
-    np.testing.assert_array_equal(received[1], image)
+    assert received[0] is received[1]
 
 
 @pytest.mark.parametrize(
@@ -248,8 +243,8 @@ def test_update_various_image_shapes(mock_registry, shape):
     assert passed.shape == shape
 
 
-def test_update_multiple_calls_accumulate(mock_registry):
-    """Multiple calls to update() each invoke the sub-accumulator's update."""
+def test_update_dispatches_on_every_call(mock_registry):
+    """Each call to update() is dispatched exactly once to the sub-accumulator."""
     _, mock_instance = mock_registry
 
     acc = ImageAccumulator({"stats": {"mean": {}}})
@@ -271,9 +266,9 @@ def test_finalize_empty_stats_returns_empty_dict():
 
 
 def test_finalize_single_stat(mock_registry):
-    """finalize() returns {stat_name: finalized_value} for a single stat."""
+    """finalize() returns the merged dict from the sub-accumulator's finalize()."""
     _, mock_instance = mock_registry
-    mock_instance.finalize.return_value = 42.0
+    mock_instance.finalize.return_value = {"mean": 42.0}
 
     acc = ImageAccumulator({"stats": {"mean": {}}})
     result = acc.finalize()
@@ -283,13 +278,12 @@ def test_finalize_single_stat(mock_registry):
 
 def test_finalize_multiple_stats(monkeypatch):
     """finalize() collects results from all stats into a single dict."""
-    results_map = {"mean": 7.5, "count": 100}
-    instances = {
-        k: MagicMock(**{"finalize.return_value": v}) for k, v in results_map.items()
-    }
+    instances = [
+        MagicMock(**{"finalize.return_value": {"mean": 7.5}}),
+        MagicMock(**{"finalize.return_value": {"count": 100}}),
+    ]
 
-    call_order = list(instances.values())
-    mock_class = MagicMock(side_effect=call_order)
+    mock_class = MagicMock(side_effect=instances)
 
     monkeypatch.setattr(
         "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
@@ -309,7 +303,8 @@ def test_finalize_returns_whatever_sub_accumulator_returns(mock_registry):
     _, mock_instance = mock_registry
 
     complex_result = {"bin_edges": [0.0, 1.0, 2.0], "counts": [3, 5]}
-    mock_instance.finalize.return_value = complex_result
+    # Sub-accumulator returns wrapped dict
+    mock_instance.finalize.return_value = {"histogram": complex_result}
 
     acc = ImageAccumulator({"stats": {"histogram": {"bin_edges": [0.0, 1.0, 2.0]}}})
     result = acc.finalize()
@@ -321,7 +316,7 @@ def test_finalize_calls_each_sub_finalize_once(monkeypatch):
     """finalize() calls finalize() exactly once on each sub-accumulator."""
     instances = [MagicMock(), MagicMock()]
     for inst in instances:
-        inst.finalize.return_value = None
+        inst.finalize.return_value = {}
     mock_class = MagicMock(side_effect=instances)
 
     monkeypatch.setattr(
@@ -339,7 +334,7 @@ def test_finalize_calls_each_sub_finalize_once(monkeypatch):
 def test_finalize_after_multiple_updates(mock_registry):
     """finalize() still delegates to sub-accumulators after repeated updates."""
     _, mock_instance = mock_registry
-    mock_instance.finalize.return_value = np.array([1.0, 2.0, 3.0])
+    mock_instance.finalize.return_value = {"mean": np.array([1.0, 2.0, 3.0])}
 
     acc = ImageAccumulator({"stats": {"mean": {}}})
     for _ in range(3):

@@ -217,30 +217,15 @@ def test_getitem_torch_numpy_input(tmp_path):
 # === Tests for Analytics and Schema ===
 
 
-@pytest.mark.parametrize(
-    "to_format", [DataReturnFormat.SKLEARN, DataReturnFormat.TORCH]
-)
-def test_get_analytics_item(to_format, mock_controller, tmp_path):
-    """Test retrieving an item for analytics."""
-    dataset = ImageFolderDataset()
-    dataset._controller_cls = lambda **kwargs: mock_controller
-    dataset.complete_initialization(
-        controller_kwargs={"root": tmp_path},
-        to_format=to_format,
-    )
-    analytics_item = dataset.get_analytics_item(0)
-
-    # Regardless of the dataset format (Torch or Sklearn),
-    # get_analytics_item should return a numpy array
-    assert isinstance(analytics_item, np.ndarray)
-
-
-def test_get_analytics_schema(dataset_with_mock_controller):
+def test_analytics_schema(dataset_with_mock_controller):
     """Test retrieving the schema."""
     dataset = dataset_with_mock_controller
-    schema = dataset.get_analytics_schema()
-    assert isinstance(schema, ImageSpec)
-    assert schema.type == DatasetElementType.IMAGE
+    schema = dataset.analytics_schema()
+    assert isinstance(schema, tuple)
+    assert len(schema) == 2
+    assert isinstance(schema[0], ImageSpec)
+    assert schema[0].type == DatasetElementType.IMAGE
+    assert schema[1] is None
 
 
 # === Tests for Concrete Dataset Classes ===

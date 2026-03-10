@@ -1,9 +1,9 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict
+from typing import Dict, Optional
 
-from fedbiomed.common.constants import Stats
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.researcher.requests import MessagesByNode
@@ -26,9 +26,9 @@ class FARequestJob(Job):
         experiment_id: str,
         fa_id: str,
         federated_dataset: dict,
-        fa_args: dict,
-        stats: Stats,
-        dataset_schema: list,
+        stats_args: Optional[dict],
+        stats: Optional[list],
+        dataset_schema: Optional[list],
         **kwargs,
     ) -> None:
         """Initialize the FARequestJob with the given FA request.
@@ -38,10 +38,15 @@ class FARequestJob(Job):
         """
         super().__init__(**kwargs)
 
+        if stats is None and not stats_args:
+            raise FedbiomedError(
+                "At least one of 'stats' or 'stats_args' must be provided."
+            )
+
         self._experiment_id = experiment_id
         self._fa_id = fa_id
         self._federated_dataset = federated_dataset
-        self._fa_args = fa_args
+        self._stats_args = stats_args
         self._dataset_schema = dataset_schema
         self._stats = stats
 
@@ -56,7 +61,7 @@ class FARequestJob(Job):
             experiment_id=self._experiment_id,
             stats=self._stats,
             fa_id=self._fa_id,
-            fa_args=self._fa_args,
+            stats_args=self._stats_args,
             dataset_schema=self._dataset_schema,
         )
 

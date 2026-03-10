@@ -74,6 +74,38 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
     mock_logger_warning.assert_called_once()
 
 
+def test_complete_initialization_raises_if_sample_multiline(mocker):
+    # Sample with multiple rows (instead of single-row)
+    df = pl.DataFrame({"col1": [1, 2], "col2": [2, 3], "col3": [3, 4]})
+
+    class StubController:
+        def get_sample(self, idx):
+            # Returns 2 rows
+            return df
+
+        def normalize_columns(self, cols):
+            return cols
+
+    ds = TabularDataset(input_columns=["col1"], target_columns=["col3"], transform=None)
+
+    mocker.patch.object(
+        ds,
+        "_init_controller",
+        side_effect=lambda controller_kwargs: setattr(
+            ds, "_controller", StubController()
+        ),
+    )
+
+    # Patch validation to avoid unrelated errors if it were called
+    mocker.patch.object(ds, "_validate_format_and_transformations")
+
+    with pytest.raises(FedbiomedError) as exc:
+        ds.complete_initialization(
+            controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
+        )
+    assert "TabularDataset currently only supports row-wise samples" in str(exc.value)
+
+
 # ---------- _get_format_conversion_callable ----------
 
 
@@ -418,47 +450,7 @@ def test_apply_transforms_error_cases(mocker):
 # ---------- analytics ----------
 
 
-def test_get_analytics_item(mocker):
-    ds = TabularDataset(input_columns=["a"], target_columns=["b"])
-    ds.to_format = DataReturnFormat.SKLEARN
-
-    class StubController:
-        def get_sample(self, idx):
-            # Return polars DataFrame
-            return pl.DataFrame({"a": [1.0], "b": [2.0]})
-
-        def normalize_columns(self, cols):
-            return cols
-
-    ds._controller = StubController()
-
-    data, target = ds.get_analytics_item(0)
-    assert isinstance(data, np.ndarray)
-    assert isinstance(target, np.ndarray)
-    assert data[0] == 1.0
-    assert target[0] == 2.0
-
-
-def test_get_analytics_item_no_target(mocker):
-    ds = TabularDataset(input_columns=["a"], target_columns=None)
-    ds.to_format = DataReturnFormat.SKLEARN
-
-    class StubController:
-        def get_sample(self, idx):
-            return pl.DataFrame({"a": [1.0]})
-
-        def normalize_columns(self, cols):
-            return cols
-
-    ds._controller = StubController()
-
-    data = ds.get_analytics_item(0)
-    # Should return only data
-    assert isinstance(data, np.ndarray)
-    assert data[0] == 1.0
-
-
-def test_get_analytics_schema(mocker):
+def test_analytics_schema(mocker):
     ds = TabularDataset(input_columns=["a"], target_columns=["b"])
 
     class StubController:
@@ -469,12 +461,12 @@ def test_get_analytics_schema(mocker):
     ds._input_columns = ds._controller.normalize_columns(ds._input_columns)
     ds._target_columns = ds._controller.normalize_columns(ds._target_columns)
 
-    input_spec, target_spec = ds.get_analytics_schema()
+    input_spec, target_spec = ds.analytics_schema()
     assert input_spec.columns == ["a_norm"]
-    assert target_spec.columns == ["b_norm"]
+    assert target_spec is None
 
 
-def test_get_analytics_schema_no_target(mocker):
+def test_analytics_schema_no_target(mocker):
     ds = TabularDataset(input_columns=["a"], target_columns=None)
 
     class StubController:
@@ -484,5 +476,5 @@ def test_get_analytics_schema_no_target(mocker):
     ds._controller = StubController()
     ds._input_columns = ds._controller.normalize_columns(ds._input_columns)
 
-    input_spec = ds.get_analytics_schema()
+    input_spec, target_spec = ds.analytics_schema()
     assert input_spec.columns == ["a_norm"]

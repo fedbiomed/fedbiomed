@@ -370,7 +370,7 @@ def test_29_compute_stats():
 
     MockOrchestrator.assert_called_once()
     mock_instance.compute_stats.assert_called_once_with(
-        ds, dataset_schema=None, stats=["mean"], fa_args=None
+        ds, dataset_schema=None, stats=["mean"], stats_args=None
     )
     assert result == mock_result
 

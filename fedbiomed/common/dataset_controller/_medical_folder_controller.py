@@ -181,6 +181,7 @@ class MedicalFolderController(Controller):
         tabular_file = MedicalFolderController._validate_tabular_file(tabular_file)
 
         try:
+            # pandas is used for flexibility in handling delimiters and index columns
             demographics = CsvReader(tabular_file).data.to_pandas()
             if index_col is not None:
                 if isinstance(index_col, int):
@@ -385,7 +386,7 @@ class MedicalFolderController(Controller):
             sample = (
                 {}
                 if demographics is None
-                else {"demographics": demographics.loc[subject].to_dict()}
+                else {"demographics": demographics.loc[subject]}
             )
             for _, row in subject_groups[subject].iterrows():
                 sample[row["modality"]] = row["path"]

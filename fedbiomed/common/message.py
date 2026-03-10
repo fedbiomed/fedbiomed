@@ -895,7 +895,7 @@ class FARequest(RequestReply, RequiresProtocolVersion):
         researcher_id: ID of the researcher that requests FA job
         experiment_id: Id of the experiment that is sent by researcher
         dataset_id: id of the dataset that is used for FA job
-        fa_args: Arguments for FA job
+        stats_args: Arguments for FA job
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -904,9 +904,9 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     researcher_id: str
     experiment_id: str
     dataset_id: str
-    stats: str | List
     fa_id: str
-    fa_args: Optional[Dict] = None
+    stats: Optional[List] = None
+    stats_args: Optional[Dict] = None
     dataset_schema: Optional[str | List | Tuple | Dict] = None
 
 
@@ -932,7 +932,7 @@ class FAReply(RequestReply, RequiresProtocolVersion):
     fa_id: str
     node_id: str
     node_name: str
-    stats: str | List
+    stats: Optional[List]
     output: Dict | Tuple
 
 

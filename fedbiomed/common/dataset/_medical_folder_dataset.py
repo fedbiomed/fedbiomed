@@ -3,28 +3,45 @@
 
 from typing import Any, Callable, Dict, Iterable, Optional, Union
 
+import pandas as pd
 import torch
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import MedicalFolderController
-from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem, Transform
+from fedbiomed.common.dataset_types import (
+    DataReturnFormat,
+    DatasetDataItem,
+    ImageSpec,
+    RowSpec,
+    Transform,
+)
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from ._dataset import Dataset
+
+
+def _to_numpy(x):
+    # Handles pandas Series (demographics data)
+    if isinstance(x, pd.Series):
+        return pd.to_numeric(x, errors="coerce").to_numpy()
+    # Handles nibabel objects (medical images)
+    if hasattr(x, "get_fdata"):
+        return x.get_fdata()
+    raise FedbiomedError(f"Unsupported type for format conversion: {type(x).__name__}")
 
 
 class MedicalFolderDataset(Dataset):
     _controller_cls = MedicalFolderController
 
     _native_to_framework = {
-        DataReturnFormat.SKLEARN: lambda x: x.get_fdata(),
-        DataReturnFormat.TORCH: lambda x: torch.from_numpy(x.get_fdata()),
+        DataReturnFormat.SKLEARN: _to_numpy,
+        DataReturnFormat.TORCH: lambda x: torch.from_numpy(_to_numpy(x)),
     }
 
     def __init__(
         self,
         data_modalities: Union[str, Iterable[str]],
-        target_modalities: Optional[Union[str, Iterable[str]]],
+        target_modalities: Optional[Union[str, Iterable[str]]] = None,
         transform: Transform = None,
         target_transform: Transform = None,
     ):
@@ -72,6 +89,33 @@ class MedicalFolderDataset(Dataset):
                 transform=target_transform,
                 modalities=self._target_modalities,
             )
+
+    @property
+    def data_modalities(self) -> set[str]:
+        """Returns the data modalities of the dataset."""
+        return self._data_modalities
+
+    @property
+    def target_modalities(self) -> Optional[set[str]]:
+        """Returns the target modalities of the dataset, or None if not defined."""
+        return self._target_modalities
+
+    @property
+    def demographics_columns(self) -> Optional[list[str]]:
+        """Returns the columns of the dataset if 'demographics' modality is present, else None."""
+        if (
+            (
+                "demographics" in self._data_modalities
+                or (
+                    self._target_modalities is not None
+                    and "demographics" in self._target_modalities
+                )
+            )
+            and self._controller is not None
+            and self._controller.demographics is not None
+        ):
+            return self._controller.demographics.columns.tolist()
+        return None
 
     # === Functions ===
     @staticmethod
@@ -150,7 +194,7 @@ class MedicalFolderDataset(Dataset):
             )
         modalities = set(data.keys())
 
-        for modality in (_mod for _mod in modalities if _mod != "demographics"):
+        for modality in modalities:
             data[modality] = self._validate_format_conversion(
                 data[modality], extra_info=f"Modality: {modality}"
             )
@@ -158,20 +202,11 @@ class MedicalFolderDataset(Dataset):
         # Apply and validate transforms
         if isinstance(transform, dict):
             for modality in modalities:
-                if modality != "demographics":
-                    self._validate_transformation(
-                        data=data[modality],
-                        transform=transform[modality],
-                        extra_info=f"Error raised by modality: '{modality}'",
-                    )
-                else:
-                    try:
-                        _ = transform["demographics"](data["demographics"])
-                    except Exception as e:
-                        raise FedbiomedError(
-                            f"{ErrorNumbers.FB632.value}: Failed to apply transform "
-                            f"to 'demographics' in {self._to_format.value} format."
-                        ) from e
+                self._validate_transformation(
+                    data=data[modality],
+                    transform=transform[modality],
+                    extra_info=f"Error raised by modality: '{modality}'",
+                )
         else:
             # transform: apply to the entire data dict
             try:
@@ -222,12 +257,8 @@ class MedicalFolderDataset(Dataset):
 
         # Format conversion
         data = {
-            modality: (
-                self._get_default_types_callable()(
-                    self._get_format_conversion_callable()(sample[modality])
-                )
-                if modality != "demographics"
-                else sample[modality]
+            modality: self._get_default_types_callable()(
+                self._get_format_conversion_callable()(sample[modality])
             )
             for modality in modalities
         }
@@ -249,7 +280,7 @@ class MedicalFolderDataset(Dataset):
                 except Exception as e:
                     raise FedbiomedError(
                         f"{ErrorNumbers.FB632.value}: Failed to apply "
-                        f"`default training plan types to modality '{modality}' from sample "
+                        f"default training plan types to modality '{modality}' from sample "
                         f"(index={idx}) in {self._to_format.value} format."
                     ) from e
         else:
@@ -300,3 +331,26 @@ class MedicalFolderDataset(Dataset):
         )
 
         return data, target
+
+    def analytics_schema(self):
+        """Return schema associated with federated analytics."""
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
+            )
+        schema = {}
+
+        # Add demographics schema if available
+        if self.demographics_columns is not None:
+            schema["demographics"] = RowSpec(columns=self.demographics_columns)
+
+        # Add image schema for all other modalities
+        schema.update(
+            {
+                modality: ImageSpec()
+                for modality in self._data_modalities
+                if modality != "demographics"
+            }
+        )
+        return schema, None

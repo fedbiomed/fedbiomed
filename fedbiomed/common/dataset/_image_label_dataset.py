@@ -84,22 +84,11 @@ class _ImageLabelDataset(Dataset):
 
         sample = self._controller.get_sample(idx)
         sample = self.apply_transforms(sample)
-
         return sample["data"], sample["target"]
 
-    def get_analytics_item(self, idx: int) -> DatasetDataItem:
-        """Return image item at index `idx` in numpy format for analytics purposes."""
-        data, _ = self.__getitem__(idx)
-
-        # Cast to numpy if needed
-        if self.to_format == DataReturnFormat.TORCH:
-            data = data.numpy()
-
-        return data
-
-    def get_analytics_schema(self):
-        """Return schema associated with get_analytics_item"""
-        return ImageSpec()
+    def analytics_schema(self):
+        """Return schema associated with federated analytics."""
+        return ImageSpec(), None
 
 
 class ImageFolderDataset(_ImageLabelDataset):

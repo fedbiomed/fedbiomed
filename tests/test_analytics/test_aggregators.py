@@ -115,6 +115,45 @@ def test_aggregate_count():
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
 
+def test_aggregate_count_dicts():
+    """Test aggregate_count with list of dicts (categorical counts)."""
+    # Normal case: same keys, values are summed per key
+    node1 = {"cat": 3, "dog": 5}
+    node2 = {"cat": 2, "dog": 4}
+    result = aggregate_count([node1, node2])
+    assert result == {"cat": 5, "dog": 9}
+
+    # Single node
+    assert aggregate_count([{"a": 0, "b": 10}]) == {"a": 0, "b": 10}
+
+    # Zero counts are valid
+    assert aggregate_count([{"x": 0}, {"x": 0}]) == {"x": 0}
+
+    # numpy integers are accepted as values
+    node_np = {"a": np.int64(4), "b": np.int32(6)}
+    result_np = aggregate_count([node_np, {"a": 1, "b": 2}])
+    assert result_np == {"a": 5, "b": 8}
+
+    # Different keys across nodes: missing keys default to 0 (union)
+    result_union = aggregate_count([{"cat": 3, "dog": 5}, {"cat": 2, "bird": 1}])
+    assert result_union == {"cat": 5, "dog": 5, "bird": 1}
+
+    # Negative dict value raises FedbiomedError
+    with pytest.raises(FedbiomedError) as excinfo:
+        aggregate_count([{"a": 3}, {"a": -1}])
+    assert ErrorNumbers.FB633.value in str(excinfo.value)
+
+    # Non-integer dict value raises FedbiomedError
+    with pytest.raises(FedbiomedError) as excinfo:
+        aggregate_count([{"a": 1.5}, {"a": 2}])
+    assert ErrorNumbers.FB633.value in str(excinfo.value)
+
+    # Mixed list (int and dict) raises FedbiomedError
+    with pytest.raises(FedbiomedError) as excinfo:
+        aggregate_count([5, {"a": 3}])
+    assert ErrorNumbers.FB633.value in str(excinfo.value)
+
+
 def test_aggregate_sum():
     """Test aggregate_sum function."""
     # Normal case
