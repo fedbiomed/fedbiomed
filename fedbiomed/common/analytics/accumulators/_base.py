@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fedbiomed.common.constants import FedbiomedError
 
@@ -45,9 +45,13 @@ class DictAccumulator(Accumulator):
 class SequenceAccumulator(Accumulator):
     """Accumulator for sequence structures (lists, tuples)."""
 
-    def __init__(self, children: List[Accumulator], is_tuple: bool = True):
+    def __init__(
+        self,
+        children: List[Accumulator],
+        indices: Optional[List[int]] = None,
+    ):
         self.children = children
-        self.is_tuple = is_tuple
+        self.indices = indices if indices is not None else list(range(len(children)))
 
     def update(self, value: Union[List, Tuple]) -> None:
         if not isinstance(value, (list, tuple)):
@@ -55,22 +59,15 @@ class SequenceAccumulator(Accumulator):
                 f"SequenceAccumulator expected sequence, got {type(value)}"
             )
 
-        for i, child in enumerate(self.children):
-            if i < len(value):
-                child.update(value[i])
+        for idx, child in zip(self.indices, self.children, strict=True):
+            if idx >= len(value):
+                raise FedbiomedError(
+                    f"SequenceAccumulator: index {idx} out of range for value of length {len(value)}"
+                )
+            child.update(value[idx])
 
-    def finalize(self) -> Union[List, Tuple]:
+    def finalize(self) -> Any:
         results = [child.finalize() for child in self.children]
-        if self.is_tuple:
-            return tuple(results)
+        if len(results) == 1:
+            return results[0]
         return results
-
-
-class SkipAccumulator(Accumulator):
-    """Accumulator that produces no output; used when a sequence position is explicitly skipped."""
-
-    def update(self, value: Any) -> None:
-        pass
-
-    def finalize(self) -> None:
-        return None
