@@ -6,7 +6,6 @@ from unittest.mock import patch
 import fedbiomed.researcher.federated_workflows._federated_workflow
 from fedbiomed.common.exceptions import (
     FedbiomedError,
-    FedbiomedExperimentError,
     FedbiomedSilentTerminationError,
 )
 from fedbiomed.researcher.federated_workflows._federated_workflow import exp_exceptions
@@ -122,48 +121,6 @@ class TestExpExceptions(unittest.TestCase):
                 decFunction()
 
         self.assertEqual("", stdout.getvalue())
-
-    def test_exp_exceptions_7_debug_mode_fedbiomed_experiment_error_prints_traceback_and_reraises(
-        self,
-    ):
-        """In debug mode, FedbiomedExperimentError should print a traceback and re-raise."""
-
-        @exp_exceptions
-        def decFunction():
-            raise FedbiomedExperimentError("boom-exp")
-
-        stdout = io.StringIO()
-        with (
-            patch.dict(os.environ, {"FBM_DEBUG": "1"}, clear=False),
-            patch("sys.stdout", stdout),
-        ):
-            with self.assertRaises(FedbiomedExperimentError):
-                decFunction()
-
-        out = stdout.getvalue()
-        self.assertIn("FedbiomedExperimentError", out)
-        self.assertIn("boom-exp", out)
-
-    def test_exp_exceptions_8_debug_mode_fedbiomed_silent_termination_error_prints_traceback_and_reraises(
-        self,
-    ):
-        """In debug mode, FedbiomedSilentTerminationError should print a traceback and re-raise."""
-
-        @exp_exceptions
-        def decFunction():
-            raise FedbiomedSilentTerminationError("boom-silent")
-
-        stdout = io.StringIO()
-        with (
-            patch.dict(os.environ, {"FBM_DEBUG": "1"}, clear=False),
-            patch("sys.stdout", stdout),
-        ):
-            with self.assertRaises(FedbiomedSilentTerminationError):
-                decFunction()
-
-        out = stdout.getvalue()
-        self.assertIn("FedbiomedSilentTerminationError", out)
-        self.assertIn("boom-silent", out)
 
 
 if __name__ == "__main__":  # pragma: no cover

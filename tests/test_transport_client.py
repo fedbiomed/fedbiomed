@@ -3,11 +3,16 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import grpc
-from testsupport.mock import AsyncMock
 
 from fedbiomed.common.constants import MAX_RETRIEVE_ERROR_RETRIES, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.message import FeedbackMessage, Log, Scalar, SearchReply
+from fedbiomed.common.message import (
+    FeedbackMessage,
+    Log,
+    Scalar,
+    SearchReply,
+    SearchRequest,
+)
 from fedbiomed.transport.client import (
     Channels,
     ClientStatus,
@@ -120,6 +125,10 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.serializer_patch = patch("fedbiomed.transport.client.Serializer")
         self.serializer_mock = self.serializer_patch.start()
+        self.serializer_mock.loads.return_value = SearchRequest(
+            researcher_id="test-researcher-id",
+            tags=["test"],
+        ).to_dict()
         self.node_id = "test-node-id"
         self.on_status_change = AsyncMock()
         self.update_id = AsyncMock()
@@ -141,8 +150,6 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         pass
 
     async def test_task_listener_01_listen(self):
-        self.serializer_mock.load.return_value = {"researcher_id": "test-researcher-id"}
-
         async def async_iterator(items):
             for item in items:
                 yield item
@@ -165,7 +172,7 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(asyncio.CancelledError):
             await task
 
-        # self.callback.assert_called_once()
+        self.callback.assert_called_once()
         self.serializer_mock.loads.assert_called_once()
         self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
         self.update_id.assert_called_once()

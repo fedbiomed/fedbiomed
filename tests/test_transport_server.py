@@ -81,10 +81,13 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
             for i in [1, 2]:
                 yield TaskResult(size=2, iteration=i, bytes_=b"test")
 
-        load.return_value = {"node_id": "test-node"}
+        node_agent = AsyncMock()
+        self.agent_store.get.return_value = node_agent
+        load.return_value = reply.to_dict()
         result = await self.servicer.ReplyTask(
             request_iterator=request_iterator(), unused_context=self.context
         )
+        node_agent.on_reply.assert_called_once_with(load.return_value)
         self.assertEqual(result, Empty())
 
     async def test_researcher_servicer_03_Feedback(self):

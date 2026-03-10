@@ -3,20 +3,21 @@ Module for global PyTest configuration and fixtures
 
 """
 
-import re
 import os
-import tempfile
+import re
 import shutil
+import tempfile
 
-import pytest
 import psutil
-
+import pytest
 from helpers import (
-    kill_process,
     CONFIG_PREFIX,
+    kill_process,
 )
 
 _PORT = 50151
+
+os.environ["FBM_DEBUG"] = "True"
 
 
 @pytest.fixture(scope="module")
