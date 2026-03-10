@@ -231,10 +231,14 @@ class AnalyticsOrchestrator:
                     f"Subschema for sequence must be list/tuple. Got {type(subschema)}."
                 )
             if len(subschema) != len(active):
-                raise FedbiomedError(
-                    f"Subschema ({len(subschema)}) does not match schema elements "
-                    f"({len(active)}). Use None at a position to exclude that element."
-                )
+                # Dataset schemas use the (data_schema, None) convention. Allow unwrapping for user convenience.
+                if len(active) == 1:
+                    subschema = [subschema]
+                else:
+                    raise FedbiomedError(
+                        f"Subschema ({len(subschema)}) does not match schema elements "
+                        f"({len(active)}). Use None at a position to exclude that element."
+                    )
 
         # Validate Args
         if stats_args is not None:
