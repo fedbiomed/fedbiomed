@@ -11,6 +11,7 @@ import pytest
 from fedbiomed.common.analytics.accumulators._operations import (
     CountAccumulator,
     HistogramAccumulator,
+    ImageBaseAccumulator,
     ImageMeanAccumulator,
     ImageShapeAccumulator,
     ImageVarianceAccumulator,
@@ -995,16 +996,19 @@ def test_image_mean_accumulator_update_and_finalize():
     # buffer contains [2.0, 4.0]
     # stats on buffer: mean=3.0, etc.
 
-    assert "mean" in result
-    assert result["mean"] == pytest.approx(3.0)
-    assert "count" in result
-    assert result["count"] == 2
-    assert "std" in result
-    assert result["std"] == pytest.approx(1.0)  # std of [2, 4] is 1
+    assert "mean_summary" in result
+    stats = result["mean_summary"]
+
+    assert "mean" in stats
+    assert stats["mean"] == pytest.approx(3.0)
+    assert "count" in stats
+    assert stats["count"] == 2
+    assert "std" in stats
+    assert stats["std"] == pytest.approx(1.0)  # std of [2, 4] is 1
 
     # Check quartiles key (q25, q50, q75 returned as a list)
-    assert "quartiles" in result
-    quartiles = result["quartiles"]
+    assert "quartiles" in stats
+    quartiles = stats["quartiles"]
     assert quartiles[0] == pytest.approx(2.5)  # q25
     assert quartiles[1] == pytest.approx(3.0)  # q50 (median)
     assert quartiles[2] == pytest.approx(3.5)  # q75
@@ -1056,7 +1060,7 @@ def test_image_variance_accumulator_integration():
 
     # buffer contains [0.0, 1.0]
     # stat mean on buffer = 0.5
-    assert result["mean"] == pytest.approx(0.5)
+    assert result["variance_summary"]["mean"] == pytest.approx(0.5)
 
 
 # =============================================================================
@@ -1085,3 +1089,41 @@ def test_image_accumulator_finalize_error():
 
     with pytest.raises(FedbiomedError, match="Error finalizing image statistics"):
         acc.finalize()
+
+
+# =============================================================================
+# ImageBaseAccumulator Subclass Tests
+# =============================================================================
+
+
+@pytest.mark.parametrize("invalid_alias", [None, 123, True, [1, 2], {"a": 1}])
+def test_image_base_accumulator_subclass_invalid_alias(invalid_alias):
+    """Test that subclass with invalid _alias raises TypeError."""
+    with pytest.raises(TypeError, match="must define '_alias' as a string"):
+
+        class InvalidAlias(ImageBaseAccumulator):
+            _alias = invalid_alias
+
+            def reduce(self, image: np.ndarray) -> float:
+                return 0.0
+
+
+def test_image_base_accumulator_subclass_no_alias():
+    """Test that subclass without _alias raises TypeError (default is None)."""
+    with pytest.raises(TypeError, match="must define '_alias' as a string"):
+
+        class NoAlias(ImageBaseAccumulator):
+            def reduce(self, image: np.ndarray) -> float:
+                return 0.0
+
+
+def test_image_base_accumulator_subclass_valid_alias():
+    """Test that subclass with valid _alias works."""
+
+    class ValidAlias(ImageBaseAccumulator):
+        _alias = "valid_summary"
+
+        def reduce(self, image: np.ndarray) -> float:
+            return 0.0
+
+    assert ValidAlias._alias == "valid_summary"

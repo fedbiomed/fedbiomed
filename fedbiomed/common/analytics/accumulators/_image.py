@@ -67,6 +67,9 @@ class ImageAccumulator(Accumulator):
         """Return finalized statistics for this image element.
 
         Returns:
-            A dictionary mapping stat names to their finalized values.
+            A merged dictionary of all stat accumulator results.
         """
-        return {stat: acc.finalize() for stat, acc in self.accumulators.items()}
+        result = {}
+        for acc in self.accumulators.values():
+            result.update(acc.finalize())
+        return result

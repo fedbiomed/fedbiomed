@@ -73,7 +73,6 @@ _REGISTRY_STATS = [
         "name": "count",
         "valid_for": DatasetElementType.IMAGE,
         "accumulator_class": ImageShapeAccumulator,
-        "uses_buffer": True,
     },
     {
         "name": "mean",
