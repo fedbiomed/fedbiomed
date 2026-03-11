@@ -47,6 +47,8 @@ nav:
               - "More Scikit-Learn models": "./tutorials/scikit-learn/03-other-scikit-learn-models.ipynb"
           - Optimizers:
               - "Advanced Optimizers": "./tutorials/optimizers/01-fedopt-and-scaffold.ipynb"
+          - Analytics:
+              - "Tabular Dataset": "./tutorials/analytics/tabular_dataset.ipynb"
           - FLamby:
               - "Introduction": "./tutorials/flamby/index.md"
               - "FLamby Federated Heart Disease Example": "./tutorials/flamby/flamby-integration-into-fedbiomed.ipynb"
