@@ -551,6 +551,7 @@ class FederatedAnalytics:
         node_ids: list[str],
         dataset_schema: Optional[str | list[str | dict]],
         stats_args: Optional[dict],
+        secagg_active: bool = False,
     ) -> str:
         """Create a stable string key from the node list and FA arguments.
 
@@ -558,6 +559,9 @@ class FederatedAnalytics:
             node_ids: Current list of participating node IDs.
             dataset_schema: Schema definition.
             stats_args: FA-specific computation arguments.
+            secagg_active: Whether secure aggregation is active. SecAgg results
+                have a different structure (globally-decrypted single entry) than
+                plain per-node results, so they must not share the same cache slot.
 
         Returns:
             A hex digest string that uniquely identifies the argument combination.
@@ -566,6 +570,7 @@ class FederatedAnalytics:
             "node_ids": sorted(node_ids),
             "dataset_schema": dataset_schema,
             "stats_args": stats_args or {},
+            "secagg_active": secagg_active,
         }
         return hashlib.md5(
             json.dumps(key_data, sort_keys=True, default=str).encode(),
@@ -601,8 +606,9 @@ class FederatedAnalytics:
             stats = [stats]
 
         node_ids = self.get_node_ids()
+        secagg_active = self._secagg is not False and self._secagg.active
         cache_key = FederatedAnalytics.make_cache_key(
-            node_ids, dataset_schema, stats_args
+            node_ids, dataset_schema, stats_args, secagg_active=secagg_active
         )
         cached = self._results_store.get(cache_key)
 
@@ -616,9 +622,6 @@ class FederatedAnalytics:
             need_request = bool(missing)
 
         if need_request:
-            secagg_active = (
-                self._secagg is not False and self._secagg.active
-            )
 
             secagg_arguments = {}
             if secagg_active:

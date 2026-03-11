@@ -279,6 +279,56 @@ class TestSecureFAIntegration:
             # Results should be the same object
             assert result1 is result2
 
+    def test_secagg_and_plain_results_use_separate_cache_slots(self, mock_fds, mock_requests):
+        """SecAgg and non-SecAgg calls must not share the same cache entry."""
+
+        with patch('fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob') as mock_job_cls:
+            mock_job = MagicMock()
+            mock_job.execute.side_effect = [
+                # First call (no secagg): two per-node replies
+                (
+                    {
+                        "node-1": self._create_mock_reply({"AGE": {"mean": 65.0}}),
+                        "node-2": self._create_mock_reply({"AGE": {"mean": 70.0}}),
+                    },
+                    {},
+                ),
+                # Second call (secagg): only one node in result (should not be reached
+                # if a stale cache entry was returned)
+                (
+                    {"node-1": self._create_mock_reply({"AGE": {"mean": 67.5}})},
+                    {},
+                ),
+            ]
+            mock_job_cls.return_value = mock_job
+
+            # First call — plain (no SecAgg)
+            fa = FederatedAnalytics(
+                fds=mock_fds,
+                experiment_id="exp-1",
+                researcher_id="res-1",
+                reqs=mock_requests,
+                experimentation_folder="/tmp",
+                secagg=False,
+            )
+            result_plain = fa.fetch_stats(stats=["mean"])
+            assert mock_job.execute.call_count == 1
+            assert set(result_plain.node_ids) == {"node-1", "node-2"}
+
+            # Enable SecAgg on the same instance; same stats + same nodes
+            fa._secagg = MagicMock()
+            fa._secagg.active = True
+            fa._secagg.setup.return_value = True
+            fa._secagg.train_arguments.return_value = {"key": 1, "biprime": 2}
+
+            with patch.object(fa, '_decrypt_replies', side_effect=lambda r: r):
+                result_secagg = fa.fetch_stats(stats=["mean"])
+
+            # A new network request must have been made (different cache key)
+            assert mock_job.execute.call_count == 2
+            # The SecAgg result is independent of the plain result
+            assert result_secagg is not result_plain
+
     def test_error_handling_node_failure(self, mock_fds, mock_requests):
         """Test that SecAgg aborts when any node fails (masks cannot cancel)."""
 
