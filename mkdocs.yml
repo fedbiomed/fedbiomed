@@ -74,6 +74,7 @@ nav:
               - "Adding your Custom Dataset": "./user-guide/datasets/custom-dataset.md"
               - "Adding a Native Dataset": "./user-guide/datasets/native-dataset.md"
               - "Applying Transformations": "./user-guide/datasets/applying-transformations.md"
+              - "Analytics": "./user-guide/datasets/federated-analytics.md"
           - Deployment:
               - "Introduction": "./user-guide/deployment/deployment.md"
               - "VPN Deployment": "./user-guide/deployment/deployment-vpn.md"
@@ -170,6 +171,7 @@ nav:
           - "Development Environment": "./developer/development-environment.md"
           - "Testing in Fed-BioMed": "./developer/testing-in-fedbiomed.md"
           - "RPC Protocol and Messages": "./developer/messaging.md"
+          - "Federated Analytics": "./developer/federated-analytics.md"
       #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
       - "FAQ & Troubleshooting": "./support/troubleshooting.md"
   - Footer:
