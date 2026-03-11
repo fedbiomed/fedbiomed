@@ -101,6 +101,7 @@ nav:
       - Developer:
           - "API Reference":
               - Common:
+                  - Analytics: "./developer/api/common/analytics.md"
                   - "Certificate Manager": "./developer/api/common/certificate_manager.md"
                   - CLI: "./developer/api/common/cli.md"
                   - Config: "./developer/api/common/config.md"
@@ -137,6 +138,7 @@ nav:
                   - Config: "./developer/api/node/config.md"
                   - DatasetManager: "./developer/api/node/dataset_manager.md"
                   - HistoryMonitor: "./developer/api/node/history_monitor.md"
+                  - Jobs: "./developer/api/node/jobs.md"
                   - Node: "./developer/api/node/node.md"
                   - NodeStateManager: "./developer/api/node/node_state_manager.md"
                   - Requests: "./developer/api/node/requests.md"
