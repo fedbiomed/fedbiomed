@@ -131,14 +131,42 @@ class FAJob(_BaseJob):
 
         crypter = SecaggCrypter()
 
+        def _encrypt_scalar(scalar: float) -> dict:
+            encrypted = crypter.encrypt(
+                num_nodes=enc_params["num_nodes"],
+                current_round=enc_params["current_round"],
+                params=[scalar],
+                key=enc_params["key"],
+                biprime=enc_params["biprime"],
+                clipping_range=enc_params["clipping_range"],
+            )
+            return {"_encrypted": True, "value": encrypted[0]}
+
         def encrypt_value(val: Any) -> Any:
             if isinstance(val, dict):
+                # When both 'mean' and 'count' are numeric siblings, encrypt
+                # sum = mean * count instead of mean.  This lets the researcher
+                # recover the true weighted global mean (total_sum / total_count)
+                # rather than the arithmetic average of per-node means.
+                mean_v = val.get("mean")
+                count_v = val.get("count")
+                encode_mean_as_sum = isinstance(mean_v, (int, float)) and isinstance(
+                    count_v, (int, float)
+                )
                 result = {}
                 for k, v in val.items():
                     if k == "histogram":
                         result[k] = self._encrypt_histogram(v, enc_params, crypter)
                     elif k == "bin_edges":
                         result[k] = v
+                    elif k == "mean" and encode_mean_as_sum:
+                        try:
+                            enc = _encrypt_scalar(float(v) * float(count_v))
+                            enc["_sum_encoded"] = True
+                            result[k] = enc
+                        except Exception as e:
+                            logger.warning(f"Failed to encrypt mean as sum: {e}")
+                            result[k] = v
                     else:
                         result[k] = encrypt_value(v)
                 return result
@@ -146,15 +174,7 @@ class FAJob(_BaseJob):
                 return [encrypt_value(item) for item in val]
             elif isinstance(val, (int, float)):
                 try:
-                    encrypted = crypter.encrypt(
-                        num_nodes=enc_params["num_nodes"],
-                        current_round=enc_params["current_round"],
-                        params=[float(val)],
-                        key=enc_params["key"],
-                        biprime=enc_params["biprime"],
-                        clipping_range=enc_params["clipping_range"],
-                    )
-                    return {"_encrypted": True, "value": encrypted[0]}
+                    return _encrypt_scalar(float(val))
                 except Exception as e:
                     logger.warning(f"Failed to encrypt value {val}: {e}")
                     return val

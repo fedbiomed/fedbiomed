@@ -622,6 +622,20 @@ class FederatedAnalytics:
 
             secagg_arguments = {}
             if secagg_active:
+                # Warn for stats that SecAgg cannot aggregate correctly.
+                # 'mean' is fixed by sum-encoding; the others are fundamentally
+                # non-additive and cannot be corrected within the JLS scheme.
+                _secagg_inaccurate = {"variance", "std", "min", "max"}
+                requested = set(missing) if missing else set()
+                inaccurate = requested & _secagg_inaccurate
+                if inaccurate:
+                    logger.warning(
+                        f"SecAgg cannot produce correct global results for "
+                        f"{sorted(inaccurate)}: these statistics are not additive "
+                        "across nodes. Results will be the arithmetic average of "
+                        "per-node values, not the true global statistic."
+                    )
+
                 parties = [self._researcher_id] + node_ids
                 secagg_arguments = self.secagg_setup(parties)
                 # Pass the exact number of encrypting nodes (excluding researcher)
@@ -746,8 +760,9 @@ class FederatedAnalytics:
 
         num_nodes = len(replies)
 
-        # Stat keys whose global value is the SUM across nodes (not the average).
-        # All other numeric stats are treated as averages (e.g. mean, variance).
+        # Stat keys whose encrypted value is a plain SUM (additive across nodes).
+        # 'mean' is handled separately: nodes encode sum=mean*count, and after
+        # decryption the total sum is divided by total_count (see post-processing).
         ADDITIVE_STAT_KEYS = {"count"}
 
         def get_encrypted_values_for_stat(replies: dict, stat_path: str) -> List:
@@ -770,6 +785,7 @@ class FederatedAnalytics:
             """Process output, replacing encrypted values with global aggregated result."""
             if isinstance(output, dict):
                 result = {}
+                sum_encoded_keys: set = set()
                 for k, v in output.items():
                     current_path = f"{path}.{k}" if path else k
                     if k == "histogram":
@@ -779,15 +795,29 @@ class FederatedAnalytics:
                     elif isinstance(v, dict) and "_encrypted" in v:
                         enc_vals = get_encrypted_values_for_stat(replies, current_path)
                         if enc_vals:
-                            is_additive = k in ADDITIVE_STAT_KEYS
+                            # Nodes encode mean as sum=mean*count; treat as additive
+                            # so we decrypt the total sum across all nodes.
+                            is_sum_encoded = bool(v.get("_sum_encoded", False))
+                            is_additive = k in ADDITIVE_STAT_KEYS or is_sum_encoded
                             decrypted = self._decrypt_single_value(
                                 enc_vals, secagg_params, num_nodes, is_additive=is_additive
                             )
                             result[k] = decrypted
+                            if is_sum_encoded:
+                                sum_encoded_keys.add(k)
                         else:
                             result[k] = v.get("value", 0)
                     else:
                         result[k] = process_node_output(v, current_path)
+
+                # Post-process sum-encoded values: mean = total_sum / total_count.
+                if sum_encoded_keys:
+                    total_count = result.get("count")
+                    if isinstance(total_count, (int, float)) and total_count != 0:
+                        for key in sum_encoded_keys:
+                            if isinstance(result.get(key), (int, float)):
+                                result[key] = result[key] / total_count
+
                 return result
             elif isinstance(output, list):
                 return [process_node_output(item, path) for item in output]

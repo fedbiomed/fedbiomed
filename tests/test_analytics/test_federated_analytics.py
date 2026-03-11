@@ -1060,6 +1060,64 @@ class TestFAJobEncryption:
 # ---------------------------------------------------------------------------
 
 
+class TestFAJobMeanSumEncoding:
+    """Tests for the mean sum-encoding fix (Issue 5)."""
+
+    _ENC_PARAMS = {
+        "num_nodes": 2,
+        "key": 123,
+        "biprime": 456,
+        "clipping_range": None,
+        "current_round": 1,
+    }
+
+    @patch("fedbiomed.node.jobs._fa_job.SecaggCrypter")
+    def test_mean_is_encoded_as_sum_when_count_present(self, mock_crypter_cls):
+        """Node encrypts mean*count (sum) when count is a numeric sibling."""
+        from fedbiomed.node.jobs._fa_job import FAJob
+
+        mock_crypter = MagicMock()
+        mock_crypter_cls.return_value = mock_crypter
+        mock_crypter.encrypt.return_value = [999]
+
+        job = MagicMock(spec=FAJob)
+        job._get_encryption_params.return_value = dict(self._ENC_PARAMS)
+
+        output = {"AGE": {"mean": 65.0, "count": 100}}
+        result = FAJob._encrypt_output(job, output)
+
+        # find the call that encrypted the mean
+        calls = mock_crypter.encrypt.call_args_list
+        mean_calls = [c for c in calls if c.kwargs.get("params") == [65.0 * 100]]
+        assert mean_calls, "mean should have been encrypted as sum = mean * count"
+
+        # the encrypted mean wrapper should carry the _sum_encoded marker
+        assert result["AGE"]["mean"].get("_sum_encoded") is True
+
+    @patch("fedbiomed.node.jobs._fa_job.SecaggCrypter")
+    def test_mean_not_sum_encoded_without_count(self, mock_crypter_cls):
+        """Node encrypts mean as-is when count is absent."""
+        from fedbiomed.node.jobs._fa_job import FAJob
+
+        mock_crypter = MagicMock()
+        mock_crypter_cls.return_value = mock_crypter
+        mock_crypter.encrypt.return_value = [999]
+
+        job = MagicMock(spec=FAJob)
+        job._get_encryption_params.return_value = dict(self._ENC_PARAMS)
+
+        output = {"AGE": {"mean": 65.0}}  # no count sibling
+        result = FAJob._encrypt_output(job, output)
+
+        enc = result["AGE"]["mean"]
+        assert enc.get("_encrypted") is True
+        assert not enc.get("_sum_encoded", False)
+
+        # encrypted value should be 65.0, not 65.0 * something
+        calls = mock_crypter.encrypt.call_args_list
+        assert any(c.kwargs.get("params") == [65.0] for c in calls)
+
+
 class TestFARequestJobSecAgg:
     """Tests for FARequestJob with secure aggregation parameters."""
 
