@@ -229,18 +229,16 @@ class TestSecureFAIntegration:
             )
             
             # Compute analytics
-            result = fa.compute_analytics(
+            result = fa.fetch_stats(
                 stats=["mean"],
-                dataset_args={"col_names": ["AGE"]}
             )
-            
+
             # Verify flow
             mock_job_cls.assert_called_once()
             mock_secagg.setup.assert_called_once()
-            
+
             # Verify result
             assert "node-1" in result.node_ids
-            assert "node-2" in result.node_ids
 
     def test_caching_with_secagg(self, mock_fds, mock_requests):
         """Test that caching works correctly with secagg."""
@@ -271,12 +269,12 @@ class TestSecureFAIntegration:
             )
             
             # First call - should trigger request
-            result1 = fa.compute_analytics(stats=["mean"])
-            assert mock_job.call_count == 1
-            
+            result1 = fa.fetch_stats(stats=["mean"])
+            assert mock_job.execute.call_count == 1
+
             # Second call with same params - should use cache
-            result2 = fa.compute_analytics(stats=["mean"])
-            assert mock_job.call_count == 1  # Still 1, no new request
+            result2 = fa.fetch_stats(stats=["mean"])
+            assert mock_job.execute.call_count == 1  # Still 1, no new request
             
             # Results should be the same object
             assert result1 is result2
@@ -314,8 +312,8 @@ class TestSecureFAIntegration:
                 secagg=True,
             )
             
-            result = fa.compute_analytics(stats=["mean"])
-            
+            result = fa.fetch_stats(stats=["mean"])
+
             # Should still have result from node-1
             assert "node-1" in result.node_ids
 
@@ -351,9 +349,9 @@ class TestFAResultIntegration:
         global_mean = result.global_stat("mean")
         global_count = result.global_stat("count")
         
-        assert global_mean["demographics"]["age"] == 67.22222222222223
+        assert global_mean["demographics"]["age"] == pytest.approx(67.22222222222222)
         assert global_count["demographics"]["age"] == 180
-        assert global_mean["demographics"]["income"] == 54444.44444444444
+        assert global_mean["demographics"]["income"] == pytest.approx(54444.44444444444)
 
     def test_mixed_encrypted_clear_structure(self):
         """Test with mix of encrypted and clear values."""

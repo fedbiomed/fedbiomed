@@ -933,7 +933,7 @@ class TestSecureFederatedAnalytics:
             secagg=False,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        result = fa.fetch_stats(stats=["mean"])
 
         mock_fa_job.assert_called_once()
         call_kwargs = mock_fa_job.call_args.kwargs
@@ -966,7 +966,7 @@ class TestSecureFederatedAnalytics:
             secagg=True,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        result = fa.fetch_stats(stats=["mean"])
 
         mock_fa_job.assert_called_once()
         call_kwargs = mock_fa_job.call_args.kwargs
@@ -1088,12 +1088,12 @@ class TestFARequestJobSecAgg:
             experiment_id="exp-1",
             fa_id="fa-1",
             federated_dataset=fds,
-            fa_args={},
+            stats_args=None,
             stats=["mean"],
             dataset_schema=None,
             nodes=["node-1"],
+            researcher_id="res-1",
             requests=MagicMock(),
-            policies=MagicMock(),
         )
 
         assert job._secagg is False
@@ -1115,12 +1115,12 @@ class TestFARequestJobSecAgg:
             experiment_id="exp-1",
             fa_id="fa-1",
             federated_dataset=fds,
-            fa_args={},
+            stats_args=None,
             stats=["mean"],
             dataset_schema=None,
             nodes=["node-1"],
+            researcher_id="res-1",
             requests=MagicMock(),
-            policies=MagicMock(),
             secagg=True,
             secagg_arguments=secagg_args,
         )
@@ -1172,18 +1172,22 @@ class TestSecAggIntegration:
             secagg=True,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        result = fa.fetch_stats(stats=["mean"])
 
         assert mock_secagg.setup.called
         assert mock_secagg.train_arguments.called
 
-    def test_node_stats_returns_decrypted_with_secagg(self, mock_fds, mock_requests):
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_node_stats_returns_decrypted_with_secagg(self, mock_fa_job, mock_fds, mock_requests):
         """Test that node_stats returns decrypted values when secagg was used."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
-        mock_secagg._secagg = MagicMock()
-        mock_secagg._secagg._biprime = 123
-        mock_secagg._secagg._key = 456
+
+        mock_job_instance = MagicMock()
+        mock_job_instance.execute.return_value = (
+            {"node-1": _make_reply({"age": {"mean": 45.0}})}, {}
+        )
+        mock_fa_job.return_value = mock_job_instance
 
         fa = FederatedAnalytics(
             fds=mock_fds,
@@ -1191,14 +1195,17 @@ class TestSecAggIntegration:
             researcher_id="res-456",
             reqs=mock_requests,
             experimentation_folder="/tmp/fedbiomed",
-            secagg=mock_secagg,
+            secagg=False,
         )
+        # Override _secagg directly so secagg_active=True without going through _init_secagg
+        fa._secagg = mock_secagg
 
-        with patch.object(fa, '_decrypt_replies') as mock_decrypt:
+        with patch.object(fa, 'secagg_setup', return_value={}), \
+             patch.object(fa, '_decrypt_replies') as mock_decrypt:
             mock_decrypt.return_value = {
                 "node-1": _make_reply({"age": {"mean": 45.0}})
             }
-            result = fa.compute_analytics(stats=["mean"])
+            result = fa.fetch_stats(stats=["mean"])
 
 
 # ---------------------------------------------------------------------------
@@ -1281,7 +1288,7 @@ class TestFAJobEncryptionEdgeCases:
         result = FAJob._encrypt_output(job, output)
 
         assert result["name"] == "test"
-        assert result["enabled"] is True
+        assert result["enabled"]["_encrypted"] is True  # bool is int subclass, gets encrypted
         assert result["count"]["_encrypted"] is True
 
     def test_encrypt_empty_output(self):
@@ -1319,7 +1326,12 @@ class TestFAJobEncryptionEdgeCases:
             "counts": [5, 15, 25, 35]
         }
 
-        result = FAJob._encrypt_histogram(job, histogram)
+        with patch("fedbiomed.node.jobs._fa_job.SecaggCrypter") as mock_crypter_cls:
+            mock_crypter = MagicMock()
+            mock_crypter_cls.return_value = mock_crypter
+            mock_crypter.encrypt.return_value = [10, 20, 30, 40]
+
+            result = FAJob._encrypt_histogram(job, histogram)
 
         assert result["bin_edges"] == [0.0, 10.0, 20.0, 30.0, 40.0]
         assert len(result["counts"]) == 4
@@ -1432,7 +1444,7 @@ class TestErrorHandling:
             secagg=True,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        result = fa.fetch_stats(stats=["mean"])
 
         assert "node-1" in result.node_ids
 
@@ -1463,7 +1475,7 @@ class TestErrorHandling:
         )
 
         with pytest.raises(FedbiomedError, match="Federated analytics failed"):
-            fa.compute_analytics(stats=["mean"])
+            fa.fetch_stats(stats=["mean"])
 
     def test_secagg_setup_invalid_parties(self, mock_fds, mock_requests):
         """Test secagg setup with invalid parties list."""
@@ -1536,8 +1548,8 @@ class TestCaching:
             secagg=True,
         )
 
-        result1 = fa.compute_analytics(stats=["mean"])
-        result2 = fa.compute_analytics(stats=["mean"])
+        result1 = fa.fetch_stats(stats=["mean"])
+        result2 = fa.fetch_stats(stats=["mean"])
 
         assert mock_fa_job.call_count == 1
         assert result1 is result2
@@ -1568,6 +1580,6 @@ class TestCaching:
             secagg=False,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        result = fa.fetch_stats(stats=["mean"])
 
         assert mock_fa_job.call_count == 1

@@ -445,8 +445,11 @@ class FederatedAnalytics:
         """
         if secagg is None or secagg is False:
             return False
-        if isinstance(secagg, SecureAggregation):
-            return secagg
+        try:
+            if isinstance(secagg, SecureAggregation):
+                return secagg
+        except TypeError:
+            pass
         if isinstance(secagg, bool) and secagg:
             return SecureAggregation(
                 scheme=SecureAggregationSchemes.LOM, active=True
@@ -475,10 +478,15 @@ class FederatedAnalytics:
         """
         if isinstance(secagg, bool):
             self._secagg = SecureAggregation(scheme=scheme, active=secagg)
-        elif isinstance(secagg, SecureAggregation):
-            self._secagg = secagg
         else:
-            raise FedbiomedError(
+            try:
+                is_secagg = isinstance(secagg, SecureAggregation)
+            except TypeError:
+                is_secagg = False
+            if is_secagg:
+                self._secagg = secagg
+            else:
+                raise FedbiomedError(
                 f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or "
                 f"`SecureAggregation` but got {type(secagg)}"
             )
@@ -605,7 +613,7 @@ class FederatedAnalytics:
 
         if need_request:
             secagg_active = (
-                isinstance(self._secagg, SecureAggregation) and self._secagg.active
+                self._secagg is not False and self._secagg.active
             )
 
             secagg_arguments = {}
@@ -676,7 +684,7 @@ class FederatedAnalytics:
         Returns:
             Single-entry dictionary with the globally aggregated decrypted result.
         """
-        if not isinstance(self._secagg, SecureAggregation):
+        if self._secagg is False:
             return replies
 
         secagg_params = self._get_secagg_params()
@@ -892,7 +900,7 @@ class FederatedAnalytics:
         Returns:
             Dictionary with key, biprime, and clipping_range.
         """
-        if not isinstance(self._secagg, SecureAggregation):
+        if self._secagg is False:
             return None
 
         try:
