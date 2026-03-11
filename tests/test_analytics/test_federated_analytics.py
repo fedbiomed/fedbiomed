@@ -915,8 +915,8 @@ class TestSecureFederatedAnalytics:
             fa.secagg_setup(["node-1", "node-2"])
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_analytics_without_secagg(self, mock_fa_job, mock_fds, mock_requests):
-        """Test compute_analytics without secagg."""
+    def test_fetch_stats_without_secagg(self, mock_fa_job, mock_fds, mock_requests):
+        """Test fetch_stats without secagg."""
         mock_reply = MagicMock()
         mock_reply.output = {"age": {"mean": 45.0}}
 
@@ -942,8 +942,8 @@ class TestSecureFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_analytics_with_secagg(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
-        """Test compute_analytics with secagg enabled."""
+    def test_fetch_stats_with_secagg(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
+        """Test fetch_stats with secagg enabled."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
         mock_secagg.setup.return_value = True
@@ -1460,7 +1460,7 @@ class TestErrorHandling:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_analytics_handles_node_errors(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
+    def test_fetch_stats_handles_node_errors(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
         """Test that SecAgg aborts when any node fails (masks cannot cancel)."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
@@ -1489,7 +1489,7 @@ class TestErrorHandling:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_analytics_all_nodes_fail(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
+    def test_fetch_stats_all_nodes_fail(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
         """Test behavior when all nodes fail."""
         mock_secagg = MagicMock()
         mock_secagg.active = True

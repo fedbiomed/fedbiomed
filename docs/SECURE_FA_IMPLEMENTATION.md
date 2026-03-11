@@ -52,7 +52,7 @@ from fedbiomed.researcher.federated_workflows import Experiment
 exp = Experiment(tags=['data'], secagg=True)
 
 # Compute statistics
-result = exp.analytics.mean(dataset_args={'col_names': ['AGE']})
+result = exp.analytics.fetch_stats(stats='mean', dataset_schema=['AGE'])
 
 # Get global result (decrypted)
 print(result.global_stat('mean'))

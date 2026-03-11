@@ -120,18 +120,18 @@ class TestSecureFederatedAnalyticsE2E:
         )
 
         # Check secagg is enabled
-        assert exp.analytics.secagg is not False
+        assert exp.analytics.secagg.active
         print(f"SecAgg enabled: {exp.analytics.secagg.active}")
 
         # Compute mean
         try:
-            result = exp.analytics.mean(dataset_args={"col_names": ["AGE"]})
+            result = exp.analytics.fetch_stats(stats='mean', dataset_schema=['AGE'])
             print(f"Mean result: {result.global_stat('mean')}")
-            
+
             # Verify result structure
             assert result is not None
             assert result.available_stats() is not None
-            
+
             print("✓ Test passed: Secure mean computation works")
         except Exception as e:
             print(f"✗ Test failed: {e}")
@@ -152,9 +152,9 @@ class TestSecureFederatedAnalyticsE2E:
 
         stats = ["mean", "count", "min", "max"]
         try:
-            result = exp.analytics.compute_analytics(
+            result = exp.analytics.fetch_stats(
                 stats=stats,
-                dataset_args={"col_names": ["AGE"]}
+                dataset_schema=["AGE"]
             )
 
             for stat in stats:
@@ -180,7 +180,7 @@ class TestSecureFederatedAnalyticsE2E:
         )
 
         try:
-            result = exp.analytics.variance(dataset_args={"col_names": ["AGE"]})
+            result = exp.analytics.fetch_stats(stats='variance', dataset_schema=['AGE'])
             print(f"Variance result: {result.global_stat('variance')}")
             print("✓ Test passed: Variance computation works")
         except Exception as e:
@@ -201,16 +201,15 @@ class TestSecureFederatedAnalyticsE2E:
         )
 
         try:
-            result = exp.analytics.compute_analytics(
+            result = exp.analytics.fetch_stats(
                 stats=["histogram"],
-                dataset_args={
-                    "col_names": ["AGE"],
-                    "histogram_args": {"bins": 5, "range": (50, 100)}
-                }
+                dataset_schema=["AGE"],
+                stats_args={"histogram_args": {"bins": 5, "range": (50, 100)}}
             )
             hist = result.global_stat("histogram")
-            print(f"Histogram bin_edges: {hist.get('bin_edges', [])}")
-            print(f"Histogram counts: {hist.get('counts', [])}")
+            # global_stat preserves column-nested structure: {'AGE': {'bin_edges': ..., 'counts': ...}}
+            print(f"Histogram bin_edges: {hist.get('AGE', {}).get('bin_edges', [])}")
+            print(f"Histogram counts: {hist.get('AGE', {}).get('counts', [])}")
             print("✓ Test passed: Histogram works")
         except Exception as e:
             print(f"Note: Histogram may require specific data: {e}")
@@ -228,9 +227,9 @@ class TestSecureFederatedAnalyticsE2E:
         # Non-secure
         print("Computing without SecAgg...")
         exp_no_sec = Experiment(tags=["#adni"], secagg=False)
-        result_no_sec = exp_no_sec.analytics.mean(dataset_args={"col_names": ["AGE"]})
+        result_no_sec = exp_no_sec.analytics.fetch_stats(stats='mean', dataset_schema=['AGE'])
         print(f"  Without SecAgg: {result_no_sec.global_stat('mean')}")
-        
+
         # Check if we can access individual node results
         print("  Node results accessible (no encryption):")
         for node_id in result_no_sec.node_ids:
@@ -239,13 +238,13 @@ class TestSecureFederatedAnalyticsE2E:
         # Secure
         print("Computing with SecAgg...")
         exp_sec = Experiment(tags=["#adni"], secagg=True)
-        result_sec = exp_sec.analytics.mean(dataset_args={"col_names": ["AGE"]})
+        result_sec = exp_sec.analytics.fetch_stats(stats='mean', dataset_schema=['AGE'])
         print(f"  With SecAgg: {result_sec.global_stat('mean')}")
 
         # Results should be similar (within tolerance)
         val_no_sec = list(result_no_sec.global_stat('mean').values())[0]
         val_sec = list(result_sec.global_stat('mean').values())[0]
-        
+
         # Note: Due to encryption/decryption, values may differ slightly
         print(f"  Values difference: {abs(val_no_sec - val_sec)}")
 
@@ -271,7 +270,7 @@ class TestSecureFederatedAnalyticsE2E:
         print(f"Using scheme: {type(exp.analytics.secagg).__name__}")
 
         try:
-            result = exp.analytics.mean(dataset_args={"col_names": ["AGE"]})
+            result = exp.analytics.fetch_stats(stats='mean', dataset_schema=['AGE'])
             print(f"Mean: {result.global_stat('mean')}")
             print("✓ Test passed: Explicit scheme works")
         except Exception as e:
@@ -288,7 +287,7 @@ class TestSecureFederatedAnalyticsE2E:
 
         # Start without secagg
         exp = Experiment(tags=["#adni"], secagg=False)
-        assert exp.analytics.secagg is False
+        assert not exp.analytics.secagg.active
         print("Initial: SecAgg disabled")
 
         # Enable secagg
@@ -298,12 +297,12 @@ class TestSecureFederatedAnalyticsE2E:
         print("After set_secagg(True): SecAgg enabled")
 
         # Compute with secagg
-        result = exp.analytics.mean(dataset_args={"col_names": ["AGE"]})
+        result = exp.analytics.fetch_stats(stats='mean', dataset_schema=['AGE'])
         print(f"Result with SecAgg: {result.global_stat('mean')}")
 
         # Disable secagg
         exp.analytics.set_secagg(False)
-        assert exp.analytics.secagg is False
+        assert not exp.analytics.secagg.active
         print("After set_secagg(False): SecAgg disabled")
 
         print("✓ Test passed: Dynamic configuration works")
@@ -314,14 +313,14 @@ if __name__ == "__main__":
     import sys
     print("""
 Secure Federated Analytics - End-to-End Test
-    
+
 This test requires:
 1. Running nodes with datasets
 2. Proper network configuration
-    
+
 To run with pytest:
     pytest tests/end2end/e2e_secure_federated_analytics.py -v -s
-    
+
 To run this file directly:
     python tests/end2end/e2e_secure_federated_analytics.py
     """)

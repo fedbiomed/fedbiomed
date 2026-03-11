@@ -253,6 +253,7 @@ class FederatedWorkflow(ABC):
             researcher_id=self._researcher_id,
             reqs=self._reqs,
             experimentation_folder=self._experimentation_folder,
+            secagg=self._secagg,
         )
 
         # no preprocessing by default

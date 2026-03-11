@@ -190,8 +190,8 @@ class TestSecureFAIntegration:
             mock_secagg.train_arguments.assert_called_once()
             assert "secagg_key" in result
 
-    def test_compute_analytics_full_flow(self, mock_fds, mock_requests):
-        """Test compute_analytics with full flow simulation."""
+    def test_fetch_stats_full_flow(self, mock_fds, mock_requests):
+        """Test fetch_stats with full flow simulation."""
         
         with patch('fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation') as mock_secagg_cls, \
              patch('fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob') as mock_job_cls:
