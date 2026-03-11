@@ -5,7 +5,7 @@
 Implementation of Federated Analytics Job class of the node component
 """
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, FedbiomedError, Stats
 from fedbiomed.common.dataset_types import DataReturnFormat
@@ -13,6 +13,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.common.secagg import SecaggCrypter
 from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.secagg_manager import SecaggServkeyManager
 
 from ._base_job import _BaseJob, _InternalJobError
 
@@ -25,6 +26,7 @@ class FAJob(_BaseJob):
     def __init__(
         self,
         root_dir: str,
+        db: str,
         dataset_manager: DatasetManager,
         node_id: str,
         node_name: str,
@@ -35,6 +37,8 @@ class FAJob(_BaseJob):
 
         Args:
             root_dir: Root fedbiomed directory where node instance files will be stored.
+            db: Path to the node's TinyDB database file (used to retrieve the
+                secagg server-key context during encryption).
             dataset_manager: DatasetManager instance to retrieve datasets
             node_id: Node id
             node_name: Node name (Hospital name)
@@ -43,6 +47,7 @@ class FAJob(_BaseJob):
         """
         super().__init__(root_dir, dataset_manager, node_id, node_name, request)
 
+        self._db = db
         self._stats = request.stats
         self._dataset_id = request.dataset_id
         self._experiment_id = request.experiment_id
@@ -52,6 +57,61 @@ class FAJob(_BaseJob):
         self._allow_fa = allow_fa
         self._secagg = request.secagg if hasattr(request, 'secagg') else False
         self._secagg_arguments = request.secagg_arguments if hasattr(request, 'secagg_arguments') else {}
+
+    def _get_encryption_params(self) -> Optional[Dict]:
+        """Retrieve encryption parameters from the local secagg database.
+
+        Mirrors the key-lookup used by _JLSRound: the server-key share
+        (key + biprime) is fetched from the node's TinyDB using the
+        secagg_servkey_id sent in the FA request, not read from the request
+        arguments directly (which would expose keys over the wire).
+
+        Returns:
+            Dict with num_nodes, key, biprime, clipping_range, current_round,
+            or None if secagg is disabled or the context cannot be found.
+        """
+        if not self._secagg or not self._secagg_arguments:
+            return None
+
+        secagg_servkey_id = self._secagg_arguments.get("secagg_servkey_id")
+        if not secagg_servkey_id:
+            logger.warning(
+                "Secagg enabled but 'secagg_servkey_id' missing in secagg_arguments, "
+                "skipping encryption"
+            )
+            return None
+
+        try:
+            manager = SecaggServkeyManager(self._db)
+            secagg_servkey = manager.get(
+                secagg_id=secagg_servkey_id,
+                experiment_id=self._experiment_id,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to retrieve secagg server key: {e}")
+            return None
+
+        if secagg_servkey is None:
+            logger.warning(
+                f"Secagg server key '{secagg_servkey_id}' not found in database, "
+                "skipping encryption"
+            )
+            return None
+
+        # num_nodes is the number of encrypting nodes (researcher excluded).
+        # The researcher sets this explicitly so JLS encode/decode use the same
+        # add_ops value (see fix for Issue 2 / n_users mismatch).
+        num_nodes = self._secagg_arguments.get(
+            "num_nodes", len(self._secagg_arguments.get("parties", [])) - 1
+        )
+
+        return {
+            "num_nodes": num_nodes,
+            "key": secagg_servkey["context"]["server_key"],
+            "biprime": secagg_servkey["context"]["biprime"],
+            "clipping_range": self._secagg_arguments.get("secagg_clipping_range"),
+            "current_round": 1,
+        }
 
     def _encrypt_output(self, output: Dict) -> Dict:
         """Encrypt output statistics for secure aggregation.
@@ -65,22 +125,8 @@ class FAJob(_BaseJob):
         Returns:
             Encrypted output dictionary.
         """
-        if not self._secagg or not self._secagg_arguments:
-            return output
-
-        # num_nodes is the number of encrypting nodes (researcher excluded).
-        # Using the researcher-supplied value ensures JLS encode/decode use the
-        # same add_ops, since _jls.aggregate() derives n_user from len(replies).
-        num_nodes = self._secagg_arguments.get(
-            "num_nodes", len(self._secagg_arguments.get("parties", [])) - 1
-        )
-        current_round = 1
-        key = self._secagg_arguments.get("secagg_key", 0)
-        biprime = self._secagg_arguments.get("biprime", 0)
-        clipping_range = self._secagg_arguments.get("secagg_clipping_range")
-
-        if not key or not biprime:
-            logger.warning("Secagg enabled but missing key/biprime, skipping encryption")
+        enc_params = self._get_encryption_params()
+        if enc_params is None:
             return output
 
         crypter = SecaggCrypter()
@@ -90,7 +136,7 @@ class FAJob(_BaseJob):
                 result = {}
                 for k, v in val.items():
                     if k == "histogram":
-                        result[k] = self._encrypt_histogram(v)
+                        result[k] = self._encrypt_histogram(v, enc_params, crypter)
                     elif k == "bin_edges":
                         result[k] = v
                     else:
@@ -101,12 +147,12 @@ class FAJob(_BaseJob):
             elif isinstance(val, (int, float)):
                 try:
                     encrypted = crypter.encrypt(
-                        num_nodes=num_nodes,
-                        current_round=current_round,
+                        num_nodes=enc_params["num_nodes"],
+                        current_round=enc_params["current_round"],
                         params=[float(val)],
-                        key=key,
-                        biprime=biprime,
-                        clipping_range=clipping_range,
+                        key=enc_params["key"],
+                        biprime=enc_params["biprime"],
+                        clipping_range=enc_params["clipping_range"],
                     )
                     return {"_encrypted": True, "value": encrypted[0]}
                 except Exception as e:
@@ -116,11 +162,14 @@ class FAJob(_BaseJob):
 
         return encrypt_value(output)
 
-    def _encrypt_histogram(self, histogram: Dict) -> Dict:
+    @staticmethod
+    def _encrypt_histogram(histogram: Dict, enc_params: Dict, crypter: SecaggCrypter) -> Dict:
         """Encrypt histogram counts while keeping bin_edges in clear.
 
         Args:
             histogram: Histogram dict with 'bin_edges' and 'counts'.
+            enc_params: Encryption parameters from _get_encryption_params().
+            crypter: Pre-constructed SecaggCrypter instance.
 
         Returns:
             Histogram with encrypted counts.
@@ -128,31 +177,18 @@ class FAJob(_BaseJob):
         if not isinstance(histogram, dict):
             return histogram
 
-        num_nodes = self._secagg_arguments.get(
-            "num_nodes", len(self._secagg_arguments.get("parties", [])) - 1
-        )
-        current_round = 1
-        key = self._secagg_arguments.get("secagg_key", 0)
-        biprime = self._secagg_arguments.get("biprime", 0)
-        clipping_range = self._secagg_arguments.get("secagg_clipping_range")
-
-        if not key or not biprime:
-            return histogram
-
-        crypter = SecaggCrypter()
-
         result = {"bin_edges": histogram.get("bin_edges")}
 
         counts = histogram.get("counts", [])
         if counts:
             try:
                 encrypted_counts = crypter.encrypt(
-                    num_nodes=num_nodes,
-                    current_round=current_round,
+                    num_nodes=enc_params["num_nodes"],
+                    current_round=enc_params["current_round"],
                     params=[float(c) for c in counts],
-                    key=key,
-                    biprime=biprime,
-                    clipping_range=clipping_range,
+                    key=enc_params["key"],
+                    biprime=enc_params["biprime"],
+                    clipping_range=enc_params["clipping_range"],
                 )
                 result["counts"] = [{"_encrypted": True, "value": c} for c in encrypted_counts]
             except Exception as e:

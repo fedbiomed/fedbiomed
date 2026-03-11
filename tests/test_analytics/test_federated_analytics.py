@@ -987,8 +987,7 @@ class TestFAJobEncryption:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = False
-        job._secagg_arguments = {}
+        job._get_encryption_params.return_value = None
 
         output = {"age": {"mean": 45.0}}
         result = FAJob._encrypt_output(job, output)
@@ -1000,8 +999,7 @@ class TestFAJobEncryption:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {"parties": ["n1", "n2"]}
+        job._get_encryption_params.return_value = None
 
         output = {"age": {"mean": 45.0}}
         result = FAJob._encrypt_output(job, output)
@@ -1016,21 +1014,14 @@ class TestFAJobEncryption:
         mock_crypter_instance = MagicMock()
         mock_crypter.return_value = mock_crypter_instance
         mock_crypter_instance.encrypt.return_value = [999]
-        mock_crypter_calls = []
-
-        def track_call(*args, **kwargs):
-            mock_crypter_calls.append((args, kwargs))
-            return [999]
-
-        mock_crypter_instance.encrypt.side_effect = track_call
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2,
+            "key": 123,
             "biprime": 456,
-            "secagg_clipping_range": 10,
+            "clipping_range": 10,
+            "current_round": 1,
         }
 
         output = {"age": {"mean": 45.0}}
@@ -1039,28 +1030,26 @@ class TestFAJobEncryption:
         assert result["age"]["mean"]["_encrypted"] is True
         assert result["age"]["mean"]["value"] == 999
 
-    @patch("fedbiomed.node.jobs._fa_job.SecaggCrypter")
-    def test_encrypt_histogram(self, mock_crypter):
+    def test_encrypt_histogram(self):
         """Test encryption of histogram counts."""
         from fedbiomed.node.jobs._fa_job import FAJob
 
-        mock_crypter_instance = MagicMock()
-        mock_crypter.return_value = mock_crypter_instance
-        mock_crypter_instance.encrypt.return_value = [10, 20, 30]
+        mock_crypter = MagicMock()
+        mock_crypter.encrypt.return_value = [10, 20, 30]
 
-        job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
+        enc_params = {
+            "num_nodes": 2,
+            "key": 123,
             "biprime": 456,
+            "clipping_range": None,
+            "current_round": 1,
         }
 
         histogram = {
             "bin_edges": [0, 10, 20, 30],
             "counts": [100, 200, 300]
         }
-        result = FAJob._encrypt_histogram(job, histogram)
+        result = FAJob._encrypt_histogram(histogram, enc_params, mock_crypter)
 
         assert result["bin_edges"] == [0, 10, 20, 30]
         assert result["counts"][0]["_encrypted"] is True
@@ -1221,11 +1210,9 @@ class TestFAJobEncryptionEdgeCases:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
-            "biprime": 456,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2, "key": 123, "biprime": 456,
+            "clipping_range": None, "current_round": 1,
         }
 
         with patch("fedbiomed.node.jobs._fa_job.SecaggCrypter") as mock_crypter_cls:
@@ -1249,11 +1236,9 @@ class TestFAJobEncryptionEdgeCases:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
-            "biprime": 456,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2, "key": 123, "biprime": 456,
+            "clipping_range": None, "current_round": 1,
         }
 
         with patch("fedbiomed.node.jobs._fa_job.SecaggCrypter") as mock_crypter_cls:
@@ -1273,11 +1258,9 @@ class TestFAJobEncryptionEdgeCases:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
-            "biprime": 456,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2, "key": 123, "biprime": 456,
+            "clipping_range": None, "current_round": 1,
         }
 
         output = {
@@ -1296,11 +1279,9 @@ class TestFAJobEncryptionEdgeCases:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
-            "biprime": 456,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2, "key": 123, "biprime": 456,
+            "clipping_range": None, "current_round": 1,
         }
 
         result = FAJob._encrypt_output(job, {})
@@ -1313,12 +1294,9 @@ class TestFAJobEncryptionEdgeCases:
         """Test that histogram bin_edges are preserved in clear."""
         from fedbiomed.node.jobs._fa_job import FAJob
 
-        job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
-            "biprime": 456,
+        enc_params = {
+            "num_nodes": 2, "key": 123, "biprime": 456,
+            "clipping_range": None, "current_round": 1,
         }
 
         histogram = {
@@ -1326,12 +1304,10 @@ class TestFAJobEncryptionEdgeCases:
             "counts": [5, 15, 25, 35]
         }
 
-        with patch("fedbiomed.node.jobs._fa_job.SecaggCrypter") as mock_crypter_cls:
-            mock_crypter = MagicMock()
-            mock_crypter_cls.return_value = mock_crypter
-            mock_crypter.encrypt.return_value = [10, 20, 30, 40]
+        mock_crypter = MagicMock()
+        mock_crypter.encrypt.return_value = [10, 20, 30, 40]
 
-            result = FAJob._encrypt_histogram(job, histogram)
+        result = FAJob._encrypt_histogram(histogram, enc_params, mock_crypter)
 
         assert result["bin_edges"] == [0.0, 10.0, 20.0, 30.0, 40.0]
         assert len(result["counts"]) == 4

@@ -508,7 +508,11 @@ class FederatedAnalytics:
             return {}
 
         logger.info("Setting up secure aggregation for federated analytics...")
-        if not self._secagg.setup(parties=parties):
+        if not self._secagg.setup(
+            parties=parties,
+            experiment_id=self._experiment_id,
+            researcher_id=self._researcher_id,
+        ):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB415.value}: Failed to setup secure aggregation "
                 "for federated analytics."
@@ -909,20 +913,26 @@ class FederatedAnalytics:
     def _get_secagg_params(self) -> Optional[Dict]:
         """Get secagg parameters from the secagg instance.
 
+        Uses the same attribute path as SecureAggregation.aggregate():
+        server key and biprime live in _servkey.context.
+
         Returns:
-            Dictionary with key, biprime, and clipping_range.
+            Dictionary with key, biprime, and clipping_range, or None if
+            the context is not ready.
         """
         if self._secagg is False:
             return None
 
         try:
-            secagg_context = self._secagg._secagg
-            if hasattr(secagg_context, "_biprime"):
-                return {
-                    "key": getattr(secagg_context, "_key", 0),
-                    "biprime": secagg_context._biprime,
-                    "clipping_range": getattr(secagg_context, "_secagg_clipping_range", None),
-                }
+            servkey = self._secagg._servkey
+            if servkey is None or not servkey.status:
+                logger.warning("SecAgg server key context is not set up")
+                return None
+            return {
+                "key": servkey.context["server_key"],
+                "biprime": servkey.context["biprime"],
+                "clipping_range": self._secagg.clipping_range,
+            }
         except Exception as e:
             logger.warning(f"Failed to get secagg params: {e}")
 
