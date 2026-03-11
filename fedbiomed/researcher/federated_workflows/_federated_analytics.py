@@ -939,28 +939,28 @@ class FederatedAnalytics:
 
         Returns:
             Decrypted aggregated value (sum or average depending on is_additive).
+
+        Raises:
+            Exception: Propagates any error from the underlying crypter so the
+                caller can fail loudly rather than silently inserting a wrong value.
         """
-        try:
-            from fedbiomed.common.secagg import SecaggCrypter
+        from fedbiomed.common.secagg import SecaggCrypter
 
-            crypter = SecaggCrypter()
+        crypter = SecaggCrypter()
 
-            decrypted = crypter.aggregate(
-                current_round=1,
-                num_nodes=num_nodes,
-                params=encrypted_values,
-                key=secagg_params["key"],
-                biprime=secagg_params["biprime"],
-                total_sample_size=num_nodes,
-                clipping_range=secagg_params.get("clipping_range"),
-                num_expected_params=1,
-            )
+        decrypted = crypter.aggregate(
+            current_round=1,
+            num_nodes=num_nodes,
+            params=encrypted_values,
+            key=secagg_params["key"],
+            biprime=secagg_params["biprime"],
+            total_sample_size=num_nodes,
+            clipping_range=secagg_params.get("clipping_range"),
+            num_expected_params=1,
+        )
 
-            value = decrypted[0] if decrypted else 0
-            return value * num_nodes if is_additive else value
-        except Exception as e:
-            logger.warning(f"Failed to decrypt value: {e}")
-            return 0
+        value = decrypted[0] if decrypted else 0
+        return value * num_nodes if is_additive else value
 
     def _get_secagg_params(self) -> Optional[Dict]:
         """Get secagg parameters from the secagg instance.

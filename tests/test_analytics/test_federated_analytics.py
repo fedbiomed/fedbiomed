@@ -1187,7 +1187,7 @@ class TestSecAggIntegration:
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_full_flow_with_secagg(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
-        """Test complete flow with secagg enabled."""
+        """Test complete flow with secagg enabled (decryption is mocked)."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
         mock_secagg.setup.return_value = True
@@ -1199,9 +1199,9 @@ class TestSecAggIntegration:
         mock_secagg_cls.return_value = mock_secagg
 
         mock_reply1 = MagicMock()
-        mock_reply1.output = {"age": {"_encrypted": True, "value": 111}}
+        mock_reply1.output = {"age": {"mean": 45.0}}
         mock_reply2 = MagicMock()
-        mock_reply2.output = {"age": {"_encrypted": True, "value": 222}}
+        mock_reply2.output = {"age": {"mean": 50.0}}
 
         mock_job_instance = MagicMock()
         mock_job_instance.execute.return_value = (
@@ -1219,10 +1219,16 @@ class TestSecAggIntegration:
             secagg=True,
         )
 
-        result = fa.fetch_stats(stats=["mean"])
+        # Patch _decrypt_replies so the test focuses on the request/setup flow,
+        # not on the cryptographic layer (which requires real integer keys).
+        decrypted_reply = MagicMock()
+        decrypted_reply.output = {"age": {"mean": 47.5}}
+        with patch.object(fa, "_decrypt_replies", return_value={"node-1": decrypted_reply}):
+            result = fa.fetch_stats(stats=["mean"])
 
         assert mock_secagg.setup.called
         assert mock_secagg.train_arguments.called
+        assert "node-1" in result.node_ids
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_node_stats_returns_decrypted_with_secagg(self, mock_fa_job, mock_fds, mock_requests):
