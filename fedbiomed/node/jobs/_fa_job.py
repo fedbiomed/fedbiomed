@@ -68,8 +68,12 @@ class FAJob(_BaseJob):
         if not self._secagg or not self._secagg_arguments:
             return output
 
-        parties = self._secagg_arguments.get("parties", [])
-        num_nodes = len(parties)
+        # num_nodes is the number of encrypting nodes (researcher excluded).
+        # Using the researcher-supplied value ensures JLS encode/decode use the
+        # same add_ops, since _jls.aggregate() derives n_user from len(replies).
+        num_nodes = self._secagg_arguments.get(
+            "num_nodes", len(self._secagg_arguments.get("parties", [])) - 1
+        )
         current_round = 1
         key = self._secagg_arguments.get("secagg_key", 0)
         biprime = self._secagg_arguments.get("biprime", 0)
@@ -124,8 +128,9 @@ class FAJob(_BaseJob):
         if not isinstance(histogram, dict):
             return histogram
 
-        parties = self._secagg_arguments.get("parties", [])
-        num_nodes = len(parties)
+        num_nodes = self._secagg_arguments.get(
+            "num_nodes", len(self._secagg_arguments.get("parties", [])) - 1
+        )
         current_round = 1
         key = self._secagg_arguments.get("secagg_key", 0)
         biprime = self._secagg_arguments.get("biprime", 0)

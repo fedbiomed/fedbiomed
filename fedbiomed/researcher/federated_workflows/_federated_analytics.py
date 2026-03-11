@@ -620,7 +620,10 @@ class FederatedAnalytics:
             if secagg_active:
                 parties = [self._researcher_id] + node_ids
                 secagg_arguments = self.secagg_setup(parties)
-
+                # Pass the exact number of encrypting nodes (excluding researcher)
+                # so nodes use the same n_users in JLS protect() as the researcher
+                # sees in JLS aggregate() via len(list_y_u_tau).
+                secagg_arguments["num_nodes"] = len(node_ids)
 
             fa_job = FARequestJob(
                 fa_id=self._fa_id,
