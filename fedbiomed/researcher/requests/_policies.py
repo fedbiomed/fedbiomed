@@ -4,6 +4,8 @@
 import datetime
 from typing import Dict, List, Optional, TypeVar
 
+from fedbiomed.common.logger import logger
+
 from ._status import PolicyStatus, RequestStatus
 
 TRequest = TypeVar("TRequest")
@@ -198,6 +200,13 @@ class PolicyController:
         # request status that caused it
         # whether it returned CONTINUE, STOPPED, or COMPLETED
 
+        for req in requests:
+            logger.debug(
+                f"PolicyController: Request {req._request_id} "
+                f"for node {req._node} "
+                f"has status {req.status} and error {req.error}"
+            )
+
         return PolicyStatus.CONTINUE if status else PolicyStatus.COMPLETED
 
     def has_stopped_any(self) -> bool:
@@ -216,6 +225,13 @@ class PolicyController:
         # node id that triggered it
         # request status that caused it
         # whether it returned CONTINUE, STOPPED, or COMPLETED
+        for policy in self._policies:
+            logger.debug(
+                f"PolicyController: Policy {policy.__class__.__name__} "
+                f"has status {policy.status} "
+            )
+            if policy.stop_caused_by:
+                logger.debug(f"and stop caused by {policy.stop_caused_by}")
 
         return is_stopped
 

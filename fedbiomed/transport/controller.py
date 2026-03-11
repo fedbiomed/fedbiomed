@@ -91,8 +91,10 @@ class GrpcAsyncTaskController:
             broadcast: Broadcast the message to all available researcher. This option should be used for general
                 node state messages (e.g. general Error)
         """
-        ### (OPTIONAL) DEBUG THE SENDING OF MESSAGE TO THE RESEARCHER
-        ### THIS IS ALSO NORMALLY COVERED BY THE _CALL_RESEARCHER FUNCTION IN THE CLIENT.PY.
+        logger.debug(
+            f"GrpcAsyncTaskController: Sending message {message.__class__.__name__} "
+            f"to researcher {message.researcher_id} with broadcast={broadcast}"
+        )
 
         if broadcast:
             return await self._broadcast(message)
@@ -120,6 +122,9 @@ class GrpcAsyncTaskController:
         """
         async with self._ip_id_map_lock:
             self._ip_id_map.update({id_: ip})
+            logger.debug(
+                f"GrpcAsyncTaskController: Updated IP-ID map with IP {ip} and ID {id_}"
+            )
 
     async def is_connected(self) -> bool:
         """Checks if there is running tasks"""

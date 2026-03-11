@@ -190,6 +190,9 @@ class Node:
         """
         ### (OPTIONAL) DEBUG THE RECEIVED MESSAGE FROM THE RESEARCHER
         ### WITH MORE DETAILS THAN THE CURRENT DEBUG MESSAGES
+        logger.debug(
+            "Received message from researcher, deserializing to Message object..."
+        )
 
         message: Message
         try:

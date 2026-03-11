@@ -97,12 +97,13 @@ class Request:
 
     def send(self) -> None:
         """Sends the request"""
-        ### (OPTIONAL) DEBUG REQUEST SENDING
-        # request id
-        # target node
-        # message class
 
         self._message.request_id = self._request_id
+        logger.debug(
+            f"Sending request {self._request_id} "
+            f"to node {self._node.id} "
+            f"with message {self._message.__class__.__name__}"
+        )
         self._node.send(self._message, self.on_reply)
         self.status = RequestStatus.NO_REPLY_YET
 
@@ -152,12 +153,6 @@ class FederatedRequest:
             nodes: list of nodes that are sent the message
             policy: list of policies for controlling the handling of the request
         """
-        ### DEBUG MESSAGE THAT GIVES INFO ON EACH CREATED FEDERATED REQUEST
-        # federated request id
-        # number of target nodes
-        # message class
-        # policies enabled
-        # one log per node-specific request
 
         self._message = message
         self._nodes = nodes
@@ -170,6 +165,13 @@ class FederatedRequest:
         # Set-up policies
         self._policy = PolicyController(policy)
 
+        logger.debug(
+            f"Creating federated request with message {message.__class__.__name__} "
+            f"to nodes {[node.id for node in nodes]} "
+            f"with policies {[p.__class__.__name__ for p in policy] if policy else 'None'}"
+            f" and request id {self._request_id}"
+        )
+
         # Set up single requests
         if isinstance(self._message, Message):
             for node in self._nodes:
@@ -178,6 +180,9 @@ class FederatedRequest:
                         self._message, node, self._pending_replies, self._request_id
                     )
                 )
+                logger.debug(
+                    f"Created request for node {node.id} with message {self._message.__class__.__name__}"
+                )
 
         # Different message for each node
         elif isinstance(self._message, MessagesByNode):
@@ -185,6 +190,9 @@ class FederatedRequest:
                 if m := self._message.get(node.id):
                     self._requests.append(
                         Request(m, node, self._pending_replies, self._request_id)
+                    )
+                    logger.debug(
+                        f"Created request for node {node.id} with message {m.__class__.__name__}"
                     )
                 else:
                     logger.warning(
@@ -226,6 +234,10 @@ class FederatedRequest:
         """
         ### (OPTIONAL) DEBUG EXITING FEDERATED REQUEST CONTEXT MANAGER
         ### THIS SHOULD ALSO BE COVERED BY POLICY CONTROLLER STATUS DEBUG
+        logger.debug(
+            f"Exiting federated request context manager for request id {self._request_id}"
+            f" for nodes {[node.id for node in self._nodes]}"
+        )
 
         # Clear the replies that are processed
         has_stopped = self._policy.has_stopped_any()

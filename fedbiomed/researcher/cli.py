@@ -65,11 +65,14 @@ class ResearcherControl(CLIArgumentParser):
         else:
             nb_start_dir = os.path.join(component_path, NOTEBOOKS_FOLDER_NAME)
 
-        if bool(args.debug) or os.environ.get("FBM_DEBUG", "").lower() in (
+        debug_enabled = bool(args.debug) or os.environ.get("FBM_DEBUG", "").lower() in (
             "1",
             "true",
             "yes",
-        ):
+        )
+
+        if debug_enabled:
+            print("Debug mode activated for Researcher CLI")
             logger.setLevel("DEBUG")
         else:
             logger.setLevel("INFO")
@@ -77,6 +80,8 @@ class ResearcherControl(CLIArgumentParser):
         options.append(f"--notebook-dir={nb_start_dir}")
 
         current_env = os.environ.copy()
+        if debug_enabled:
+            current_env["FBM_DEBUG"] = "1"
         # comp_root = os.environ.get("FBM_RESEARCHER_COMPONENT_ROOT", None)
         command = ["jupyter", "notebook"]
         command = [*command, *options]

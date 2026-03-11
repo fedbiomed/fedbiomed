@@ -113,9 +113,12 @@ class NodeAgentAsync:
     async def on_reply(self, message: Dict) -> None:
         """Callback to execute each time new reply received from the node"""
 
-        ### DEBUG THE RECEIVED REPLY FROM THE NODE
-
         message = Message.from_dict(message)
+
+        logger.debug(
+            f"Node Agent: Received reply message {message.__class__.__name__} "
+            f"for request {message.request_id} from node {self._id}"
+        )
 
         # Handle overlay messages to relay to a node
         if isinstance(message, OverlayMessage):
@@ -170,10 +173,6 @@ class NodeAgentAsync:
             first_send_time: time of first send attempt for this message
         """
 
-        ### (OPTIONAL) DEBUG THE SENT MESSAGE TO THE NODE
-        ### THIS IS ALSO COVERED BY THE TRANSPORT LAYER, BUT IT CAN BE USEFUL THE
-        ### DEBUG THE NODES' STATUS' HERE, BEFORE THE MESSAGE IS ACTUALLY SENT TO THE TRANSPORT LAYER
-
         async with self._status_lock:
             if self._status == NodeActiveStatus.DISCONNECTED:
                 logger.info(f"Node {self._id} is disconnected. Discard message.")
@@ -202,9 +201,19 @@ class NodeAgentAsync:
                 self._replies.update(
                     {message.request_id: {"callback": on_reply, "reply": None}}
                 )
+                logger.debug(
+                    f"Node Agent: Registered callback {on_reply.__name__ if on_reply else 'None'} "
+                    f"for request {message.request_id} in node {self._id}"
+                )
 
         if first_send_time is None:
             first_send_time = time.time()
+
+        logger.debug(
+            f"Node Agent: node {self._id} "
+            f"is sending message {message.__class__.__name__} "
+            f"with retry count {retry_count}"
+        )
         await self._queue.put([message, retry_count, first_send_time])
 
     async def set_active(self) -> None:
