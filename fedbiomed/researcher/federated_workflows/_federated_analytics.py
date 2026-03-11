@@ -538,14 +538,14 @@ class FederatedAnalytics:
     def make_cache_key(
         node_ids: list[str],
         dataset_schema: Optional[str | list[str | dict]],
-        fa_args: Optional[dict],
+        stats_args: Optional[dict],
     ) -> str:
         """Create a stable string key from the node list and FA arguments.
 
         Args:
             node_ids: Current list of participating node IDs.
             dataset_schema: Schema definition.
-            fa_args: FA-specific computation arguments.
+            stats_args: FA-specific computation arguments.
 
         Returns:
             A hex digest string that uniquely identifies the argument combination.
@@ -553,39 +553,57 @@ class FederatedAnalytics:
         key_data = {
             "node_ids": sorted(node_ids),
             "dataset_schema": dataset_schema,
-            "fa_args": fa_args or {},
+            "stats_args": stats_args or {},
         }
         return hashlib.md5(
             json.dumps(key_data, sort_keys=True, default=str).encode(),
             usedforsecurity=False,
         ).hexdigest()
 
-    def compute_analytics(
+    def fetch_stats(
         self,
-        stats: str | list[str],
+        stats: Optional[str | list[str]] = None,
         dataset_schema: Optional[str | list[str | dict]] = None,
-        fa_args: Optional[dict] = None,
+        stats_args: Optional[dict] = None,
     ) -> FAResult:
-        """Compute analytics across nodes. Statistics that are already cached are not re-requested.
+        """Fetch analytics across nodes. Statistics that are already cached are not re-requested.
 
         Args:
-            stats: Statistic name(s) to compute.
+            stats: Statistic name(s) to request from nodes. Optional when ``stats_args``
+                provides all necessary computation arguments.
             dataset_schema: Schema definition.
-            fa_args: Federated analytics arguments.
+            stats_args: Federated analytics arguments.
 
         Returns:
             A :class:`FAResult` containing per-node data and supporting global aggregation.
+
+        Raises:
+            FedbiomedError: If both ``stats`` and ``stats_args`` are empty/None.
         """
+        if not stats and not stats_args:
+            raise FedbiomedError(
+                "At least one of 'stats' or 'stats_args' must be provided."
+            )
+
         if isinstance(stats, str):
             stats = [stats]
 
         node_ids = self.get_node_ids()
-        cache_key = FederatedAnalytics.make_cache_key(node_ids, dataset_schema, fa_args)
+        cache_key = FederatedAnalytics.make_cache_key(
+            node_ids, dataset_schema, stats_args
+        )
         cached = self._results_store.get(cache_key)
 
-        missing = [s for s in stats if cached is None or not cached.has_stat(s)]
+        # When stats=None the request is entirely args-driven: only skip if already cached.
+        # When stats is a list, only request the individual stats not yet in the cache.
+        if stats is None:
+            need_request = cached is None
+            missing = None
+        else:
+            missing = [s for s in stats if cached is None or not cached.has_stat(s)]
+            need_request = bool(missing)
 
-        if missing:
+        if need_request:
             secagg_active = (
                 isinstance(self._secagg, SecureAggregation) and self._secagg.active
             )
@@ -595,9 +613,10 @@ class FederatedAnalytics:
                 parties = [self._researcher_id] + node_ids
                 secagg_arguments = self.secagg_setup(parties)
 
+
             fa_job = FARequestJob(
                 fa_id=self._fa_id,
-                fa_args=fa_args,
+                stats_args=stats_args,
                 stats=missing,
                 dataset_schema=dataset_schema,
                 federated_dataset=self._fds,
@@ -621,7 +640,7 @@ class FederatedAnalytics:
             if not analytics_replies and errors:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB633.value}: Federated analytics failed: all "
-                    f"{len(errors)} node(s) returned errors ({list(errors)}). "
+                    f"{len(errors)} node(s) returned errors ({str(errors)}). "
                     "No results available."
                 )
 
@@ -866,83 +885,53 @@ class FederatedAnalytics:
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
     ) -> FAResult:
-        """Compute the mean across all nodes.
-
-        Args:
-            dataset_schema: Schema used to interpret the dataset.
-
-        Returns:
-            A :class:`FAResult`.
-        """
-        return self.compute_analytics(
+        """Return the global mean across nodes."""
+        fa_result = self.fetch_stats(
             stats=Stats.MEAN.value,
             dataset_schema=dataset_schema,
         )
+        return fa_result.global_stat("mean")
 
     def variance(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
     ) -> FAResult:
-        """Compute the variance across all nodes.
-
-        Args:
-            dataset_schema: Schema used to interpret the dataset.
-
-        Returns:
-            A :class:`FAResult`.
-        """
-        return self.compute_analytics(
+        """Return the global variance across nodes."""
+        fa_result = self.fetch_stats(
             stats=Stats.VARIANCE.value,
             dataset_schema=dataset_schema,
         )
+        return fa_result.global_stat("variance")
 
     def min(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
     ) -> FAResult:
-        """Compute the minimum across all nodes.
-
-        Args:
-            dataset_schema: Schema used to interpret the dataset.
-
-        Returns:
-            A :class:`FAResult`.
-        """
-        return self.compute_analytics(
+        """Return the global minimum across nodes."""
+        fa_result = self.fetch_stats(
             stats=Stats.MIN.value,
             dataset_schema=dataset_schema,
         )
+        return fa_result.global_stat("min")
 
     def max(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
     ) -> FAResult:
-        """Compute the maximum across all nodes.
-
-        Args:
-            dataset_schema: Schema used to interpret the dataset.
-
-        Returns:
-            A :class:`FAResult`.
-        """
-        return self.compute_analytics(
+        """Return the global maximum across nodes."""
+        fa_result = self.fetch_stats(
             stats=Stats.MAX.value,
             dataset_schema=dataset_schema,
         )
+        return fa_result.global_stat("max")
 
     def count(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
     ) -> FAResult:
-        """Compute the count of valid samples across all nodes.
-
-        Args:
-            dataset_schema: Schema used to interpret the dataset.
-
-        Returns:
-            A :class:`FAResult`.
-        """
-        return self.compute_analytics(
+        """Return the global count across nodes."""
+        fa_result = self.fetch_stats(
             stats=Stats.COUNT.value,
             dataset_schema=dataset_schema,
         )
+        return fa_result.global_stat("count")

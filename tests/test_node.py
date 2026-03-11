@@ -83,8 +83,8 @@ class TestNode(unittest.TestCase):
         experiment_id="experiment-id",
         dataset_id="dataset-id",
         fa_id="fa-id",
-        stats=Stats.MEAN.value,
-        fa_args={},
+        stats=[Stats.MEAN.value],
+        stats_args={},
     )
 
     preproc_request = PreprocRequest(

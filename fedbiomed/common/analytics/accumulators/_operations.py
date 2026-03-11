@@ -270,9 +270,12 @@ class HistogramAccumulator(Accumulator):
         self._counts[idx] += 1
 
     def finalize(self) -> Dict[str, Any]:
+        # Return key ``histogram`` for consistent output format with other accumulators
         return {
-            "bin_edges": self._bin_edges.tolist(),
-            "counts": self._counts.tolist(),
+            "histogram": {
+                "bin_edges": self._bin_edges.tolist(),
+                "counts": self._counts.tolist(),
+            },
         }
 
 
@@ -349,7 +352,7 @@ class ImageShapeAccumulator(Accumulator):
             A dictionary where keys are image shapes (as tuples) and values are
             the counts of images with those shapes.
         """
-        return self._shapes
+        return {"count": self._shapes}
 
 
 class ImageBaseAccumulator(Accumulator):
@@ -359,15 +362,21 @@ class ImageBaseAccumulator(Accumulator):
         "count": len,
         "mean": np.mean,
         "std": np.std,
-        "q05": lambda data: np.quantile(data, 0.05),
-        "q25": lambda data: np.quantile(data, 0.25),
-        "q50": lambda data: np.quantile(data, 0.50),
-        "q75": lambda data: np.quantile(data, 0.75),
-        "q95": lambda data: np.quantile(data, 0.95),
+        "min": np.min,
+        "max": np.max,
+        "quartiles": lambda data: np.quantile(data, [0.25, 0.5, 0.75]).tolist(),
     }
+    _alias: str = None
 
     def __init__(self, buffer_size: int):
         self._buffer = ScalarBuffer(buffer_size, self._DESCRIBE_FUNCTIONS)
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not isinstance(cls._alias, str):
+            raise TypeError(
+                f"Subclass '{cls.__name__}' must define '_alias' as a string."
+            )
 
     @abstractmethod
     def reduce(self, image: np.ndarray) -> float:
@@ -382,7 +391,7 @@ class ImageBaseAccumulator(Accumulator):
     def finalize(self) -> Dict[str, Any]:
         """Return descriptive statistics over all stored per-image scalars."""
         try:
-            return self._buffer.finalize()
+            return {self._alias: self._buffer.finalize()}
         except Exception as e:
             raise FedbiomedError(f"Error finalizing image statistics: {e}") from e
 
@@ -390,12 +399,16 @@ class ImageBaseAccumulator(Accumulator):
 class ImageMeanAccumulator(ImageBaseAccumulator):
     """Accumulates the per-image pixel mean (``np.nanmean``)."""
 
+    _alias = "mean_summary"
+
     def reduce(self, image: np.ndarray) -> float:
         return float(np.nanmean(image))
 
 
 class ImageVarianceAccumulator(ImageBaseAccumulator):
     """Accumulates the per-image pixel variance (``np.nanvar``)."""
+
+    _alias = "variance_summary"
 
     def reduce(self, image: np.ndarray) -> float:
         return float(np.nanvar(image))

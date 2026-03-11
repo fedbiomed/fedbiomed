@@ -41,10 +41,6 @@ class ImageAccumulator(Accumulator):
         self.stats_config: Dict[str, Any] = config.get("stats", {})
         self.accumulators: Dict[str, Accumulator] = {}
 
-        logger.info(
-            f"Initializing ImageAccumulator with stats: {list(self.stats_config.keys())}"
-        )
-
         for stat, stat_args in self.stats_config.items():
             accumulator_class = AnalyticsRegistry.get_accumulator_class(
                 stat, DatasetElementType.IMAGE
@@ -54,6 +50,8 @@ class ImageAccumulator(Accumulator):
                     f"No accumulator registered for stat '{stat}' of type IMAGE."
                 )
             self.accumulators[stat] = accumulator_class(**stat_args)
+
+        logger.info("ImageAccumulator initialized")
 
     def update(self, value: np.ndarray) -> None:
         """Update all stat accumulators with a new image sample.
@@ -69,6 +67,9 @@ class ImageAccumulator(Accumulator):
         """Return finalized statistics for this image element.
 
         Returns:
-            A dictionary mapping stat names to their finalized values.
+            A merged dictionary of all stat accumulator results.
         """
-        return {stat: acc.finalize() for stat, acc in self.accumulators.items()}
+        result = {}
+        for acc in self.accumulators.values():
+            result.update(acc.finalize())
+        return result

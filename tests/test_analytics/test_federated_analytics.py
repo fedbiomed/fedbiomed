@@ -454,11 +454,11 @@ class TestFederatedAnalytics:
             fa.get_node_ids()
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_analytics_returns_fa_result(self, mock_fa_job_cls, base_fa):
+    def test_fetch_stats_returns_fa_result(self, mock_fa_job_cls, base_fa):
         replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = (replies, {})
 
-        result = base_fa.compute_analytics("mean", fa_args={})
+        result = base_fa.fetch_stats("mean", stats_args={})
 
         assert isinstance(result, FAResult)
         mock_fa_job_cls.assert_called_once()
@@ -470,8 +470,8 @@ class TestFederatedAnalytics:
 
         result = base_fa.mean()
 
-        assert isinstance(result, FAResult)
-        assert result.has_stat("mean")
+        assert isinstance(result, dict)
+        assert "age" in result
 
     # --- Caching tests ---
 
@@ -485,16 +485,16 @@ class TestFederatedAnalytics:
         result2 = base_fa.mean()
 
         assert mock_fa_job_cls.call_count == 1
-        assert result1 is result2
+        assert result1 == result2
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_different_args_bypass_cache(self, mock_fa_job_cls, base_fa):
-        """Different fa_args must cause a separate network request."""
+        """Different stats_args must cause a separate network request."""
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = (replies, {})
 
-        base_fa.compute_analytics("mean", fa_args={"key": "a"})
-        base_fa.compute_analytics("mean", fa_args={"key": "b"})
+        base_fa.fetch_stats("mean", stats_args={"key": "a"})
+        base_fa.fetch_stats("mean", stats_args={"key": "b"})
 
         assert mock_fa_job_cls.call_count == 2
 
@@ -517,8 +517,8 @@ class TestFederatedAnalytics:
         result = base_fa.mean()
         assert mock_fa_job_cls.call_count == 1  # no new network call
 
-        assert result.has_stat("mean")
-        assert result.has_stat("variance")
+        assert isinstance(result, dict)
+        assert "age" in result
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_only_missing_stats_requested(self, mock_fa_job_cls, base_fa):
@@ -535,8 +535,8 @@ class TestFederatedAnalytics:
         second_call_kwargs = mock_fa_job_cls.call_args_list[1].kwargs
         assert second_call_kwargs["stats"] == ["min"]
 
-        assert result.has_stat("mean")
-        assert result.has_stat("min")
+        assert isinstance(result, dict)
+        assert "age" in result
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_compute_multiple_stats_at_once(self, mock_fa_job_cls, base_fa):
@@ -545,7 +545,7 @@ class TestFederatedAnalytics:
         }
         mock_fa_job_cls.return_value.execute.return_value = (replies, {})
 
-        result = base_fa.compute_analytics(stats=["mean", "min"])
+        result = base_fa.fetch_stats(stats=["mean", "min"])
 
         assert result.has_stat("mean")
         assert result.has_stat("min")
@@ -570,6 +570,45 @@ class TestFederatedAnalytics:
 
         base_fa.mean()
         assert mock_fa_job_cls.call_count == 2  # new node set → cache miss
+
+    # --- stats=None (args-only) ---
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fetch_stats_stats_args_only(self, mock_fa_job_cls, base_fa):
+        """stats=None with stats_args provided should issue a request."""
+        replies = {"node-1": _make_reply({"image": {"histogram": [0.1, 0.5, 0.9]}})}
+        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+
+        result = base_fa.fetch_stats(
+            stats_args={"image": {"histogram": {"bin_edges": [0, 1, 2]}}}
+        )
+
+        assert isinstance(result, FAResult)
+        mock_fa_job_cls.assert_called_once()
+        call_kwargs = mock_fa_job_cls.call_args.kwargs
+        assert call_kwargs["stats"] is None
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fetch_stats_stats_args_only_cached(self, mock_fa_job_cls, base_fa):
+        """Second call with same stats_args and stats=None must be served from cache."""
+        replies = {"node-1": _make_reply({"image": {"histogram": [0.1, 0.5, 0.9]}})}
+        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+
+        args = {"image": {"histogram": {"bin_edges": [0, 1, 2]}}}
+        base_fa.fetch_stats(stats_args=args)
+        base_fa.fetch_stats(stats_args=args)
+
+        assert mock_fa_job_cls.call_count == 1  # second call served from cache
+
+    def test_fetch_stats_both_none_raises(self, base_fa):
+        """Passing neither stats nor stats_args must raise FedbiomedError."""
+        with pytest.raises(FedbiomedError, match="At least one of"):
+            base_fa.fetch_stats()
+
+    def test_fetch_stats_both_empty_raises(self, base_fa):
+        """Passing empty stats list and empty stats_args dict must raise FedbiomedError."""
+        with pytest.raises(FedbiomedError, match="At least one of"):
+            base_fa.fetch_stats(stats=[], stats_args={})
 
 
 # ---------------------------------------------------------------------------

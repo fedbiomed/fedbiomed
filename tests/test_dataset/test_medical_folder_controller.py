@@ -430,7 +430,7 @@ def test_get_sample_with_demographics(mock_read, temp_medical_folder):
     item = controller.get_sample(0)
 
     assert "demographics" in item
-    assert isinstance(item["demographics"], dict)
+    assert isinstance(item["demographics"], pd.Series)
     assert mock_read.call_count == len(controller.modalities)
 
 
@@ -460,7 +460,7 @@ def test_get_sample_with_dlp(mock_read, temp_medical_folder):
     item = controller.get_sample(0)
 
     assert "demographics" in item
-    assert isinstance(item["demographics"], dict)
+    assert isinstance(item["demographics"], pd.Series)
     assert mock_read.call_count == len(controller.modalities)
 
 

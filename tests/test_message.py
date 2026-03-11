@@ -28,8 +28,8 @@ def test_fa_request_message_creation():
         experiment_id="experiment_1234",
         fa_id="fa_1234",
         dataset_id="dataset_1234",
-        stats=Stats.MEAN.value,
-        fa_args={"test": "output_data"},
+        stats=[Stats.MEAN.value],
+        stats_args={"test": "output_data"},
     )
 
 
@@ -41,7 +41,7 @@ def test_fa_reply_message_creation():
         fa_id="fa_1234",
         node_id="node_1234",
         node_name="node_name_1234",
-        stats=Stats.MEAN.value,
+        stats=[Stats.MEAN.value],
         output={"test": "output_data"},
     )
 
