@@ -759,7 +759,9 @@ class FederatedAnalytics:
                 for k, v in output.items():
                     current_path = f"{path}.{k}" if path else k
                     if k == "histogram":
-                        result[k] = self._decrypt_histogram_global(replies, v, secagg_params, num_nodes)
+                        result[k] = self._decrypt_histogram_global(
+                            replies, v, secagg_params, num_nodes, path=current_path
+                        )
                     elif isinstance(v, dict) and "_encrypted" in v:
                         enc_vals = get_encrypted_values_for_stat(replies, current_path)
                         if enc_vals:
@@ -780,7 +782,12 @@ class FederatedAnalytics:
         return process_node_output(first_output)
 
     def _decrypt_histogram_global(
-        self, replies: dict[str, FAReply], histogram: Dict, secagg_params: Dict, num_nodes: int
+        self,
+        replies: dict[str, FAReply],
+        histogram: Dict,
+        secagg_params: Dict,
+        num_nodes: int,
+        path: str = "",
     ) -> Dict:
         """Decrypt histogram by aggregating encrypted counts from all nodes.
 
@@ -790,9 +797,12 @@ class FederatedAnalytics:
 
         Args:
             replies: Dictionary of node_id -> FAReply.
-            histogram: Histogram structure with bin_edges and counts.
+            histogram: Histogram structure (from first node) with bin_edges and counts.
             secagg_params: Dictionary with key, biprime, clipping_range.
             num_nodes: Number of participating nodes.
+            path: Dot-separated key path from the output root to this histogram
+                (e.g. ``"col.histogram"``), used to locate the histogram in each
+                node reply regardless of nesting depth.
 
         Returns:
             Decrypted histogram with aggregated counts.
@@ -802,23 +812,27 @@ class FederatedAnalytics:
 
         bin_edges = histogram.get("bin_edges", [])
 
+        # Collect per-node encrypted count vectors.
+        # all_encrypted_counts[i] = [enc_bin0, enc_bin1, ..., enc_binK] from node i.
+        # This is exactly the shape aggregate() expects: params[i] is node i's vector.
         all_encrypted_counts = []
         has_encrypted = False
 
+        path_keys = [k for k in path.split(".") if k]
         for reply in replies.values():
-            output = reply.output
-            if isinstance(output, dict) and "histogram" in output:
-                hist = output.get("histogram", {})
-                if isinstance(hist, dict) and "counts" in hist:
-                    counts = hist.get("counts", [])
-                    if counts and isinstance(counts[0], dict) and "_encrypted" in counts[0]:
-                        has_encrypted = True
-                        all_encrypted_counts.append([c.get("value", 0) for c in counts])
+            # Navigate to the histogram dict using the stored path
+            val = reply.output
+            for k in path_keys:
+                if isinstance(val, dict):
+                    val = val.get(k)
+            hist = val
+            if isinstance(hist, dict) and "counts" in hist:
+                counts = hist.get("counts", [])
+                if counts and isinstance(counts[0], dict) and "_encrypted" in counts[0]:
+                    has_encrypted = True
+                    all_encrypted_counts.append([c.get("value", 0) for c in counts])
 
-        if not has_encrypted:
-            return histogram
-
-        if not all_encrypted_counts:
+        if not has_encrypted or not all_encrypted_counts:
             return histogram
 
         try:
@@ -827,18 +841,13 @@ class FederatedAnalytics:
             crypter = SecaggCrypter()
             num_bins = len(all_encrypted_counts[0])
 
-            aggregated = []
-            for i in range(num_bins):
-                bin_values = [enc_counts[i] for enc_counts in all_encrypted_counts]
-                aggregated.append(bin_values)
-
             # aggregate() divides by total_sample_size in the quantized domain before
             # reverse-quantizing, which correctly recovers the per-node average.
             # Multiply by num_nodes afterwards to obtain the actual sum of counts.
             decrypted = crypter.aggregate(
                 current_round=1,
                 num_nodes=num_nodes,
-                params=aggregated,
+                params=all_encrypted_counts,
                 key=secagg_params["key"],
                 biprime=secagg_params["biprime"],
                 total_sample_size=num_nodes,
