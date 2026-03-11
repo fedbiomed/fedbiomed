@@ -667,11 +667,14 @@ class FederatedAnalytics:
         then decrypted to produce the global result. Individual node contributions
         remain hidden.
 
+        Returns a single-entry dict so that FAResult does not re-aggregate an
+        already-global value (which would multiply it by the number of nodes).
+
         Args:
             replies: Dictionary of node_id -> FAReply with potentially encrypted output.
 
         Returns:
-            Dictionary of FAReply with output containing ONLY global aggregated results.
+            Single-entry dictionary with the globally aggregated decrypted result.
         """
         if not isinstance(self._secagg, SecureAggregation):
             return replies
@@ -689,10 +692,12 @@ class FederatedAnalytics:
                 f"{ErrorNumbers.FB415.value}: Failed to decrypt FA replies: {e}"
             )
 
-        for node_id in replies:
-            replies[node_id].output = global_output
-
-        return replies
+        # Store the global result under a single node entry only.
+        # Returning all nodes with the same output would cause FAResult.global_stat()
+        # to aggregate the already-global value N times.
+        first_node_id = next(iter(replies))
+        replies[first_node_id].output = global_output
+        return {first_node_id: replies[first_node_id]}
 
     def _aggregate_and_decrypt_all(
         self, replies: dict[str, FAReply], secagg_params: Dict
@@ -715,6 +720,10 @@ class FederatedAnalytics:
         first_output = next(iter(replies.values())).output
 
         num_nodes = len(replies)
+
+        # Stat keys whose global value is the SUM across nodes (not the average).
+        # All other numeric stats are treated as averages (e.g. mean, variance).
+        ADDITIVE_STAT_KEYS = {"count"}
 
         def get_encrypted_values_for_stat(replies: dict, stat_path: str) -> List:
             """Collect encrypted values for a specific stat path from all nodes."""
@@ -739,11 +748,14 @@ class FederatedAnalytics:
                 for k, v in output.items():
                     current_path = f"{path}.{k}" if path else k
                     if k == "histogram":
-                        result[k] = self._decrypt_histogram_global(replies, v, secagg_params)
+                        result[k] = self._decrypt_histogram_global(replies, v, secagg_params, num_nodes)
                     elif isinstance(v, dict) and "_encrypted" in v:
                         enc_vals = get_encrypted_values_for_stat(replies, current_path)
                         if enc_vals:
-                            decrypted = self._decrypt_single_value(enc_vals, secagg_params, num_nodes)
+                            is_additive = k in ADDITIVE_STAT_KEYS
+                            decrypted = self._decrypt_single_value(
+                                enc_vals, secagg_params, num_nodes, is_additive=is_additive
+                            )
                             result[k] = decrypted
                         else:
                             result[k] = v.get("value", 0)
@@ -757,14 +769,19 @@ class FederatedAnalytics:
         return process_node_output(first_output)
 
     def _decrypt_histogram_global(
-        self, replies: dict[str, FAReply], histogram: Dict, secagg_params: Dict
+        self, replies: dict[str, FAReply], histogram: Dict, secagg_params: Dict, num_nodes: int
     ) -> Dict:
         """Decrypt histogram by aggregating encrypted counts from all nodes.
+
+        Histogram counts are additive (global = sum of per-node counts), so after
+        decrypting the average (total_sample_size=num_nodes) we multiply by num_nodes
+        to recover the actual sum.
 
         Args:
             replies: Dictionary of node_id -> FAReply.
             histogram: Histogram structure with bin_edges and counts.
             secagg_params: Dictionary with key, biprime, clipping_range.
+            num_nodes: Number of participating nodes.
 
         Returns:
             Decrypted histogram with aggregated counts.
@@ -797,7 +814,6 @@ class FederatedAnalytics:
             from fedbiomed.common.secagg import SecaggCrypter
 
             crypter = SecaggCrypter()
-            num_nodes = len(replies)
             num_bins = len(all_encrypted_counts[0])
 
             aggregated = []
@@ -805,6 +821,9 @@ class FederatedAnalytics:
                 bin_values = [enc_counts[i] for enc_counts in all_encrypted_counts]
                 aggregated.append(bin_values)
 
+            # aggregate() divides by total_sample_size in the quantized domain before
+            # reverse-quantizing, which correctly recovers the per-node average.
+            # Multiply by num_nodes afterwards to obtain the actual sum of counts.
             decrypted = crypter.aggregate(
                 current_round=1,
                 num_nodes=num_nodes,
@@ -816,23 +835,34 @@ class FederatedAnalytics:
                 num_expected_params=num_bins,
             )
 
-            return {"bin_edges": bin_edges, "counts": [int(d) for d in decrypted]}
+            return {"bin_edges": bin_edges, "counts": [int(d * num_nodes) for d in decrypted]}
         except Exception as e:
             logger.warning(f"Failed to decrypt histogram: {e}")
             return histogram
 
     def _decrypt_single_value(
-        self, encrypted_values: List[List[int]], secagg_params: Dict, num_nodes: int
+        self,
+        encrypted_values: List[List[int]],
+        secagg_params: Dict,
+        num_nodes: int,
+        is_additive: bool = False,
     ) -> float:
         """Decrypt a single aggregated value.
+
+        aggregate() divides by total_sample_size in the quantized domain before
+        reverse-quantizing, which correctly recovers the per-node average.
+        For additive stats (e.g. count) we multiply the result by num_nodes to
+        recover the actual sum across nodes.
 
         Args:
             encrypted_values: List of [encrypted_value] from each node.
             secagg_params: Dictionary with key, biprime, clipping_range.
             num_nodes: Number of nodes.
+            is_additive: If True, multiply the decrypted average by num_nodes to get
+                the global sum. If False, return the average as-is.
 
         Returns:
-            Decrypted aggregated value.
+            Decrypted aggregated value (sum or average depending on is_additive).
         """
         try:
             from fedbiomed.common.secagg import SecaggCrypter
@@ -850,7 +880,8 @@ class FederatedAnalytics:
                 num_expected_params=1,
             )
 
-            return decrypted[0] if decrypted else 0
+            value = decrypted[0] if decrypted else 0
+            return value * num_nodes if is_additive else value
         except Exception as e:
             logger.warning(f"Failed to decrypt value: {e}")
             return 0
