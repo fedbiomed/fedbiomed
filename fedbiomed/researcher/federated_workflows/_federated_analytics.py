@@ -737,9 +737,18 @@ class FederatedAnalytics:
         # Store the global result under a single node entry only.
         # Returning all nodes with the same output would cause FAResult.global_stat()
         # to aggregate the already-global value N times.
+        # Use a lightweight wrapper so the original FAReply objects are not mutated.
         first_node_id = next(iter(replies))
-        replies[first_node_id].output = global_output
-        return {first_node_id: replies[first_node_id]}
+        original_reply = replies[first_node_id]
+
+        class _GlobalReply:
+            """Thin wrapper that presents global_output as if it were a FAReply."""
+            def __init__(self, reply: FAReply, output: Dict) -> None:
+                # Copy all attributes from the original reply, override output.
+                self.__dict__.update(reply.__dict__)
+                self.output = output
+
+        return {first_node_id: _GlobalReply(original_reply, global_output)}
 
     def _aggregate_and_decrypt_all(
         self, replies: dict[str, FAReply], secagg_params: Dict
@@ -988,7 +997,7 @@ class FederatedAnalytics:
     def mean(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global mean across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.MEAN.value,
@@ -999,7 +1008,7 @@ class FederatedAnalytics:
     def variance(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global variance across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.VARIANCE.value,
@@ -1010,7 +1019,7 @@ class FederatedAnalytics:
     def min(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global minimum across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.MIN.value,
@@ -1021,7 +1030,7 @@ class FederatedAnalytics:
     def max(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global maximum across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.MAX.value,
@@ -1032,7 +1041,7 @@ class FederatedAnalytics:
     def count(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global count across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.COUNT.value,

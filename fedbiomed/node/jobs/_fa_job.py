@@ -117,7 +117,11 @@ class FAJob(_BaseJob):
         """Encrypt output statistics for secure aggregation.
 
         For histograms, only the counts are encrypted (bin_edges remain in clear).
-        For other stats, the values are encrypted.
+        For ``mean``, when a numeric ``count`` sibling is present in the same
+        dict, the value ``sum = mean * count`` is encrypted instead of ``mean``
+        directly; the ``_sum_encoded`` marker is set so the researcher can
+        recover the weighted global mean as ``total_sum / total_count``.
+        All other numeric values are encrypted as-is.
 
         Args:
             output: The computed statistics output.
