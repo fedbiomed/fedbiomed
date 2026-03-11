@@ -1397,7 +1397,7 @@ class TestErrorHandling:
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_compute_analytics_handles_node_errors(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
-        """Test that node errors are handled gracefully."""
+        """Test that SecAgg aborts when any node fails (masks cannot cancel)."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
         mock_secagg.setup.return_value = True
@@ -1420,9 +1420,8 @@ class TestErrorHandling:
             secagg=True,
         )
 
-        result = fa.fetch_stats(stats=["mean"])
-
-        assert "node-1" in result.node_ids
+        with pytest.raises(FedbiomedError, match="node-2"):
+            fa.fetch_stats(stats=["mean"])
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")

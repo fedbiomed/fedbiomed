@@ -280,29 +280,29 @@ class TestSecureFAIntegration:
             assert result1 is result2
 
     def test_error_handling_node_failure(self, mock_fds, mock_requests):
-        """Test handling when some nodes fail."""
-        
+        """Test that SecAgg aborts when any node fails (masks cannot cancel)."""
+
         with patch('fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation') as mock_secagg_cls, \
              patch('fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob') as mock_job_cls:
-            
+
             mock_secagg = MagicMock()
             mock_secagg.active = True
             mock_secagg.setup.return_value = True
             mock_secagg.train_arguments.return_value = {"key": 1, "biprime": 2}
             mock_secagg_cls.return_value = mock_secagg
-            
+
             # One success, one failure
             mock_error = MagicMock()
             mock_error.errnum = "FB325"
             mock_error.extra_msg = "Test error"
-            
+
             mock_job = MagicMock()
             mock_job.execute.return_value = (
                 {"node-1": self._create_mock_reply({"AGE": {"mean": 65.0}})},
                 {"node-2": mock_error}
             )
             mock_job_cls.return_value = mock_job
-            
+
             fa = FederatedAnalytics(
                 fds=mock_fds,
                 experiment_id="exp-1",
@@ -311,11 +311,11 @@ class TestSecureFAIntegration:
                 experimentation_folder="/tmp",
                 secagg=True,
             )
-            
-            result = fa.fetch_stats(stats=["mean"])
 
-            # Should still have result from node-1
-            assert "node-1" in result.node_ids
+            # SecAgg requires all nodes; partial failure must abort decryption
+            from fedbiomed.common.exceptions import FedbiomedError
+            with pytest.raises(FedbiomedError, match="node-2"):
+                fa.fetch_stats(stats=["mean"])
 
     def _create_mock_reply(self, output: Dict) -> MagicMock:
         """Helper to create mock FAReply."""

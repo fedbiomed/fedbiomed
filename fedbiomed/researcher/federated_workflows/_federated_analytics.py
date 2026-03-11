@@ -659,6 +659,16 @@ class FederatedAnalytics:
                     "No results available."
                 )
 
+            if secagg_active and errors:
+                # JLS requires every participating node's ciphertext to cancel the
+                # per-node masks. If any node failed to reply, the masks do not cancel
+                # and decryption produces cryptographically wrong output.
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB415.value}: Secure aggregation requires all "
+                    f"nodes to respond, but {len(errors)} node(s) failed: "
+                    f"{list(errors)}. Aborting decryption."
+                )
+
             if secagg_active and analytics_replies:
                 analytics_replies = self._decrypt_replies(analytics_replies)
 
