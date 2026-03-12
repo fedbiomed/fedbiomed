@@ -111,6 +111,9 @@ class NodeStateManager:
         Raises:
             FedbiomedNodeStateManagerError: no matching state in the database
         """
+        logger.debug(
+            f"Loading node state: experiment_id={experiment_id} state_id={state_id}"
+        )
         state = self._load_state(experiment_id, state_id)
 
         if state is None:
@@ -121,6 +124,10 @@ class NodeStateManager:
             )
 
         # from this point, state should be a dictionary
+        logger.debug(
+            f"Loaded node state metadata: experiment_id={experiment_id} "
+            f"state_id={state_id} keys={sorted(state.keys())}"
+        )
         self._check_version(state.get("version_node_id"))
         return state
 
@@ -149,6 +156,10 @@ class NodeStateManager:
         }
 
         state.update(header)
+        logger.debug(
+            f"Saving node state metadata: experiment_id={experiment_id} "
+            f"state_id={self._state_id} keys={sorted(state.keys())}"
+        )
         self._save_state(self._state_id, state)
         return self._state_id
 
@@ -180,7 +191,14 @@ class NodeStateManager:
             raise FedbiomedNodeStateManagerError(
                 f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase"
             ) from e
-        logger.debug("Successfully loaded previous state!")
+        if res is None:
+            logger.debug(
+                f"Node state not found in database: experiment_id={experiment_id} state_id={state_id}"
+            )
+        else:
+            logger.debug(
+                f"Node state found in database: experiment_id={experiment_id} state_id={state_id}"
+            )
         return res
 
     def _save_state(self, state_id: str, state_entry: Dict[str, Any]) -> None:
@@ -201,6 +219,7 @@ class NodeStateManager:
             raise FedbiomedNodeStateManagerError(
                 f"{ErrorNumbers.FB323.value}: failing to save node state into DataBase"
             ) from e
+        logger.debug(f"Node state saved to database: state_id={state_id}")
 
     def initialize(
         self, previous_state_id: Optional[str] = None, testing: Optional[bool] = False
@@ -213,6 +232,10 @@ class NodeStateManager:
         """
 
         self._previous_state_id = previous_state_id
+        logger.debug(
+            f"Initializing node state manager: node_id={self._node_id} "
+            f"previous_state_id={previous_state_id} testing={testing}"
+        )
         if not testing:
             self._generate_new_state_id()
 
@@ -227,6 +250,10 @@ class NodeStateManager:
                     f"{ErrorNumbers.FB323.value}: Failing to create"
                     f" directories {self._node_state_base_dir}"
                 ) from e
+            logger.debug(
+                f"Node state manager ready: state_id={self._state_id} "
+                f"base_dir={self._node_state_base_dir}"
+            )
 
     def get_node_state_base_dir(self) -> Optional[str]:
         """Returns `Node` State base directory path, in which are saved Node state files and other contents
@@ -277,7 +304,12 @@ class NodeStateManager:
             ) from e
         # TODO catch exception here
         file_name = element.value % (round_nb, self._state_id)
-        return os.path.join(base_dir, file_name)
+        path = os.path.join(base_dir, file_name)
+        logger.debug(
+            f"Generated node state file path: experiment_id={experiment_id} "
+            f"round={round_nb} element={element.name} path={path}"
+        )
+        return path
 
     def _generate_new_state_id(self) -> str:
         """Generates randomly a state_id. Should be created at each Round, before saving Node State into Database.
@@ -286,6 +318,7 @@ class NodeStateManager:
             new state_id
         """
         self._state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
+        logger.debug(f"Generated new node state id: state_id={self._state_id}")
         # TODO: would be better to check if state_id doesn't belong to the database
         return self._state_id
 
@@ -295,6 +328,11 @@ class NodeStateManager:
         Args:
             version: version found in the DataBase entries.
         """
+
+        logger.debug(
+            f"Checking node state version compatibility: found={version} "
+            f"current={__node_state_version__}"
+        )
 
         raise_for_version_compatibility(
             version,
