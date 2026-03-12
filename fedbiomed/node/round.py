@@ -500,6 +500,15 @@ class Round:
             )
 
             if self._secure_aggregation.use_secagg:
+                logger.debug(
+                    'SecAgg active: encrypting model parameters with the secure aggregation scheme "%s" for round %d',
+                    self._secure_aggregation.scheme.name,
+                    self._round,
+                )
+                if results["optim_aux_var"]:
+                    logger.debug(
+                        "Optimizer Auxiliary variables found, they will also be encrypted."
+                    )
                 model_weights, enc_factor, aux_var = self._encrypt_weights_and_auxvar(
                     model_weights=model_weights,
                     optim_aux_var=results["optim_aux_var"],
@@ -508,6 +517,9 @@ class Round:
                 )
                 results["encrypted"] = True
                 results["encryption_factor"] = enc_factor
+                logger.debug(
+                    f"Model parameters encrypted for round {self._round} , with encryption factor {enc_factor} and scheme {self._secure_aggregation.scheme.name}."
+                )
                 if aux_var is not None:
                     results["optim_aux_var"] = aux_var.to_dict()
             results["params"] = model_weights
@@ -605,11 +617,6 @@ class Round:
                 "This process can take some time depending on model size.",
                 researcher_id=self.researcher_id,
             )
-            # encrypted_wgt = self._secure_aggregation.scheme.encrypt(
-            #         params=model_weights,
-            #         current_round=self._round,
-            #         weight=sample_size,
-            # )
             encrypted_aux = None
 
         encrypted_wgt = self._secure_aggregation.scheme.encrypt(
@@ -750,7 +757,7 @@ class Round:
                     f"Loading Optimizer from state {state_id} failed ... Resuming Experiment with default"
                     "Optimizer state."
                 )
-                logger.debug(f" Error detail {err}")
+                logger.debug(f" Error detail {repr(err)}")
 
         # load testing dataset if any
         if state["testing_dataset"] and not self.is_test_data_shuffled:
