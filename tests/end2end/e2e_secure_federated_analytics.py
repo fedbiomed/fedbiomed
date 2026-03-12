@@ -21,19 +21,22 @@ Or run directly:
 """
 
 import time
-import pytest
 
+import pytest
 from helpers import (
     add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
     clear_component_data,
     create_multiple_nodes,
     create_researcher,
     get_data_folder,
+    kill_subprocesses,
+    start_nodes,
 )
+
 from fedbiomed.researcher.secagg import (
     SecureAggregation,
+)
+from fedbiomed.researcher.secagg import (
     SecureAggregationSchemes as SecAggSchemes,
 )
 
@@ -50,9 +53,9 @@ def setup_secure_fa(port, post_session):
         "path": get_data_folder("adni-test"),
     }
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Setting up secure federated analytics test environment")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Using port {port} for researcher server")
 
     # Create multiple nodes
@@ -107,11 +110,11 @@ class TestSecureFederatedAnalyticsE2E:
         """Test secure federated analytics with mean computation."""
         from fedbiomed.researcher.federated_workflows import Experiment
 
-        setup = setup_secure_fa
+        _setup = setup_secure_fa
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Test 1: Secure Mean Computation")
-        print("="*60)
+        print("=" * 60)
 
         # Create experiment with secagg
         exp = Experiment(
@@ -120,18 +123,18 @@ class TestSecureFederatedAnalyticsE2E:
         )
 
         # Check secagg is enabled
-        assert exp.analytics.secagg is not False
+        assert exp.analytics.secagg.active
         print(f"SecAgg enabled: {exp.analytics.secagg.active}")
 
         # Compute mean
         try:
-            result = exp.analytics.mean(dataset_args={"col_names": ["AGE"]})
+            result = exp.analytics.fetch_stats(stats="mean", dataset_schema=["AGE"])
             print(f"Mean result: {result.global_stat('mean')}")
-            
+
             # Verify result structure
             assert result is not None
             assert result.available_stats() is not None
-            
+
             print("✓ Test passed: Secure mean computation works")
         except Exception as e:
             print(f"✗ Test failed: {e}")
@@ -141,9 +144,9 @@ class TestSecureFederatedAnalyticsE2E:
         """Test secure federated analytics with multiple statistics."""
         from fedbiomed.researcher.federated_workflows import Experiment
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Test 2: Multiple Statistics")
-        print("="*60)
+        print("=" * 60)
 
         exp = Experiment(
             tags=["#adni"],
@@ -152,10 +155,7 @@ class TestSecureFederatedAnalyticsE2E:
 
         stats = ["mean", "count", "min", "max"]
         try:
-            result = exp.analytics.compute_analytics(
-                stats=stats,
-                dataset_args={"col_names": ["AGE"]}
-            )
+            result = exp.analytics.fetch_stats(stats=stats, dataset_schema=["AGE"])
 
             for stat in stats:
                 value = result.global_stat(stat)
@@ -170,9 +170,9 @@ class TestSecureFederatedAnalyticsE2E:
         """Test secure federated analytics with variance."""
         from fedbiomed.researcher.federated_workflows import Experiment
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Test 3: Variance Computation")
-        print("="*60)
+        print("=" * 60)
 
         exp = Experiment(
             tags=["#adni"],
@@ -180,7 +180,7 @@ class TestSecureFederatedAnalyticsE2E:
         )
 
         try:
-            result = exp.analytics.variance(dataset_args={"col_names": ["AGE"]})
+            result = exp.analytics.fetch_stats(stats="variance", dataset_schema=["AGE"])
             print(f"Variance result: {result.global_stat('variance')}")
             print("✓ Test passed: Variance computation works")
         except Exception as e:
@@ -191,9 +191,9 @@ class TestSecureFederatedAnalyticsE2E:
         """Test secure federated analytics with histogram."""
         from fedbiomed.researcher.federated_workflows import Experiment
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Test 4: Histogram Computation")
-        print("="*60)
+        print("=" * 60)
 
         exp = Experiment(
             tags=["#adni"],
@@ -201,16 +201,15 @@ class TestSecureFederatedAnalyticsE2E:
         )
 
         try:
-            result = exp.analytics.compute_analytics(
+            result = exp.analytics.fetch_stats(
                 stats=["histogram"],
-                dataset_args={
-                    "col_names": ["AGE"],
-                    "histogram_args": {"bins": 5, "range": (50, 100)}
-                }
+                dataset_schema=["AGE"],
+                stats_args={"histogram_args": {"bins": 5, "range": (50, 100)}},
             )
             hist = result.global_stat("histogram")
-            print(f"Histogram bin_edges: {hist.get('bin_edges', [])}")
-            print(f"Histogram counts: {hist.get('counts', [])}")
+            # global_stat preserves column-nested structure: {'AGE': {'bin_edges': ..., 'counts': ...}}
+            print(f"Histogram bin_edges: {hist.get('AGE', {}).get('bin_edges', [])}")
+            print(f"Histogram counts: {hist.get('AGE', {}).get('counts', [])}")
             print("✓ Test passed: Histogram works")
         except Exception as e:
             print(f"Note: Histogram may require specific data: {e}")
@@ -221,16 +220,18 @@ class TestSecureFederatedAnalyticsE2E:
         """Compare secure vs non-secure federated analytics."""
         from fedbiomed.researcher.federated_workflows import Experiment
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Test 5: Comparison Secure vs Non-Secure")
-        print("="*60)
+        print("=" * 60)
 
         # Non-secure
         print("Computing without SecAgg...")
         exp_no_sec = Experiment(tags=["#adni"], secagg=False)
-        result_no_sec = exp_no_sec.analytics.mean(dataset_args={"col_names": ["AGE"]})
+        result_no_sec = exp_no_sec.analytics.fetch_stats(
+            stats="mean", dataset_schema=["AGE"]
+        )
         print(f"  Without SecAgg: {result_no_sec.global_stat('mean')}")
-        
+
         # Check if we can access individual node results
         print("  Node results accessible (no encryption):")
         for node_id in result_no_sec.node_ids:
@@ -239,13 +240,13 @@ class TestSecureFederatedAnalyticsE2E:
         # Secure
         print("Computing with SecAgg...")
         exp_sec = Experiment(tags=["#adni"], secagg=True)
-        result_sec = exp_sec.analytics.mean(dataset_args={"col_names": ["AGE"]})
+        result_sec = exp_sec.analytics.fetch_stats(stats="mean", dataset_schema=["AGE"])
         print(f"  With SecAgg: {result_sec.global_stat('mean')}")
 
         # Results should be similar (within tolerance)
-        val_no_sec = list(result_no_sec.global_stat('mean').values())[0]
-        val_sec = list(result_sec.global_stat('mean').values())[0]
-        
+        val_no_sec = list(result_no_sec.global_stat("mean").values())[0]
+        val_sec = list(result_sec.global_stat("mean").values())[0]
+
         # Note: Due to encryption/decryption, values may differ slightly
         print(f"  Values difference: {abs(val_no_sec - val_sec)}")
 
@@ -254,11 +255,10 @@ class TestSecureFederatedAnalyticsE2E:
     def test_explicit_secagg_scheme(self, setup_secure_fa):
         """Test with explicit LOM scheme selection."""
         from fedbiomed.researcher.federated_workflows import Experiment
-        from fedbiomed.researcher.secagg import SecureAggregation
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Test 6: Explicit LOM Scheme")
-        print("="*60)
+        print("=" * 60)
 
         secagg = SecureAggregation(scheme=SecAggSchemes.LOM, active=True)
 
@@ -271,7 +271,7 @@ class TestSecureFederatedAnalyticsE2E:
         print(f"Using scheme: {type(exp.analytics.secagg).__name__}")
 
         try:
-            result = exp.analytics.mean(dataset_args={"col_names": ["AGE"]})
+            result = exp.analytics.fetch_stats(stats="mean", dataset_schema=["AGE"])
             print(f"Mean: {result.global_stat('mean')}")
             print("✓ Test passed: Explicit scheme works")
         except Exception as e:
@@ -282,13 +282,13 @@ class TestSecureFederatedAnalyticsE2E:
         """Test enabling/disabling secagg dynamically."""
         from fedbiomed.researcher.federated_workflows import Experiment
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Test 7: Dynamic SecAgg Configuration")
-        print("="*60)
+        print("=" * 60)
 
         # Start without secagg
         exp = Experiment(tags=["#adni"], secagg=False)
-        assert exp.analytics.secagg is False
+        assert not exp.analytics.secagg.active
         print("Initial: SecAgg disabled")
 
         # Enable secagg
@@ -298,12 +298,12 @@ class TestSecureFederatedAnalyticsE2E:
         print("After set_secagg(True): SecAgg enabled")
 
         # Compute with secagg
-        result = exp.analytics.mean(dataset_args={"col_names": ["AGE"]})
+        result = exp.analytics.fetch_stats(stats="mean", dataset_schema=["AGE"])
         print(f"Result with SecAgg: {result.global_stat('mean')}")
 
         # Disable secagg
         exp.analytics.set_secagg(False)
-        assert exp.analytics.secagg is False
+        assert not exp.analytics.secagg.active
         print("After set_secagg(False): SecAgg disabled")
 
         print("✓ Test passed: Dynamic configuration works")
@@ -312,16 +312,17 @@ class TestSecureFederatedAnalyticsE2E:
 # Standalone runner for debugging
 if __name__ == "__main__":
     import sys
+
     print("""
 Secure Federated Analytics - End-to-End Test
-    
+
 This test requires:
 1. Running nodes with datasets
 2. Proper network configuration
-    
+
 To run with pytest:
     pytest tests/end2end/e2e_secure_federated_analytics.py -v -s
-    
+
 To run this file directly:
     python tests/end2end/e2e_secure_federated_analytics.py
     """)

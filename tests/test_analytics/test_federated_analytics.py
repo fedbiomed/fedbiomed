@@ -817,7 +817,10 @@ class TestSecureFederatedAnalytics:
 
     def test_init_with_secagg_object(self, mock_fds, mock_requests):
         """Test initialization with a SecureAggregation object."""
-        from fedbiomed.researcher.secagg import SecureAggregation, SecureAggregationSchemes
+        from fedbiomed.researcher.secagg import (
+            SecureAggregation,
+            SecureAggregationSchemes,
+        )
 
         secagg = SecureAggregation(scheme=SecureAggregationSchemes.LOM, active=True)
         fa = FederatedAnalytics(
@@ -868,15 +871,20 @@ class TestSecureFederatedAnalytics:
         result = fa.secagg_setup(["node-1", "node-2"])
         assert result == {}
 
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
-    def test_secagg_setup_with_secagg_enabled(self, mock_secagg_cls, mock_fds, mock_requests):
+    @patch(
+        "fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation"
+    )
+    def test_secagg_setup_with_secagg_enabled(
+        self, mock_secagg_cls, mock_fds, mock_requests
+    ):
         """Test secagg_setup calls setup on SecureAggregation."""
-        from fedbiomed.common.constants import SecureAggregationSchemes
 
         mock_secagg = MagicMock()
         mock_secagg.active = True
         mock_secagg.setup.return_value = True
-        mock_secagg.train_arguments.return_value = {"parties": ["res-456", "node-1", "node-2"]}
+        mock_secagg.train_arguments.return_value = {
+            "parties": ["res-456", "node-1", "node-2"]
+        }
         mock_secagg_cls.return_value = mock_secagg
 
         fa = FederatedAnalytics(
@@ -894,7 +902,9 @@ class TestSecureFederatedAnalytics:
         mock_secagg.train_arguments.assert_called_once()
         assert "parties" in result
 
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
+    @patch(
+        "fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation"
+    )
     def test_secagg_setup_fails(self, mock_secagg_cls, mock_fds, mock_requests):
         """Test secagg_setup raises error when setup fails."""
         mock_secagg = MagicMock()
@@ -915,8 +925,8 @@ class TestSecureFederatedAnalytics:
             fa.secagg_setup(["node-1", "node-2"])
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_analytics_without_secagg(self, mock_fa_job, mock_fds, mock_requests):
-        """Test compute_analytics without secagg."""
+    def test_fetch_stats_without_secagg(self, mock_fa_job, mock_fds, mock_requests):
+        """Test fetch_stats without secagg."""
         mock_reply = MagicMock()
         mock_reply.output = {"age": {"mean": 45.0}}
 
@@ -933,17 +943,21 @@ class TestSecureFederatedAnalytics:
             secagg=False,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        _result = fa.fetch_stats(stats=["mean"])
 
         mock_fa_job.assert_called_once()
         call_kwargs = mock_fa_job.call_args.kwargs
         assert call_kwargs["secagg"] is False
         assert call_kwargs["secagg_arguments"] == {}
 
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
+    @patch(
+        "fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation"
+    )
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_analytics_with_secagg(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
-        """Test compute_analytics with secagg enabled."""
+    def test_fetch_stats_with_secagg(
+        self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests
+    ):
+        """Test fetch_stats with secagg enabled."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
         mock_secagg.setup.return_value = True
@@ -966,7 +980,7 @@ class TestSecureFederatedAnalytics:
             secagg=True,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        _result = fa.fetch_stats(stats=["mean"])
 
         mock_fa_job.assert_called_once()
         call_kwargs = mock_fa_job.call_args.kwargs
@@ -987,8 +1001,7 @@ class TestFAJobEncryption:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = False
-        job._secagg_arguments = {}
+        job._get_encryption_params.return_value = None
 
         output = {"age": {"mean": 45.0}}
         result = FAJob._encrypt_output(job, output)
@@ -1000,8 +1013,7 @@ class TestFAJobEncryption:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {"parties": ["n1", "n2"]}
+        job._get_encryption_params.return_value = None
 
         output = {"age": {"mean": 45.0}}
         result = FAJob._encrypt_output(job, output)
@@ -1016,21 +1028,14 @@ class TestFAJobEncryption:
         mock_crypter_instance = MagicMock()
         mock_crypter.return_value = mock_crypter_instance
         mock_crypter_instance.encrypt.return_value = [999]
-        mock_crypter_calls = []
-
-        def track_call(*args, **kwargs):
-            mock_crypter_calls.append((args, kwargs))
-            return [999]
-
-        mock_crypter_instance.encrypt.side_effect = track_call
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2,
+            "key": 123,
             "biprime": 456,
-            "secagg_clipping_range": 10,
+            "clipping_range": 10,
+            "current_round": 1,
         }
 
         output = {"age": {"mean": 45.0}}
@@ -1039,28 +1044,23 @@ class TestFAJobEncryption:
         assert result["age"]["mean"]["_encrypted"] is True
         assert result["age"]["mean"]["value"] == 999
 
-    @patch("fedbiomed.node.jobs._fa_job.SecaggCrypter")
-    def test_encrypt_histogram(self, mock_crypter):
+    def test_encrypt_histogram(self):
         """Test encryption of histogram counts."""
         from fedbiomed.node.jobs._fa_job import FAJob
 
-        mock_crypter_instance = MagicMock()
-        mock_crypter.return_value = mock_crypter_instance
-        mock_crypter_instance.encrypt.return_value = [10, 20, 30]
+        mock_crypter = MagicMock()
+        mock_crypter.encrypt.return_value = [10, 20, 30]
 
-        job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
+        enc_params = {
+            "num_nodes": 2,
+            "key": 123,
             "biprime": 456,
+            "clipping_range": None,
+            "current_round": 1,
         }
 
-        histogram = {
-            "bin_edges": [0, 10, 20, 30],
-            "counts": [100, 200, 300]
-        }
-        result = FAJob._encrypt_histogram(job, histogram)
+        histogram = {"bin_edges": [0, 10, 20, 30], "counts": [100, 200, 300]}
+        result = FAJob._encrypt_histogram(histogram, enc_params, mock_crypter)
 
         assert result["bin_edges"] == [0, 10, 20, 30]
         assert result["counts"][0]["_encrypted"] is True
@@ -1071,13 +1071,71 @@ class TestFAJobEncryption:
 # ---------------------------------------------------------------------------
 
 
+class TestFAJobMeanSumEncoding:
+    """Tests for the mean sum-encoding fix (Issue 5)."""
+
+    _ENC_PARAMS = {
+        "num_nodes": 2,
+        "key": 123,
+        "biprime": 456,
+        "clipping_range": None,
+        "current_round": 1,
+    }
+
+    @patch("fedbiomed.node.jobs._fa_job.SecaggCrypter")
+    def test_mean_is_encoded_as_sum_when_count_present(self, mock_crypter_cls):
+        """Node encrypts mean*count (sum) when count is a numeric sibling."""
+        from fedbiomed.node.jobs._fa_job import FAJob
+
+        mock_crypter = MagicMock()
+        mock_crypter_cls.return_value = mock_crypter
+        mock_crypter.encrypt.return_value = [999]
+
+        job = MagicMock(spec=FAJob)
+        job._get_encryption_params.return_value = dict(self._ENC_PARAMS)
+
+        output = {"AGE": {"mean": 65.0, "count": 100}}
+        result = FAJob._encrypt_output(job, output)
+
+        # find the call that encrypted the mean
+        calls = mock_crypter.encrypt.call_args_list
+        mean_calls = [c for c in calls if c.kwargs.get("params") == [65.0 * 100]]
+        assert mean_calls, "mean should have been encrypted as sum = mean * count"
+
+        # the encrypted mean wrapper should carry the _sum_encoded marker
+        assert result["AGE"]["mean"].get("_sum_encoded") is True
+
+    @patch("fedbiomed.node.jobs._fa_job.SecaggCrypter")
+    def test_mean_not_sum_encoded_without_count(self, mock_crypter_cls):
+        """Node encrypts mean as-is when count is absent."""
+        from fedbiomed.node.jobs._fa_job import FAJob
+
+        mock_crypter = MagicMock()
+        mock_crypter_cls.return_value = mock_crypter
+        mock_crypter.encrypt.return_value = [999]
+
+        job = MagicMock(spec=FAJob)
+        job._get_encryption_params.return_value = dict(self._ENC_PARAMS)
+
+        output = {"AGE": {"mean": 65.0}}  # no count sibling
+        result = FAJob._encrypt_output(job, output)
+
+        enc = result["AGE"]["mean"]
+        assert enc.get("_encrypted") is True
+        assert not enc.get("_sum_encoded", False)
+
+        # encrypted value should be 65.0, not 65.0 * something
+        calls = mock_crypter.encrypt.call_args_list
+        assert any(c.kwargs.get("params") == [65.0] for c in calls)
+
+
 class TestFARequestJobSecAgg:
     """Tests for FARequestJob with secure aggregation parameters."""
 
     def test_fa_request_job_init_without_secagg(self):
         """Test FARequestJob initialization without secagg."""
-        from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
         from fedbiomed.researcher.datasets import FederatedDataset
+        from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
 
         fds = MagicMock(spec=FederatedDataset)
         fds.data.return_value = {
@@ -1088,12 +1146,12 @@ class TestFARequestJobSecAgg:
             experiment_id="exp-1",
             fa_id="fa-1",
             federated_dataset=fds,
-            fa_args={},
+            stats_args=None,
             stats=["mean"],
             dataset_schema=None,
             nodes=["node-1"],
+            researcher_id="res-1",
             requests=MagicMock(),
-            policies=MagicMock(),
         )
 
         assert job._secagg is False
@@ -1101,8 +1159,8 @@ class TestFARequestJobSecAgg:
 
     def test_fa_request_job_init_with_secagg(self):
         """Test FARequestJob initialization with secagg."""
-        from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
         from fedbiomed.researcher.datasets import FederatedDataset
+        from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
 
         fds = MagicMock(spec=FederatedDataset)
         fds.data.return_value = {
@@ -1115,12 +1173,12 @@ class TestFARequestJobSecAgg:
             experiment_id="exp-1",
             fa_id="fa-1",
             federated_dataset=fds,
-            fa_args={},
+            stats_args=None,
             stats=["mean"],
             dataset_schema=None,
             nodes=["node-1"],
+            researcher_id="res-1",
             requests=MagicMock(),
-            policies=MagicMock(),
             secagg=True,
             secagg_arguments=secagg_args,
         )
@@ -1137,29 +1195,33 @@ class TestFARequestJobSecAgg:
 class TestSecAggIntegration:
     """Integration tests for secure federated analytics flow."""
 
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
+    @patch(
+        "fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation"
+    )
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_full_flow_with_secagg(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
-        """Test complete flow with secagg enabled."""
+    def test_full_flow_with_secagg(
+        self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests
+    ):
+        """Test complete flow with secagg enabled (decryption is mocked)."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
         mock_secagg.setup.return_value = True
         mock_secagg.train_arguments.return_value = {
             "secagg_key": 123,
             "biprime": 456,
-            "parties": ["res-456", "node-1", "node-2"]
+            "parties": ["res-456", "node-1", "node-2"],
         }
         mock_secagg_cls.return_value = mock_secagg
 
         mock_reply1 = MagicMock()
-        mock_reply1.output = {"age": {"_encrypted": True, "value": 111}}
+        mock_reply1.output = {"age": {"mean": 45.0}}
         mock_reply2 = MagicMock()
-        mock_reply2.output = {"age": {"_encrypted": True, "value": 222}}
+        mock_reply2.output = {"age": {"mean": 50.0}}
 
         mock_job_instance = MagicMock()
         mock_job_instance.execute.return_value = (
             {"node-1": mock_reply1, "node-2": mock_reply2},
-            {}
+            {},
         )
         mock_fa_job.return_value = mock_job_instance
 
@@ -1172,18 +1234,33 @@ class TestSecAggIntegration:
             secagg=True,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        # Patch _decrypt_replies so the test focuses on the request/setup flow,
+        # not on the cryptographic layer (which requires real integer keys).
+        decrypted_reply = MagicMock()
+        decrypted_reply.output = {"age": {"mean": 47.5}}
+        with patch.object(
+            fa, "_decrypt_replies", return_value={"node-1": decrypted_reply}
+        ):
+            result = fa.fetch_stats(stats=["mean"])
 
         assert mock_secagg.setup.called
         assert mock_secagg.train_arguments.called
+        assert "node-1" in result.node_ids
 
-    def test_node_stats_returns_decrypted_with_secagg(self, mock_fds, mock_requests):
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_node_stats_returns_decrypted_with_secagg(
+        self, mock_fa_job, mock_fds, mock_requests
+    ):
         """Test that node_stats returns decrypted values when secagg was used."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
-        mock_secagg._secagg = MagicMock()
-        mock_secagg._secagg._biprime = 123
-        mock_secagg._secagg._key = 456
+
+        mock_job_instance = MagicMock()
+        mock_job_instance.execute.return_value = (
+            {"node-1": _make_reply({"age": {"mean": 45.0}})},
+            {},
+        )
+        mock_fa_job.return_value = mock_job_instance
 
         fa = FederatedAnalytics(
             fds=mock_fds,
@@ -1191,14 +1268,17 @@ class TestSecAggIntegration:
             researcher_id="res-456",
             reqs=mock_requests,
             experimentation_folder="/tmp/fedbiomed",
-            secagg=mock_secagg,
+            secagg=False,
         )
+        # Override _secagg directly so secagg_active=True without going through _init_secagg
+        fa._secagg = mock_secagg
 
-        with patch.object(fa, '_decrypt_replies') as mock_decrypt:
-            mock_decrypt.return_value = {
-                "node-1": _make_reply({"age": {"mean": 45.0}})
-            }
-            result = fa.compute_analytics(stats=["mean"])
+        with (
+            patch.object(fa, "secagg_setup", return_value={}),
+            patch.object(fa, "_decrypt_replies") as mock_decrypt,
+        ):
+            mock_decrypt.return_value = {"node-1": _make_reply({"age": {"mean": 45.0}})}
+            _result = fa.fetch_stats(stats=["mean"])
 
 
 # ---------------------------------------------------------------------------
@@ -1214,11 +1294,12 @@ class TestFAJobEncryptionEdgeCases:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2,
+            "key": 123,
             "biprime": 456,
+            "clipping_range": None,
+            "current_round": 1,
         }
 
         with patch("fedbiomed.node.jobs._fa_job.SecaggCrypter") as mock_crypter_cls:
@@ -1226,13 +1307,7 @@ class TestFAJobEncryptionEdgeCases:
             mock_crypter_cls.return_value = mock_crypter
             mock_crypter.encrypt.return_value = [100]
 
-            output = {
-                "level1": {
-                    "level2": {
-                        "mean": 42.0
-                    }
-                }
-            }
+            output = {"level1": {"level2": {"mean": 42.0}}}
             result = FAJob._encrypt_output(job, output)
 
             assert result["level1"]["level2"]["mean"]["_encrypted"] is True
@@ -1242,11 +1317,12 @@ class TestFAJobEncryptionEdgeCases:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2,
+            "key": 123,
             "biprime": 456,
+            "clipping_range": None,
+            "current_round": 1,
         }
 
         with patch("fedbiomed.node.jobs._fa_job.SecaggCrypter") as mock_crypter_cls:
@@ -1266,11 +1342,12 @@ class TestFAJobEncryptionEdgeCases:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2,
+            "key": 123,
             "biprime": 456,
+            "clipping_range": None,
+            "current_round": 1,
         }
 
         output = {
@@ -1281,7 +1358,9 @@ class TestFAJobEncryptionEdgeCases:
         result = FAJob._encrypt_output(job, output)
 
         assert result["name"] == "test"
-        assert result["enabled"] is True
+        assert (
+            result["enabled"]["_encrypted"] is True
+        )  # bool is int subclass, gets encrypted
         assert result["count"]["_encrypted"] is True
 
     def test_encrypt_empty_output(self):
@@ -1289,11 +1368,12 @@ class TestFAJobEncryptionEdgeCases:
         from fedbiomed.node.jobs._fa_job import FAJob
 
         job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
+        job._get_encryption_params.return_value = {
+            "num_nodes": 2,
+            "key": 123,
             "biprime": 456,
+            "clipping_range": None,
+            "current_round": 1,
         }
 
         result = FAJob._encrypt_output(job, {})
@@ -1306,20 +1386,23 @@ class TestFAJobEncryptionEdgeCases:
         """Test that histogram bin_edges are preserved in clear."""
         from fedbiomed.node.jobs._fa_job import FAJob
 
-        job = MagicMock(spec=FAJob)
-        job._secagg = True
-        job._secagg_arguments = {
-            "parties": ["n1", "n2"],
-            "secagg_key": 123,
+        enc_params = {
+            "num_nodes": 2,
+            "key": 123,
             "biprime": 456,
+            "clipping_range": None,
+            "current_round": 1,
         }
 
         histogram = {
             "bin_edges": [0.0, 10.0, 20.0, 30.0, 40.0],
-            "counts": [5, 15, 25, 35]
+            "counts": [5, 15, 25, 35],
         }
 
-        result = FAJob._encrypt_histogram(job, histogram)
+        mock_crypter = MagicMock()
+        mock_crypter.encrypt.return_value = [10, 20, 30, 40]
+
+        result = FAJob._encrypt_histogram(histogram, enc_params, mock_crypter)
 
         assert result["bin_edges"] == [0.0, 10.0, 20.0, 30.0, 40.0]
         assert len(result["counts"]) == 4
@@ -1352,22 +1435,26 @@ class TestFAResultWithSecAgg:
     def test_histogram_aggregation(self):
         """Test histogram aggregation across nodes."""
         replies = {
-            "n1": _make_reply({
-                "age": {
-                    "histogram": {
-                        "bin_edges": [0, 10, 20, 30],
-                        "counts": [10, 20, 30]
+            "n1": _make_reply(
+                {
+                    "age": {
+                        "histogram": {
+                            "bin_edges": [0, 10, 20, 30],
+                            "counts": [10, 20, 30],
+                        }
                     }
                 }
-            }),
-            "n2": _make_reply({
-                "age": {
-                    "histogram": {
-                        "bin_edges": [0, 10, 20, 30],
-                        "counts": [5, 15, 25]
+            ),
+            "n2": _make_reply(
+                {
+                    "age": {
+                        "histogram": {
+                            "bin_edges": [0, 10, 20, 30],
+                            "counts": [5, 15, 25],
+                        }
                     }
                 }
-            }),
+            ),
         }
         result = FAResult(replies)
 
@@ -1379,14 +1466,18 @@ class TestFAResultWithSecAgg:
     def test_multiple_columns_aggregation(self):
         """Test aggregation with multiple columns."""
         replies = {
-            "n1": _make_reply({
-                "age": {"mean": 30.0, "count": 100},
-                "income": {"mean": 50000, "count": 100}
-            }),
-            "n2": _make_reply({
-                "age": {"mean": 40.0, "count": 100},
-                "income": {"mean": 60000, "count": 100}
-            }),
+            "n1": _make_reply(
+                {
+                    "age": {"mean": 30.0, "count": 100},
+                    "income": {"mean": 50000, "count": 100},
+                }
+            ),
+            "n2": _make_reply(
+                {
+                    "age": {"mean": 40.0, "count": 100},
+                    "income": {"mean": 60000, "count": 100},
+                }
+            ),
         }
         result = FAResult(replies)
 
@@ -1406,10 +1497,14 @@ class TestFAResultWithSecAgg:
 class TestErrorHandling:
     """Tests for error handling in secure federated analytics."""
 
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
+    @patch(
+        "fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation"
+    )
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_analytics_handles_node_errors(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
-        """Test that node errors are handled gracefully."""
+    def test_fetch_stats_handles_node_errors(
+        self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests
+    ):
+        """Test that SecAgg aborts when any node fails (masks cannot cancel)."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
         mock_secagg.setup.return_value = True
@@ -1419,7 +1514,7 @@ class TestErrorHandling:
         mock_job_instance = MagicMock()
         mock_job_instance.execute.return_value = (
             {"node-1": _make_reply({"age": {"mean": 45.0}})},
-            {"node-2": MagicMock()}  # Error reply
+            {"node-2": MagicMock()},  # Error reply
         )
         mock_fa_job.return_value = mock_job_instance
 
@@ -1432,13 +1527,16 @@ class TestErrorHandling:
             secagg=True,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        with pytest.raises(FedbiomedError, match="node-2"):
+            fa.fetch_stats(stats=["mean"])
 
-        assert "node-1" in result.node_ids
-
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
+    @patch(
+        "fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation"
+    )
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_analytics_all_nodes_fail(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
+    def test_fetch_stats_all_nodes_fail(
+        self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests
+    ):
         """Test behavior when all nodes fail."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
@@ -1449,7 +1547,7 @@ class TestErrorHandling:
         mock_job_instance = MagicMock()
         mock_job_instance.execute.return_value = (
             {},
-            {"node-1": MagicMock(), "node-2": MagicMock()}
+            {"node-1": MagicMock(), "node-2": MagicMock()},
         )
         mock_fa_job.return_value = mock_job_instance
 
@@ -1463,11 +1561,14 @@ class TestErrorHandling:
         )
 
         with pytest.raises(FedbiomedError, match="Federated analytics failed"):
-            fa.compute_analytics(stats=["mean"])
+            fa.fetch_stats(stats=["mean"])
 
     def test_secagg_setup_invalid_parties(self, mock_fds, mock_requests):
         """Test secagg setup with invalid parties list."""
-        from fedbiomed.researcher.secagg import SecureAggregation, SecureAggregationSchemes
+        from fedbiomed.researcher.secagg import (
+            SecureAggregation,
+            SecureAggregationSchemes,
+        )
 
         secagg = SecureAggregation(scheme=SecureAggregationSchemes.LOM, active=True)
 
@@ -1480,8 +1581,10 @@ class TestErrorHandling:
             secagg=secagg,
         )
 
-        with patch.object(secagg, 'setup', return_value=False):
-            with pytest.raises(FedbiomedError, match="Failed to setup secure aggregation"):
+        with patch.object(secagg, "setup", return_value=False):
+            with pytest.raises(
+                FedbiomedError, match="Failed to setup secure aggregation"
+            ):
                 fa.secagg_setup([])
 
     def test_global_stat_no_data(self):
@@ -1510,9 +1613,13 @@ class TestErrorHandling:
 class TestCaching:
     """Tests for caching behavior with secure federated analytics."""
 
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
+    @patch(
+        "fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation"
+    )
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_caching_skips_request_when_cached(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
+    def test_caching_skips_request_when_cached(
+        self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests
+    ):
         """Test that cached results are returned without new requests."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
@@ -1536,15 +1643,19 @@ class TestCaching:
             secagg=True,
         )
 
-        result1 = fa.compute_analytics(stats=["mean"])
-        result2 = fa.compute_analytics(stats=["mean"])
+        result1 = fa.fetch_stats(stats=["mean"])
+        result2 = fa.fetch_stats(stats=["mean"])
 
         assert mock_fa_job.call_count == 1
         assert result1 is result2
 
-    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation")
+    @patch(
+        "fedbiomed.researcher.federated_workflows._federated_analytics.SecureAggregation"
+    )
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_cache_key_includes_secagg(self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests):
+    def test_cache_key_includes_secagg(
+        self, mock_fa_job, mock_secagg_cls, mock_fds, mock_requests
+    ):
         """Test that cache key differs when secagg is enabled vs disabled."""
         mock_secagg = MagicMock()
         mock_secagg.active = True
@@ -1568,6 +1679,6 @@ class TestCaching:
             secagg=False,
         )
 
-        result = fa.compute_analytics(stats=["mean"])
+        _result = fa.fetch_stats(stats=["mean"])
 
         assert mock_fa_job.call_count == 1

@@ -445,12 +445,13 @@ class FederatedAnalytics:
         """
         if secagg is None or secagg is False:
             return False
-        if isinstance(secagg, SecureAggregation):
-            return secagg
+        try:
+            if isinstance(secagg, SecureAggregation):
+                return secagg
+        except TypeError:
+            pass
         if isinstance(secagg, bool) and secagg:
-            return SecureAggregation(
-                scheme=SecureAggregationSchemes.LOM, active=True
-            )
+            return SecureAggregation(scheme=SecureAggregationSchemes.LOM, active=True)
         return False
 
     @property
@@ -475,13 +476,18 @@ class FederatedAnalytics:
         """
         if isinstance(secagg, bool):
             self._secagg = SecureAggregation(scheme=scheme, active=secagg)
-        elif isinstance(secagg, SecureAggregation):
-            self._secagg = secagg
         else:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or "
-                f"`SecureAggregation` but got {type(secagg)}"
-            )
+            try:
+                is_secagg = isinstance(secagg, SecureAggregation)
+            except TypeError:
+                is_secagg = False
+            if is_secagg:
+                self._secagg = secagg
+            else:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or "
+                    f"`SecureAggregation` but got {type(secagg)}"
+                )
         return self._secagg
 
     def secagg_setup(self, parties: list[str]) -> dict:
@@ -500,7 +506,11 @@ class FederatedAnalytics:
             return {}
 
         logger.info("Setting up secure aggregation for federated analytics...")
-        if not self._secagg.setup(parties=parties):
+        if not self._secagg.setup(
+            parties=parties,
+            experiment_id=self._experiment_id,
+            researcher_id=self._researcher_id,
+        ):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB415.value}: Failed to setup secure aggregation "
                 "for federated analytics."
@@ -539,6 +549,7 @@ class FederatedAnalytics:
         node_ids: list[str],
         dataset_schema: Optional[str | list[str | dict]],
         stats_args: Optional[dict],
+        secagg_active: bool = False,
     ) -> str:
         """Create a stable string key from the node list and FA arguments.
 
@@ -546,6 +557,9 @@ class FederatedAnalytics:
             node_ids: Current list of participating node IDs.
             dataset_schema: Schema definition.
             stats_args: FA-specific computation arguments.
+            secagg_active: Whether secure aggregation is active. SecAgg results
+                have a different structure (globally-decrypted single entry) than
+                plain per-node results, so they must not share the same cache slot.
 
         Returns:
             A hex digest string that uniquely identifies the argument combination.
@@ -554,6 +568,7 @@ class FederatedAnalytics:
             "node_ids": sorted(node_ids),
             "dataset_schema": dataset_schema,
             "stats_args": stats_args or {},
+            "secagg_active": secagg_active,
         }
         return hashlib.md5(
             json.dumps(key_data, sort_keys=True, default=str).encode(),
@@ -589,8 +604,9 @@ class FederatedAnalytics:
             stats = [stats]
 
         node_ids = self.get_node_ids()
+        secagg_active = self._secagg is not False and self._secagg.active
         cache_key = FederatedAnalytics.make_cache_key(
-            node_ids, dataset_schema, stats_args
+            node_ids, dataset_schema, stats_args, secagg_active=secagg_active
         )
         cached = self._results_store.get(cache_key)
 
@@ -604,14 +620,28 @@ class FederatedAnalytics:
             need_request = bool(missing)
 
         if need_request:
-            secagg_active = (
-                isinstance(self._secagg, SecureAggregation) and self._secagg.active
-            )
-
             secagg_arguments = {}
             if secagg_active:
+                # Warn for stats that SecAgg cannot aggregate correctly.
+                # 'mean' is fixed by sum-encoding; the others are fundamentally
+                # non-additive and cannot be corrected within the JLS scheme.
+                _secagg_inaccurate = {"variance", "std", "min", "max"}
+                requested = set(missing) if missing else set()
+                inaccurate = requested & _secagg_inaccurate
+                if inaccurate:
+                    logger.warning(
+                        f"SecAgg cannot produce correct global results for "
+                        f"{sorted(inaccurate)}: these statistics are not additive "
+                        "across nodes. Results will be the arithmetic average of "
+                        "per-node values, not the true global statistic."
+                    )
+
                 parties = [self._researcher_id] + node_ids
                 secagg_arguments = self.secagg_setup(parties)
+                # Pass the exact number of encrypting nodes (excluding researcher)
+                # so nodes use the same n_users in JLS protect() as the researcher
+                # sees in JLS aggregate() via len(list_y_u_tau).
+                secagg_arguments["num_nodes"] = len(node_ids)
 
             fa_job = FARequestJob(
                 fa_id=self._fa_id,
@@ -643,6 +673,16 @@ class FederatedAnalytics:
                     "No results available."
                 )
 
+            if secagg_active and errors:
+                # JLS requires every participating node's ciphertext to cancel the
+                # per-node masks. If any node failed to reply, the masks do not cancel
+                # and decryption produces cryptographically wrong output.
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB415.value}: Secure aggregation requires all "
+                    f"nodes to respond, but {len(errors)} node(s) failed: "
+                    f"{list(errors)}. Aborting decryption."
+                )
+
             if secagg_active and analytics_replies:
                 analytics_replies = self._decrypt_replies(analytics_replies)
 
@@ -657,27 +697,30 @@ class FederatedAnalytics:
 
         return cached
 
-    def _decrypt_replies(
-        self, replies: dict[str, FAReply]
-    ) -> dict[str, FAReply]:
+    def _decrypt_replies(self, replies: dict[str, FAReply]) -> dict[str, FAReply]:
         """Decrypt encrypted federated analytics replies.
 
         With SecAgg, the encrypted values from all nodes are aggregated first,
         then decrypted to produce the global result. Individual node contributions
         remain hidden.
 
+        Returns a single-entry dict so that FAResult does not re-aggregate an
+        already-global value (which would multiply it by the number of nodes).
+
         Args:
             replies: Dictionary of node_id -> FAReply with potentially encrypted output.
 
         Returns:
-            Dictionary of FAReply with output containing ONLY global aggregated results.
+            Single-entry dictionary with the globally aggregated decrypted result.
         """
-        if not isinstance(self._secagg, SecureAggregation):
+        if self._secagg is False:
             return replies
 
         secagg_params = self._get_secagg_params()
         if not secagg_params:
-            logger.warning("SecAgg enabled but no parameters found, returning raw output")
+            logger.warning(
+                "SecAgg enabled but no parameters found, returning raw output"
+            )
             return replies
 
         try:
@@ -686,12 +729,24 @@ class FederatedAnalytics:
             logger.error(f"Failed to decrypt FA replies: {e}")
             raise FedbiomedError(
                 f"{ErrorNumbers.FB415.value}: Failed to decrypt FA replies: {e}"
-            )
+            ) from e
 
-        for node_id in replies:
-            replies[node_id].output = global_output
+        # Store the global result under a single node entry only.
+        # Returning all nodes with the same output would cause FAResult.global_stat()
+        # to aggregate the already-global value N times.
+        # Use a lightweight wrapper so the original FAReply objects are not mutated.
+        first_node_id = next(iter(replies))
+        original_reply = replies[first_node_id]
 
-        return replies
+        class _GlobalReply:
+            """Thin wrapper that presents global_output as if it were a FAReply."""
+
+            def __init__(self, reply: FAReply, output: Dict) -> None:
+                # Copy all attributes from the original reply, override output.
+                self.__dict__.update(reply.__dict__)
+                self.output = output
+
+        return {first_node_id: _GlobalReply(original_reply, global_output)}
 
     def _aggregate_and_decrypt_all(
         self, replies: dict[str, FAReply], secagg_params: Dict
@@ -715,6 +770,11 @@ class FederatedAnalytics:
 
         num_nodes = len(replies)
 
+        # Stat keys whose encrypted value is a plain SUM (additive across nodes).
+        # 'mean' is handled separately: nodes encode sum=mean*count, and after
+        # decryption the total sum is divided by total_count (see post-processing).
+        ADDITIVE_STAT_KEYS = {"count"}
+
         def get_encrypted_values_for_stat(replies: dict, stat_path: str) -> List:
             """Collect encrypted values for a specific stat path from all nodes."""
             values = []
@@ -735,19 +795,42 @@ class FederatedAnalytics:
             """Process output, replacing encrypted values with global aggregated result."""
             if isinstance(output, dict):
                 result = {}
+                sum_encoded_keys: set = set()
                 for k, v in output.items():
                     current_path = f"{path}.{k}" if path else k
                     if k == "histogram":
-                        result[k] = self._decrypt_histogram_global(replies, v, secagg_params)
+                        result[k] = self._decrypt_histogram_global(
+                            replies, v, secagg_params, num_nodes, path=current_path
+                        )
                     elif isinstance(v, dict) and "_encrypted" in v:
                         enc_vals = get_encrypted_values_for_stat(replies, current_path)
                         if enc_vals:
-                            decrypted = self._decrypt_single_value(enc_vals, secagg_params, num_nodes)
+                            # Nodes encode mean as sum=mean*count; treat as additive
+                            # so we decrypt the total sum across all nodes.
+                            is_sum_encoded = bool(v.get("_sum_encoded", False))
+                            is_additive = k in ADDITIVE_STAT_KEYS or is_sum_encoded
+                            decrypted = self._decrypt_single_value(
+                                enc_vals,
+                                secagg_params,
+                                num_nodes,
+                                is_additive=is_additive,
+                            )
                             result[k] = decrypted
+                            if is_sum_encoded:
+                                sum_encoded_keys.add(k)
                         else:
                             result[k] = v.get("value", 0)
                     else:
                         result[k] = process_node_output(v, current_path)
+
+                # Post-process sum-encoded values: mean = total_sum / total_count.
+                if sum_encoded_keys:
+                    total_count = result.get("count")
+                    if isinstance(total_count, (int, float)) and total_count != 0:
+                        for key in sum_encoded_keys:
+                            if isinstance(result.get(key), (int, float)):
+                                result[key] = result[key] / total_count
+
                 return result
             elif isinstance(output, list):
                 return [process_node_output(item, path) for item in output]
@@ -756,14 +839,27 @@ class FederatedAnalytics:
         return process_node_output(first_output)
 
     def _decrypt_histogram_global(
-        self, replies: dict[str, FAReply], histogram: Dict, secagg_params: Dict
+        self,
+        replies: dict[str, FAReply],
+        histogram: Dict,
+        secagg_params: Dict,
+        num_nodes: int,
+        path: str = "",
     ) -> Dict:
         """Decrypt histogram by aggregating encrypted counts from all nodes.
 
+        Histogram counts are additive (global = sum of per-node counts), so after
+        decrypting the average (total_sample_size=num_nodes) we multiply by num_nodes
+        to recover the actual sum.
+
         Args:
             replies: Dictionary of node_id -> FAReply.
-            histogram: Histogram structure with bin_edges and counts.
+            histogram: Histogram structure (from first node) with bin_edges and counts.
             secagg_params: Dictionary with key, biprime, clipping_range.
+            num_nodes: Number of participating nodes.
+            path: Dot-separated key path from the output root to this histogram
+                (e.g. ``"col.histogram"``), used to locate the histogram in each
+                node reply regardless of nesting depth.
 
         Returns:
             Decrypted histogram with aggregated counts.
@@ -773,41 +869,42 @@ class FederatedAnalytics:
 
         bin_edges = histogram.get("bin_edges", [])
 
+        # Collect per-node encrypted count vectors.
+        # all_encrypted_counts[i] = [enc_bin0, enc_bin1, ..., enc_binK] from node i.
+        # This is exactly the shape aggregate() expects: params[i] is node i's vector.
         all_encrypted_counts = []
         has_encrypted = False
 
+        path_keys = [k for k in path.split(".") if k]
         for reply in replies.values():
-            output = reply.output
-            if isinstance(output, dict) and "histogram" in output:
-                hist = output.get("histogram", {})
-                if isinstance(hist, dict) and "counts" in hist:
-                    counts = hist.get("counts", [])
-                    if counts and isinstance(counts[0], dict) and "_encrypted" in counts[0]:
-                        has_encrypted = True
-                        all_encrypted_counts.append([c.get("value", 0) for c in counts])
+            # Navigate to the histogram dict using the stored path
+            val = reply.output
+            for k in path_keys:
+                if isinstance(val, dict):
+                    val = val.get(k)
+            hist = val
+            if isinstance(hist, dict) and "counts" in hist:
+                counts = hist.get("counts", [])
+                if counts and isinstance(counts[0], dict) and "_encrypted" in counts[0]:
+                    has_encrypted = True
+                    all_encrypted_counts.append([c.get("value", 0) for c in counts])
 
-        if not has_encrypted:
-            return histogram
-
-        if not all_encrypted_counts:
+        if not has_encrypted or not all_encrypted_counts:
             return histogram
 
         try:
             from fedbiomed.common.secagg import SecaggCrypter
 
             crypter = SecaggCrypter()
-            num_nodes = len(replies)
             num_bins = len(all_encrypted_counts[0])
 
-            aggregated = []
-            for i in range(num_bins):
-                bin_values = [enc_counts[i] for enc_counts in all_encrypted_counts]
-                aggregated.append(bin_values)
-
+            # aggregate() divides by total_sample_size in the quantized domain before
+            # reverse-quantizing, which correctly recovers the per-node average.
+            # Multiply by num_nodes afterwards to obtain the actual sum of counts.
             decrypted = crypter.aggregate(
                 current_round=1,
                 num_nodes=num_nodes,
-                params=aggregated,
+                params=all_encrypted_counts,
                 key=secagg_params["key"],
                 biprime=secagg_params["biprime"],
                 total_sample_size=num_nodes,
@@ -815,62 +912,83 @@ class FederatedAnalytics:
                 num_expected_params=num_bins,
             )
 
-            return {"bin_edges": bin_edges, "counts": [int(d) for d in decrypted]}
+            return {
+                "bin_edges": bin_edges,
+                "counts": [int(d * num_nodes) for d in decrypted],
+            }
         except Exception as e:
             logger.warning(f"Failed to decrypt histogram: {e}")
             return histogram
 
     def _decrypt_single_value(
-        self, encrypted_values: List[List[int]], secagg_params: Dict, num_nodes: int
+        self,
+        encrypted_values: List[List[int]],
+        secagg_params: Dict,
+        num_nodes: int,
+        is_additive: bool = False,
     ) -> float:
         """Decrypt a single aggregated value.
+
+        aggregate() divides by total_sample_size in the quantized domain before
+        reverse-quantizing, which correctly recovers the per-node average.
+        For additive stats (e.g. count) we multiply the result by num_nodes to
+        recover the actual sum across nodes.
 
         Args:
             encrypted_values: List of [encrypted_value] from each node.
             secagg_params: Dictionary with key, biprime, clipping_range.
             num_nodes: Number of nodes.
+            is_additive: If True, multiply the decrypted average by num_nodes to get
+                the global sum. If False, return the average as-is.
 
         Returns:
-            Decrypted aggregated value.
+            Decrypted aggregated value (sum or average depending on is_additive).
+
+        Raises:
+            Exception: Propagates any error from the underlying crypter so the
+                caller can fail loudly rather than silently inserting a wrong value.
         """
-        try:
-            from fedbiomed.common.secagg import SecaggCrypter
+        from fedbiomed.common.secagg import SecaggCrypter
 
-            crypter = SecaggCrypter()
+        crypter = SecaggCrypter()
 
-            decrypted = crypter.aggregate(
-                current_round=1,
-                num_nodes=num_nodes,
-                params=encrypted_values,
-                key=secagg_params["key"],
-                biprime=secagg_params["biprime"],
-                total_sample_size=num_nodes,
-                clipping_range=secagg_params.get("clipping_range"),
-                num_expected_params=1,
-            )
+        decrypted = crypter.aggregate(
+            current_round=1,
+            num_nodes=num_nodes,
+            params=encrypted_values,
+            key=secagg_params["key"],
+            biprime=secagg_params["biprime"],
+            total_sample_size=num_nodes,
+            clipping_range=secagg_params.get("clipping_range"),
+            num_expected_params=1,
+        )
 
-            return decrypted[0] if decrypted else 0
-        except Exception as e:
-            logger.warning(f"Failed to decrypt value: {e}")
-            return 0
+        value = decrypted[0] if decrypted else 0
+        return value * num_nodes if is_additive else value
 
     def _get_secagg_params(self) -> Optional[Dict]:
         """Get secagg parameters from the secagg instance.
 
+        Uses the same attribute path as SecureAggregation.aggregate():
+        server key and biprime live in _servkey.context.
+
         Returns:
-            Dictionary with key, biprime, and clipping_range.
+            Dictionary with key, biprime, and clipping_range, or None if
+            the context is not ready.
         """
-        if not isinstance(self._secagg, SecureAggregation):
+        if self._secagg is False:
             return None
 
         try:
-            secagg_context = self._secagg._secagg
-            if hasattr(secagg_context, "_biprime"):
-                return {
-                    "key": getattr(secagg_context, "_key", 0),
-                    "biprime": secagg_context._biprime,
-                    "clipping_range": getattr(secagg_context, "_secagg_clipping_range", None),
-                }
+            servkey = self._secagg._servkey
+            if servkey is None or not servkey.status:
+                logger.warning("SecAgg server key context is not set up")
+                return None
+            return {
+                "key": servkey.context["server_key"],
+                "biprime": servkey.context["biprime"],
+                "clipping_range": self._secagg.clipping_range,
+            }
         except Exception as e:
             logger.warning(f"Failed to get secagg params: {e}")
 
@@ -883,7 +1001,7 @@ class FederatedAnalytics:
     def mean(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global mean across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.MEAN.value,
@@ -894,7 +1012,7 @@ class FederatedAnalytics:
     def variance(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global variance across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.VARIANCE.value,
@@ -905,7 +1023,7 @@ class FederatedAnalytics:
     def min(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global minimum across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.MIN.value,
@@ -916,7 +1034,7 @@ class FederatedAnalytics:
     def max(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global maximum across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.MAX.value,
@@ -927,7 +1045,7 @@ class FederatedAnalytics:
     def count(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global count across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.COUNT.value,

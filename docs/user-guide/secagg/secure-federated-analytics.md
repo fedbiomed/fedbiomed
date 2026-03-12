@@ -37,8 +37,8 @@ from fedbiomed.researcher.federated_workflows import Experiment
 # Enable with default LOM scheme
 exp = Experiment(tags=['adni'], secagg=True)
 
-# Compute mean - automatically encrypted and decrypted
-result = exp.analytics.mean(dataset_args={'col_names': ['AGE']})
+# Fetch stats - automatically encrypted and decrypted
+result = exp.analytics.fetch_stats(stats='mean', dataset_schema=['AGE'])
 
 # Global result is decrypted
 print(result.global_stat('mean'))
@@ -65,9 +65,9 @@ exp = Experiment(tags=['adni'], secagg=secagg)
 ```python
 exp = Experiment(tags=['adni'], secagg=True)
 
-result = exp.analytics.compute_analytics(
+result = exp.analytics.fetch_stats(
     stats=['mean', 'variance', 'count', 'min', 'max'],
-    dataset_args={'col_names': ['AGE', 'BMI']}
+    dataset_schema=['AGE', 'BMI']
 )
 
 # Access global aggregated statistics
@@ -80,17 +80,16 @@ print(global_stats)
 ```python
 exp = Experiment(tags=['adni'], secagg=True)
 
-result = exp.analytics.compute_analytics(
+result = exp.analytics.fetch_stats(
     stats=['histogram'],
-    dataset_args={
-        'col_names': ['AGE'],
-        'histogram_args': {'bins': 10, 'range': (50, 100)}
-    }
+    dataset_schema=['AGE'],
+    stats_args={'histogram_args': {'bins': 10, 'range': (50, 100)}}
 )
 
 hist = result.global_stat('histogram')
-print(f"Bin edges (in clear): {hist['bin_edges']}")
-print(f"Counts (decrypted): {hist['counts']}")
+# global_stat preserves the column-nested structure: {'AGE': {'bin_edges': ..., 'counts': ...}}
+print(f"Bin edges (in clear): {hist.get('AGE', {}).get('bin_edges', [])}")
+print(f"Counts (decrypted): {hist.get('AGE', {}).get('counts', [])}")
 ```
 
 ### Conditional Enable/Disable
@@ -113,7 +112,7 @@ When secagg is disabled (default), you can access individual node results:
 ```python
 exp = Experiment(tags=['adni'], secagg=False)
 
-result = exp.analytics.mean(dataset_args={'col_names': ['AGE']})
+result = exp.analytics.fetch_stats(stats='mean', dataset_schema=['AGE'])
 
 # Access per-node results
 for node_id in result.node_ids:

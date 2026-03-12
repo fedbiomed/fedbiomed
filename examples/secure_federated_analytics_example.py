@@ -31,21 +31,22 @@ def example_basic_secure_analytics():
 
     # Create experiment with secure aggregation enabled
     # Using secagg=True uses the default LOM (Learning with Optical Multiphoton) scheme
-    tags = ['adni']  # Use your dataset tags
+    tags = ["adni"]  # Use your dataset tags
     exp = Experiment(
         tags=tags,
-        secagg=True  # Enable secure aggregation
+        secagg=True,  # Enable secure aggregation
     )
 
     print(f"\nExperiment created with SecAgg: {exp.analytics.secagg}")
     print(f"SecAgg active: {exp.analytics.secagg.active}")
 
-    # Compute mean - this will:
+    # Fetch a FAResult object to access global_stat and available_stats.
+    # This will:
     # 1. Setup secure aggregation context with nodes
     # 2. Send encrypted requests to nodes
     # 3. Receive encrypted responses
     # 4. Decrypt and aggregate on researcher side
-    result = exp.analytics.mean(dataset_args={'col_names': ['AGE']})
+    result = exp.analytics.fetch_stats(stats="mean", dataset_schema=["AGE"])
 
     # The global result is automatically decrypted
     print(f"\nGlobal mean AGE: {result.global_stat('mean')}")
@@ -61,15 +62,15 @@ def example_explicit_scheme():
     # Create SecureAggregation with explicit scheme
     secagg = SecureAggregation(
         scheme=SecureAggregationSchemes.LOM,  # or Joye-Libert
-        active=True
+        active=True,
     )
 
     exp = Experiment(
-        tags=['adni'],
-        secagg=secagg  # Pass pre-configured SecureAggregation
+        tags=["adni"],
+        secagg=secagg,  # Pass pre-configured SecureAggregation
     )
 
-    result = exp.analytics.mean(dataset_args={'col_names': ['AGE']})
+    result = exp.analytics.fetch_stats(stats="mean", dataset_schema=["AGE"])
     print(f"Global mean: {result.global_stat('mean')}")
 
 
@@ -79,17 +80,11 @@ def example_multiple_stats():
     print("Example 3: Multiple Statistics")
     print("=" * 60)
 
-    exp = Experiment(
-        tags=['adni'],
-        secagg=True
-    )
+    exp = Experiment(tags=["adni"], secagg=True)
 
     # Compute multiple statistics at once
-    stats = ['mean', 'variance', 'count', 'min', 'max']
-    result = exp.analytics.compute_analytics(
-        stats=stats,
-        dataset_args={'col_names': ['AGE']}
-    )
+    stats = ["mean", "variance", "count", "min", "max"]
+    result = exp.analytics.fetch_stats(stats=stats, dataset_schema=["AGE"])
 
     print("\nGlobal statistics for AGE:")
     global_stats = result.global_stats()
@@ -105,27 +100,20 @@ def example_histogram_secure():
     print("Example 4: Secure Histogram")
     print("=" * 60)
 
-    exp = Experiment(
-        tags=['adni'],
-        secagg=True
-    )
+    exp = Experiment(tags=["adni"], secagg=True)
 
     # Histogram bins are sent in clear (for interpretation)
     # but counts are encrypted
-    result = exp.analytics.compute_analytics(
-        stats=['histogram'],
-        dataset_args={
-            'col_names': ['AGE'],
-            'histogram_args': {
-                'bins': 10,
-                'range': (50, 100)
-            }
-        }
+    result = exp.analytics.fetch_stats(
+        stats=["histogram"],
+        dataset_schema=["AGE"],
+        stats_args={"histogram_args": {"bins": 10, "range": (50, 100)}},
     )
 
-    hist = result.global_stat('histogram')
-    print(f"\nHistogram bin_edges: {hist.get('bin_edges', [])}")
-    print(f"Histogram counts: {hist.get('counts', [])}")
+    hist = result.global_stat("histogram")
+    # global_stat preserves the column-nested structure: {'AGE': {'bin_edges': ..., 'counts': ...}}
+    print(f"\nHistogram bin_edges: {hist.get('AGE', {}).get('bin_edges', [])}")
+    print(f"Histogram counts: {hist.get('AGE', {}).get('counts', [])}")
 
 
 def example_disable_secagg():
@@ -136,11 +124,11 @@ def example_disable_secagg():
 
     # Without secagg - raw values are visible
     exp = Experiment(
-        tags=['adni'],
-        secagg=False  # Disable secure aggregation
+        tags=["adni"],
+        secagg=False,  # Disable secure aggregation
     )
 
-    result = exp.analytics.mean(dataset_args={'col_names': ['AGE']})
+    result = exp.analytics.fetch_stats(stats="mean", dataset_schema=["AGE"])
 
     # Can access individual node results
     print("\nPer-node statistics (visible without SecAgg):")
@@ -157,14 +145,14 @@ def example_conditional_secagg():
     print("=" * 60)
 
     # Create experiment without secagg initially
-    exp = Experiment(tags=['adni'])
+    exp = Experiment(tags=["adni"])
 
     # Enable secagg later if needed
     exp.analytics.set_secagg(True)
 
     print(f"SecAgg enabled: {exp.analytics.secagg.active}")
 
-    result = exp.analytics.mean(dataset_args={'col_names': ['AGE']})
+    result = exp.analytics.fetch_stats(stats="mean", dataset_schema=["AGE"])
     print(f"Global mean: {result.global_stat('mean')}")
 
 
