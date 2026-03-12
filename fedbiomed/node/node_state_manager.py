@@ -124,10 +124,6 @@ class NodeStateManager:
             )
 
         # from this point, state should be a dictionary
-        logger.debug(
-            f"Loaded node state metadata: experiment_id={experiment_id} "
-            f"state_id={state_id} keys={sorted(state.keys())}"
-        )
         self._check_version(state.get("version_node_id"))
         return state
 
@@ -156,10 +152,6 @@ class NodeStateManager:
         }
 
         state.update(header)
-        logger.debug(
-            f"Saving node state metadata: experiment_id={experiment_id} "
-            f"state_id={self._state_id} keys={sorted(state.keys())}"
-        )
         self._save_state(self._state_id, state)
         return self._state_id
 
@@ -250,10 +242,6 @@ class NodeStateManager:
                     f"{ErrorNumbers.FB323.value}: Failing to create"
                     f" directories {self._node_state_base_dir}"
                 ) from e
-            logger.debug(
-                f"Node state manager ready: state_id={self._state_id} "
-                f"base_dir={self._node_state_base_dir}"
-            )
 
     def get_node_state_base_dir(self) -> Optional[str]:
         """Returns `Node` State base directory path, in which are saved Node state files and other contents
