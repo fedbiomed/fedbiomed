@@ -402,11 +402,22 @@ class Node:
             secagg = SecaggSetup(**setup_arguments)()
             reply: SecaggReply = secagg.setup()
         except Exception as error_message:
-            logger.error(error_message)
+            error_text = repr(error_message)
+            logger.error(
+                "Secure aggregation setup failed on node=%s req=%s researcher=%s error=%s",
+                self._node_id,
+                request.request_id,
+                request.researcher_id,
+                error_text,
+            )
+            logger.debug(
+                "Secure aggregation setup traceback: %s",
+                traceback.format_exc(),
+            )
             return self.send_error(
                 request_id=request.request_id,
                 researcher_id=request.researcher_id,
-                extra_msg=str(error_message),
+                extra_msg=error_text,
             )
 
         reply.request_id = request.request_id

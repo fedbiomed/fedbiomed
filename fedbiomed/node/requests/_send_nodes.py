@@ -5,6 +5,7 @@ from typing import Any, List, Tuple
 
 from fedbiomed.common.constants import TIMEOUT_NODE_TO_NODE_REQUEST, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import InnerMessage, InnerRequestReply, OverlayMessage
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.transport.controller import GrpcController
@@ -42,6 +43,10 @@ def send_nodes(
     request_ids = []
 
     for node, message in zip(nodes, messages, strict=False):
+        logger.debug(
+            f"Preparing node-to-node message: src_node_id={n2n_router.node_id} dest_node_id={node} "
+            f"type={message.__name__} request_id={getattr(message, 'request_id', None)}"
+        )
         overlay, salt, nonce = n2n_router.format_outgoing_overlay(
             message, researcher_id
         )
@@ -56,12 +61,24 @@ def send_nodes(
         )
 
         grpc_client.send(message_overlay)
+        logger.debug(
+            f"Sent node-to-node overlay message: src_node_id={n2n_router.node_id} dest_node_id={node} "
+            f"type={message.__name__} request_id={getattr(message, 'request_id', None)} payload_bytes={len(overlay)}"
+        )
 
         if isinstance(message, InnerRequestReply):
             request_ids += [message.get_param("request_id")]
 
+    logger.debug(
+        f"Waiting for node-to-node replies: src_node_id={n2n_router.node_id} request_ids={request_ids} "
+        f"timeout_s={TIMEOUT_NODE_TO_NODE_REQUEST}"
+    )
     all_received, replies = pending_requests.wait(
         request_ids, TIMEOUT_NODE_TO_NODE_REQUEST
+    )
+    logger.debug(
+        f"Completed node-to-node wait: src_node_id={n2n_router.node_id} request_ids={request_ids} "
+        f"received={len(replies)} all_received={all_received}"
     )
     if not all_received and raise_if_not_all_received:
         nodes_no_answer = set(nodes) - set(m.node_id for m in replies)

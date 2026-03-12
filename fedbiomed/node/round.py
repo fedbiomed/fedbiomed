@@ -502,7 +502,7 @@ class Round:
             if self._secure_aggregation.use_secagg:
                 logger.debug(
                     'SecAgg active: encrypting model parameters with the secure aggregation scheme "%s" for round %d',
-                    self._secure_aggregation.scheme.name,
+                    self._secure_aggregation.scheme.__class__.__name__,
                     self._round,
                 )
                 if results["optim_aux_var"]:
@@ -518,7 +518,7 @@ class Round:
                 results["encrypted"] = True
                 results["encryption_factor"] = enc_factor
                 logger.debug(
-                    f"Model parameters encrypted for round {self._round} , with encryption factor {enc_factor} and scheme {self._secure_aggregation.scheme.name}."
+                    f"Model parameters encrypted for round {self._round} , with encryption factor {enc_factor} and scheme {self._secure_aggregation.scheme.__class__.__name__}."
                 )
                 if aux_var is not None:
                     results["optim_aux_var"] = aux_var.to_dict()

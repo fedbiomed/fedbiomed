@@ -235,7 +235,13 @@ class GrpcClient:
         self._update_id_map = update_id_map
         self._tasks = []
 
-    def start(self, on_task) -> List[Awaitable[Optional[Callable]]]:
+    @property
+    def tasks(self) -> List[asyncio.Task]:
+        """Returns running asyncio task(s) owned by this client."""
+
+        return self._tasks
+
+    def start(self, on_task) -> asyncio.Task:
         """Start researcher gRPC agent.
 
         Starts long-lived tasks, one waiting for server requests, one waiting on the async queue
@@ -245,7 +251,7 @@ class GrpcClient:
             on_task: Callback function to execute once a payload received from researcher.
 
         Returns:
-            A list of task objects of the agent
+            The main task object of the agent
         """
 
         async def run():
@@ -259,8 +265,10 @@ class GrpcClient:
                 self._task_listener.listen(on_task), self._sender.listen()
             )
 
-        # Returns client task
-        return asyncio.create_task(run())
+        # Keep a stable reference so controller health checks can inspect client tasks.
+        task = asyncio.create_task(run())
+        self._tasks = [task]
+        return task
 
     async def send(self, message: Message) -> None:
         """Sends messages from node to researcher server.

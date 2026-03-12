@@ -11,6 +11,7 @@ from tinydb import Query, TinyDB
 from fedbiomed.common.constants import ErrorNumbers, __n2n_channel_element_version__
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import __default_version__, raise_for_version_compatibility
 
 _TableName = "ChannelManager"
@@ -56,6 +57,8 @@ class ChannelManager:
             )
             raise FedbiomedNodeToNodeError(errmess) from e
 
+        logger.debug(f"Listed node-to-node channels: count={len(channels)}")
+
         return channels
 
     def get(self, distant_node_id: str) -> Union[dict, None]:
@@ -84,6 +87,10 @@ class ChannelManager:
                 f'for channel distant_node_id="{distant_node_id}" with error: {e}'
             )
             raise FedbiomedNodeToNodeError(errmess) from e
+
+        logger.debug(
+            f"Lookup node-to-node channel: distant_node_id={distant_node_id} found={element is not None}"
+        )
 
         if element:
             raise_for_version_compatibility(
@@ -124,3 +131,7 @@ class ChannelManager:
                 f"for distant_node_id={distant_node_id} with error: {e}"
             )
             raise FedbiomedNodeToNodeError(errmess) from e
+
+        logger.debug(
+            f"Saved node-to-node channel metadata: distant_node_id={distant_node_id}"
+        )

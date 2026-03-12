@@ -115,9 +115,15 @@ class NodeAgentAsync:
 
         message = Message.from_dict(message)
 
+        if isinstance(message, OverlayMessage):
+            logger.debug(
+                f"Researcher relay received overlay reply: src_node_id={self._id} "
+                f"dest_node_id={message.dest_node_id} setup={message.setup} payload_bytes={len(message.overlay)}"
+            )
+
         logger.debug(
             f"Node Agent: Received reply message {message.__class__.__name__} "
-            f"for request {message.request_id} from node {self._id}"
+            f"for request_id={getattr(message, 'request_id', None)} from node_id={self._id}"
         )
 
         # Handle overlay messages to relay to a node
@@ -208,6 +214,12 @@ class NodeAgentAsync:
 
         if first_send_time is None:
             first_send_time = time.time()
+
+        if isinstance(message, OverlayMessage):
+            logger.debug(
+                f"Researcher relay queueing overlay task: dest_node_id={self._id} "
+                f"src_node_id={message.node_id} setup={message.setup} payload_bytes={len(message.overlay)} retry={retry_count}"
+            )
 
         logger.debug(
             f"Node Agent: node {self._id} "

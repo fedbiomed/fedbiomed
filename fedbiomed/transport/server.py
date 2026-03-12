@@ -410,6 +410,10 @@ class _GrpcAsyncServer:
         Args:
             message: Message to forward
         """
+        logger.debug(
+            f"Researcher relay forwarding overlay: src_node_id={message.node_id} "
+            f"dest_node_id={message.dest_node_id} setup={message.setup} payload_bytes={len(message.overlay)}"
+        )
         # caveat: intentionally use `_GrpcAyncServer.send()`
         # if using `self.send()` it uses `GrpcServer.send()`, normally used from another thread
         # if using `super().send()` it's less explicit
@@ -426,8 +430,19 @@ class _GrpcAsyncServer:
         agent = await self._agent_store.get(node_id)
 
         if not agent:
+            if isinstance(message, OverlayMessage):
+                logger.debug(
+                    f"Researcher relay drop: dest_node_id={node_id} src_node_id={message.node_id} "
+                    f"setup={message.setup} reason=node_not_registered"
+                )
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
+
+        if isinstance(message, OverlayMessage):
+            logger.debug(
+                f"Researcher relay dispatching overlay to node agent: dest_node_id={node_id} "
+                f"src_node_id={message.node_id} setup={message.setup} payload_bytes={len(message.overlay)}"
+            )
 
         await agent.send_async(message)
 

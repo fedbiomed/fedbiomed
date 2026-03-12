@@ -60,6 +60,11 @@ class _SecaggSchemeRound(ABC):
         """
         return self._secagg_random
 
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Human-readable scheme name used by callers and logs."""
+
     @abstractmethod
     def encrypt(
         self, params: List[float], current_round: int, weight: Optional[int] = None
@@ -80,6 +85,10 @@ class _JLSRound(_SecaggSchemeRound):
     """Class for Joye Libert secure aggregation handling of a training round on node"""
 
     _min_num_round: int = 3
+
+    @property
+    def name(self) -> str:
+        return SecureAggregationSchemes.JOYE_LIBERT.name
 
     def __init__(
         self, db: str, node_id: str, secagg_arguments: Dict, experiment_id: str
@@ -146,6 +155,10 @@ class _LomRound(_SecaggSchemeRound):
     """Class for LOM secure aggregation handling of a training round on node"""
 
     _min_num_parties: int = 2
+
+    @property
+    def name(self) -> str:
+        return SecureAggregationSchemes.LOM.name
 
     def __init__(self, db, node_id, secagg_arguments: Dict, experiment_id: str):
         """Constructor of the class
