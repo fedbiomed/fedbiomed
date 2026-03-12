@@ -100,9 +100,12 @@ class Request:
 
         self._message.request_id = self._request_id
         logger.debug(
-            f"Sending request {self._request_id} "
-            f"to node {self._node.id} "
-            f"with message {self._message.__class__.__name__}"
+            "Sending request req=%s node=%s type=%s experiment=%s researcher_id=%s",
+            self._request_id,
+            self._node.id,
+            self._message.__class__.__name__,
+            getattr(self._message, "experiment_id", None),
+            getattr(self._message, "researcher_id", None),
         )
         self._node.send(self._message, self.on_reply)
         self.status = RequestStatus.NO_REPLY_YET
@@ -166,10 +169,11 @@ class FederatedRequest:
         self._policy = PolicyController(policy)
 
         logger.debug(
-            f"Creating federated request with message {message.__class__.__name__} "
-            f"to nodes {[node.id for node in nodes]} "
-            f"with policies {[p.__class__.__name__ for p in policy] if policy else 'None'}"
-            f" and request id {self._request_id}"
+            "Creating federated request req=%s message=%s nodes=%s policies=%s",
+            self._request_id,
+            message.__class__.__name__,
+            [node.id for node in nodes],
+            [p.__class__.__name__ for p in policy] if policy else [],
         )
 
         # Set up single requests
@@ -180,9 +184,6 @@ class FederatedRequest:
                         self._message, node, self._pending_replies, self._request_id
                     )
                 )
-                logger.debug(
-                    f"Created request for node {node.id} with message {self._message.__class__.__name__}"
-                )
 
         # Different message for each node
         elif isinstance(self._message, MessagesByNode):
@@ -190,9 +191,6 @@ class FederatedRequest:
                 if m := self._message.get(node.id):
                     self._requests.append(
                         Request(m, node, self._pending_replies, self._request_id)
-                    )
-                    logger.debug(
-                        f"Created request for node {node.id} with message {m.__class__.__name__}"
                     )
                 else:
                     logger.warning(
@@ -232,15 +230,16 @@ class FederatedRequest:
             value: ignored
             traceback: ignored
         """
-        ### (OPTIONAL) DEBUG EXITING FEDERATED REQUEST CONTEXT MANAGER
-        ### THIS SHOULD ALSO BE COVERED BY POLICY CONTROLLER STATUS DEBUG
-        logger.debug(
-            f"Exiting federated request context manager for request id {self._request_id}"
-            f" for nodes {[node.id for node in self._nodes]}"
-        )
-
         # Clear the replies that are processed
         has_stopped = self._policy.has_stopped_any()
+        logger.debug(
+            "Exiting federated request context manager for req=%s replies=%d errors=%d disconnects=%d stopped=%s",
+            self._request_id,
+            len(self.replies()),
+            len(self.errors()),
+            len(self.disconnected_requests()),
+            has_stopped,
+        )
         for req in self._requests:
             req.flush(stopped=has_stopped)
 
@@ -277,10 +276,16 @@ class FederatedRequest:
 
     def wait(self) -> None:
         """Waits for the replies of the messages that are sent"""
-        ### DEBUG - SHOULD BE COVERED BY POLICY CONTROLLER STATUS DEBUG
+        logger.debug(
+            "Waiting for federated request req=%s replies from %d nodes",
+            self._request_id,
+            len(self._requests),
+        )
 
         while self._policy.continue_all(self._requests) == PolicyStatus.CONTINUE:
             self._pending_replies.acquire(timeout=REQUEST_STATUS_CHECK_TIMEOUT)
+
+        logger.debug("Federated request wait finished req=%s", self._request_id)
 
 
 class Requests(metaclass=SingletonMeta):

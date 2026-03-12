@@ -323,7 +323,7 @@ class GrpcClient:
                 break
             else:
                 logger.debug(
-                    "Researcher server is not available, will retry connect in "
+                    "Researcher server is not available, will retry connecting in "
                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
                 )
                 await asyncio.sleep(
@@ -560,7 +560,9 @@ class TaskListener(Listener):
     def _message_deadline_exceeded(self):
         """Task listener issues debug message when researcher does not submit task before deadline"""
         logger.debug(
-            "Researcher did not request executing a task before timeout. Send new task request"
+            "Task polling timed out: node=%s timeout_s=%s; sending a new task request",
+            self._node_id,
+            GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
         )
 
     async def _call_researcher(self, callback: Optional[Callable] = None) -> None:
@@ -569,7 +571,12 @@ class TaskListener(Listener):
         Args:
             callback: Callback to execute once a task is arrived
         """
-        logger.debug("Sending new task request to researcher")
+        logger.debug(
+            "Polling researcher for task: node=%s retry=%d timeout_s=%s",
+            self._node_id,
+            self._retry_count,
+            GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
+        )
         # TODO: improve status management. At this point it is not sure we are CONNECTED to server
         # but setting later will leave the client DISCONNECTED when waiting for initial task
         await self._on_status_change(ClientStatus.CONNECTED)
@@ -587,7 +594,6 @@ class TaskListener(Listener):
                 continue
             else:
                 # Execute callback
-                logger.debug("New task received from researcher")
                 task = Serializer.loads(reply)
 
                 logger.debug(
@@ -651,17 +657,19 @@ class Sender(Listener):
         """
         await self._on_status_change(status)
 
-        # Extract useful information for detailed log without assumption on message structures
-        # to cover possible bug cases
-        if isinstance(self._retry_item, dict):
-            msg = self._retry_item["message"]
-            logger.debug(
-                f"Message details: stub={self._retry_item['stub']} "
-                f"researcher_id={msg.researcher_id} "
-                f"type={msg.__name__} "
-            )
-
         if retry and self._retry_count < MAX_SEND_RETRIES:
+            if isinstance(self._retry_item, dict):
+                msg = self._retry_item["message"]
+                logger.debug(
+                    "Retrying sender message req=%s type=%s stub=%s retry=%d/%d",
+                    getattr(msg, "request_id", None),
+                    msg.__class__.__name__,
+                    self._stub_type.name
+                    if self._stub_type != _StubType.NO_STUB
+                    else None,
+                    self._retry_count + 1,
+                    MAX_SEND_RETRIES,
+                )
             await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
             await self._channels.connect(self._stub_type)
             self._retry_count += 1

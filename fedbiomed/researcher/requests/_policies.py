@@ -194,12 +194,6 @@ class PolicyController:
             ]
         )
 
-        ### DEBUG POLICY CONTROLLER STATUS ON CONTINUE ALL
-        # policy name
-        # node id that triggered it
-        # request status that caused it
-        # whether it returned CONTINUE, STOPPED, or COMPLETED
-
         for req in requests:
             logger.debug(
                 f"PolicyController: Request {req._request_id} "
@@ -220,17 +214,12 @@ class PolicyController:
             [policy.status == PolicyStatus.STOPPED for policy in self._policies]
         )
 
-        ### DEBUG POLICY CONTROLLER STATUS ON HAS STOPPED ANY
-        # policy name
-        # node id that triggered it
-        # request status that caused it
-        # whether it returned CONTINUE, STOPPED, or COMPLETED
         for policy in self._policies:
             logger.debug(
                 f"PolicyController: Policy {policy.__class__.__name__} "
                 f"has status {policy.status} "
             )
-            if policy.stop_caused_by:
+            if is_stopped:
                 logger.debug(f"and stop caused by {policy.stop_caused_by}")
 
         return is_stopped
