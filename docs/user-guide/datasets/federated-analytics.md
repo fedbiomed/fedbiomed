@@ -1,146 +1,94 @@
-# Federated Analytics
+# Federated Analytics — Datasets
 
-## Introduction
+## Overview
 
-Federated Analytics (FA) lets researchers compute statistics across distributed node datasets **without the raw data ever leaving the nodes**. Each node computes partial statistics locally; the researcher aggregates them globally.
+**Federated Analytics (FA)** lets researchers compute statistics — such as means, variances, or histograms — across datasets that live on multiple remote **nodes**, all **without the raw data ever leaving those nodes**.
 
-The feature is built on top of the standard dataset infrastructure: built-in dataset classes support FA out of the box. When writing a custom dataset, a small set of additions makes it FA-compatible.
+In FedBioMed, a *node* is a machine controlled by a data owner (e.g. a hospital) that holds a local dataset. Instead of centralising data, each node computes statistics locally and sends only the aggregated summaries back to the researcher.
 
----
+This page covers the **dataset side** of Federated Analytics: which datasets support it and how to make a custom dataset FA-compatible.
 
-## Node Configuration
-
-Federated Analytics is **enabled by default** on every node. The relevant flag lives in the `[security]` section of the node configuration file:
-
-```ini
-[security]
-allow_federated_analytics = True
-```
-
-To disable FA for a node, set the value to `False`. No other node-side change is required; once a dataset is registered with appropriate tags it is automatically eligible for analytics requests.
+> - For how to **run** analytics as a researcher, see [Federated Analytics — Researcher](../researcher/federated-analytics.md).
+> - For how to **enable** FA on a node, see [Federated Analytics — Nodes](../nodes/federated-analytics.md).
 
 ---
 
 ## Supported Datasets and Statistics
 
-FA operates on two element types, each with its own set of supported statistics:
+FA classifies each dataset by its **element type** — the kind of data each sample contains:
 
-| Element type | Supported statistics |
-|---|---|
-| **ROW** (tabular / demographic data) | `count`, `mean`, `variance`, `histogram`* |
-| **IMAGE** (NIfTI, pixel arrays, …) | `count`, `mean`, `variance` |
+| Element type | Typical use case | Supported statistics |
+|---|---|---|
+| **ROW** | Tabular / demographic data (one row = one sample) | `count`, `mean`, `variance`, `histogram`* |
+| **IMAGE** | Medical images (NIfTI, pixel arrays, …) | `count`, `mean`, `variance` |
 
-\* `histogram` requires `bin_edges` — passed via `stats_args` (see below).
+\* `histogram` requires column-specific bin edges supplied by the researcher at request time.
 
-All built-in dataset classes (`TabularDataset`, `MedicalFolderDataset`, image datasets) expose the correct element type automatically. Custom datasets that inherit from the base `Dataset` class need two additions:
+Built-in [dataset classes](index.md) (`TabularDataset`, `MedicalFolderDataset`) declare their element type automatically and are FA-compatible out of the box. If you are writing a custom dataset you must declare it yourself — see below.
 
-1. **Return format** — set `self.to_format = DataReturnFormat.SKLEARN` so samples are served as NumPy arrays.
-2. **Schema** — implement `analytics_schema()` returning a `RowSpec`, `ImageSpec`, or a `dict` of those for multi-modal data.
+---
+
+## Making a Custom Dataset FA-Compatible
+
+If your dataset inherits from `fedbiomed.common.dataset.Dataset`, two additions are needed.
+
+### 1. Set the return format
+
+The analytics engine expects data as NumPy arrays. Tell FA to use the NumPy format by setting `self.to_format` inside `complete_initialization` — the hook that FedBioMed calls after the base class sets up its internals:
 
 ```python
-from fedbiomed.common.dataset_types import DataReturnFormat, RowSpec, ImageSpec
+from fedbiomed.common.dataset_types import DataReturnFormat
 
 class MyDataset(Dataset):
     def complete_initialization(self):
-        self.to_format = DataReturnFormat.SKLEARN          # (1)
-
-    def analytics_schema(self):                            # (2)
-        return RowSpec(columns=["age", "weight"]), None    # or ImageSpec(), or a dict
+        self.to_format = DataReturnFormat.SKLEARN  # serve samples as NumPy arrays
 ```
 
----
+> **Why `SKLEARN`?** The name comes from scikit-learn's convention of returning plain NumPy arrays rather than PyTorch tensors. It has nothing to do with using scikit-learn models — it simply means "give me a NumPy array".
 
-## Researcher-Side Usage
+### 2. Implement `analytics_schema()`
 
-FA is accessed through the `analytics` property of an `Experiment`:
+`analytics_schema()` returns a **description of what `__getitem__` produces**, so the analytics engine knows how to interpret each sample.
+
+`__getitem__` returns a `(data, target)` tuple. `analytics_schema()` mirrors that structure: it returns a `(data_spec, target_spec)` tuple where each spec is either a `RowSpec`, an `ImageSpec`, or `None` (meaning "skip this part").
+
+- Use `RowSpec(columns=[...])` when the element is a 2-D NumPy array whose columns have names (tabular data). The column list must match the column order that `__getitem__` actually returns in that position.
+- Use `ImageSpec()` when the element is an N-D NumPy array without named columns (images, voxel grids, …).
+- Use `None` for parts that analytics should ignore (typically the target).
 
 ```python
-from fedbiomed.researcher.experiment import Experiment
+from fedbiomed.common.dataset_types import RowSpec, ImageSpec
 
-exp = Experiment(tags=["#my-dataset"])
+class MyDataset(Dataset):
+    def complete_initialization(self):
+        self.to_format = DataReturnFormat.SKLEARN
+
+    def __getitem__(self, idx):
+        # returns (array with columns ["age", "weight"], label)
+        ...
+
+    def analytics_schema(self):
+        # Mirrors __getitem__: describe `data` with RowSpec, skip `target` with None
+        return RowSpec(columns=["age", "weight"]), None
 ```
 
-### Convenience Methods
-
-Five one-liner methods cover the most common statistics:
+For a **multi-modal dataset** whose `__getitem__` returns a `dict` as its first element, the schema's first element must be a matching `dict` — same keys, each mapped to the appropriate spec:
 
 ```python
-mean     = exp.analytics.mean()
-variance = exp.analytics.variance()
-count    = exp.analytics.count()
-```
-
-Each call returns the **globally aggregated scalar or structure** directly.
-
-### Filtering Columns with `dataset_schema`
-
-Pass a schema to restrict the computation to a subset of the dataset:
-
-```python
-# Only compute mean over 'age' and 'bmi'
-mean = exp.analytics.mean(dataset_schema=["age", "bmi"])
-```
-
-For nested schemas (multi-modal datasets), pass a dict:
-
-```python
-mean = exp.analytics.mean(dataset_schema={"clinical": ["age", "bmi"]})
-```
-
-### Advanced: `fetch_stats`
-
-`fetch_stats` gives full control and returns a raw `FAResult` for further inspection:
-
-```python
-result = exp.analytics.fetch_stats(
-    stats="variance",
-    dataset_schema=["age", "bmi"],
-)
-
-# Globally aggregated value for a single statistic
-age_mean = result.global_stat("mean")
-
-# All computable stats merged into one tree: {col: {stat: val}}
-all_stats = result.global_stats()
-
-# Raw per-node output (not aggregated)
-node_output = result.node_stats("node-id-1")
-```
-
-### Statistics Requiring Arguments
-
-`histogram` require extra arguments supplied via `stats_args`:
-
-```python
-# Histogram with explicit bin edges per column
-result = exp.analytics.fetch_stats(
-    stats_args={
-        "histogram": {
-            "age":    {"bin_edges": [0, 20, 40, 60, 80, 100]},
-            "income": {"bin_edges": [0, 25000, 50000, 75000, 100000]},
+    def __getitem__(self, idx):
+        # data is a dict; keys must match the schema below
+        data = {
+            "demographics": array_of_shape(n, 2),   # tabular
+            "T1": array_of_shape(h, w, d),           # 3-D image
         }
-    }
-)
+        return data, None
+
+    def analytics_schema(self):
+        return {
+            "demographics": RowSpec(columns=["age", "weight"]),
+            "T1": ImageSpec(),
+        }, None
 ```
-
-### Caching Behaviour
-
-Results are cached per `(node_ids, dataset_schema, stats_args)` combination. Requesting a statistic that is already present in the cache does **not** trigger a new network round-trip. The cache holds at most 32 result sets (FIFO eviction).
-
----
-
-## FAResult Reference
-
-| Method / property | Description |
-|---|---|
-| `result.global_stat(stat_name)` | Globally aggregated value for one statistic |
-| `result.global_stats()` | All computable stats merged: `{col: {stat: val}}` |
-| `result.node_stats(node_id)` | Raw output for a specific node (not aggregated) |
-| `result.all_node_stats()` | Dict of all per-node raw outputs |
-| `result.computable_stats()` | List of stats that can be aggregated from the stored data |
-| `result.available_stats()` | List of stat keys present in the first node's output |
-| `result.node_ids` | List of node IDs in the result |
-| `result.schema` | Schema mirror of the output tree (leaves shown as `{}`) |
 
 ---
 
@@ -148,8 +96,6 @@ Results are cached per `(node_ids, dataset_schema, stats_args)` combination. Req
 
 | Error message | Cause | Fix |
 |---|---|---|
-| `Dataset does not implement 'analytics_schema'` | Custom dataset is missing the method | Add `analytics_schema()` |
-| `Dataset format … is not supported for analytics` | `to_format` is `TORCH` instead of `SKLEARN` | Set `self.to_format = DataReturnFormat.SKLEARN` |
-| `Dataset does not support analytics method 'compute_stats'` | Class does not inherit from `Dataset` | Inherit from `fedbiomed.common.dataset.Dataset` |
-| `Federated Analytics are not allowed on this node` | Node `allow_federated_analytics = False` | Enable the flag in the node config |
-| `At least one of 'stats' or 'stats_args' must be provided` | `fetch_stats()` called with no arguments | Pass at least one stat name or `stats_args` |
+| `Dataset does not implement 'analytics_schema'` | Custom dataset is missing the `analytics_schema()` method | Add `analytics_schema()` (see [above](#2-implement-analytics_schema)) |
+| `Dataset format … is not supported for analytics` | `to_format` is set to `TORCH` (tensors) instead of `SKLEARN` (NumPy) | Set `self.to_format = DataReturnFormat.SKLEARN` in `complete_initialization` |
+| `Dataset does not support analytics method 'compute_stats'` | The dataset class does not inherit from `fedbiomed.common.dataset.Dataset` | Make sure your class inherits from `fedbiomed.common.dataset.Dataset` |

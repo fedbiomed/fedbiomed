@@ -85,6 +85,7 @@ nav:
           - Node:
               - "Configuring Nodes": "./user-guide/nodes/configuring-nodes.md"
               - "Deploying Datasets": "./user-guide/nodes/deploying-datasets.md"
+              - "Federated Analytics": "./user-guide/nodes/federated-analytics.md"
               - "Training Plan Management": "./user-guide/nodes/training-plan-security-manager.md"
               - "Using GPU": "./user-guide/nodes/using-gpu.md"
               - "Node GUI": "./user-guide/nodes/node-gui.md"
@@ -94,6 +95,7 @@ nav:
               - "Experiment": "./user-guide/researcher/experiment.md"
               - "Aggregation": "./user-guide/researcher/aggregation.md"
               - "Listing Datasets and Selecting Nodes": "./user-guide/researcher/listing-datasets-and-selecting-nodes.md"
+              - "Federated Analytics": "./user-guide/researcher/federated-analytics.md"
               - "Model Validation on the Node Side": "./user-guide/researcher/model-testing-during-federated-training.md"
               - "Tensorboard": "./user-guide/researcher/tensorboard.md"
           - Optimization: "./user-guide/advanced-optimization.md"
