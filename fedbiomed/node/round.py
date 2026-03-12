@@ -160,7 +160,7 @@ class Round:
             return self._send_round_reply(success=False, message=repr(e))
         except Exception as e:
             msg = "Unexpected error while validating training argument"
-            logger.debug(f"{msg}: {repr(e)}")
+            logger.error(f"{msg}: {repr(e)}")
             return self._send_round_reply(
                 success=False, message=f"{msg}. Please contact system provider"
             )
@@ -255,8 +255,9 @@ class Round:
                 code=self.training_plan_source, class_name=self.training_plan_class
             )
             self.training_plan = CurrentTrainingPlan()
-        except Exception:
+        except Exception as e:
             error_message = "Cannot instantiate training plan object."
+            logger.error(f"{error_message}: {e}", researcher_id=self.researcher_id)
             return self._send_round_reply(success=False, message=error_message)
 
         # save and load training plan to a file to be sure
@@ -282,8 +283,9 @@ class Round:
             CurrentTPModule, self.training_plan = utils.import_class_object_from_file(
                 training_plan_file, self.training_plan_class
             )
-        except Exception:
+        except Exception as e:
             error_message = "Cannot load training plan object from file."
+            logger.error(f"{error_message}: {e}", researcher_id=self.researcher_id)
             return self._send_round_reply(success=False, message=error_message)
 
         try:
@@ -293,8 +295,9 @@ class Round:
                 aggregator_args=self.aggregator_args,
                 node_id=self._node_id,
             )
-        except Exception:
+        except Exception as e:
             error_message = "Can't initialize training plan with the arguments."
+            logger.error(f"{error_message}: {e}", researcher_id=self.researcher_id)
             return self._send_round_reply(success=False, message=error_message)
 
         # load node state
@@ -302,8 +305,12 @@ class Round:
         if previous_state_id is not None:
             try:
                 self._load_round_state(previous_state_id)
-            except Exception:
-                # don't send error details
+            except Exception as e:
+                # don't send error details to researcher, but log locally
+                logger.error(
+                    f"Can't read previous node state: {e}",
+                    researcher_id=self.researcher_id,
+                )
                 return self._send_round_reply(
                     success=False, message="Can't read previous node state."
                 )
@@ -311,8 +318,9 @@ class Round:
         # Load model parameters received from researcher
         try:
             self.training_plan.set_model_params(self.params)
-        except Exception:
+        except Exception as e:
             error_message = "Cannot initialize model parameters."
+            logger.error(f"{error_message}: {e}", researcher_id=self.researcher_id)
             return self._send_round_reply(success=False, message=error_message)
         # ---------------------------------------------------------------------
 
@@ -452,8 +460,12 @@ class Round:
 
             try:
                 self._save_round_state()
-            except Exception:
-                # don't send details to researcher
+            except Exception as e:
+                # don't send details to researcher, but log locally
+                logger.error(
+                    f"Can't save new node state: {e}",
+                    researcher_id=self.researcher_id,
+                )
                 return self._send_round_reply(
                     success=False, message="Can't save new node state."
                 )
@@ -462,8 +474,8 @@ class Round:
             try:
                 del self.training_plan
                 del CurrentTPModule
-            except Exception:
-                logger.debug("Exception raised while deleting training plan instance")
+            except Exception as e:
+                logger.debug(f"Exception raised while deleting training plan instance: {e}")
 
             return self._send_round_reply(
                 success=True,
