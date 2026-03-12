@@ -741,6 +741,7 @@ class Node:
                 researcher_host,
                 researcher_port,
                 len(extra_msg),
+                stack_info=True,
             )
 
             # Log error to console and security audit log in one call
