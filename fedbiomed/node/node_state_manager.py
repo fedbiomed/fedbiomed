@@ -295,7 +295,7 @@ class NodeStateManager:
         path = os.path.join(base_dir, file_name)
         logger.debug(
             f"Generated node state file path: experiment_id={experiment_id} "
-            f"round={round_nb} element={element.name} path={path}"
+            f"round={round_nb} element={getattr(element, 'name', repr(element))} path={path}"
         )
         return path
 

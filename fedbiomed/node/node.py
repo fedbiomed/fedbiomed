@@ -739,7 +739,10 @@ class Node:
         """
         researcher_host = self._config.get("researcher", "ip")
         researcher_port = self._config.get("researcher", "port")
-        connected = self.is_connected()
+        try:
+            connected = self.is_connected()
+        except Exception:
+            connected = False
 
         try:
             logger.debug(

@@ -195,10 +195,14 @@ class PolicyController:
         )
 
         for req in requests:
+            request_id = getattr(req, "_request_id", getattr(req, "request_id", None))
+            node = getattr(req, "_node", getattr(req, "node", None))
+            status_value = getattr(req, "status", None)
+            error_value = getattr(req, "error", None)
             logger.debug(
-                f"PolicyController: Request {req._request_id} "
-                f"for node {req._node} "
-                f"has status {req.status} and error {req.error}"
+                f"PolicyController: Request {request_id} "
+                f"for node {node} "
+                f"has status {status_value} and error {error_value}"
             )
 
         return PolicyStatus.CONTINUE if status else PolicyStatus.COMPLETED
