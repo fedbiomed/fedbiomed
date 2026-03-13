@@ -7,6 +7,7 @@ Interfaces with a tinyDB database for converting search results to dict.
 
 from __future__ import annotations
 
+from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from tinydb import Query, TinyDB
@@ -14,6 +15,8 @@ from tinydb.table import Document, Table
 
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
+
+LOG_VALUE_MAX_LENGTH = 50
 
 
 def cast_(func):
@@ -58,8 +61,6 @@ def _security_log(operation: str, default_stacklevel: int = 3):
             Extracting/logging relevant information from args/kwargs for security events."""
 
             logging_stacklevel = kwargs.pop("stacklevel", default_stacklevel)
-
-            LOG_VALUE_MAX_LENGTH = 50
 
             # Reuse your helpers
             kwargs_stripped = _strip_forbidden_keys(kwargs)
@@ -180,6 +181,72 @@ def _truncate_for_logging(value: Any, max_len: int) -> Any:
     return value
 
 
+def _debug_db_operation(message: str, **fields: Any) -> None:
+    """Emit sanitized debug logging for database wrapper operations."""
+
+    sanitized = _truncate_for_logging(
+        _strip_forbidden_keys(fields), max_len=LOG_VALUE_MAX_LENGTH
+    )
+    logger.debug(f"{message}: {sanitized}")
+
+
+def _debug_result_summary(result: Any) -> Any:
+    """Build a compact debug summary for DB wrapper results."""
+
+    if isinstance(result, list):
+        return {"result_type": "list", "count": len(result)}
+    if isinstance(result, dict):
+        return {"result_type": "dict", "count": len(result)}
+    if result is None:
+        return {"result_type": "NoneType"}
+    return {"result_type": type(result).__name__, "value": result}
+
+
+def _debug_log(operation: str):
+    """Decorator for sanitized debug logging of database wrapper methods."""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            bound_self = args[0] if args else None
+            call_args = args[1:] if len(args) > 1 else tuple()
+
+            context = {
+                "operation": operation,
+                "component": type(bound_self).__name__
+                if bound_self is not None
+                else None,
+                "table": getattr(
+                    bound_self, "_table_name", getattr(bound_self, "name", None)
+                ),
+                "id_name": getattr(bound_self, "_id_name", None),
+                "args": call_args,
+                "kwargs": kwargs,
+            }
+            _debug_db_operation(f"Starting {operation}", **context)
+
+            try:
+                result = func(*args, **kwargs)
+            except Exception as exc:
+                _debug_db_operation(
+                    f"Failed {operation}",
+                    **context,
+                    error=repr(exc),
+                )
+                raise
+
+            _debug_db_operation(
+                f"Completed {operation}",
+                **context,
+                result=_debug_result_summary(result),
+            )
+            return result
+
+        return wrapper
+
+    return decorator
+
+
 class DBTable(Table):
     """Extends TinyDB table to cast Document type to dict"""
 
@@ -226,6 +293,13 @@ class TinyDBConnector:
             cls._instance = super().__new__(cls)
             # Use DBTable as the default table class for this TinyDB instance
             cls._instance._db = TinyDB(db_path)
+            _debug_db_operation(
+                "Initialized TinyDB connector", db_path=db_path, reused_existing=False
+            )
+        else:
+            _debug_db_operation(
+                "Reusing TinyDB connector", db_path=db_path, reused_existing=True
+            )
         return cls._instance
 
     @property
@@ -233,6 +307,7 @@ class TinyDBConnector:
         """Return the shared TinyDB instance"""
         return self._db
 
+    @_debug_log("db_table")
     def table(self, name: str) -> DBTable:
         """Return a table with the given name, ensuring it is a DBTable instance."""
         # Get the table from the underlying DB instance, forcing cache_size=0
@@ -252,7 +327,15 @@ class TinyTableConnector:
 
         self._query = Query()
         self._table = TinyDBConnector(db_path=path).table(self._table_name)
+        _debug_db_operation(
+            "Initialized TinyTableConnector",
+            table=self._table_name,
+            id_name=self._id_name,
+            path=path,
+            connector_type=self.__class__.__name__,
+        )
 
+    @_debug_log("db_get_by_id")
     def get_by_id(self, id_value: str) -> Optional[dict]:
         """Get a document by its ID.
 
@@ -271,6 +354,7 @@ class TinyTableConnector:
         )
         return response[0] if response else None
 
+    @_debug_log("db_insert")
     def insert(self, entry: dict) -> int:
         """Insert a new document.
 
@@ -291,6 +375,7 @@ class TinyTableConnector:
         _ = self._table.insert(entry, stacklevel=4)
         return entry[self._id_name]
 
+    @_debug_log("db_all")
     def all(self) -> List[dict]:
         """Get all entries (or empty list if none found).
 
@@ -299,6 +384,7 @@ class TinyTableConnector:
         """
         return self._table.all(stacklevel=4)
 
+    @_debug_log("db_get_all_by_value")
     def get_all_by_value(self, by: str, value: Any) -> List[dict]:
         """Get all entries by a field value (or empty list if none found).
 
@@ -316,6 +402,7 @@ class TinyTableConnector:
             stacklevel=4,
         )
 
+    @_debug_log("db_get_all_by_condition")
     def get_all_by_condition(self, by: str, cond: Callable) -> List[dict]:
         """Search entries by a test condition on a field.
 
@@ -328,6 +415,7 @@ class TinyTableConnector:
         """
         return self._table.search(self._query[by].test(cond), stacklevel=4)
 
+    @_debug_log("db_delete_by_id")
     def delete_by_id(self, id_value: Union[str, list[str]]) -> List[int]:
         """Delete a document by its ID.
 
@@ -349,6 +437,7 @@ class TinyTableConnector:
             self._query[self._id_name].one_of(id_value), stacklevel=4
         )
 
+    @_debug_log("db_update_by_id")
     def update_by_id(self, id_value: str, update: Dict[str, Any]) -> dict:
         """Update a document by its ID.
 
@@ -365,5 +454,4 @@ class TinyTableConnector:
         _ = self._table.update(
             update, self._query[self._id_name] == id_value, stacklevel=4
         )
-
         return self.get_by_id(id_value)
