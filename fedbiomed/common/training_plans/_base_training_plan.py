@@ -166,10 +166,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             f"class={self.__class__.__name__} "
             f"node_id={self._node_id} "
             f"initialize_optimizer={initialize_optimizer} "
-            f"training_args_keys={sorted(self._training_args.keys())} "
-            f"loader_args_keys={sorted(self._loader_args.keys())} "
-            f"optimizer_args_keys={sorted(self._optimizer_args.keys())} "
-            f"aggregator_args_keys={sorted(self._aggregator_args.keys())} "
+            f"training_args_keys={sorted(self._training_args.keys()) if isinstance(self._training_args, dict) else None} "
+            f"loader_args_keys={sorted(self._loader_args.keys()) if isinstance(self._loader_args, dict) else None} "
+            f"optimizer_args_keys={sorted(self._optimizer_args.keys()) if isinstance(self._optimizer_args, dict) else None} "
+            f"aggregator_args_keys={sorted(self._aggregator_args.keys()) if isinstance(self._aggregator_args, dict) else None} "
             f"random_seed_set={rseed is not None}"
         )
 

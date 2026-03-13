@@ -252,6 +252,16 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 "Optimizer is None, please run `post_init` beforehand"
             )
 
+        # Warn if GPU-use was expected (as it is not supported).
+        if node_args is not None and node_args.get("gpu_only", False):
+            self._optimizer.send_to_device(
+                False
+            )  # disable GPU, avoid `declearn` triggering warning messages
+            logger.warning(
+                "Node would like to force GPU usage, but sklearn training "
+                "plan does not support it. Training on CPU."
+            )
+
         logger.debug(
             "Sklearn training routine start: "
             f"model_cls={self._model_cls.__name__} "
@@ -264,15 +274,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Run preprocesses
         self._preprocess()
 
-        # Warn if GPU-use was expected (as it is not supported).
-        if node_args is not None and node_args.get("gpu_only", False):
-            self._optimizer.send_to_device(
-                False
-            )  # disable GPU, avoid `declearn` triggering warning messages
-            logger.warning(
-                "Node would like to force GPU usage, but sklearn training "
-                "plan does not support it. Training on CPU."
-            )
         # Run the model-specific training routine.
         try:
             num_samples_trained = self._training_routine(history_monitor)

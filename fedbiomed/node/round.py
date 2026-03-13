@@ -211,16 +211,24 @@ class Round:
         Returns:
             Returns the corresponding node message, training reply instance
         """
+        dataset_id = (
+            self.dataset.get("dataset_id") if isinstance(self.dataset, dict) else None
+        )
+        dp_active = (
+            self.training_arguments.get("dp_args") is not None
+            if self.training_arguments is not None
+            else None
+        )
         logger.debug(
             "Starting round execution: node_id=%s experiment=%s round=%s training=%s dataset=%s secagg_active=%s force_secagg=%s dp_active=%s secagg_args_keys=%s",
             self._node_id,
             self.experiment_id,
             self._round,
             self.training,
-            self.dataset.get("dataset_id"),
+            dataset_id,
             secagg_active,
             force_secagg,
-            self.training_arguments.get("dp_args") is not None,
+            dp_active,
             sorted((secagg_arguments or {}).keys()),
         )
         # Validate secagg status. Raises error if the training request is not compatible with
@@ -447,9 +455,9 @@ class Round:
                 "Executing training phase for round: experiment=%s round=%s dataset=%s has_testing_loader=%s has_training_loader=%s",
                 self.experiment_id,
                 self._round,
-                self.dataset.get("dataset_id"),
-                self.training_plan.testing_data_loader is not None,
-                self.training_plan.training_data_loader is not None,
+                dataset_id,
+                getattr(self.training_plan, "testing_data_loader", None) is not None,
+                getattr(self.training_plan, "training_data_loader", None) is not None,
             )
             results = {}  # type: Dict[str, Any]
 

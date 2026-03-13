@@ -278,7 +278,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         init_model_spec = get_method_spec(self.init_model)
         logger.debug(
             "Configuring torch model: init_model_args=%s model_arg_keys=%s",
-            list(init_model_spec.keys()),
+            list(init_model_spec.keys()) if init_model_spec else [],
             sorted((self._model_args or {}).keys()),
         )
         if not init_model_spec:
@@ -317,7 +317,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             init_optim_spec = get_method_spec(self.init_optimizer)
             logger.debug(
                 "Configuring torch optimizer: init_optimizer_args=%s optimizer_arg_keys=%s",
-                list(init_optim_spec.keys()),
+                list(init_optim_spec.keys()) if init_optim_spec else [],
                 sorted((self._optimizer_args or {}).keys()),
             )
             if not init_optim_spec:
@@ -491,7 +491,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         logger.debug(
             "Starting torch training routine: loader_type=%s dataset_type=%s dp_active=%s aggregator=%s epochs=%s num_updates=%s batch_maxnum=%s dry_run=%s",
             type(self.training_data_loader).__name__,
-            type(self.training_data_loader.dataset).__name__,
+            type(getattr(self.training_data_loader, "dataset", None)).__name__,
             getattr(self._dp_controller, "_is_active", False),
             self.aggregator_name,
             self._epochs,
@@ -507,7 +507,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         logger.debug(
             "Training model sent to device: device=%s model_type=%s",
             self._device,
-            type(self.model()).__name__ if self.model() is not None else None,
+            type(getattr(self._model, "model", None)).__name__,
         )
 
         # Run preprocess when everything is ready before the training
@@ -516,7 +516,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         logger.debug(
             "Training preprocess completed: loader_type=%s dataset_type=%s",
             type(self.training_data_loader).__name__,
-            type(self.training_data_loader.dataset).__name__,
+            type(getattr(self.training_data_loader, "dataset", None)).__name__,
         )
 
         # # initial aggregated model parameters
@@ -532,7 +532,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         logger.debug(
             "Training data loader ready after DP setup: loader_type=%s dataset_type=%s",
             type(self.training_data_loader).__name__,
-            type(self.training_data_loader.dataset).__name__,
+            type(getattr(self.training_data_loader, "dataset", None)).__name__,
         )
 
         # set number of training loop iterations
