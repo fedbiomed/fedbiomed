@@ -211,6 +211,18 @@ class Round:
         Returns:
             Returns the corresponding node message, training reply instance
         """
+        logger.debug(
+            "Starting round execution: node_id=%s experiment=%s round=%s training=%s dataset=%s secagg_active=%s force_secagg=%s dp_active=%s secagg_args_keys=%s",
+            self._node_id,
+            self.experiment_id,
+            self._round,
+            self.training,
+            self.dataset.get("dataset_id"),
+            secagg_active,
+            force_secagg,
+            self.training_arguments.get("dp_args") is not None,
+            sorted((secagg_arguments or {}).keys()),
+        )
         # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
 
@@ -306,6 +318,17 @@ class Round:
                 training_args=self.training_arguments,
                 aggregator_args=self.aggregator_args,
                 node_id=self._node_id,
+            )
+            logger.debug(
+                "Training plan initialized for round: experiment=%s round=%s plan=%s training=%s dp_active=%s aggregator=%s",
+                self.experiment_id,
+                self._round,
+                self.training_plan.__class__.__name__,
+                self.training,
+                self.training_arguments.get("dp_args") is not None,
+                self.aggregator_args.get("aggregator_name")
+                if self.aggregator_args
+                else None,
             )
         except Exception as e:
             error_message = "Can't initialize training plan with the arguments."
@@ -420,6 +443,14 @@ class Round:
 
         # If training is activated.
         if self.training:
+            logger.debug(
+                "Executing training phase for round: experiment=%s round=%s dataset=%s has_testing_loader=%s has_training_loader=%s",
+                self.experiment_id,
+                self._round,
+                self.dataset.get("dataset_id"),
+                self.training_plan.testing_data_loader is not None,
+                self.training_plan.training_data_loader is not None,
+            )
             results = {}  # type: Dict[str, Any]
 
             # Perform the training round.
@@ -493,10 +524,26 @@ class Round:
             results["sample_size"] = len(
                 self.training_plan.training_data_loader.dataset
             )
+            logger.debug(
+                "Collected round outputs before reply assembly: experiment=%s round=%s sample_size=%s has_aux_var=%s dp_active=%s flatten_for_secagg=%s",
+                self.experiment_id,
+                self._round,
+                results["sample_size"],
+                results["optim_aux_var"] is not None,
+                self.training_arguments.get("dp_args") is not None,
+                self._secure_aggregation.use_secagg,
+            )
 
             results["encrypted"] = False
             model_weights = self.training_plan.after_training_params(
                 flatten=self._secure_aggregation.use_secagg
+            )
+            logger.debug(
+                "Collected training parameters for round reply: experiment=%s round=%s parameter_count=%s secagg_enabled=%s",
+                self.experiment_id,
+                self._round,
+                len(model_weights),
+                self._secure_aggregation.use_secagg,
             )
 
             if self._secure_aggregation.use_secagg:
@@ -560,6 +607,12 @@ class Round:
             )
         else:
             # Only for validation
+            logger.debug(
+                "Skipping training execution for round: experiment=%s round=%s dataset=%s reason=training_disabled",
+                self.experiment_id,
+                self._round,
+                self.dataset.get("dataset_id"),
+            )
             return self._send_round_reply(success=True)
 
     def _encrypt_weights_and_auxvar(
@@ -664,8 +717,21 @@ class Round:
         if timing is None:
             timing = {}
 
+        logger.debug(
+            "Building round reply: experiment=%s round=%s success=%s message=%s extend_keys=%s timing_keys=%s encrypted=%s has_params=%s has_aux_var=%s",
+            self.experiment_id,
+            self._round,
+            success,
+            bool(message),
+            sorted(extend_with.keys()),
+            sorted(timing.keys()),
+            extend_with.get("encrypted"),
+            "params" in extend_with,
+            extend_with.get("optim_aux_var") is not None,
+        )
+
         # If round is not successful log error message
-        return TrainReply(
+        reply = TrainReply(
             **{
                 "node_id": self._node_id,
                 "node_name": self._node_name,
@@ -679,6 +745,16 @@ class Round:
                 **extend_with,
             }
         )
+        logger.debug(
+            "Built round reply: experiment=%s round=%s reply_type=%s success=%s encrypted=%s dataset=%s",
+            self.experiment_id,
+            self._round,
+            reply.__class__.__name__,
+            reply.success,
+            getattr(reply, "encrypted", None),
+            getattr(reply, "dataset_id", None),
+        )
+        return reply
 
     def process_optim_aux_var(self) -> Optional[str]:
         """Process researcher-emitted Optimizer auxiliary variables, if any.

@@ -328,7 +328,7 @@ class Requests(metaclass=SingletonMeta):
 
     def start_messaging(self) -> None:
         """Start communications endpoint"""
-        ### DEBUG GRPC SERVER START
+        logger.debug("Starting researcher messaging GRPC Server endpoint")
         self._grpc_server.start()
 
     def on_message(

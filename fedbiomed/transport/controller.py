@@ -59,16 +59,32 @@ class GrpcAsyncTaskController:
 
         self._debug = debug
         self._on_message = on_message
+        logger.debug(
+            "Initialized gRPC async controller: node_id=%s researchers=%s debug=%s",
+            node_id,
+            [f"{researcher.host}:{researcher.port}" for researcher in researchers],
+            debug,
+        )
 
     async def start(self) -> None:
         """ "Starts the tasks for each GrpcClient"""
-        ### (OPTIONAL) DEBUG THE STARTING OF GRPC CONTROLLER
+        logger.debug(
+            "Starting gRPC async controller: node_id=%s researcher_count=%d",
+            self._node_id,
+            len(self._researchers),
+        )
 
         tasks = []
         for researcher in self._researchers:
             client = GrpcClient(self._node_id, researcher, self._update_id_ip_map)
             tasks.append(client.start(on_task=self._on_message))
             self._clients[f"{researcher.host}:{researcher.port}"] = client
+            logger.debug(
+                "Registered gRPC client: node_id=%s researcher=%s:%s",
+                self._node_id,
+                researcher.host,
+                researcher.port,
+            )
 
         self._loop = asyncio.get_running_loop()
 
