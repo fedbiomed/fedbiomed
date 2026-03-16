@@ -201,7 +201,7 @@ class PolicyController:
             error_value = getattr(req, "error", None)
             logger.debug(
                 f"PolicyController: Request {request_id} "
-                f"for node {node} "
+                f"for node id:{getattr(node, 'id', None)} "
                 f"has status {status_value} and error {error_value}"
             )
 

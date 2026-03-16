@@ -382,8 +382,12 @@ class FedLogger(metaclass=SingletonMeta):
         # Disable buffering to ensure immediate writes
         handler.stream.reconfigure(line_buffering=True)
 
+        handler_name = "SECURITY_FILE"
         # Register under its own key so it doesn't collide with FILE handler
-        self._internal_add_handler("SECURITY_FILE", handler, None)
+        if handler_name not in self._handlers:
+            self._logger.debug(" adding handler for: " + handler_name)
+            self._handlers[handler_name] = handler
+            self._logger.addHandler(handler)
 
     def security_event(
         self,
