@@ -10,6 +10,7 @@ import os
 import tempfile
 import threading
 import uuid
+from time import time
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import tabulate
@@ -61,6 +62,8 @@ class Request:
             request_id: unique ID of request
             sem_pending: semaphore for signaling new pending reply
         """
+        self._send_time = None
+        self._reply_time = None
         self._request_id = request_id if request_id else str(uuid.uuid4())
         self._node = node
         self._message = message
@@ -99,6 +102,8 @@ class Request:
         """Sends the request"""
 
         self._message.request_id = self._request_id
+        self._send_time = time()  # ← Track send time
+
         logger.debug(
             "Sending request req=%s node=%s type=%s experiment=%s researcher_id=%s",
             self._request_id,
@@ -116,7 +121,19 @@ class Request:
         Args:
             stopped: True if the request was stopped before completion
         """
+        flush_time = time()
+        elapsed_since_send = flush_time - self._send_time if self._send_time else 0
+
+        logger.debug(
+            "Flushing request req=%s node=%s stopped=%s has_reply=%s elapsed_since_send=%.2fs",
+            self._request_id,
+            self._node.id,
+            stopped,
+            self.reply is not None,
+            elapsed_since_send,
+        )
         self._node.flush(self._request_id, stopped)
+        self._sem_pending.release()
 
     def on_reply(self, reply: Message) -> None:
         """Callback for node agent to execute once it replies.
@@ -124,6 +141,16 @@ class Request:
         Args:
             reply: reply message received from node
         """
+        self._reply_time = time()  # ← Track reply time
+        elapsed = self._reply_time - self._send_time if self._send_time else 0
+
+        logger.debug(
+            "Request: Received reply req=%s node=%s type=%s elapsed=%.2fs",
+            self._request_id,
+            self._node.id,
+            reply.__class__.__name__,
+            elapsed,
+        )
 
         if isinstance(reply, ErrorMessage):
             self.error = reply

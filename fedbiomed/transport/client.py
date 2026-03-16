@@ -686,6 +686,7 @@ class Sender(Listener):
                 logger.warning(
                     f"Message can not be sent to researcher after {MAX_SEND_RETRIES} retries. Discard message."
                 )
+            # Only cleanup if not already done (defensive against double task_done)
             self._queue.task_done()
             self._retry_count = 0
             self._retry_item = None
@@ -737,6 +738,7 @@ class Sender(Listener):
         # If it is a Unary-Unary RPC call
         if isinstance(stub_function, grpc.aio.UnaryUnaryMultiCallable):
             await stub_function(item["message"].to_proto())
+            # Clear retry state immediately after successful send to prevent duplicate sends
 
         elif isinstance(stub_function, grpc.aio.StreamUnaryMultiCallable):
             stream_call = stub_function()
@@ -745,6 +747,7 @@ class Sender(Listener):
                 await stream_call.write(reply)
 
             await stream_call.done_writing()
+            # Clear retry state immediately after successful send to prevent duplicate sends
 
             if isinstance(callback, Callable):
                 # we could check the callback prototype

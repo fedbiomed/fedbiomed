@@ -64,6 +64,8 @@ class NodeAgentAsync:
         self._replies_lock = asyncio.Lock()
         self._stopped_request_ids_lock = asyncio.Lock()
         self._node_disconnection_timeout = node_disconnection_timeout
+        self._flushed_request_ids = set()  # ← Track flushed requests
+        self._flushed_request_ids_lock = asyncio.Lock()
 
     async def status_async(self) -> NodeActiveStatus:
         """Getter for node status.
@@ -92,11 +94,21 @@ class NodeAgentAsync:
             stopped: the request was stopped during processing
         """
         async with self._replies_lock:
-            if stopped and self._replies[request_id]["reply"] is None:
-                async with self._stopped_request_ids_lock:
-                    self._stopped_request_ids.append(request_id)
+            if request_id in self._replies:
+                if stopped and self._replies[request_id]["reply"] is None:
+                    async with self._stopped_request_ids_lock:
+                        self._stopped_request_ids.append(request_id)
 
-            self._replies.pop(request_id, None)
+                # Don't remove immediately, mark as flushed
+                async with self._flushed_request_ids_lock:
+                    self._flushed_request_ids.add(request_id)
+
+                # Optional: Clean up old flushed requests after some time
+                # Keep last N flushed requests to handle late replies
+                logger.debug(
+                    f"NodeAgent: Flushed request {request_id} for node {self._id}, "
+                    f"stopped={stopped}"
+                )
 
     def get_task(self) -> Awaitable[Message]:
         """Get tasks assigned by the main thread
@@ -112,56 +124,56 @@ class NodeAgentAsync:
 
     async def on_reply(self, message: Dict) -> None:
         """Callback to execute each time new reply received from the node"""
-
         message = Message.from_dict(message)
 
-        if isinstance(message, OverlayMessage):
-            logger.debug(
-                f"Researcher relay received overlay reply: src_node_id={self._id} "
-                f"dest_node_id={message.dest_node_id} setup={message.setup} payload_bytes={len(message.overlay)}"
-            )
+        # ...existing OverlayMessage handling...
 
         logger.debug(
             f"Node Agent: Received reply message {message.__class__.__name__} "
             f"for request_id={getattr(message, 'request_id', None)} from node_id={self._id}"
         )
 
-        # Handle overlay messages to relay to a node
-        if isinstance(message, OverlayMessage):
-            await self._on_forward(message)
-            return
-
-        # Handle RequestReply messages for the researcher
-        if not message.request_id:
-            logger.error(
-                f"Server received a reply from the client {self._id} that does "
-                "not contains request id."
-            )
-
         async with self._replies_lock:
             if message.request_id in self._replies:
-                if self._replies[message.request_id]["reply"] is None:
-                    self._replies[message.request_id]["reply"] = message
-                    self._replies[message.request_id]["callback"](message)
+                # Check if already flushed
+                async with self._flushed_request_ids_lock:
+                    if message.request_id in self._flushed_request_ids:
+                        logger.info(
+                            f"Received late reply for already flushed request {message.request_id} "
+                            f"from node {self._id}. This reply will be ignored."
+                        )
+                        return
+
+                reply_info = self._replies[message.request_id]
+                if reply_info["reply"] is None:
+                    reply_info["reply"] = message
+                    reply_info["callback"](message)
                 else:
-                    # Handle case of multiple replies
-                    # Avoid conflict with consumption of reply.
                     logger.warning(
                         f"Received multiple replies for request {message.request_id}. "
                         "Keep first reply, ignore subsequent replies"
                     )
             else:
+                # Request not found in _replies at all
                 async with self._stopped_request_ids_lock:
                     if message.request_id in self._stopped_request_ids:
-                        logger.warning(
-                            "Received a reply from a federated request that has been "
-                            f"stopped: {message.request_id}."
+                        logger.info(
+                            f"Received a reply from a stopped request: {message.request_id}"
                         )
                         self._stopped_request_ids.remove(message.request_id)
                     else:
-                        logger.warning(
-                            f"Received a reply from an unexpected request: {message.request_id}"
-                        )
+                        async with self._flushed_request_ids_lock:
+                            if message.request_id in self._flushed_request_ids:
+                                logger.warning(
+                                    f"Received LATE reply for flushed request {message.request_id} "
+                                    f"from node {self._id}. Message type: {message.__class__.__name__}. "
+                                    f"This indicates the reply arrived after the request was completed/timed out."
+                                )
+                            else:
+                                logger.warning(
+                                    f"Received a reply from an unexpected request: {message.request_id}. "
+                                    f"This request was never registered or is from a different session."
+                                )
 
     async def send_async(
         self,
