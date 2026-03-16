@@ -13,40 +13,58 @@ This page covers the **dataset side** of Federated Analytics: which datasets sup
 
 ---
 
-## Supported Datasets and Statistics
+## What FA can compute — and on which datasets
 
-FA classifies each dataset by its **element type** — the kind of data each sample contains:
+### Dataset element types
 
-| Element type | Typical use case | Supported statistics |
+FA treats every dataset as a collection of samples, and each sample as one or more **elements**. Each element has a type that determines which statistics can be computed on it:
+
+| Element type | What it represents |
+|---|---|
+| **ROW** | A single row of named columns (tabular data) |
+| **IMAGE** | An N-dimensional array without named columns |
+
+---
+
+!!! note "Dataset element types"
+    - Multi-modal datasets can contain both types simultaneously — FA handles them independently.
+    - Built-in [dataset classes](index.md) (`TabularDataset`, `MedicalFolderDataset`) declare their element type automatically and are FA-compatible out of the box. If you are writing a custom dataset you must declare it yourself — see below.
+
+### Available statistics
+
+The statistics available depend on the element type:
+
+---
+
+**ROW elements (tabular data)**
+
+| Statistic | What it computes | Extra arguments required |
 |---|---|---|
-| **ROW** | Tabular / demographic data (one row = one sample) | `count`, `mean`, `variance`, `histogram`* |
-| **IMAGE** | Medical images (NIfTI, pixel arrays, …) | `count`, `mean`, `variance` |
+| `count` | Number of non-missing values per column | — |
+| `mean` | Weighted mean per column across all nodes | — |
+| `variance` | Population variance per column across all nodes | — |
+| `histogram` | Per-column frequency counts in fixed bins | `bin_edges` per column (must be identical on all nodes) |
 
-\* `histogram` requires column-specific bin edges supplied by the researcher at request time.
+---
 
-Built-in [dataset classes](index.md) (`TabularDataset`, `MedicalFolderDataset`) declare their element type automatically and are FA-compatible out of the box. If you are writing a custom dataset you must declare it yourself — see below.
+**IMAGE elements**
+
+| Statistic | What it computes | Extra arguments required |
+|---|---|---|
+| `count` | Number of samples and shape information | — |
+| `mean` | Per-pixel (or per-voxel) mean across all nodes | — |
+| `variance` | Per-pixel (or per-voxel) population variance across all nodes | — |
 
 ---
 
 ## Making a Custom Dataset FA-Compatible
 
-If your dataset inherits from `fedbiomed.common.dataset.Dataset`, two additions are needed.
+If your dataset inherits from `fedbiomed.common.dataset.Dataset`, one addition is needed.
 
-### 1. Set the return format
+!!! note "Data return format"
+    The analytics engine requires your dataset to return data as NumPy arrays (`DataReturnFormat.SKLEARN`). Make sure this is set during your dataset's initialisation before using FA.
 
-The analytics engine expects data as NumPy arrays. Tell FA to use the NumPy format by setting `self.to_format` inside `complete_initialization` — the hook that FedBioMed calls after the base class sets up its internals:
-
-```python
-from fedbiomed.common.dataset_types import DataReturnFormat
-
-class MyDataset(Dataset):
-    def complete_initialization(self):
-        self.to_format = DataReturnFormat.SKLEARN  # serve samples as NumPy arrays
-```
-
-> **Why `SKLEARN`?** The name comes from scikit-learn's convention of returning plain NumPy arrays rather than PyTorch tensors. It has nothing to do with using scikit-learn models — it simply means "give me a NumPy array".
-
-### 2. Implement `analytics_schema()`
+### Implement `analytics_schema()`
 
 `analytics_schema()` returns a **description of what `__getitem__` produces**, so the analytics engine knows how to interpret each sample.
 
@@ -60,9 +78,6 @@ class MyDataset(Dataset):
 from fedbiomed.common.dataset_types import RowSpec, ImageSpec
 
 class MyDataset(Dataset):
-    def complete_initialization(self):
-        self.to_format = DataReturnFormat.SKLEARN
-
     def __getitem__(self, idx):
         # returns (array with columns ["age", "weight"], label)
         ...
@@ -92,10 +107,10 @@ For a **multi-modal dataset** whose `__getitem__` returns a `dict` as its first 
 
 ---
 
-## Common Errors
+## Common Errors & Troubleshooting
 
 | Error message | Cause | Fix |
 |---|---|---|
 | `Dataset does not implement 'analytics_schema'` | Custom dataset is missing the `analytics_schema()` method | Add `analytics_schema()` (see [above](#2-implement-analytics_schema)) |
-| `Dataset format … is not supported for analytics` | `to_format` is set to `TORCH` (tensors) instead of `SKLEARN` (NumPy) | Set `self.to_format = DataReturnFormat.SKLEARN` in `complete_initialization` |
+| `Dataset format … is not supported for analytics` | The dataset is not configured to return NumPy arrays | Ensure `self.to_format = DataReturnFormat.SKLEARN` is set during dataset initialisation |
 | `Dataset does not support analytics method 'compute_stats'` | The dataset class does not inherit from `fedbiomed.common.dataset.Dataset` | Make sure your class inherits from `fedbiomed.common.dataset.Dataset` |

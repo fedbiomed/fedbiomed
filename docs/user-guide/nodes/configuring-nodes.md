@@ -95,7 +95,7 @@ The configuration file is structured following the sections below:
     - `force_secure_aggregation`: Boolean parameter (True/False) to force secure aggregation for every action that uses local dataset.
     - `secagg_insecure_validation`: A boolean parameter to activate insecure validation for secure aggregation rounds to verify the correctness of the aggregation on the researcher side. This option is intended for testing and debugging purposes and must be deactivated in production deployments.
     - `allow_preproc`: Boolean value to enable applying pre-processing to the datasets before using them. Original dataset is not modified.
-    - `allow_federated_analytics`: Boolean value to enable computing statistics and analytics on the datasets.
+    - `allow_federated_analytics`: Boolean value to enable computing statistics and analytics on the datasets. See [Federated Analytics — Nodes](federated-analytics.md) for details.
 
 An example for a config file is shown below;
 

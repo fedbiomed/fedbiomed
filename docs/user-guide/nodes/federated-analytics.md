@@ -29,11 +29,12 @@ allow_federated_analytics = False
 
 Once a dataset is registered on a node with the appropriate tags, it is automatically eligible for analytics requests — no further configuration is needed beyond this flag.
 
-> **See also:** [Configuring Nodes](configuring-nodes.md) for a full reference of all node configuration options.
+!!! note "See also"
+    [Configuring Nodes](configuring-nodes.md) for a full reference of all node configuration options.
 
 ---
 
-## Common Errors
+## Common Errors & Troubleshooting
 
 | Error message | Cause | Fix |
 |---|---|---|
