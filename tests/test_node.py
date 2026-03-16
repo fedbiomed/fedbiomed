@@ -261,6 +261,47 @@ class TestNode(unittest.TestCase):
         self.n1.on_message(self.ping_request.to_dict())
         self.grpc_send_mock.assert_called_once()
 
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.add")
+    def test_node_03b_on_message_train_logs_request_lifecycle(
+        self, task_queue_add_patcher
+    ):
+        """Tests that train requests emit the new structured debug logs."""
+
+        with patch("fedbiomed.node.node.logger.debug") as logger_debug:
+            self.n1.on_message(self.train_request.to_dict())
+
+        task_queue_add_patcher.assert_called_once()
+
+        debug_calls = logger_debug.call_args_list
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Received researcher message type=%s req=%s researcher=%s experiment=%s dataset=%s round=%s"
+                and call.args[1:]
+                == (
+                    self.train_request.__name__,
+                    getattr(self.train_request, "request_id", None),
+                    self.train_request.researcher_id,
+                    self.train_request.experiment_id,
+                    self.train_request.dataset_id,
+                    self.train_request.round,
+                )
+                for call in debug_calls
+            )
+        )
+        self.assertTrue(
+            any(
+                call.args[0] == "Queueing node task type=%s req=%s experiment=%s"
+                and call.args[1:]
+                == (
+                    self.train_request.__name__,
+                    getattr(self.train_request, "request_id", None),
+                    self.train_request.experiment_id,
+                )
+                for call in debug_calls
+            )
+        )
+
     @patch("fedbiomed.node.node.SecaggManager")
     def test_node_04_on_message_normal_case_scenario_secagg_delete(self, skm):
         """Tests `on_message` method (normal case scenario), with secagg-delete command"""
@@ -583,6 +624,51 @@ class TestNode(unittest.TestCase):
 
         # checks
         self.grpc_send_mock.assert_called_once()
+
+    def test_node_21b_send_error_logs_debug_context(self):
+        """Tests `send_error` emits the new debug traces before and after dispatch."""
+
+        errnum = ErrorNumbers.FB100
+        extra_msg = "this is a test_send_error"
+        researcher_id = "researcher_id_1224"
+
+        with (
+            patch("fedbiomed.node.node.logger.debug") as logger_debug,
+            patch("fedbiomed.node.node.logger.error") as logger_error,
+        ):
+            self.n1.send_error(errnum, extra_msg, researcher_id)
+
+        self.grpc_send_mock.assert_called_once()
+        logger_error.assert_called_once()
+
+        debug_calls = logger_debug.call_args_list
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Preparing error reply errnum=%s req=%s researcher=%s broadcast=%s connected=%s destination=%s:%s msg_len=%d"
+                and call.args[1:]
+                == (
+                    errnum.name,
+                    None,
+                    researcher_id,
+                    False,
+                    False,
+                    "test",
+                    "5151",
+                    len(extra_msg),
+                )
+                and call.kwargs.get("stack_info") is True
+                for call in debug_calls
+            )
+        )
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Error reply dispatched errnum=%s req=%s researcher=%s broadcast=%s connected=%s"
+                and call.args[1:] == (errnum.name, None, researcher_id, False, False)
+                for call in debug_calls
+            )
+        )
 
     @patch("fedbiomed.node.node.SecaggSetup")
     def test_node_23_task_secagg(self, secagg_setup):

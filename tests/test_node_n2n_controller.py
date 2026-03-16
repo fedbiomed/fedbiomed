@@ -1,15 +1,15 @@
 import unittest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fedbiomed.common.message import (
-    ChannelSetupRequest,
-    ChannelSetupReply,
-    KeyRequest,
-    KeyReply,
-    AdditiveSSharingRequest,
     AdditiveSSharingReply,
-    PingRequest,
+    AdditiveSSharingRequest,
+    ChannelSetupReply,
+    ChannelSetupRequest,
+    KeyReply,
+    KeyRequest,
     OverlayMessage,
+    PingRequest,
 )
 from fedbiomed.node.requests._n2n_controller import NodeToNodeController
 
@@ -85,6 +85,7 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, unittest.TestCa
                 [{"shares": {node_id: 12345}}],
                 [{"shares": {node_id: ["shares shares"]}}],
             ],
+            strict=True,
         ):
             # 1. public key is available
 
@@ -111,6 +112,48 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, unittest.TestCa
 
             # check
             self.assertIsNone(result)
+
+    async def test_n2n_controller_01b_handle_key_request_logs_debug_context(self):
+        """Handle key request emits structured debug logs for success and timeout."""
+
+        self.controller_data_mock.wait.return_value = [
+            True,
+            [{"public_key": b"my dummy pubkey"}],
+        ]
+
+        with patch(
+            "fedbiomed.node.requests._n2n_controller.logger.debug"
+        ) as logger_debug:
+            result = await self.n2n_controller.handle(self.overlay_msg, self.inner_msg)
+
+        self.assertIsInstance(result, dict)
+        self.assertTrue(
+            any(
+                "Handling node-to-node key request" in call.args[0]
+                and f"request_id={self.inner_msg.request_id}" in call.args[0]
+                and f"secagg_id={self.inner_msg.secagg_id}" in call.args[0]
+                for call in logger_debug.call_args_list
+            )
+        )
+
+        self.controller_data_mock.wait.return_value = [
+            False,
+            [{"public_key": b"my dummy pubkey"}],
+        ]
+
+        with patch(
+            "fedbiomed.node.requests._n2n_controller.logger.debug"
+        ) as logger_debug:
+            result = await self.n2n_controller.handle(self.overlay_msg, self.inner_msg)
+
+        self.assertIsNone(result)
+        self.assertTrue(
+            any(
+                "Node-to-node key request timed out" in call.args[0]
+                and f"request_id={self.inner_msg.request_id}" in call.args[0]
+                for call in logger_debug.call_args_list
+            )
+        )
 
     async def test_n2n_controller_02_handle_key_ASS_reply(self):
         """Handle incoming message KeyReply AdditiveSSharingReply in node to node controller"""
@@ -169,6 +212,35 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, unittest.TestCa
 
             self.grpc_controller_mock.reset_mock()
 
+    async def test_n2n_controller_04b_final_key_request_logs_debug_context(self):
+        """Final key request handler logs the outgoing overlay context."""
+
+        overlay_msg = OverlayMessage(
+            researcher_id="dummy researcher",
+            node_id="dummy source overlay node",
+            dest_node_id="dummy dest overlay node",
+            overlay=b"dummy overlay content",
+            setup=False,
+            salt=b"a dummy salt",
+            nonce=b"my own nonce",
+        )
+
+        with patch(
+            "fedbiomed.node.requests._n2n_controller.logger.debug"
+        ) as logger_debug:
+            await self.n2n_controller.final(
+                KeyRequest.__name__, overlay_resp=overlay_msg
+            )
+
+        self.grpc_controller_mock.send.assert_called_once_with(overlay_msg)
+        self.assertTrue(
+            any(
+                "Sending node-to-node key reply" in call.args[0]
+                and f"dest_node_id={overlay_msg.dest_node_id}" in call.args[0]
+                for call in logger_debug.call_args_list
+            )
+        )
+
     async def test_n2n_controller_04_final_key_ASS_reply(self):
         """Final handler for key/ASS reply in node to node controller"""
         for message_name in [
@@ -223,6 +295,31 @@ class TestNodeToNodeController(unittest.IsolatedAsyncioTestCase, unittest.TestCa
 
             # reset
             self.overlay_channel_mock.reset_mock()
+
+    async def test_n2n_controller_06b_final_channel_reply_logs_debug_context(self):
+        """Final channel reply handler logs the channel setup processing context."""
+
+        inner_msg = ChannelSetupReply(
+            node_id="dummy source inner node",
+            dest_node_id="dummy dest inner node",
+            request_id="dummy request id",
+            public_key=b"my public key",
+        )
+
+        with patch(
+            "fedbiomed.node.requests._n2n_controller.logger.debug"
+        ) as logger_debug:
+            await self.n2n_controller.final(
+                ChannelSetupReply.__name__, inner_msg=inner_msg
+            )
+
+        self.assertTrue(
+            any(
+                "Processing channel setup reply" in call.args[0]
+                and f"request_id={inner_msg.request_id}" in call.args[0]
+                for call in logger_debug.call_args_list
+            )
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -167,15 +167,21 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
             ),
             asyncio.CancelledError,
         ]
-        task = self.task_listener.listen(self.callback)
+        with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
+            task = self.task_listener.listen(self.callback)
 
-        with self.assertRaises(asyncio.CancelledError):
-            await task
+            with self.assertRaises(asyncio.CancelledError):
+                await task
 
         self.callback.assert_called_once()
         self.serializer_mock.loads.assert_called_once()
         self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
         self.update_id.assert_called_once()
+        debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+        self.assertTrue(
+            any("Polling researcher for task" in msg for msg in debug_messages)
+        )
+        self.assertTrue(any("[WIRE][S->N][RX]" in msg for msg in debug_messages))
 
         # Cancel the task for next test
         task.cancel()
@@ -450,10 +456,17 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
         await self.sender.send(message=self.message_log)
         await self.sender.send(message=self.message_log)
 
-        task = self.sender.listen()
-        with self.assertRaises(asyncio.CancelledError):
-            await task
+        with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
+            task = self.sender.listen()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
         self.assertEqual(self.channels.feedback_stub.Feedback.call_count, 2)
+        self.assertTrue(
+            any(
+                "[WIRE][N->S][TX]" in call.args[0]
+                for call in logger_debug.call_args_list
+            )
+        )
 
         task.cancel()
 
@@ -466,14 +479,21 @@ class TestSender(unittest.IsolatedAsyncioTestCase):
         await self.sender.send(message=self.message_search)
         await self.sender.send(message=self.message_search)
 
-        task = self.sender.listen()
-        with self.assertRaises(asyncio.CancelledError):
-            await task
+        with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
+            task = self.sender.listen()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
 
         task.cancel()
         self.assertEqual(self.channels.task_stub.ReplyTask.call_count, 2)
         stream_call.write.assert_called_once()
         stream_call.done_writing.assert_called_once()
+        self.assertTrue(
+            any(
+                "[WIRE][N->S][TX]" in call.args[0]
+                for call in logger_debug.call_args_list
+            )
+        )
 
     @patch("fedbiomed.transport.client.asyncio.sleep")
     async def test_sender_02_listen_exceptions(self, sleep):

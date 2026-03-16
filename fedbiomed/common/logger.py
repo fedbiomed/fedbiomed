@@ -388,6 +388,8 @@ class FedLogger(metaclass=SingletonMeta):
             self._logger.debug(" adding handler for: " + handler_name)
             self._handlers[handler_name] = handler
             self._logger.addHandler(handler)
+            self._original_format[handler_name] = None
+            self._handler_prefix[handler_name] = ""
 
     def security_event(
         self,
@@ -515,7 +517,8 @@ class FedLogger(metaclass=SingletonMeta):
             if output in self._handlers:
                 self.removeHandler(self._handlers[output])
                 del self._handlers[output]
-                del self._original_format[output]
+                self._original_format.pop(output, None)
+                self._handler_prefix.pop(output, None)
                 self._logger.debug(" removing handler for: " + output)
             return
 

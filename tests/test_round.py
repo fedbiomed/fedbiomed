@@ -388,6 +388,108 @@ class TestRound(unittest.TestCase):
         "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
     )
     @patch("uuid.uuid4")
+    def test_round_02d_run_model_training_logs_start_context(
+        self, uuid_patch, tp_security_manager_patch, mock_split_test_train_data
+    ):
+        """Tests that successful training emits the structured round start debug log."""
+
+        FakeModel.SLEEPING_TIME = 0
+        uuid_patch.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {"name": "model_name"})
+        mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
+
+        self.r1.initialize_arguments()
+
+        with patch("fedbiomed.node.round.logger.debug") as logger_debug:
+            msg = self.r1.run_model_training(
+                tp_approval=False,
+                secagg_active=False,
+                force_secagg=False,
+                secagg_insecure_validation=True,
+            )
+
+        self.assertTrue(msg.get_dict().get("success", False))
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Starting round execution: node_id=%s experiment=%s round=%s training=%s dataset=%s secagg_active=%s force_secagg=%s dp_active=%s secagg_args_keys=%s"
+                and call.args[1:]
+                == (
+                    self.r1._node_id,
+                    self.r1.experiment_id,
+                    self.r1._round,
+                    self.r1.training,
+                    self.r1.dataset.get("dataset_id"),
+                    False,
+                    False,
+                    False,
+                    [],
+                )
+                for call in logger_debug.call_args_list
+            )
+        )
+
+    def test_round_02e_send_round_reply_logs_build_context(self):
+        """Tests `_send_round_reply` emits the new debug logs when building replies."""
+
+        extend_with = {
+            "encrypted": True,
+            "params": {"weights": [1, 2]},
+            "optim_aux_var": {"scaffold": 1},
+        }
+        timing = {"total_time": 1.23}
+
+        with patch("fedbiomed.node.round.logger.debug") as logger_debug:
+            reply = self.r1._send_round_reply(
+                success=True,
+                message="ok",
+                extend_with=extend_with,
+                timing=timing,
+            )
+
+        self.assertTrue(reply.success)
+        self.assertEqual(reply.dataset_id, self.r1.dataset["dataset_id"])
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Building round reply: experiment=%s round=%s success=%s message=%s extend_keys=%s timing_keys=%s encrypted=%s has_params=%s has_aux_var=%s"
+                and call.args[1:]
+                == (
+                    self.r1.experiment_id,
+                    self.r1._round,
+                    True,
+                    True,
+                    sorted(extend_with.keys()),
+                    sorted(timing.keys()),
+                    True,
+                    True,
+                    True,
+                )
+                for call in logger_debug.call_args_list
+            )
+        )
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Built round reply: experiment=%s round=%s reply_type=%s success=%s encrypted=%s dataset=%s"
+                and call.args[1:]
+                == (
+                    self.r1.experiment_id,
+                    self.r1._round,
+                    reply.__class__.__name__,
+                    True,
+                    True,
+                    self.r1.dataset["dataset_id"],
+                )
+                for call in logger_debug.call_args_list
+            )
+        )
+
+    @patch("fedbiomed.node.round.Round._split_train_and_test_data")
+    @patch(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
+    )
+    @patch("uuid.uuid4")
     def test_round_03_test_run_model_training_with_real_model(
         self, uuid_patch, tp_security_manager_patch, mock_split_train_and_test_data
     ):
