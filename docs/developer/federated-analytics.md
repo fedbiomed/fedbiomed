@@ -27,6 +27,68 @@ FederatedAnalytics.fetch_stats()
 
 ---
 
+## Statistics, API and Aggregation
+
+### Available Statistics
+
+`Stats` (in `fedbiomed/common/constants.py`) is the single source of truth for stat names. Every node accumulator, registry entry, and aggregator function must reference one of these values. Adding a stat starts here.
+
+| Enum | String value | Required `stats_args` key | Notes |
+|------|-------------|--------------------------|-------|
+| `Stats.COUNT` | `"count"` | — | Per-column non-null count (ROW), or shape count (IMAGE) |
+| `Stats.MEAN` | `"mean"` | — | auto-requests `count` as dependency |
+| `Stats.VARIANCE` | `"variance"` | — | auto-requests `mean` + `count` |
+| `Stats.HISTOGRAM` | `"histogram"` | `bin_edges` | - |
+
+!!! note "Researcher-only derived stats"
+    `std` and `sum` are computable on the researcher side from `mean`/`variance`/`count` via `FAResult.global_stat()` — they are never sent from nodes.
+
+`FederatedAnalytics` is the entry point for all analytics requests. It handles caching and delegates network I/O to `FARequestJob`. `fetch_stats` is its core method — it resolves which stats are missing from the cache, sends an `FARequest` to each node for those stats only, merges the replies into an `FAResult`, and returns it.
+
+```python
+fetch_stats(
+    stats: str | list[str] | None = None,     # one or more Stats string values
+    dataset_schema: str | list | None = None, # column/modality filter; None → whole schema
+    stats_args: dict | None = None,           # required for histogram
+) -> FAResult
+```
+
+!!! note "See also"
+    For the shape and accepted values of `dataset_schema`, see [Federated Analytics — Datasets](../user-guide/datasets/federated-analytics.md#making-a-custom-dataset-fa-compatible).
+
+Convenience methods are thin wrappers around `fetch_stats` + `global_stat` for the most common stats:
+
+```python
+exp.analytics.mean(dataset_schema=None)
+# → {'year': 2016.96, 'price': 16235.20, 'mileage': 23908.94, 'mpg': 55.25, ...}
+
+exp.analytics.mean(dataset_schema=["price", "mileage"])
+# → {'price': 16235.20, 'mileage': 23908.94}
+```
+
+!!! note "No `stats_args` in convenience methods"
+    Use `fetch_stats` directly for `histogram`, which require `bin_edges` in `stats_args`.
+
+### Stat Dependencies
+
+The orchestrator resolves dependencies automatically before building the accumulator tree. This means requesting `variance` will also compute `mean` and `count` on the node even if they are not listed explicitly in `stats`. Dependencies and required arguments for each stat are declared in `fedbiomed/common/analytics/accumulators/_registry.py`.
+
+### Cross-Node Aggregation
+
+Once all nodes have replied, `FAResult` calls `AGGREGATORS_MAP` to combine per-node partial results into a single global value per modality or column. Each function is registered via the `@aggregator(stat)` decorator; its parameter names match `Stats` string values. 
+
+| Stat | Aggregation logic |
+|------|------------------|
+| `count` | sum (scalar int, or dict of per-key counts) |
+| `sum` | Σ(mean × count) per node |
+| `mean` | weighted mean: Σ(mean × count) / Σcount |
+| `variance` | combined sample variance via SS-within + SS-between |
+| `std` | √variance (derived; never sent from nodes) |
+| `histogram` | element-wise count sum (bin edges must match across nodes) |
+| `quantile` | linear interpolation on the aggregated histogram |
+
+---
+
 ## Component Responsibilities
 
 ### Common layer
