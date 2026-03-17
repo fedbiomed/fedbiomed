@@ -5,7 +5,6 @@ import pytest
 from fedbiomed.common.analytics import AnalyticsOrchestrator
 from fedbiomed.common.analytics.accumulators import (
     DictAccumulator,
-    ImageAccumulator,
     RowAccumulator,
     SequenceAccumulator,
 )
@@ -146,13 +145,6 @@ def test_create_accumulator_row(orchestrator):
         {"type": DatasetElementType.ROW, "conf": {"c1": {}}, "columns": ["c1"]}
     )
     assert isinstance(acc, RowAccumulator)
-
-
-def test_create_accumulator_image(orchestrator):
-    acc = orchestrator._create_accumulator(
-        {"type": DatasetElementType.IMAGE, "stats": {"mean": {"buffer_size": 10}}}
-    )
-    assert isinstance(acc, ImageAccumulator)
 
 
 def test_create_accumulator_unsupported_type(orchestrator):

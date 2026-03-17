@@ -12,33 +12,16 @@ from ._base import Accumulator
 from ._operations import (
     CountAccumulator,
     HistogramAccumulator,
-    ImageMeanAccumulator,
-    ImageShapeAccumulator,
-    ImageVarianceAccumulator,
-    MaxAccumulator,
     MeanAccumulator,
-    MinAccumulator,
-    QuantileAccumulator,
     VarianceAccumulator,
 )
 
 # --- Registration of Statistics ---
 _REGISTRY_STATS = [
-    # ===== ROW Primitive Stats =====
     {
         "name": "count",
         "valid_for": DatasetElementType.ROW,
         "accumulator_class": CountAccumulator,
-    },
-    {
-        "name": "min",
-        "valid_for": DatasetElementType.ROW,
-        "accumulator_class": MinAccumulator,
-    },
-    {
-        "name": "max",
-        "valid_for": DatasetElementType.ROW,
-        "accumulator_class": MaxAccumulator,
     },
     {
         "name": "mean",
@@ -52,39 +35,12 @@ _REGISTRY_STATS = [
         "valid_for": DatasetElementType.ROW,
         "accumulator_class": VarianceAccumulator,
     },
-    # ===== Complex Row stats =====
     {
         "name": "histogram",
         "required_args": {"bin_edges"},
         "valid_for": DatasetElementType.ROW,
         "accumulator_class": HistogramAccumulator,
         "is_vectorizable": False,
-    },
-    {
-        "name": "quantile",
-        "required_args": {"quantiles"},
-        "valid_for": DatasetElementType.ROW,
-        "accumulator_class": QuantileAccumulator,
-        "is_vectorizable": False,
-        "uses_buffer": True,
-    },
-    # ===== IMAGE Stats =====
-    {
-        "name": "count",
-        "valid_for": DatasetElementType.IMAGE,
-        "accumulator_class": ImageShapeAccumulator,
-    },
-    {
-        "name": "mean",
-        "valid_for": DatasetElementType.IMAGE,
-        "accumulator_class": ImageMeanAccumulator,
-        "uses_buffer": True,
-    },
-    {
-        "name": "variance",
-        "valid_for": DatasetElementType.IMAGE,
-        "accumulator_class": ImageVarianceAccumulator,
-        "uses_buffer": True,
     },
 ]
 

@@ -3,7 +3,6 @@
 
 """Scalar and 1D streaming accumulators: Count, Min, Max, Mean, Variance, ScalarBuffer, Histogram, Quantile."""
 
-from abc import abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
@@ -11,56 +10,6 @@ import numpy as np
 from fedbiomed.common.constants import FedbiomedError
 
 from ._base import Accumulator
-
-# =============================================================================
-# BUFFER ACCUMULATOR
-# =============================================================================
-
-
-class ScalarBuffer(Accumulator):
-    """Buffer-based accumulator with configurable statistics."""
-
-    def __init__(
-        self, length: int, stat_functions: Optional[Dict[str, Callable]] = None
-    ):
-        if not isinstance(length, (int, np.integer)) or length <= 0:
-            raise FedbiomedError(f"'length' must be positive integer, got {length}")
-        self.buffer = np.full(length, np.nan, dtype=np.float32)
-        self.stat_functions = stat_functions or {}
-        self._next_index = 0
-
-    def __len__(self):
-        return len(self.buffer)
-
-    def update(self, val: Union[float, int]) -> None:
-        if self._next_index >= len(self):
-            raise FedbiomedError(f"Buffer full (size {len(self)})")
-        self.buffer[self._next_index] = float(val)
-        self._next_index += 1
-
-    def set_stat_functions(self, stat_functions: Dict[str, Callable]) -> None:
-        if not isinstance(stat_functions, dict):
-            raise FedbiomedError(
-                f"'stat_functions' must be dict, got {type(stat_functions)}"
-            )
-        for name, func in stat_functions.items():
-            if not callable(func):
-                raise FedbiomedError(f"Stat '{name}' is not callable: {type(func)}")
-        self.stat_functions.update(stat_functions)
-
-    def finalize(self) -> Dict[str, Any]:
-        data = self.buffer[np.isfinite(self.buffer)]
-        if len(data) == 0:
-            return {name: np.nan for name in self.stat_functions}
-
-        results = {}
-        for name, func in self.stat_functions.items():
-            try:
-                results[name] = func(data)
-            except Exception as e:
-                raise FedbiomedError(f"Error computing stat '{name}': {e}") from e
-        return results
-
 
 # =============================================================================
 # BASE CLASS
@@ -84,7 +33,7 @@ class BaseStatAccumulator(Accumulator):
 
 
 # =============================================================================
-# SIMPLE STATS
+# BASIC STATS
 # =============================================================================
 
 
@@ -102,49 +51,6 @@ class CountAccumulator(BaseStatAccumulator):
 
     def finalize(self) -> Dict[str, Any]:
         return {"count": self.counts if self.counts is not None else 0}
-
-
-class MinAccumulator(BaseStatAccumulator):
-    """Compute minimum element-wise (ignores NaN, inf, -inf)."""
-
-    def __init__(self):
-        super().__init__()
-        self.min_val: Optional[np.ndarray] = None
-
-    def update(self, val: np.ndarray) -> None:
-        self._validate_shape(val)
-        if self.min_val is None:
-            # Initialize: replace non-finite with +inf so any real value will be smaller
-            self.min_val = np.where(np.isfinite(val), val, np.inf).astype(np.float32)
-        else:
-            self.min_val = np.fmin(self.min_val, val)
-
-    def finalize(self) -> Dict[str, Any]:
-        return {"min": self.min_val}
-
-
-class MaxAccumulator(BaseStatAccumulator):
-    """Compute maximum element-wise (ignores NaN, inf, -inf)."""
-
-    def __init__(self):
-        super().__init__()
-        self.max_val: Optional[np.ndarray] = None
-
-    def update(self, val: np.ndarray) -> None:
-        self._validate_shape(val)
-        if self.max_val is None:
-            # Initialize: replace non-finite with -inf so any real value will be larger
-            self.max_val = np.where(np.isfinite(val), val, -np.inf).astype(np.float32)
-        else:
-            self.max_val = np.fmax(self.max_val, val)
-
-    def finalize(self) -> Dict[str, Any]:
-        return {"max": self.max_val}
-
-
-# =============================================================================
-# COMPLEX STATS
-# =============================================================================
 
 
 class MeanAccumulator(BaseStatAccumulator):
@@ -280,135 +186,50 @@ class HistogramAccumulator(Accumulator):
 
 
 # =============================================================================
-# BUFFER-BACKED STATS
+# BUFFER ACCUMULATOR
 # =============================================================================
 
 
-class QuantileAccumulator(Accumulator):
-    """Quantile accumulator backed by ScalarBuffer.
+class ScalarBuffer(Accumulator):
+    """Buffer-based accumulator with configurable statistics."""
 
-    Buffers all scalar values and computes requested quantiles on finalization.
-    Uses the (0, 1] convention (e.g. 0.5 = median).
+    def __init__(
+        self, length: int, stat_functions: Optional[Dict[str, Callable]] = None
+    ):
+        if not isinstance(length, (int, np.integer)) or length <= 0:
+            raise FedbiomedError(f"'length' must be positive integer, got {length}")
+        self.buffer = np.full(length, np.nan, dtype=np.float32)
+        self.stat_functions = stat_functions or {}
+        self._next_index = 0
 
-    Args:
-        quantiles: Non-empty list of distinct quantile levels in (0, 1].
-        buffer_size: Maximum number of samples to store (typically len(dataset)).
-    """
-
-    def __init__(self, quantiles: List[float], buffer_size: int):
-        if not quantiles:
-            raise FedbiomedError("'quantiles' must not be empty")
-        for q in quantiles:
-            if not isinstance(q, (int, float)) or not (0 < q <= 1):
-                raise FedbiomedError(f"Each quantile must be in (0, 1], got {q!r}")
-        if len(set(quantiles)) != len(quantiles):
-            raise FedbiomedError("'quantiles' must not contain duplicates")
-
-        # Keep sorted list for deterministic key order when finalizing
-        self._quantiles = sorted(quantiles)
-        # scalar buffer simply stores values; quantile computation is handled
-        # in finalize so we only need a plain buffer without stat functions.
-        self._buffer = ScalarBuffer(length=buffer_size)
+    def __len__(self):
+        return len(self.buffer)
 
     def update(self, val: Union[float, int]) -> None:
-        self._buffer.update(val)
+        if self._next_index >= len(self):
+            raise FedbiomedError(f"Buffer full (size {len(self)})")
+        self.buffer[self._next_index] = float(val)
+        self._next_index += 1
 
-    def finalize(self) -> Dict[str, Any]:
-        # compute quantiles in a single numpy call to avoid repeated sorting
-        data = self._buffer.buffer[np.isfinite(self._buffer.buffer)]
-        if len(data) == 0:
-            return {f"q_{q}": np.nan for q in self._quantiles}
-
-        # numpy.quantile accepts a sequence of q values and returns all at once
-        qvals = np.quantile(data, self._quantiles)
-        # ensure all returned values are plain floats
-        return {f"q_{q}": float(v) for q, v in zip(self._quantiles, qvals, strict=True)}
-
-
-# =============================================================================
-# IMAGE-SPECIFIC STATS
-# =============================================================================
-
-
-class ImageShapeAccumulator(Accumulator):
-    """Accumulates the shape of images into a dictionary of tuples."""
-
-    def __init__(self):
-        self._shapes = {}
-
-    def update(self, image: np.ndarray) -> None:
-        """Update the accumulator with the shape of the given image.
-
-        Args:
-            image: Image as a numpy array of arbitrary shape
-        """
-        shape = tuple(image.shape)
-        self._shapes[shape] = self._shapes.get(shape, 0) + 1
-
-    def finalize(self) -> Dict[str, Any]:
-        """Return the accumulated image shapes and their counts.
-
-        Returns:
-            A dictionary where keys are image shapes (as tuples) and values are
-            the counts of images with those shapes.
-        """
-        return {"count": self._shapes}
-
-
-class ImageBaseAccumulator(Accumulator):
-    """Abstract base for image statistics that reduce each image to a scalar."""
-
-    _DESCRIBE_FUNCTIONS: Dict[str, Callable] = {
-        "count": len,
-        "mean": np.mean,
-        "std": np.std,
-        "min": np.min,
-        "max": np.max,
-        "quartiles": lambda data: np.quantile(data, [0.25, 0.5, 0.75]).tolist(),
-    }
-    _alias: str = None
-
-    def __init__(self, buffer_size: int):
-        self._buffer = ScalarBuffer(buffer_size, self._DESCRIBE_FUNCTIONS)
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if not isinstance(cls._alias, str):
-            raise TypeError(
-                f"Subclass '{cls.__name__}' must define '_alias' as a string."
+    def set_stat_functions(self, stat_functions: Dict[str, Callable]) -> None:
+        if not isinstance(stat_functions, dict):
+            raise FedbiomedError(
+                f"'stat_functions' must be dict, got {type(stat_functions)}"
             )
-
-    @abstractmethod
-    def reduce(self, image: np.ndarray) -> float:
-        pass
-
-    def update(self, image: np.ndarray) -> None:
-        try:
-            self._buffer.update(self.reduce(image))
-        except Exception as e:
-            raise FedbiomedError(f"Error reducing image: {e}") from e
+        for name, func in stat_functions.items():
+            if not callable(func):
+                raise FedbiomedError(f"Stat '{name}' is not callable: {type(func)}")
+        self.stat_functions.update(stat_functions)
 
     def finalize(self) -> Dict[str, Any]:
-        """Return descriptive statistics over all stored per-image scalars."""
-        try:
-            return {self._alias: self._buffer.finalize()}
-        except Exception as e:
-            raise FedbiomedError(f"Error finalizing image statistics: {e}") from e
+        data = self.buffer[np.isfinite(self.buffer)]
+        if len(data) == 0:
+            return {name: np.nan for name in self.stat_functions}
 
-
-class ImageMeanAccumulator(ImageBaseAccumulator):
-    """Accumulates the per-image pixel mean (``np.nanmean``)."""
-
-    _alias = "mean_summary"
-
-    def reduce(self, image: np.ndarray) -> float:
-        return float(np.nanmean(image))
-
-
-class ImageVarianceAccumulator(ImageBaseAccumulator):
-    """Accumulates the per-image pixel variance (``np.nanvar``)."""
-
-    _alias = "variance_summary"
-
-    def reduce(self, image: np.ndarray) -> float:
-        return float(np.nanvar(image))
+        results = {}
+        for name, func in self.stat_functions.items():
+            try:
+                results[name] = func(data)
+            except Exception as e:
+                raise FedbiomedError(f"Error computing stat '{name}': {e}") from e
+        return results

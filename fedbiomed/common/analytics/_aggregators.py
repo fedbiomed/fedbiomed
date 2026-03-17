@@ -102,7 +102,12 @@ def aggregate_sum(mean: List[float], count: List[Union[int, np.integer]]) -> flo
     Returns:
         The total sum.
     """
-    total_sum = sum(m * c for m, c in zip(mean, count, strict=True))
+    try:
+        total_sum = sum(m * c for m, c in zip(mean, count, strict=True))
+    except ValueError as e:
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB633.value}: mean and count lists must have the same length."
+        ) from e
     return total_sum
 
 

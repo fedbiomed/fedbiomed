@@ -144,7 +144,7 @@ class TestFAResult:
         }
         result = FAResult(replies)
         assert result.has_stat("mean") is True
-        assert result.has_stat("min") is False
+        assert result.has_stat("variance") is False
 
     def test_has_stat_sequence_schema(self):
         # Tuple schema: ({col: {stat}}, {stat: val})
@@ -168,9 +168,10 @@ class TestFAResult:
         assert sorted(result.available_stats()) == ["count", "mean"]
 
     def test_available_stats_image_flat(self):
-        replies = {"n1": _make_reply({"min": 0.0, "max": 255.0})}
+        # IMAGE (flat): top-level dict is itself a stat-leaf — no column-key wrapper
+        replies = {"n1": _make_reply({"mean": 128.0, "count": 100})}
         result = FAResult(replies)
-        assert sorted(result.available_stats()) == ["max", "min"]
+        assert sorted(result.available_stats()) == ["count", "mean"]
 
     def test_available_stats_empty(self):
         assert FAResult({}).available_stats() == []
@@ -291,22 +292,27 @@ class TestFAResult:
         expected = (128.0 * 100 + 130.0 * 80) / 180
         assert abs(global_mean - expected) < 1e-9
 
-    def test_global_stats_min_row(self):
+    def test_global_stats_sum_row(self):
         replies = {
-            "n1": _make_reply({"age": {"min": 20.0}}),
-            "n2": _make_reply({"age": {"min": 18.0}}),
+            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
+            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
         }
         result = FAResult(replies)
-        global_min = result.global_stat("min")
-        assert global_min == {"age": 18.0}
+        global_sum = result.global_stat("sum")
+        expected_sum = 45.0 * 100 + 50.0 * 80
+        assert isinstance(global_sum, dict)
+        assert abs(global_sum["age"] - expected_sum) < 1e-9
 
-    def test_global_stats_max_row(self):
+    def test_global_stats_variance_row(self):
         replies = {
-            "n1": _make_reply({"age": {"max": 80.0}}),
-            "n2": _make_reply({"age": {"max": 90.0}}),
+            "n1": _make_reply({"age": {"mean": 45.0, "variance": 4.0, "count": 100}}),
+            "n2": _make_reply({"age": {"mean": 50.0, "variance": 9.0, "count": 80}}),
         }
         result = FAResult(replies)
-        assert result.global_stat("max") == {"age": 90.0}
+        global_variance = result.global_stat("variance")
+        assert isinstance(global_variance, dict)
+        assert "age" in global_variance
+        assert global_variance["age"] > 0
 
     def test_global_stats_count_row(self):
         replies = {
@@ -355,10 +361,12 @@ class TestFAResult:
 
     def test_merge_preserves_existing_stats(self):
         result = FAResult({"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})})
-        new_replies = {"n1": _make_reply({"age": {"min": 18.0}})}
+        new_replies = {
+            "n1": _make_reply({"age": {"mean": 45.0, "count": 100, "variance": 4.0}})
+        }
         result.merge(new_replies)
         assert result.has_stat("mean")
-        assert result.has_stat("min")
+        assert result.has_stat("variance")
 
     def test_merge_adds_new_node(self):
         result = FAResult({"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})})
@@ -527,28 +535,34 @@ class TestFederatedAnalytics:
         mock_fa_job_cls.return_value.execute.return_value = (mean_replies, {})
         base_fa.mean()
 
-        min_replies = {"node-1": _make_reply({"age": {"min": 18.0}})}
-        mock_fa_job_cls.return_value.execute.return_value = (min_replies, {})
-        result = base_fa.min()
+        variance_replies = {
+            "node-1": _make_reply(
+                {"age": {"mean": 45.0, "count": 100, "variance": 4.0}}
+            )
+        }
+        mock_fa_job_cls.return_value.execute.return_value = (variance_replies, {})
+        result = base_fa.fetch_stats("variance")
 
         assert mock_fa_job_cls.call_count == 2
         second_call_kwargs = mock_fa_job_cls.call_args_list[1].kwargs
-        assert second_call_kwargs["stats"] == ["min"]
+        assert second_call_kwargs["stats"] == ["variance"]
 
-        assert isinstance(result, dict)
-        assert "age" in result
+        assert isinstance(result, FAResult)
+        assert result.has_stat("variance")
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_compute_multiple_stats_at_once(self, mock_fa_job_cls, base_fa):
         replies = {
-            "node-1": _make_reply({"age": {"mean": 45.0, "count": 100, "min": 18.0}})
+            "node-1": _make_reply(
+                {"age": {"mean": 45.0, "count": 100, "variance": 4.0}}
+            )
         }
         mock_fa_job_cls.return_value.execute.return_value = (replies, {})
 
-        result = base_fa.fetch_stats(stats=["mean", "min"])
+        result = base_fa.fetch_stats(stats=["mean", "variance"])
 
         assert result.has_stat("mean")
-        assert result.has_stat("min")
+        assert result.has_stat("variance")
         assert mock_fa_job_cls.call_count == 1
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
@@ -630,7 +644,7 @@ class TestComputableStats:
         assert "sum" in cs
         assert "variance" not in cs
         assert "std" not in cs
-        assert "min" not in cs
+        assert "histogram" not in cs
 
     def test_with_variance_enables_std_and_variance(self):
         replies = {
@@ -644,13 +658,15 @@ class TestComputableStats:
         assert "count" in cs
         assert "sum" in cs
 
-    def test_min_only_enables_min(self):
-        replies = {"n1": _make_reply({"age": {"min": 18.0}})}
+    def test_count_only_enables_count(self):
+        # count alone (without mean/variance) must not make mean/variance/sum computable
+        replies = {"n1": _make_reply({"age": {"count": 100}})}
         result = FAResult(replies)
         cs = result.computable_stats()
-        assert "min" in cs
-        assert "max" not in cs
+        assert "count" in cs
         assert "mean" not in cs
+        assert "variance" not in cs
+        assert "sum" not in cs
 
     def test_histogram_computable(self):
         replies = {
@@ -678,13 +694,13 @@ class TestComputableStats:
         assert "quantile" in cs
 
     def test_result_is_sorted(self):
+        # Use mean+count+variance so multiple stats are computable, verifying sort order
         replies = {
-            "n1": _make_reply(
-                {"age": {"mean": 45.0, "count": 100, "min": 18.0, "max": 90.0}}
-            )
+            "n1": _make_reply({"age": {"mean": 45.0, "count": 100, "variance": 4.0}})
         }
         result = FAResult(replies)
         cs = result.computable_stats()
+        assert len(cs) > 1  # ensures the test is non-trivial
         assert cs == sorted(cs)
 
     def test_nested_dict_schema(self):
@@ -706,16 +722,17 @@ class TestComputableStats:
 class TestGlobalStats:
     def test_no_stat_name_returns_dict_of_all_computable(self):
         replies = {
-            "n1": _make_reply({"age": {"min": 20.0, "max": 80.0}}),
-            "n2": _make_reply({"age": {"min": 18.0, "max": 90.0}}),
+            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
+            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
         }
         result = FAResult(replies)
         all_stats = result.global_stats()
         assert isinstance(all_stats, dict)
         # top-level keys are data-tree keys, not stat names
         assert set(all_stats.keys()) == {"age"}
-        assert all_stats["age"]["min"] == 18.0
-        assert all_stats["age"]["max"] == 90.0
+        assert all_stats["age"]["count"] == 180
+        expected_mean = (45.0 * 100 + 50.0 * 80) / 180
+        assert abs(all_stats["age"]["mean"] - expected_mean) < 1e-9
 
     def test_no_stat_name_empty_result_returns_empty_dict(self):
         assert FAResult({}).global_stats() == {}
