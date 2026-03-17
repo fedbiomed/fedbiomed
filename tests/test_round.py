@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 from testsupport import fake_training_plan
 from testsupport.fake_training_plan import DeclearnAuxVarModel, FakeModel
@@ -26,7 +27,11 @@ from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMix
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.dataset_types import DataReturnFormat
-from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
+from fedbiomed.common.exceptions import (
+    FedbiomedError,
+    FedbiomedOptimizerError,
+    FedbiomedRoundError,
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
 from fedbiomed.common.models import Model, TorchModel
@@ -51,6 +56,16 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 # Needed to access length of dataset from Round class
 class FakeLoader:
     dataset = [1, 2, 3, 4, 5]
+
+
+@pytest.fixture
+def round():
+    fixture = TestRound()
+    fixture.setUp()
+    try:
+        yield fixture
+    finally:
+        fixture.tearDown()
 
 
 class TestRound(unittest.TestCase):
@@ -1391,6 +1406,90 @@ class TestRound(unittest.TestCase):
         self.state_manager_mock.return_value.initialize.assert_called_once_with(
             previous_state_id=previous_state_id, testing=False
         )
+
+
+########################################
+###### ADDING NEW TESTS IN PYTEST ######
+########################################
+
+
+def test_round_run_model_training_model_params_init_error(monkeypatch, round):
+    class DummyTrainingPlan:
+        def post_init(self, model_args=None, training_args=None, aggregator_args=None):
+            return None
+
+        def set_model_params(self, params):
+            raise Exception("boom")
+
+    monkeypatch.setattr("uuid.uuid4", lambda: FakeUuid())
+    monkeypatch.setattr(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status",
+        lambda *args, **kwargs: (True, {"name": "model_name"}),
+    )
+
+    round.ic_from_file_mock.return_value = (object(), DummyTrainingPlan())
+
+    round.r1.initialize_arguments()
+    reply = round.r1.run_model_training(
+        tp_approval=False,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_insecure_validation=True,
+    )
+
+    assert reply.success is False
+
+
+def test_round_run_model_training_data_loader_fedbiomed_error(monkeypatch, round):
+    monkeypatch.setattr("uuid.uuid4", lambda: FakeUuid())
+    monkeypatch.setattr(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status",
+        lambda *args, **kwargs: (True, {"name": "model_name"}),
+    )
+    monkeypatch.setattr(
+        round.r1,
+        "_split_train_and_test_data",
+        lambda *args, **kwargs: (_ for _ in ()).throw(FedbiomedError("bad loader")),
+    )
+
+    round.r1.initialize_arguments()
+    reply = round.r1.run_model_training(
+        tp_approval=False,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_insecure_validation=True,
+    )
+
+    assert reply.success is False
+    assert "Can not create validation/train data" in reply.msg
+    assert "bad loader" in reply.msg
+
+
+def test_round_run_model_training_data_loader_unexpected_error(monkeypatch, round):
+    monkeypatch.setattr("uuid.uuid4", lambda: FakeUuid())
+    monkeypatch.setattr(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status",
+        lambda *args, **kwargs: (True, {"name": "model_name"}),
+    )
+    monkeypatch.setattr(
+        round.r1,
+        "_split_train_and_test_data",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            Exception("unexpected loader failure")
+        ),
+    )
+
+    round.r1.initialize_arguments()
+    reply = round.r1.run_model_training(
+        tp_approval=False,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_insecure_validation=True,
+    )
+
+    assert reply.success is False
+    assert "Undetermined error while creating data for training/validation" in reply.msg
+    assert "unexpected loader failure" in reply.msg
 
 
 if __name__ == "__main__":  # pragma: no cover
