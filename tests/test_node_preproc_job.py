@@ -71,12 +71,6 @@ def test_preproc_job_init(preproc_request, preproc_job_args):
     assert job._state_id == preproc_request.state_id
 
 
-def test_build_args_for_dataset(preproc_job_args):
-    # Dummy test to cover _build_args_for_dataset, nothing to check
-    job = PreprocJob(**preproc_job_args)
-    job._build_args_for_dataset(None)
-
-
 def test_run_success(monkeypatch, preproc_request, preproc_job_args):
     """Test successful run of PreprocJob."""
 
