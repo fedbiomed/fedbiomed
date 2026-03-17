@@ -17,7 +17,7 @@ from helpers import (
 
 _PORT = 50151
 
-os.environ["FBM_DEBUG"] = "True"
+os.environ["FBM_DEBUG"] = "1"
 
 
 @pytest.fixture(scope="module")

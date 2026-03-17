@@ -220,16 +220,11 @@ class Round:
             else None
         )
         logger.debug(
-            "Starting round execution: node_id=%s experiment=%s round=%s training=%s dataset=%s secagg_active=%s force_secagg=%s dp_active=%s secagg_args_keys=%s",
-            self._node_id,
-            self.experiment_id,
-            self._round,
-            self.training,
-            dataset_id,
-            secagg_active,
-            force_secagg,
-            dp_active,
-            sorted((secagg_arguments or {}).keys()),
+            f"Starting round execution: node_id={self._node_id} "
+            f"experiment={self.experiment_id} round={self._round} "
+            f"training={self.training} dataset={dataset_id} "
+            f"secagg_active={secagg_active} force_secagg={force_secagg} "
+            f"dp_active={dp_active} secagg_args_keys={sorted((secagg_arguments or {}).keys())}"
         )
         # Validate secagg status. Raises error if the training request is not compatible with
         # secure aggregation settings
@@ -273,7 +268,7 @@ class Round:
             else:
                 logger.info(
                     f"Training plan has been approved by the node {training_plan_['name']}",
-                    researcher_id=self.researcher_id,
+                    f"researcher_id={self.researcher_id}",
                 )
 
         # Import training plan, save to file, reload, instantiate a training plan
@@ -328,15 +323,10 @@ class Round:
                 node_id=self._node_id,
             )
             logger.debug(
-                "Training plan initialized for round: experiment=%s round=%s plan=%s training=%s dp_active=%s aggregator=%s",
-                self.experiment_id,
-                self._round,
-                self.training_plan.__class__.__name__,
-                self.training,
-                self.training_arguments.get("dp_args") is not None,
-                self.aggregator_args.get("aggregator_name")
-                if self.aggregator_args
-                else None,
+                f"Training plan initialized for round: experiment={self.experiment_id} "
+                f"round={self._round} plan={self.training_plan.__class__.__name__} "
+                f"training={self.training} dp_active={self.training_arguments.get('dp_args') is not None} "
+                f"aggregator={self.aggregator_args.get('aggregator_name') if self.aggregator_args else None}",
             )
         except Exception as e:
             error_message = "Can't initialize training plan with the arguments."
@@ -533,13 +523,11 @@ class Round:
                 self.training_plan.training_data_loader.dataset
             )
             logger.debug(
-                "Collected round outputs before reply assembly: experiment=%s round=%s sample_size=%s has_aux_var=%s dp_active=%s flatten_for_secagg=%s",
-                self.experiment_id,
-                self._round,
-                results["sample_size"],
-                results["optim_aux_var"] is not None,
-                self.training_arguments.get("dp_args") is not None,
-                self._secure_aggregation.use_secagg,
+                f"Collected round outputs before reply assembly: experiment={self.experiment_id} "
+                f"round={self._round} sample_size={results['sample_size']} "
+                f"has_aux_var={results['optim_aux_var'] is not None} "
+                f"dp_active={self.training_arguments.get('dp_args') is not None} "
+                f"flatten_for_secagg={self._secure_aggregation.use_secagg}"
             )
 
             results["encrypted"] = False
@@ -547,18 +535,14 @@ class Round:
                 flatten=self._secure_aggregation.use_secagg
             )
             logger.debug(
-                "Collected training parameters for round reply: experiment=%s round=%s parameter_count=%s secagg_enabled=%s",
-                self.experiment_id,
-                self._round,
-                len(model_weights),
-                self._secure_aggregation.use_secagg,
+                f"Collected training parameters for round reply: experiment={self.experiment_id} "
+                f"round={self._round} parameter_count={len(model_weights)} "
+                f"secagg_enabled={self._secure_aggregation.use_secagg}"
             )
 
             if self._secure_aggregation.use_secagg:
                 logger.debug(
-                    'SecAgg active: encrypting model parameters with the secure aggregation scheme "%s" for round %d',
-                    self._secure_aggregation.scheme.__class__.__name__,
-                    self._round,
+                    f'SecAgg active: encrypting model parameters with the secure aggregation scheme "{self._secure_aggregation.scheme.__class__.__name__}" for round {self._round}'
                 )
                 if results["optim_aux_var"]:
                     logger.debug(
@@ -616,10 +600,8 @@ class Round:
         else:
             # Only for validation
             logger.debug(
-                "Skipping training execution for round: experiment=%s round=%s dataset=%s reason=training_disabled",
-                self.experiment_id,
-                self._round,
-                self.dataset.get("dataset_id"),
+                f"Skipping training execution for round: experiment={self.experiment_id} "
+                f"round={self._round} dataset={self.dataset.get('dataset_id')} reason=training_disabled"
             )
             return self._send_round_reply(success=True)
 

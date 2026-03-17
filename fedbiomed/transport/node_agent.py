@@ -126,7 +126,10 @@ class NodeAgentAsync:
         """Callback to execute each time new reply received from the node"""
         message = Message.from_dict(message)
 
-        # ...existing OverlayMessage handling...
+        # Handle overlay messages to relay to a node
+        if isinstance(message, OverlayMessage):
+            await self._on_forward(message)
+            return
 
         logger.debug(
             f"Node Agent: Received reply message {message.__class__.__name__} "

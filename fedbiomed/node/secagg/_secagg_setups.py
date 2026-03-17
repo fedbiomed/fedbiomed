@@ -270,7 +270,7 @@ class SecaggServkeySetup(_SecaggNN):
 
         logger.debug(
             f"Completed Serverkey secret sharing setup with success={all_received} "
-            f"node_id='{self._node_id}' secagg_id='{self._secagg_id}"
+            f"node_id='{self._node_id}' secagg_id='{self._secagg_id}'"
         )
 
         biprime = get_default_biprime()
@@ -280,7 +280,7 @@ class SecaggServkeySetup(_SecaggNN):
         )
 
         logger.info(
-            "Server key share successfully created for "
+            f"Server key share successfully created for "
             f"node_id='{self._node_id}' secagg_id='{self._secagg_id}'"
         )
 
@@ -375,7 +375,7 @@ class SecaggSetup:
         else:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB318.value}: Received bad request message: "
-                "incorrect `element` {self._element}"
+                f"incorrect `element` {self._element}"
             )
 
         try:
