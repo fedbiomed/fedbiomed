@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Union
 
 import numpy as np
 
-from fedbiomed.common.constants import ErrorNumbers, Stats
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 
 # Maps every stat to its aggregator function.
@@ -15,28 +15,19 @@ AGGREGATORS_MAP: Dict[str, Callable] = {}
 
 
 def aggregator(stat: str):
-    """Register, validate, and wrap an aggregator function.
+    """Register and wrap an aggregator function.
 
     Decoration time:
-      - Raises FedbiomedError if any parameter name is not a Stats enum value.
       - Registers the wrapped function in AGGREGATORS_MAP under *stat*.
 
     Call time:
       - Filters out unknown kwargs.
+      - Validates that all arguments are non-empty lists.
     """
 
     def decorator(func):
         sig = inspect.signature(func)
         params = sig.parameters
-
-        # Validation of parameter names against Stats enum values
-        invalid = [p for p in params if p not in {s.value for s in Stats}]
-        if invalid:
-            raise FedbiomedError(
-                f"Aggregator '{func.__name__}' has parameter(s) {invalid} "
-                f"that are not valid Stats enum values. "
-                f"Valid values: {sorted(s.value for s in Stats)}"
-            )
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -62,32 +53,6 @@ def aggregator(stat: str):
         return wrapper
 
     return decorator
-
-
-@aggregator("min")
-def aggregate_min(min: List[float]) -> float:
-    """Aggregates minimum values.
-
-    Args:
-        min: List of minimum values from nodes.
-
-    Returns:
-        The global minimum.
-    """
-    return np.min(min)
-
-
-@aggregator("max")
-def aggregate_max(max: List[float]) -> float:
-    """Aggregates maximum values.
-
-    Args:
-        max: List of maximum values from nodes.
-
-    Returns:
-        The global maximum.
-    """
-    return np.max(max)
 
 
 @aggregator("count")
@@ -155,7 +120,12 @@ def aggregate_mean(mean: List[float], count: List[Union[int, np.integer]]) -> fl
     total_count = aggregate_count(count)
     if total_count == 0:
         return np.nan
-    total_sum = sum(m * c for m, c in zip(mean, count, strict=True))
+    try:
+        total_sum = sum(m * c for m, c in zip(mean, count, strict=True))
+    except ValueError as e:
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB633.value}: mean and count lists must have the same length."
+        ) from e
     return total_sum / total_count
 
 
