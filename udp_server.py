@@ -12,8 +12,11 @@ def start_udp_capture_server(host="127.0.0.1"):
 
     def run():
         try:
-            data, addr = sock.recvfrom(65535)
-            received.put(data)
+            while True:
+                data, _addr = sock.recvfrom(65535)
+                received.put(data)
+        except KeyboardInterrupt:
+            print("\nStopping receiving...")
         finally:
             sock.close()
 
@@ -31,3 +34,6 @@ if __name__ == "__main__":
             print(f"Received: {data.decode()}")
         except queue.Empty:
             pass
+        except KeyboardInterrupt:
+            print("\nStopping UDP syslog server.")
+            break
