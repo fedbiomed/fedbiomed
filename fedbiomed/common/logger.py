@@ -47,10 +47,11 @@ import inspect
 import json
 import logging
 import os
+import socket
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from logging.handlers import TimedRotatingFileHandler
+from logging.handlers import SysLogHandler, TimedRotatingFileHandler
 from typing import Any, Callable, Optional
 
 from fedbiomed.common.constants import ComponentType
@@ -563,6 +564,59 @@ class FedLogger(metaclass=SingletonMeta):
         )
 
         return DEFAULT_LOG_LEVEL
+
+    def addSyslogHandler(
+        self,
+        host: str,
+        port: int = 514,
+        protocol: str = "udp",
+        facility=SysLogHandler.LOG_USER,
+        fmt: str = "%(name)s %(levelname)s %(message)s",
+        level="INFO",
+        handler_key: str = "SYSLOG",
+        ident: str = "fedbiomed: ",
+        append_nul: bool = False,
+        timeout: float | None = 2.0,
+    ):
+        """Adds a remote syslog handler.
+
+        Args:
+            host: remote syslog host
+            port: remote syslog port
+            protocol: 'udp' or 'tcp'
+            facility: syslog facility
+            fmt: formatter string
+            level: fedbiomed log level
+            handler_key: internal handler registry key
+            ident: prefix prepended by SysLogHandler
+            append_nul: whether to append NUL terminator
+            timeout: socket timeout if supported by current Python version
+        """
+        proto = protocol.lower()
+        if proto not in {"udp", "tcp"}:
+            raise ValueError(f"Unsupported syslog protocol: {protocol}")
+
+        socktype = socket.SOCK_DGRAM if proto == "udp" else socket.SOCK_STREAM
+
+        kwargs = {
+            "address": (host, port),
+            "facility": facility,
+            "socktype": socktype,
+        }
+
+        handler = SysLogHandler(**kwargs)
+
+        # Optional compatibility knobs from stdlib docs
+        handler.ident = ident
+        handler.append_nul = append_nul
+
+        handler.setLevel(self._internal_level_translator(level))
+        handler.setFormatter(logging.Formatter(fmt))
+
+        self._internal_add_handler(handler_key, handler)
+
+    def delSyslogHandler(self, handler_key: str = "SYSLOG"):
+        self._internal_add_handler(handler_key, None)
 
     def add_file_handler(
         self,
