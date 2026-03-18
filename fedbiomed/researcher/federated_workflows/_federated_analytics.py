@@ -12,9 +12,8 @@ from collections import OrderedDict
 from typing import Any, Callable, Iterator, Optional
 
 from fedbiomed.common.analytics import AGGREGATORS_MAP
-from fedbiomed.common.constants import ErrorNumbers, Stats
+from fedbiomed.common.constants import Stats
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
-from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FAReply
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
@@ -508,18 +507,9 @@ class FederatedAnalytics:
             nodes=node_ids,
         )
         analytics_replies, errors = fa_job.execute()
-        # Log individual node errors; they are non-fatal as long as at least one node replies.
-        for node_id, error in errors.items():
-            logger.error(
-                "Error message received during analytics request for node "
-                f"{node_id} - {error.errnum}: {error.extra_msg}"
-            )
-        if not analytics_replies and errors:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB633.value}: Federated analytics failed: all "
-                f"{len(errors)} node(s) returned errors ({str(errors)}). "
-                "No results available."
-            )
+        # Node-level errors are already logged by FARequestJob.execute()
+        if not analytics_replies or errors:
+            raise FedbiomedError("Node(s) failed to complete the analytics request.")
         if cached is None:
             cached = FAResult(analytics_replies)
         else:

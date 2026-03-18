@@ -701,18 +701,16 @@ class TestFederatedAnalytics:
             )
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_partial_errors_logs_and_returns(self, mock_fa_job_cls, base_fa):
-        """When some nodes succeed and some error, result is returned (errors are logged)."""
+    def test_partial_errors_raises(self, mock_fa_job_cls, base_fa):
+        """When any node returns an error, FedbiomedError is raised (all results are expected)."""
         error = MagicMock()
         error.errnum = "FB633"
         error.extra_msg = "node offline"
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = (replies, {"node-2": error})
 
-        result = base_fa.fetch_stats("mean")
-
-        assert isinstance(result, FAResult)
-        assert "node-1" in result.node_ids
+        with pytest.raises(FedbiomedError):
+            base_fa.fetch_stats("mean")
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_count_convenience_method(self, mock_fa_job_cls, base_fa):

@@ -79,11 +79,9 @@ class FARequestJob(Job):
             replies: Dict[str, FAReply] = responses.replies()
 
         if errors:
-            # Handle errors appropriately (logging, raising exceptions, etc.)
             for node_id, error in errors.items():
                 logger.error(
-                    "Error message received during federated analytics "
-                    f"in node_id={node_id}: {error.errnum}. {error.extra_msg}"
+                    f"Node {node_id} analytics error [{error.errnum}]: {error.extra_msg}"
                 )
 
         return replies, errors
