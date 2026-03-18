@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Module defining the FederatedAnalytics class, which manages federated analytics workflows within an Experiment."""
+"""Federated Analytics workflow: FAResult (per-node results and aggregation) and FederatedAnalytics (request orchestration and caching)."""
 
 import copy
 import hashlib
@@ -42,7 +42,7 @@ class FAResult:
 
     @staticmethod
     def _is_stat_leaf(obj: dict) -> bool:
-        """Return 'True' if all dict keys are registered in 'AGGREGATORS_MAP'."""
+        """Return ``True`` if all dict keys are registered in ``AGGREGATORS_MAP``."""
         return isinstance(obj, dict) and obj and all(k in AGGREGATORS_MAP for k in obj)
 
     @staticmethod
@@ -52,7 +52,6 @@ class FAResult:
         Args:
             obj: A nested structure of dicts, lists, tuples, and scalar leaves.
         """
-        # pyStructural dicts and sequences are traversed recursively
         if isinstance(obj, dict):
             if FAResult._is_stat_leaf(obj):
                 yield obj
@@ -65,7 +64,7 @@ class FAResult:
                     yield from FAResult._traverse_stat_leaves(item)
 
     def _leaf_stat_keys(self) -> set[str]:
-        """Return Set of raw stat key strings present at leaf positions (any depth, first node)."""
+        """Return the set of stat key names at leaf positions across the first node's output."""
         if not self._data:
             return set()
         return {
@@ -93,7 +92,7 @@ class FAResult:
             FedbiomedError: If *existing* and *new* are sequences of different
                 lengths, or if their types are structurally incompatible.
         """
-        # pyStructural dicts and sequences are are merged element-wise
+        # Structural dicts and sequences are merged element-wise
         if isinstance(existing, dict) and isinstance(new, dict):
             result = dict(existing)
             for k, v in new.items():
@@ -111,7 +110,7 @@ class FAResult:
                     f"({len(existing)} vs {len(new)})."
                 ) from e
             return type(existing)(merged)
-        # Raise instead of silently overwriting when types are structurally incompatible.
+        # Incompatible structural types cannot be merged.
         if isinstance(existing, (dict, list, tuple)) or isinstance(
             new, (dict, list, tuple)
         ):
@@ -214,7 +213,7 @@ class FAResult:
 
         A statistic is *computable* if every parameter required by its registered
         aggregator function is present as a key in the data's stat-leaf dicts.
-        The result is cached and invalidated automatically when 'merge' is called.
+        The result is cached and invalidated automatically when :meth:`merge` is called.
 
         Returns:
             Sorted list of computable stat names.
@@ -255,7 +254,7 @@ class FAResult:
         return copy.deepcopy(self._data[node_id])
 
     def all_node_stats(self) -> dict[str, Any]:
-        """Return a Dict mapping each node ID to a deep copy of its output."""
+        """Return a dict mapping each node ID to a deep copy of its output."""
         return {
             node_id: copy.deepcopy(output) for node_id, output in self._data.items()
         }
@@ -344,7 +343,7 @@ class FAResult:
 
         Args:
             stat_name: Name of the statistic to aggregate (e.g. ``"mean"``).
-                Must appear in 'computable_stats'.
+                Must appear in :meth:`computable_stats`.
 
         Returns:
             Aggregated value with the same structural shape as the per-node output tree
@@ -370,10 +369,8 @@ class FAResult:
     def global_stats(self) -> Any:
         """Compute globally aggregated values for all computable statistics.
 
-        Aggregates every stat returned and merges the results into a single tree.
-
         Returns:
-            A tree whose leaves are ``{stat_name: value}``
+            A tree whose leaves are ``{stat_name: value}`` dicts.
 
         Raises:
             FedbiomedError: If a node output contains an unexpected scalar leaf.
@@ -389,15 +386,14 @@ class FAResult:
 
 
 class FederatedAnalytics:
-    """
-    A class to manage Federated Analytics (FA) workflows within an Experiment.
-    FA workflows allow researchers to perform analytics tasks across federated datasets.
+    """Manages Federated Analytics (FA) workflows across a federated dataset.
 
-    Results are cached. When a statistic has already been fetched with identical arguments,
-    it is served from the cache without contacting the nodes again.
+    Requests are dispatched to nodes via :class:`FARequestJob`. Results are cached
+    by ``(node_ids, dataset_schema, stats_args)``; repeated calls with the same
+    arguments are served from cache without contacting nodes.
     """
 
-    _MAX_CACHE_SIZE: int = 32  # Default maximum number of cached result sets
+    _MAX_CACHE_SIZE: int = 32  # Maximum number of cached result sets.
 
     def __init__(
         self,
@@ -424,7 +420,7 @@ class FederatedAnalytics:
         self._researcher_id = researcher_id
         self._reqs = reqs
         self._experimentation_folder = experimentation_folder
-        # Cache: maps a hash to a FAResult that accumulates stats with the same argument combination
+        # Maps hash(node_ids, dataset_schema, stats_args) → FAResult.
         self._results_store: OrderedDict[str, FAResult] = OrderedDict()
 
     @property
@@ -433,11 +429,7 @@ class FederatedAnalytics:
         return self._fa_id
 
     def get_node_ids(self) -> list[str]:
-        """Return the list of node IDs participating in this federated analytics.
-
-        Returns:
-            A list of node IDs
-        """
+        """Return the node IDs participating in this federated analytics session."""
         if self._fds is None:
             raise FedbiomedExperimentError(
                 "No defined FederatedDataset found for FederatedAnalytics."
@@ -471,99 +463,157 @@ class FederatedAnalytics:
         key_data = {
             "node_ids": sorted(node_ids),
             "dataset_schema": dataset_schema,
-            "stats_args": stats_args or {},
+            "stats_args": stats_args,
         }
         return hashlib.md5(
             json.dumps(key_data, sort_keys=True, default=str).encode(),
             usedforsecurity=False,
         ).hexdigest()
 
-    def fetch_stats(
+    def _execute_and_update_cache(
         self,
-        stats: Optional[str | list[str]] = None,
-        dataset_schema: Optional[str | list[str | dict]] = None,
-        stats_args: Optional[dict] = None,
+        cache_key: str,
+        stats: Optional[list[str]],
+        stats_args: Optional[dict],
+        dataset_schema: Optional[str | list[str | dict]],
+        node_ids: list[str],
+        cached: Optional[FAResult],
     ) -> FAResult:
-        """Fetch analytics across nodes. Statistics that are already cached are not re-requested.
+        """Dispatch a :class:`FARequestJob` to *node_ids* and write the result into the cache.
 
         Args:
-            stats: Statistic name(s) to request from nodes. Optional when ``stats_args``
-                provides all necessary computation arguments.
-            dataset_schema: Schema definition.
-            stats_args: Federated analytics arguments.
+            cache_key: Key under which the result is stored in ``_results_store``.
+            stats: Named statistics to request, or ``None`` when using *stats_args*.
+            stats_args: Structured analytics arguments, or ``None`` when using *stats*.
+            dataset_schema: Optional schema filter forwarded to the job.
+            node_ids: Nodes that will receive the request.
+            cached: Existing :class:`FAResult` to merge new replies into, or ``None``
+                to create a fresh result from the replies.
+
+        Returns:
+            The updated (or newly created) :class:`FAResult`, stored at *cache_key*.
+
+        Raises:
+            FedbiomedError: If every contacted node returns an error.
+        """
+        fa_job = FARequestJob(
+            fa_id=self._fa_id,
+            stats=stats,
+            stats_args=stats_args,
+            dataset_schema=dataset_schema,
+            federated_dataset=self._fds,
+            experiment_id=self._experiment_id,
+            researcher_id=self._researcher_id,
+            requests=self._reqs,
+            nodes=node_ids,
+        )
+        analytics_replies, errors = fa_job.execute()
+        # Log individual node errors; they are non-fatal as long as at least one node replies.
+        for node_id, error in errors.items():
+            logger.error(
+                "Error message received during analytics request for node "
+                f"{node_id} - {error.errnum}: {error.extra_msg}"
+            )
+        if not analytics_replies and errors:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB633.value}: Federated analytics failed: all "
+                f"{len(errors)} node(s) returned errors ({str(errors)}). "
+                "No results available."
+            )
+        if cached is None:
+            cached = FAResult(analytics_replies)
+        else:
+            cached.merge(analytics_replies)
+        self._results_store[cache_key] = cached
+        if len(self._results_store) > self._MAX_CACHE_SIZE:
+            self._results_store.popitem(last=False)  # evict oldest (FIFO)
+        return cached
+
+    def fetch_stats(
+        self,
+        stats: str | list[str],
+        dataset_schema: Optional[str | list[str | dict]] = None,
+    ) -> FAResult:
+        """Fetch named statistics across nodes. Already-cached statistics are not re-requested.
+
+        Args:
+            stats: Statistic name(s) to request from nodes (e.g. ``"mean"`` or
+                ``["mean", "variance"]``).
+            dataset_schema: Optional schema definition for filtering the dataset.
+
+        Returns:
+            A :class:`FAResult` containing per-node data and supporting global aggregation.
+        """
+        if isinstance(stats, str):
+            stats = [stats]
+        if not stats:
+            raise FedbiomedError("'stats' must be a non-empty string or list.")
+
+        node_ids = self.get_node_ids()
+        cache_key = FederatedAnalytics.make_cache_key(node_ids, dataset_schema, None)
+        cached = self._results_store.get(cache_key)
+
+        missing = [s for s in stats if cached is None or not cached.has_stat(s)]
+        if missing:
+            cached = self._execute_and_update_cache(
+                cache_key, missing, None, dataset_schema, node_ids, cached
+            )
+
+        return cached
+
+    def fetch_stats_with_args(
+        self,
+        stats_args: dict,
+    ) -> FAResult:
+        """Fetch analytics driven entirely by structured arguments across nodes.
+
+        Unlike :meth:`fetch_stats`, this method does not accept named statistics or a
+        separate ``dataset_schema`` — the schema selection and computation parameters
+        are both encoded within *stats_args*.
+
+        Results are cached by ``(node_ids, stats_args)``. The same args always produce
+        the same result; different args always trigger a new request.
+
+        Args:
+            stats_args: Structured analytics arguments that encode both schema selection
+                and computation parameters (e.g.
+                ``{"image": {"histogram": {"bin_edges": [0, 128, 256]}}}``
+                or ``{"col": {"quantile": {"q": 0.5}}}``\).
 
         Returns:
             A :class:`FAResult` containing per-node data and supporting global aggregation.
 
         Raises:
-            FedbiomedError: If both ``stats`` and ``stats_args`` are empty/None.
+            FedbiomedError: If ``stats_args`` is empty or None, or if all nodes return errors.
         """
-        if not stats and not stats_args:
-            raise FedbiomedError(
-                "At least one of 'stats' or 'stats_args' must be provided."
-            )
-
-        if isinstance(stats, str):
-            stats = [stats]
+        if not stats_args:
+            raise FedbiomedError("'stats_args' must be provided and non-empty.")
 
         node_ids = self.get_node_ids()
-        cache_key = FederatedAnalytics.make_cache_key(
-            node_ids, dataset_schema, stats_args
-        )
+        cache_key = FederatedAnalytics.make_cache_key(node_ids, None, stats_args)
         cached = self._results_store.get(cache_key)
 
-        # When stats=None the request is entirely args-driven: only skip if already cached.
-        # When stats is a list, only request the individual stats not yet in the cache.
-        if stats is None:
-            need_request = cached is None
-            missing = None
-        else:
-            missing = [s for s in stats if cached is None or not cached.has_stat(s)]
-            need_request = bool(missing)
-
-        if need_request:
-            fa_job = FARequestJob(
-                fa_id=self._fa_id,
-                stats_args=stats_args,
-                stats=missing,
-                dataset_schema=dataset_schema,
-                federated_dataset=self._fds,
-                experiment_id=self._experiment_id,
-                researcher_id=self._researcher_id,
-                requests=self._reqs,
-                nodes=node_ids,
+        if cached is None:
+            cached = self._execute_and_update_cache(
+                cache_key, None, stats_args, None, node_ids, None
             )
-
-            analytics_replies, errors = fa_job.execute()
-
-            # Errors are logged but not raised
-            for node_id, error in errors.items():
-                logger.error(
-                    "Error message received during analytics request for node "
-                    f"{node_id} - {error.errnum}: {error.extra_msg}"
-                )
-
-            if not analytics_replies and errors:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB633.value}: Federated analytics failed: all "
-                    f"{len(errors)} node(s) returned errors ({str(errors)}). "
-                    "No results available."
-                )
-
-            if cached is None:
-                cached = FAResult(analytics_replies)
-            else:
-                cached.merge(analytics_replies)
-
-            self._results_store[cache_key] = cached
-            if len(self._results_store) > self._MAX_CACHE_SIZE:
-                self._results_store.popitem(last=False)  # evict oldest (FIFO)
 
         return cached
 
     # ------------------------------------------------------------------
     # Convenience methods
     # ------------------------------------------------------------------
+
+    def count(
+        self,
+        dataset_schema: Optional[str | list[str | dict]] = None,
+    ) -> FAResult:
+        """Return the global count across nodes."""
+        fa_result = self.fetch_stats(
+            stats=Stats.COUNT.value,
+            dataset_schema=dataset_schema,
+        )
+        return fa_result.global_stat("count")
 
     def mean(
         self,
@@ -587,35 +637,14 @@ class FederatedAnalytics:
         )
         return fa_result.global_stat("variance")
 
-    def min(
+    def std(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
     ) -> FAResult:
-        """Return the global minimum across nodes."""
+        """Return the global standard deviation across nodes."""
+        # std is derived from variance+mean+count; requesting variance primitives is sufficient.
         fa_result = self.fetch_stats(
-            stats=Stats.MIN.value,
+            stats=Stats.VARIANCE.value,
             dataset_schema=dataset_schema,
         )
-        return fa_result.global_stat("min")
-
-    def max(
-        self,
-        dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
-        """Return the global maximum across nodes."""
-        fa_result = self.fetch_stats(
-            stats=Stats.MAX.value,
-            dataset_schema=dataset_schema,
-        )
-        return fa_result.global_stat("max")
-
-    def count(
-        self,
-        dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
-        """Return the global count across nodes."""
-        fa_result = self.fetch_stats(
-            stats=Stats.COUNT.value,
-            dataset_schema=dataset_schema,
-        )
-        return fa_result.global_stat("count")
+        return fa_result.global_stat("std")
