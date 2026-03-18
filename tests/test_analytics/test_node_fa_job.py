@@ -48,7 +48,7 @@ def fa_job(fa_job_args):
 @pytest.fixture
 def mocked_dataset_manager():
     """Fixture for mocked DatasetManager with common setup."""
-    with patch("fedbiomed.node.jobs._base_job.DatasetManager") as mock_dm_cls:
+    with patch("fedbiomed.node.jobs._fa_job.DatasetManager") as mock_dm_cls:
         mock_dm = mock_dm_cls.return_value
         mock_dm.dataset_table.get_by_id.return_value = {
             "data_type": "csv",
@@ -61,7 +61,7 @@ def mocked_dataset_manager():
 @pytest.fixture
 def mocked_dlp():
     """Fixture for mocked DataLoadingPlan."""
-    with patch("fedbiomed.node.jobs._base_job.DataLoadingPlan") as mock_dlp_cls:
+    with patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan") as mock_dlp_cls:
         mock_dlp = mock_dlp_cls.return_value
         mock_dlp.deserialize.return_value = mock_dlp
         yield mock_dlp_cls, mock_dlp
@@ -108,7 +108,7 @@ def test_build_error_msg(fa_job):
     assert error.request_id == fa_job._request_id
 
 
-@patch("fedbiomed.node.jobs._base_job.REGISTRY_CONTROLLERS")
+@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
 def test_build_dataset_success(mock_registry, fa_job, mocked_dataset_manager):
     """Test _build_dataset success scenario."""
     mock_dm_cls, mock_dm = mocked_dataset_manager
@@ -136,7 +136,7 @@ def test_build_dataset_success(mock_registry, fa_job, mocked_dataset_manager):
     # Return 3 values as expected by unpacking: _, _, dataset_cls
     mock_registry.__getitem__.return_value = (None, None, mock_dataset_cls)
 
-    dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN, ["csv"])
+    dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     # Verify dataset creation and initialization
     assert dataset == mock_dataset_instance
@@ -153,25 +153,25 @@ def test_build_dataset_not_found(mocked_dataset_manager, fa_job):
     fa_job._dataset_manager = mock_dm
 
     with pytest.raises(_InternalJobError) as exc_info:
-        fa_job._build_dataset(DataReturnFormat.SKLEARN, ["csv"])
+        fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
-    assert "Cannot found request dataset in local datasets" in str(exc_info.value)
+    assert "Cannot find requested dataset in local datasets" in str(exc_info.value)
 
 
-@patch("fedbiomed.node.jobs._base_job.REGISTRY_CONTROLLERS", {})
+@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS", {})
 def test_build_dataset_invalid_type(mocked_dataset_manager, fa_job):
     """Test _build_dataset when data type is not supported."""
     mock_dm_cls, mock_dm = mocked_dataset_manager
     mock_dm.dataset_table.get_by_id.return_value = {"data_type": "unknown_type"}
 
     with pytest.raises(_InternalJobError) as exc_info:
-        fa_job._build_dataset(DataReturnFormat.SKLEARN, ["not_a_dataset_supported"])
+        fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     assert "not supported" in str(exc_info.value)
 
 
-@patch("fedbiomed.node.jobs._base_job.REGISTRY_CONTROLLERS")
-@patch("fedbiomed.node.jobs._base_job.DataLoadingPlan")
+@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
+@patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan")
 def test_build_dataset_with_dlp_success(
     mock_dlp_cls, mock_reg_cont, fa_job, mocked_dataset_manager
 ):
@@ -203,7 +203,7 @@ def test_build_dataset_with_dlp_success(
     # Setup DATASET_CLASSES_PER_TYPE
     # mock_dataset_cli not needed since _BaseJob uses REGISTRY_CONTROLLERS
 
-    dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN, ["csv"])
+    dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     assert dataset == mock_dataset_instance
     # Check if DLP was passed to complete_initialization
@@ -211,8 +211,8 @@ def test_build_dataset_with_dlp_success(
     assert call_args[0][0]["dlp"] == mock_dlp
 
 
-@patch("fedbiomed.node.jobs._base_job.REGISTRY_CONTROLLERS")
-@patch("fedbiomed.node.jobs._base_job.DataLoadingPlan")
+@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
+@patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan")
 def test_build_dataset_dlp_error(
     mock_dlp_cls, mock_registry, fa_job, mocked_dataset_manager
 ):
@@ -229,7 +229,7 @@ def test_build_dataset_dlp_error(
     mock_registry.__contains__.return_value = True
 
     with pytest.raises(_InternalJobError) as exc_info:
-        fa_job._build_dataset(DataReturnFormat.SKLEARN, ["csv"])
+        fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     assert "Cannot recover dlp" in str(exc_info.value)
 
@@ -429,3 +429,66 @@ def test_build_args_for_dataset_methods(fa_job):
         with pytest.raises(FedbiomedError) as exc_info:
             fa_job._build_args_for_dataset(entry)
         assert "Dataset entry contains unsupported dataset type" in str(exc_info.value)
+
+
+@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
+def test_build_dataset_initialization_error(
+    mock_registry, fa_job, mocked_dataset_manager
+):
+    """Test _build_dataset when dataset initialization fails."""
+    mock_dm_cls, mock_dm = mocked_dataset_manager
+    mock_dm.dataset_table.get_by_id.return_value = {
+        "data_type": "csv",
+        "path": "/path/to/data",
+        "dataset_parameters": {},
+    }
+    fa_job._dataset_manager = mock_dm
+
+    # Mock dataset class that raises FedbiomedError
+    mock_dataset_cls = MagicMock()
+    mock_dataset_cls.side_effect = FedbiomedError("Init Error")
+
+    mock_registry.__contains__.return_value = True
+    mock_registry.__getitem__.return_value = (None, None, mock_dataset_cls)
+
+    with pytest.raises(_InternalJobError) as exc_info:
+        fa_job._build_dataset(DataReturnFormat.SKLEARN)
+
+    assert "Cannot initialize dataset" in str(exc_info.value)
+    assert "Init Error" in str(exc_info.value)
+
+
+def test_run_no_stats_provided(fa_job_args, request_args):
+    """Test run method when neither stats nor stats_args are provided."""
+    req_args = request_args.copy()
+    req_args["stats"] = None
+    req_args["stats_args"] = {}
+    request = FARequest(**req_args)
+
+    args = fa_job_args.copy()
+    args["request"] = request
+    job = FAJob(**args)
+
+    reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    assert "At least one of 'stats' or 'stats_args' must be provided" in reply.extra_msg
+
+
+def test_run_invalid_stats_args_keys(fa_job_args, request_args):
+    """Test run method with invalid keys in stats_args."""
+    req_args = request_args.copy()
+    req_args["stats"] = None
+    req_args["stats_args"] = {"invalid_key": {}}
+    request = FARequest(**req_args)
+
+    args = fa_job_args.copy()
+    args["request"] = request
+    job = FAJob(**args)
+
+    reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    assert "contains unsupported keys" in reply.extra_msg

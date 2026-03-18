@@ -47,9 +47,6 @@ class PreprocJob(_BaseJob):
         self._state_id = request.state_id
         self._allow_preproc = allow_preproc
 
-    def _build_args_for_dataset(self, dataset_entry):
-        pass
-
     def run(self) -> PreprocReply | ErrorMessage:
         """Execute preprocessing job.
 

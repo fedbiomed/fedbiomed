@@ -6,12 +6,8 @@ implementation of the base Job class of the node component
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
-from fedbiomed.common.dataloadingplan import DataLoadingPlan
-from fedbiomed.common.dataset import REGISTRY_CONTROLLERS, Dataset
-from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.message import ErrorMessage, RequestReply
 from fedbiomed.node.dataset_manager import DatasetManager
@@ -64,81 +60,6 @@ class _BaseJob(ABC):
             extra_msg=msg,
             errnum=errnum,
         )
-
-    def _build_dataset(
-        self,
-        return_type: DataReturnFormat,
-        data_types: Optional[List[str]] = None,
-    ) -> Dataset:
-        """Build dataset instance ready-to-use from dataset id.
-
-        Args:
-            return_type: format in which data should be returned
-            data_types: list of accepted data types for the dataset
-
-        Raises:
-            _InternalJobError: if dataset cannot be recovered or initialized.
-        """
-        # Note: assumes that self._dataset_id is set during job initialization
-
-        # recover dataset entry
-        dataset_entry = self._dataset_manager.dataset_table.get_by_id(self._dataset_id)
-        if dataset_entry is None:
-            raise _InternalJobError(
-                f"Cannot found request dataset in local datasets: dataset_id='{self._dataset_id}' "
-                f"on node='{self._node_id}'"
-            )
-
-        # validate data type
-        data_type = dataset_entry.get("data_type")
-        if data_types and data_type not in data_types:
-            raise _InternalJobError(
-                f"{data_type} not supported. {self.__class__.__name__} job currently "
-                f"only supports data_types: {data_types}, got '{data_type}'"
-            )
-
-        data_type = DatasetTypes.get_type_by_value(data_type)
-        if data_type not in REGISTRY_CONTROLLERS:
-            raise _InternalJobError(
-                f"Data type '{data_type}' not supported in jobs, available types: "
-                f"{list(REGISTRY_CONTROLLERS.keys())}"
-            )
-
-        # get controller parameters
-        controller_kwargs = {
-            "root": dataset_entry.get("path"),
-            **dataset_entry.get("dataset_parameters", {}),
-        }
-
-        # recover dlp if any
-        if "dlp_id" in dataset_entry:
-            dlp_metadata = self._dataset_manager.get_dlp_by_id(dataset_entry["dlp_id"])
-            try:
-                controller_kwargs["dlp"] = DataLoadingPlan().deserialize(*dlp_metadata)
-            except FedbiomedError as e:
-                raise _InternalJobError(
-                    f"Cannot recover dlp on node={self._node_id}: {repr(e)}"
-                ) from e
-
-        _, _, dataset_cls = REGISTRY_CONTROLLERS[data_type]
-
-        # dataset = dataset_cls(input_columns=input_columns)
-        dataset = dataset_cls(**self._build_args_for_dataset(dataset_entry))
-
-        dataset.complete_initialization(controller_kwargs, return_type)
-
-        return dataset
-
-    @abstractmethod
-    def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
-        """Build arguments for dataset initialization.
-
-        Args:
-            dataset_entry: dataset entry from dataset manager
-
-        Returns:
-            Dict of arguments for dataset initialization
-        """
 
     @abstractmethod
     def run(self) -> RequestReply | ErrorMessage:
