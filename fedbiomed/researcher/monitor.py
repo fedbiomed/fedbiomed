@@ -264,6 +264,14 @@ class Monitor:
         """
 
         # For now monitor can only handle add_scalar messages
+        logger.debug(
+            "Received History monitor message from: node=%s train=%s metric=%s round=%d iteration=%s",
+            msg["node_id"],
+            msg["train"],
+            msg["metric"],
+            self._round,
+            msg["iteration"],
+        )
 
         # Save iteration value
         cumulative_iter, *_ = self._metric_store.add_iteration(

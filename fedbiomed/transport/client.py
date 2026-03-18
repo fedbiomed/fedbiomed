@@ -235,7 +235,13 @@ class GrpcClient:
         self._update_id_map = update_id_map
         self._tasks = []
 
-    def start(self, on_task) -> List[Awaitable[Optional[Callable]]]:
+    @property
+    def tasks(self) -> List[asyncio.Task]:
+        """Returns running asyncio task(s) owned by this client."""
+
+        return self._tasks
+
+    def start(self, on_task) -> asyncio.Task:
         """Start researcher gRPC agent.
 
         Starts long-lived tasks, one waiting for server requests, one waiting on the async queue
@@ -245,7 +251,7 @@ class GrpcClient:
             on_task: Callback function to execute once a payload received from researcher.
 
         Returns:
-            A list of task objects of the agent
+            The main task object of the agent
         """
 
         async def run():
@@ -259,8 +265,10 @@ class GrpcClient:
                 self._task_listener.listen(on_task), self._sender.listen()
             )
 
-        # Returns client task
-        return asyncio.create_task(run())
+        # Keep a stable reference so controller health checks can inspect client tasks.
+        task = asyncio.create_task(run())
+        self._tasks = [task]
+        return task
 
     async def send(self, message: Message) -> None:
         """Sends messages from node to researcher server.
@@ -323,7 +331,7 @@ class GrpcClient:
                 break
             else:
                 logger.debug(
-                    "Researcher server is not available, will retry connect in "
+                    "Researcher server is not available, will retry connecting in "
                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
                 )
                 await asyncio.sleep(
@@ -560,7 +568,9 @@ class TaskListener(Listener):
     def _message_deadline_exceeded(self):
         """Task listener issues debug message when researcher does not submit task before deadline"""
         logger.debug(
-            "Researcher did not request executing a task before timeout. Send new task request"
+            "Task polling timed out: node=%s timeout_s=%s; sending a new task request",
+            self._node_id,
+            GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
         )
 
     async def _call_researcher(self, callback: Optional[Callable] = None) -> None:
@@ -569,7 +579,12 @@ class TaskListener(Listener):
         Args:
             callback: Callback to execute once a task is arrived
         """
-        logger.debug("Sending new task request to researcher")
+        logger.debug(
+            "Polling researcher for task: node=%s retry=%d timeout_s=%s",
+            self._node_id,
+            self._retry_count,
+            GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
+        )
         # TODO: improve status management. At this point it is not sure we are CONNECTED to server
         # but setting later will leave the client DISCONNECTED when waiting for initial task
         await self._on_status_change(ClientStatus.CONNECTED)
@@ -587,8 +602,16 @@ class TaskListener(Listener):
                 continue
             else:
                 # Execute callback
-                logger.debug("New task received from researcher")
                 task = Serializer.loads(reply)
+
+                logger.debug(
+                    "[WIRE][S->N][RX] req=%s node=%s type=%s  bytes=%d retry=%d",
+                    task.get("request_id", None),
+                    self._node_id,
+                    Message.from_dict(task).__class__.__name__,
+                    len(reply),
+                    self._retry_count,
+                )
 
                 # Guess ID of connected researcher, for un-authenticated connection
                 await self._update_id(task["researcher_id"])
@@ -642,17 +665,19 @@ class Sender(Listener):
         """
         await self._on_status_change(status)
 
-        # Extract useful information for detailed log without assumption on message structures
-        # to cover possible bug cases
-        if isinstance(self._retry_item, dict):
-            msg = self._retry_item["message"]
-            logger.debug(
-                f"Message details: stub={self._retry_item['stub']} "
-                f"researcher_id={msg.researcher_id} "
-                f"type={msg.__name__} "
-            )
-
         if retry and self._retry_count < MAX_SEND_RETRIES:
+            if isinstance(self._retry_item, dict):
+                msg = self._retry_item["message"]
+                logger.debug(
+                    "Retrying sender message req=%s type=%s stub=%s retry=%d/%d",
+                    getattr(msg, "request_id", None),
+                    msg.__class__.__name__,
+                    self._stub_type.name
+                    if self._stub_type != _StubType.NO_STUB
+                    else None,
+                    self._retry_count + 1,
+                    MAX_SEND_RETRIES,
+                )
             await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
             await self._channels.connect(self._stub_type)
             self._retry_count += 1
@@ -661,6 +686,7 @@ class Sender(Listener):
                 logger.warning(
                     f"Message can not be sent to researcher after {MAX_SEND_RETRIES} retries. Discard message."
                 )
+            # Only cleanup if not already done (defensive against double task_done)
             self._queue.task_done()
             self._retry_count = 0
             self._retry_item = None
@@ -700,9 +726,19 @@ class Sender(Listener):
                 f"Unknown type of stub in gRPC Sender listener {item['stub']}"
             )
 
+        logger.debug(
+            "[WIRE][N->S][TX] req=%s stub=%s node=%s type=%s retry=%d",
+            getattr(item["message"], "request_id", None),
+            self._stub_type.name,
+            getattr(item["message"], "node_id", None),
+            item["message"].__class__.__name__,
+            self._retry_count,
+        )
+
         # If it is a Unary-Unary RPC call
         if isinstance(stub_function, grpc.aio.UnaryUnaryMultiCallable):
             await stub_function(item["message"].to_proto())
+            # Clear retry state immediately after successful send to prevent duplicate sends
 
         elif isinstance(stub_function, grpc.aio.StreamUnaryMultiCallable):
             stream_call = stub_function()
@@ -711,6 +747,7 @@ class Sender(Listener):
                 await stream_call.write(reply)
 
             await stream_call.done_writing()
+            # Clear retry state immediately after successful send to prevent duplicate sends
 
             if isinstance(callback, Callable):
                 # we could check the callback prototype

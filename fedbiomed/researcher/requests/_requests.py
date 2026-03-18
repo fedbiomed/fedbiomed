@@ -10,6 +10,7 @@ import os
 import tempfile
 import threading
 import uuid
+from time import time
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import tabulate
@@ -61,6 +62,8 @@ class Request:
             request_id: unique ID of request
             sem_pending: semaphore for signaling new pending reply
         """
+        self._send_time = None
+        self._reply_time = None
         self._request_id = request_id if request_id else str(uuid.uuid4())
         self._node = node
         self._message = message
@@ -84,6 +87,10 @@ class Request:
         Args:
             True if a reply was received from node
         """
+        ### DEBUG REQUEST STATUS
+        # current request status per node
+        # whether node became DISCONNECT
+        # whether request has reply / error / timeout
 
         if self._node.status == NodeActiveStatus.DISCONNECTED:
             self.status = RequestStatus.DISCONNECT
@@ -93,7 +100,18 @@ class Request:
 
     def send(self) -> None:
         """Sends the request"""
+
         self._message.request_id = self._request_id
+        self._send_time = time()  # ← Track send time
+
+        logger.debug(
+            "Sending request req=%s node=%s type=%s experiment=%s researcher_id=%s",
+            self._request_id,
+            self._node.id,
+            self._message.__class__.__name__,
+            getattr(self._message, "experiment_id", None),
+            getattr(self._message, "researcher_id", None),
+        )
         self._node.send(self._message, self.on_reply)
         self.status = RequestStatus.NO_REPLY_YET
 
@@ -103,7 +121,19 @@ class Request:
         Args:
             stopped: True if the request was stopped before completion
         """
+        flush_time = time()
+        elapsed_since_send = flush_time - self._send_time if self._send_time else 0
+
+        logger.debug(
+            "Flushing request req=%s node=%s stopped=%s has_reply=%s elapsed_since_send=%.2fs",
+            self._request_id,
+            self._node.id,
+            stopped,
+            self.reply is not None,
+            elapsed_since_send,
+        )
         self._node.flush(self._request_id, stopped)
+        self._sem_pending.release()
 
     def on_reply(self, reply: Message) -> None:
         """Callback for node agent to execute once it replies.
@@ -111,6 +141,16 @@ class Request:
         Args:
             reply: reply message received from node
         """
+        self._reply_time = time()  # ← Track reply time
+        elapsed = self._reply_time - self._send_time if self._send_time else 0
+
+        logger.debug(
+            "Request: Received reply req=%s node=%s type=%s elapsed=%.2fs",
+            self._request_id,
+            self._node.id,
+            reply.__class__.__name__,
+            elapsed,
+        )
 
         if isinstance(reply, ErrorMessage):
             self.error = reply
@@ -154,6 +194,14 @@ class FederatedRequest:
 
         # Set-up policies
         self._policy = PolicyController(policy)
+
+        logger.debug(
+            "Creating federated request req=%s message=%s nodes=%s policies=%s",
+            self._request_id,
+            message.__class__.__name__,
+            [node.id for node in nodes],
+            [p.__class__.__name__ for p in policy] if policy else [],
+        )
 
         # Set up single requests
         if isinstance(self._message, Message):
@@ -209,9 +257,16 @@ class FederatedRequest:
             value: ignored
             traceback: ignored
         """
-
         # Clear the replies that are processed
         has_stopped = self._policy.has_stopped_any()
+        logger.debug(
+            "Exiting federated request context manager for req=%s replies=%d errors=%d disconnects=%d stopped=%s",
+            self._request_id,
+            len(self.replies()),
+            len(self.errors()),
+            len(self.disconnected_requests()),
+            has_stopped,
+        )
         for req in self._requests:
             req.flush(stopped=has_stopped)
 
@@ -248,9 +303,16 @@ class FederatedRequest:
 
     def wait(self) -> None:
         """Waits for the replies of the messages that are sent"""
+        logger.debug(
+            "Waiting for federated request req=%s replies from %d nodes",
+            self._request_id,
+            len(self._requests),
+        )
 
         while self._policy.continue_all(self._requests) == PolicyStatus.CONTINUE:
             self._pending_replies.acquire(timeout=REQUEST_STATUS_CHECK_TIMEOUT)
+
+        logger.debug("Federated request wait finished req=%s", self._request_id)
 
 
 class Requests(metaclass=SingletonMeta):
@@ -267,6 +329,8 @@ class Requests(metaclass=SingletonMeta):
         Args:
             config: Object for handling the component configuration
         """
+        ### DEBUG GRPC SERVER INFORMATION
+
         self._monitor_message_callbacks: Dict[str, Callable] = {}
 
         server_host = config.get("server", "host")
@@ -291,6 +355,7 @@ class Requests(metaclass=SingletonMeta):
 
     def start_messaging(self) -> None:
         """Start communications endpoint"""
+        logger.debug("Starting researcher messaging GRPC Server endpoint")
         self._grpc_server.start()
 
     def on_message(

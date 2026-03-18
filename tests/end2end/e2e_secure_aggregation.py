@@ -1,29 +1,35 @@
-import time
-import pytest
 import copy
+import time
 
+import pytest
+from experiments.training_plans.mnist_pytorch_training_plan import (
+    MnistModelScaffoldDeclearn,
+    MyTrainingPlan,
+)
 from helpers import (
     add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
     clear_component_data,
     clear_experiment_data,
     create_multiple_nodes,
     create_node,
     create_researcher,
     get_data_folder,
+    kill_subprocesses,
+    start_nodes,
 )
 
-from experiments.training_plans.mnist_pytorch_training_plan import (
-    MnistModelScaffoldDeclearn,
-    MyTrainingPlan,
+from fedbiomed.common.exceptions import (
+    FedbiomedSecureAggregationError,
+    FedbiomedStrategyError,
 )
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.optimizers.declearn import ScaffoldServerModule
-from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.secagg import (
     SecureAggregation,
+)
+from fedbiomed.researcher.secagg import (
     SecureAggregationSchemes as SecAggSchemes,
 )
 
@@ -302,7 +308,7 @@ def test_03_secagg_pytorch_force_secagg(extra_node_force_secagg):
     )
 
     # This should raise exception with default strategy
-    with pytest.raises(SystemExit):
+    with pytest.raises(FedbiomedStrategyError):
         exp.run()
 
     # Cleaning!
@@ -325,7 +331,7 @@ def test_04_secagg_pytorch_no_validation(extra_node_no_validation):
     )
 
     # This should raise exception with default strategy
-    with pytest.raises(SystemExit):
+    with pytest.raises(FedbiomedSecureAggregationError):
         exp.run()
 
     # Cleaning!

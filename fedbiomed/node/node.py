@@ -7,6 +7,7 @@ Core code of the node component.
 
 import os
 import time
+import traceback
 from typing import Callable, Optional, Union
 
 from fedbiomed import __version__
@@ -72,6 +73,10 @@ class Node:
             config: Node configuration
             node_args: Command line arguments for node.
         """
+        self.node_args = node_args or {}
+        self._debug = bool(self.node_args.get("debug", False)) or os.environ.get(
+            "FBM_DEBUG", ""
+        ).lower() in ("1", "true", "yes")
 
         self._config = config
         self._node_id = self._config.get("default", "id")
@@ -138,8 +143,6 @@ class Node:
             config_path=self._config.root,
         )
 
-        self.node_args = node_args
-
     @property
     def node_id(self):
         """Returns id of the node"""
@@ -197,19 +200,15 @@ class Node:
                 researcher_id=resid,
             )
         else:
-            no_print = [
-                "aggregator_args",
-                "optim_aux_var",
-                "params",
-                "training_plan",
-                "overlay",
-            ]
-            msg_print = {
-                key: value
-                for key, value in message.get_dict().items()
-                if key not in no_print
-            }
-            logger.debug("Message received: " + str(msg_print))
+            logger.debug(
+                "Received researcher message type=%s req=%s researcher=%s experiment=%s dataset=%s round=%s",
+                message.__name__,
+                getattr(message, "request_id", None),
+                getattr(message, "researcher_id", None),
+                getattr(message, "experiment_id", None),
+                getattr(message, "dataset_id", None),
+                getattr(message, "round", None),
+            )
 
             # Set security context for all logs related to this message
             with logger.security_context(
@@ -232,6 +231,12 @@ class Node:
                         | FARequest.__name__
                         | PreprocRequest.__name__
                     ):
+                        logger.debug(
+                            "Queueing node task type=%s req=%s experiment=%s",
+                            message.__name__,
+                            getattr(message, "request_id", None),
+                            getattr(message, "experiment_id", None),
+                        )
                         self.add_task(message)
                     case SecaggDeleteRequest.__name__:
                         self._task_secagg_delete(message)
@@ -397,11 +402,22 @@ class Node:
             secagg = SecaggSetup(**setup_arguments)()
             reply: SecaggReply = secagg.setup()
         except Exception as error_message:
-            logger.error(error_message)
+            error_text = repr(error_message)
+            logger.error(
+                "Secure aggregation setup failed on node=%s req=%s researcher=%s error=%s",
+                self._node_id,
+                request.request_id,
+                request.researcher_id,
+                error_text,
+            )
+            logger.debug(
+                "Secure aggregation setup traceback: %s",
+                traceback.format_exc(),
+            )
             return self.send_error(
                 request_id=request.request_id,
                 researcher_id=request.researcher_id,
-                extra_msg=str(error_message),
+                extra_msg=error_text,
             )
 
         reply.request_id = request.request_id
@@ -424,24 +440,38 @@ class Node:
             researcher_id=msg.researcher_id,
             send=self._grpc_client.send,
         )
-
         dataset_id = msg.get_param("dataset_id")
         data = self.dataset_manager.dataset_table.get_by_id(dataset_id)
 
         if data is None:
             return self.send_error(
-                extra_msg="Did not found proper data in local datasets "
-                f"on node={self._node_id}",
+                extra_msg=(
+                    f"{ErrorNumbers.FB313.value}: Did not find proper data in local datasets "
+                    f"on node={self._node_id} for dataset_id={dataset_id}"
+                ),
                 request_id=msg.request_id,
                 researcher_id=msg.researcher_id,
                 errnum=ErrorNumbers.FB313,
             )
+        logger.debug(
+            "Preparing training round req=%s experiment=%s round=%s dataset=%s training_plan=%s training=%s state_id=%s has_aux_var=%s",
+            msg.request_id,
+            msg.experiment_id,
+            msg.round,
+            dataset_id,
+            msg.get_param("training_plan_class"),
+            bool(msg.get_param("training")),
+            msg.get_param("state_id"),
+            msg.get_param("optim_aux_var") is not None,
+        )
 
         dlp_and_loading_block_metadata = None
         if "dlp_id" in data:
             dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(
                 data["dlp_id"]
             )
+        else:
+            logger.debug("No data loading plan metadata for dataset=%s", dataset_id)
 
         round_ = Round(
             root_dir=self._config.root,
@@ -467,16 +497,30 @@ class Node:
         )
 
         # the round raises an error if it cannot initialize
-        err_msg = round_.initialize_arguments(msg.get_param("state_id"))
-        if err_msg is not None:
-            self._grpc_client.send(
-                ErrorMessage(
-                    node_id=self._node_id,
-                    errnum=ErrorNumbers.FB300,
-                    researcher_id=msg.researcher_id,
-                    extra_msg="Could not initialize arguments",
-                )
+        try:
+            err_msg = round_.initialize_arguments(msg.get_param("state_id"))
+        except Exception:
+            self.send_error(
+                errnum=ErrorNumbers.FB300,
+                extra_msg=f"{ErrorNumbers.FB300.value}: Could not initialize arguments",
+                researcher_id=msg.researcher_id,
+                request_id=msg.request_id,
             )
+            logger.debug(
+                f"Training round initialize arguments error. Details are: {traceback.format_exc()}"
+            )
+            return None
+
+        if err_msg is not None:
+            self.send_error(
+                errnum=ErrorNumbers.FB300,
+                extra_msg=(
+                    f"{ErrorNumbers.FB300.value}: Could not initialize arguments for training round: {err_msg}"
+                ),
+                researcher_id=msg.researcher_id,
+                request_id=msg.request_id,
+            )
+            return None
 
         return round_
 
@@ -519,6 +563,14 @@ class Node:
                                     ),
                                     round_number=item.round,
                                 )
+                                logger.debug(
+                                    "Starting node training req=%s experiment=%s round=%s dataset=%s plan=%s",
+                                    item.request_id,
+                                    item.experiment_id,
+                                    item.round,
+                                    round_.dataset.get("dataset_id"),
+                                    item.get_param("training_plan_class"),
+                                )
                                 msg = round_.run_model_training(
                                     tp_approval=self._config.getbool(
                                         "security", "training_plan_approval"
@@ -550,6 +602,15 @@ class Node:
                                     ),
                                     round_number=item.round,
                                     duration_seconds=round(duration_seconds, 2),
+                                )
+                                logger.debug(
+                                    "Finished node training req=%s experiment=%s round=%s reply_type=%s success=%s duration_s=%.2f",
+                                    item.request_id,
+                                    item.experiment_id,
+                                    item.round,
+                                    msg.__class__.__name__,
+                                    getattr(msg, "success", None),
+                                    duration_seconds,
                                 )
                                 del round_
 
@@ -676,7 +737,27 @@ class Node:
                 regardless of specific researcher.
             request_id: Optional request i to reply as error to a request.
         """
+        researcher_host = self._config.get("researcher", "ip")
+        researcher_port = self._config.get("researcher", "port")
         try:
+            connected = self.is_connected()
+        except Exception:
+            connected = False
+
+        try:
+            logger.debug(
+                "Preparing error reply errnum=%s req=%s researcher=%s broadcast=%s connected=%s destination=%s:%s msg_len=%d",
+                errnum.name,
+                request_id,
+                researcher_id,
+                broadcast,
+                connected,
+                researcher_host,
+                researcher_port,
+                len(extra_msg),
+                stack_info=True,
+            )
+
             # Log error to console and security audit log in one call
             logger.error(
                 extra_msg,
@@ -704,5 +785,17 @@ class Node:
                 ),
                 broadcast=broadcast,
             )
+
+            logger.debug(
+                "Error reply dispatched errnum=%s req=%s researcher=%s broadcast=%s connected=%s",
+                errnum.name,
+                request_id,
+                researcher_id,
+                broadcast,
+                connected,
+            )
         except Exception as e:
-            logger.error(f"{ErrorNumbers.FB601.value}: Cannot send error message: {e}")
+            logger.error(
+                f"{ErrorNumbers.FB601.value}: Cannot send error message: {e}",
+                exc_info=True,
+            )

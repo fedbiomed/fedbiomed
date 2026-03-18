@@ -161,6 +161,17 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         rseed = training_args.get("random_seed")
         random.seed(rseed)
         np.random.seed(rseed)
+        logger.debug(
+            "Base Training plan post_init completed: "
+            f"class={self.__class__.__name__} "
+            f"node_id={self._node_id} "
+            f"initialize_optimizer={initialize_optimizer} "
+            f"training_args_keys={sorted(self._training_args.keys()) if isinstance(self._training_args, dict) else None} "
+            f"loader_args_keys={sorted(self._loader_args.keys()) if isinstance(self._loader_args, dict) else None} "
+            f"optimizer_args_keys={sorted(self._optimizer_args.keys()) if isinstance(self._optimizer_args, dict) else None} "
+            f"aggregator_args_keys={sorted(self._aggregator_args.keys()) if isinstance(self._aggregator_args, dict) else None} "
+            f"random_seed_set={rseed is not None}"
+        )
 
     def _add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
@@ -198,6 +209,13 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
+        logger.debug(
+            "Training plan data loaders configured: "
+            f"train_loader_type={type(train_data_loader).__name__ if train_data_loader is not None else None} "
+            f"train_dataset_size={len(train_data_loader.dataset) if train_data_loader is not None and hasattr(train_data_loader, 'dataset') else None} "
+            f"test_loader_type={type(test_data_loader).__name__ if test_data_loader is not None else None} "
+            f"test_dataset_size={len(test_data_loader.dataset) if test_data_loader is not None and hasattr(test_data_loader, 'dataset') else None}"
+        )
 
     def init_dependencies(self) -> List[str]:
         """Default method where dependencies are returned
@@ -384,6 +402,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     def _preprocess(self) -> None:
         """Executes registered data pre-processors."""
+        logger.debug(
+            "Training plan preprocess start: "
+            f"count={len(self.pre_processes)} "
+            f"names={list(self.pre_processes.keys())}"
+        )
         for name, process in self.pre_processes.items():
             method = process["method"]
             process_type = process["process_type"]
@@ -394,6 +417,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"Process type `{process_type}` is not implemented."
                     f"Preprocessor '{name}' will therefore be ignored."
                 )
+        logger.debug("Training plan preprocess completed")
 
     def _process_data_loader(self, method: Callable[..., Any]) -> None:
         """Handle a data-loader pre-processing action.
@@ -419,6 +443,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
         # Try running the preprocessor.
+        logger.debug(
+            "Executing training data loader preprocess: "
+            f"method={method.__name__} "
+            f"loader_type={type(self.training_data_loader).__name__ if self.training_data_loader is not None else None}"
+        )
         try:
             data_loader = method(self.training_data_loader)
         except Exception as exc:
@@ -563,6 +592,13 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         n_samples = len(self.testing_data_loader.dataset)
         n_batches = max(len(self.testing_data_loader), 1)
+        logger.debug(
+            "Training plan validation start: "
+            f"before_train={before_train} "
+            f"metric={metric.name if metric is not None else None} "
+            f"batches={n_batches} "
+            f"samples={n_samples}"
+        )
 
         # Set up a batch-wise metrics-computation function.
         # Either use an optionally-implemented custom training routine.
@@ -628,6 +664,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                         batch_samples=num_samples_observed_till_now,
                         num_batches=n_batches,
                     )
+        logger.debug(
+            "Training plan validation completed: "
+            f"before_train={before_train} "
+            f"batches={n_batches} "
+            f"samples={n_samples}"
+        )
 
     @staticmethod
     def _infer_batch_size(
@@ -672,6 +714,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             The trained parameters to aggregate.
         """
         exclude_buffers = not self._training_args["share_persistent_buffers"]
+        logger.debug(
+            "Collecting training plan parameters after training: "
+            f"flatten={flatten} "
+            f"exclude_buffers={exclude_buffers}"
+        )
         if flatten:
             return self._model.flatten(exclude_buffers=exclude_buffers)
         return self.get_model_params(exclude_buffers=exclude_buffers)

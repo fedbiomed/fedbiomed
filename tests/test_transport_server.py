@@ -68,11 +68,19 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
         node_agent.get_task.return_value = [example_task, 0, time.time()]
 
         self.agent_store.retrieve.return_value = node_agent
-        async for r in self.servicer.GetTaskUnary(
-            request=self.request, context=self.context
-        ):
-            self.assertEqual(r.iteration, 1)
-            self.assertEqual(r.size, 1)
+        with patch("fedbiomed.transport.server.logger.debug") as logger_debug:
+            async for r in self.servicer.GetTaskUnary(
+                request=self.request, context=self.context
+            ):
+                self.assertEqual(r.iteration, 1)
+                self.assertEqual(r.size, 1)
+
+        self.assertTrue(
+            any(
+                "[WIRE][S->N][TX]" in call.args[0]
+                for call in logger_debug.call_args_list
+            )
+        )
 
     @patch("fedbiomed.transport.server.Serializer.loads")
     async def test_researcher_servicer_02_ReplyTask(self, load):
@@ -81,10 +89,13 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
             for i in [1, 2]:
                 yield TaskResult(size=2, iteration=i, bytes_=b"test")
 
-        load.return_value = {"node_id": "test-node"}
+        node_agent = AsyncMock()
+        self.agent_store.get.return_value = node_agent
+        load.return_value = reply.to_dict()
         result = await self.servicer.ReplyTask(
             request_iterator=request_iterator(), unused_context=self.context
         )
+        node_agent.on_reply.assert_called_once_with(load.return_value)
         self.assertEqual(result, Empty())
 
     async def test_researcher_servicer_03_Feedback(self):
@@ -93,11 +104,18 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
             log=FeedbackMessage.Log(node_id="test", level="DEBUG", msg="Error message"),
         )
 
-        result = await self.servicer.Feedback(
-            request=request, unused_context=self.context
-        )
+        with patch("fedbiomed.transport.server.logger.debug") as logger_debug:
+            result = await self.servicer.Feedback(
+                request=request, unused_context=self.context
+            )
         self.on_message.assert_called_once()
         self.assertEqual(result, Empty())
+        self.assertTrue(
+            any(
+                "[WIRE][N->S][RX]" in call.args[0]
+                for call in logger_debug.call_args_list
+            )
+        )
 
     @patch("fedbiomed.transport.server.TaskResponse")
     async def test_researcher_servicer_04_GetTaskUnary_exceptions(self, task_response):
@@ -210,8 +228,16 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
         agent = AsyncMock(spec=NodeAgent)
         self.agent_store_mock.return_value.get.return_value = agent
         await self.grpc_server.start()
-        await self.grpc_server._on_forward(overlay_message)
+        with patch("fedbiomed.transport.server.logger.debug") as logger_debug:
+            await self.grpc_server._on_forward(overlay_message)
         agent.send_async.assert_called_once()
+        debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+        self.assertTrue(
+            any("Researcher relay forwarding overlay" in msg for msg in debug_messages)
+        )
+        self.assertTrue(
+            any("Researcher relay dispatching overlay" in msg for msg in debug_messages)
+        )
 
     async def test_grpc_async_server_06_get_node(self):
         agent = AsyncMock(spec=NodeAgent)

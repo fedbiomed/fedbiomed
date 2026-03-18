@@ -15,6 +15,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import get_controller
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.logger import logger
 from fedbiomed.node.dataset_manager._db_tables import (
     DatasetTable,
     DlbTable,
@@ -58,9 +59,23 @@ class DatasetManager:
         dlp_metadata = self.dlp_table.get_by_id(dlp_id)
 
         if dlp_metadata is None:
+            logger.debug(
+                "Data loading plan with id %s not found in database.",
+                dlp_id,
+            )
             return None, []
 
+        logger.debug(
+            "Data loading plan with id %s found in database. Retrieving associated data loading blocks.",
+            dlp_id,
+        )
         dlb_ids = list(dlp_metadata["loading_blocks"].values())
+        logger.debug(
+            "Found %d data loading blocks associated with data loading plan id %s: dlb_ids=%s",
+            len(dlb_ids),
+            dlp_id,
+            dlb_ids,
+        )
         return dlp_metadata, self.dlb_table.get_all_by_value("dlb_id", dlb_ids)
 
     def read_csv(

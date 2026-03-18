@@ -10,7 +10,12 @@ from fedbiomed.common.constants import (
     SecureAggregationSchemes,
     __breakpoints_version__,
 )
-from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
+from fedbiomed.common.exceptions import (
+    FedbiomedExperimentError,
+    FedbiomedSecureAggregationError,
+    FedbiomedTypeError,
+    FedbiomedValueError,
+)
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import FederatedWorkflow
 from fedbiomed.researcher.federated_workflows.preproc import FedCombatPreproc
@@ -111,7 +116,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertDictEqual(exp.training_data().data(), self.fake_search_reply)
 
         # b. when tags, nodes and training data are provided, the latter takes precedence and tags are set to None
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedValueError):
             exp = FederatedWorkflow(
                 tags="some-tags", nodes=["wrong", "nodes"], training_data=_training_data
             )
@@ -126,16 +131,16 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertEqual(exp.tags(), ["first", "second"])
 
         # Test invalid type and values
-        with self.assertRaises(SystemExit):  # FedbiomedValueError,
+        with self.assertRaises(FedbiomedValueError):
             exp.set_tags(None)
 
-        with self.assertRaises(SystemExit):  # FedbiomedValueError
+        with self.assertRaises(FedbiomedValueError):
             exp.set_tags([])
 
-        with self.assertRaises(SystemExit):  # FedbiomedTypeError
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_tags(15)
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_tags(["x", "y", 15])
 
     def test_federated_workflow_03_set_nodes(self):
@@ -154,27 +159,27 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertEqual(exp.nodes(), ["node-1", "node-2"])
 
         # Invalid arguments
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_nodes(["node-1", "node-2", 15])
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_nodes("invalid_type")
 
     def test_federated_workflow_04_set_training_data(self):
         exp = FederatedWorkflow()
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedValueError):
             exp.set_training_data(None, from_tags=False)
 
         # Invalid from_tags argument
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_training_data(None, from_tags="invalid-type")
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedValueError):
             exp.set_training_data("not-none", from_tags=True)
 
         # Invalid training_data argument
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_training_data("not-none", from_tags=False)
 
         self.assertEqual(exp.training_data().data(), {})
@@ -212,7 +217,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
             mock_exp_folder_creat.side_effect = lambda x: x
             # Invalid argument type
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.set_experimentation_folder(15)
 
     def test_federated_workflow_06_set_preprocessing(self):
@@ -230,11 +235,11 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             self.assertIsNone(exp.preprocessing)
 
         # Invalid type
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_preprocessing("invalid-type", preproc_args)
 
         # Invalid args
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_preprocessing(PreprocType.FEDCOMBAT, "invalid-args")
 
     def test_federated_workflow_07_set_secagg(self):
@@ -246,12 +251,12 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         exp.set_secagg(_secagg)
         self.assertEqual(exp.secagg, _secagg)
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.set_secagg("invalid")
 
         bad_schemes = [False, 3, None, "scheme", [SecureAggregationSchemes.LOM]]
         for scheme in bad_schemes:
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.set_secagg(True, scheme)
 
     def test_federated_workflow_08_consistency_fds_tags(self):
@@ -273,7 +278,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertDictEqual(exp.training_data().data(), self.fake_search_reply)
 
         # setting training data from tags, when tags is None -> raise error
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedValueError):
             exp.set_training_data(None, from_tags=True)
 
         # set tags when training data is not None -> reset training data based on new tags
@@ -444,7 +449,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         # 3. Test error case: if open raises an exception
         mock_open.side_effect = OSError
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.breakpoint(state={}, bkpt_number=1)
 
     @patch("fedbiomed.researcher.federated_workflows._federated_workflow.open")
@@ -464,7 +469,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         mock_open,
     ):
         # Invalid argument should be string or None
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp, _, _ = FederatedWorkflow.load_breakpoint(breakpoint_folder_path=15)
 
         # Normal test case
@@ -548,14 +553,14 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
         # If open raises an exception
         mock_open.side_effect = OSError
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp, _, _ = FederatedWorkflow.load_breakpoint()
         mock_open.side_effect = None
 
         # If saved state is not dict
 
         mock_json_load.return_value = ["list"]
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp, _, _ = FederatedWorkflow.load_breakpoint()
 
     def test_federated_workflow_06_all_federation_nodes(self):
@@ -629,7 +634,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         fw.set_save_breakpoints(True)
 
         # Invalid argument
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             fw.set_save_breakpoints("invalid")
 
 

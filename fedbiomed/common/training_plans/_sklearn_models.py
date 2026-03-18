@@ -62,6 +62,13 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
 
         # set number of training loop iterations
         iterations_accountant = MiniBatchTrainingIterationsAccountant(self)
+        logger.debug(
+            "Sklearn partial-fit training start: "
+            f"model_cls={self._model_cls.__name__} "
+            f"epochs={self.training_args().get('epochs')} "
+            f"num_updates={self.training_args().get('num_updates')} "
+            f"batch_maxnum={self.training_args().get('batch_maxnum')}"
+        )
         # Gather reporting parameters.
         report = False
         if (history_monitor is not None) and hasattr(self.model(), "verbose"):
@@ -81,11 +88,23 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             # this context manager is used to disable and then enable the sklearn internal optimizer (in case we
             # are using declern optimizer)
             for _epoch in iterations_accountant.iterate_epochs():
+                logger.debug(
+                    "Sklearn epoch start: "
+                    f"model_cls={self._model_cls.__name__} "
+                    f"epoch={_epoch}"
+                )
                 training_data_iter: Iterator = iter(self.training_data_loader)
                 # Iterate over data batches.
                 for _batch in iterations_accountant.iterate_batches():
                     inputs, target = next(training_data_iter)
                     batch_size = self._infer_batch_size(inputs)
+                    if _batch == 1:
+                        logger.debug(
+                            "Sklearn first batch: "
+                            f"model_cls={self._model_cls.__name__} "
+                            f"epoch={_epoch} "
+                            f"batch_size={batch_size}"
+                        )
                     iterations_accountant.increment_sample_counters(batch_size)
                     loss = self._train_over_batch(inputs, target, report)
                     # Optionally report on the batch training loss.
@@ -128,10 +147,20 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
                             total_samples=num_samples_max,
                             batch_samples=batch_size,
                         )
+                logger.debug(
+                    "Sklearn epoch completed: "
+                    f"model_cls={self._model_cls.__name__} "
+                    f"epoch={_epoch}"
+                )
         # Reset model verbosity to its initial value.
         if report:
             self._model.set_params(verbose=verbose)
 
+        logger.debug(
+            "Sklearn partial-fit training completed: "
+            f"model_cls={self._model_cls.__name__} "
+            f"num_samples_trained={iterations_accountant.num_samples_observed_in_total}"
+        )
         return iterations_accountant.num_samples_observed_in_total
 
     def _train_over_batch(

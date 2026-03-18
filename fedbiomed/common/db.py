@@ -15,6 +15,8 @@ from tinydb.table import Document, Table
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
+LOG_VALUE_MAX_LENGTH = 50
+
 
 def cast_(func):
     """Decorator function for typing casting"""
@@ -59,8 +61,6 @@ def _security_log(operation: str, default_stacklevel: int = 3):
 
             logging_stacklevel = kwargs.pop("stacklevel", default_stacklevel)
 
-            LOG_VALUE_MAX_LENGTH = 50
-
             # Reuse your helpers
             kwargs_stripped = _strip_forbidden_keys(kwargs)
             args_stripped = _strip_forbidden_keys(args)
@@ -102,7 +102,8 @@ def _security_log(operation: str, default_stacklevel: int = 3):
                         stacklevel=logging_stacklevel,
                     )
                     logger.debug(
-                        f"Failed to {operation} in table {self.name} with error: {repr(e)}",
+                        f"Failed to {operation} in table {self.name} with error: {repr(e)}; "
+                        f"db_args={args_for_log}; db_kwargs={kwargs_for_log}",
                         extra={
                             "db_args": {**args_for_log},
                             "db_kwargs": {**kwargs_for_log},
@@ -121,7 +122,8 @@ def _security_log(operation: str, default_stacklevel: int = 3):
                     stacklevel=logging_stacklevel,
                 )
                 logger.debug(
-                    f"Successfully performed {operation} in table {self.name}, result: {result_for_log}",
+                    f"Successfully performed {operation} in table {self.name}, result: {result_for_log}; "
+                    f"db_args={args_for_log}; db_kwargs={kwargs_for_log}",
                     extra={
                         "db_args": {**args_for_log},
                         "db_kwargs": {**kwargs_for_log},
@@ -365,5 +367,4 @@ class TinyTableConnector:
         _ = self._table.update(
             update, self._query[self._id_name] == id_value, stacklevel=4
         )
-
         return self.get_by_id(id_value)

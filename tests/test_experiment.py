@@ -12,9 +12,12 @@ from testsupport.fake_training_plan import (
 
 import fedbiomed
 from fedbiomed.common.constants import PreprocType
-from fedbiomed.common.exceptions import FedbiomedExperimentError
+from fedbiomed.common.exceptions import (
+    FedbiomedExperimentError,
+    FedbiomedTypeError,
+    FedbiomedValueError,
+)
 from fedbiomed.common.metrics import MetricTypes
-from fedbiomed.common.optimizers import AuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataset
@@ -93,12 +96,15 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             "retain_full_history": (True, False),
         }  # some of the parameters which have already been tested in FederatedWorkflow have been simplified here
         # Compute cartesian product of parameter values to obtain all possible combinations
-        keys, values = zip(*parameters_and_possible_values.items())
-        all_parameter_combinations = [dict(zip(keys, v)) for v in product(*values)]
+        keys, values = zip(*parameters_and_possible_values.items(), strict=True)
+        all_parameter_combinations = [
+            dict(zip(keys, value_combination, strict=True))
+            for value_combination in product(*values)
+        ]
         for params in all_parameter_combinations:
             try:
                 exp = Experiment(**params)
-            except SystemExit as e:
+            except Exception as e:
                 print(
                     f"Could not instantiate Experiment: exception {e} raised with the following constructor"
                     f"arguments:\n {params}"
@@ -157,7 +163,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         _aggregator_class = FakeAggregator
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_aggregator(_aggregator_class)
 
         exp.set_aggregator(FakeAggregator())
@@ -203,7 +209,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _strategy_class = MagicMock()
         _strategy_class.return_value = _strategy
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_strategy(FakeStrategy)
 
         exp.set_strategy(FakeStrategy())
@@ -232,13 +238,13 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         )
 
         # Test error case -------------------------------
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.run_once(increase="invalid-type")
         # ------------------------------------------------
 
         # Test if no training nodes are returned from strategy.sample_nodes ---
         _strategy.sample_nodes.return_value = []
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.run_once()
         _strategy.sample_nodes.return_value = ["node-1", "node-2"]
         # ---------------------------------------------------------------------
@@ -249,7 +255,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Check if it raises if there is missing object block --------
         exp._fds = None
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(AttributeError):
             exp.run_once()
         exp._fds = FederatedDataset(_training_data)
         # -------------------------------------------------------------
@@ -386,13 +392,13 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # wrong argument types
         with patch.object(exp, "run_once", return_value=1) as mock_run_once:
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.run(rounds=-1)
                 self.assertFalse(mock_run_once.called)
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.run(rounds="one")
                 self.assertFalse(mock_run_once.called)
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.run(increase="True")
                 self.assertFalse(mock_run_once.called)
 
@@ -424,7 +430,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Tests if run once return 0
         with patch.object(exp, "run_once", return_value=0) as mock_run_once:
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.set_round_limit(exp.round_current() + 1)
                 x = exp.run()
 
@@ -478,7 +484,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         )
         with patch.object(FedbiomedExperimentError, "__init__") as patch_exc:
             patch_exc.return_value = None  # __init__ must return None
-            self.assertRaises(SystemExit, exp.run_once)
+            self.assertRaises(FedbiomedExperimentError, exp.run_once)
         patch_exc.assert_called_once()
         error_msg = patch_exc.call_args[0][0]
         self.assertTrue(
@@ -549,7 +555,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         )
 
         # Test if current round is less than 1 meaning that there is no round ran
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp._set_round_current(0)
             exp.breakpoint()
         # ----------------------------------------------------------------------
@@ -558,11 +564,11 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         with (
             patch.object(
                 exp, "save_aggregated_params", return_value={"agg_params": "bkpt"}
-            ) as mock_agg_param_save,
+            ),
             patch.object(
                 exp, "save_training_replies", return_value={"replies": "bkpt"}
-            ) as mock_save_replies,
-            patch.object(exp, "training_plan") as mock_tp,
+            ),
+            patch.object(exp, "training_plan"),
         ):
             exp.breakpoint()
 
@@ -628,8 +634,8 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         with patch.object(
             Experiment, "_create_object", new=create_strategy_then_aggregator
-        ) as mock_creat:
-            exp = Experiment.load_breakpoint()
+        ):
+            Experiment.load_breakpoint()
 
     def test_experiment_11_testing_args(self):
         """Tests training arguments setter and getter"""
@@ -678,7 +684,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertIsNone(exp._agg_optimizer)
 
         invalid_type_optimizer = MagicMock()
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.set_agg_optimizer(invalid_type_optimizer)
 
         # Check getter
@@ -690,13 +696,13 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Normal good case
         exp = Experiment()
-        limit = exp.set_round_limit(2)
+        exp.set_round_limit(2)
         self.assertEqual(exp._round_limit, 2)
 
         # Test if round limit less than current round number
         exp._round_current = 2
-        with self.assertRaises(SystemExit):
-            limit = exp.set_round_limit(1)
+        with self.assertRaises(FedbiomedValueError):
+            exp.set_round_limit(1)
 
         # Test setting it to None
         exp.set_round_limit(None)
@@ -712,7 +718,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Exception if round limit is less than round current
         exp._round_limit = 4
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp._set_round_current(5)
 
         # Check monitor called correctly
@@ -729,7 +735,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp._monitor.set_tensorboard.assert_called_once_with(True)
 
         # Invalid type
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.set_tensorboard("oops")
 
     def test_experiment_16_set_retain_full_history(self):
@@ -740,7 +746,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertTrue(exp.retain_full_history())
 
         # Tests setting invalid type
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_retain_full_history("invalid_type")
 
     def test_experiment_17_commit_experiment_history(self):
@@ -799,20 +805,18 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp = Experiment()
 
         # Error case invalid aggregated params
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.save_aggregated_params("boom", path)
 
         # Error case invalid path
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.save_aggregated_params(params, True)
 
         # Error case invalid params
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.save_aggregated_params({"x": 1}, path)
 
-        with patch(
-            "fedbiomed.researcher.federated_workflows._experiment.Serializer"
-        ) as ser:
+        with patch("fedbiomed.researcher.federated_workflows._experiment.Serializer"):
             aggregated_params = exp.save_aggregated_params(params, path)
 
         self.assertTrue(0 in aggregated_params)
@@ -826,7 +830,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp = Experiment()
 
         # Invalid type of aggregated params
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp._load_aggregated_params(None)
 
         with patch(
@@ -859,8 +863,6 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
     def test_experiment_22_load_optimizer(self):
         """Tests loading experiment"""
 
-        path = "sate-path"
-
         exp = Experiment()
         r = exp._load_optimizer(None)
         self.assertIsNone(r)
@@ -869,9 +871,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             patch(
                 "fedbiomed.researcher.federated_workflows._experiment.Optimizer"
             ) as opt,
-            patch(
-                "fedbiomed.researcher.federated_workflows._experiment.Serializer"
-            ) as ser,
+            patch("fedbiomed.researcher.federated_workflows._experiment.Serializer"),
         ):
             exp._load_optimizer("state-path")
             opt.load_state.assert_called_once()
