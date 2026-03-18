@@ -109,8 +109,26 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     logger.warning(
                         f"Message to send is older than {MAX_SEND_DURATION} seconds. Discard message."
                     )
+                    logger.debug(
+                        "[WIRE][S->N][DROP] node=%s type=%s req=%s retry=%d age_s=%.1f reason=expired",
+                        task_request["node"],
+                        task.__class__.__name__ if task else None,
+                        getattr(task, "request_id", None) if task else None,
+                        retry_count,
+                        time.time() - first_send_time,
+                    )
 
             task_bytes = Serializer.dumps(task.to_dict())
+
+            logger.debug(
+                "[WIRE][S->N][TX] node=%s type=%s req=%s retry=%d age_s=%.1f bytes=%d",
+                task_request["node"],
+                task.__class__.__name__,
+                getattr(task, "request_id", None),
+                retry_count,
+                time.time() - first_send_time,
+                len(task_bytes),
+            )
 
             chunk_range = range(0, len(task_bytes), MAX_MESSAGE_BYTES_LENGTH)
             for start, iter_ in zip(
@@ -134,6 +152,14 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     # This is not fully coherent with upper layers (Requests) that may trigger an application
                     # level failure in the while, but it is mitigated by the MAX_SEND_DURATION
                     if retry_count < MAX_SEND_RETRIES:
+                        logger.debug(
+                            "[WIRE][S->N][REQUEUE] node=%s type=%s req=%s retry=%d reason=stream_interrupted error=%s",
+                            task_request["node"],
+                            task.__class__.__name__,
+                            getattr(task, "request_id", None),
+                            retry_count,
+                            str(GeneratorExit),
+                        )
                         await node_agent.send_async(
                             message=task,
                             on_reply=None,
@@ -143,6 +169,15 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     else:
                         logger.warning(
                             f"Message cannot be sent after {MAX_SEND_RETRIES} retries. Discard message."
+                        )
+                        logger.debug(
+                            "[WIRE][S->N][DROP] node=%s type=%s req=%s retry=%d age_s=%.1f reason=expired error=%s",
+                            task_request["node"],
+                            task.__class__.__name__ if task else None,
+                            getattr(task, "request_id", None) if task else None,
+                            retry_count,
+                            time.time() - first_send_time,
+                            str(GeneratorExit),
                         )
                     await node_agent.change_node_status_after_task()
                     # need return here to avoid RuntimeError
@@ -156,6 +191,14 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             ):
                 # schedule resend if task was pulled from queue
                 if retry_count < MAX_SEND_RETRIES:
+                    logger.debug(
+                        "[WIRE][S->N][REQUEUE] node=%s type=%s req=%s retry=%d reason=stream_interrupted error=%s",
+                        task_request["node"],
+                        task.__class__.__name__,
+                        getattr(task, "request_id", None),
+                        retry_count,
+                        str(asyncio.CancelledError),
+                    )
                     await node_agent.send_async(
                         message=task,
                         on_reply=None,
@@ -165,6 +208,15 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                 else:
                     logger.warning(
                         f"Message cannot be sent after {MAX_SEND_RETRIES} retries. Discard message."
+                    )
+                    logger.debug(
+                        "[WIRE][S->N][DROP] node=%s type=%s req=%s retry=%d age_s=%.1f reason=expired error=%s",
+                        task_request["node"],
+                        task.__class__.__name__ if task else None,
+                        getattr(task, "request_id", None) if task else None,
+                        retry_count,
+                        time.time() - first_send_time,
+                        str(asyncio.CancelledError),
                     )
         finally:
             await node_agent.change_node_status_after_task()
@@ -190,6 +242,14 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             # Deserialize message
             message = Serializer.loads(reply)
 
+            logger.debug(
+                "[WIRE][N->S][RX] node=%s req=%s type=%s bytes=%d",
+                message.get("node_id"),
+                message.get("request_id"),
+                Message.from_dict(message).__class__.__name__,
+                len(reply),
+            )
+
             # Replies are handled by node agent callbacks
             node = await self._agent_store.get(message["node_id"])
             await node.on_reply(message)
@@ -211,6 +271,12 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         # Get the type of Feedback | log or scalar
         one_of = request.WhichOneof("feedback_type")
         feedback = FeedbackMessage.from_proto(request)
+
+        logger.debug(
+            "[WIRE][N->S][RX] node=%s type=Feedback oneof=%s",
+            feedback.node_id if hasattr(feedback, "node_id") else None,
+            one_of,
+        )
 
         # Execute on_message assigned by the researcher.requests modules
         self._on_message(feedback.get_param(one_of), MessageType.convert(one_of))
@@ -344,6 +410,10 @@ class _GrpcAsyncServer:
         Args:
             message: Message to forward
         """
+        logger.debug(
+            f"Researcher relay forwarding overlay: src_node_id={message.node_id} "
+            f"dest_node_id={message.dest_node_id} setup={message.setup} payload_bytes={len(message.overlay)}"
+        )
         # caveat: intentionally use `_GrpcAyncServer.send()`
         # if using `self.send()` it uses `GrpcServer.send()`, normally used from another thread
         # if using `super().send()` it's less explicit
@@ -360,8 +430,19 @@ class _GrpcAsyncServer:
         agent = await self._agent_store.get(node_id)
 
         if not agent:
+            if isinstance(message, OverlayMessage):
+                logger.debug(
+                    f"Researcher relay drop: dest_node_id={node_id} src_node_id={message.node_id} "
+                    f"setup={message.setup} reason=node_not_registered"
+                )
             logger.info(f"Node {node_id} is not registered on server. Discard message.")
             return
+
+        if isinstance(message, OverlayMessage):
+            logger.debug(
+                f"Researcher relay dispatching overlay to node agent: dest_node_id={node_id} "
+                f"src_node_id={message.node_id} setup={message.setup} payload_bytes={len(message.overlay)}"
+            )
 
         await agent.send_async(message)
 

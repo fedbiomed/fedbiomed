@@ -193,6 +193,10 @@ class NodeToNodeController:
         Args:
             inner_msg: received inner message
         """
+        logger.debug(
+            f"Processing channel setup reply: node_id={self._node_id} src_node_id={inner_msg.node_id} "
+            f"request_id={inner_msg.request_id}"
+        )
         if not await self._overlay_channel.set_distant_key(
             inner_msg.node_id,
             inner_msg.public_key,
@@ -217,6 +221,10 @@ class NodeToNodeController:
         Returns:
             A `dict` with overlay reply message
         """
+        logger.debug(
+            f"Handling node-to-node key request: node_id={self._node_id} src_node_id={inner_msg.node_id} "
+            f"request_id={inner_msg.request_id} secagg_id={inner_msg.secagg_id}"
+        )
         # Wait until node has generated its DH keypair
         all_received, data = self._controller_data.wait(
             [inner_msg.secagg_id], TIMEOUT_NODE_TO_NODE_REQUEST
@@ -224,6 +232,10 @@ class NodeToNodeController:
 
         # Don't send reply message if the public key is not available after a timeout
         if not all_received:
+            logger.debug(
+                f"Node-to-node key request timed out waiting for local data: node_id={self._node_id} "
+                f"src_node_id={inner_msg.node_id} request_id={inner_msg.request_id} secagg_id={inner_msg.secagg_id}"
+            )
             return None
 
         # we assume the data is properly formatted
@@ -259,6 +271,10 @@ class NodeToNodeController:
             overlay_resp: overlay reply message to send
         """
         if isinstance(overlay_resp, OverlayMessage):
+            logger.debug(
+                f"Sending node-to-node key reply overlay: node_id={self._node_id} "
+                f"dest_node_id={overlay_resp.dest_node_id} setup={overlay_resp.setup}"
+            )
             self._grpc_controller.send(overlay_resp)
 
     async def _AdditiveSSharingRequest(  # pylint: disable=C0103
@@ -271,12 +287,20 @@ class NodeToNodeController:
         """
 
         from_ = request.node_id
+        logger.debug(
+            f"Handling additive secret sharing request: node_id={self._node_id} src_node_id={from_} "
+            f"request_id={request.request_id} secagg_id={request.secagg_id}"
+        )
         # Wait until node has generated its share for given secagg id
         all_received, data = self._controller_data.wait(
             [request.secagg_id], TIMEOUT_NODE_TO_NODE_REQUEST
         )
 
         if not all_received:
+            logger.debug(
+                f"Additive secret sharing request timed out waiting for local data: node_id={self._node_id} "
+                f"src_node_id={from_} request_id={request.request_id} secagg_id={request.secagg_id}"
+            )
             return None
 
         share = data[0]["shares"].get(from_)
@@ -313,6 +337,10 @@ class NodeToNodeController:
             overlay_resp: overlay reply message to send
         """
         if isinstance(overlay_resp, OverlayMessage):
+            logger.debug(
+                f"Sending additive secret sharing reply overlay: node_id={self._node_id} "
+                f"dest_node_id={overlay_resp.dest_node_id} setup={overlay_resp.setup}"
+            )
             self._grpc_controller.send(overlay_resp)
 
     async def _HandlerKeyReply(  # pylint: disable=C0103

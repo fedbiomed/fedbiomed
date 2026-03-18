@@ -2,14 +2,33 @@ import asyncio
 import unittest
 from unittest.mock import MagicMock, patch
 
-from fedbiomed.common.message import SearchRequest
+import pytest
+
+from fedbiomed.common.message import OverlayMessage, SearchRequest
 from fedbiomed.transport.node_agent import (
     AgentStore,
     NodeActiveStatus,
     NodeAgent,
+    NodeAgentAsync,
 )
 
 message = MagicMock(spec=SearchRequest)
+
+
+@pytest.fixture
+def node_agent():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    fixture = TestNodeAgent()
+    fixture.setUp()
+
+    try:
+        yield fixture
+    finally:
+        fixture.tearDown()
+        loop.close()
+        asyncio.set_event_loop(None)
 
 
 class TestNodeAgent(unittest.IsolatedAsyncioTestCase):
@@ -113,6 +132,152 @@ class TestAgentStore(unittest.IsolatedAsyncioTestCase):
 
         result = await self.agent_store.get("node-id-1")
         self.assertEqual(result.id, "node-id-1")
+
+
+def test_node_agent_flush_marks_stopped_request(node_agent):
+    node_agent.node_agent._replies["req-1"] = {
+        "reply": None,
+        "callback": lambda msg: None,
+    }
+
+    node_agent.loop.run_until_complete(
+        NodeAgentAsync.flush(node_agent.node_agent, "req-1", stopped=True)
+    )
+
+    assert "req-1" in node_agent.node_agent._replies
+    assert "req-1" in node_agent.node_agent._stopped_request_ids
+
+
+def test_node_agent_on_reply_pending_request(monkeypatch, node_agent):
+    class DummyReply:
+        request_id = "req-2"
+
+    seen = {"reply": None}
+
+    def callback(reply):
+        seen["reply"] = reply
+
+    node_agent.node_agent._replies["req-2"] = {"reply": None, "callback": callback}
+
+    monkeypatch.setattr(
+        "fedbiomed.transport.node_agent.Message.from_dict",
+        lambda _: DummyReply(),
+    )
+
+    node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
+
+    assert node_agent.node_agent._replies["req-2"]["reply"].request_id == "req-2"
+    assert seen["reply"].request_id == "req-2"
+
+
+def test_node_agent_on_reply_overlay_message(monkeypatch, node_agent):
+    seen = {"forwarded": None}
+
+    async def on_forward(message):
+        seen["forwarded"] = message
+
+    overlay = object.__new__(OverlayMessage)
+    overlay.request_id = "req-overlay"
+    node_agent.node_agent._on_forward = on_forward
+
+    monkeypatch.setattr(
+        "fedbiomed.transport.node_agent.Message.from_dict",
+        lambda _: overlay,
+    )
+
+    node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
+
+    assert seen["forwarded"] is overlay
+    assert "req-overlay" not in node_agent.node_agent._replies
+
+
+def test_node_agent_on_reply_multiple_reply_warning(monkeypatch, node_agent):
+    """Covers the branch where a second reply arrives for the same request."""
+
+    class DummyReply:
+        request_id = "req-dup"
+
+    warnings = {"count": 0}
+
+    def fake_warning(*args, **kwargs):
+        warnings["count"] += 1
+
+    node_agent.node_agent._replies["req-dup"] = {
+        "reply": object(),
+        "callback": lambda msg: None,
+    }
+
+    monkeypatch.setattr(
+        "fedbiomed.transport.node_agent.Message.from_dict",
+        lambda _: DummyReply(),
+    )
+    monkeypatch.setattr("fedbiomed.transport.node_agent.logger.warning", fake_warning)
+
+    node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
+
+    assert warnings["count"] == 1
+
+
+def test_node_agent_on_reply_none_request_id_unexpected_warning(
+    monkeypatch, node_agent
+):
+    """In this implementation, request_id=None does not log error.
+    It falls through to the unexpected-request warning branch.
+    """
+
+    class DummyReply:
+        request_id = None
+
+    warnings = {"count": 0}
+
+    def fake_warning(*args, **kwargs):
+        warnings["count"] += 1
+
+    monkeypatch.setattr(
+        "fedbiomed.transport.node_agent.Message.from_dict",
+        lambda _: DummyReply(),
+    )
+    monkeypatch.setattr("fedbiomed.transport.node_agent.logger.warning", fake_warning)
+
+    node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
+
+    assert warnings["count"] == 1
+
+
+def test_node_agent_on_reply_stopped_request(monkeypatch, node_agent):
+    class DummyReply:
+        request_id = "req-3"
+
+    node_agent.node_agent._stopped_request_ids.append("req-3")
+
+    monkeypatch.setattr(
+        "fedbiomed.transport.node_agent.Message.from_dict",
+        lambda _: DummyReply(),
+    )
+
+    node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
+
+    assert "req-3" not in node_agent.node_agent._stopped_request_ids
+
+
+def test_node_agent_on_reply_unexpected_request(monkeypatch, node_agent):
+    class DummyReply:
+        request_id = "req-404"
+
+    warnings = {"count": 0}
+
+    def fake_warning(*args, **kwargs):
+        warnings["count"] += 1
+
+    monkeypatch.setattr(
+        "fedbiomed.transport.node_agent.Message.from_dict",
+        lambda _: DummyReply(),
+    )
+    monkeypatch.setattr("fedbiomed.transport.node_agent.logger.warning", fake_warning)
+
+    node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
+
+    assert warnings["count"] >= 1
 
 
 if __name__ == "__main__":

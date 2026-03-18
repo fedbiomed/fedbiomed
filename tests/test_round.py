@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 import numpy as np
 import pandas as pd
+import pytest
 import torch
 from testsupport import fake_training_plan
 from testsupport.fake_training_plan import DeclearnAuxVarModel, FakeModel
@@ -26,7 +27,11 @@ from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMix
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.dataset_types import DataReturnFormat
-from fedbiomed.common.exceptions import FedbiomedOptimizerError, FedbiomedRoundError
+from fedbiomed.common.exceptions import (
+    FedbiomedError,
+    FedbiomedOptimizerError,
+    FedbiomedRoundError,
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import TrainReply
 from fedbiomed.common.models import Model, TorchModel
@@ -51,6 +56,16 @@ from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityMa
 # Needed to access length of dataset from Round class
 class FakeLoader:
     dataset = [1, 2, 3, 4, 5]
+
+
+@pytest.fixture
+def round():
+    fixture = TestRound()
+    fixture.setUp()
+    try:
+        yield fixture
+    finally:
+        fixture.tearDown()
 
 
 class TestRound(unittest.TestCase):
@@ -280,6 +295,204 @@ class TestRound(unittest.TestCase):
 
             # Check that the model weights were saved.
             mock_after_training_params.assert_called_once()
+
+    def test_round_02b_run_model_training_debug_flag_controls_error_details_logging(
+        self,
+    ):
+        """Tests that `run_model_training` logs details on early failures.
+
+        The code logs an error with exception details and a debug traceback extract.
+        """
+
+        # Force training plan import/instantiation failure at the start of `run_model_training`.
+        original_side_effect = self.ic_from_spec_mock.side_effect
+        self.ic_from_spec_mock.side_effect = Exception("boom")
+
+        try:
+            self.r1.initialize_arguments()
+
+            with (
+                patch("fedbiomed.node.round.logger.error") as logger_error,
+                patch("fedbiomed.node.round.logger.debug") as logger_debug,
+            ):
+                msg = self.r1.run_model_training(
+                    tp_approval=False,
+                    secagg_active=False,
+                    force_secagg=False,
+                    secagg_insecure_validation=True,
+                )
+
+                self.assertFalse(msg.get_dict().get("success", True))
+                self.assertEqual(
+                    msg.get_dict().get("msg"),
+                    "Cannot instantiate training plan object.",
+                )
+
+                logger_error.assert_called_once()
+                log_msg = logger_error.call_args.args[0]
+                self.assertIn("Cannot instantiate training plan object.", log_msg)
+                self.assertIn("Details:", log_msg)
+                self.assertIn("boom", log_msg)
+
+                self.assertTrue(logger_debug.called)
+                debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+                self.assertTrue(
+                    any(
+                        "Training plan instantiation error details" in m
+                        for m in debug_messages
+                    )
+                )
+        finally:
+            self.ic_from_spec_mock.side_effect = original_side_effect
+
+    def test_round_02c_run_model_training_training_routine_exception_logs_only_in_debug(
+        self,
+    ):
+        """Tests the `training_routine` exception path in `run_model_training`.
+
+        When `training_routine` raises, `run_model_training` must return a failure reply with
+        exception details in the message and log error + debug traceback.
+        """
+
+        def _fake_set_loaders():
+            # Ensure we go through the training branch.
+            self.r1.training_plan.training_data_loader = object()
+            self.r1.training_plan.testing_data_loader = None
+
+        with (
+            patch.object(
+                self.r1,
+                "_set_training_testing_data_loaders",
+                side_effect=_fake_set_loaders,
+            ),
+            patch.object(
+                FakeModel, "training_routine", side_effect=Exception("boom-train")
+            ),
+        ):
+            self.r1.initialize_arguments()
+
+            with (
+                patch("fedbiomed.node.round.logger.error") as logger_error,
+                patch("fedbiomed.node.round.logger.debug") as logger_debug,
+            ):
+                msg = self.r1.run_model_training(
+                    tp_approval=False,
+                    secagg_active=False,
+                    force_secagg=False,
+                    secagg_insecure_validation=True,
+                )
+
+                self.assertFalse(msg.get_dict().get("success", True))
+                self.assertIn(
+                    "Cannot train model in round:",
+                    msg.get_dict().get("msg", ""),
+                )
+
+                logger_error.assert_called_once_with(
+                    "Cannot train model in round: Exception('boom-train')"
+                )
+
+                self.assertTrue(logger_debug.called)
+                debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+                self.assertTrue(
+                    any("Training error details" in m for m in debug_messages)
+                )
+
+    @patch("fedbiomed.node.round.Round._split_train_and_test_data")
+    @patch(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
+    )
+    @patch("uuid.uuid4")
+    def test_round_02d_run_model_training_logs_start_context(
+        self, uuid_patch, tp_security_manager_patch, mock_split_test_train_data
+    ):
+        """Tests that successful training emits the structured round start debug log."""
+
+        FakeModel.SLEEPING_TIME = 0
+        uuid_patch.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {"name": "model_name"})
+        mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
+
+        self.r1.initialize_arguments()
+
+        with patch("fedbiomed.node.round.logger.debug") as logger_debug:
+            msg = self.r1.run_model_training(
+                tp_approval=False,
+                secagg_active=False,
+                force_secagg=False,
+                secagg_insecure_validation=True,
+            )
+
+        self.assertTrue(msg.get_dict().get("success", False))
+        self.assertTrue(
+            any(
+                call.args[0]
+                == (
+                    f"Starting round execution: node_id={self.r1._node_id} "
+                    f"experiment={self.r1.experiment_id} round={self.r1._round} "
+                    f"training={self.r1.training} dataset={self.r1.dataset.get('dataset_id')} "
+                    "secagg_active=False force_secagg=False "
+                    "dp_active=False secagg_args_keys=[]"
+                )
+                for call in logger_debug.call_args_list
+            )
+        )
+
+    def test_round_02e_send_round_reply_logs_build_context(self):
+        """Tests `_send_round_reply` emits the new debug logs when building replies."""
+
+        extend_with = {
+            "encrypted": True,
+            "params": {"weights": [1, 2]},
+            "optim_aux_var": {"scaffold": 1},
+        }
+        timing = {"total_time": 1.23}
+
+        with patch("fedbiomed.node.round.logger.debug") as logger_debug:
+            reply = self.r1._send_round_reply(
+                success=True,
+                message="ok",
+                extend_with=extend_with,
+                timing=timing,
+            )
+
+        self.assertTrue(reply.success)
+        self.assertEqual(reply.dataset_id, self.r1.dataset["dataset_id"])
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Building round reply: experiment=%s round=%s success=%s message=%s extend_keys=%s timing_keys=%s encrypted=%s has_params=%s has_aux_var=%s"
+                and call.args[1:]
+                == (
+                    self.r1.experiment_id,
+                    self.r1._round,
+                    True,
+                    True,
+                    sorted(extend_with.keys()),
+                    sorted(timing.keys()),
+                    True,
+                    True,
+                    True,
+                )
+                for call in logger_debug.call_args_list
+            )
+        )
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Built round reply: experiment=%s round=%s reply_type=%s success=%s encrypted=%s dataset=%s"
+                and call.args[1:]
+                == (
+                    self.r1.experiment_id,
+                    self.r1._round,
+                    reply.__class__.__name__,
+                    True,
+                    True,
+                    self.r1.dataset["dataset_id"],
+                )
+                for call in logger_debug.call_args_list
+            )
+        )
 
     @patch("fedbiomed.node.round.Round._split_train_and_test_data")
     @patch(
@@ -1187,6 +1400,90 @@ class TestRound(unittest.TestCase):
         self.state_manager_mock.return_value.initialize.assert_called_once_with(
             previous_state_id=previous_state_id, testing=False
         )
+
+
+########################################
+###### ADDING NEW TESTS IN PYTEST ######
+########################################
+
+
+def test_round_run_model_training_model_params_init_error(monkeypatch, round):
+    class DummyTrainingPlan:
+        def post_init(self, model_args=None, training_args=None, aggregator_args=None):
+            return None
+
+        def set_model_params(self, params):
+            raise Exception("boom")
+
+    monkeypatch.setattr("uuid.uuid4", lambda: FakeUuid())
+    monkeypatch.setattr(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status",
+        lambda *args, **kwargs: (True, {"name": "model_name"}),
+    )
+
+    round.ic_from_file_mock.return_value = (object(), DummyTrainingPlan())
+
+    round.r1.initialize_arguments()
+    reply = round.r1.run_model_training(
+        tp_approval=False,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_insecure_validation=True,
+    )
+
+    assert reply.success is False
+
+
+def test_round_run_model_training_data_loader_fedbiomed_error(monkeypatch, round):
+    monkeypatch.setattr("uuid.uuid4", lambda: FakeUuid())
+    monkeypatch.setattr(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status",
+        lambda *args, **kwargs: (True, {"name": "model_name"}),
+    )
+    monkeypatch.setattr(
+        round.r1,
+        "_split_train_and_test_data",
+        lambda *args, **kwargs: (_ for _ in ()).throw(FedbiomedError("bad loader")),
+    )
+
+    round.r1.initialize_arguments()
+    reply = round.r1.run_model_training(
+        tp_approval=False,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_insecure_validation=True,
+    )
+
+    assert reply.success is False
+    assert "Can not create validation/train data" in reply.msg
+    assert "bad loader" in reply.msg
+
+
+def test_round_run_model_training_data_loader_unexpected_error(monkeypatch, round):
+    monkeypatch.setattr("uuid.uuid4", lambda: FakeUuid())
+    monkeypatch.setattr(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status",
+        lambda *args, **kwargs: (True, {"name": "model_name"}),
+    )
+    monkeypatch.setattr(
+        round.r1,
+        "_split_train_and_test_data",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            Exception("unexpected loader failure")
+        ),
+    )
+
+    round.r1.initialize_arguments()
+    reply = round.r1.run_model_training(
+        tp_approval=False,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_insecure_validation=True,
+    )
+
+    assert reply.success is False
+    assert "Undetermined error while creating data for training/validation" in reply.msg
+    assert "unexpected loader failure" in reply.msg
 
 
 if __name__ == "__main__":  # pragma: no cover

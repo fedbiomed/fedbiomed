@@ -127,7 +127,10 @@ def start_node(config, node_args):
             time.sleep(0.5)
             sys.exit(signum)
 
-    logger.setLevel("DEBUG")
+    if getattr(_node, "_debug", False):
+        logger.setLevel("DEBUG")
+    else:
+        logger.setLevel("INFO")
 
     try:
         signal.signal(signal.SIGTERM, _node_signal_handler)
@@ -483,6 +486,14 @@ class NodeControl(CLIArgumentParser):
             "This flag automatically activate GPU.",
         )
 
+        start.add_argument(
+            "--debug",
+            "-D",
+            action="store_true",
+            required=False,
+            help="Activate debug mode for the Node. Default is `False`",
+        )
+
     def start(self, args):
         """Starts the node"""
         intro()
@@ -492,6 +503,7 @@ class NodeControl(CLIArgumentParser):
             "gpu": (args.gpu is True) or (args.gpu_only is True),
             "gpu_num": args.gpu_num,
             "gpu_only": True if args.gpu_only else False,
+            "debug": True if args.debug else False,
         }
 
         # Node instance has to be re-instantiated in start_node

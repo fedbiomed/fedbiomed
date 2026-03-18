@@ -75,7 +75,6 @@ class Config(metaclass=ABCMeta):
         # Set up security logging for config operations
         # This ensures security events are captured even before Node/Researcher initialization
         logger.set_security_logs(root_path=root)
-        logger.setLevel("INFO")
         self.load(root)
 
     @classmethod

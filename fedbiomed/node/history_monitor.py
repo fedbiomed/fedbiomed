@@ -7,6 +7,7 @@ Send information from node to researcher during the training
 
 from typing import Callable, Dict, Union
 
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FeedbackMessage, Scalar
 
 
@@ -24,7 +25,7 @@ class HistoryMonitor:
         """Simple constructor for the class.
 
         Args:
-            nod_id: Unique ID of this node
+            node_id: Unique ID of this node
             experiment_id: TODO
             researcher_id: TODO
             client: TODO
@@ -34,6 +35,13 @@ class HistoryMonitor:
         self.experiment_id = experiment_id
         self.researcher_id = researcher_id
         self.send = send
+
+        logger.debug(
+            "Initialized history monitor for: node=%s experiment=%s researcher=%s",
+            self._node_id,
+            self.experiment_id,
+            self.researcher_id,
+        )
 
     def add_scalar(
         self,

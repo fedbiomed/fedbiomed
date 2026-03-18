@@ -186,3 +186,29 @@ fedbiomed node -p my-second-node gui start --port 8383
 
 Please see `docs/developer/development-environment.md` to find out how to debug and lunch UI for development purposes.
 
+## Troubleshooting
+
+Fedbiomed includes a debug mode, which when enabled prints more verbose outputs, including the caller function and line number in the output. The debug mode can be enabled separately on Node or Researcher, for component specific outputs, or can be enabled for both.
+
+To enable per component, simply add `--debug` while starting the component, such as:
+
+```bash
+$ fedbiomed node start --debug
+```
+
+or 
+
+```bash
+$ fedbiomed researcher start --debug
+```
+
+To enable for both components, set the environment variable `'FBM_DEBUG'` to `1, 'yes' or True`, and then start the component as usual.
+
+```bash
+$ export FBM_DEBUG=1
+$ fedbiomed node start
+```
+
+The debug mode includes more detailed information in component initializations, training round starts and finishes, database operations (such as for datasets, training plans...) and the connection information between nodes-researcher and node-to-node.
+
+

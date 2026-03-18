@@ -64,6 +64,10 @@ DEFAULT_SECURITY_LOG_FILE = "security_audit.log"
 DEFAULT_LOG_LEVEL = logging.WARNING
 LOG_PREFIX = "%(prefix)s"
 DEFAULT_FORMAT = f"%(asctime)s %(name)s{LOG_PREFIX} %(levelname)s - %(message)s"
+DEBUG_FORMAT = (
+    f"%(asctime)s %(name)s{LOG_PREFIX} %(levelname)s "
+    "[%(module)s.%(funcName)s:%(lineno)d] - %(message)s"
+)
 
 # --- Security context (propagates across modules) ---
 SECURITY_CONTEXT: ContextVar[dict] = ContextVar(
@@ -296,6 +300,7 @@ class FedLogger(metaclass=SingletonMeta):
 
         # Store base format used by handlers
         self._original_format = {}
+        self._handler_prefix = {}
 
         # init the handlers list and add a console handler on startup
         self._handlers = {}
@@ -377,8 +382,14 @@ class FedLogger(metaclass=SingletonMeta):
         # Disable buffering to ensure immediate writes
         handler.stream.reconfigure(line_buffering=True)
 
+        handler_name = "SECURITY_FILE"
         # Register under its own key so it doesn't collide with FILE handler
-        self._internal_add_handler("SECURITY_FILE", handler, None)
+        if handler_name not in self._handlers:
+            self._logger.debug(" adding handler for: " + handler_name)
+            self._handlers[handler_name] = handler
+            self._logger.addHandler(handler)
+            self._original_format[handler_name] = None
+            self._handler_prefix[handler_name] = ""
 
     def security_event(
         self,
@@ -516,6 +527,8 @@ class FedLogger(metaclass=SingletonMeta):
             self._logger.addHandler(handler)
             self._handlers[output].setLevel(self._default_level)
             self._original_format[output] = format
+            self._handler_prefix[output] = ""
+            self._set_handler_formatter(output)
         else:
             self._logger.warning(output + " handler already present - ignoring")
 
@@ -568,9 +581,6 @@ class FedLogger(metaclass=SingletonMeta):
         handler = logging.FileHandler(filename=filename, mode="a")
         handler.setLevel(self._internal_level_translator(level))
 
-        formatter = logging.Formatter(format.replace(LOG_PREFIX, ""))
-        handler.setFormatter(formatter)
-
         self._internal_add_handler("FILE", handler, format)
 
     def add_console_handler(
@@ -588,9 +598,6 @@ class FedLogger(metaclass=SingletonMeta):
             handler = logging.StreamHandler()
 
         handler.setLevel(self._internal_level_translator(level))
-
-        formatter = logging.Formatter(format.replace(LOG_PREFIX, ""))
-        handler.setFormatter(formatter)
 
         # Prevent security audit logs from appearing in interactive console (e.g., IPython).
         handler.addFilter(_ExcludeSecurityFilter())
@@ -628,7 +635,9 @@ class FedLogger(metaclass=SingletonMeta):
         self._internal_add_handler("GRPC", handler)
 
         # as a side effect this will set the minimal level to ERROR
-        self.setLevel(level, "GRPC")
+        # FIXME: alitolga: This could cause problems in the logging level,
+        # I believe the level should be set when node and researcher get started.
+        # self.setLevel(level, "GRPC")
 
         pass
 
@@ -667,10 +676,12 @@ class FedLogger(metaclass=SingletonMeta):
 
             for h in self._handlers:
                 self._handlers[h].setLevel(level)
+                self._set_handler_formatter(h)
             return
 
         if htype in self._handlers:
             self._handlers[htype].setLevel(level)
+            self._set_handler_formatter(htype)
             return
 
         # htype provided but no handler for this type exists
@@ -683,14 +694,30 @@ class FedLogger(metaclass=SingletonMeta):
             prefix: Prefix to add to all log messages
         """
         for h in self._handlers:
-            if h == "SECURITY_FILE":
-                continue
-            if self._original_format[h] is not None:
-                self._handlers[h].setFormatter(
-                    logging.Formatter(
-                        self._original_format[h].replace(LOG_PREFIX, prefix),
-                    )
-                )
+            self._handler_prefix[h] = prefix
+            self._set_handler_formatter(h)
+
+    def _set_handler_formatter(self, output: str) -> None:
+        """Configure formatter for a handler based on its current level."""
+        if output not in self._handlers or output == "SECURITY_FILE":
+            return
+
+        if output == "GRPC":
+            return
+
+        base_format = self._original_format.get(output)
+        if base_format is None:
+            return
+
+        prefix = self._handler_prefix.get(output, "")
+        if self._handlers[output].level <= logging.DEBUG:
+            effective_format = DEBUG_FORMAT
+        else:
+            effective_format = base_format
+
+        self._handlers[output].setFormatter(
+            logging.Formatter(effective_format.replace(LOG_PREFIX, prefix))
+        )
 
     def info(self, msg, *args, broadcast=False, researcher_id=None, **kwargs):
         """Extends arguments of info message.

@@ -38,6 +38,7 @@ class GrpcAsyncTaskController:
         Raises:
             FedbiomedCommunicationError: bad argument type
         """
+        ### (OPTIONAL) DEBUG THE INITIALIZATION OF GRPC CONTROLLER BY THE NODE
 
         # inform all threads whether communication client is started
         self._is_started = threading.Event()
@@ -58,15 +59,32 @@ class GrpcAsyncTaskController:
 
         self._debug = debug
         self._on_message = on_message
+        logger.debug(
+            "Initialized gRPC async controller: node_id=%s researchers=%s debug=%s",
+            node_id,
+            [f"{researcher.host}:{researcher.port}" for researcher in researchers],
+            debug,
+        )
 
     async def start(self) -> None:
         """ "Starts the tasks for each GrpcClient"""
+        logger.debug(
+            "Starting gRPC async controller: node_id=%s researcher_count=%d",
+            self._node_id,
+            len(self._researchers),
+        )
 
         tasks = []
         for researcher in self._researchers:
             client = GrpcClient(self._node_id, researcher, self._update_id_ip_map)
             tasks.append(client.start(on_task=self._on_message))
             self._clients[f"{researcher.host}:{researcher.port}"] = client
+            logger.debug(
+                "Registered gRPC client: node_id=%s researcher=%s:%s",
+                self._node_id,
+                researcher.host,
+                researcher.port,
+            )
 
         self._loop = asyncio.get_running_loop()
 
@@ -89,6 +107,11 @@ class GrpcAsyncTaskController:
             broadcast: Broadcast the message to all available researcher. This option should be used for general
                 node state messages (e.g. general Error)
         """
+        logger.debug(
+            f"GrpcAsyncTaskController: Sending message {message.__class__.__name__} "
+            f"to researcher {message.researcher_id} with broadcast={broadcast}"
+        )
+
         if broadcast:
             return await self._broadcast(message)
 
@@ -115,6 +138,9 @@ class GrpcAsyncTaskController:
         """
         async with self._ip_id_map_lock:
             self._ip_id_map.update({id_: ip})
+            logger.debug(
+                f"GrpcAsyncTaskController: Updated IP-ID map with IP {ip} and ID {id_}"
+            )
 
     async def is_connected(self) -> bool:
         """Checks if there is running tasks"""
