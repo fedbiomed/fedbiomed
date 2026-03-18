@@ -171,18 +171,14 @@ def test_node_agent_on_reply_pending_request(monkeypatch, node_agent):
 
 
 def test_node_agent_on_reply_overlay_message(monkeypatch, node_agent):
-    seen = {"reply": None}
+    seen = {"forwarded": None}
 
-    def callback(reply):
-        seen["reply"] = reply
+    async def on_forward(message):
+        seen["forwarded"] = message
 
     overlay = object.__new__(OverlayMessage)
     overlay.request_id = "req-overlay"
-
-    node_agent.node_agent._replies["req-overlay"] = {
-        "reply": None,
-        "callback": callback,
-    }
+    node_agent.node_agent._on_forward = on_forward
 
     monkeypatch.setattr(
         "fedbiomed.transport.node_agent.Message.from_dict",
@@ -191,8 +187,8 @@ def test_node_agent_on_reply_overlay_message(monkeypatch, node_agent):
 
     node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
 
-    assert node_agent.node_agent._replies["req-overlay"]["reply"] is overlay
-    assert seen["reply"] is overlay
+    assert seen["forwarded"] is overlay
+    assert "req-overlay" not in node_agent.node_agent._replies
 
 
 def test_node_agent_on_reply_multiple_reply_warning(monkeypatch, node_agent):

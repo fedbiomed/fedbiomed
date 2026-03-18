@@ -427,18 +427,12 @@ class TestRound(unittest.TestCase):
         self.assertTrue(
             any(
                 call.args[0]
-                == "Starting round execution: node_id=%s experiment=%s round=%s training=%s dataset=%s secagg_active=%s force_secagg=%s dp_active=%s secagg_args_keys=%s"
-                and call.args[1:]
                 == (
-                    self.r1._node_id,
-                    self.r1.experiment_id,
-                    self.r1._round,
-                    self.r1.training,
-                    self.r1.dataset.get("dataset_id"),
-                    False,
-                    False,
-                    False,
-                    [],
+                    f"Starting round execution: node_id={self.r1._node_id} "
+                    f"experiment={self.r1.experiment_id} round={self.r1._round} "
+                    f"training={self.r1.training} dataset={self.r1.dataset.get('dataset_id')} "
+                    "secagg_active=False force_secagg=False "
+                    "dp_active=False secagg_args_keys=[]"
                 )
                 for call in logger_debug.call_args_list
             )

@@ -14,6 +14,7 @@ from helpers import (
     training_plan_operation,
 )
 
+from fedbiomed.common.exceptions import FedbiomedStrategyError
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.experiment import Experiment
 
@@ -105,7 +106,7 @@ def test_01_training_plan_approval_failure_success_cases(setup_components):
     )
 
     # Training plan is not approved exp.run should fail
-    with pytest.raises(SystemExit):
+    with pytest.raises(FedbiomedStrategyError):
         exp.run()
 
     # Check status
@@ -160,7 +161,7 @@ def test_01_training_plan_approval_failure_success_cases(setup_components):
     assert status[node_2_id].status == "Rejected"
 
     # Should not be able to run experiment with rejected training plan
-    with pytest.raises(SystemExit):
+    with pytest.raises(FedbiomedStrategyError):
         exp.run(rounds=2, increase=True)
 
     # Important always clear experiment  data
