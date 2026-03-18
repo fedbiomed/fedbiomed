@@ -8,6 +8,8 @@ Implementation of Federated Analytics Job class of the node component
 from typing import Dict
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, FedbiomedError, Stats
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
+from fedbiomed.common.dataset import REGISTRY_CONTROLLERS, Dataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
@@ -18,7 +20,7 @@ from ._base_job import _BaseJob, _InternalJobError
 
 class FAJob(_BaseJob):
     """
-    This class represents the training part execute by a node in a given Federated Analytics job.
+    Represents the analytics execution performed by a node in a Federated Analytics job.
     """
 
     def __init__(
@@ -51,14 +53,29 @@ class FAJob(_BaseJob):
         self._allow_fa = allow_fa
 
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
-        """Generate dataset arguments based on the dataset type by default."""
+        """Extract dataset constructor arguments from a dataset registry entry.
+
+        Reads the ``data_type`` field of ``dataset_entry`` and returns a kwargs
+        dict suitable for passing to the corresponding dataset class constructor.
+
+        Args:
+            dataset_entry: Dataset metadata dict as stored in the node dataset
+                table. Expected keys vary by data type.
+
+        Returns:
+            A kwargs dict for the dataset class constructor, e.g.
+            ``{"input_columns": ["age", "weight"]}`` for tabular data.
+
+        Raises:
+            _InternalJobError: if ``data_type`` is unknown or not yet supported.
+        """
         data_type = dataset_entry.get("data_type")
         dataset_type = DatasetTypes.get_type_by_value(data_type)
 
         match dataset_type:
             case None:
                 # This should not happen, but this check is added for safety
-                raise FedbiomedError(
+                raise _InternalJobError(
                     f"Dataset entry contains unsupported dataset type '{data_type}'."
                 )
             case DatasetTypes.TABULAR:
@@ -71,9 +88,72 @@ class FAJob(_BaseJob):
                 # Take keys in 'shape' and pass them as ``data_modalities`` to the dataset constructor
                 return {"data_modalities": list(dataset_entry.get("shape", {}))}
             case _:
-                raise FedbiomedError(
+                raise _InternalJobError(
                     f"Dataset arguments by default are not implemented for dataset type '{data_type}'."
                 )
+
+    def _build_dataset(
+        self,
+        return_type: DataReturnFormat = DataReturnFormat.SKLEARN,
+    ) -> Dataset:
+        """Build a ready-to-use dataset instance from ``self._dataset_id``.
+
+        Args:
+            return_type: Output format for the data loader.
+
+        Returns:
+            Fully initialised ``Dataset`` instance.
+
+        Raises:
+            _InternalJobError: if the dataset entry cannot be found, its type is
+                unsupported, the DLP cannot be deserialised, or initialisation fails.
+        """
+        # recover dataset entry
+        dataset_entry = self._dataset_manager.dataset_table.get_by_id(self._dataset_id)
+        if dataset_entry is None:
+            raise _InternalJobError(
+                f"Cannot find requested dataset in local datasets: dataset_id='{self._dataset_id}' "
+                f"on node='{self._node_id}'"
+            )
+
+        # check that data type is supported and get dataset class
+        data_type = dataset_entry.get("data_type")
+        dataset_type = DatasetTypes.get_type_by_value(data_type)
+        if dataset_type not in REGISTRY_CONTROLLERS:
+            raise _InternalJobError(
+                f"Data type '{dataset_type}' not supported in jobs, available types: "
+                f"{list(REGISTRY_CONTROLLERS.keys())}"
+            )
+
+        # get controller parameters
+        controller_kwargs = {
+            "root": dataset_entry.get("path"),
+            **dataset_entry.get("dataset_parameters", {}),
+        }
+
+        # recover dlp if any
+        if "dlp_id" in dataset_entry:
+            dlp_metadata = self._dataset_manager.get_dlp_by_id(dataset_entry["dlp_id"])
+            try:
+                controller_kwargs["dlp"] = DataLoadingPlan().deserialize(*dlp_metadata)
+            except FedbiomedError as e:
+                raise _InternalJobError(
+                    f"Cannot recover dlp on node={self._node_id}: {repr(e)}"
+                ) from e
+
+        # REGISTRY_CONTROLLERS maps dataset_type -> (controller_cls, loader_cls, dataset_cls)
+        _, _, dataset_cls = REGISTRY_CONTROLLERS[dataset_type]
+
+        try:
+            # build with type-specific args then attach controller config and output format
+            dataset = dataset_cls(**self._build_args_for_dataset(dataset_entry))
+            dataset.complete_initialization(controller_kwargs, return_type)
+        except FedbiomedError as e:
+            raise _InternalJobError(
+                f"Cannot initialize dataset on node='{self._node_id}': {repr(e)}"
+            ) from e
+
+        return dataset
 
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
