@@ -294,6 +294,7 @@ class Config(metaclass=ABCMeta):
             self._cfg["default"]["db"] = os.path.relpath(
                 db_path, os.path.join(self.root, CONFIG_FOLDER_NAME)
             )
+            self._cfg["syslog"] = {"enable": "False"}
 
             # Calls child class add_parameterss
             self.add_parameters()
