@@ -32,6 +32,7 @@ def fa_request(request_args):
 def fa_job_args(fa_request):
     return {
         "root_dir": "/tmp/root",
+        "db": "/tmp/test_node.json",
         "dataset_manager": MagicMock(),
         "node_id": "node_1",
         "node_name": "test_node",

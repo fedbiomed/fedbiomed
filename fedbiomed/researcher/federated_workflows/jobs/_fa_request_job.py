@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
@@ -26,15 +26,24 @@ class FARequestJob(Job):
         experiment_id: str,
         fa_id: str,
         federated_dataset: dict,
-        stats_args: Optional[dict],
-        stats: Optional[list],
-        dataset_schema: Optional[list],
+        stats_args: dict,
+        stats: list,
+        dataset_schema: list,
+        secagg: bool = False,
+        secagg_arguments: Optional[dict] = None,
         **kwargs,
     ) -> None:
         """Initialize the FARequestJob with the given FA request.
 
         Args:
-            fa_request: The FA request to be associated with this job.
+            experiment_id: ID of the experiment.
+            fa_id: ID of the federated analytics request.
+            federated_dataset: The federated dataset.
+            fa_args: Arguments for federated analytics.
+            stats: Statistics to compute.
+            dataset_schema: Schema for the dataset.
+            secagg: Whether to use secure aggregation.
+            secagg_arguments: Arguments for secure aggregation.
         """
         super().__init__(**kwargs)
 
@@ -49,6 +58,8 @@ class FARequestJob(Job):
         self._stats_args = stats_args
         self._dataset_schema = dataset_schema
         self._stats = stats
+        self._secagg = secagg
+        self._secagg_arguments = secagg_arguments or {}
 
     def execute(self) -> Dict[str, FAReply]:
         """Executes federated analytics request
@@ -63,6 +74,8 @@ class FARequestJob(Job):
             fa_id=self._fa_id,
             stats_args=self._stats_args,
             dataset_schema=self._dataset_schema,
+            secagg=self._secagg,
+            secagg_arguments=self._secagg_arguments,
         )
 
         requests = MessagesByNode()

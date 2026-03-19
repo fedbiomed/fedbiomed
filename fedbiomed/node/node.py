@@ -636,6 +636,7 @@ class Node:
                             )
                             fa_job = FAJob(
                                 root_dir=self._config.root,
+                                db=self._db_path,
                                 dataset_manager=self.dataset_manager,
                                 node_id=self._node_id,
                                 node_name=self._node_name,
