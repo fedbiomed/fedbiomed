@@ -226,9 +226,11 @@ class AnalyticsOrchestrator:
 
         # Validate Subschema
         if subschema is not None:
-            if not isinstance(subschema, (list, tuple)):
+            if isinstance(subschema, str):
+                subschema = [subschema]
+            elif not isinstance(subschema, (list, tuple)):
                 raise FedbiomedError(
-                    f"Subschema for sequence must be list/tuple. Got {type(subschema)}."
+                    f"Subschema for sequence must be list/tuple or str. Got {type(subschema)}."
                 )
             if len(subschema) != len(active):
                 # Dataset schemas use the (data_schema, None) convention. Allow unwrapping for user convenience.
@@ -289,8 +291,12 @@ class AnalyticsOrchestrator:
     ) -> Dict[str, Any]:
         # Validate Subschema
         if subschema is not None:
-            if not isinstance(subschema, (list, tuple)):
-                raise FedbiomedError("Subschema for ROW must be a list of columns.")
+            if isinstance(subschema, str):
+                subschema = [subschema]
+            elif not isinstance(subschema, (list, tuple)):
+                raise FedbiomedError(
+                    "Subschema for ROW must be a list of columns or a single string."
+                )
             invalid = set(subschema) - set(schema.columns)
             if invalid:
                 raise FedbiomedError(f"Invalid columns in subschema: {invalid}")
