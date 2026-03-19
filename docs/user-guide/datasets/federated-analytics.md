@@ -52,8 +52,8 @@ The statistics available depend on the element type:
 | Statistic | What it computes | Extra arguments required |
 |---|---|---|
 | `count` | Number of samples and shape information | — |
-| `mean` | Per-pixel (or per-voxel) mean across all nodes | — |
-| `variance` | Per-pixel (or per-voxel) population variance across all nodes | — |
+| `mean` | Element-wise mean across all nodes | — |
+| `variance` | Element-wise population variance across all nodes | — |
 
 ---
 
@@ -71,7 +71,7 @@ If your dataset inherits from `fedbiomed.common.dataset.Dataset`, one addition i
 `__getitem__` returns a `(data, target)` tuple. `analytics_schema()` mirrors that structure: it returns a `(data_spec, target_spec)` tuple where each spec is either a `RowSpec`, an `ImageSpec`, or `None` (meaning "skip this part").
 
 - Use `RowSpec(columns=[...])` when the element is a 2-D NumPy array whose columns have names (tabular data). The column list must match the column order that `__getitem__` actually returns in that position.
-- Use `ImageSpec()` when the element is an N-D NumPy array without named columns (images, voxel grids, …).
+- Use `ImageSpec()` when the element is an N-D NumPy array.
 - Use `None` for parts that analytics should ignore (typically the target).
 
 ```python

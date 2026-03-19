@@ -49,9 +49,9 @@ To avoid redundant network requests, results are cached per `(node_ids, dataset_
 A **convenience method** is a thin wrapper around `fetch_stats` that covers the most common use-cases without requiring you to name the statistic explicitly. Each one sends the request, waits for all nodes to respond, aggregates the partial results, and returns the global value in a single call:
 
 ```python
-count    = exp.analytics.count()     # total number of samples across all nodes
-mean     = exp.analytics.mean()      # per-column (or per-pixel) mean
-variance = exp.analytics.variance()  # per-column (or per-pixel) variance
+count    = exp.analytics.count()
+mean     = exp.analytics.mean()
+variance = exp.analytics.variance()
 ```
 
 The return value is a dict keyed by column name (for tabular data) or by modality name (for multi-modal data). For example, on a two-node tabular dataset with columns `year`, `price`, `mileage`, `mpg`, …:
@@ -90,12 +90,12 @@ mean = exp.analytics.mean(dataset_schema=["age", "bmi"])
 
 **Multi-modal dataset — select modalities, and optionally columns within them:**
 
-For datasets that expose multiple modalities (e.g. images paired with a clinical table), `dataset_schema` is either a list of modality names to include in full, or a dict mapping each modality name to a column selector for that modality (`None` means include all columns for that modality):
+For datasets that expose multiple modalities, `dataset_schema` is either a list of modality names to include in full, or a dict mapping each modality name to a column selector for that modality:
 
 ```python
-# Include the whole 'T1' image modality and only 'age'/'bmi' from 'demographics'
+# Include 'age'/'bmi' from 'demographics'
 mean = exp.analytics.mean(
-    dataset_schema={"T1": None, "demographics": ["age", "bmi"]}
+    dataset_schema={"demographics": ["age", "bmi"]}
 )
 ```
 
@@ -103,7 +103,7 @@ mean = exp.analytics.mean(
     Any modality not mentioned in `dataset_schema` is excluded from the computation.
 
 
-### Using `fetch_stats`
+### Using `fetch_stats` and `fetch_stats_with_args`
 
 The convenience methods internally call `fetch_stats`. You can call it directly when you need full control over what is requested or want to inspect per-node results. It returns an `FAResult` object:
 
@@ -123,25 +123,25 @@ all_stats = result.global_stats()
 node_output = result.node_stats("node-id-1")
 ```
 
+For statistics that require computation parameters (e.g. `histogram`), use `fetch_stats_with_args` instead. Schema selection and parameters are both encoded inside `stats_args` — there is no separate `dataset_schema`.
+
 ---
 
 ### Statistics Requiring Arguments
 
-`histogram` needs to know the bin edges for each column upfront. The bins must be **identical across all nodes** so that the per-node counts can be summed into a global histogram. Supply them through `stats_args`:
+`histogram` needs to know the bin edges for each column upfront. The bins must be **identical across all nodes** so that the per-node counts can be summed into a global histogram. Use `fetch_stats_with_args` and supply both schema selection and parameters inside `stats_args`:
 
 ```python
-result = exp.analytics.fetch_stats(
+result = exp.analytics.fetch_stats_with_args(
     stats_args={
-        "histogram": {
-            "age":    {"bin_edges": [0, 20, 40, 60, 80, 100]},
-            "income": {"bin_edges": [0, 25000, 50000, 75000, 100000]},
-        }
+        "age":    {"histogram": {"bin_edges": [0, 20, 40, 60, 80, 100]}},
+        "income": {"histogram": {"bin_edges": [0, 25000, 50000, 75000, 100000]}},
     }
 )
 ```
 
-!!! note "`stats_args` and `stats`"
-    `stats_args` and `stats` can be combined in a single call. At least one of the two must be provided.
+!!! note "`fetch_stats_with_args` vs `fetch_stats`"
+    `fetch_stats_with_args` does not accept a `dataset_schema` argument — schema selection is embedded in `stats_args`. Use `fetch_stats` for all statistics that do not require extra parameters.
 
 ---
 
@@ -227,5 +227,5 @@ result.node_ids
 
 | Error message | Cause | Fix |
 |---|---|---|
-| `At least one of 'stats' or 'stats_args' must be provided` | `fetch_stats()` was called with no arguments | Pass at least `stats="mean"` (or another statistic name) or a `stats_args` dict |
+| `At least one of 'stats' or 'stats_args' must be provided` | `fetch_stats()` was called with no arguments | Pass at least `stats="mean"` (or another statistic name), or use `fetch_stats_with_args` with a `stats_args` dict |
 | `Federated Analytics are not allowed on this node` | A node has `allow_federated_analytics = False` in its config | Ask the node operator to enable the flag — see [Federated Analytics — Nodes](../nodes/federated-analytics.md) |
