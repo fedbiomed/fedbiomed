@@ -75,12 +75,6 @@ def start_node(config, node_args):
         name: Config name for the node
         node_args: Arguments for the node
     """
-    logger.addSyslogHandler(
-        host="127.0.0.1",
-        port=50064,
-        protocol="udp",  # or "tcp"
-        level="INFO",
-    )
 
     _node = Node(config, node_args)
 

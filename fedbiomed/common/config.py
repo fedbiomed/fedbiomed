@@ -18,7 +18,7 @@ from fedbiomed.common.constants import (
     ErrorNumbers,
 )
 from fedbiomed.common.exceptions import FedbiomedConfigurationError
-from fedbiomed.common.logger import logger
+from fedbiomed.common.logger import SYSLOG_FACILITY_MAP, logger
 from fedbiomed.common.utils import (
     create_fedbiomed_setup_folders,
     raise_for_version_compatibility,
@@ -76,6 +76,42 @@ class Config(metaclass=ABCMeta):
         # This ensures security events are captured even before Node/Researcher initialization
         logger.set_security_logs(root_path=root)
         self.load(root)
+        self.add_syslog_from_config()
+
+    def add_syslog_from_config(self):
+        if not self.getbool("syslog", "enable", fallback="False"):
+            logger.info(
+                "Syslog configuration is disabled or not found in configuration"
+            )
+            logger.info("Disabling syslog logging.")
+            return
+
+        host = self.get("syslog", "host", fallback="localhost")
+        port = self.getint("syslog", "port", fallback=514)
+        protocol = self.get("syslog", "protocol", fallback="udp").lower()
+        facility_name = self.get("syslog", "facility", fallback="user").lower()
+        level_name = self.get("syslog", "level", fallback="INFO").upper()
+
+        if protocol not in {"udp", "tcp"}:
+            raise FedbiomedConfigurationError(
+                f"Unsupported syslog protocol: {protocol}"
+            )
+
+        if facility_name not in SYSLOG_FACILITY_MAP.keys():
+            raise FedbiomedConfigurationError(
+                f"Unsupported syslog facility: {facility_name}"
+            )
+
+        if level_name not in logger._nameToLevel.keys():
+            raise FedbiomedConfigurationError(f"Unsupported syslog level: {level_name}")
+
+        logger.add_syslog_handler(
+            host=host,
+            port=port,
+            protocol=protocol,
+            facility=SYSLOG_FACILITY_MAP[facility_name],
+            level=level_name,
+        )
 
     @classmethod
     @abstractmethod

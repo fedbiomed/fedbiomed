@@ -76,6 +76,30 @@ SECURITY_CONTEXT: ContextVar[dict] = ContextVar(
 )
 
 
+SYSLOG_FACILITY_MAP = {
+    "kern": SysLogHandler.LOG_KERN,
+    "user": SysLogHandler.LOG_USER,
+    "mail": SysLogHandler.LOG_MAIL,
+    "daemon": SysLogHandler.LOG_DAEMON,
+    "auth": SysLogHandler.LOG_AUTH,
+    "syslog": SysLogHandler.LOG_SYSLOG,
+    "lpr": SysLogHandler.LOG_LPR,
+    "news": SysLogHandler.LOG_NEWS,
+    "uucp": SysLogHandler.LOG_UUCP,
+    "cron": SysLogHandler.LOG_CRON,
+    "authpriv": SysLogHandler.LOG_AUTHPRIV,
+    "ftp": SysLogHandler.LOG_FTP,
+    "local0": SysLogHandler.LOG_LOCAL0,
+    "local1": SysLogHandler.LOG_LOCAL1,
+    "local2": SysLogHandler.LOG_LOCAL2,
+    "local3": SysLogHandler.LOG_LOCAL3,
+    "local4": SysLogHandler.LOG_LOCAL4,
+    "local5": SysLogHandler.LOG_LOCAL5,
+    "local6": SysLogHandler.LOG_LOCAL6,
+    "local7": SysLogHandler.LOG_LOCAL7,
+}
+
+
 # --- Helper functions for security logging ---
 def _utc_timestamp() -> str:
     """UTC timestamp in ISO8601 with Z suffix (no milliseconds)."""
@@ -502,7 +526,7 @@ class FedLogger(metaclass=SingletonMeta):
         )
 
     def _internal_add_handler(
-        self, output: str, handler: Callable, format: Optional[str] = None
+        self, handler_key: str, handler: Callable, format: Optional[str] = None
     ):
         """Private method
 
@@ -510,28 +534,27 @@ class FedLogger(metaclass=SingletonMeta):
         for a given output (type)
 
         Args:
-            output: Tag for the logger ("CONSOLE", "FILE", "SECURITY_FILE"), this is a string used as a hash key
+            handler_key: Name of the handler ("CONSOLE", "FILE", "SECURITY_FILE", "SYSLOG"), this is a string used as a hash key
             handler: Proper handler to install. if handler is None, it will remove the previous installed handler
             format: format string for this handler
         """
         if handler is None:
-            if output in self._handlers:
-                self.removeHandler(self._handlers[output])
-                del self._handlers[output]
-                del self._original_format[output]
-                self._logger.debug(" removing handler for: " + output)
+            if handler_key in self._handlers:
+                self.removeHandler(self._handlers[handler_key])
+                del self._handlers[handler_key]
+                del self._original_format[handler_key]
+                self._logger.debug(" removing handler for: " + handler_key)
             return
 
-        if output not in self._handlers:
-            self._logger.debug(" adding handler for: " + output)
-            self._handlers[output] = handler
+        if handler_key not in self._handlers:
+            self._logger.debug(" adding handler for: " + handler_key)
+            self._handlers[handler_key] = handler
             self._logger.addHandler(handler)
-            self._handlers[output].setLevel(self._default_level)
-            self._original_format[output] = format
-            self._handler_prefix[output] = ""
-            self._set_handler_formatter(output)
+            if handler.level == logging.NOTSET:
+                self._handlers[handler_key].setLevel(self._default_level)
+            self._original_format[handler_key] = format
         else:
-            self._logger.warning(output + " handler already present - ignoring")
+            self._logger.warning(handler_key + " handler already present - ignoring")
 
         pass
 
@@ -565,18 +588,13 @@ class FedLogger(metaclass=SingletonMeta):
 
         return DEFAULT_LOG_LEVEL
 
-    def addSyslogHandler(
+    def add_syslog_handler(
         self,
-        host: str,
-        port: int = 514,
-        protocol: str = "udp",
-        facility=SysLogHandler.LOG_USER,
-        fmt: str = "%(name)s %(levelname)s %(message)s",
-        level="INFO",
-        handler_key: str = "SYSLOG",
-        ident: str = "fedbiomed: ",
-        append_nul: bool = False,
-        timeout: float | None = 2.0,
+        host,
+        port,
+        protocol,
+        facility,
+        level,
     ):
         """Adds a remote syslog handler.
 
@@ -585,18 +603,12 @@ class FedLogger(metaclass=SingletonMeta):
             port: remote syslog port
             protocol: 'udp' or 'tcp'
             facility: syslog facility
-            fmt: formatter string
             level: fedbiomed log level
-            handler_key: internal handler registry key
-            ident: prefix prepended by SysLogHandler
-            append_nul: whether to append NUL terminator
-            timeout: socket timeout if supported by current Python version
         """
-        proto = protocol.lower()
-        if proto not in {"udp", "tcp"}:
-            raise ValueError(f"Unsupported syslog protocol: {protocol}")
+        if protocol not in {"udp", "tcp"}:
+            raise FedbiomedError(f"Unsupported syslog protocol: {protocol}")
 
-        socktype = socket.SOCK_DGRAM if proto == "udp" else socket.SOCK_STREAM
+        socktype = socket.SOCK_DGRAM if protocol == "udp" else socket.SOCK_STREAM
 
         kwargs = {
             "address": (host, port),
@@ -607,15 +619,15 @@ class FedLogger(metaclass=SingletonMeta):
         handler = SysLogHandler(**kwargs)
 
         # Optional compatibility knobs from stdlib docs
-        handler.ident = ident
-        handler.append_nul = append_nul
+        handler.append_nul = False
+        handler_key = "SYSLOG"
 
         handler.setLevel(self._internal_level_translator(level))
-        handler.setFormatter(logging.Formatter(fmt))
+        handler.setFormatter(logging.Formatter(DEFAULT_FORMAT.replace(LOG_PREFIX, "")))
 
         self._internal_add_handler(handler_key, handler)
 
-    def delSyslogHandler(self, handler_key: str = "SYSLOG"):
+    def del_syslog_handler(self, handler_key: str = "SYSLOG"):
         self._internal_add_handler(handler_key, None)
 
     def add_file_handler(
