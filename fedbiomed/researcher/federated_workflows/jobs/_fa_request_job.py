@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
@@ -50,11 +50,13 @@ class FARequestJob(Job):
         self._dataset_schema = dataset_schema
         self._stats = stats
 
-    def execute(self) -> Dict[str, FAReply]:
-        """Executes federated analytics request
+    def execute(self) -> Tuple[Dict[str, FAReply], Dict[str, ErrorMessage]]:
+        """Executes federated analytics request.
 
         Returns:
-            A dictionary mapping node IDs to their respective FA replies.
+            A tuple containing:
+                - A dictionary mapping node IDs to their respective FA replies.
+                - A dictionary mapping node IDs to their respective error messages.
         """
         fa_request = dict(
             researcher_id=self._researcher_id,

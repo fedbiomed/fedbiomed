@@ -493,7 +493,7 @@ class FederatedAnalytics:
             The updated (or newly created) :class:`FAResult`, stored at *cache_key*.
 
         Raises:
-            FedbiomedError: If every contacted node returns an error.
+            FedbiomedError: If no replies are received or if any node returns an error.
         """
         fa_job = FARequestJob(
             fa_id=self._fa_id,
@@ -509,7 +509,9 @@ class FederatedAnalytics:
         analytics_replies, errors = fa_job.execute()
         # Node-level errors are already logged by FARequestJob.execute()
         if not analytics_replies or errors:
-            raise FedbiomedError("Node(s) failed to complete the analytics request.")
+            raise FedbiomedError(
+                "No successful replies received or at least one node returned an error."
+            )
         if cached is None:
             cached = FAResult(analytics_replies)
         else:
@@ -597,7 +599,7 @@ class FederatedAnalytics:
     def count(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global count across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.COUNT.value,
@@ -608,7 +610,7 @@ class FederatedAnalytics:
     def mean(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global mean across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.MEAN.value,
@@ -619,7 +621,7 @@ class FederatedAnalytics:
     def variance(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global variance across nodes."""
         fa_result = self.fetch_stats(
             stats=Stats.VARIANCE.value,
@@ -630,7 +632,7 @@ class FederatedAnalytics:
     def std(
         self,
         dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> FAResult:
+    ) -> Any:
         """Return the global standard deviation across nodes."""
         # std is derived from variance+mean+count; requesting variance primitives is sufficient.
         fa_result = self.fetch_stats(

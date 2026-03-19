@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Scalar and 1D streaming accumulators: Count, Min, Max, Mean, Variance, ScalarBuffer, Histogram, Quantile."""
+"""Statistic accumulators for federated analytics."""
 
 from typing import Any, Callable, Dict, List, Optional, Union
 
