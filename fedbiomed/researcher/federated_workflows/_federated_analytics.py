@@ -506,12 +506,10 @@ class FederatedAnalytics:
             requests=self._reqs,
             nodes=node_ids,
         )
-        analytics_replies, errors = fa_job.execute()
-        # Node-level errors are already logged by FARequestJob.execute()
-        if not analytics_replies or errors:
-            raise FedbiomedError(
-                "No successful replies received or at least one node returned an error."
-            )
+
+        # Node-level errors and empty replies are handled by FARequestJob.execute()
+        analytics_replies = fa_job.execute()
+
         if cached is None:
             cached = FAResult(analytics_replies)
         else:

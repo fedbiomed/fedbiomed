@@ -464,7 +464,7 @@ class TestFederatedAnalytics:
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_fetch_stats_returns_fa_result(self, mock_fa_job_cls, base_fa):
         replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         result = base_fa.fetch_stats("mean")
 
@@ -474,7 +474,7 @@ class TestFederatedAnalytics:
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_mean_returns_fa_result(self, mock_fa_job_cls, base_fa):
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         result = base_fa.mean()
 
@@ -487,7 +487,7 @@ class TestFederatedAnalytics:
     def test_same_stat_same_args_uses_cache(self, mock_fa_job_cls, base_fa):
         """Second call with same stat and args must not trigger a new FARequestJob."""
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         result1 = base_fa.mean()
         result2 = base_fa.mean()
@@ -505,7 +505,7 @@ class TestFederatedAnalytics:
                 {"age": {"histogram": {"bin_edges": [0, 1], "counts": [5]}}}
             )
         }
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         base_fa.fetch_stats_with_args(
             stats_args={"age": {"histogram": {"bin_edges": [0, 1]}}}
@@ -527,7 +527,7 @@ class TestFederatedAnalytics:
                 {"age": {"variance": 4.0, "mean": 45.0, "count": 100}}
             )
         }
-        mock_fa_job_cls.return_value.execute.return_value = (variance_replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = variance_replies
 
         base_fa.variance()
         assert mock_fa_job_cls.call_count == 1
@@ -542,7 +542,7 @@ class TestFederatedAnalytics:
     def test_only_missing_stats_requested(self, mock_fa_job_cls, base_fa):
         """When some stats are cached, only the missing ones are sent to nodes."""
         mean_replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (mean_replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = mean_replies
         base_fa.mean()
 
         variance_replies = {
@@ -550,7 +550,7 @@ class TestFederatedAnalytics:
                 {"age": {"mean": 45.0, "count": 100, "variance": 4.0}}
             )
         }
-        mock_fa_job_cls.return_value.execute.return_value = (variance_replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = variance_replies
         result = base_fa.fetch_stats("variance")
 
         assert mock_fa_job_cls.call_count == 2
@@ -567,7 +567,7 @@ class TestFederatedAnalytics:
                 {"age": {"mean": 45.0, "count": 100, "variance": 4.0}}
             )
         }
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         result = base_fa.fetch_stats(stats=["mean", "variance"])
 
@@ -579,7 +579,7 @@ class TestFederatedAnalytics:
     def test_node_change_invalidates_cache(self, mock_fa_job_cls, base_fa, mock_fds):
         """Adding or removing a node creates a new cache entry."""
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         base_fa.mean()
         assert mock_fa_job_cls.call_count == 1
@@ -590,7 +590,7 @@ class TestFederatedAnalytics:
             "node-1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
             "node-3": _make_reply({"age": {"mean": 48.0, "count": 60}}),
         }
-        mock_fa_job_cls.return_value.execute.return_value = (replies_3, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies_3
 
         base_fa.mean()
         assert mock_fa_job_cls.call_count == 2  # new node set → cache miss
@@ -601,7 +601,7 @@ class TestFederatedAnalytics:
     def test_fetch_stats_with_args_returns_fa_result(self, mock_fa_job_cls, base_fa):
         """fetch_stats_with_args with valid args should issue a request and return FAResult."""
         replies = {"node-1": _make_reply({"image": {"histogram": [0.1, 0.5, 0.9]}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         result = base_fa.fetch_stats_with_args(
             stats_args={"image": {"histogram": {"bin_edges": [0, 1, 2]}}}
@@ -616,7 +616,7 @@ class TestFederatedAnalytics:
     def test_fetch_stats_with_args_cached(self, mock_fa_job_cls, base_fa):
         """Second call with identical stats_args must be served from cache."""
         replies = {"node-1": _make_reply({"image": {"histogram": [0.1, 0.5, 0.9]}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         args = {"image": {"histogram": {"bin_edges": [0, 1, 2]}}}
         base_fa.fetch_stats_with_args(args)
@@ -649,8 +649,8 @@ class TestFederatedAnalytics:
             "node-1": _make_reply({"image": {"histogram": [0.1, 0.5, 0.9]}})
         }
         mock_fa_job_cls.return_value.execute.side_effect = [
-            (stats_replies, {}),
-            (args_replies, {}),
+            stats_replies,
+            args_replies,
         ]
 
         base_fa.fetch_stats("mean")
@@ -666,7 +666,7 @@ class TestFederatedAnalytics:
     ):
         """Different dataset_schema values must produce separate cache entries."""
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         base_fa.fetch_stats("mean", dataset_schema=["age"])
         base_fa.fetch_stats("mean", dataset_schema=["height"])
@@ -675,13 +675,9 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_fetch_stats_all_errors_raises(self, mock_fa_job_cls, base_fa):
-        """When all nodes return errors and no replies, FedbiomedError must be raised."""
-        error = MagicMock()
-        error.errnum = "FB633"
-        error.extra_msg = "disk full"
-        mock_fa_job_cls.return_value.execute.return_value = (
-            {},
-            {"node-1": error, "node-2": error},
+        """When execute() raises (all nodes failed), FedbiomedError propagates."""
+        mock_fa_job_cls.return_value.execute.side_effect = FedbiomedError(
+            "all nodes failed"
         )
 
         with pytest.raises(FedbiomedError):
@@ -689,11 +685,10 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_fetch_stats_with_args_all_errors_raises(self, mock_fa_job_cls, base_fa):
-        """When all nodes return errors for fetch_stats_with_args, FedbiomedError must be raised."""
-        error = MagicMock()
-        error.errnum = "FB633"
-        error.extra_msg = "timeout"
-        mock_fa_job_cls.return_value.execute.return_value = ({}, {"node-1": error})
+        """When execute() raises for fetch_stats_with_args, FedbiomedError propagates."""
+        mock_fa_job_cls.return_value.execute.side_effect = FedbiomedError(
+            "all nodes failed"
+        )
 
         with pytest.raises(FedbiomedError):
             base_fa.fetch_stats_with_args(
@@ -702,12 +697,10 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_partial_errors_raises(self, mock_fa_job_cls, base_fa):
-        """When any node returns an error, FedbiomedError is raised (all results are expected)."""
-        error = MagicMock()
-        error.errnum = "FB633"
-        error.extra_msg = "node offline"
-        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {"node-2": error})
+        """When any node returns an error, execute() raises FedbiomedError."""
+        mock_fa_job_cls.return_value.execute.side_effect = FedbiomedError(
+            "node-2 failed"
+        )
 
         with pytest.raises(FedbiomedError):
             base_fa.fetch_stats("mean")
@@ -719,7 +712,7 @@ class TestFederatedAnalytics:
             "node-1": _make_reply({"age": {"count": 100}}),
             "node-2": _make_reply({"age": {"count": 80}}),
         }
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         result = base_fa.count()
 
@@ -737,7 +730,7 @@ class TestFederatedAnalytics:
                 {"age": {"mean": 50.0, "variance": 9.0, "count": 80}}
             ),
         }
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         result = base_fa.std()
 
