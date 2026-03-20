@@ -3,9 +3,10 @@ name: Fed-BioMed VPN Docker Image and Container Test
 run-name: fedbiomed-docker-container-test
 
 on:
+  schedule:
+    - cron: '0 1 * * *'  # Run every day at 1 am on default branch: develop
   push:
     branches:
-      - "develop"
       - "master"
   workflow_dispatch:
 

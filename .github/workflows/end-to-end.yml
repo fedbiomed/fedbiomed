@@ -4,11 +4,10 @@ run-name: fedbiomed-e2e-tests
 permissions: write-all
 on:
   schedule:
-    - cron: '30 1 * * *'
+    - cron: '0 1 * * *'  # Run every day at 1 am on default branch: develop
   workflow_dispatch:
   push:
     branches:
-      - 'develop'
       - 'master'
       - 'feature/ci-runner-reconfiguration'
 jobs:
