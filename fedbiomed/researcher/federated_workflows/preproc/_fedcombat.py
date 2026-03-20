@@ -6,6 +6,8 @@
 import uuid
 from typing import Any, Optional
 
+import torch
+
 from fedbiomed.common.constants import ErrorNumbers, HarmonizationStep, PreprocType
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.logger import logger
@@ -123,6 +125,10 @@ class FedCombatPreproc:
 
         Returns:
             bool: True if harmonization was performed, False otherwise.
+
+        Raises:
+            FedbiomedExperimentError: if bad parameters are provided for harmonization.
+            FedbiomedExperimentError: if an error occurs during harmonization.
         """
         if not self._needs_harmonization():
             return False
@@ -147,9 +153,15 @@ class FedCombatPreproc:
         all_parameters = {}
 
         for preproc_step in range(1, 7):
-            step_args = fedcombat_parameters(
-                HarmonizationStep(preproc_step), preproc_replies
-            )
+            try:
+                step_args = fedcombat_parameters(
+                    HarmonizationStep(preproc_step), preproc_replies
+                )
+            except Exception as e:
+                raise FedbiomedExperimentError(
+                    f"{ErrorNumbers.FB420.value}: "
+                    f"Error during Fed-ComBat preprocessing step {preproc_step}: {str(e)}"
+                ) from e
 
             all_parameters.update(step_args)
             # The step 3 involves training a model
@@ -176,15 +188,12 @@ class FedCombatPreproc:
                 # a way for the nodes to access the models
                 # NB: local bias is a local model and the global bias is an average of all local biases
                 ######################## DUMMY ARGS ###############################################
-                all_parameters["biological_model"] = (
-                    fc_training_plan._experimentation_folder
-                )
-                all_parameters["global_bias_model"] = (
-                    fc_training_plan._experimentation_folder
-                )
+                all_parameters["biological_model"] = self.read_biological_model_values()
+                all_parameters["global_bias_model"] = self.read_bias_model_values()
+                ####################################################################################
 
                 continue
-                ####################################################################################
+
             preproc_job = PreprocRequestJob(
                 experiment_id=self._experiment_id,
                 preproc_type=PreprocType(PreprocType.FEDCOMBAT),
@@ -257,3 +266,17 @@ class FedCombatPreproc:
         for key, value in state["attributes"].items():
             setattr(instance, f"{key}", value)
         return instance
+
+    ###### DUMMY DATA ######
+    shape_phenotypes = torch.rand((100, 2))
+    ########################
+
+    #####################################
+    ########## DUMMY FUNCTIONS ##########
+    #####################################
+
+    def read_biological_model_values(self):
+        return self.shape_phenotypes
+
+    def read_bias_model_values(self):
+        return torch.zeros_like(self.shape_phenotypes)
