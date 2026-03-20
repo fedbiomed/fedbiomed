@@ -260,6 +260,27 @@ def test_handle_dict_subschema_list_with_nested_dict_key(orchestrator):
     assert "b" not in result["children"]
 
 
+def test_handle_dict_stats_args_routed_per_key(orchestrator):
+    """stats_args values are forwarded to the correct child key's recursive call."""
+    schema = {"a": RowSpec(columns=["c1"]), "b": RowSpec(columns=["c2"])}
+    stats_args = {"a": {"mean": {}}, "b": {"variance": {}}}
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "columns": [],
+        }
+        orchestrator._handle_dict(
+            schema, subschema=None, stats=None, stats_args=stats_args, n_samples=5
+        )
+
+    # args[3] is child_args in _build_and_validate_config(schema_item, child_sub, stats, child_args, n_samples)
+    routed_args = [call.args[3] for call in mock_bvc.call_args_list]
+    assert {"mean": {}} in routed_args
+    assert {"variance": {}} in routed_args
+
+
 def test_handle_dict_subschema_list_with_string_item(orchestrator):
     """List subschema with a plain string item selects that key."""
     schema = {"a": ImageSpec(), "b": ImageSpec()}
@@ -320,6 +341,46 @@ def test_handle_sequence_subschema_list_wraps_for_single_active(orchestrator):
     assert len(result["children"]) == 1
 
 
+def test_handle_sequence_subschema_single_column_wraps_for_single_active(orchestrator):
+    """["col1"] (len==1) for a single-active sequence must be wrapped, not treated as one child item."""
+    # This is the bug: ["col1"] length matches active length (both 1), so the length
+    # check alone doesn't trigger wrapping.  The scalar-element check must catch it.
+    schema = [RowSpec(columns=["c1", "c2"])]
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "columns": [],
+        }
+        result = orchestrator._handle_sequence(
+            schema, subschema=["c1"], stats=None, stats_args=None, n_samples=5
+        )
+
+    # ["c1"] must be forwarded as the child subschema (wrapped into [["c1"]]), not as "c1"
+    assert mock_bvc.call_args[0][1] == ["c1"]
+    assert result["type"] == "sequence"
+    assert len(result["children"]) == 1
+
+
+def test_handle_sequence_subschema_already_nested_not_rewrapped(orchestrator):
+    """[["c1", "c2"]] (already nested) for a single-active sequence must NOT be re-wrapped."""
+    schema = [RowSpec(columns=["c1", "c2"])]
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "columns": [],
+        }
+        orchestrator._handle_sequence(
+            schema, subschema=[["c1", "c2"]], stats=None, stats_args=None, n_samples=5
+        )
+
+    # [["c1", "c2"]] — subschema[0] is a list (a container), so no wrapping occurs
+    assert mock_bvc.call_args[0][1] == ["c1", "c2"]
+
+
 def test_handle_sequence_subschema_errors(orchestrator):
     schema = [1, 2]
 
@@ -328,26 +389,15 @@ def test_handle_sequence_subschema_errors(orchestrator):
             schema, subschema=123, stats=None, stats_args=None, n_samples=5
         )
 
+    with pytest.raises(FedbiomedError, match="Subschema for sequence must be list"):
+        orchestrator._handle_sequence(
+            schema, subschema="wrong", stats=None, stats_args=None, n_samples=5
+        )
+
     with pytest.raises(FedbiomedError, match="does not match schema elements"):
         orchestrator._handle_sequence(
             schema, subschema=[1], stats=None, stats_args=None, n_samples=5
         )
-
-
-def test_handle_sequence_subschema_single_string(orchestrator):
-    """A bare string subschema is wrapped in a list (convenience for single-element schemas)."""
-    schema = [ImageSpec()]
-
-    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
-        mock_bvc.return_value = {"type": DatasetElementType.IMAGE, "stats": {}}
-        result = orchestrator._handle_sequence(
-            schema, subschema="some_sub", stats=None, stats_args=None, n_samples=5
-        )
-
-    assert result["type"] == "sequence"
-    assert len(result["children"]) == 1
-    # The wrapped string is forwarded as the child subschema
-    assert mock_bvc.call_args[0][1] == "some_sub"
 
 
 def test_handle_sequence_args_errors(orchestrator):
@@ -507,6 +557,9 @@ def test_handle_row_validation_errors(orchestrator):
     with pytest.raises(FedbiomedError, match="Subschema for ROW must be a list"):
         orchestrator._handle_row(schema, 123, None, None, n_samples=5)
 
+    with pytest.raises(FedbiomedError, match="Subschema for ROW must be a list"):
+        orchestrator._handle_row(schema, "c1", None, None, n_samples=5)
+
     with pytest.raises(FedbiomedError, match="Args for ROW must be a dict"):
         orchestrator._handle_row(
             schema, None, None, stats_args=["not", "a", "dict"], n_samples=5
@@ -514,21 +567,6 @@ def test_handle_row_validation_errors(orchestrator):
 
     with pytest.raises(FedbiomedError, match="Invalid columns in args"):
         orchestrator._handle_row(schema, None, None, stats_args={"z": {}}, n_samples=5)
-
-
-@patch(
-    "fedbiomed.common.analytics._orchestrator.AnalyticsOrchestrator._compile_leaf_stats"
-)
-def test_handle_row_subschema_single_string(mock_compile, orchestrator):
-    """A bare string subschema selects that single column without raising."""
-    mock_compile.return_value = {"mean": {}}
-    schema = RowSpec(columns=["c1", "c2"])
-
-    result = orchestrator._handle_row(schema, "c1", None, None, n_samples=5)
-
-    assert result["type"] == DatasetElementType.ROW
-    assert result["columns"] == ["c1"]
-    assert "c2" not in result["conf"]
 
 
 # ── _handle_image ────────────────────────────────────────────────────────────

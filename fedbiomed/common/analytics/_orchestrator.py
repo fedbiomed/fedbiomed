@@ -221,26 +221,32 @@ class AnalyticsOrchestrator:
         stats_args: Optional[Union[List, Tuple]],
         n_samples: int,
     ) -> Dict[str, Any]:
-        # subschema and stats_args are indexed against active (non-None) positions only.
+        # None entries in schema mark positions to skip (e.g. the label in (data, label)).
+        # subschema and stats_args are indexed against active positions only.
         active = [(orig_idx, s) for orig_idx, s in enumerate(schema) if s is not None]
 
         # Validate Subschema
         if subschema is not None:
-            if isinstance(subschema, str):
-                subschema = [subschema]
-            elif not isinstance(subschema, (list, tuple)):
+            if not isinstance(subschema, (list, tuple)):
                 raise FedbiomedError(
-                    f"Subschema for sequence must be list/tuple or str. Got {type(subschema)}."
+                    f"Subschema for sequence must be list/tuple. Got {type(subschema)}."
                 )
-            if len(subschema) != len(active):
-                # Dataset schemas use the (data_schema, None) convention. Allow unwrapping for user convenience.
-                if len(active) == 1:
-                    subschema = [subschema]
-                else:
+
+            # Convenience: when there is one active element, allow callers to pass the
+            # child subschema directly (e.g. ["col1"]) instead of nested (e.g. [["col1"]]).
+            # Wrap when lengths differ OR when the single element is a bare scalar (not a
+            # valid child-subschema container), distinguishing ["col1"] from [["col1"]].
+            needs_wrap = len(subschema) != len(active) or (
+                len(active) == 1
+                and not isinstance(subschema[0], (list, tuple, dict, type(None)))
+            )
+            if needs_wrap:
+                if len(active) != 1:
                     raise FedbiomedError(
                         f"Subschema ({len(subschema)}) does not match schema elements "
                         f"({len(active)}). Use None at a position to exclude that element."
                     )
+                subschema = [subschema]
 
         # Validate Args
         if stats_args is not None:
@@ -248,6 +254,7 @@ class AnalyticsOrchestrator:
                 raise FedbiomedError(
                     f"Args for sequence must be list/tuple. Got {type(stats_args)}."
                 )
+            # Must supply one entry per active element; use None to skip an element.
             if len(stats_args) != len(active):
                 raise FedbiomedError(
                     "Args length mismatch. Pass None to ignore elements in list/tuple."
@@ -262,12 +269,13 @@ class AnalyticsOrchestrator:
             strict=True,
         ):
             if subschema is not None and child_sub is None:
-                continue  # User explicitly excluded this element
+                continue  # None in subschema means the user explicitly excluded this element
             children.append(
                 self._build_and_validate_config(
                     item_schema, child_sub, stats, child_args, n_samples
                 )
             )
+            # Track original index so SequenceAccumulator can index into the raw sample.
             indices.append(orig_idx)
 
         if len(children) == 0:
@@ -291,12 +299,8 @@ class AnalyticsOrchestrator:
     ) -> Dict[str, Any]:
         # Validate Subschema
         if subschema is not None:
-            if isinstance(subschema, str):
-                subschema = [subschema]
-            elif not isinstance(subschema, (list, tuple)):
-                raise FedbiomedError(
-                    "Subschema for ROW must be a list of columns or a single string."
-                )
+            if not isinstance(subschema, (list, tuple)):
+                raise FedbiomedError("Subschema for ROW must be a list of columns.")
             invalid = set(subschema) - set(schema.columns)
             if invalid:
                 raise FedbiomedError(f"Invalid columns in subschema: {invalid}")

@@ -249,6 +249,19 @@ class TestFAResult:
         )
         assert result.schema == {"age": {}}
 
+    def test_schema_scalar_non_stat_leaf(self):
+        # A dict whose values are raw scalars (not stat-leaf dicts) — _schema returns
+        # None for each scalar child (covers line 179: `return None`)
+        replies = {"n1": _make_reply({"label": "sample", "version": 2})}
+        result = FAResult(replies)
+        assert result.schema == {"label": None, "version": None}
+
+    def test_first_output_raises_on_empty_data(self):
+        # _first_output guard raises when _data is empty (covers line 83)
+        result = FAResult({})
+        with pytest.raises(FedbiomedError, match="contains no node data"):
+            _ = result._first_output
+
     # --- node_stats ---
 
     def test_node_stats_row(self):
@@ -392,6 +405,22 @@ class TestFAResult:
     def test_deep_merge_mismatched_sequences_raises(self):
         with pytest.raises(FedbiomedError):
             FAResult._deep_merge((1, 2, 3), (1, 2))
+
+    def test_deep_merge_sequences_success(self):
+        # Same-type, same-length sequences are merged element-wise (covers line 111)
+        result = FAResult._deep_merge(
+            [{"age": {"mean": 1.0}}, {"age": {"mean": 2.0}}],
+            [{"age": {"mean": 3.0}}, {"age": {"mean": 4.0}}],
+        )
+        assert result == [{"age": {"mean": 3.0}}, {"age": {"mean": 4.0}}]
+        assert isinstance(result, list)
+
+        result_tuple = FAResult._deep_merge(
+            ({"age": {"mean": 1.0}},),
+            ({"age": {"mean": 5.0}},),
+        )
+        assert isinstance(result_tuple, tuple)
+        assert result_tuple == ({"age": {"mean": 5.0}},)
 
     def test_deep_merge_incompatible_types_raises(self):
         with pytest.raises(FedbiomedError):
@@ -738,6 +767,33 @@ class TestFederatedAnalytics:
         assert "age" in result
         assert result["age"] > 0
 
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_cache_eviction_fifo(self, mock_fa_job_cls, base_fa):
+        """Filling cache beyond MAX_CACHE_SIZE evicts the oldest entry (covers line 519)."""
+        replies = {"node-1": _make_reply({"age": {"count": 100}})}
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        max_size = FederatedAnalytics._MAX_CACHE_SIZE
+        # Each call uses a distinct stats_args so every result gets its own cache key.
+        for i in range(max_size + 1):
+            base_fa.fetch_stats_with_args(stats_args={"iteration": i})
+
+        assert mock_fa_job_cls.call_count == max_size + 1
+        assert len(base_fa._results_store) == max_size
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fetch_stats_string_schema_normalized(self, mock_fa_job_cls, base_fa):
+        """A string dataset_schema is coerced to a single-element list before use
+        (covers line 544: `dataset_schema = [dataset_schema]`)."""
+        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        result = base_fa.fetch_stats("mean", dataset_schema="age")
+
+        assert isinstance(result, FAResult)
+        call_kwargs = mock_fa_job_cls.call_args.kwargs
+        assert call_kwargs["dataset_schema"] == ["age"]
+
 
 # ---------------------------------------------------------------------------
 # TestComputableStats
@@ -898,3 +954,56 @@ class TestGlobalStats:
         result = FAResult({})
         with pytest.raises(FedbiomedError, match="contains no node data"):
             result.global_stat("mean")
+
+    def test_global_stat_sequence_output(self):
+        # List-typed node outputs exercise _aggregate_tree's sequence branch
+        # (covers lines 286-290: list/tuple path in _aggregate_tree)
+        replies = {
+            "n1": _make_reply(
+                [{"age": {"mean": 45.0, "count": 100}}, {"mean": 128.0, "count": 50}]
+            ),
+            "n2": _make_reply(
+                [{"age": {"mean": 50.0, "count": 80}}, {"mean": 130.0, "count": 40}]
+            ),
+        }
+        result = FAResult(replies)
+        global_mean = result.global_stat("mean")
+        assert isinstance(global_mean, list)
+        assert len(global_mean) == 2
+        # element 0: row dict → {"age": weighted_mean}
+        expected_age = (45.0 * 100 + 50.0 * 80) / 180
+        assert abs(global_mean[0]["age"] - expected_age) < 1e-9
+        # element 1: flat image stat → scalar
+        expected_flat = (128.0 * 50 + 130.0 * 40) / 90
+        assert abs(global_mean[1] - expected_flat) < 1e-9
+
+    def test_global_stats_no_computable_stats_returns_empty_dict(self):
+        # When output contains no registered stat keys, computable_stats() is empty
+        # and _merge_stat_results({}) returns {} (covers line 318)
+        replies = {"n1": _make_reply({"metadata": {"source": "node1"}})}
+        result = FAResult(replies)
+        assert result.computable_stats() == []
+        assert result.global_stats() == {}
+
+    def test_global_stats_sequence_output(self):
+        # global_stats() on list-typed outputs exercises the sequence branch in
+        # _merge_stat_results (covers lines 328-334)
+        replies = {
+            "n1": _make_reply(
+                [{"age": {"mean": 45.0, "count": 100}}, {"mean": 128.0, "count": 50}]
+            ),
+            "n2": _make_reply(
+                [{"age": {"mean": 50.0, "count": 80}}, {"mean": 130.0, "count": 40}]
+            ),
+        }
+        result = FAResult(replies)
+        all_stats = result.global_stats()
+        assert isinstance(all_stats, list)
+        assert len(all_stats) == 2
+        # element 0: row dict with per-col stat map
+        assert "age" in all_stats[0]
+        assert "count" in all_stats[0]["age"]
+        assert all_stats[0]["age"]["count"] == 180
+        # element 1: flat image stat map
+        assert "count" in all_stats[1]
+        assert all_stats[1]["count"] == 90

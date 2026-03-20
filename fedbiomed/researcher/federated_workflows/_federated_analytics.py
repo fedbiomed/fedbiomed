@@ -14,6 +14,7 @@ from typing import Any, Callable, Iterator, Optional
 from fedbiomed.common.analytics import AGGREGATORS_MAP
 from fedbiomed.common.constants import Stats
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FAReply
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
@@ -539,6 +540,10 @@ class FederatedAnalytics:
         if not stats:
             raise FedbiomedError("'stats' must be a non-empty string or list.")
 
+        # Normalize string schema to ensure expected behavior (e.g. "col1" vs ["col1"]).
+        if isinstance(dataset_schema, str):
+            dataset_schema = [dataset_schema]
+
         node_ids = self.get_node_ids()
         cache_key = FederatedAnalytics.make_cache_key(node_ids, dataset_schema, None)
         cached = self._results_store.get(cache_key)
@@ -547,6 +552,11 @@ class FederatedAnalytics:
         if missing:
             cached = self._execute_and_update_cache(
                 cache_key, missing, None, dataset_schema, node_ids, cached
+            )
+        else:
+            logger.info(
+                f"All requested statistics {stats} are already cached — "
+                "skipping node requests."
             )
 
         return cached
@@ -586,6 +596,10 @@ class FederatedAnalytics:
         if cached is None:
             cached = self._execute_and_update_cache(
                 cache_key, None, stats_args, None, node_ids, None
+            )
+        else:
+            logger.info(
+                "Exact stats_args request already cached — skipping node requests."
             )
 
         return cached
