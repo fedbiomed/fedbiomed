@@ -43,18 +43,26 @@ FederatedAnalytics.fetch_stats()
 !!! note "Researcher-only derived stats"
     `std` and `sum` are computable on the researcher side from `mean`/`variance`/`count` via `FAResult.global_stat()` — they are never sent from nodes.
 
-`FederatedAnalytics` is the entry point for all analytics requests. It handles caching and delegates network I/O to `FARequestJob`. `fetch_stats` is its core method — it resolves which stats are missing from the cache, sends an `FARequest` to each node for those stats only, merges the replies into an `FAResult`, and returns it.
+`FederatedAnalytics` is the entry point for all analytics requests. It handles caching and delegates network I/O to `FARequestJob`. The API is split into two methods depending on whether the requested statistic needs extra parameters.
+
+Use `fetch_stats` when no computation arguments are needed — statistics are identified by name, and an optional `dataset_schema` restricts which columns or modalities are included:
 
 ```python
 fetch_stats(
-    stats: str | list[str] | None = None,     # one or more Stats string values
+    stats: str | list[str],                   # one or more Stats string values
     dataset_schema: str | list | None = None, # column/modality filter; None → whole schema
-    stats_args: dict | None = None,           # required for histogram
 ) -> FAResult
 ```
 
-!!! note "See also"
-    For the shape and accepted values of `dataset_schema`, see [Federated Analytics — Datasets](../user-guide/datasets/federated-analytics.md#making-a-custom-dataset-fa-compatible).
+Use `fetch_stats_with_args` when the statistic requires parameters (e.g. `histogram` bin edges). Because the parameters are specific to individual columns or modalities, schema selection is encoded directly inside `stats_args` — there is no separate `dataset_schema`:
+
+```python
+fetch_stats_with_args(
+    stats_args: dict,   # encodes both schema selection and computation parameters
+) -> FAResult
+```
+
+Both methods cache their results. `fetch_stats` keys the cache by `(node_ids, dataset_schema)`; `fetch_stats_with_args` keys it by `(node_ids, stats_args)`. In both cases, an identical call is served from the cache without a network round-trip.
 
 Convenience methods are thin wrappers around `fetch_stats` + `global_stat` for the most common stats:
 
@@ -67,7 +75,7 @@ exp.analytics.mean(dataset_schema=["price", "mileage"])
 ```
 
 !!! note "No `stats_args` in convenience methods"
-    Use `fetch_stats` directly for `histogram`, which require `bin_edges` in `stats_args`.
+    Use `fetch_stats_with_args` directly for `histogram`, which requires `bin_edges` in `stats_args`.
 
 ### Stat Dependencies
 
@@ -100,9 +108,9 @@ Once all nodes have replied, `FAResult` calls `AGGREGATORS_MAP` to combine per-n
 | `fedbiomed/common/analytics/_aggregators.py` | `AGGREGATORS_MAP` — maps each stat name to its cross-node aggregation function |
 | `fedbiomed/common/analytics/_orchestrator.py` | `AnalyticsOrchestrator` — drives per-node stat computation; builds accumulator trees from the dataset schema |
 | `fedbiomed/common/analytics/accumulators/_registry.py` | Links stat names ↔ accumulator classes and element types; update here to register a new stat |
-| `fedbiomed/common/analytics/accumulators/_operations.py` | Primitive accumulator implementations (sum, count, min, max, histogram, quantile, …) |
+| `fedbiomed/common/analytics/accumulators/_operations.py` | Primitive accumulator implementations (sum, count, histogram, quantile, …) |
 | `fedbiomed/common/analytics/accumulators/_row.py` | Vectorised accumulator for tabular / row data |
-| `fedbiomed/common/analytics/accumulators/_image.py` | Accumulator for image data |
+| `fedbiomed/common/analytics/accumulators/_image.py` | Accumulator for N-D array data |
 | `fedbiomed/common/analytics/accumulators/_base.py` | `Accumulator` abstract base class |
 
 ### Node layer

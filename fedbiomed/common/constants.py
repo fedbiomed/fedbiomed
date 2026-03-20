@@ -460,19 +460,13 @@ class Stats(_BaseEnum):
     """Enumeration class for Federated Analytics types
 
     Attributes:
-        MIN: Minimum value
-        MAX: Maximum value
         COUNT: Count of values
         MEAN: Mean value
         VARIANCE: Variance of values
         HISTOGRAM: histogram of values
-        QUANTILE: quantile of values
     """
 
-    MIN: str = "min"
-    MAX: str = "max"
     COUNT: str = "count"
     MEAN: str = "mean"
     VARIANCE: str = "variance"
     HISTOGRAM: str = "histogram"
-    QUANTILE: str = "quantile"

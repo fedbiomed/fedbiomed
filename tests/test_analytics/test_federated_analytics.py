@@ -144,7 +144,7 @@ class TestFAResult:
         }
         result = FAResult(replies)
         assert result.has_stat("mean") is True
-        assert result.has_stat("min") is False
+        assert result.has_stat("variance") is False
 
     def test_has_stat_sequence_schema(self):
         # Tuple schema: ({col: {stat}}, {stat: val})
@@ -168,9 +168,10 @@ class TestFAResult:
         assert sorted(result.available_stats()) == ["count", "mean"]
 
     def test_available_stats_image_flat(self):
-        replies = {"n1": _make_reply({"min": 0.0, "max": 255.0})}
+        # IMAGE (flat): top-level dict is itself a stat-leaf — no column-key wrapper
+        replies = {"n1": _make_reply({"mean": 128.0, "count": 100})}
         result = FAResult(replies)
-        assert sorted(result.available_stats()) == ["max", "min"]
+        assert sorted(result.available_stats()) == ["count", "mean"]
 
     def test_available_stats_empty(self):
         assert FAResult({}).available_stats() == []
@@ -248,6 +249,19 @@ class TestFAResult:
         )
         assert result.schema == {"age": {}}
 
+    def test_schema_scalar_non_stat_leaf(self):
+        # A dict whose values are raw scalars (not stat-leaf dicts) — _schema returns
+        # None for each scalar child (covers line 179: `return None`)
+        replies = {"n1": _make_reply({"label": "sample", "version": 2})}
+        result = FAResult(replies)
+        assert result.schema == {"label": None, "version": None}
+
+    def test_first_output_raises_on_empty_data(self):
+        # _first_output guard raises when _data is empty (covers line 83)
+        result = FAResult({})
+        with pytest.raises(FedbiomedError, match="contains no node data"):
+            _ = result._first_output
+
     # --- node_stats ---
 
     def test_node_stats_row(self):
@@ -291,22 +305,27 @@ class TestFAResult:
         expected = (128.0 * 100 + 130.0 * 80) / 180
         assert abs(global_mean - expected) < 1e-9
 
-    def test_global_stats_min_row(self):
+    def test_global_stats_sum_row(self):
         replies = {
-            "n1": _make_reply({"age": {"min": 20.0}}),
-            "n2": _make_reply({"age": {"min": 18.0}}),
+            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
+            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
         }
         result = FAResult(replies)
-        global_min = result.global_stat("min")
-        assert global_min == {"age": 18.0}
+        global_sum = result.global_stat("sum")
+        expected_sum = 45.0 * 100 + 50.0 * 80
+        assert isinstance(global_sum, dict)
+        assert abs(global_sum["age"] - expected_sum) < 1e-9
 
-    def test_global_stats_max_row(self):
+    def test_global_stats_variance_row(self):
         replies = {
-            "n1": _make_reply({"age": {"max": 80.0}}),
-            "n2": _make_reply({"age": {"max": 90.0}}),
+            "n1": _make_reply({"age": {"mean": 45.0, "variance": 4.0, "count": 100}}),
+            "n2": _make_reply({"age": {"mean": 50.0, "variance": 9.0, "count": 80}}),
         }
         result = FAResult(replies)
-        assert result.global_stat("max") == {"age": 90.0}
+        global_variance = result.global_stat("variance")
+        assert isinstance(global_variance, dict)
+        assert "age" in global_variance
+        assert global_variance["age"] > 0
 
     def test_global_stats_count_row(self):
         replies = {
@@ -355,10 +374,12 @@ class TestFAResult:
 
     def test_merge_preserves_existing_stats(self):
         result = FAResult({"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})})
-        new_replies = {"n1": _make_reply({"age": {"min": 18.0}})}
+        new_replies = {
+            "n1": _make_reply({"age": {"mean": 45.0, "count": 100, "variance": 4.0}})
+        }
         result.merge(new_replies)
         assert result.has_stat("mean")
-        assert result.has_stat("min")
+        assert result.has_stat("variance")
 
     def test_merge_adds_new_node(self):
         result = FAResult({"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})})
@@ -384,6 +405,22 @@ class TestFAResult:
     def test_deep_merge_mismatched_sequences_raises(self):
         with pytest.raises(FedbiomedError):
             FAResult._deep_merge((1, 2, 3), (1, 2))
+
+    def test_deep_merge_sequences_success(self):
+        # Same-type, same-length sequences are merged element-wise (covers line 111)
+        result = FAResult._deep_merge(
+            [{"age": {"mean": 1.0}}, {"age": {"mean": 2.0}}],
+            [{"age": {"mean": 3.0}}, {"age": {"mean": 4.0}}],
+        )
+        assert result == [{"age": {"mean": 3.0}}, {"age": {"mean": 4.0}}]
+        assert isinstance(result, list)
+
+        result_tuple = FAResult._deep_merge(
+            ({"age": {"mean": 1.0}},),
+            ({"age": {"mean": 5.0}},),
+        )
+        assert isinstance(result_tuple, tuple)
+        assert result_tuple == ({"age": {"mean": 5.0}},)
 
     def test_deep_merge_incompatible_types_raises(self):
         with pytest.raises(FedbiomedError):
@@ -456,9 +493,9 @@ class TestFederatedAnalytics:
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_fetch_stats_returns_fa_result(self, mock_fa_job_cls, base_fa):
         replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
-        result = base_fa.fetch_stats("mean", stats_args={})
+        result = base_fa.fetch_stats("mean")
 
         assert isinstance(result, FAResult)
         mock_fa_job_cls.assert_called_once()
@@ -466,7 +503,7 @@ class TestFederatedAnalytics:
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_mean_returns_fa_result(self, mock_fa_job_cls, base_fa):
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         result = base_fa.mean()
 
@@ -479,7 +516,7 @@ class TestFederatedAnalytics:
     def test_same_stat_same_args_uses_cache(self, mock_fa_job_cls, base_fa):
         """Second call with same stat and args must not trigger a new FARequestJob."""
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         result1 = base_fa.mean()
         result2 = base_fa.mean()
@@ -488,13 +525,23 @@ class TestFederatedAnalytics:
         assert result1 == result2
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_different_args_bypass_cache(self, mock_fa_job_cls, base_fa):
+    def test_fetch_stats_with_args_different_args_bypass_cache(
+        self, mock_fa_job_cls, base_fa
+    ):
         """Different stats_args must cause a separate network request."""
-        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        replies = {
+            "node-1": _make_reply(
+                {"age": {"histogram": {"bin_edges": [0, 1], "counts": [5]}}}
+            )
+        }
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
-        base_fa.fetch_stats("mean", stats_args={"key": "a"})
-        base_fa.fetch_stats("mean", stats_args={"key": "b"})
+        base_fa.fetch_stats_with_args(
+            stats_args={"age": {"histogram": {"bin_edges": [0, 1]}}}
+        )
+        base_fa.fetch_stats_with_args(
+            stats_args={"age": {"histogram": {"bin_edges": [0, 2]}}}
+        )
 
         assert mock_fa_job_cls.call_count == 2
 
@@ -509,7 +556,7 @@ class TestFederatedAnalytics:
                 {"age": {"variance": 4.0, "mean": 45.0, "count": 100}}
             )
         }
-        mock_fa_job_cls.return_value.execute.return_value = (variance_replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = variance_replies
 
         base_fa.variance()
         assert mock_fa_job_cls.call_count == 1
@@ -524,38 +571,44 @@ class TestFederatedAnalytics:
     def test_only_missing_stats_requested(self, mock_fa_job_cls, base_fa):
         """When some stats are cached, only the missing ones are sent to nodes."""
         mean_replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (mean_replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = mean_replies
         base_fa.mean()
 
-        min_replies = {"node-1": _make_reply({"age": {"min": 18.0}})}
-        mock_fa_job_cls.return_value.execute.return_value = (min_replies, {})
-        result = base_fa.min()
+        variance_replies = {
+            "node-1": _make_reply(
+                {"age": {"mean": 45.0, "count": 100, "variance": 4.0}}
+            )
+        }
+        mock_fa_job_cls.return_value.execute.return_value = variance_replies
+        result = base_fa.fetch_stats("variance")
 
         assert mock_fa_job_cls.call_count == 2
         second_call_kwargs = mock_fa_job_cls.call_args_list[1].kwargs
-        assert second_call_kwargs["stats"] == ["min"]
+        assert second_call_kwargs["stats"] == ["variance"]
 
-        assert isinstance(result, dict)
-        assert "age" in result
+        assert isinstance(result, FAResult)
+        assert result.has_stat("variance")
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_compute_multiple_stats_at_once(self, mock_fa_job_cls, base_fa):
         replies = {
-            "node-1": _make_reply({"age": {"mean": 45.0, "count": 100, "min": 18.0}})
+            "node-1": _make_reply(
+                {"age": {"mean": 45.0, "count": 100, "variance": 4.0}}
+            )
         }
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
-        result = base_fa.fetch_stats(stats=["mean", "min"])
+        result = base_fa.fetch_stats(stats=["mean", "variance"])
 
         assert result.has_stat("mean")
-        assert result.has_stat("min")
+        assert result.has_stat("variance")
         assert mock_fa_job_cls.call_count == 1
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_node_change_invalidates_cache(self, mock_fa_job_cls, base_fa, mock_fds):
         """Adding or removing a node creates a new cache entry."""
         replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         base_fa.mean()
         assert mock_fa_job_cls.call_count == 1
@@ -566,7 +619,7 @@ class TestFederatedAnalytics:
             "node-1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
             "node-3": _make_reply({"age": {"mean": 48.0, "count": 60}}),
         }
-        mock_fa_job_cls.return_value.execute.return_value = (replies_3, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies_3
 
         base_fa.mean()
         assert mock_fa_job_cls.call_count == 2  # new node set → cache miss
@@ -574,12 +627,12 @@ class TestFederatedAnalytics:
     # --- stats=None (args-only) ---
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_fetch_stats_stats_args_only(self, mock_fa_job_cls, base_fa):
-        """stats=None with stats_args provided should issue a request."""
+    def test_fetch_stats_with_args_returns_fa_result(self, mock_fa_job_cls, base_fa):
+        """fetch_stats_with_args with valid args should issue a request and return FAResult."""
         replies = {"node-1": _make_reply({"image": {"histogram": [0.1, 0.5, 0.9]}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
-        result = base_fa.fetch_stats(
+        result = base_fa.fetch_stats_with_args(
             stats_args={"image": {"histogram": {"bin_edges": [0, 1, 2]}}}
         )
 
@@ -589,26 +642,157 @@ class TestFederatedAnalytics:
         assert call_kwargs["stats"] is None
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_fetch_stats_stats_args_only_cached(self, mock_fa_job_cls, base_fa):
-        """Second call with same stats_args and stats=None must be served from cache."""
+    def test_fetch_stats_with_args_cached(self, mock_fa_job_cls, base_fa):
+        """Second call with identical stats_args must be served from cache."""
         replies = {"node-1": _make_reply({"image": {"histogram": [0.1, 0.5, 0.9]}})}
-        mock_fa_job_cls.return_value.execute.return_value = (replies, {})
+        mock_fa_job_cls.return_value.execute.return_value = replies
 
         args = {"image": {"histogram": {"bin_edges": [0, 1, 2]}}}
-        base_fa.fetch_stats(stats_args=args)
-        base_fa.fetch_stats(stats_args=args)
+        base_fa.fetch_stats_with_args(args)
+        base_fa.fetch_stats_with_args(args)
 
         assert mock_fa_job_cls.call_count == 1  # second call served from cache
 
-    def test_fetch_stats_both_none_raises(self, base_fa):
-        """Passing neither stats nor stats_args must raise FedbiomedError."""
-        with pytest.raises(FedbiomedError, match="At least one of"):
+    def test_fetch_stats_no_stats_raises(self, base_fa):
+        """Calling fetch_stats without stats raises TypeError (required argument)."""
+        with pytest.raises(TypeError):
             base_fa.fetch_stats()
 
-    def test_fetch_stats_both_empty_raises(self, base_fa):
-        """Passing empty stats list and empty stats_args dict must raise FedbiomedError."""
-        with pytest.raises(FedbiomedError, match="At least one of"):
-            base_fa.fetch_stats(stats=[], stats_args={})
+    def test_fetch_stats_empty_list_raises(self, base_fa):
+        """Passing an empty list must raise FedbiomedError."""
+        with pytest.raises(FedbiomedError, match="stats"):
+            base_fa.fetch_stats([])
+
+    def test_fetch_stats_with_args_empty_raises(self, base_fa):
+        """Calling fetch_stats_with_args with empty dict must raise FedbiomedError."""
+        with pytest.raises(FedbiomedError, match="stats_args"):
+            base_fa.fetch_stats_with_args(stats_args={})
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fetch_stats_and_fetch_stats_with_args_independent(
+        self, mock_fa_job_cls, base_fa
+    ):
+        """fetch_stats and fetch_stats_with_args use separate cache entries and never share state."""
+        stats_replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
+        args_replies = {
+            "node-1": _make_reply({"image": {"histogram": [0.1, 0.5, 0.9]}})
+        }
+        mock_fa_job_cls.return_value.execute.side_effect = [
+            stats_replies,
+            args_replies,
+        ]
+
+        base_fa.fetch_stats("mean")
+        base_fa.fetch_stats_with_args(
+            {"image": {"histogram": {"bin_edges": [0, 1, 2]}}}
+        )
+
+        assert mock_fa_job_cls.call_count == 2
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fetch_stats_dataset_schema_affects_cache_key(
+        self, mock_fa_job_cls, base_fa
+    ):
+        """Different dataset_schema values must produce separate cache entries."""
+        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        base_fa.fetch_stats("mean", dataset_schema=["age"])
+        base_fa.fetch_stats("mean", dataset_schema=["height"])
+
+        assert mock_fa_job_cls.call_count == 2
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fetch_stats_all_errors_raises(self, mock_fa_job_cls, base_fa):
+        """When execute() raises (all nodes failed), FedbiomedError propagates."""
+        mock_fa_job_cls.return_value.execute.side_effect = FedbiomedError(
+            "all nodes failed"
+        )
+
+        with pytest.raises(FedbiomedError):
+            base_fa.fetch_stats("mean")
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fetch_stats_with_args_all_errors_raises(self, mock_fa_job_cls, base_fa):
+        """When execute() raises for fetch_stats_with_args, FedbiomedError propagates."""
+        mock_fa_job_cls.return_value.execute.side_effect = FedbiomedError(
+            "all nodes failed"
+        )
+
+        with pytest.raises(FedbiomedError):
+            base_fa.fetch_stats_with_args(
+                {"image": {"histogram": {"bin_edges": [0, 1]}}}
+            )
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_partial_errors_raises(self, mock_fa_job_cls, base_fa):
+        """When any node returns an error, execute() raises FedbiomedError."""
+        mock_fa_job_cls.return_value.execute.side_effect = FedbiomedError(
+            "node-2 failed"
+        )
+
+        with pytest.raises(FedbiomedError):
+            base_fa.fetch_stats("mean")
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_count_convenience_method(self, mock_fa_job_cls, base_fa):
+        """count() delegates to fetch_stats and returns the global count."""
+        replies = {
+            "node-1": _make_reply({"age": {"count": 100}}),
+            "node-2": _make_reply({"age": {"count": 80}}),
+        }
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        result = base_fa.count()
+
+        assert isinstance(result, dict)
+        assert result == {"age": 180}
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_std_convenience_method(self, mock_fa_job_cls, base_fa):
+        """std() requests variance primitives and returns the global standard deviation."""
+        replies = {
+            "node-1": _make_reply(
+                {"age": {"mean": 45.0, "variance": 4.0, "count": 100}}
+            ),
+            "node-2": _make_reply(
+                {"age": {"mean": 50.0, "variance": 9.0, "count": 80}}
+            ),
+        }
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        result = base_fa.std()
+
+        assert isinstance(result, dict)
+        assert "age" in result
+        assert result["age"] > 0
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_cache_eviction_fifo(self, mock_fa_job_cls, base_fa):
+        """Filling cache beyond MAX_CACHE_SIZE evicts the oldest entry (covers line 519)."""
+        replies = {"node-1": _make_reply({"age": {"count": 100}})}
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        max_size = FederatedAnalytics._MAX_CACHE_SIZE
+        # Each call uses a distinct stats_args so every result gets its own cache key.
+        for i in range(max_size + 1):
+            base_fa.fetch_stats_with_args(stats_args={"iteration": i})
+
+        assert mock_fa_job_cls.call_count == max_size + 1
+        assert len(base_fa._results_store) == max_size
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fetch_stats_string_schema_normalized(self, mock_fa_job_cls, base_fa):
+        """A string dataset_schema is coerced to a single-element list before use
+        (covers line 544: `dataset_schema = [dataset_schema]`)."""
+        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        result = base_fa.fetch_stats("mean", dataset_schema="age")
+
+        assert isinstance(result, FAResult)
+        call_kwargs = mock_fa_job_cls.call_args.kwargs
+        assert call_kwargs["dataset_schema"] == ["age"]
 
 
 # ---------------------------------------------------------------------------
@@ -630,7 +814,7 @@ class TestComputableStats:
         assert "sum" in cs
         assert "variance" not in cs
         assert "std" not in cs
-        assert "min" not in cs
+        assert "histogram" not in cs
 
     def test_with_variance_enables_std_and_variance(self):
         replies = {
@@ -644,13 +828,15 @@ class TestComputableStats:
         assert "count" in cs
         assert "sum" in cs
 
-    def test_min_only_enables_min(self):
-        replies = {"n1": _make_reply({"age": {"min": 18.0}})}
+    def test_count_only_enables_count(self):
+        # count alone (without mean/variance) must not make mean/variance/sum computable
+        replies = {"n1": _make_reply({"age": {"count": 100}})}
         result = FAResult(replies)
         cs = result.computable_stats()
-        assert "min" in cs
-        assert "max" not in cs
+        assert "count" in cs
         assert "mean" not in cs
+        assert "variance" not in cs
+        assert "sum" not in cs
 
     def test_histogram_computable(self):
         replies = {
@@ -678,13 +864,13 @@ class TestComputableStats:
         assert "quantile" in cs
 
     def test_result_is_sorted(self):
+        # Use mean+count+variance so multiple stats are computable, verifying sort order
         replies = {
-            "n1": _make_reply(
-                {"age": {"mean": 45.0, "count": 100, "min": 18.0, "max": 90.0}}
-            )
+            "n1": _make_reply({"age": {"mean": 45.0, "count": 100, "variance": 4.0}})
         }
         result = FAResult(replies)
         cs = result.computable_stats()
+        assert len(cs) > 1  # ensures the test is non-trivial
         assert cs == sorted(cs)
 
     def test_nested_dict_schema(self):
@@ -706,16 +892,17 @@ class TestComputableStats:
 class TestGlobalStats:
     def test_no_stat_name_returns_dict_of_all_computable(self):
         replies = {
-            "n1": _make_reply({"age": {"min": 20.0, "max": 80.0}}),
-            "n2": _make_reply({"age": {"min": 18.0, "max": 90.0}}),
+            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
+            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
         }
         result = FAResult(replies)
         all_stats = result.global_stats()
         assert isinstance(all_stats, dict)
         # top-level keys are data-tree keys, not stat names
         assert set(all_stats.keys()) == {"age"}
-        assert all_stats["age"]["min"] == 18.0
-        assert all_stats["age"]["max"] == 90.0
+        assert all_stats["age"]["count"] == 180
+        expected_mean = (45.0 * 100 + 50.0 * 80) / 180
+        assert abs(all_stats["age"]["mean"] - expected_mean) < 1e-9
 
     def test_no_stat_name_empty_result_returns_empty_dict(self):
         assert FAResult({}).global_stats() == {}
@@ -767,3 +954,56 @@ class TestGlobalStats:
         result = FAResult({})
         with pytest.raises(FedbiomedError, match="contains no node data"):
             result.global_stat("mean")
+
+    def test_global_stat_sequence_output(self):
+        # List-typed node outputs exercise _aggregate_tree's sequence branch
+        # (covers lines 286-290: list/tuple path in _aggregate_tree)
+        replies = {
+            "n1": _make_reply(
+                [{"age": {"mean": 45.0, "count": 100}}, {"mean": 128.0, "count": 50}]
+            ),
+            "n2": _make_reply(
+                [{"age": {"mean": 50.0, "count": 80}}, {"mean": 130.0, "count": 40}]
+            ),
+        }
+        result = FAResult(replies)
+        global_mean = result.global_stat("mean")
+        assert isinstance(global_mean, list)
+        assert len(global_mean) == 2
+        # element 0: row dict → {"age": weighted_mean}
+        expected_age = (45.0 * 100 + 50.0 * 80) / 180
+        assert abs(global_mean[0]["age"] - expected_age) < 1e-9
+        # element 1: flat image stat → scalar
+        expected_flat = (128.0 * 50 + 130.0 * 40) / 90
+        assert abs(global_mean[1] - expected_flat) < 1e-9
+
+    def test_global_stats_no_computable_stats_returns_empty_dict(self):
+        # When output contains no registered stat keys, computable_stats() is empty
+        # and _merge_stat_results({}) returns {} (covers line 318)
+        replies = {"n1": _make_reply({"metadata": {"source": "node1"}})}
+        result = FAResult(replies)
+        assert result.computable_stats() == []
+        assert result.global_stats() == {}
+
+    def test_global_stats_sequence_output(self):
+        # global_stats() on list-typed outputs exercises the sequence branch in
+        # _merge_stat_results (covers lines 328-334)
+        replies = {
+            "n1": _make_reply(
+                [{"age": {"mean": 45.0, "count": 100}}, {"mean": 128.0, "count": 50}]
+            ),
+            "n2": _make_reply(
+                [{"age": {"mean": 50.0, "count": 80}}, {"mean": 130.0, "count": 40}]
+            ),
+        }
+        result = FAResult(replies)
+        all_stats = result.global_stats()
+        assert isinstance(all_stats, list)
+        assert len(all_stats) == 2
+        # element 0: row dict with per-col stat map
+        assert "age" in all_stats[0]
+        assert "count" in all_stats[0]["age"]
+        assert all_stats[0]["age"]["count"] == 180
+        # element 1: flat image stat map
+        assert "count" in all_stats[1]
+        assert all_stats[1]["count"] == 90

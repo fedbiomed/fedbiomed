@@ -929,7 +929,7 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     fa_id: str
     stats: Optional[List] = None
     stats_args: Optional[Dict] = None
-    dataset_schema: Optional[str | List | Tuple | Dict] = None
+    dataset_schema: Optional[List | Tuple | Dict] = None
 
 
 @catch_dataclass_exception

@@ -1,8 +1,6 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import inspect
-
 import numpy as np
 import pytest
 
@@ -10,83 +8,45 @@ from fedbiomed.common.analytics._aggregators import (
     AGGREGATORS_MAP,
     aggregate_count,
     aggregate_histogram,
-    aggregate_max,
     aggregate_mean,
-    aggregate_min,
     aggregate_quantile,
     aggregate_std,
     aggregate_sum,
     aggregate_variance,
     aggregator,
 )
-from fedbiomed.common.constants import ErrorNumbers, Stats
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 
 
-def test_all_aggregator_params_are_valid_stats():
-    """Every parameter name in every registered aggregator must be a Stats value."""
-    valid = {s.value for s in Stats}
-    for stat_name, func in AGGREGATORS_MAP.items():
-        params = list(inspect.signature(func).parameters)
-        invalid = [p for p in params if p not in valid]
-        assert not invalid, (
-            f"Aggregator for '{stat_name}' has invalid parameter(s) {invalid}. "
-            f"Valid Stats values: {sorted(valid)}"
-        )
+def test_aggregator_allows_any_param_name():
+    """Parameters are no longer restricted to Stats enum values."""
 
+    @aggregator("test_stat")
+    def _ok(not_a_stat_name: list):
+        return not_a_stat_name
 
-def test_aggregator_invalid_param_raises_at_decoration():
-    """Decorating a function with a non-Stats parameter name raises FedbiomedError."""
-    with pytest.raises(FedbiomedError, match="not valid Stats enum values"):
-
-        @aggregator("test_stat")
-        def _bad(not_a_stat_name: list):
-            pass
+    assert _ok([1, 2]) == [1, 2]
+    del AGGREGATORS_MAP["test_stat"]
 
 
 def test_aggregator_validation_args():
     """Test aggregator validation decorator."""
     # Argument is not a list
     with pytest.raises(FedbiomedError) as excinfo:
-        aggregate_min(123)
+        aggregate_count(123)
     assert ErrorNumbers.FB633.value in str(excinfo.value)
     assert "must be a list" in str(excinfo.value)
 
     # Missing argument
     with pytest.raises(FedbiomedError) as excinfo:
-        aggregate_min()
+        aggregate_count()
     assert ErrorNumbers.FB633.value in str(excinfo.value)
     assert "Missing required argument" in str(excinfo.value)
 
     # Extra arguments are ignored (filtered out by decorator)
-    # aggregate_min([1.0, 2.0], extra_arg=True) should not raise TypeError
-    assert aggregate_min([1.0, 2.0], extra_arg=True) == 1.0
-
-
-def test_aggregate_min():
-    """Test aggregate_min function."""
-    # Normal case
-    assert aggregate_min([1.0, 2.0, 3.0]) == 1.0
-    assert aggregate_min([-5.0, 0.0, 5.0]) == -5.0
-
-    # Edge cases
-    with pytest.raises(FedbiomedError):
-        aggregate_min([])
-    assert aggregate_min([10.0]) == 10.0
-    assert aggregate_min([np.inf, 1.0]) == 1.0
-
-
-def test_aggregate_max():
-    """Test aggregate_max function."""
-    # Normal case
-    assert aggregate_max([1.0, 2.0, 3.0]) == 3.0
-    assert aggregate_max([-5.0, 0.0, 5.0]) == 5.0
-
-    # Edge cases
-    with pytest.raises(FedbiomedError):
-        aggregate_max([])
-    assert aggregate_max([10.0]) == 10.0
-    assert aggregate_max([-np.inf, 1.0]) == 1.0
+    # aggregate_count([10, 20], extra_arg=True) should not raise TypeError
+    assert aggregate_count([10, 20], extra_arg=True) == 30
 
 
 def test_aggregate_count():
@@ -170,6 +130,10 @@ def test_aggregate_sum():
     with pytest.raises(FedbiomedError):
         aggregate_sum([], [])
 
+    # Mismatched lengths
+    with pytest.raises(FedbiomedError):
+        aggregate_sum([1.0, 2.0], [1])
+
 
 def test_aggregate_mean():
     """Test aggregate_mean function."""
@@ -189,6 +153,10 @@ def test_aggregate_mean():
         aggregate_mean([], [])
     # Zero total count
     assert np.isnan(aggregate_mean([10.0], [0]))
+
+    # Mismatched lengths
+    with pytest.raises(FedbiomedError):
+        aggregate_mean([1.0, 2.0], [1])
 
 
 def test_aggregate_variance():
