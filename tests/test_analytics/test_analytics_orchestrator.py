@@ -5,7 +5,6 @@ import pytest
 from fedbiomed.common.analytics import AnalyticsOrchestrator
 from fedbiomed.common.analytics.accumulators import (
     DictAccumulator,
-    ImageAccumulator,
     RowAccumulator,
     SequenceAccumulator,
 )
@@ -149,8 +148,10 @@ def test_create_accumulator_row(orchestrator):
 
 
 def test_create_accumulator_image(orchestrator):
+    from fedbiomed.common.analytics.accumulators import ImageAccumulator
+
     acc = orchestrator._create_accumulator(
-        {"type": DatasetElementType.IMAGE, "stats": {"mean": {"buffer_size": 10}}}
+        {"type": DatasetElementType.IMAGE, "stats": {}}
     )
     assert isinstance(acc, ImageAccumulator)
 
@@ -259,6 +260,27 @@ def test_handle_dict_subschema_list_with_nested_dict_key(orchestrator):
     assert "b" not in result["children"]
 
 
+def test_handle_dict_stats_args_routed_per_key(orchestrator):
+    """stats_args values are forwarded to the correct child key's recursive call."""
+    schema = {"a": RowSpec(columns=["c1"]), "b": RowSpec(columns=["c2"])}
+    stats_args = {"a": {"mean": {}}, "b": {"variance": {}}}
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "columns": [],
+        }
+        orchestrator._handle_dict(
+            schema, subschema=None, stats=None, stats_args=stats_args, n_samples=5
+        )
+
+    # args[3] is child_args in _build_and_validate_config(schema_item, child_sub, stats, child_args, n_samples)
+    routed_args = [call.args[3] for call in mock_bvc.call_args_list]
+    assert {"mean": {}} in routed_args
+    assert {"variance": {}} in routed_args
+
+
 def test_handle_dict_subschema_list_with_string_item(orchestrator):
     """List subschema with a plain string item selects that key."""
     schema = {"a": ImageSpec(), "b": ImageSpec()}
@@ -299,8 +321,73 @@ def test_handle_sequence_single_element(orchestrator):
     assert result["indices"] == [0]
 
 
+def test_handle_sequence_subschema_list_wraps_for_single_active(orchestrator):
+    """When active=1 and subschema is a multi-item list, it is wrapped for convenience."""
+    schema = [RowSpec(columns=["c1", "c2", "c3"])]
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "columns": [],
+        }
+        result = orchestrator._handle_sequence(
+            schema, subschema=["c1", "c2"], stats=None, stats_args=None, n_samples=5
+        )
+
+    # The list ["c1", "c2"] is forwarded as the child subschema (wrapped into [["c1", "c2"]])
+    assert mock_bvc.call_args[0][1] == ["c1", "c2"]
+    assert result["type"] == "sequence"
+    assert len(result["children"]) == 1
+
+
+def test_handle_sequence_subschema_single_column_wraps_for_single_active(orchestrator):
+    """["col1"] (len==1) for a single-active sequence must be wrapped, not treated as one child item."""
+    # This is the bug: ["col1"] length matches active length (both 1), so the length
+    # check alone doesn't trigger wrapping.  The scalar-element check must catch it.
+    schema = [RowSpec(columns=["c1", "c2"])]
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "columns": [],
+        }
+        result = orchestrator._handle_sequence(
+            schema, subschema=["c1"], stats=None, stats_args=None, n_samples=5
+        )
+
+    # ["c1"] must be forwarded as the child subschema (wrapped into [["c1"]]), not as "c1"
+    assert mock_bvc.call_args[0][1] == ["c1"]
+    assert result["type"] == "sequence"
+    assert len(result["children"]) == 1
+
+
+def test_handle_sequence_subschema_already_nested_not_rewrapped(orchestrator):
+    """[["c1", "c2"]] (already nested) for a single-active sequence must NOT be re-wrapped."""
+    schema = [RowSpec(columns=["c1", "c2"])]
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "columns": [],
+        }
+        orchestrator._handle_sequence(
+            schema, subschema=[["c1", "c2"]], stats=None, stats_args=None, n_samples=5
+        )
+
+    # [["c1", "c2"]] — subschema[0] is a list (a container), so no wrapping occurs
+    assert mock_bvc.call_args[0][1] == ["c1", "c2"]
+
+
 def test_handle_sequence_subschema_errors(orchestrator):
     schema = [1, 2]
+
+    with pytest.raises(FedbiomedError, match="Subschema for sequence must be list"):
+        orchestrator._handle_sequence(
+            schema, subschema=123, stats=None, stats_args=None, n_samples=5
+        )
 
     with pytest.raises(FedbiomedError, match="Subschema for sequence must be list"):
         orchestrator._handle_sequence(
@@ -466,6 +553,9 @@ def test_handle_row_return_value(mock_compile, orchestrator):
 
 def test_handle_row_validation_errors(orchestrator):
     schema = RowSpec(columns=["c1"])
+
+    with pytest.raises(FedbiomedError, match="Subschema for ROW must be a list"):
+        orchestrator._handle_row(schema, 123, None, None, n_samples=5)
 
     with pytest.raises(FedbiomedError, match="Subschema for ROW must be a list"):
         orchestrator._handle_row(schema, "c1", None, None, n_samples=5)
@@ -637,7 +727,7 @@ def test_dependencies(mock_registry, orchestrator):
 
 @patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
 def test_resolve_and_validate_roots_conflicting_stat_args(mock_registry, orchestrator):
-    """Requesting the same stat twice with different args raises."""
+    """A stat already implied as a dependency conflicts when re-requested with different args."""
     mock_registry.get_dependencies.side_effect = (
         lambda s, et: {"mean"} if s == "std" else set()
     )
@@ -647,6 +737,24 @@ def test_resolve_and_validate_roots_conflicting_stat_args(mock_registry, orchest
     with pytest.raises(FedbiomedError, match="Conflicting arguments"):
         orchestrator._resolve_and_validate_roots(
             DatasetElementType.ROW, {"mean": {}, "std": {"ddof": 1}}
+        )
+
+
+@patch("fedbiomed.common.analytics._orchestrator.AnalyticsRegistry")
+def test_resolve_and_validate_roots_explicit_after_dependency_conflict(
+    mock_registry, orchestrator
+):
+    """A stat first implied as a dependency, then explicitly requested with different args, raises."""
+    # "b" depends on "a"; "a" is later explicitly requested with conflicting args
+    mock_registry.get_dependencies.side_effect = (
+        lambda s, et: {"a"} if s == "b" else set()
+    )
+    mock_registry.validate_args.return_value = None
+    mock_registry.get_roots.return_value = {"b"}
+
+    with pytest.raises(FedbiomedError, match="Conflicting arguments for statistic 'a'"):
+        orchestrator._resolve_and_validate_roots(
+            DatasetElementType.ROW, {"b": {}, "a": {"extra": 1}}
         )
 
 

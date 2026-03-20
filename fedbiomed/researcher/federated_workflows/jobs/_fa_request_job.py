@@ -12,13 +12,9 @@ from ._job import Job
 
 
 class FARequestJob(Job):
-    """FA Request Job class.
+    """Federated Analytics (FA) request job.
 
-    This class represents a Federated Analytics (FA) request job in the Fed-BioMed framework.
-    It inherits from the base Job class and is used to handle FA requests.
-
-    Attributes:
-        fa_request: The FA request associated with this job.
+    Sends an FA request to all participating nodes and collects their replies.
     """
 
     def __init__(
@@ -31,10 +27,16 @@ class FARequestJob(Job):
         dataset_schema: Optional[list],
         **kwargs,
     ) -> None:
-        """Initialize the FARequestJob with the given FA request.
+        """Initialize the FARequestJob.
 
         Args:
-            fa_request: The FA request to be associated with this job.
+            experiment_id: ID of the experiment this job belongs to.
+            fa_id: Unique identifier for this FA job.
+            federated_dataset: Federated dataset mapping node IDs to dataset metadata.
+            stats_args: Keyword arguments passed to the statistics functions.
+            stats: List of statistic names to compute.
+            dataset_schema: Optional schema descriptor used to validate the dataset.
+            **kwargs: Forwarded to the base `Job` constructor.
         """
         super().__init__(**kwargs)
 
@@ -51,10 +53,13 @@ class FARequestJob(Job):
         self._stats = stats
 
     def execute(self) -> Dict[str, FAReply]:
-        """Executes federated analytics request
+        """Send the FA request to all nodes and collect replies.
+
+        Raises:
+            FedbiomedError: If any node returns an error, or if no replies are received.
 
         Returns:
-            A dictionary mapping node IDs to their respective FA replies.
+            A dictionary mapping node IDs to their `FAReply`.
         """
         fa_request = dict(
             researcher_id=self._researcher_id,
@@ -79,11 +84,18 @@ class FARequestJob(Job):
             replies: Dict[str, FAReply] = responses.replies()
 
         if errors:
-            # Handle errors appropriately (logging, raising exceptions, etc.)
+            # Log errors encountered during the execution of the FA request
             for node_id, error in errors.items():
                 logger.error(
-                    "Error message received during federated analytics "
-                    f"in node_id={node_id}: {error.errnum}. {error.extra_msg}"
+                    f"Node {node_id} analytics error [{error.errnum}]: {error.extra_msg}"
                 )
+            # Treat any node error as fatal
+            raise FedbiomedError(
+                f"FA request execution failed with errors from nodes: {', '.join(errors.keys())}"
+            )
 
-        return replies, errors
+        # Ensure there is at least one successful reply
+        if not replies:
+            raise FedbiomedError("No successful replies received.")
+
+        return replies
