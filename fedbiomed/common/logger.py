@@ -63,6 +63,7 @@ from fedbiomed.common.singleton import SingletonMeta
 DEFAULT_LOG_FILE = "mylog.log"
 DEFAULT_SECURITY_LOG_FILE = "security_audit.log"
 DEFAULT_LOG_LEVEL = logging.WARNING
+SYSLOG_IDENT = "fedbiomed: "
 LOG_PREFIX = "%(prefix)s"
 DEFAULT_FORMAT = f"%(asctime)s %(name)s{LOG_PREFIX} %(levelname)s - %(message)s"
 DEBUG_FORMAT = (
@@ -620,10 +621,16 @@ class FedLogger(metaclass=SingletonMeta):
 
         # Optional compatibility knobs from stdlib docs
         handler.append_nul = False
+        handler.ident = SYSLOG_IDENT
         handler_key = "SYSLOG"
 
         handler.setLevel(self._internal_level_translator(level))
-        handler.setFormatter(logging.Formatter(DEFAULT_FORMAT.replace(LOG_PREFIX, "")))
+
+        # Forward only security events
+        handler.addFilter(_SecurityOnlyFilter())
+
+        # Keep the same JSON structure as the security audit file
+        handler.setFormatter(_SecurityFormatter(self._security_defaults))
 
         self._internal_add_handler(handler_key, handler)
 
