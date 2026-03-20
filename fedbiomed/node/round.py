@@ -138,6 +138,7 @@ class Round:
         )
         self._temp_dir = tempfile.TemporaryDirectory()
         self._keep_files_dir = self._temp_dir.name
+        self._persistent_model_weights = None
 
     def __del__(self):
         """Class destructor"""
@@ -339,6 +340,11 @@ class Round:
             )
             return self._send_round_reply(success=False, message=error_message)
 
+        # load all initial models weights
+        initial_model_weights = self.training_plan.get_model_params(
+            only_trainable=False, exclude_buffers=False, private_params=None
+        )
+
         # load node state
         previous_state_id = self._node_state_manager.previous_state_id
         if previous_state_id is not None:
@@ -354,9 +360,14 @@ class Round:
                     success=False, message="Can't read previous node state."
                 )
 
-        # Load model parameters received from researcher
+        # Reconstruct full parameters
+        full_model_weights = self._reconstruct_full_params(
+            initial_model_weights, self.params, self._persistent_model_weights
+        )
+
+        # Load full model parameters
         try:
-            self.training_plan.set_model_params(self.params)
+            self.training_plan.set_model_params(full_model_weights)
         except Exception as e:
             error_message = "Cannot initialize model parameters."
             logger.error(f"{error_message} Details: {repr(e)}")
@@ -787,12 +798,13 @@ class Round:
         return None
 
     def _load_round_state(self, state_id: str) -> None:
-        """Loads optimizer state of previous `Round`, given a `state_id`.
+        """Loads state of previous `Round`, given a `state_id`.
 
         Loads optimizer with default values if optimizer entry has not been found
         or if Optimizer type has changed between current and previous `Round`. Should
         be called at the beginning of a `Round`, before training a model.
         If loading fails, skip the loading part and loads `Optimizer` with default values.
+        Also load persistent parameters saved locally during the previous `Round`
 
         Args:
             state_id: state_id from which to recover `Node`'s state
@@ -819,7 +831,7 @@ class Round:
 
                 optimizer_wrapper.load_state(optim_state, load_from_state=True)
                 logger.debug(f"Optimizer loaded state {optim_state}")
-                logger.info(f"State {state_id} loaded")
+                logger.info(f"Optimizer from state {state_id} loaded")
 
             except Exception as err:
                 logger.warning(
@@ -832,19 +844,30 @@ class Round:
         if state["testing_dataset"] and not self.is_test_data_shuffled:
             self._testing_indexes = state["testing_dataset"]
 
+        ## load the persistent parameters
+        if state["persistent_model_weights"]:
+            model_weights_path = state["persistent_model_weights"].get("state_path")
+            persistent_model_weights = Serializer.load(model_weights_path)
+            self._persistent_model_weights = persistent_model_weights
+        else:
+            self._persistent_model_weights = dict()
+
         # add below other components that need to be reloaded from node state database
 
     def _save_round_state(self) -> Dict:
-        """Saves `Round` state (mainly Optimizer state) in database through
-        [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
+        """Saves `Round` state (mainly Optimizer state, and persistent parameters) in database
+        through [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
 
-        Some piece of information such as Optimizer state are also aved in files (located under
-        <fedbiomed-node>/var/node_state<node_id>/experiment_id_<experiment_id>/).
+        Some piece of information such as Optimizer state and persistent parameters are also
+        saved in files
+        (located under <fedbiomed-node>/var/node_state<node_id>/experiment_id_<experiment_id>/).
         Should be called at the end of a `Round`, once the model has been trained.
 
         Entries saved in State:
         - optimizer_state:
             - optimizer_type (str)
+            - state_path (str)
+        - persistent_model_weights:
             - state_path (str)
 
         Returns:
@@ -894,6 +917,28 @@ class Round:
             logger.info("testing dataset saved in database")
         else:
             logger.info("testing data will be reshuffled next rounds")
+
+        # save model weights with "persistent" tag
+        state["persistent_model_weights"] = None
+        full_model_weights = self.training_plan.get_model_params(
+            only_trainable=False, exclude_buffers=False, private_params=None
+        )
+        persistent_model_weights = self.training_plan.filter_model_params_by_tags(
+            params=full_model_weights, required_tags={"persistent"}
+        )
+        if persistent_model_weights:
+            model_weights_path = (
+                self._node_state_manager.generate_folder_and_create_file_name(
+                    self.experiment_id, self._round, NodeStateFileName.MODEL_WEIGHTS
+                )
+            )
+            Serializer.dump(persistent_model_weights, path=model_weights_path)
+            logger.debug("Saving persistent model weights")
+            model_weights_state_entry: Dict = {
+                "state_path": model_weights_path,
+            }
+            state["persistent_model_weights"] = model_weights_state_entry
+
         # add here other object states (ie model state, ...)
 
         # save completed node state
@@ -1093,3 +1138,62 @@ class Round:
         self._testing_indexes = data_manager.save_state()
 
         return training_loader, testing_loader
+
+    def _reconstruct_full_params(
+        self,
+        initial_model_weights: Dict[str, Any],
+        weights_from_researcher: Dict[str, Any],
+        persistent_model_weights: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Reconstructs the full set of model parameters before training.
+
+        This method merges parameters received from the researcher (typically
+        aggregated global parameters) with locally managed parameters based on
+        their associated tags ("private", "persistent").
+
+        The reconstruction follows these rules:
+            - Parameters tagged as both "private" and "persistent" are restored
+            from `persistent_model_weights` if available. If not (e.g., first
+            round), they are initialized from `initial_model_weights`.
+            - Parameters tagged as "private" but not "persistent" are always
+            reinitialized from `initial_model_weights` at each round.
+            - All other parameters are kept as provided in `weights_from_researcher`.
+
+        Args:
+            initial_model_weights: initial values of all model parameters (before any training)
+            weights_from_researcher: parameters received from the researcher
+            persistent_model_weights: locally stored parameters saved from previous rounds
+
+        Returns:
+            the complete set of parameters to be loaded into the model before training
+        """
+        # Deal with the case where persistent_model_weights is None
+        persistent_model_weights = persistent_model_weights or {}
+
+        # Start from parameters received by researcher
+        full_params = dict(weights_from_researcher)
+
+        # private and persistent parameters: override with saved values
+        private_persistent = self.training_plan.filter_model_params_by_tags(
+            initial_model_weights,
+            required_tags={"private", "persistent"},
+        )
+
+        for name in private_persistent:
+            if name in persistent_model_weights:
+                full_params[name] = persistent_model_weights[name]
+            else:
+                # First round: use initial model weight
+                full_params[name] = initial_model_weights[name]
+
+        # private only parameters: override with initial values
+        private_only = self.training_plan.filter_model_params_by_tags(
+            initial_model_weights,
+            required_tags={"private"},
+            forbidden_tags={"persistent"},
+        )
+
+        for name in private_only:
+            full_params[name] = initial_model_weights[name]
+
+        return full_params

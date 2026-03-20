@@ -4,7 +4,7 @@
 """Torch interfacing Model class."""
 
 import copy
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import torch
@@ -56,7 +56,10 @@ class TorchModel(Model):
         return gradients
 
     def get_weights(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        private_params: Optional[List[str]] = None,
     ) -> Dict[str, torch.Tensor]:
         """Return the model's parameters.
 
@@ -66,25 +69,37 @@ class TorchModel(Model):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            private_params: List of parameter names to exclude from the output.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their
                 torch tensor.
         """
-        param_iterator = (
+        private_params_set = set(private_params) if private_params else set()
+
+        param_iterator = list(
             self.model.named_parameters()
             if exclude_buffers
             else self.model.state_dict().items()
         )
+
+        unknown = private_params_set - {name for name, _ in param_iterator}
+        if unknown:
+            raise ValueError(f"Unknown private parameters: {unknown}")
+
         parameters = {
             name: param.detach().clone()
             for name, param in param_iterator
-            if param.requires_grad or not only_trainable
+            if (param.requires_grad or not only_trainable)
+            and name not in private_params_set
         }
         return parameters
 
     def flatten(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        private_params: Optional[List[str]] = None,
     ) -> List[float]:
         """Gets weights as flatten vector
 
@@ -94,13 +109,16 @@ class TorchModel(Model):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            private_params: List of parameter names to exclude from the output.
 
         Returns:
             to_list: Convert np.ndarray to a list if it is True.
         """
         params: List[float] = torch.nn.utils.parameters_to_vector(
             self.get_weights(
-                only_trainable=only_trainable, exclude_buffers=exclude_buffers
+                only_trainable=only_trainable,
+                exclude_buffers=exclude_buffers,
+                private_params=private_params,
             ).values()
         ).tolist()
 
@@ -111,6 +129,7 @@ class TorchModel(Model):
         weights_vector: List[float],
         only_trainable: bool = False,
         exclude_buffers: bool = True,
+        private_params: Optional[List[str]] = None,
     ) -> Dict[str, torch.Tensor]:
         """Unflatten vectorized model weights using [`vector_to_parameters`][torch.nn.utils.vector_to_parameters]
 
@@ -123,18 +142,23 @@ class TorchModel(Model):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            private_params: List of parameter names to exclude from the output.
 
         Returns:
             Model dictionary
         """
 
-        super().unflatten(weights_vector, only_trainable, exclude_buffers)
+        super().unflatten(
+            weights_vector, only_trainable, exclude_buffers, private_params
+        )
 
         # Copy model to make sure global model parameters won't be overwritten
         model = copy.deepcopy(self)
         vector = torch.as_tensor(weights_vector).type(torch.DoubleTensor)
         weights = model.get_weights(
-            only_trainable=only_trainable, exclude_buffers=exclude_buffers
+            only_trainable=only_trainable,
+            exclude_buffers=exclude_buffers,
+            private_params=private_params,
         )
 
         # Following operation updates model parameters of copied model object

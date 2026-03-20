@@ -188,6 +188,15 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         )
 
         self._configure_model_and_optimizer(initialize_optimizer)
+        # Configure the parameters tagged as private
+        self._private_params = list(
+            self.filter_model_params_by_tags(
+                self.get_model_params(
+                    only_trainable=False, exclude_buffers=False, private_params=None
+                ),
+                required_tags={"private"},
+            ).keys()
+        )
 
     @abstractmethod
     def init_model(self):
@@ -767,6 +776,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         training arguments, then we return only the output of
         [Model.get_weights][fedbiomed.common.models.TorchModel.get_weights],
         which considers only the trainable parameters.
+        If the researcher specified some parameters tagged as 'private', then these
+        parameters are not returned
         Otherwise, the default behaviour is to return the complete `state_dict`.
 
         Returns:
@@ -786,6 +797,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             "Collected raw training parameters: parameter_count=%s",
             len(params),
         )
+        ## TODO: What is this postprocess method, and how to deal with it ??
         # Check whether postprocess method exists, and use it.
         if hasattr(self, "postprocess"):
             logger.debug("running model.postprocess() method")
@@ -807,7 +819,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         )
         if flatten:
             params = self._model.flatten(
-                exclude_buffers=not self._share_persistent_buffers
+                exclude_buffers=not self._share_persistent_buffers,
+                private_params=self._private_params,
             )
             logger.debug(
                 "Flattened training parameters for aggregation: flattened_count=%s",

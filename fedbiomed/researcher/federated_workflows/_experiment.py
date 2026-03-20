@@ -974,10 +974,11 @@ class Experiment(TrainingPlanWorkflow):
             n_aux_var = encrypted_auxvar.get_num_expected_params()
         # Perform secure aggregation of all encrypted parameters.
         exclude_buffers = not self.training_args()["share_persistent_buffers"]
+        private_params = self.training_plan()._private_params
         num_expected_params = len(
             self.training_plan()
             .get_model_wrapper_class()
-            .flatten(exclude_buffers=exclude_buffers)
+            .flatten(exclude_buffers=exclude_buffers, private_params=private_params)
         )
 
         flattened_model_weights = self._secagg.aggregate(
@@ -1010,7 +1011,11 @@ class Experiment(TrainingPlanWorkflow):
         aggregated_params: Dict[str, Union[torch.Tensor, np.ndarray]] = (
             self.training_plan()
             .get_model_wrapper_class()
-            .unflatten(flattened_model_weights, exclude_buffers=exclude_buffers)
+            .unflatten(
+                flattened_model_weights,
+                exclude_buffers=exclude_buffers,
+                private_params=private_params,
+            )
         )
         # Return aggregated model parameters and optimizer auxiliary variables.
         return aggregated_params, aggregated_auxvar

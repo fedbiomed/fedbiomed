@@ -4,7 +4,7 @@
 """'Model' abstract base class defining an API to interface framework-specific models."""
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, ClassVar, Dict, Generic, List, Type, TypeVar
+from typing import Any, ClassVar, Dict, Generic, List, Optional, Type, TypeVar
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedModelError
@@ -95,7 +95,10 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
 
     @abstractmethod
     def get_weights(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        private_params: Optional[List[str]] = None,
     ) -> Dict[str, DT]:
         """Return a copy of the model's trainable weights.
 
@@ -105,6 +108,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            private_params: List of parameter names to exclude from the output.
 
         Returns:
             Model weights, as a dict mapping parameters' names to their value.
@@ -130,7 +134,10 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
 
     @abstractmethod
     def flatten(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        private_params: Optional[List[str]] = None,
     ) -> List[float]:
         """Flattens model weights
 
@@ -140,6 +147,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            private_params: List of parameter names to exclude from the output.
 
         Returns:
             List of model weights as float.
@@ -192,6 +200,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         weights_vector: List[float],
         only_trainable: bool = False,
         exclude_buffers: bool = True,
+        private_params: Optional[List[str]] = None,
     ) -> None:
         """Revert flatten model weights back model-dict form.
 
@@ -202,6 +211,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            private_params: List of parameter names to exclude from the output.
 
         Returns:
             Model dictionary
