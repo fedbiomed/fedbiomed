@@ -111,6 +111,20 @@ class NodeConfig(Config):
 
             self._cfg["security"].update({"allow_federated_analytics": "True"})
 
+        if not self._cfg.has_option("syslog", "enable"):
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for the node. "
+                "Please add 'enable' value in `syslog` section "
+                "of the node configuration to define whether syslog is enabled."
+            )
+
+            self._cfg["syslog"].update({"enable": "False"})
+            self._cfg["syslog"].update({"host": "localhost"})
+            self._cfg["syslog"].update({"port": "514"})
+            self._cfg["syslog"].update({"protocol": "udp"})
+            self._cfg["syslog"].update({"facility": "user"})
+            self._cfg["syslog"].update({"level": "INFO"})
+
 
 component_root = os.environ.get("FBM_NODE_COMPONENT_ROOT", None)
 

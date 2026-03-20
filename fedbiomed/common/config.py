@@ -81,9 +81,9 @@ class Config(metaclass=ABCMeta):
     def add_syslog_from_config(self):
         if not self.getbool("syslog", "enable", fallback="False"):
             logger.info(
-                "Syslog configuration is disabled or not found in configuration"
+                "Syslog configuration is disabled or not found in configuration. "
+                "Disabling syslog logging."
             )
-            logger.info("Disabling syslog logging.")
             return
 
         host = self.get("syslog", "host", fallback="localhost")
@@ -94,16 +94,18 @@ class Config(metaclass=ABCMeta):
 
         if protocol not in {"udp", "tcp"}:
             raise FedbiomedConfigurationError(
-                f"Unsupported syslog protocol: {protocol}"
+                f"{ErrorNumbers.FB600.value}: Unsupported syslog protocol: {protocol}"
             )
 
         if facility_name not in SYSLOG_FACILITY_MAP.keys():
             raise FedbiomedConfigurationError(
-                f"Unsupported syslog facility: {facility_name}"
+                f"{ErrorNumbers.FB600.value}: Unsupported syslog facility: {facility_name}"
             )
 
         if level_name not in logger._nameToLevel.keys():
-            raise FedbiomedConfigurationError(f"Unsupported syslog level: {level_name}")
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: Unsupported syslog level: {level_name}"
+            )
 
         logger.add_syslog_handler(
             host=host,
