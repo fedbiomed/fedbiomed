@@ -111,13 +111,13 @@ class NodeConfig(Config):
 
             self._cfg["security"].update({"allow_federated_analytics": "True"})
 
-        if not self._cfg.has_option("syslog", "enable"):
+        if not self._cfg.has_section("syslog"):
             logger.warning(
                 "DEPRECATION: You are using an old configuration file for the node. "
                 "Please add 'enable' value in `syslog` section "
                 "of the node configuration to define whether syslog is enabled."
             )
-
+            self._cfg.add_section("syslog")
             self._cfg["syslog"].update({"enable": "False"})
             self._cfg["syslog"].update({"host": "localhost"})
             self._cfg["syslog"].update({"port": "514"})
