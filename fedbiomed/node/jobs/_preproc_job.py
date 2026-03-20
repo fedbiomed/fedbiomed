@@ -5,6 +5,8 @@
 Implementation of Preprocess Job class of the node component
 """
 
+from typing import Callable, Dict
+
 from fedbiomed.common.constants import ErrorNumbers, HarmonizationStep, PreprocType
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
@@ -12,6 +14,12 @@ from fedbiomed.node.dataset_manager import DatasetManager
 
 from ._base_job import _BaseJob
 from ._fedcombat_jobs import _FedComBat_jobs
+
+_preproc_type_to_jobs: Dict[PreprocType, Callable] = {
+    # PreprocType.NONE is not valid here
+    PreprocType.FEDCOMBAT: _FedComBat_jobs,
+    # To be added in the future: other preprocessing types and their corresponding job classes
+}
 
 
 class PreprocJob(_BaseJob):
@@ -47,7 +55,6 @@ class PreprocJob(_BaseJob):
         self._preproc_args_raw = request.preproc_args
         self._state_id = request.state_id
         self._allow_preproc = allow_preproc
-        self._fedcombat_estimator = _FedComBat_jobs()
 
     def run(self) -> PreprocReply | ErrorMessage:
         """Execute preprocessing job.
@@ -76,30 +83,42 @@ class PreprocJob(_BaseJob):
                 f"Received invalid preproc_step: {self._preproc_step_raw}",
                 errnum=ErrorNumbers.FB326.value,
             )
-        # To be added in real implementation: check content of preproc_args
+        # Here we can check content of some preproc_args
+        # Only checks common to all preproc types and steps can be implemented here,
+        # otherwise the check should be done in the specific preproc implementation
         self._preproc_args = self._preproc_args_raw
 
-        # Placeholder for actual preprocessing logic
-        # This is where the preprocessing would be performed
-        # For now, we just simulate a successful preprocessing step
+        try:
+            preproc_type_jobs = _preproc_type_to_jobs[self._preproc_type]
+        except KeyError:
+            return self._build_error_msg(
+                f"Unsupported preprocessing type: {self._preproc_type.name}",
+                errnum=ErrorNumbers.FB326.value,
+            )
 
-        logger.info(
-            "Dummy preprocessing executed successfully for "
-            f"{self._preproc_type.name} / {self._preproc_step.name}."
-        )
+        try:
+            preproc_job_class = preproc_type_jobs()
+            preproc_output = preproc_job_class(self._preproc_step, self._preproc_args)
+        except Exception as e:
+            return self._build_error_msg(
+                f"Preprocessing job failed: {str(e)}",
+                errnum=ErrorNumbers.FB326.value,
+            )
 
-        # TODO: Parse request message and implement actual preprocessing logic
-        # Simulated request of preprocessing
         msg = (
             f"Node {self._node_name} ({self._node_id}): "
             f"Preprocessing step {self._preproc_step.name} of type {self._preproc_type.name} "
             f"for experiment {self._experiment_id} with args {self._preproc_args}"
         )
-
-        preproc_output = self._fedcombat_estimator(
-            self._preproc_step, self._preproc_args
+        exclude_args = ["biological_model", "global_bias_model"]
+        filtered_args = {
+            k: v for k, v in self._preproc_args.items() if k not in exclude_args
+        }
+        logger.info(
+            f"Preprocessing executed successfully for {self._preproc_type.name} / {self._preproc_step.name} "
+            f"with request id {self._request_id} preproc_id {self._preproc_id} dataset_id {self._dataset_id} "
+            f"preproc_args {filtered_args} except {exclude_args} and output {preproc_output}"
         )
-
         try:
             return PreprocReply(
                 request_id=self._request_id,
@@ -113,6 +132,6 @@ class PreprocJob(_BaseJob):
             )
         except Exception as e:
             return self._build_error_msg(
-                f"Preprocessing job failed: {str(e)}",
+                f"Preprocessing job cannot reply: {str(e)}",
                 errnum=ErrorNumbers.FB326.value,
             )

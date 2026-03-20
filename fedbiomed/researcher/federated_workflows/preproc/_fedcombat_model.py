@@ -12,17 +12,19 @@ from torch.optim import Adam
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import TabularDataset
-from fedbiomed.common.exceptions import FedbiomedExperimentError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.preproc import FedComBatModelWrapper
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
+# Use a PyTorch linear model without bias as the biological model for Fed-ComBat,
+# wrapped in a custom wrapper to handle the bias term separately.
 class _FedCombatTrainingPlan(TorchTrainingPlan):
     """Training plan for Fed-ComBat harmonization model."""
 
-    # TODO: THIS IS A DUMMY MODEL FOR NOW
     class Net(nn.Module):
         def __init__(
             self,
@@ -36,7 +38,7 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
             return self.linear(x)
 
     def init_model(self, model_args: dict) -> nn.Module:
-        from fedbiomed.common.preproc import FedComBatModelWrapper
+        # from fedbiomed.common.preproc import FedComBatModelWrapper
 
         return FedComBatModelWrapper(
             self.Net(
@@ -209,6 +211,9 @@ class _FedCombatTrainModel:
                 # save_breakpoints=False,  # Don't save breakpoints
                 # config_path=None,  # Use default config path
             )
+        except FedbiomedError:
+            logger.setPrefix("")
+            raise
         except Exception as e:
             logger.setPrefix("")
             raise FedbiomedExperimentError(
@@ -218,6 +223,9 @@ class _FedCombatTrainModel:
 
         try:
             experiment.run()
+        except FedbiomedError:
+            logger.setPrefix("")
+            raise
         except Exception as e:
             logger.setPrefix("")
             raise FedbiomedExperimentError(

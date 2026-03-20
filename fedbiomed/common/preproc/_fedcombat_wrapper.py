@@ -1,7 +1,11 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
 import torch.nn as nn
 
-from fedbiomed.common.logger import logger
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedExperimentError
 
 
 class FedComBatModelWrapper(nn.Module):
@@ -19,12 +23,13 @@ class FedComBatModelWrapper(nn.Module):
         self.n_phenotypes = n_phenotypes
         self.n_covariates = n_covariates
         self.biological_model = biological_model
-        # TODO: warning does not work. The message should be sent to the researcher to raise the warning
+
         if not self._check_model_no_bias():
-            logger.warning(
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: Fed-ComBat harmonization model initialization failed. "
                 "Provided biological model for Fed-ComBat contains bias. "
                 "This will result in a biased harmonization. "
-                "Please provide a model without bias parameters"
+                "Please provide a model without bias parameters."
             )
 
         self.local_bias = nn.Linear(1, self.n_phenotypes)

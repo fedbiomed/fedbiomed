@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import List
 
 import torch
@@ -33,6 +36,12 @@ class _FedComBatParameters:
         """
         stacked_kwargs = self._stack_dict_params(list_dict_params=list_dict_params)
         return self.step_functions[harmonization_step](**stacked_kwargs)
+
+    # Note: at each step, the researcher could check the type and shape of the received parameters.
+    # It is not implemented for now to keep implementation simple but could be considered for:
+    # - security: avoid malicious parameters. Risk seems limited as they are used for simple math operations,
+    #   not function names, etc.
+    # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
 
     def _compute_global_mean_std(self, **kwargs):
         """

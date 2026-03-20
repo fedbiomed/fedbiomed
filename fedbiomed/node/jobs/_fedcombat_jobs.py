@@ -1,3 +1,6 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
 from typing import Dict
 
 import torch
@@ -29,7 +32,7 @@ class _FedComBat_jobs:
             HarmonizationStep.STEP1: self._compute_mean_std,
             HarmonizationStep.STEP2: self._standardize_data,
             # There is no step 3 as it's a model training handled by a training plan
-            HarmonizationStep.STEP3: lambda x: {},
+            # HarmonizationStep.STEP3: lambda x: {},
             HarmonizationStep.STEP4: self._compute_residual_variance,
             HarmonizationStep.STEP5: self._compute_standardized_residuals_params,
             HarmonizationStep.STEP6: self._compute_fedcombat_params,
@@ -49,6 +52,12 @@ class _FedComBat_jobs:
         """
 
         return self.step_functions[harmonization_step](params)
+
+    # Note: at each step, the node could check the type and shape of the received parameters.
+    # It is not implemented for now to keep implementation simple but could be considered for:
+    # - security: avoid malicious parameters. Risk seems limited as they are used for simple math operations,
+    #   not function names, etc.
+    # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
 
     def _compute_mean_std(self, params):
         """
@@ -113,18 +122,14 @@ class _FedComBat_jobs:
         """
         ########## TODO Replace by proper functions to read the data from the node ##########
         biological_model = params["biological_model"]
-        global_bias = params["global_bias_model_id"]
+        global_bias = params["global_bias_model"]
         local_bias = self.read_bias_model(1234)
 
         standardized_covariates = self.read_standardized_covariates(123)
         standardized_phenotypes = self.read_standardized_phenotypes(123)
         #####################################################################################
         bias_param = torch.ones((len(standardized_covariates), 1))
-        preds = (
-            biological_model(standardized_covariates)
-            - global_bias(bias_param)
-            - local_bias(bias_param)
-        )
+        preds = biological_model - global_bias - local_bias(bias_param)
         residuals = standardized_phenotypes - preds
         residual_variance = residuals.var(0)
         return {"residual_variance": residual_variance, "n_samples": self.n_samples}
@@ -142,15 +147,16 @@ class _FedComBat_jobs:
                   Keys: ["gamma_hat_ig", "delta_hat_ig"]
         """
         ########## TODO: Replace by proper functions to read the data from the node ##########
-        biological_model = self.read_biological_model(params["biological_model_id"])
-        global_bias = self.read_bias_model(params["global_bias_model_id"])
-        standardized_covariates = self.read_standardized_covariates(123)
+        biological_model = params["biological_model"]
+        global_bias = params["global_bias_model"]
+        # standardized_covariates = self.read_standardized_covariates(123)
         standardized_phenotypes = self.read_standardized_phenotypes(123)
         ################################################################################
         sigma_hat_g = params["sigma_hat_g"]
 
-        bias_param = torch.ones((len(standardized_covariates), 1))
-        preds = biological_model(standardized_covariates) - global_bias(bias_param)
+        # TODO: missing "- local_bias" term or bias_param not needed ?
+        # bias_param = torch.ones((len(standardized_covariates), 1))
+        preds = biological_model - global_bias
         residuals = standardized_phenotypes - preds
         z = residuals / sigma_hat_g
 
@@ -171,10 +177,10 @@ class _FedComBat_jobs:
                   Keys: ["harmonized_dataset_id"]
         """
         ########## TODO: Replace by proper functions to read the data from the node ##########
-        biological_model = self.read_biological_model(params["biological_model_id"])
-        global_bias = self.read_bias_model(params["global_bias_model_id"])
+        biological_model = params["biological_model"]
+        global_bias = params["global_bias_model"]
 
-        standardized_covariates = self.read_standardized_covariates(123)
+        # standardized_covariates = self.read_standardized_covariates(123)
         z = self.read_standardized_residuals(1234)
         ################################################################################
 
@@ -187,8 +193,9 @@ class _FedComBat_jobs:
         gamma_hat_ig = z.mean(0)
         delta_hat_ig = z.var(0)
 
-        bias_param = torch.ones((len(standardized_covariates), 1))
-        pred = biological_model(standardized_covariates) - global_bias(bias_param)
+        # TODO: missing "- local_bias" term or bias_param not needed ?
+        # bias_param = torch.ones((len(standardized_covariates), 1))
+        pred = biological_model - global_bias
 
         # Initial value
         delta2_star_ig = delta_hat_ig
