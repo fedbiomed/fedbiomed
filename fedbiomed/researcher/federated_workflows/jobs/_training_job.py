@@ -152,7 +152,8 @@ class TrainingJob(Job):
             "params": self._training_plan.get_model_params(
                 exclude_buffers=not self._training_args.dict()[
                     "share_persistent_buffers"
-                ]
+                ],
+                private_params=self._training_plan._private_params,
             ),
             "secagg_arguments": self._secagg_arguments,
             "aggregator_args": {},
