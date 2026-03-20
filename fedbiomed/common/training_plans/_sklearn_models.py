@@ -224,8 +224,9 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             split = row.rsplit("loss: ", 1)
             if len(split) == 1:  # no "loss: " in the line
                 continue
+            loss_str = split[1].split(",", 1)[0].strip()
             try:
-                losses.append(float(split[1]))
+                losses.append(float(loss_str))
             except ValueError as exc:
                 logger.error(f"Value error during monitoring: {exc}")
         return losses
