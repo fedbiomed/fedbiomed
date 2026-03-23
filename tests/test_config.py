@@ -7,9 +7,11 @@ import pytest
 from packaging.version import Version
 
 from fedbiomed.common.config import Config
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
     FedbiomedConfigurationError,
 )
+from fedbiomed.common.logger import SYSLOG_FACILITY_MAP
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.researcher.config import ResearcherConfig
 
@@ -141,6 +143,64 @@ def test_security_logging_write_success_and_failure(
         and "error_message" in c.kwargs
         for c in security_event.call_args_list
     )
+
+
+def test_add_syslog_from_config_registers_handler(tmp_path, mocker, DummyConfig):
+    mocker.patch.object(DummyConfig, "is_config_existing", return_value=False)
+    add_syslog_handler = mocker.patch(
+        "fedbiomed.common.config.logger.add_syslog_handler"
+    )
+
+    cfg = DummyConfig(root=str(tmp_path))
+    cfg._cfg["syslog"] = {
+        "enable": "True",
+        "host": "syslog.example",
+        "port": "1514",
+        "protocol": "tcp",
+        "facility": "local3",
+        "level": "warning",
+    }
+
+    cfg.add_syslog_from_config()
+
+    add_syslog_handler.assert_called_once_with(
+        host="syslog.example",
+        port=1514,
+        protocol="tcp",
+        facility=SYSLOG_FACILITY_MAP["local3"],
+        level="WARNING",
+    )
+
+
+@pytest.mark.parametrize(
+    "option,value,error_suffix",
+    [
+        ("protocol", "http", "Unsupported syslog protocol: http"),
+        ("facility", "badfacility", "Unsupported syslog facility: badfacility"),
+        ("level", "TRACE", "Unsupported syslog level: TRACE"),
+    ],
+)
+def test_add_syslog_from_config_rejects_invalid_values(
+    tmp_path, mocker, DummyConfig, option, value, error_suffix
+):
+    mocker.patch.object(DummyConfig, "is_config_existing", return_value=False)
+    mocker.patch("fedbiomed.common.config.logger.add_syslog_handler")
+
+    cfg = DummyConfig(root=str(tmp_path))
+    cfg._cfg["syslog"] = {
+        "enable": "True",
+        "host": "localhost",
+        "port": "514",
+        "protocol": "udp",
+        "facility": "user",
+        "level": "INFO",
+    }
+    cfg._cfg["syslog"][option] = value
+
+    with pytest.raises(FedbiomedConfigurationError) as exc_info:
+        cfg.add_syslog_from_config()
+
+    assert str(exc_info.value) == f"{ErrorNumbers.FB600.value}: {error_suffix}"
 
 
 class BaseConfigTest(unittest.TestCase):

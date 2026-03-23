@@ -1,15 +1,17 @@
 import json
 import logging
 import os
+import socket
 import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from fedbiomed.common.logger import (
     DEFAULT_LOG_LEVEL,
     SECURITY_CONTEXT,
+    SYSLOG_FACILITY_MAP,
     _SecurityFormatter,
     _SecurityOnlyFilter,
     logger,
@@ -742,6 +744,108 @@ class TestLogger(unittest.TestCase):
                     logger._internal_add_handler("SECURITY_FILE", None)
                     security_handler.close()
 
+        logger.setLevel(old_level)
+
+    @patch("fedbiomed.common.logger.SysLogHandler")
+    def test_logger_17_add_syslog_handler_udp(self, syslog_handler_cls):
+        """Test UDP syslog handler setup and registration."""
+        handler = MagicMock(spec=logging.Handler)
+        handler.level = logging.NOTSET
+        handler.filters = []
+        handler.setLevel = MagicMock(
+            side_effect=lambda level: setattr(handler, "level", level)
+        )
+        handler.addFilter = MagicMock(
+            side_effect=lambda filter_: handler.filters.append(filter_)
+        )
+        handler.setFormatter = MagicMock()
+        handler.close = MagicMock()
+        syslog_handler_cls.return_value = handler
+
+        logger.add_syslog_handler(
+            host="syslog.example",
+            port=1514,
+            protocol="udp",
+            facility=SYSLOG_FACILITY_MAP["local0"],
+            level="ERROR",
+        )
+
+        syslog_handler_cls.assert_called_once_with(
+            address=("syslog.example", 1514),
+            facility=SYSLOG_FACILITY_MAP["local0"],
+            socktype=socket.SOCK_DGRAM,
+        )
+        self.assertIs(logger._handlers.get("SYSLOG"), handler)
+        self.assertEqual(handler.level, logging.ERROR)
+        self.assertEqual(handler.ident, "fedbiomed: ")
+        self.assertFalse(handler.append_nul)
+        self.assertEqual(len(handler.filters), 1)
+        self.assertIsInstance(handler.filters[0], _SecurityOnlyFilter)
+
+        formatter = handler.setFormatter.call_args.args[0]
+        self.assertIsInstance(formatter, _SecurityFormatter)
+
+    @patch("fedbiomed.common.logger.SysLogHandler")
+    def test_logger_18_add_syslog_handler_tcp_and_remove(self, syslog_handler_cls):
+        """Test TCP syslog handler setup and removal."""
+        handler = MagicMock(spec=logging.Handler)
+        handler.level = logging.NOTSET
+        handler.filters = []
+        handler.setLevel = MagicMock(
+            side_effect=lambda level: setattr(handler, "level", level)
+        )
+        handler.addFilter = MagicMock(
+            side_effect=lambda filter_: handler.filters.append(filter_)
+        )
+        handler.setFormatter = MagicMock()
+        handler.close = MagicMock()
+        syslog_handler_cls.return_value = handler
+
+        logger.add_syslog_handler(
+            host="syslog.example",
+            port=6514,
+            protocol="tcp",
+            facility=SYSLOG_FACILITY_MAP["user"],
+            level="INFO",
+        )
+
+        syslog_handler_cls.assert_called_once_with(
+            address=("syslog.example", 6514),
+            facility=SYSLOG_FACILITY_MAP["user"],
+            socktype=socket.SOCK_STREAM,
+        )
+        self.assertIs(logger._handlers.get("SYSLOG"), handler)
+
+        logger.del_syslog_handler()
+        self.assertNotIn("SYSLOG", logger._handlers)
+
+    def test_logger_19_syslog_handler_filters_non_security_records(self):
+        """Test syslog handler only emits records marked as security events."""
+
+        class _CaptureHandler(logging.Handler):
+            def __init__(self):
+                super().__init__(level=logging.INFO)
+                self.records = []
+
+            def emit(self, record):
+                self.records.append(record)
+
+        old_level = logger.getEffectiveLevel()
+        handler = _CaptureHandler()
+
+        logger._internal_add_handler("SYSLOG", handler)
+        security_filter = _SecurityOnlyFilter()
+        handler.addFilter(security_filter)
+        logger.setLevel("INFO")
+        logger.setLevel("INFO", "SYSLOG")
+
+        logger.info("regular syslog candidate")
+        logger.info("security syslog candidate", extra={"is_security": True})
+
+        self.assertEqual(len(handler.records), 1)
+        emitted_record = handler.records[0]
+        self.assertEqual(emitted_record.getMessage(), "security syslog candidate")
+        self.assertTrue(getattr(emitted_record, "is_security", False))
         logger.setLevel(old_level)
 
 
