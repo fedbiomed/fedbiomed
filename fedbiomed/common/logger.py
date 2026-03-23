@@ -47,10 +47,11 @@ import inspect
 import json
 import logging
 import os
+import socket
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from logging.handlers import TimedRotatingFileHandler
+from logging.handlers import SysLogHandler, TimedRotatingFileHandler
 from typing import Any, Callable, Optional
 
 from fedbiomed.common.constants import ComponentType
@@ -62,6 +63,7 @@ from fedbiomed.common.singleton import SingletonMeta
 DEFAULT_LOG_FILE = "mylog.log"
 DEFAULT_SECURITY_LOG_FILE = "security_audit.log"
 DEFAULT_LOG_LEVEL = logging.WARNING
+SYSLOG_IDENT = "fedbiomed: "
 LOG_PREFIX = "%(prefix)s"
 DEFAULT_FORMAT = f"%(asctime)s %(name)s{LOG_PREFIX} %(levelname)s - %(message)s"
 DEBUG_FORMAT = (
@@ -73,6 +75,30 @@ DEBUG_FORMAT = (
 SECURITY_CONTEXT: ContextVar[dict] = ContextVar(
     "fedbiomed_security_context", default=None
 )
+
+
+SYSLOG_FACILITY_MAP = {
+    "kern": SysLogHandler.LOG_KERN,
+    "user": SysLogHandler.LOG_USER,
+    "mail": SysLogHandler.LOG_MAIL,
+    "daemon": SysLogHandler.LOG_DAEMON,
+    "auth": SysLogHandler.LOG_AUTH,
+    "syslog": SysLogHandler.LOG_SYSLOG,
+    "lpr": SysLogHandler.LOG_LPR,
+    "news": SysLogHandler.LOG_NEWS,
+    "uucp": SysLogHandler.LOG_UUCP,
+    "cron": SysLogHandler.LOG_CRON,
+    "authpriv": SysLogHandler.LOG_AUTHPRIV,
+    "ftp": SysLogHandler.LOG_FTP,
+    "local0": SysLogHandler.LOG_LOCAL0,
+    "local1": SysLogHandler.LOG_LOCAL1,
+    "local2": SysLogHandler.LOG_LOCAL2,
+    "local3": SysLogHandler.LOG_LOCAL3,
+    "local4": SysLogHandler.LOG_LOCAL4,
+    "local5": SysLogHandler.LOG_LOCAL5,
+    "local6": SysLogHandler.LOG_LOCAL6,
+    "local7": SysLogHandler.LOG_LOCAL7,
+}
 
 
 # --- Helper functions for security logging ---
@@ -501,7 +527,7 @@ class FedLogger(metaclass=SingletonMeta):
         )
 
     def _internal_add_handler(
-        self, output: str, handler: Callable, format: Optional[str] = None
+        self, handler_key: str, handler: Callable, format: Optional[str] = None
     ):
         """Private method
 
@@ -509,28 +535,27 @@ class FedLogger(metaclass=SingletonMeta):
         for a given output (type)
 
         Args:
-            output: Tag for the logger ("CONSOLE", "FILE", "SECURITY_FILE"), this is a string used as a hash key
+            handler_key: Name of the handler ("CONSOLE", "FILE", "SECURITY_FILE", "SYSLOG"), this is a string used as a hash key
             handler: Proper handler to install. if handler is None, it will remove the previous installed handler
             format: format string for this handler
         """
         if handler is None:
-            if output in self._handlers:
-                self.removeHandler(self._handlers[output])
-                del self._handlers[output]
-                del self._original_format[output]
-                self._logger.debug(" removing handler for: " + output)
+            if handler_key in self._handlers:
+                self.removeHandler(self._handlers[handler_key])
+                del self._handlers[handler_key]
+                del self._original_format[handler_key]
+                self._logger.debug(" removing handler for: " + handler_key)
             return
 
-        if output not in self._handlers:
-            self._logger.debug(" adding handler for: " + output)
-            self._handlers[output] = handler
+        if handler_key not in self._handlers:
+            self._logger.debug(" adding handler for: " + handler_key)
+            self._handlers[handler_key] = handler
             self._logger.addHandler(handler)
-            self._handlers[output].setLevel(self._default_level)
-            self._original_format[output] = format
-            self._handler_prefix[output] = ""
-            self._set_handler_formatter(output)
+            if handler.level == logging.NOTSET:
+                self._handlers[handler_key].setLevel(self._default_level)
+            self._original_format[handler_key] = format
         else:
-            self._logger.warning(output + " handler already present - ignoring")
+            self._logger.warning(handler_key + " handler already present - ignoring")
 
         pass
 
@@ -563,6 +588,54 @@ class FedLogger(metaclass=SingletonMeta):
         )
 
         return DEFAULT_LOG_LEVEL
+
+    def add_syslog_handler(
+        self,
+        host,
+        port,
+        protocol,
+        facility,
+        level,
+    ):
+        """Adds a remote syslog handler.
+
+        Args:
+            host: remote syslog host
+            port: remote syslog port
+            protocol: 'udp' or 'tcp'
+            facility: syslog facility
+            level: fedbiomed log level
+        """
+        if protocol not in {"udp", "tcp"}:
+            raise FedbiomedError(f"Unsupported syslog protocol: {protocol}")
+
+        socktype = socket.SOCK_DGRAM if protocol == "udp" else socket.SOCK_STREAM
+
+        kwargs = {
+            "address": (host, port),
+            "facility": facility,
+            "socktype": socktype,
+        }
+
+        handler = SysLogHandler(**kwargs)
+
+        # Optional compatibility knobs from stdlib docs
+        handler.append_nul = False
+        handler.ident = SYSLOG_IDENT
+        handler_key = "SYSLOG"
+
+        handler.setLevel(self._internal_level_translator(level))
+
+        # Forward only security events
+        handler.addFilter(_SecurityOnlyFilter())
+
+        # Keep the same JSON structure as the security audit file
+        handler.setFormatter(_SecurityFormatter(self._security_defaults))
+
+        self._internal_add_handler(handler_key, handler)
+
+    def del_syslog_handler(self, handler_key: str = "SYSLOG"):
+        self._internal_add_handler(handler_key, None)
 
     def add_file_handler(
         self,

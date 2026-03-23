@@ -75,6 +75,7 @@ def start_node(config, node_args):
         name: Config name for the node
         node_args: Arguments for the node
     """
+
     _node = Node(config, node_args)
 
     print(_node)
