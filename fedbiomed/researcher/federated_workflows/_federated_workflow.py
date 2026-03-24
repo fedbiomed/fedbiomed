@@ -1019,6 +1019,9 @@ class FederatedWorkflow(ABC):
 
         secagg = SecureAggregation.load_state_breakpoint(saved_state.get("secagg"))
         loaded_exp.set_secagg(secagg)
+        loaded_exp._node_state_agent.load_fds_breakpoint(
+            saved_state.get("training_data")
+        )
         loaded_exp._node_state_agent.load_state_breakpoint(
             saved_state.get("node_state")
         )
