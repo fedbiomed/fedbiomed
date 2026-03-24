@@ -11,7 +11,7 @@ from fedbiomed.common.constants import HarmonizationStep
 class _FedComBatParameters:
     def __init__(self):
         """
-        Class computing thee Fed-ComBat steps on the server side
+        Class computing the Fed-ComBat steps on the server side
         """
         self.step_functions = {
             HarmonizationStep.STEP1: lambda: {},

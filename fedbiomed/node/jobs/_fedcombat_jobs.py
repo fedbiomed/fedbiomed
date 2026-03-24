@@ -68,7 +68,7 @@ class _FedComBat_jobs:
 
         Returns:
             Dict: Dict containing means and stds of the local covariates and phenotypes.
-                  Keys: ["mean_covariates, "mean_phenotypes", "std_covariates", "std_phenotypes"]
+                  Keys: ["mean_covariates", "mean_phenotypes", "std_covariates", "std_phenotypes", "n_samples"]
         """
         means_stds = {
             "mean_covariates": self.covariates.mean(0),
