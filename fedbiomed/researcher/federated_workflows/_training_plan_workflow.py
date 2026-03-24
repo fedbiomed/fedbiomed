@@ -541,11 +541,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             os.path.join("..", os.path.basename(training_plan_file)),
         )
         params_path = os.path.join(breakpoint_path, f"model_params_{uuid.uuid4()}.mpk")
-        # TODO: here: should we save the private parameters ?
+        private_params = self.training_plan()._private_params
         Serializer.dump(
             self.training_plan()
             .get_model_wrapper_class()
-            .get_weights(only_trainable=False, exclude_buffers=False),
+            .get_weights(
+                only_trainable=False,
+                exclude_buffers=False,
+                private_params=private_params,
+            ),
             params_path,
         )
         state["model_weights_path"] = params_path

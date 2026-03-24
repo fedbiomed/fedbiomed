@@ -381,9 +381,13 @@ class Scaffold(Aggregator):
             Dict[str, List[float]]: dictionary mapping node_id and a list of float, as many as
                 the number of layers contained in the model (in Pytroch, each layer can have a specific learning rate).
         """
-
+        private_params = training_plan._private_params
         n_model_layers = len(
-            training_plan.get_model_params(only_trainable=False, exclude_buffers=True)
+            training_plan.get_model_params(
+                only_trainable=False,
+                exclude_buffers=True,
+                private_params=private_params,
+            )
         )
         for node_id in self._fds.node_ids():
             lrs: Dict[str, float] = {}

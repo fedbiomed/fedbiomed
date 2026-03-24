@@ -1050,9 +1050,20 @@ class Experiment(TrainingPlanWorkflow):
         # aggregated_params = agg({w^t - sum_k(eta_{k,i,t} * grad_{k,i,t})}_i)
         # hence aggregated_params = w^t - agg(updates_i)
         # hence agg_gradients = agg_i(updates_i)
-        names = set(training_plan.get_model_params(only_trainable=True))
+        private_params = training_plan._private_params
+        names = set(
+            training_plan.get_model_params(
+                only_trainable=True, private_params=private_params
+            )
+        )
         init_params = Vector.build(
-            {k: v for k, v in training_plan.get_model_params().items() if k in names}
+            {
+                k: v
+                for k, v in training_plan.get_model_params(
+                    private_params=private_params
+                ).items()
+                if k in names
+            }
         )
         agg_gradients = init_params - Vector.build(
             {k: v for k, v in aggregated_params.items() if k in names}
