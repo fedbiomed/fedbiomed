@@ -31,12 +31,34 @@ class DatasetManager:
     for the node. Currently uses TinyDB.
     """
 
-    def __init__(self, path: str):
-        """Initialize with database path."""
+    def __init__(self, path: str, min_samples: int = 0):
+        """Initialize with database path.
+
+        Args:
+            path: Path to the database file.
+            min_samples: Minimum number of samples required when adding a dataset.
+                Defaults to 0 (no minimum enforced).
+        """
+        self._min_samples = min_samples
         self._dataset_table = DatasetTable(path)
         self._dynamic_dataset_table = DynamicDatasetTable(path)
         self._dlp_table = DlpTable(path)
         self._dlb_table = DlbTable(path)
+
+    def validate_samples(self, n_samples: int) -> None:
+        """Raise FedbiomedError if n_samples is below the configured minimum.
+
+        Args:
+            n_samples: Number of samples in the dataset to validate.
+
+        Raises:
+            FedbiomedError: If n_samples is below the configured minimum.
+        """
+        if self._min_samples > 0 and n_samples < self._min_samples:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset has {n_samples} samples, "
+                f"which is below the node's minimum required ({self._min_samples})."
+            )
 
     @property
     def dataset_table(self) -> DatasetTable:
@@ -241,6 +263,8 @@ class DatasetManager:
             data_type,
             controller_parameters=controller_params,
         )
+
+        self.validate_samples(len(controller))
 
         # Creating common entry fields
         entry = {

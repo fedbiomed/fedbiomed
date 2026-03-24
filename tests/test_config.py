@@ -293,12 +293,16 @@ class TestNodeConfig(BaseConfigTest):
             config._cfg.remove_option("security", "allow_preproc")
         if config._cfg.has_option("security", "allow_federated_analytics"):
             config._cfg.remove_option("security", "allow_federated_analytics")
+        if config._cfg.has_option("security", "minimum_samples"):
+            config._cfg.remove_option("security", "minimum_samples")
 
         config.migrate()
 
         self.assertTrue(config._cfg.has_option("default", "name"))
         self.assertTrue(config._cfg.has_option("security", "allow_preproc"))
         self.assertTrue(config._cfg.has_option("security", "allow_federated_analytics"))
+        self.assertTrue(config._cfg.has_option("security", "minimum_samples"))
+        self.assertEqual(config._cfg.get("security", "minimum_samples"), "0")
 
     def test_04_node_config_migrate_new(self):
         config = NodeConfig(root="test")
