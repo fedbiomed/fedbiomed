@@ -36,18 +36,37 @@ class FedComBatModelWrapper(nn.Module):
 
     def forward(self, x):
         biological_effects = self.biological_model(x)
-        bias_column = torch.ones((x.shape[0], 1))
+        bias_column = x.new_ones((x.shape[0], 1))
         bias = self.local_bias(bias_column)
         return biological_effects + bias
 
     def _check_model_no_bias(self) -> bool:
-        """Tests whether the given model has a bias parameter.
+        """Tests whether the given model has any trainable bias parameters.
 
         Returns:
-            True if the model doesn't have a bias, False if it does
+            True if the model doesn't have a bias, False if it does.
         """
-        # This is not a bulletproof way to test whether there is a bias or not.
-        with torch.no_grad():
-            zero_covariates = torch.zeros((1, self.n_covariates))
-            preds_zeros = self.biological_model(zero_covariates)
-            return torch.all(preds_zeros == 0)
+        # Check common module types that can carry an explicit bias parameter.
+        for module in self.biological_model.modules():
+            if isinstance(
+                module,
+                (
+                    nn.Linear,
+                    nn.Conv1d,
+                    nn.Conv2d,
+                    nn.Conv3d,
+                    nn.BatchNorm1d,
+                    nn.BatchNorm2d,
+                    nn.BatchNorm3d,
+                ),
+            ):
+                # If bias is not None, the layer uses a bias parameter.
+                if getattr(module, "bias", None) is not None:
+                    return False
+
+        # Fallback: look for any parameter whose name suggests it is a bias.
+        for name, param in self.biological_model.named_parameters():
+            if "bias" in name and param is not None:
+                return False
+
+        return True

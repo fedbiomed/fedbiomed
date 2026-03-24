@@ -114,10 +114,19 @@ class PreprocJob(_BaseJob):
         filtered_args = {
             k: v for k, v in self._preproc_args.items() if k not in exclude_args
         }
+        if isinstance(preproc_output, dict):
+            preproc_output_summary = {
+                "type": type(preproc_output).__name__,
+                "keys": list(preproc_output.keys()),
+            }
+        else:
+            preproc_output_summary = {
+                "type": type(preproc_output).__name__,
+            }
         logger.info(
             f"Preprocessing executed successfully for {self._preproc_type.name} / {self._preproc_step.name} "
             f"with request id {self._request_id} preproc_id {self._preproc_id} dataset_id {self._dataset_id} "
-            f"preproc_args {filtered_args} except {exclude_args} and output {preproc_output}"
+            f"preproc_args {filtered_args} except {exclude_args} and output_summary {preproc_output_summary}"
         )
         try:
             return PreprocReply(
