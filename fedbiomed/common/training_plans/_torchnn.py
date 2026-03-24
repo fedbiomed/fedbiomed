@@ -797,20 +797,25 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             "Collected raw training parameters: parameter_count=%s",
             len(params),
         )
-        ## TODO: What is this postprocess method, and how to deal with it ??
         # Check whether postprocess method exists, and use it.
         if hasattr(self, "postprocess"):
             logger.debug("running model.postprocess() method")
             try:
-                params = self.postprocess(
+                all_params = self.postprocess(
                     self._model.model.state_dict()
                 )  # Post process
+                # Exclude private parameters
+                params = self.filter_model_params_by_tags(
+                    all_params,
+                    forbidden_tags={"private"},
+                )
             except Exception as e:
                 raise FedbiomedTrainingPlanError(
                     f"{ErrorNumbers.FB605.value}: Error while running post-process {e}"
                 ) from e
 
         # Run (optional) DP controller adjustments as well.
+        # TODO: params after DP do not seem used if flatten is True
         params = self._dp_controller.after_training(params)
         logger.debug(
             "Applied DP/postprocess adjustments to parameters: parameter_count=%s flatten=%s",

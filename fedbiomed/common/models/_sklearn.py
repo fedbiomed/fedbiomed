@@ -204,7 +204,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         )
 
         weights_vector = np.array(weights_vector)
-        weights = self.get_weights(private_params)
+        weights = self.get_weights(private_params=private_params)
         pointer = 0
 
         params = {}
