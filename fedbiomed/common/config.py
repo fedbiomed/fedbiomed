@@ -141,7 +141,6 @@ class Config(metaclass=ABCMeta):
 
         self.root = root
         self.config_path = os.path.join(self.root, "etc", self._CONFIG_FILE_NAME)
-        # import pdb; pdb.set_trace()
         logger.security_event(
             operation="config_load_start",
             status="initiated",
