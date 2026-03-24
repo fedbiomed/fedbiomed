@@ -1,7 +1,6 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import torch
 import torch.nn as nn
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -32,7 +31,7 @@ class FedComBatModelWrapper(nn.Module):
                 "Please provide a model without bias parameters."
             )
 
-        self.local_bias = nn.Linear(1, self.n_phenotypes)
+        self.local_bias = nn.Linear(1, self.n_phenotypes, bias=False)
 
     def forward(self, x):
         biological_effects = self.biological_model(x)

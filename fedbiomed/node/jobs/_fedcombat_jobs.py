@@ -8,7 +8,7 @@ import torch
 from fedbiomed.common.constants import HarmonizationStep
 
 
-class _FedComBat_jobs:
+class _FedComBatJobs:
     """
     Class computing the Fed-ComBat steps on the node side
     """
@@ -29,13 +29,13 @@ class _FedComBat_jobs:
         self.n_samples = torch.tensor(self.covariates.shape[0])
 
         self.step_functions = {
-            HarmonizationStep.STEP1: self._compute_mean_std,
-            HarmonizationStep.STEP2: self._standardize_data,
+            HarmonizationStep.STEP1_MEAN_STD: self._compute_mean_std,
+            HarmonizationStep.STEP2_STANDARDIZE: self._standardize_data,
             # There is no step 3 as it's a model training handled by a training plan
-            # HarmonizationStep.STEP3: lambda x: {},
-            HarmonizationStep.STEP4: self._compute_residual_variance,
-            HarmonizationStep.STEP5: self._compute_standardized_residuals_params,
-            HarmonizationStep.STEP6: self._compute_fedcombat_params,
+            # HarmonizationStep.STEP3_TRAIN: lambda x: {},
+            HarmonizationStep.STEP4_RESID_VAR: self._compute_residual_variance,
+            HarmonizationStep.STEP5_RESID_PARAMS: self._compute_standardized_residuals_params,
+            HarmonizationStep.STEP6_FC_PARAMS: self._compute_fedcombat_params,
         }
 
     def __call__(self, harmonization_step: HarmonizationStep, params: Dict):

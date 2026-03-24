@@ -14,12 +14,12 @@ class _FedComBatParameters:
         Class computing the Fed-ComBat steps on the server side
         """
         self.step_functions = {
-            HarmonizationStep.STEP1: lambda: {},
-            HarmonizationStep.STEP2: self._compute_global_mean_std,
-            HarmonizationStep.STEP3: lambda: {},
-            HarmonizationStep.STEP4: lambda: {},
-            HarmonizationStep.STEP5: self._compute_pooled_variance,
-            HarmonizationStep.STEP6: self._compute_residual_parameters,
+            HarmonizationStep.STEP1_MEAN_STD: lambda: {},
+            HarmonizationStep.STEP2_STANDARDIZE: self._compute_global_mean_std,
+            HarmonizationStep.STEP3_TRAIN: lambda: {},
+            HarmonizationStep.STEP4_RESID_VAR: lambda: {},
+            HarmonizationStep.STEP5_RESID_PARAMS: self._compute_pooled_variance,
+            HarmonizationStep.STEP6_FC_PARAMS: self._compute_residual_parameters,
         }
 
     def __call__(self, harmonization_step: HarmonizationStep, list_dict_params: List):
@@ -71,6 +71,10 @@ class _FedComBatParameters:
         global_mean_phenotypes = self._weighted_mean(
             stacked_mean_phenotypes, stacked_n_samples, ddof=0
         )
+
+        # TODO: this is not the exact way to compute the global std from the local ones,
+        # as it doesn't take into account the local means and the global means.
+        # => Temporary solution, will be replaced by using FA implementation in #1677
 
         global_std_covariates = self._weighted_mean(
             stacked_std_covariates, stacked_n_samples, ddof=1

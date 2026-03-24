@@ -13,11 +13,11 @@ from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
 from fedbiomed.node.dataset_manager import DatasetManager
 
 from ._base_job import _BaseJob
-from ._fedcombat_jobs import _FedComBat_jobs
+from ._fedcombat_jobs import _FedComBatJobs
 
 _preproc_type_to_jobs: Dict[PreprocType, Callable] = {
     # PreprocType.NONE is not valid here
-    PreprocType.FEDCOMBAT: _FedComBat_jobs,
+    PreprocType.FEDCOMBAT: _FedComBatJobs,
     # To be added in the future: other preprocessing types and their corresponding job classes
 }
 
@@ -108,7 +108,7 @@ class PreprocJob(_BaseJob):
         msg = (
             f"Node {self._node_name} ({self._node_id}): "
             f"Preprocessing step {self._preproc_step.name} of type {self._preproc_type.name} "
-            f"for experiment {self._experiment_id} with args {self._preproc_args}"
+            f"for experiment {self._experiment_id}"
         )
         exclude_args = ["biological_model", "global_bias_model"]
         filtered_args = {
