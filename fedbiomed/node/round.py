@@ -1178,9 +1178,8 @@ class Round:
             initial_model_weights,
             required_tags={"private", "persistent"},
         )
-
-        for name in private_persistent:
-            if name in persistent_model_weights:
+        for name in private_persistent.keys():
+            if name in persistent_model_weights.keys():
                 full_params[name] = persistent_model_weights[name]
             else:
                 # First round: use initial model weight
@@ -1193,7 +1192,7 @@ class Round:
             forbidden_tags={"persistent"},
         )
 
-        for name in private_only:
+        for name in private_only.keys():
             full_params[name] = initial_model_weights[name]
 
         return full_params
