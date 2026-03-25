@@ -923,6 +923,11 @@ class Round:
         full_model_weights = self.training_plan.get_model_params(
             only_trainable=False, exclude_buffers=False, private_params=None
         )
+        # Deal with potential differential privacy, that change model parameters names
+        dp_controller = self.training_plan.get_dp_controller()
+        if dp_controller is not None:
+            full_model_weights, _ = dp_controller.rename_params(full_model_weights)
+
         persistent_model_weights = self.training_plan.filter_model_params_by_tags(
             params=full_model_weights, required_tags={"persistent"}
         )

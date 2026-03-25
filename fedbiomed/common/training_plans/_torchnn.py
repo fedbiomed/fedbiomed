@@ -127,6 +127,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Add dependencies
         self._configure_dependencies()
 
+    def get_dp_controller(self) -> Optional[DPController]:
+        """Getter for dp controller"""
+        return self._dp_controller
+
     def post_init(
         self,
         model_args: Dict[str, Any],
@@ -792,45 +796,64 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         )
         # Either include non-parameter buffers to the outputs or not.
         # Note: this is mostly about sharing statistics from BatchNorm layers.
-        params = super().after_training_params()
+        exclude_buffers = not self._share_persistent_buffers
+        all_params = self.get_model_params(
+            exclude_buffers=exclude_buffers, private_params=None
+        )
         logger.debug(
             "Collected raw training parameters: parameter_count=%s",
-            len(params),
+            len(all_params),
         )
+        # Deal with DP first, that may change names of parameters in case OPACUS is used
+        renamed_all_params, rename_mapping = self._dp_controller.rename_params(
+            all_params
+        )
+
         # Check whether postprocess method exists, and use it.
         if hasattr(self, "postprocess"):
             logger.debug("running model.postprocess() method")
             try:
-                all_params = self.postprocess(
-                    self._model.model.state_dict()
-                )  # Post process
-                # Exclude private parameters
-                params = self.filter_model_params_by_tags(
-                    all_params,
-                    forbidden_tags={"private"},
+                all_params = self.postprocess(renamed_all_params)  # Post process
+                # Retrieve original OPACUS naming to update model
+                all_params = self._dp_controller.revert_rename_params(
+                    all_params, rename_mapping
                 )
             except Exception as e:
                 raise FedbiomedTrainingPlanError(
                     f"{ErrorNumbers.FB605.value}: Error while running post-process {e}"
                 ) from e
 
-        # Run (optional) DP controller adjustments as well.
-        # TODO: params after DP do not seem used if flatten is True
-        params = self._dp_controller.after_training(params)
+        # Run (optional) central DP controller adjustments as well to all parameters.
+        # Do not rename parameters yet, because the model parameters need to be updated first
+        all_params = self._dp_controller.after_training(all_params, renaming=False)
         logger.debug(
             "Applied DP/postprocess adjustments to parameters: parameter_count=%s flatten=%s",
-            len(params),
+            len(all_params),
             flatten,
+        )
+        # Update the model (needed to use flatten)
+        self._model.set_weights(all_params)
+        # Remove private params
+        private_params = (
+            [rename_mapping.get(name, name) for name in self._private_params]
+            if self._private_params is not None
+            else None
         )
         if flatten:
             params = self._model.flatten(
-                exclude_buffers=not self._share_persistent_buffers,
-                private_params=self._private_params,
+                exclude_buffers=exclude_buffers, private_params=private_params
             )
             logger.debug(
                 "Flattened training parameters for aggregation: flattened_count=%s",
                 len(params),
             )
+        else:
+            params = self.get_model_params(
+                exclude_buffers=exclude_buffers, private_params=private_params
+            )
+            # Final renaming before being sent to the researcher
+            params, _ = self._dp_controller.rename_params(params)
+
         return params
 
     def __norm_l2(self) -> float:
