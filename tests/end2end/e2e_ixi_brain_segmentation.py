@@ -149,14 +149,17 @@ def setup(post_session, port):
         add_dataset_to_node(node_2, dataset)
 
         # start nodes and give some time to start
-        node_processes, _ = start_nodes([node_1, node_2])
+        node_processes, thread = start_nodes([node_1, node_2])
         print("Waiting for nodes to start")
         time.sleep(15)
 
         yield
 
-        kill_subprocesses(node_processes)
-        clear_component_data(researcher)
+        try:
+            kill_subprocesses(node_processes)
+            thread.join()
+        finally:
+            clear_component_data(researcher)
 
 
 #############################################

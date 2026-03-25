@@ -77,12 +77,12 @@ def setup(port, post_session):
 
         yield node_1, node_2, researcher
 
-        # Clear files and processes created for the tests
-        kill_subprocesses(node_processes)
-        thread.join()
-
-        print("Clearing researcher data")
-        clear_component_data(researcher)
+        try:
+            kill_subprocesses(node_processes)
+            thread.join()
+        finally:
+            print("Clearing researcher data")
+            clear_component_data(researcher)
 
 
 @pytest.fixture

@@ -135,11 +135,12 @@ def setup(port, post_session):
         # Run tests
         yield node_1, node_2, node_3, researcher
 
-        kill_subprocesses(node_processes)
-        thread.join()
-
-        print("Clearing researcher data")
-        clear_component_data(researcher)
+        try:
+            kill_subprocesses(node_processes)
+            thread.join()
+        finally:
+            print("Clearing researcher data")
+            clear_component_data(researcher)
 
 
 RANDOM_SEED = 1234
