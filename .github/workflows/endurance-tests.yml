@@ -4,7 +4,7 @@ run-name: endurance-tests
 
 on:
   schedule:
-    - cron: "0 1 * * *"  # Run every day at 1 am on default branch: develop
+    - cron: "0 1 * * 6"  # Run every Saturday at 1 am on default branch: develop
   workflow_dispatch:
   push:
     branches:
@@ -12,6 +12,7 @@ on:
 
 jobs:
   endurance-test:
+    timeout-minutes: 360  # matches the GitHub-hosted runner default; prevents infinite hangs on self-hosted runners
     defaults:
       run:
         shell:  bash -l {0}
@@ -38,8 +39,20 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # set -m enables job control so tox runs in its own process group;
+      # TEST_PGID is captured immediately (before wait) for the cleanup step to use.
       - name: Run end-to-end endurance tests
         id: e2e-tests-with-pytest
         run: |
-          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox -r -m endurance
+          set -m
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox -r -m endurance &
+          TEST_PID=$!
+          echo "TEST_PGID=$(ps -o pgid= -p $TEST_PID | tr -d ' ')" >> $GITHUB_ENV
+          wait $TEST_PID
         shell: bash -l {0}
+
+      # Kill by process group: scoped to this job, safe on shared self-hosted runners.
+      - name: Cleanup lingering processes
+        if: always()
+        run: |
+          [ -n "$TEST_PGID" ] && kill -- "-$TEST_PGID" 2>/dev/null || true
