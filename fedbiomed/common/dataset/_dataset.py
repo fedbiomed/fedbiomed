@@ -45,7 +45,11 @@ class Dataset(ABC):
 
     # === Abstract functions ===
     @abstractmethod
-    def complete_initialization(self) -> None:
+    def complete_initialization(
+        self,
+        controller_kwargs: Dict[str, Any],
+        to_format: DataReturnFormat,
+    ) -> None:
         """Finalize initialization of object to be able to recover items"""
         # Recover sample and validate consistency of transforms
         pass
