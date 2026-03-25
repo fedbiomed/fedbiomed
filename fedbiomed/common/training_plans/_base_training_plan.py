@@ -117,6 +117,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return self._model
 
+    def get_dp_controller(self) -> Optional[Any]:
+        """Getter for dp controller"""
+        return None
+
     def type(self) -> TrainingPlans:
         """Getter for training plan type"""
         return self._type
