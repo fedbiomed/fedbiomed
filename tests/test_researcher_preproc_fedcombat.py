@@ -8,11 +8,17 @@ import pytest
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.researcher.datasets import FederatedDataset
+from fedbiomed.researcher.federated_workflows.preproc import (
+    _fedcombat as _fedcombat_mod,
+)
 from fedbiomed.researcher.federated_workflows.preproc._fedcombat import (
     FedCombatPreproc,
 )
 from fedbiomed.researcher.federated_workflows.preproc._fedcombat_model import (
     _FedCombatTrainModel,
+)
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat_parameters import (
+    _FedCombatParameters,
 )
 from fedbiomed.researcher.requests import Requests
 
@@ -33,6 +39,18 @@ def mock_reqs():
 @pytest.fixture
 def mock_fedcombat_tm():
     return MagicMock(spec=_FedCombatTrainModel)
+
+
+@pytest.fixture(autouse=True)
+def mock_fedcombat_param(monkeypatch):
+    # mock the parameter class in the fedcombat module so FedCombatPreproc uses it
+    mock_param_cls = MagicMock()
+    mock_param_instance = MagicMock(spec=_FedCombatParameters)
+    mock_param_cls.return_value = mock_param_instance
+
+    monkeypatch.setattr(_fedcombat_mod, "_FedCombatParameters", mock_param_cls)
+
+    return mock_param_instance
 
 
 @pytest.fixture
@@ -65,7 +83,7 @@ def test_execute_success(monkeypatch, base_preproc, mock_fds):
             self._nodes = kwargs.get("nodes", [])
 
         def execute(self):
-            return {n: f"r_{n}" for n in self._nodes}
+            return {n: MagicMock(preproc_output=f"r_{n}") for n in self._nodes}
 
     monkeypatch.setattr(
         "fedbiomed.researcher.federated_workflows.preproc._fedcombat.PreprocRequestJob",
@@ -80,6 +98,38 @@ def test_execute_success(monkeypatch, base_preproc, mock_fds):
     assert result is True
     assert preproc._needs_harmonization() is False
     assert preproc._harmonized_datasets == {"n1": "ds1", "n2": "ds2"}
+
+
+def test_execute_harmonization_raises(monkeypatch, base_preproc):
+    # PreprocRequestJob that returns normal replies so harmonization is attempted
+    class DummyJob:
+        def __init__(self, **kwargs):
+            self._nodes = kwargs.get("nodes", [])
+
+        def execute(self):
+            return {n: MagicMock(preproc_output=f"r_{n}") for n in self._nodes}
+
+    monkeypatch.setattr(
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat.PreprocRequestJob",
+        DummyJob,
+    )
+
+    # Harmonization step that raises an error when executed
+    class BadHarmonization:
+        def __init__(self, **kwargs):
+            pass
+
+        def execute(self):
+            raise FedbiomedExperimentError("harmonization failed")
+
+    monkeypatch.setattr(
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat.HarmonizationStep",
+        BadHarmonization,
+    )
+
+    preproc = base_preproc
+    with pytest.raises(FedbiomedExperimentError):
+        preproc.execute()
 
 
 def test_set_nodes_updates_nodes(base_preproc):

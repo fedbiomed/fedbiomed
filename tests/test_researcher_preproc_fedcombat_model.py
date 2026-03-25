@@ -171,17 +171,25 @@ def test_fedcombat_tm_execute(base_preproc_tm, mocker, monkeypatch):
     mock_instance.run.assert_called_once()
 
     # 2. execute with failure at Experiment()
-    mock_instance.run.reset_mock()
-    MockExperiment.side_effect = Exception()
-    with pytest.raises(FedbiomedExperimentError):
-        base_preproc_tm.execute()
+    for exc in [
+        FedbiomedExperimentError("Experiment constructor failed"),
+        Exception("Experiment constructor failed"),
+    ]:
+        mock_instance.run.reset_mock()
+        MockExperiment.side_effect = exc
+        with pytest.raises(FedbiomedExperimentError):
+            base_preproc_tm.execute()
 
     # 3. execute with failure at .run()
-    mock_instance.run.reset_mock()
-    MockExperiment.side_effect = None
-    mock_instance.run.side_effect = Exception()
-    with pytest.raises(FedbiomedExperimentError):
-        base_preproc_tm.execute()
+    for exc in [
+        FedbiomedExperimentError("Experiment run failed"),
+        Exception("Experiment run failed"),
+    ]:
+        mock_instance.run.reset_mock()
+        MockExperiment.side_effect = None
+        mock_instance.run.side_effect = exc
+        with pytest.raises(FedbiomedExperimentError):
+            base_preproc_tm.execute()
 
 
 def test_fedcombat_tm_instantiate_training_plan(mocker):

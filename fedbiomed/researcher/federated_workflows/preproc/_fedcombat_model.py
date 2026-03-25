@@ -14,7 +14,7 @@ from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import TabularDataset
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.preproc import FedComBatModelWrapper
+from fedbiomed.common.preproc import FedCombatModelWrapper
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -38,9 +38,9 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
             return self.linear(x)
 
     def init_model(self, model_args: dict) -> nn.Module:
-        # from fedbiomed.common.preproc import FedComBatModelWrapper
+        # from fedbiomed.common.preproc import FedCombatModelWrapper
 
-        return FedComBatModelWrapper(
+        return FedCombatModelWrapper(
             self.Net(
                 n_covariates=len(model_args.get("covariates")),
                 n_phenotypes=len(model_args.get("phenotypes")),
@@ -56,7 +56,7 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
         return [
             "from torch.optim import Adam",
             "from fedbiomed.common.dataset import TabularDataset",
-            "from fedbiomed.common.preproc import FedComBatModelWrapper",
+            "from fedbiomed.common.preproc import FedCombatModelWrapper",
         ]
 
     def training_data(self):
