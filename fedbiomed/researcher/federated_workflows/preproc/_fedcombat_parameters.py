@@ -8,7 +8,7 @@ import torch
 from fedbiomed.common.constants import HarmonizationStep
 
 
-class _FedComBatParameters:
+class _FedCombatParameters:
     def __init__(self):
         """
         Class computing the Fed-ComBat steps on the server side

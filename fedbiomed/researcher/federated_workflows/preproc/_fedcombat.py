@@ -16,7 +16,7 @@ from fedbiomed.researcher.requests import Requests
 
 from ..jobs import PreprocRequestJob
 from ._fedcombat_model import _FedCombatTrainModel
-from ._fedcombat_parameters import _FedComBatParameters
+from ._fedcombat_parameters import _FedCombatParameters
 
 
 class FedCombatPreproc:
@@ -144,7 +144,7 @@ class FedCombatPreproc:
                 "request or sampling strategy returned an empty list."
             )
 
-        fedcombat_parameters = _FedComBatParameters()
+        fedcombat_parameters = _FedCombatParameters()
 
         fedcombat_replies = {}
         preproc_replies = []

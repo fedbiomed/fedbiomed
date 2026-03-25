@@ -8,7 +8,7 @@ import torch
 from fedbiomed.common.constants import HarmonizationStep
 
 
-class _FedComBatJobs:
+class _FedCombatJobs:
     """
     Class computing the Fed-ComBat steps on the node side
     """

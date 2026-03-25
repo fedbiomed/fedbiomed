@@ -13,11 +13,11 @@ from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
 from fedbiomed.node.dataset_manager import DatasetManager
 
 from ._base_job import _BaseJob
-from ._fedcombat_jobs import _FedComBatJobs
+from ._fedcombat_jobs import _FedCombatJobs
 
 _preproc_type_to_jobs: Dict[PreprocType, Callable] = {
     # PreprocType.NONE is not valid here
-    PreprocType.FEDCOMBAT: _FedComBatJobs,
+    PreprocType.FEDCOMBAT: _FedCombatJobs,
     # To be added in the future: other preprocessing types and their corresponding job classes
 }
 
@@ -114,15 +114,12 @@ class PreprocJob(_BaseJob):
         filtered_args = {
             k: v for k, v in self._preproc_args.items() if k not in exclude_args
         }
-        if isinstance(preproc_output, dict):
-            preproc_output_summary = {
-                "type": type(preproc_output).__name__,
-                "keys": list(preproc_output.keys()),
-            }
-        else:
-            preproc_output_summary = {
-                "type": type(preproc_output).__name__,
-            }
+
+        preproc_output_summary = {
+            "type": type(preproc_output).__name__,
+            "keys": list(preproc_output.keys()),
+        }
+
         logger.info(
             f"Preprocessing executed successfully for {self._preproc_type.name} / {self._preproc_step.name} "
             f"with request id {self._request_id} preproc_id {self._preproc_id} dataset_id {self._dataset_id} "

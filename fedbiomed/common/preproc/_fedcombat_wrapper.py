@@ -7,7 +7,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 
 
-class FedComBatModelWrapper(nn.Module):
+class FedCombatModelWrapper(nn.Module):
     """
     A wrapper for the Fed-ComBat model to automatically handle the biases
     """
