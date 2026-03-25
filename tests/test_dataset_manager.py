@@ -572,3 +572,76 @@ def test_add_dynamic_dataset_below_minimum_samples_raises(monkeypatch):
             processing_id="p",
             parent_dataset_id="raw1",
         )
+
+
+def test_custom_data_type_skips_sample_validation(monkeypatch):
+    """Custom datasets bypass min_samples since they don't expose a fixed sample count."""
+    monkeypatch.setattr(
+        dm_mod,
+        "get_controller",
+        lambda data_type, controller_parameters: FakeController(
+            n_samples=0, **controller_parameters
+        ),
+    )
+    dm = dm_mod.DatasetManager(path="/db", min_samples=100)
+    # Must not raise despite n_samples=0 < min_samples=100
+    dm.add_database(name="C", data_type="custom", tags=[], description="", path="/root")
+
+
+def test_build_dataset_entry_strips_dlp_from_dataset_parameters():
+    """The 'dlp' controller kwarg must not appear in the stored dataset_parameters."""
+    dm = dm_mod.DatasetManager(path="/db")
+    dlp = MinimalDLP(dlp_id="dlp-x")
+    did = dm.add_database(
+        name="N",
+        data_type="tabular",
+        tags=[],
+        description="",
+        path="/root",
+        data_loading_plan=dlp,
+        save_dlp=False,
+    )
+    entry = dm.dataset_table.get_by_id(did)
+    assert "dlp" not in entry["dataset_parameters"]
+    assert entry["dlp_id"] == "dlp-x"
+
+
+def test_read_csv_with_index_col(tmp_path):
+    dm = dm_mod.DatasetManager(path="/tmp/db")
+    f = tmp_path / "indexed.csv"
+    f.write_text("idx,val\na,1\nb,2\n", encoding="utf-8")
+    df = dm.read_csv(str(f), index_col=0)
+    assert df.index.tolist() == ["a", "b"]
+    assert list(df.columns) == ["val"]
+
+
+def test_add_dynamic_dataset_with_optional_fields():
+    """All optional fields are forwarded and stored correctly."""
+    dm = dm_mod.DatasetManager(path="/db")
+    dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+
+    dyn_id = dm.add_dynamic_dataset(
+        path="/path",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p",
+        parent_dataset_id="raw1",
+        name="my-dyn",
+        tags=["tag1"],
+        description="some desc",
+        dataset_id="explicit-dyn-id",
+        dataset_parameters={"extra": 42},
+    )
+
+    assert dyn_id == "explicit-dyn-id"
+    entry = dm.dynamic_dataset_table.get_by_id(dyn_id)
+    assert entry["name"] == "my-dyn"
+    assert entry["tags"] == ["tag1"]
+    assert entry["description"] == "some desc"
+    assert entry["dataset_parameters"].get("extra") == 42
+
+
+def test_delete_dataset_by_id_not_found():
+    dm = dm_mod.DatasetManager(path="/db")
+    with pytest.raises(FedbiomedError):
+        dm.delete_dataset_by_id("no-such-id")
