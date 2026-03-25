@@ -22,7 +22,7 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(port, post_session):
     """Set up 2 nodes, each with an ADNI CSV and a synthetic classification CSV."""
 
     with create_multiple_nodes(port, 2) as nodes:

@@ -36,7 +36,7 @@ from fedbiomed.researcher.secagg import (
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(port, post_session):
     """Setup fixture for the module"""
     dataset = {
         "name": "MNIST",
@@ -68,7 +68,7 @@ def setup(port, post_session, request):
 
         print("Adding first dataset --------------------------------------------")
         add_dataset_to_node(node_1, dataset)
-        print("adding second dataset")
+        print("Adding second dataset -------------------------------------------")
         add_dataset_to_node(node_2, dataset)
 
         # Starts the nodes
@@ -420,6 +420,7 @@ def test_07_secagg_pytorch_lom_8_nodes(extra_nodes_for_lom_8_nodes):
 
 
 def test_08_mnist_pytorch_experiment_declearn_scaffold_jls():
+    """Test declearn Scaffold optimizer with Joye-Libert secure aggregation"""
     model_args = {}
     tags = ["#MNIST", "#dataset"]
     training_args = {
@@ -452,6 +453,7 @@ def test_08_mnist_pytorch_experiment_declearn_scaffold_jls():
 
 
 def test_09_mnist_pytorch_experiment_declearn_scaffold_lom():
+    """Test declearn Scaffold optimizer with LOM secure aggregation"""
     model_args = {}
     tags = ["#MNIST", "#dataset"]
     training_args = {

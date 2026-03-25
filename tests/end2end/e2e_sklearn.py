@@ -53,7 +53,7 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(port, post_session):
     """Setup fixture for the module"""
 
     with create_multiple_nodes(
@@ -128,8 +128,8 @@ def setup(port, post_session, request):
 
         # Starts the nodes
         node_processes, thread = start_nodes([node_1, node_2, node_3])
-        # Good to wait 3 second to give time to nodes start
-        print("Sleep 5 seconds. Giving some time for nodes to start")
+        # Wait for nodes to finish starting before running tests
+        print("Waiting 10 seconds for nodes to start")
         time.sleep(10)
 
         # Run tests

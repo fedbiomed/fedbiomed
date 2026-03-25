@@ -2,29 +2,32 @@
 Helper methods for end2end tests
 """
 
-import pytest
-import importlib
-import shutil
-import tempfile
-import json
 import asyncio
-import os
-import uuid
-import threading
-import multiprocessing
-import subprocess
 import functools
-
+import importlib
+import json
+import multiprocessing
+import os
+import shutil
+import subprocess
+import tempfile
+import threading
+import uuid
 from contextlib import contextmanager
-from typing import Dict, Any, Tuple, Callable, List
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple
 
-from fedbiomed.common.constants import ComponentType
+if TYPE_CHECKING:
+    from fedbiomed.researcher.federated_workflows import Experiment
+
+import pytest
+
 from fedbiomed.common.config import Config
+from fedbiomed.common.constants import ComponentType
 
 from ._execution import (
-    shell_process,
-    fedbiomed_run,
     execute_in_paralel,
+    fedbiomed_run,
+    shell_process,
 )
 from .constants import CONFIG_PREFIX, End2EndError
 
@@ -48,7 +51,7 @@ class PytestThread(threading.Thread):
             raise self.exception
 
 
-def add_dataset_to_node(config: Config, dataset: dict) -> True:
+def add_dataset_to_node(config: Config, dataset: dict) -> bool:
     """Adds given dataset using given configuration of the node"""
 
     tempdir_ = tempfile.TemporaryDirectory()
@@ -119,7 +122,7 @@ def execute_script(file: str, activate: str = "researcher"):
     if file.endswith(".ipynb"):
         return execute_ipython(file, activate)
 
-    raise End2EndError("Unsopported file file. Please use .py or .ipynb")
+    raise End2EndError("Unsupported file type. Please use .py or .ipynb")
 
 
 def execute_python(file: str, activate: str):
@@ -216,7 +219,7 @@ def create_component(
 
     Args:
         component_type: Component type researcher or node
-        config_name: name of the config file. Prefix will be added automatically
+        component_name: Name of the component directory. Prefix will be added automatically.
         config_sections: To overwrite some default configurations in config files.
     Returns:
         config object after prefix added for end to end tests
@@ -290,7 +293,7 @@ def training_plan_operation(config: Config, operation: str, training_plan_id: st
     """
 
     if operation not in ["approve", "reject"]:
-        raise ValueError("The argument operation should be one of apprive or reject")
+        raise ValueError("The argument operation should be one of approve or reject")
 
     command = [
         "node",
@@ -305,11 +308,12 @@ def training_plan_operation(config: Config, operation: str, training_plan_id: st
 
 
 def get_data_folder(path, root: str | None = None):
-    """Gets path to save datasets, and creates folder if not existing
-
+    """Returns the path for storing datasets, creating the folder if it does not exist.
 
     Args:
-
+        path: Relative sub-path appended to the data root.
+        root: Optional override for the data root directory.
+            Defaults to the module-level temporary test directory.
     """
     ci_data_path = os.environ.get("FEDBIOMED_E2E_DATA_PATH")
     if ci_data_path:
