@@ -362,6 +362,7 @@ These are optional label that give additional information on an issue.
 - **improvement** : This label indicates that the created issue relates to the improvement of an existing feature.
 - **new feature** : This issue proposes to introduce a new functionality. This probably should not be set in the same issue as a *bug* or *user support*
 - **documentation** : Documentation related issue
+- **ci/cd**: CI/CD related issue  
 - **good first issue** : Nice to pick for a new contributor
 
 Note: some previously existing tags are now removed - *postponed*, *feature*, *improvement*, *intersprint*
