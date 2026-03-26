@@ -18,6 +18,15 @@ class FedCombatModelWrapper(nn.Module):
         n_covariates: int,
         n_phenotypes: int,
     ):
+        """Constructor of the wrapper
+
+        Args:
+            biological_model: PyTorch model representing the biological effects in Fed-ComBat.
+            n_covariates: Number of covariates in the dataset.
+            n_phenotypes: Number of phenotypes in the dataset.
+
+        Raises:
+            FedbiomedExperimentError: if the provided biological model contains bias parameters."""
         super().__init__()
         self.n_phenotypes = n_phenotypes
         self.n_covariates = n_covariates

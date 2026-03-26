@@ -38,18 +38,32 @@ class _FedCombatJobs:
             HarmonizationStep.STEP6_FC_PARAMS: self._compute_fedcombat_params,
         }
 
-    def __call__(self, harmonization_step: HarmonizationStep, params: Dict):
+    def __call__(
+        self,
+        harmonization_step: HarmonizationStep,
+        dataset_type: str,
+        params: Dict,
+    ) -> Dict:
         """
         Generic call of the class to automatically compute the right function
         for the specified harmonization_step
 
         Args:
             harmonization_step: Harmonization step Enum allowing to select the right function
+            dataset_type: type of the dataset to harmonize
             params: Dictionary containing the parameters to pass to the called function
 
         Returns:
             Dict: parameters resulting from the harmonization_step computation from the node
+
+        Raises:
+            ValueError: if the dataset type is not supported
         """
+        if dataset_type != "csv":
+            # In this case we don't need to raise a FedbiomedError as it is caught in calling function
+            raise ValueError(
+                f"FedCombat dataset type {dataset_type} not supported. Expected CSV dataset."
+            )
 
         return self.step_functions[harmonization_step](params)
 
@@ -59,7 +73,7 @@ class _FedCombatJobs:
     #   not function names, etc.
     # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
 
-    def _compute_mean_std(self, params):
+    def _compute_mean_std(self, params) -> Dict:
         """
         Computes mean and standard deviation of the covariates and phenotypes
 
@@ -79,7 +93,7 @@ class _FedCombatJobs:
         }
         return means_stds
 
-    def _standardize_data(self, params):
+    def _standardize_data(self, params) -> dict:
         """
         Standardizes the data from given means and standard deviations
 
@@ -109,7 +123,7 @@ class _FedCombatJobs:
 
         return {}
 
-    def _compute_residual_variance(self, params):
+    def _compute_residual_variance(self, params) -> dict:
         """
         Computes the variance of the residuals from the biological model
 
@@ -134,7 +148,7 @@ class _FedCombatJobs:
         residual_variance = residuals.var(0)
         return {"residual_variance": residual_variance, "n_samples": self.n_samples}
 
-    def _compute_standardized_residuals_params(self, params):
+    def _compute_standardized_residuals_params(self, params) -> dict:
         """
         Computes the standardized residuals and returns their means and variances
 
@@ -164,7 +178,7 @@ class _FedCombatJobs:
         self.save_data_locally(z)
         return {"gamma_hat_ig": z.mean(0), "delta_hat_ig": z.var(0)}
 
-    def _compute_fedcombat_params(self, params):
+    def _compute_fedcombat_params(self, params) -> dict:
         """
         Estimates the ComBat parameters and harmonizes the dataset
 

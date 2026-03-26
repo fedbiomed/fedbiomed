@@ -43,7 +43,7 @@ class _FedCombatParameters:
     #   not function names, etc.
     # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
 
-    def _compute_global_mean_std(self, **kwargs):
+    def _compute_global_mean_std(self, **kwargs) -> dict:
         """
         Computes the global means and stds from the nodes' ones
 
@@ -90,7 +90,7 @@ class _FedCombatParameters:
             "global_std_phenotypes": global_std_phenotypes,
         }
 
-    def _compute_pooled_variance(self, **kwargs):
+    def _compute_pooled_variance(self, **kwargs) -> dict:
         """
         Computes the global residual pooled variance from the nodes' ones
 
@@ -111,7 +111,7 @@ class _FedCombatParameters:
         sigma_hat_g[sigma_hat_g == 0] = 1e-8
         return {"sigma_hat_g": sigma_hat_g}
 
-    def _compute_residual_parameters(self, **kwargs):
+    def _compute_residual_parameters(self, **kwargs) -> dict:
         """
         Computes the global bayesian priors from the nodes' local residual statistics
 
@@ -146,7 +146,7 @@ class _FedCombatParameters:
 
     def _weighted_mean(
         self, values: torch.Tensor, weights: torch.Tensor, ddof: int = 0
-    ):
+    ) -> torch.Tensor:
         """
         Computes the weighted mean from a set of values and weights.
 
@@ -166,7 +166,7 @@ class _FedCombatParameters:
         weighted_mean = weighted_sum / (weights_sum - ddof * len(weights))
         return weighted_mean
 
-    def _stack_dict_params(self, list_dict_params):
+    def _stack_dict_params(self, list_dict_params: list[dict]) -> dict:
         """
         Stacks the values from a list of dictionaries into a single one.
 

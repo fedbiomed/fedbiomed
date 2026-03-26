@@ -26,7 +26,10 @@ from fedbiomed.researcher.requests import Requests
 @pytest.fixture
 def mock_fds():
     fds = MagicMock(spec=FederatedDataset)
-    fds.data.return_value = {"n1": {"dataset_id": "ds1"}, "n2": {"dataset_id": "ds2"}}
+    fds.data.return_value = {
+        "n1": {"dataset_id": "ds1", "data_type": "csv"},
+        "n2": {"dataset_id": "ds2", "data_type": "csv"},
+    }
     fds.node_ids.return_value = ["n1", "n2"]
     return fds
 
@@ -74,6 +77,38 @@ def base_preproc(mock_fds, mock_reqs, mock_fedcombat_tm, tmp_path):
             "phenotypes": ["phen1"],
         },
     )
+
+
+def test_check_fds__failed_raises(mock_fds, mock_reqs, tmp_path):
+    mock_fds.data.side_effect = FedbiomedExperimentError("data retrieval failed")
+
+    with pytest.raises(FedbiomedExperimentError):
+        FedCombatPreproc(
+            fds=mock_fds,
+            experiment_id="e_chk2",
+            researcher_id="r_chk",
+            reqs=mock_reqs,
+            nodes=["n1", "n2"],
+            experimentation_folder=str(tmp_path),
+        )
+
+
+def test_check_fds_missing_data_type_raises(mock_fds, mock_reqs, tmp_path):
+    # n2 is missing 'data_type'
+    mock_fds.data.return_value = {
+        "n1": {"dataset_id": "ds1", "data_type": "csv"},
+        "n2": {"dataset_id": "ds2"},
+    }
+
+    with pytest.raises(FedbiomedExperimentError):
+        FedCombatPreproc(
+            fds=mock_fds,
+            experiment_id="e_chk2",
+            researcher_id="r_chk",
+            reqs=mock_reqs,
+            nodes=["n1", "n2"],
+            experimentation_folder=str(tmp_path),
+        )
 
 
 def test_execute_success(monkeypatch, base_preproc, mock_fds):

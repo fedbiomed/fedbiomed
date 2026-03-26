@@ -103,7 +103,7 @@ class _FedCombatTrainModel:
             rounds: Number of federated training rounds for the harmonization model.
 
         Raises:
-            FedbiomedExperimentError: if covariates or phenotypes are not provided.
+            FedbiomedExperimentError: if covariates or phenotypes are not provided and correct.
         """
 
         self._fds = fds
