@@ -179,6 +179,7 @@ class FedCombatPreproc:
         preproc_replies = []
 
         # Stores all the parameters from all steps in order to carry them from one step to the other
+        # TODO: when implementing node state and final version, keep only necessary parameters for each step
         all_parameters = {}
 
         for preproc_step in range(1, 7):

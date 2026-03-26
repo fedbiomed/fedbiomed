@@ -244,8 +244,8 @@ class _FedCombatJobs:
     def read_standardized_residuals(self, dataset_id):
         return self.phenotypes
 
-    def read_biological_model(self, model_id):
-        return lambda x: self.phenotypes
+    # def read_biological_model(self, model_id):
+    #    return lambda x: self.phenotypes
 
     def read_bias_model(self, model_id):
         return lambda x: torch.zeros_like(self.phenotypes)
