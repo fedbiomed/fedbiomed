@@ -42,7 +42,7 @@ def mocked_dataset_manager():
 
 
 @pytest.fixture
-def preproc_job_args(preproc_request):
+def preproc_job_args(preproc_request, mocked_dataset_manager):
     return {
         "root_dir": "/tmp",
         "dataset_manager": mocked_dataset_manager,
@@ -69,6 +69,28 @@ def preproc_type_to_jobs(monkeypatch):
     return {preproc_type: DummyJob}
 
 
+@pytest.fixture
+def preproc_type(monkeypatch):
+    """Ensure PreprocType is constructible in tests."""
+    preproc_type = PreprocType.FEDCOMBAT
+    monkeypatch.setattr(_preproc_job, "PreprocType", lambda x: preproc_type)
+
+    return preproc_type
+
+
+@pytest.fixture
+def preproc_step(monkeypatch):
+    """Ensure HarmonizationStep is constructible in tests."""
+
+    class Dummy:
+        def __init__(self, v):
+            self.name = v
+
+    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
+
+    return preproc_step
+
+
 def test_preproc_job_init(preproc_request, preproc_job_args):
     """Test PreprocJob initialization."""
     job = PreprocJob(**preproc_job_args)
@@ -87,17 +109,14 @@ def test_preproc_job_init(preproc_request, preproc_job_args):
     assert job._state_id == preproc_request.state_id
 
 
-def test_run_success(monkeypatch, preproc_request, preproc_job_args):
+def test_run_success(
+    monkeypatch,
+    preproc_request,
+    preproc_job_args,
+    preproc_type,
+    preproc_step,
+):
     """Test successful run of PreprocJob."""
-
-    # Patch PreprocType and HarmonizationStep to simple callables returning objects with .name
-    class Dummy:
-        def __init__(self, v):
-            self.name = v
-
-    preproc_type = PreprocType.FEDCOMBAT
-    monkeypatch.setattr(_preproc_job, "PreprocType", lambda x: preproc_type)
-    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
 
     job = PreprocJob(**preproc_job_args)
     reply = job.run()
@@ -115,6 +134,26 @@ def test_run_success(monkeypatch, preproc_request, preproc_job_args):
     assert reply.state_id == preproc_request.state_id
 
 
+def test_run_dataset_entry_not_dict(
+    monkeypatch,
+    preproc_job_args,
+    mocked_dataset_manager,
+    preproc_type,
+    preproc_step,
+):
+    """Test run of PreprocJob when dataset entry returned by DatasetManager is not a dict."""
+
+    # make dataset_table return a non-dict value
+    mocked_dataset_manager.dataset_table.get_by_id.return_value = "this_is_not_a_dict"
+
+    job = PreprocJob(**preproc_job_args)
+    result = job.run()
+
+    assert isinstance(result, ErrorMessage)
+    assert result.errnum == ErrorNumbers.FB326.value
+    assert "dataset" in (result.extra_msg or "").lower()
+
+
 def test_run_preproc_not_allowed(preproc_job_args):
     """Test run of PreprocJob when preprocessing is not allowed."""
 
@@ -129,19 +168,14 @@ def test_run_preproc_not_allowed(preproc_job_args):
     assert "not allowed" in result.extra_msg
 
 
-def test_run_invalid_preproc_type(monkeypatch, preproc_job_args):
+def test_run_invalid_preproc_type(monkeypatch, preproc_job_args, preproc_step):
     """Test run of PreprocJob with invalid preproc_type."""
 
     # Make PreprocType raise ValueError to simulate invalid type
     def bad_type(x):
         raise ValueError("bad")
 
-    class Dummy:
-        def __init__(self, v):
-            self.name = v
-
     monkeypatch.setattr(_preproc_job, "PreprocType", bad_type)
-    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
 
     job = PreprocJob(**preproc_job_args)
     result = job.run()
@@ -151,7 +185,7 @@ def test_run_invalid_preproc_type(monkeypatch, preproc_job_args):
     assert "invalid preproc_type" in result.extra_msg
 
 
-def test_run_invalid_preproc_step(monkeypatch, preproc_job_args):
+def test_run_invalid_preproc_step(monkeypatch, preproc_job_args, preproc_type):
     """Test run of PreprocJob with invalid preproc_step."""
 
     # PreprocType ok, HarmonizationStep bad
@@ -176,17 +210,10 @@ def test_run_invalid_preproc_step(monkeypatch, preproc_job_args):
 def test_run_preprocreply_construction_failure(
     monkeypatch,
     preproc_job_args,
+    preproc_type,
+    preproc_step,
 ):
     """Test run of PreprocJob where PreprocReply construction fails."""
-
-    # Simulate PreprocReply raising during construction
-    class Dummy:
-        def __init__(self, v):
-            self.name = v
-
-    preproc_type = PreprocType.FEDCOMBAT
-    monkeypatch.setattr(_preproc_job, "PreprocType", lambda x: preproc_type)
-    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
 
     class DummyJob:
         def __init__(self, *args, **kwargs):
@@ -197,6 +224,7 @@ def test_run_preprocreply_construction_failure(
 
     monkeypatch.setattr(_preproc_job, "_preproc_type_to_jobs", {preproc_type: DummyJob})
 
+    # Simulate PreprocReply raising during construction
     def bad_reply(*args, **kwargs):
         raise RuntimeError("boom")
 
@@ -210,17 +238,8 @@ def test_run_preprocreply_construction_failure(
     assert "Preprocessing job cannot reply" in result.extra_msg
 
 
-def test_run_no_job_for_type(monkeypatch, preproc_job_args):
+def test_run_no_job_for_type(monkeypatch, preproc_job_args, preproc_type, preproc_step):
     """When no job is registered for the PreprocType, run() should return an ErrorMessage."""
-    # ensure PreprocType and HarmonizationStep constructible
-    preproc_type = PreprocType.FEDCOMBAT
-    monkeypatch.setattr(_preproc_job, "PreprocType", lambda x: preproc_type)
-
-    class Dummy:
-        def __init__(self, v):
-            self.name = v
-
-    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
 
     # remove any registered jobs
     monkeypatch.setattr(_preproc_job, "_preproc_type_to_jobs", {})
@@ -232,16 +251,10 @@ def test_run_no_job_for_type(monkeypatch, preproc_job_args):
     assert result.errnum == ErrorNumbers.FB326.value
 
 
-def test_run_job_raises_exception(monkeypatch, preproc_job_args):
+def test_run_job_raises_exception(
+    monkeypatch, preproc_job_args, preproc_type, preproc_step
+):
     """If the registered preproc job raises, run() should return an ErrorMessage."""
-    preproc_type = PreprocType.FEDCOMBAT
-    monkeypatch.setattr(_preproc_job, "PreprocType", lambda x: preproc_type)
-
-    class Dummy:
-        def __init__(self, v):
-            self.name = v
-
-    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
 
     class BadJob:
         def __init__(self, *args, **kwargs):

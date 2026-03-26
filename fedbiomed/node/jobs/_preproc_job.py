@@ -96,9 +96,20 @@ class PreprocJob(_BaseJob):
                 errnum=ErrorNumbers.FB326.value,
             )
 
+        # Check that dataset exists in local dataset registry and get its type
+        dataset_entry = self._dataset_manager.dataset_table.get_by_id(self._dataset_id)
+        if not isinstance(dataset_entry, dict):
+            return self._build_error_msg(
+                f"Dataset with id {self._dataset_id} not found in local database.",
+                errnum=ErrorNumbers.FB326.value,
+            )
+        dataset_type = dataset_entry.get("data_type")
+
         try:
             preproc_job_class = preproc_type_jobs()
-            preproc_output = preproc_job_class(self._preproc_step, self._preproc_args)
+            preproc_output = preproc_job_class(
+                self._preproc_step, dataset_type, self._preproc_args
+            )
         except Exception as e:
             return self._build_error_msg(
                 f"Preprocessing job failed: {str(e)}",

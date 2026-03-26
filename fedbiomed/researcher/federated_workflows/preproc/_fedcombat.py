@@ -51,6 +51,7 @@ class FedCombatPreproc:
             uuid.uuid4()
         )  # creating a unique preprocessing id
         self._fds = fds
+        self._fds = fds
         self._experiment_id = experiment_id
         self._researcher_id = researcher_id
         self._reqs = reqs
@@ -61,6 +62,34 @@ class FedCombatPreproc:
         self._preproc_args = preproc_args or {}
 
         self._init_harmonization()
+
+        self._check_fds_compatibility()
+
+    def _check_fds_compatibility(self) -> None:
+        """Check that the federated dataset is compatible with FedComBat.
+
+        Raises:
+            FedbiomedExperimentError: if the federated dataset is not compatible with FedComBat
+        """
+
+        try:
+            fds_meta = self._fds.data()
+        except Exception as e:
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: Unable to access federated dataset metadata: {str(e)}"
+            ) from e
+
+        invalid_nodes = []
+        for node_id, meta in fds_meta.items():
+            data_type = meta.get("data_type") if isinstance(meta, dict) else None
+            if data_type != "csv":
+                invalid_nodes.append((node_id, data_type))
+
+        if invalid_nodes:
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: FedComBat requires all datasets to be in CSV format. "
+                f"Invalid entries: {invalid_nodes}"
+            )
 
     def _init_harmonization(self) -> None:
         """Initialize harmonization context."""
