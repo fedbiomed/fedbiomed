@@ -6,20 +6,40 @@ from typing import List
 import torch
 
 from fedbiomed.common.constants import HarmonizationStep
+from fedbiomed.researcher.datasets import FederatedDataset
+from fedbiomed.researcher.federated_workflows._federated_workflow import (
+    FederatedAnalytics,
+)
+
+from ._fedcombat_model import _FedCombatTrainModel
 
 
 class _FedCombatParameters:
-    def __init__(self):
+    def __init__(
+        self,
+        experiment_id: str,
+        researcher_id: str,
+        fds: FederatedDataset,
+        reqs,
+        experimentation_folder: str,
+        nodes: List[str],
+    ):
         """
         Class computing the Fed-ComBat steps on the server side
         """
+        self._experiment_id = experiment_id
+        self._researcher_id = researcher_id
+        self._fds = fds
+        self._reqs = reqs
+        self._experimentation_folder = experimentation_folder
+        self._nodes = nodes
+
         self.step_functions = {
-            HarmonizationStep.STEP1_MEAN_STD: lambda: {},
-            HarmonizationStep.STEP2_STANDARDIZE: self._compute_global_mean_std,
-            HarmonizationStep.STEP3_TRAIN: lambda: {},
-            HarmonizationStep.STEP4_RESID_VAR: lambda: {},
-            HarmonizationStep.STEP5_RESID_PARAMS: self._compute_pooled_variance,
-            HarmonizationStep.STEP6_FC_PARAMS: self._compute_residual_parameters,
+            HarmonizationStep.STEP1_STANDARDIZE: self._compute_global_mean_std,
+            HarmonizationStep.STEP2_TRAIN: self._train_harmonization_model,
+            HarmonizationStep.STEP3_RESID_VAR: lambda: {},
+            HarmonizationStep.STEP4_RESID_PARAMS: self._compute_pooled_variance,
+            HarmonizationStep.STEP5_FC_PARAMS: self._compute_residual_parameters,
         }
 
     def __call__(self, harmonization_step: HarmonizationStep, list_dict_params: List):
@@ -34,14 +54,20 @@ class _FedCombatParameters:
         Returns;
             Dict: parameters resulting from the harmonization_step computation from the researcher
         """
-        stacked_kwargs = self._stack_dict_params(list_dict_params=list_dict_params)
-        return self.step_functions[harmonization_step](**stacked_kwargs)
+        if harmonization_step in [
+            HarmonizationStep.STEP1_STANDARDIZE,
+            HarmonizationStep.STEP2_TRAIN,
+        ]:
+            kwargs = list_dict_params[0] if len(list_dict_params) > 0 else {}
+        else:
+            kwargs = self._stack_dict_params(list_dict_params=list_dict_params)
+        return self.step_functions[harmonization_step](**kwargs)
 
-    # Note: at each step, the researcher could check the type and shape of the received parameters.
-    # It is not implemented for now to keep implementation simple but could be considered for:
-    # - security: avoid malicious parameters. Risk seems limited as they are used for simple math operations,
-    #   not function names, etc.
-    # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
+        # Note: at each step, the researcher could check the type and shape of the received parameters.
+        # It is not implemented for now to keep implementation simple but could be considered for:
+        # - security: avoid malicious parameters. Risk seems limited as they are used for simple math operations,
+        #   not function names, etc.
+        # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
 
     def _compute_global_mean_std(self, **kwargs) -> dict:
         """
@@ -57,37 +83,102 @@ class _FedCombatParameters:
                   Keys: ["global_mean_covariates", "global_mean_phenotypes",
                          "global_std_covariates", "global_std_phenotypes"]
         """
-        stacked_mean_covariates = kwargs["mean_covariates"]
-        stacked_mean_phenotypes = kwargs["mean_phenotypes"]
+        covariates = kwargs.get("covariates", [])
+        phenotypes = kwargs.get("phenotypes", [])
 
-        stacked_std_covariates = kwargs["std_covariates"]
-        stacked_std_phenotypes = kwargs["std_phenotypes"]
-
-        stacked_n_samples = kwargs["n_samples"]
-
-        global_mean_covariates = self._weighted_mean(
-            stacked_mean_covariates, stacked_n_samples, ddof=0
-        )
-        global_mean_phenotypes = self._weighted_mean(
-            stacked_mean_phenotypes, stacked_n_samples, ddof=0
+        # Compute mean and std only with active datasets of the federation
+        # Needed as FA don't implement node filtering yet
+        fds_filtered = FederatedDataset(
+            {
+                node_id: node_meta
+                for node_id, node_meta in self._fds.data().items()
+                if node_id in self._nodes
+            }
         )
 
-        # TODO: this is not the exact way to compute the global std from the local ones,
-        # as it doesn't take into account the local means and the global means.
-        # => Temporary solution, will be replaced by using FA implementation in #1677
+        # Analytics instance specific to this preprocessing as nodes may change from
+        # the rest of the experiment & from one call to the other
+        analytics = FederatedAnalytics(
+            fds=fds_filtered,
+            experiment_id=self._experiment_id,
+            researcher_id=self._researcher_id,
+            reqs=self._reqs,
+            experimentation_folder=self._experimentation_folder,
+        )
 
-        global_std_covariates = self._weighted_mean(
-            stacked_std_covariates, stacked_n_samples, ddof=1
-        )
-        global_std_phenotypes = self._weighted_mean(
-            stacked_std_phenotypes, stacked_n_samples, ddof=1
-        )
+        # FA glitch: currently need to request `variance` to retrieve `std`
+        result = analytics.fetch_stats(["count", "mean", "variance"])
+
+        global_mean_covariates = [
+            v for k, v in result.global_stat("mean").items() if k in covariates
+        ]
+        global_mean_phenotypes = [
+            v for k, v in result.global_stat("mean").items() if k in phenotypes
+        ]
+        global_std_covariates = [
+            v for k, v in result.global_stat("std").items() if k in covariates
+        ]
+        global_std_phenotypes = [
+            v for k, v in result.global_stat("std").items() if k in phenotypes
+        ]
+
+        # Clean up
+        del analytics
 
         return {
-            "global_mean_covariates": global_mean_covariates,
-            "global_mean_phenotypes": global_mean_phenotypes,
-            "global_std_covariates": global_std_covariates,
-            "global_std_phenotypes": global_std_phenotypes,
+            "global_mean_covariates": torch.tensor(
+                global_mean_covariates, dtype=torch.float32
+            ),
+            "global_mean_phenotypes": torch.tensor(
+                global_mean_phenotypes, dtype=torch.float32
+            ),
+            "global_std_covariates": torch.tensor(
+                global_std_covariates, dtype=torch.float32
+            ),
+            "global_std_phenotypes": torch.tensor(
+                global_std_phenotypes, dtype=torch.float32
+            ),
+        }
+
+    def _train_harmonization_model(self, **kwargs) -> dict:
+        """Train the harmonization model using the provided arguments.
+
+        Args:
+            kwargs: Dict containing the arguments for training the harmonization model.
+                    Keys: ["covariates", "phenotypes", "training_args", "model_args", "rounds"]
+
+        Returns:
+            Dict: TODO COMPLETE DOCSTRING
+        """
+        covariates = kwargs.get("covariates")
+        phenotypes = kwargs.get("phenotypes")
+        training_args = kwargs.get("training_args")
+        model_args = kwargs.get("model_args")
+        rounds = kwargs.get("rounds")
+
+        fc_model_training = _FedCombatTrainModel(
+            self._fds,
+            self._nodes,
+            self._experimentation_folder,
+            covariates,
+            phenotypes,
+            training_args,
+            model_args,
+            rounds,
+        )
+        fc_model_training.execute()
+
+        # TODO: These are dummy arguments. This is where the training plan should hand
+        # a way for the nodes to access the models
+        # NB: local bias is a local model and the global bias is an average of all local biases
+        ######################## DUMMY ARGS ###############################################
+        biological_model = self.read_biological_model_values()
+        global_bias_model = self.read_bias_model_values()
+        ####################################################################################
+
+        return {
+            "biological_model": biological_model,
+            "global_bias_model": global_bias_model,
         }
 
     def _compute_pooled_variance(self, **kwargs) -> dict:
@@ -187,3 +278,17 @@ class _FedCombatParameters:
             for param_key in param_keys
         }
         return stacked_params
+
+    ###### DUMMY DATA ######
+    shape_phenotypes = torch.rand((100, 2))
+    ########################
+
+    #####################################
+    ########## DUMMY FUNCTIONS ##########
+    #####################################
+
+    def read_biological_model_values(self):
+        return self.shape_phenotypes
+
+    def read_bias_model_values(self):
+        return torch.zeros_like(self.shape_phenotypes)
