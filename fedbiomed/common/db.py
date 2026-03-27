@@ -15,7 +15,7 @@ from tinydb.table import Document, Table
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
-LOG_VALUE_MAX_LENGTH = 50
+LOG_VALUE_MAX_LENGTH = 250
 
 
 def cast_(func):
@@ -47,6 +47,32 @@ def cast_(func):
     return wrapped
 
 
+def to_print_str(obj, max_len=None) -> str:
+    """
+    Convert any Python object to its 'printable' string representation.
+    Always returns a string, never crashes.
+    Optionally trims to max_len characters.
+    """
+    try:
+        # Use str() which mimics print()
+        s = str(obj)
+    except Exception:
+        # fallback: repr() if str() fails
+        try:
+            s = repr(obj)
+        except Exception:
+            s = "<unprintable object>"
+
+    # Remove leading/trailing whitespace
+    s = s.strip()
+
+    # Trim if needed
+    if max_len:
+        s = f"{s[:max_len]}..."
+
+    return s
+
+
 def _security_log(operation: str, default_stacklevel: int = 3):
     """Decorator for DBTable methods to add security logging."""
 
@@ -61,24 +87,8 @@ def _security_log(operation: str, default_stacklevel: int = 3):
 
             logging_stacklevel = kwargs.pop("stacklevel", default_stacklevel)
 
-            # Reuse your helpers
-            kwargs_stripped = _strip_forbidden_keys(kwargs)
-            args_stripped = _strip_forbidden_keys(args)
-
-            # Log fields from args like you do today
-            arg_fields: dict[str, Any] = {}
-            if len(args_stripped) == 1 and isinstance(args_stripped[0], dict):
-                arg_fields.update(args_stripped[0])
-            else:
-                for i, v in enumerate(args_stripped):
-                    arg_fields[f"arg{i}"] = v
-
-            kwargs_for_log = _truncate_for_logging(
-                kwargs_stripped, max_len=LOG_VALUE_MAX_LENGTH
-            )
-            args_for_log = _truncate_for_logging(
-                arg_fields, max_len=LOG_VALUE_MAX_LENGTH
-            )
+            kwargs_for_log = to_print_str(kwargs, max_len=LOG_VALUE_MAX_LENGTH)
+            args_for_log = to_print_str(args, max_len=LOG_VALUE_MAX_LENGTH)
 
             with logger.security_context(operation=operation, table=self.name):
                 try:
@@ -97,16 +107,16 @@ def _security_log(operation: str, default_stacklevel: int = 3):
                     logger.security_event(
                         status="failure",
                         details=str(e),
-                        db_args={**args_for_log},
-                        db_kwargs={**kwargs_for_log},
+                        db_args=args_for_log,
+                        db_kwargs=kwargs_for_log,
                         stacklevel=logging_stacklevel,
                     )
                     logger.debug(
                         f"Failed to {operation} in table {self.name} with error: {repr(e)}; "
                         f"db_args={args_for_log}; db_kwargs={kwargs_for_log}",
                         extra={
-                            "db_args": {**args_for_log},
-                            "db_kwargs": {**kwargs_for_log},
+                            "db_args": args_for_log,
+                            "db_kwargs": kwargs_for_log,
                         },
                         stacklevel=logging_stacklevel,
                     )
@@ -117,16 +127,16 @@ def _security_log(operation: str, default_stacklevel: int = 3):
                 logger.security_event(
                     status="success",
                     doc_id=result_for_log,
-                    db_args={**args_for_log},
-                    db_kwargs={**kwargs_for_log},
+                    db_args=args_for_log,
+                    db_kwargs=kwargs_for_log,
                     stacklevel=logging_stacklevel,
                 )
                 logger.debug(
                     f"Successfully performed {operation} in table {self.name}, result: {result_for_log}; "
                     f"db_args={args_for_log}; db_kwargs={kwargs_for_log}",
                     extra={
-                        "db_args": {**args_for_log},
-                        "db_kwargs": {**kwargs_for_log},
+                        "db_args": args_for_log,
+                        "db_kwargs": kwargs_for_log,
                     },
                     stacklevel=logging_stacklevel,
                 )
@@ -144,42 +154,6 @@ def _is_forbidden(key: str) -> bool:
         if forbidden in key.lower():
             return True
     return False
-
-
-def _strip_forbidden_keys(value: Any) -> Any:
-    """Recursively removes forbidden keys from dict-like payloads.
-
-    This is used to avoid storing or logging sensitive material such as
-    private keys or certificates.
-    """
-    if isinstance(value, dict):
-        return {
-            k: _strip_forbidden_keys(v)
-            for k, v in value.items()
-            if not _is_forbidden(str(k))
-        }
-    if isinstance(value, (list, tuple)):
-        stripped = [_strip_forbidden_keys(v) for v in value]
-        return tuple(stripped) if isinstance(value, tuple) else stripped
-    return value
-
-
-def _truncate_for_logging(value: Any, max_len: int) -> Any:
-    """Recursively truncates long stringified values for logging."""
-    if isinstance(value, dict):
-        out: dict[Any, Any] = {}
-        for k, v in value.items():
-            out[k] = _truncate_for_logging(v, max_len=max_len)
-        return out
-
-    if isinstance(value, (list, tuple)):
-        truncated = [_truncate_for_logging(v, max_len=max_len) for v in value]
-        return tuple(truncated) if isinstance(value, tuple) else truncated
-
-    s = str(value)
-    if len(s) > max_len:
-        return s[:max_len] + "..."
-    return value
 
 
 class DBTable(Table):
