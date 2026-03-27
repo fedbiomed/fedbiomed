@@ -73,6 +73,21 @@ def to_print_str(obj, max_len=None) -> str:
     return s
 
 
+def printtable_args_for_log(obj: Any, max_len=None) -> str:
+    """Convert any Python object to a string suitable for logging, with error handling."""
+
+    try:
+        if isinstance(obj, dict):
+            parts = []
+            for k, v in obj.items():
+                parts.append(f"{k}={to_print_str(v, max_len=LOG_VALUE_MAX_LENGTH)}")
+            return "{" + ", ".join(parts) + "}"
+        else:
+            return to_print_str(obj, max_len=LOG_VALUE_MAX_LENGTH)
+    except Exception:
+        return "<unprintable object>"
+
+
 def _security_log(operation: str, default_stacklevel: int = 3):
     """Decorator for DBTable methods to add security logging."""
 
@@ -87,8 +102,10 @@ def _security_log(operation: str, default_stacklevel: int = 3):
 
             logging_stacklevel = kwargs.pop("stacklevel", default_stacklevel)
 
-            kwargs_for_log = to_print_str(kwargs, max_len=LOG_VALUE_MAX_LENGTH)
-            args_for_log = to_print_str(args, max_len=LOG_VALUE_MAX_LENGTH)
+            kwargs_for_log = printtable_args_for_log(
+                kwargs, max_len=LOG_VALUE_MAX_LENGTH
+            )
+            args_for_log = printtable_args_for_log(args, max_len=LOG_VALUE_MAX_LENGTH)
 
             with logger.security_context(operation=operation, table=self.name):
                 try:

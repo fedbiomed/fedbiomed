@@ -9,7 +9,7 @@ on:
   push:
     branches:
       - 'master'
-      - 'feature/ci-runner-reconfiguration'
+      
 jobs:
   e2e-test-auto:
     name: e2e tests
@@ -27,6 +27,7 @@ jobs:
           - macos-m1
         python-version:
           - '3.10'
+          - '3.11'
 
     runs-on: ${{ matrix.os }}
 

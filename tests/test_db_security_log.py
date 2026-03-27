@@ -66,7 +66,7 @@ def test_security_log_success_strips_forbidden_and_truncates(
     assert isinstance(logged["db_args"], str)
     assert logged["db_args"].endswith("...")
     assert len(logged["db_args"]) <= 253
-    assert logged["db_kwargs"].endswith("...")
+    assert "..." in logged["db_kwargs"]
 
 
 def test_security_log_success_summarizes_search_results(
