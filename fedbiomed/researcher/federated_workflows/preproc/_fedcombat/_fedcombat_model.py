@@ -39,8 +39,6 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
             return self.linear(x)
 
     def init_model(self, model_args: dict) -> nn.Module:
-        # from fedbiomed.common.preproc import FedCombatModelWrapper
-
         return FedCombatModelWrapper(
             self.Net(
                 n_covariates=len(model_args.get("covariates")),
@@ -76,9 +74,8 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
         return loss
 
 
-# TODO: change design to match other preprocessing steps from issue 1568
 class _FedCombatTrainModel:
-    """Class to handle Fed-ComBat harmonization step 3: train harmonization model."""
+    """Class to handle Fed-ComBat harmonization step 2: train harmonization model."""
 
     def __init__(
         self,

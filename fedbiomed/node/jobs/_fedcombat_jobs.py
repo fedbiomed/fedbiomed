@@ -29,13 +29,12 @@ class _FedCombatJobs:
         self.n_samples = torch.tensor(self.covariates.shape[0])
 
         self.step_functions = {
-            HarmonizationStep.STEP1_MEAN_STD: self._compute_mean_std,
-            HarmonizationStep.STEP2_STANDARDIZE: self._standardize_data,
-            # There is no step 3 as it's a model training handled by a training plan
-            # HarmonizationStep.STEP3_TRAIN: lambda x: {},
-            HarmonizationStep.STEP4_RESID_VAR: self._compute_residual_variance,
-            HarmonizationStep.STEP5_RESID_PARAMS: self._compute_standardized_residuals_params,
-            HarmonizationStep.STEP6_FC_PARAMS: self._compute_fedcombat_params,
+            HarmonizationStep.STEP1_STANDARDIZE: self._standardize_data,
+            # There is no step 2 as it's a model training handled by a training plan
+            # HarmonizationStep.STEP2_TRAIN: lambda x: {},
+            HarmonizationStep.STEP3_RESID_VAR: self._compute_residual_variance,
+            HarmonizationStep.STEP4_RESID_PARAMS: self._compute_standardized_residuals_params,
+            HarmonizationStep.STEP5_FC_PARAMS: self._compute_fedcombat_params,
         }
 
     def __call__(
@@ -72,26 +71,6 @@ class _FedCombatJobs:
     # - security: avoid malicious parameters. Risk seems limited as they are used for simple math operations,
     #   not function names, etc.
     # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
-
-    def _compute_mean_std(self, params) -> Dict:
-        """
-        Computes mean and standard deviation of the covariates and phenotypes
-
-        Args:
-            params: empty Dict
-
-        Returns:
-            Dict: Dict containing means and stds of the local covariates and phenotypes.
-                  Keys: ["mean_covariates", "mean_phenotypes", "std_covariates", "std_phenotypes", "n_samples"]
-        """
-        means_stds = {
-            "mean_covariates": self.covariates.mean(0),
-            "mean_phenotypes": self.phenotypes.mean(0),
-            "std_covariates": self.covariates.std(0),
-            "std_phenotypes": self.phenotypes.std(0),
-            "n_samples": self.n_samples,
-        }
-        return means_stds
 
     def _standardize_data(self, params) -> dict:
         """
