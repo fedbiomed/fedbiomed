@@ -6,6 +6,7 @@
 import copy
 from typing import Dict, List, Optional, Union
 
+import torch
 import torch.nn as nn
 from torch.optim import Adam
 
@@ -63,6 +64,8 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
         dataset = TabularDataset(
             input_columns=self.model_args()["covariates"],
             target_columns=self.model_args()["phenotypes"],
+            transform=lambda xs: torch.as_tensor(xs, dtype=torch.float32),
+            target_transform=lambda xs: torch.as_tensor(xs, dtype=torch.float32),
         )
         train_kwargs = {"shuffle": True}
         return DataManager(dataset=dataset, **train_kwargs)

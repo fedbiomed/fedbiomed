@@ -440,7 +440,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
                     },
                     "attributes": {
                         "_preproc_id": exp.preprocessing._preproc_id,
-                        "_do_harmonization": exp.preprocessing._do_harmonization,
+                        "_harmonized": exp.preprocessing._harmonized,
                         "_harmonized_datasets": exp.preprocessing._harmonized_datasets,
                     },
                 },
@@ -537,7 +537,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             "arguments": {"preproc_args": {"some": "args"}},
             "attributes": {
                 "_preproc_id": "preproc-id",
-                "_do_harmonization": True,
+                "_harmonized": False,
                 "_harmonized_datasets": {"node1": "dataset-id-1"},
             },
         }
@@ -547,7 +547,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
         self.assertIsNotNone(exp.preprocessing)
         self.assertEqual(exp.preprocessing._preproc_id, "preproc-id")
-        self.assertTrue(exp.preprocessing._do_harmonization)
+        self.assertFalse(exp.preprocessing._harmonized)
         self.assertDictEqual(
             exp.preprocessing._harmonized_datasets, {"node1": "dataset-id-1"}
         )

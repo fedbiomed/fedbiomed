@@ -14,7 +14,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.requests import Requests
 
-from ..jobs import PreprocRequestJob
+from ...jobs import PreprocRequestJob
 from ._fedcombat_model import _FedCombatTrainModel
 from ._fedcombat_parameters import _FedCombatParameters
 
@@ -93,19 +93,19 @@ class FedCombatPreproc:
 
     def _init_harmonization(self) -> None:
         """Initialize harmonization context."""
-        # Indicates whether harmonization must be done with current context
-        self._do_harmonization: bool = True
+        # Indicates whether harmonization has already been done for this preproc instance
+        self._harmonized: bool = False
         # Context of last harmonization, dict with keys: node ID, values: dataset ID
         self._harmonized_datasets: Optional[dict[str, str]] = None
 
     def _update_harmonization_done(self) -> None:
         """Update harmonization context after a harmonization is performed."""
-        self._do_harmonization = False
+        self._harmonized = True
         self._harmonized_datasets = {
             node_id: self._fds.data()[node_id]["dataset_id"] for node_id in self._nodes
         }
 
-    def _needs_harmonization(self) -> bool:
+    def _needs_harmonization(self, force: bool = False) -> bool:
         """Determine whether harmonization is needed based on current context.
 
         Harmonization is needed if:
@@ -113,10 +113,13 @@ class FedCombatPreproc:
         - The set of nodes has changed since the last harmonization.
         - The federated dataset has changed since the last harmonization.
 
+        Args:
+            force: If True, forces harmonization even if context did not change. Default is False
+
         Returns:
             bool: True if harmonization is needed, False otherwise.
         """
-        if self._do_harmonization:
+        if not self._harmonized or force:
             return True
 
         # Check if the set of nodes has changed
@@ -141,7 +144,7 @@ class FedCombatPreproc:
         """
         self._nodes = nodes
 
-    def execute(self) -> bool:
+    def execute(self, force: bool = False) -> bool:
         """Execute Fed-ComBat harmonization across the federated dataset for this experiment.
 
         Harmonization is specific to the experiment context which includes the set of nodes,
@@ -152,6 +155,10 @@ class FedCombatPreproc:
 
         After harmonization completes, updates the federated dataset in place and returns True.
 
+        Args:
+            force: If True, forces harmonization even if it has already been performed with same
+                context. Default is False
+
         Returns:
             bool: True if harmonization was performed, False otherwise.
 
@@ -159,7 +166,7 @@ class FedCombatPreproc:
             FedbiomedExperimentError: if bad parameters are provided for harmonization.
             FedbiomedExperimentError: if an error occurs during harmonization.
         """
-        if not self._needs_harmonization():
+        if not self._needs_harmonization(force):
             return False
         logger.info(
             "Starting Fed-ComBat harmonization for experiment "
@@ -195,7 +202,7 @@ class FedCombatPreproc:
 
             all_parameters.update(step_args)
             # The step 3 involves training a model
-            if preproc_step == 3:
+            if preproc_step == HarmonizationStep.STEP3_TRAIN.value:
                 logger.debug(
                     "Starting FedCombat preprocessing step 3: train harmonization model"
                 )
@@ -276,7 +283,7 @@ class FedCombatPreproc:
             },
             "attributes": {
                 "_preproc_id": self._preproc_id,
-                "_do_harmonization": self._do_harmonization,
+                "_harmonized": self._harmonized,
                 "_harmonized_datasets": self._harmonized_datasets,
             },
         }
