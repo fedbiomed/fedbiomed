@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 from fedbiomed.common.analytics import AnalyticsOrchestrator
@@ -549,6 +550,41 @@ def test_handle_row_return_value(mock_compile, orchestrator):
     assert result["type"] == DatasetElementType.ROW
     assert result["columns"] == ["c1", "c2"]
     assert set(result["conf"].keys()) == {"c1", "c2"}
+
+
+@patch(
+    "fedbiomed.common.analytics._orchestrator.AnalyticsOrchestrator._compile_leaf_stats"
+)
+def test_handle_row_columns_follow_schema_order_when_subschema_reorders(
+    mock_compile, orchestrator
+):
+    """columns in the config must follow schema order, not subschema order."""
+    mock_compile.return_value = {"mean": {}}
+    schema = RowSpec(columns=["price", "year"])
+
+    result = orchestrator._handle_row(
+        schema, ["year", "price"], None, None, n_samples=5
+    )
+
+    assert result["columns"] == ["price", "year"]  # schema order, not ["year", "price"]
+    assert set(result["conf"].keys()) == {"price", "year"}
+
+
+def test_handle_row_reversed_subschema_values_mapped_correctly(orchestrator):
+    """Results must be attributed to the correct columns even when subschema reverses order."""
+    schema = RowSpec(columns=["price", "year"])
+    config = orchestrator._handle_row(
+        schema, ["year", "price"], stats=["mean"], stats_args=None, n_samples=3
+    )
+
+    acc = RowAccumulator(config)
+    # price=100, year=2020 — in schema (data) order: index 0 = price, index 1 = year
+    for _ in range(3):
+        acc.update(np.array([100.0, 2020.0]))
+
+    result = acc.finalize()
+    assert result["price"]["mean"] == pytest.approx(100.0)
+    assert result["year"]["mean"] == pytest.approx(2020.0)
 
 
 def test_handle_row_validation_errors(orchestrator):
