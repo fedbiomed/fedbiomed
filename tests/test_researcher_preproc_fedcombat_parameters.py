@@ -3,7 +3,7 @@
 import torch
 
 from fedbiomed.common.constants import HarmonizationStep
-from fedbiomed.researcher.federated_workflows.preproc._fedcombat_parameters import (
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_parameters import (
     _FedCombatParameters,
 )
 

@@ -8,16 +8,16 @@ import pytest
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.researcher.datasets import FederatedDataset
-from fedbiomed.researcher.federated_workflows.preproc import (
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat import (
     _fedcombat as _fedcombat_mod,
 )
-from fedbiomed.researcher.federated_workflows.preproc._fedcombat import (
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat import (
     FedCombatPreproc,
 )
-from fedbiomed.researcher.federated_workflows.preproc._fedcombat_model import (
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_model import (
     _FedCombatTrainModel,
 )
-from fedbiomed.researcher.federated_workflows.preproc._fedcombat_parameters import (
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_parameters import (
     _FedCombatParameters,
 )
 from fedbiomed.researcher.requests import Requests
@@ -59,9 +59,6 @@ def mock_fedcombat_param(monkeypatch):
 @pytest.fixture
 def base_preproc(mock_fds, mock_reqs, mock_fedcombat_tm, tmp_path):
     # install mocked training plan class into fedcombat module so FedCombatPreproc uses it
-    from fedbiomed.researcher.federated_workflows.preproc import (
-        _fedcombat as _fedcombat_mod,
-    )
 
     _fedcombat_mod._FedCombatTrainModel = mock_fedcombat_tm
 
@@ -121,7 +118,7 @@ def test_execute_success(monkeypatch, base_preproc, mock_fds):
             return {n: MagicMock(preproc_output=f"r_{n}") for n in self._nodes}
 
     monkeypatch.setattr(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat.PreprocRequestJob",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat.PreprocRequestJob",
         DummyJob,
     )
 
@@ -145,7 +142,7 @@ def test_execute_harmonization_raises(monkeypatch, base_preproc):
             return {n: MagicMock(preproc_output=f"r_{n}") for n in self._nodes}
 
     monkeypatch.setattr(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat.PreprocRequestJob",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat.PreprocRequestJob",
         DummyJob,
     )
 
@@ -158,7 +155,7 @@ def test_execute_harmonization_raises(monkeypatch, base_preproc):
             raise FedbiomedExperimentError("harmonization failed")
 
     monkeypatch.setattr(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat.HarmonizationStep",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat.HarmonizationStep",
         BadHarmonization,
     )
 
@@ -202,7 +199,7 @@ def test_needs_harmonization_true_nodes_changed(
         experimentation_folder=str(tmp_path),
     )
     # simulate previous harmonization with different set of nodes
-    preproc._do_harmonization = False
+    preproc._harmonized = True
     preproc._harmonized_datasets = {"n1": "ds1"}
 
     assert preproc._needs_harmonization() is True
@@ -222,7 +219,7 @@ def test_execute_not_needed_returns_false(monkeypatch, mock_fds, mock_reqs, tmp_
         experimentation_folder=str(tmp_path),
     )
     # simulate previous harmonization with same dataset ids
-    preproc._do_harmonization = False
+    preproc._harmonized = True
     preproc._harmonized_datasets = {"n1": "ds1"}
 
     assert preproc._needs_harmonization() is False
@@ -239,7 +236,7 @@ def test_execute_missing_replies_raises(monkeypatch, mock_fds, mock_reqs, tmp_pa
             return {}
 
     monkeypatch.setattr(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat.PreprocRequestJob",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat.PreprocRequestJob",
         BadJob,
     )
 
@@ -272,7 +269,7 @@ def test_save_and_load_state_breakpoint(mock_fds, mock_reqs, tmp_path):
     )
 
     # simulate harmonization done state
-    preproc._do_harmonization = False
+    preproc._harmonized = True
     preproc._harmonized_datasets = {"n1": "ds1"}
 
     state = preproc.save_state_breakpoint()
@@ -293,5 +290,5 @@ def test_save_and_load_state_breakpoint(mock_fds, mock_reqs, tmp_path):
 
     assert loaded._preproc_args == preproc._preproc_args
     assert loaded._preproc_id == preproc._preproc_id
-    assert loaded._do_harmonization == preproc._do_harmonization
+    assert loaded._harmonized == preproc._harmonized
     assert loaded._harmonized_datasets == preproc._harmonized_datasets
