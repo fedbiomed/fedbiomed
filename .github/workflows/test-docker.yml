@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Checkout to repository
         uses: actions/checkout@v4
-      - name: Install docker if it is not exsiting
+      - name: Install docker if it is not existing
         if: runner.os == 'macOS'
         run: |
           if ! command -v docker &>/dev/null; then
