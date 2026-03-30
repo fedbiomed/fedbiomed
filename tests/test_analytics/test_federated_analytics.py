@@ -796,6 +796,71 @@ class TestFederatedAnalytics:
 
 
 # ---------------------------------------------------------------------------
+# TestMakeCacheKey / TestSortSchema
+# ---------------------------------------------------------------------------
+
+
+class TestMakeCacheKey:
+    """Tests for make_cache_key stability and _sort_schema normalisation."""
+
+    @pytest.mark.parametrize(
+        "schema_a, schema_b",
+        [
+            # flat list: order irrelevant
+            (["price", "year"], ["year", "price"]),
+            # list of dicts: order irrelevant
+            (
+                [{"name": "age"}, {"name": "income"}],
+                [{"name": "income"}, {"name": "age"}],
+            ),
+            # dict key order irrelevant
+            ({"b": "v1", "a": "v2"}, {"a": "v2", "b": "v1"}),
+            # nested list inside dict: order irrelevant
+            ({"cols": ["z", "a"]}, {"cols": ["a", "z"]}),
+            # deeply nested
+            (
+                {"group": [{"cols": ["z", "a"]}, {"cols": ["y", "b"]}]},
+                {"group": [{"cols": ["b", "y"]}, {"cols": ["a", "z"]}]},
+            ),
+        ],
+    )
+    def test_equivalent_schemas_produce_same_key(self, schema_a, schema_b):
+        def key(s):
+            return FederatedAnalytics.make_cache_key(["node-1"], s, None)
+
+        assert key(schema_a) == key(schema_b)
+
+    @pytest.mark.parametrize(
+        "schema_a, schema_b",
+        [
+            (["price"], ["year"]),
+            ({"col": "age"}, {"col": "income"}),
+            (["a", "b"], ["a"]),
+        ],
+    )
+    def test_distinct_schemas_produce_different_keys(self, schema_a, schema_b):
+        def key(s):
+            return FederatedAnalytics.make_cache_key(["node-1"], s, None)
+
+        assert key(schema_a) != key(schema_b)
+
+    def test_none_schema_is_stable(self):
+        k1 = FederatedAnalytics.make_cache_key(["node-1"], None, None)
+        k2 = FederatedAnalytics.make_cache_key(["node-1"], None, None)
+        assert k1 == k2
+
+    def test_node_id_order_irrelevant(self):
+        k1 = FederatedAnalytics.make_cache_key(["a", "b"], None, None)
+        k2 = FederatedAnalytics.make_cache_key(["b", "a"], None, None)
+        assert k1 == k2
+
+    def test_different_node_ids_differ(self):
+        k1 = FederatedAnalytics.make_cache_key(["node-1"], None, None)
+        k2 = FederatedAnalytics.make_cache_key(["node-2"], None, None)
+        assert k1 != k2
+
+
+# ---------------------------------------------------------------------------
 # TestComputableStats
 # ---------------------------------------------------------------------------
 
