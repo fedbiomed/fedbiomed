@@ -256,19 +256,22 @@ class Round:
             )
 
             if not approved:
-                logger.info(
-                    f"Training plan is not approved by the node. Training plan details: {training_plan_['name']}"
-                )
+                if training_plan_ is None:
+                    logger.info("Training plan is not registered on this node.")
+                    status_msg = "not registered"
+                else:
+                    logger.info(
+                        f"Training plan '{training_plan_['name']}' is not approved by this node."
+                    )
+                    status_msg = "not approved"
                 return self._send_round_reply(
                     False,
-                    f"Requested training plan is not approved by the node with: \n"
-                    f"Id: {self._node_id} \n"
-                    f"Name: {self._node_name} \n",
+                    f"Training plan is {status_msg} on node id={self._node_id} name={self._node_name}",
                 )
             else:
                 logger.info(
-                    f"Training plan has been approved by the node {training_plan_['name']}",
-                    f"researcher_id={self.researcher_id}",
+                    f"Training plan has been approved by the node "
+                    f"{training_plan_['name']} researcher_id={self.researcher_id}"
                 )
 
         # Import training plan, save to file, reload, instantiate a training plan

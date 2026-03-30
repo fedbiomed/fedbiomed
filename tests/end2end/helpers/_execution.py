@@ -1,9 +1,8 @@
 """Contains execution helpers"""
 
-import subprocess
 import multiprocessing
-
-from typing import Optional, Callable, List
+import subprocess
+from typing import Callable, List, Optional
 
 import psutil
 import pytest
@@ -97,10 +96,10 @@ def kill_process(process):
         parent.kill()
     except psutil.ZombieProcess:
         print(
-            "\n Parent process has became zombie process after killing child procesess"
+            "\n Parent process has became zombie process after killing child processes"
         )
     except psutil.NoSuchProcess:
-        print("\n Parent process no longer existing after killing child procesess")
+        print("\n Parent process no longer existing after killing child processes")
 
 
 def shell_process(
@@ -109,14 +108,16 @@ def shell_process(
     pipe: bool = True,
     on_failure: Callable | None = None,
 ):
-    """Executes shell process
+    """Executes a shell process.
 
     Args:
-        command: List of commands (do not add fedbiomed run it is
-            automatically added)
-            before executing the command
-        wait: If true function will block until the command is completed. Otherwise,
-            it will return process object that is running in the background.
+        command: List of command tokens to execute.
+        wait: If True, blocks until the command completes and returns the result.
+            Otherwise returns the running Popen object.
+        pipe: If True, captures stdout/stderr. Ignored when wait=True (output is
+            always inherited so it is visible in the terminal).
+        on_failure: Optional callback invoked if the process exits with a non-zero
+            return code.
     """
 
     pipe_ = True

@@ -22,7 +22,7 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(port, post_session):
     """Set up 2 nodes, each with an ADNI CSV and a synthetic classification CSV."""
 
     with create_multiple_nodes(port, 2) as nodes:
@@ -61,11 +61,12 @@ def setup(port, post_session, request):
 
         yield node_1, node_2, researcher
 
-        kill_subprocesses(node_processes)
-        thread.join()
-
-        print("Clearing researcher data")
-        clear_component_data(researcher)
+        try:
+            kill_subprocesses(node_processes)
+            thread.join()
+        finally:
+            print("Clearing researcher data")
+            clear_component_data(researcher)
 
 
 def test_01_analytics_mean():

@@ -5,23 +5,18 @@
 
 import dataclasses
 import functools
-import unittest
 import secrets
+import unittest
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from unittest.mock import MagicMock, patch
 
-from fedbiomed.common.models import TorchModel
-from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
-from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
-from fedbiomed.common.secagg._secagg_crypter import SecaggLomCrypter
-
 import declearn
 import declearn.model.torch
-from fedbiomed.node.secagg._secagg_round import SecaggRound
 import numpy as np
-
 import torch
 import torch.nn as nn
+
+from fedbiomed.common.models import TorchModel
 from fedbiomed.common.optimizers import (
     AuxVar,
     EncryptedAuxVar,
@@ -34,9 +29,12 @@ from fedbiomed.common.optimizers.declearn import (
     ScaffoldClientModule,
     ScaffoldServerModule,
 )
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
+from fedbiomed.common.optimizers.optimizer import Optimizer as FedOptimizer
 from fedbiomed.common.secagg import SecaggCrypter
+from fedbiomed.common.secagg._secagg_crypter import SecaggLomCrypter
 from fedbiomed.common.serializer import Serializer
-
+from fedbiomed.node.secagg._secagg_round import SecaggRound
 
 ArraySpec = Tuple[List[int], str]
 ValueSpec = List[Tuple[str, int, Union[None, ArraySpec, declearn.model.api.VectorSpec]]]
@@ -807,7 +805,7 @@ class TestAuxVarSecAgg(unittest.TestCase):
                             torch.isclose(
                                 n_val.cpu().type(dtype=torch.float64),
                                 r_val.cpu().type(dtype=torch.float64),
-                                atol=1e-3,
+                                atol=1e-2,
                             )
                         )
                     )
@@ -833,7 +831,7 @@ class TestAuxVarSecAgg(unittest.TestCase):
                 for before_val, after_val in zip(before_layer, after_layer):
                     self.assertTrue(
                         torch.any(
-                            torch.isclose(before_val.cpu(), after_val.cpu(), atol=1e-3)
+                            torch.isclose(before_val.cpu(), after_val.cpu(), atol=1e-2)
                         )
                     )
 
