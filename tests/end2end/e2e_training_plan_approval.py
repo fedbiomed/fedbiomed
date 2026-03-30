@@ -21,7 +21,7 @@ from fedbiomed.researcher.experiment import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup_components(port, post_session, request):
+def setup_components(port, post_session):
     """Setup fixture for the module"""
     dataset = {
         "name": "MNIST",
@@ -32,7 +32,7 @@ def setup_components(port, post_session, request):
     }
 
     print(f"USING PORT {port} for researcher server")
-    print("Creating§ components ---------------------------------------------")
+    print("Creating components ---------------------------------------------")
     node_1 = create_node(
         port=port, config_sections={"security": {"training_plan_approval": "True"}}
     )
@@ -46,29 +46,26 @@ def setup_components(port, post_session, request):
 
     print("Adding first dataset --------------------------------------------")
     add_dataset_to_node(node_1, dataset)
-    print("adding second dataset")
+    print("Adding second dataset -------------------------------------------")
     add_dataset_to_node(node_2, dataset)
 
     # Starts the nodes
     node_processes, thread = start_nodes([node_1, node_2])
-    # Good to wait 3 second to give time to nodes start
-    print("Sleep 5 seconds. Giving some time for nodes to start")
+
+    # Wait for nodes to finish starting before running tests
+    print("Waiting 10 seconds for nodes to start")
     time.sleep(10)
 
-    # Clear files and processes created for the tests
-    def clear():
+    yield node_1, node_2, researcher
+
+    try:
         kill_subprocesses(node_processes)
         thread.join()
-
+    finally:
         print("Clearing component data")
         clear_component_data(node_1)
         clear_component_data(node_2)
-
         clear_component_data(researcher)
-
-    request.addfinalizer(clear)
-
-    return node_1, node_2, researcher
 
 
 #############################################

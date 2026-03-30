@@ -31,6 +31,7 @@ def port():
 
 @pytest.fixture(scope="module", autouse=True)
 def data():
+    """Create and expose the shared temporary directory for the test module."""
     home_dir = os.path.expanduser("~")
     tmp_dir = os.path.join(home_dir, "_tmp")
     os.makedirs(tmp_dir, exist_ok=True)
@@ -49,7 +50,7 @@ def post_session(request, data):
 
     yield
 
-    print("#### Kiling e2e processes after the tests -----")
+    print("#### Killing e2e processes after the tests -----")
     kill_e2e_test_processes()
     print("#### Killing is completed")
     print("\n###### Cleaning temporary directory: started -----\n")
@@ -64,7 +65,7 @@ def post_session(request, data):
 
 
 def kill_e2e_test_processes():
-    """Kills end2end processeses if any existing"""
+    """Kills end2end processes if any existing"""
 
     for process in psutil.process_iter():
         try:

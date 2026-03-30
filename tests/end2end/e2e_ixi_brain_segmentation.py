@@ -28,11 +28,11 @@ def download_file(url, filename):
     """
     Helper method handling downloading large files from `url` to `filename`. Returns a pointer to `filename`.
     """
-    chunkSize = 1024
+    chunk_size = 1024
     r = requests.get(url, stream=True)
     with open(filename, "wb") as f:
         pbar = tqdm.tqdm(unit="B", total=int(r.headers["Content-Length"]))
-        for chunk in r.iter_content(chunk_size=chunkSize):
+        for chunk in r.iter_content(chunk_size=chunk_size):
             if chunk:  # filter out keep-alive new chunks
                 pbar.update(len(chunk))
                 f.write(chunk)
@@ -107,7 +107,7 @@ def prepare_ixi_dataset(root_folder: str):
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(post_session, port, request):
+def setup(post_session, port):
     """Setup fixture for the module"""
 
     data_folder = get_data_folder("IXI-example")
@@ -135,7 +135,7 @@ def setup(post_session, port, request):
 
         print("Adding first dataset --------------------------------------------")
         add_dataset_to_node(node_1, dataset)
-        print("adding second dataset")
+        print("Adding second dataset -------------------------------------------")
         dataset.update(
             {"path": os.path.join(data_folder, "Hospital-Centers", "HH", "train")}
         )
@@ -149,14 +149,17 @@ def setup(post_session, port, request):
         add_dataset_to_node(node_2, dataset)
 
         # start nodes and give some time to start
-        node_processes, _ = start_nodes([node_1, node_2])
+        node_processes, thread = start_nodes([node_1, node_2])
         print("Waiting for nodes to start")
         time.sleep(15)
 
         yield
 
-        kill_subprocesses(node_processes)
-        clear_component_data(researcher)
+        try:
+            kill_subprocesses(node_processes)
+            thread.join()
+        finally:
+            clear_component_data(researcher)
 
 
 #############################################
@@ -166,7 +169,7 @@ def setup(post_session, port, request):
 
 
 def test_experiment_run_01():
-    """Tests running training mnist with basic configuration"""
+    """Tests running UNet brain segmentation training with basic configuration"""
     model_args = {
         "spatial_dims": 3,
         "in_channels": 1,

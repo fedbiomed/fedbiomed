@@ -194,7 +194,7 @@ class _GrpcFormatter(logging.Formatter):
         """Formats the message/data that is going to be send to remote party through gRPC"""
         record2 = copy.copy(record)
         json_message = {
-            "asctime": record2.__dict__["asctime"],
+            "asctime": self.formatTime(record2),
             "node_id": self._node_id,
             "name": record2.__dict__["name"],
             "level": record2.__dict__["levelname"],
@@ -554,6 +554,7 @@ class FedLogger(metaclass=SingletonMeta):
             if handler.level == logging.NOTSET:
                 self._handlers[handler_key].setLevel(self._default_level)
             self._original_format[handler_key] = format
+            self._set_handler_formatter(handler_key)
         else:
             self._logger.warning(handler_key + " handler already present - ignoring")
 
