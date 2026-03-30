@@ -1,11 +1,19 @@
 ---
-name: New End-to-End Test
+name: End-to-End Test
 run-name: fedbiomed-e2e-tests
 permissions: write-all
 on:
   schedule:
     - cron: '0 1 * * *'  # Run every day at 1 am on default branch: develop
   workflow_dispatch:
+    inputs:
+      python-version:
+        description: "Python version (e.g. 3.10). Leave empty for all."
+        required: false
+      os:
+        description: "OS (e.g. ubuntu-latest). Leave empty for all."
+        required: false
+      
   push:
     branches:
       - 'master'
@@ -20,15 +28,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - ubuntu-22.04
-          - macos-latest
-          - macos-m1
-        python-version:
-          - '3.10'
-          - '3.11'
-
+        os: ${{ github.event.inputs.os != '' && fromJson(github.event.inputs.os) || fromJson('["ubuntu-latest","ubuntu-22.04","macos-latest","macos-m1"]') }}
+        python-version: ${{ github.event.inputs.python-version != '' && fromJson(github.event.inputs.python-version) || fromJson('["3.10","3.11"]') }}
+    
     runs-on: ${{ matrix.os }}
 
     steps:
