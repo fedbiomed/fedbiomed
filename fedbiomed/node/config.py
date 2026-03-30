@@ -60,6 +60,7 @@ class NodeConfig(Config):
             "allow_federated_analytics": os.getenv(
                 "FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS", "True"
             ),
+            "minimum_samples": os.getenv("FBM_SECURITY_MINIMUM_SAMPLES", "0"),
         }
         # Generate self-signed certificates
         key_file, pem_file = generate_certificate(
@@ -110,6 +111,14 @@ class NodeConfig(Config):
             )
 
             self._cfg["security"].update({"allow_federated_analytics": "True"})
+
+        if not self._cfg.has_option("security", "minimum_samples"):
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for the node. "
+                "Please add 'minimum_samples' value in `security` section "
+                "of the node configuration to define the minimum number of samples required for a dataset."
+            )
+            self._cfg["security"].update({"minimum_samples": "0"})
 
         if not self._cfg.has_section("syslog"):
             logger.warning(

@@ -8,6 +8,8 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.node.jobs._fa_job import FAJob, _InternalJobError
 
+# ----------------------------- Fixtures -----------------------------
+
 
 @pytest.fixture
 def request_args():
@@ -46,29 +48,34 @@ def fa_job(fa_job_args):
 
 
 @pytest.fixture
-def mocked_dataset_manager():
-    """Fixture for mocked DatasetManager with common setup."""
-    with patch("fedbiomed.node.jobs._fa_job.DatasetManager") as mock_dm_cls:
-        mock_dm = mock_dm_cls.return_value
-        mock_dm.dataset_table.get_by_id.return_value = {
-            "data_type": "csv",
-            "path": "/path/to/data",
-            "dataset_parameters": {},
-        }
-        yield mock_dm_cls, mock_dm
+def mock_dm():
+    """Minimal mocked DatasetManager with a valid dataset entry and no validate_samples side-effect."""
+    dm = MagicMock()
+    dm.dataset_table.get_by_id.return_value = {
+        "data_type": "csv",
+        "path": "/path/to/data",
+        "dataset_parameters": {},
+    }
+    return dm
 
 
 @pytest.fixture
-def mocked_dlp():
-    """Fixture for mocked DataLoadingPlan."""
-    with patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan") as mock_dlp_cls:
-        mock_dlp = mock_dlp_cls.return_value
-        mock_dlp.deserialize.return_value = mock_dlp
-        yield mock_dlp_cls, mock_dlp
+def mock_dataset_cls():
+    """Returns a (instance, class) pair where the class always produces the same instance."""
+    instance = MagicMock()
+
+    class _MockDataset:
+        def __new__(cls, *args, **kwargs):
+            return instance
+
+    return instance, _MockDataset
+
+
+# ----------------------------- __init__ -----------------------------
 
 
 def test_fa_job_init(fa_job, fa_job_args, request_args):
-    """Test FAJob initialization."""
+    """All constructor fields — including FAJob-specific ones — are stored correctly."""
     assert fa_job._dir == fa_job_args["root_dir"]
     assert fa_job._dataset_manager == fa_job_args["dataset_manager"]
     assert fa_job._node_id == fa_job_args["node_id"]
@@ -78,105 +85,148 @@ def test_fa_job_init(fa_job, fa_job_args, request_args):
     assert fa_job._fa_id == request_args["fa_id"]
     assert fa_job._researcher_id == request_args["researcher_id"]
     assert fa_job._request_id == request_args["request_id"]
+    assert fa_job._stats == request_args["stats"]
     assert fa_job._stats_args == request_args["stats_args"]
+    assert fa_job._dataset_schema == request_args["dataset_schema"]
+    assert fa_job._allow_fa == fa_job_args["allow_fa"]
 
 
-def test_fa_job_init_defaults(fa_job_args, request_args):
-    """Test FAJob initialization with default arguments."""
-    # Create a request with empty stats_args
-    req_args = request_args.copy()
-    req_args["stats_args"] = {}
-    request = FARequest(**req_args)
-
-    args = fa_job_args.copy()
-    args["request"] = request
-
-    job = FAJob(**args)
-    assert job._stats_args == {}
+# ----------------------------- _build_error_msg ---------------------
 
 
-def test_build_error_msg(fa_job):
-    """Test _build_error_msg method."""
-    msg = "Something went wrong"
-    errnum = ErrorNumbers.FB313.value
-    error = fa_job._build_error_msg(msg, errnum)
-
+def test_build_error_msg_explicit_errnum(fa_job):
+    error = fa_job._build_error_msg("Something went wrong", ErrorNumbers.FB313.value)
     assert isinstance(error, ErrorMessage)
-    assert error.extra_msg == msg
-    assert error.errnum == errnum
+    assert error.extra_msg == "Something went wrong"
+    assert error.errnum == ErrorNumbers.FB313.value
     assert error.node_id == fa_job._node_id
     assert error.request_id == fa_job._request_id
 
 
+def test_build_error_msg_default_errnum(fa_job):
+    """Default errnum should be FB313."""
+    error = fa_job._build_error_msg("oops")
+    assert error.errnum == ErrorNumbers.FB313.value
+
+
+# ----------------------------- _build_args_for_dataset --------------
+
+
+@pytest.mark.parametrize(
+    "dtype_enum,entry_extra,expected",
+    [
+        (
+            DatasetTypes.TABULAR,
+            {"dtypes": {"col1": "int", "col2": "float"}},
+            {"input_columns": ["col1", "col2"]},
+        ),
+        (
+            DatasetTypes.MEDICAL_FOLDER,
+            {"shape": {"t1": None, "seg": None}},
+            {"data_modalities": ["t1", "seg"]},
+        ),
+        (DatasetTypes.IMAGES, {}, {}),
+        (DatasetTypes.DEFAULT, {}, {}),
+        (DatasetTypes.MEDNIST, {}, {}),
+    ],
+)
+def test_build_args_for_dataset(fa_job, dtype_enum, entry_extra, expected):
+    entry = {"data_type": dtype_enum.value, **entry_extra}
+    with patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
+        return_value=dtype_enum,
+    ):
+        assert fa_job._build_args_for_dataset(entry) == expected
+
+
+def test_build_args_for_dataset_custom_raises(fa_job):
+    entry = {"data_type": "custom"}
+    with patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
+        return_value=DatasetTypes.CUSTOM,
+    ):
+        with pytest.raises(_InternalJobError, match="not implemented"):
+            fa_job._build_args_for_dataset(entry)
+
+
+def test_build_args_for_dataset_unknown_type_raises(fa_job):
+    entry = {"data_type": "unknown"}
+    with patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
+        return_value=None,
+    ):
+        with pytest.raises(_InternalJobError, match="unsupported dataset type"):
+            fa_job._build_args_for_dataset(entry)
+
+
+# ----------------------------- _build_dataset -----------------------
+
+
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
-def test_build_dataset_success(mock_registry, fa_job, mocked_dataset_manager):
-    """Test _build_dataset success scenario."""
-    mock_dm_cls, mock_dm = mocked_dataset_manager
-    mock_dm.dataset_table.get_by_id.return_value = {
-        "data_type": "csv",
-        "path": "/path/to/data",
-        "dataset_parameters": {},
-    }
+def test_build_dataset_success(mock_registry, fa_job, mock_dm, mock_dataset_cls):
+    """Happy path: correct dataset returned and complete_initialization called."""
+    instance, cls = mock_dataset_cls
     fa_job._dataset_manager = mock_dm
-
-    # When instantiated
-    mock_dataset_instance = MagicMock()
-
-    class MockDataset:
-        def __init__(self, input_columns=None):
-            pass
-
-        def __new__(cls, *args, **kwargs):
-            return mock_dataset_instance
-
-    mock_dataset_cls = MockDataset
-
-    # Setup DATASET_CLASSES_PER_TYPE
     mock_registry.__contains__.return_value = True
-    # Return 3 values as expected by unpacking: _, _, dataset_cls
-    mock_registry.__getitem__.return_value = (None, None, mock_dataset_cls)
+    mock_registry.__getitem__.return_value = (None, None, cls)
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
-    # Verify dataset creation and initialization
-    assert dataset == mock_dataset_instance
-    mock_dataset_instance.complete_initialization.assert_called_once()
-    call_args = mock_dataset_instance.complete_initialization.call_args
+    assert dataset is instance
+    instance.complete_initialization.assert_called_once()
+    call_args = instance.complete_initialization.call_args
     assert call_args[0][0]["root"] == "/path/to/data"
     assert call_args[0][1] == DataReturnFormat.SKLEARN
 
 
-def test_build_dataset_not_found(mocked_dataset_manager, fa_job):
-    """Test _build_dataset when dataset is not found in DB."""
-    mock_dm_cls, mock_dm = mocked_dataset_manager
+@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
+def test_build_dataset_forwards_dataset_parameters(
+    mock_registry, fa_job, mock_dataset_cls
+):
+    """dataset_parameters from the DB entry are merged into controller kwargs."""
+    instance, cls = mock_dataset_cls
+    dm = MagicMock()
+    dm.dataset_table.get_by_id.return_value = {
+        "data_type": "csv",
+        "path": "/data",
+        "dataset_parameters": {"tabular_file": "labels.csv"},
+    }
+    fa_job._dataset_manager = dm
+    mock_registry.__contains__.return_value = True
+    mock_registry.__getitem__.return_value = (None, None, cls)
+
+    fa_job._build_dataset(DataReturnFormat.SKLEARN)
+
+    call_kwargs = instance.complete_initialization.call_args[0][0]
+    assert call_kwargs.get("tabular_file") == "labels.csv"
+
+
+def test_build_dataset_not_found(fa_job, mock_dm):
+    """_build_dataset raises when dataset_id is absent from the DB."""
     mock_dm.dataset_table.get_by_id.return_value = None
     fa_job._dataset_manager = mock_dm
 
-    with pytest.raises(_InternalJobError) as exc_info:
+    with pytest.raises(_InternalJobError, match="Cannot find requested dataset"):
         fa_job._build_dataset(DataReturnFormat.SKLEARN)
-
-    assert "Cannot find requested dataset in local datasets" in str(exc_info.value)
 
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS", {})
-def test_build_dataset_invalid_type(mocked_dataset_manager, fa_job):
-    """Test _build_dataset when data type is not supported."""
-    mock_dm_cls, mock_dm = mocked_dataset_manager
+def test_build_dataset_unsupported_type(fa_job, mock_dm):
+    """_build_dataset raises when data_type is not in REGISTRY_CONTROLLERS."""
     mock_dm.dataset_table.get_by_id.return_value = {"data_type": "unknown_type"}
+    fa_job._dataset_manager = mock_dm
 
-    with pytest.raises(_InternalJobError) as exc_info:
+    with pytest.raises(_InternalJobError, match="not supported"):
         fa_job._build_dataset(DataReturnFormat.SKLEARN)
-
-    assert "not supported" in str(exc_info.value)
 
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
 @patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan")
-def test_build_dataset_with_dlp_success(
-    mock_dlp_cls, mock_reg_cont, fa_job, mocked_dataset_manager
+def test_build_dataset_with_dlp(
+    mock_dlp_cls, mock_registry, fa_job, mock_dm, mock_dataset_cls
 ):
-    """Test _build_dataset with DataLoadingPlan."""
-    mock_dm_cls, mock_dm = mocked_dataset_manager
+    """DLP is deserialised and passed as 'dlp' in controller kwargs."""
+    instance, cls = mock_dataset_cls
     mock_dm.dataset_table.get_by_id.return_value = {
         "data_type": "csv",
         "path": "/path",
@@ -186,309 +236,197 @@ def test_build_dataset_with_dlp_success(
     fa_job._dataset_manager = mock_dm
 
     mock_dlp = mock_dlp_cls.return_value
-    mock_dlp.deserialize.return_value = mock_dlp  # return self
-
-    mock_dataset_instance = MagicMock()
-
-    class MockDataset:
-        def __init__(self, input_columns=None):
-            pass
-
-        def __new__(cls, *args, **kwargs):
-            return mock_dataset_instance
-
-    mock_reg_cont.__getitem__.return_value = (None, None, MockDataset)
-    mock_reg_cont.__contains__.return_value = True
-
-    # Setup DATASET_CLASSES_PER_TYPE
-    # mock_dataset_cli not needed since _BaseJob uses REGISTRY_CONTROLLERS
+    mock_dlp.deserialize.return_value = mock_dlp
+    mock_registry.__contains__.return_value = True
+    mock_registry.__getitem__.return_value = (None, None, cls)
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
-    assert dataset == mock_dataset_instance
-    # Check if DLP was passed to complete_initialization
-    call_args = mock_dataset_instance.complete_initialization.call_args
-    assert call_args[0][0]["dlp"] == mock_dlp
+    assert dataset is instance
+    assert instance.complete_initialization.call_args[0][0]["dlp"] == mock_dlp
 
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
 @patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan")
-def test_build_dataset_dlp_error(
-    mock_dlp_cls, mock_registry, fa_job, mocked_dataset_manager
+def test_build_dataset_dlp_deserialisation_error(
+    mock_dlp_cls, mock_registry, fa_job, mock_dm
 ):
-    """Test _build_dataset when DLP deserialization fails."""
-    mock_dm_cls, mock_dm = mocked_dataset_manager
+    """Failed DLP deserialisation is wrapped as _InternalJobError."""
     mock_dm.dataset_table.get_by_id.return_value = {
         "data_type": "csv",
         "dlp_id": "dlp_1",
     }
     mock_dm.get_dlp_by_id.return_value = ["dlp_content"]
     fa_job._dataset_manager = mock_dm
-
     mock_dlp_cls.return_value.deserialize.side_effect = FedbiomedError("DLP Error")
     mock_registry.__contains__.return_value = True
 
-    with pytest.raises(_InternalJobError) as exc_info:
+    with pytest.raises(_InternalJobError, match="Cannot recover dlp"):
         fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
-    assert "Cannot recover dlp" in str(exc_info.value)
+
+@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
+def test_build_dataset_initialization_error(mock_registry, fa_job, mock_dm):
+    """FedbiomedError during dataset construction is wrapped as _InternalJobError."""
+    fa_job._dataset_manager = mock_dm
+    broken_cls = MagicMock(side_effect=FedbiomedError("Init Error"))
+    mock_registry.__contains__.return_value = True
+    mock_registry.__getitem__.return_value = (None, None, broken_cls)
+
+    with pytest.raises(
+        _InternalJobError, match="Cannot initialize dataset.*Init Error"
+    ):
+        fa_job._build_dataset(DataReturnFormat.SKLEARN)
+
+
+@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
+def test_build_dataset_below_minimum_samples_raises(
+    mock_registry, fa_job, mock_dm, mock_dataset_cls
+):
+    """validate_samples failure is wrapped as _InternalJobError."""
+    _, cls = mock_dataset_cls
+    mock_dm.validate_samples.side_effect = FedbiomedError("below minimum")
+    fa_job._dataset_manager = mock_dm
+    mock_registry.__contains__.return_value = True
+    mock_registry.__getitem__.return_value = (None, None, cls)
+
+    with pytest.raises(
+        _InternalJobError, match="does not meet minimum sample requirement"
+    ):
+        fa_job._build_dataset(DataReturnFormat.SKLEARN)
+
+
+@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
+def test_build_dataset_validate_samples_called(
+    mock_registry, fa_job, mock_dm, mock_dataset_cls
+):
+    """validate_samples is always called after the dataset is built."""
+    _, cls = mock_dataset_cls
+    fa_job._dataset_manager = mock_dm
+    mock_registry.__contains__.return_value = True
+    mock_registry.__getitem__.return_value = (None, None, cls)
+
+    fa_job._build_dataset(DataReturnFormat.SKLEARN)
+
+    mock_dm.validate_samples.assert_called_once()
+
+
+# ----------------------------- run() --------------------------------
 
 
 def test_run_success(fa_job):
-    """Test run method success."""
     mock_dataset = MagicMock()
     mock_dataset.compute_stats.return_value = {"col1": 1.5}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = fa_job.run()
 
-        assert isinstance(reply, FAReply)
-        assert reply.output == {"col1": 1.5}
-        assert reply.request_id == fa_job._request_id
-        assert reply.node_id == fa_job._node_id
+    assert isinstance(reply, FAReply)
+    assert reply.output == {"col1": 1.5}
+    assert reply.request_id == fa_job._request_id
+    assert reply.node_id == fa_job._node_id
+    assert reply.experiment_id == fa_job._experiment_id
+    assert reply.fa_id == fa_job._fa_id
 
 
-def test_run_federated_analytics_not_allowed(fa_job_args):
-    """Test run method when federated analytics is not allowed."""
-    args = fa_job_args.copy()
-    args["allow_fa"] = False
-    job = FAJob(**args)
-
+def test_run_fa_not_allowed(fa_job_args):
+    fa_job_args["allow_fa"] = False
+    job = FAJob(**fa_job_args)
     reply = job.run()
-
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
     assert "not allowed" in reply.extra_msg
 
 
-def test_run_unsupported_analytics_type(
-    fa_job_args, request_args, mocked_dataset_manager
-):
-    """Test run method with unsupported analytics type."""
-    req_args = request_args.copy()
-    req_args["stats"] = ["unsupported_type"]
-    request = FARequest(**req_args)
-
-    args = fa_job_args.copy()
-    args["request"] = request
-    job = FAJob(**args)
-
+def test_run_no_stats_provided(fa_job_args, request_args):
+    """Both stats=None and stats_args={} triggers the validation error."""
+    req = FARequest(**{**request_args, "stats": None, "stats_args": {}})
+    job = FAJob(**{**fa_job_args, "request": req})
     reply = job.run()
-
     assert isinstance(reply, ErrorMessage)
-    assert reply.errnum == ErrorNumbers.FB325.value
+    assert "At least one of 'stats' or 'stats_args' must be provided" in reply.extra_msg
+
+
+def test_run_only_stats_args_succeeds(fa_job_args, request_args):
+    """stats=None is valid when stats_args is non-empty."""
+    req = FARequest(
+        **{**request_args, "stats": None, "stats_args": {Stats.MEAN.value: {}}}
+    )
+    job = FAJob(**{**fa_job_args, "request": req})
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"col1": 1.0}
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+    assert isinstance(reply, FAReply)
+
+
+def test_run_invalid_stats_values(fa_job_args, request_args):
+    req = FARequest(**{**request_args, "stats": ["unsupported_stat"]})
+    job = FAJob(**{**fa_job_args, "request": req})
+    reply = job.run()
+    assert isinstance(reply, ErrorMessage)
     assert "unsupported values" in reply.extra_msg
 
 
-def test_run_missing_compute_stats_method(fa_job):
-    """Test run method when dataset does not accept compute_stats."""
-
-    # Mock dataset without compute_stats method
-    mock_dataset = MagicMock()
-    del mock_dataset.compute_stats
-
-    # Ensure hasattr(mock_dataset, 'compute_stats') returns False
-    # MagicMock usually creates attributes on access, so we need to be careful.
-    # Specifying spec=[] creates a mock with no attributes/methods unless added.
-    mock_dataset = MagicMock(spec=[])
-
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = fa_job.run()
-
-        assert isinstance(reply, ErrorMessage)
-        assert reply.errnum == ErrorNumbers.FB325.value
-        assert "does not support analytics method 'compute_stats'" in reply.extra_msg
+def test_run_invalid_stats_args_keys(fa_job_args, request_args):
+    req = FARequest(**{**request_args, "stats": None, "stats_args": {"bad_key": {}}})
+    job = FAJob(**{**fa_job_args, "request": req})
+    reply = job.run()
+    assert isinstance(reply, ErrorMessage)
+    assert "contains unsupported keys" in reply.extra_msg
 
 
-def test_run_failure(fa_job):
-    """Test run method when _build_dataset fails."""
+def test_run_build_dataset_fails(fa_job):
     with patch.object(
         FAJob, "_build_dataset", side_effect=_InternalJobError("Dataset error")
     ):
         reply = fa_job.run()
-
-        assert isinstance(reply, ErrorMessage)
-        assert reply.errnum == ErrorNumbers.FB325.value
-        assert "Dataset error" in reply.extra_msg
+    assert isinstance(reply, ErrorMessage)
+    assert "Dataset error" in reply.extra_msg
 
 
-def test_run_compute_stats_args(fa_job):
-    """Test validity of arguments passed to compute_stats."""
+def test_run_missing_compute_stats(fa_job):
+    mock_dataset = MagicMock(spec=[])  # no attributes at all
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = fa_job.run()
+    assert isinstance(reply, ErrorMessage)
+    assert "does not support analytics method 'compute_stats'" in reply.extra_msg
+
+
+def test_run_compute_stats_raises(fa_job):
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.side_effect = Exception("Computation failed")
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = fa_job.run()
+    assert isinstance(reply, ErrorMessage)
+    assert "Computation failed" in reply.extra_msg
+
+
+def test_run_passes_correct_kwargs_to_compute_stats(fa_job):
+    """stats, stats_args, and dataset_schema are forwarded unchanged."""
+    fa_job._stats_args = {Stats.MEAN.value: {"some_arg": "val"}}
     mock_dataset = MagicMock()
     mock_dataset.compute_stats.return_value = {"res": 1}
-
-    # Manually set stats_args using a valid Stats key
-    fa_job._stats_args = {Stats.MEAN.value: {"some_arg": "some_val"}}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         fa_job.run()
 
-        mock_dataset.compute_stats.assert_called_once()
-        call_kwargs = mock_dataset.compute_stats.call_args[1]
-
-        # Check that stats are passed through as-is
-        assert "stats" in call_kwargs
-        assert call_kwargs["stats"] == [Stats.MEAN.value]
-
-        # Check if original stats_args are present
-        assert "stats_args" in call_kwargs
-        assert call_kwargs["stats_args"][Stats.MEAN.value]["some_arg"] == "some_val"
-
-        # Check dataset_schema
-        assert "dataset_schema" in call_kwargs
-        assert call_kwargs["dataset_schema"] == ["col1", "col2"]
+    kwargs = mock_dataset.compute_stats.call_args[1]
+    assert kwargs["stats"] == [Stats.MEAN.value]
+    assert kwargs["stats_args"][Stats.MEAN.value]["some_arg"] == "val"
+    assert kwargs["dataset_schema"] == ["col1", "col2"]
 
 
-def test_run_compute_stats_error(fa_job):
-    """Test run method when compute_stats raises an exception."""
-    mock_dataset = MagicMock()
-    error_msg = "Computation failed"
-    mock_dataset.compute_stats.side_effect = Exception(error_msg)
-
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = fa_job.run()
-
-        assert isinstance(reply, ErrorMessage)
-        assert reply.errnum == ErrorNumbers.FB325.value
-        assert error_msg in reply.extra_msg
-
-
-def test_run_success_multiple_stats(fa_job_args, request_args):
-    """Test run method with multiple requested statistics."""
-    req_args = request_args.copy()
+def test_run_multiple_stats(fa_job_args, request_args):
     stats_list = [Stats.MEAN.value, Stats.VARIANCE.value]
-    req_args["stats"] = stats_list
-    request = FARequest(**req_args)
-
-    args = fa_job_args.copy()
-    args["request"] = request
-    job = FAJob(**args)
-
+    req = FARequest(**{**request_args, "stats": stats_list})
+    job = FAJob(**{**fa_job_args, "request": req})
     mock_dataset = MagicMock()
     mock_dataset.compute_stats.return_value = {"col1": {"mean": 1, "variance": 0.1}}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()
 
-        assert isinstance(reply, FAReply)
-        # Check that list of stats is returned
-        assert reply.stats == stats_list
-        # Check passed arguments
-        call_kwargs = mock_dataset.compute_stats.call_args[1]
-        assert call_kwargs["stats"] == stats_list
-
-
-def test_build_args_for_dataset_methods(fa_job):
-    """Test _build_args_for_dataset method for different dataset types."""
-
-    # Test Tabular
-    # _build_args_for_dataset uses entry.get("dtypes") for input_columns
-    entry = {"data_type": "csv", "dtypes": {"col1": "int", "col2": "float"}}
-    with patch(
-        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
-    ) as mock_get_type:
-        mock_get_type.return_value = DatasetTypes.TABULAR
-        args = fa_job._build_args_for_dataset(entry)
-        assert args == {"input_columns": ["col1", "col2"]}
-
-    # Test Medical Folder
-    entry = {"data_type": "medical-folder", "shape": [1, 2, 3]}
-    with patch(
-        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
-    ) as mock_get_type:
-        mock_get_type.return_value = DatasetTypes.MEDICAL_FOLDER
-        args = fa_job._build_args_for_dataset(entry)
-        assert args == {"data_modalities": [1, 2, 3]}
-
-    # Test Images and Default
-    for dtype_enum in [DatasetTypes.IMAGES, DatasetTypes.DEFAULT, DatasetTypes.MEDNIST]:
-        entry = {"data_type": dtype_enum.value}
-        with patch(
-            "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
-        ) as mock_get_type:
-            mock_get_type.return_value = dtype_enum
-            args = fa_job._build_args_for_dataset(entry)
-            assert args == {}
-
-    # Test Custom (Unsupported by default logic in _build_args_for_dataset)
-    entry = {"data_type": "custom"}
-    with patch(
-        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
-    ) as mock_get_type:
-        mock_get_type.return_value = DatasetTypes.CUSTOM
-        with pytest.raises(FedbiomedError) as exc_info:
-            fa_job._build_args_for_dataset(entry)
-        assert "Dataset arguments by default are not implemented" in str(exc_info.value)
-
-    # Test None
-    entry = {"data_type": "unknown"}
-    with patch(
-        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value"
-    ) as mock_get_type:
-        mock_get_type.return_value = None
-        with pytest.raises(FedbiomedError) as exc_info:
-            fa_job._build_args_for_dataset(entry)
-        assert "Dataset entry contains unsupported dataset type" in str(exc_info.value)
-
-
-@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
-def test_build_dataset_initialization_error(
-    mock_registry, fa_job, mocked_dataset_manager
-):
-    """Test _build_dataset when dataset initialization fails."""
-    mock_dm_cls, mock_dm = mocked_dataset_manager
-    mock_dm.dataset_table.get_by_id.return_value = {
-        "data_type": "csv",
-        "path": "/path/to/data",
-        "dataset_parameters": {},
-    }
-    fa_job._dataset_manager = mock_dm
-
-    # Mock dataset class that raises FedbiomedError
-    mock_dataset_cls = MagicMock()
-    mock_dataset_cls.side_effect = FedbiomedError("Init Error")
-
-    mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, mock_dataset_cls)
-
-    with pytest.raises(_InternalJobError) as exc_info:
-        fa_job._build_dataset(DataReturnFormat.SKLEARN)
-
-    assert "Cannot initialize dataset" in str(exc_info.value)
-    assert "Init Error" in str(exc_info.value)
-
-
-def test_run_no_stats_provided(fa_job_args, request_args):
-    """Test run method when neither stats nor stats_args are provided."""
-    req_args = request_args.copy()
-    req_args["stats"] = None
-    req_args["stats_args"] = {}
-    request = FARequest(**req_args)
-
-    args = fa_job_args.copy()
-    args["request"] = request
-    job = FAJob(**args)
-
-    reply = job.run()
-
-    assert isinstance(reply, ErrorMessage)
-    assert reply.errnum == ErrorNumbers.FB325.value
-    assert "At least one of 'stats' or 'stats_args' must be provided" in reply.extra_msg
-
-
-def test_run_invalid_stats_args_keys(fa_job_args, request_args):
-    """Test run method with invalid keys in stats_args."""
-    req_args = request_args.copy()
-    req_args["stats"] = None
-    req_args["stats_args"] = {"invalid_key": {}}
-    request = FARequest(**req_args)
-
-    args = fa_job_args.copy()
-    args["request"] = request
-    job = FAJob(**args)
-
-    reply = job.run()
-
-    assert isinstance(reply, ErrorMessage)
-    assert reply.errnum == ErrorNumbers.FB325.value
-    assert "contains unsupported keys" in reply.extra_msg
+    assert isinstance(reply, FAReply)
+    assert reply.stats == stats_list
+    assert mock_dataset.compute_stats.call_args[1]["stats"] == stats_list

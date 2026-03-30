@@ -27,7 +27,7 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(port, post_session):
     """Setup fixture for the module"""
 
     print(f"USING PORT {port} for researcher server")
@@ -48,7 +48,7 @@ def setup(port, post_session, request):
 
     print("Adding first dataset --------------------------------------------")
     add_dataset_to_node(node_1, dataset1)
-    print("adding second dataset")
+    print("Adding second dataset -------------------------------------------")
     add_dataset_to_node(node_2, dataset1)
 
     time.sleep(1)
@@ -63,7 +63,7 @@ def setup(port, post_session, request):
 
     print("Adding first custom dataset -------------------------------------")
     add_dataset_to_node(node_1, dataset2)
-    print("adding second custom dataset")
+    print("Adding second custom dataset ------------------------------------")
     add_dataset_to_node(node_2, dataset2)
 
     time.sleep(1)
@@ -71,21 +71,20 @@ def setup(port, post_session, request):
     # Starts the nodes
     node_processes, thread = start_nodes([node_1, node_2])
 
-    # Clear files and processes created for the tests
-    def clear():
+    # Wait for nodes to finish starting before running tests
+    print("Waiting 10 seconds for nodes to start")
+    time.sleep(10)
+
+    yield
+
+    try:
         kill_subprocesses(node_processes)
         thread.join()
-
+    finally:
         print("Clearing component data")
         clear_component_data(node_1)
         clear_component_data(node_2)
         clear_component_data(researcher)
-
-    # Good to wait 3 second to give time to nodes start
-    print("Sleep 5 seconds. Giving some time for nodes to start")
-    time.sleep(10)
-
-    request.addfinalizer(clear)
 
 
 #############################################
@@ -196,6 +195,7 @@ def test_03_mnist_pytorch_experiment_scaffold():
 
 
 def test_04_mnist_pytorch_experiment_declearn_scaffold():
+    """Test with declearn Scaffold optimizer and FedAverage aggregator"""
     model_args = {}
     tags = ["#MNIST", "#dataset"]
     training_args = {

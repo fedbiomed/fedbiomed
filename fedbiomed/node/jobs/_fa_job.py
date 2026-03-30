@@ -153,6 +153,13 @@ class FAJob(_BaseJob):
                 f"Cannot initialize dataset on node='{self._node_id}': {repr(e)}"
             ) from e
 
+        try:
+            self._dataset_manager.validate_samples(len(dataset))
+        except FedbiomedError as e:
+            raise _InternalJobError(
+                f"Dataset '{self._dataset_id}' does not meet minimum sample requirement: {repr(e)}"
+            ) from e
+
         return dataset
 
     def run(self) -> FAReply | ErrorMessage:

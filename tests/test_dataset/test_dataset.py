@@ -27,8 +27,8 @@ class DummyDataset(Dataset):
     _transform = staticmethod(lambda x: x)
     _target_transform = staticmethod(lambda x: x)
 
-    def complete_initialization(self):
-        super().complete_initialization()
+    def complete_initialization(self, controller_kwargs=None, to_format=None):
+        super().complete_initialization(controller_kwargs, to_format)
 
     def __getitem__(self, idx):
         return (1, 2)
@@ -224,7 +224,9 @@ def test_18_iter():
 def test_19_complete_initialization_calls_super():
     """Covers abstract body at line 51."""
     ds = DummyDataset()
-    ds.complete_initialization()  # DummyDataset calls super() → hits `pass`
+    ds.complete_initialization(
+        controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
+    )  # DummyDataset calls super() → hits `pass`
 
 
 def test_20_abstract_getitem_body():

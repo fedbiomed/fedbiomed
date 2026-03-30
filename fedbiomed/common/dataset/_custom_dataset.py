@@ -19,52 +19,36 @@ class CustomDataset(Dataset):
     """
 
     def __init_subclass__(cls, **kwargs):
-        """Ensures that subclasses implement required methods"""
+        """Prevents subclasses from overriding reserved methods and enforces required ones."""
         super().__init_subclass__(**kwargs)
 
-        # Ensure __getitem__ is not overwritten
-        if (
-            "__getitem__" in cls.__dict__
-            and cls.__dict__["__getitem__"] is not CustomDataset.__getitem__
-        ):
+        if "__getitem__" in cls.__dict__:
             raise FedbiomedError(
                 "Overriding __getitem__ in CustomDataset subclasses is not allowed. "
                 "Please overwrite get_item instead."
             )
 
-        if (
-            "__init__" in cls.__dict__
-            and cls.__dict__["__init__"] is not CustomDataset.__init__
-        ):
+        if "__init__" in cls.__dict__:
             raise FedbiomedError(
                 "Overriding __init__ in CustomDataset subclasses is not allowed. "
                 "Please overwrite `read` method instead. Using path attribute to "
                 "access dataset location."
             )
 
-        # Ensure read and get_item are implemented by subclass
-        if "read" not in cls.__dict__ or not callable(cls.__dict__.get("read", None)):
-            raise FedbiomedError(
-                "CustomDataset subclass must implement a 'read' method. "
-                "This method is required to load the dataset and must be defined in your subclass."
+        for method, label in [
+            ("read", "read"),
+            ("get_item", "get_item"),
+            ("__len__", "__len__"),
+        ]:
+            implemented = any(
+                method in base.__dict__
+                for base in cls.__mro__
+                if base is not CustomDataset and base not in CustomDataset.__mro__
             )
-        if "get_item" not in cls.__dict__ or not callable(
-            cls.__dict__.get("get_item", None)
-        ):
-            raise FedbiomedError(
-                "CustomDataset subclass must implement a 'get_item' method. "
-                "This method is required to retrieve samples and must be defined in your subclass."
-            )
-
-        # Ensure __len__ is implemented by subclass
-        if "__len__" not in cls.__dict__ or not callable(
-            cls.__dict__.get("__len__", None)
-        ):
-            raise FedbiomedError(
-                "CustomDataset subclass must implement a '__len__' method. "
-                "This method is required to return the number of samples and must be "
-                "defined in your subclass."
-            )
+            if not implemented:
+                raise FedbiomedError(
+                    f"CustomDataset subclass '{cls.__name__}' must implement a '{label}' method."
+                )
 
     @abstractmethod
     def read(self) -> None:
@@ -77,21 +61,26 @@ class CustomDataset(Dataset):
 
     @abstractmethod
     def get_item(self, index):
-        """Retrieves a sample and its label by index.
+        """Return a (data, target) tuple for the given index.
 
         Args:
-            index (int): The index of the sample to retrieve.
+            index (int): Index of the sample to retrieve.
         """
+        pass
+
+    @abstractmethod
+    def __len__(self) -> int:
+        """Returns the number of samples in the dataset."""
         pass
 
     def complete_initialization(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
     ) -> None:
-        """Finalize initialization of object to be able to recover items
+        """Finalize initialization of object to be able to recover items.
 
         Args:
-            path: path to dataset
-            to_format: format associated to expected return format
+            controller_kwargs: must contain a ``"root"`` key with the path to the dataset.
+            to_format: expected format of data returned by ``__getitem__``.
         """
 
         self.path = controller_kwargs.get("root", None)
@@ -110,6 +99,11 @@ class CustomDataset(Dataset):
                 f"from dataset using read method. Please see error: {e}"
             ) from e
 
+        if len(self) == 0:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Custom Dataset ERROR: dataset is empty (len == 0)."
+            )
+
         try:
             sample = self.get_item(0)
         except Exception as e:
@@ -117,6 +111,7 @@ class CustomDataset(Dataset):
                 f"{ErrorNumbers.FB632.value}: Failed to retrieve item "
                 f"from dataset using get_item method. Please see error: {e}"
             ) from e
+
         if not isinstance(sample, tuple) or len(sample) != 2:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: get_item method must return a tuple of two elements"
@@ -124,15 +119,9 @@ class CustomDataset(Dataset):
                 f" length {len(sample) if isinstance(sample, (list, tuple)) else 'N/A'}"
             )
 
-        # Following line is just to check that dataset is well implemented
-        # and it return correct data type respecting to to_format
-        try:
-            sample = self[0]
-        except Exception as e:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to retrieve item "
-                f"from dataset using get_item method. Please see error: {e}"
-            ) from e
+        data, target = sample
+        self._check_type(data, "data")
+        self._check_type(target, "target")
 
     def _check_type(self, sample: Any, type_: str) -> None:
         """Check if sample is of expected type"""
@@ -141,13 +130,15 @@ class CustomDataset(Dataset):
                 f"{ErrorNumbers.FB632.value}: "
                 f"Expected return type for the {type_} is {self._to_format.value}, "
                 f"but got {type(sample).__name__} "
-            )  # Applies transformations if any
+            )
 
     def _apply_default_types(self, data: Any, _type: str) -> Any:
         """Applies default types for training plan framework to data
 
         Args:
             data: data to convert
+            _type: label identifying the data role (e.g. ``"data"`` or ``"target"``),
+                used in error messages.
 
         Returns:
             Converted data

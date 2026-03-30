@@ -207,6 +207,7 @@ class TestNode(unittest.TestCase):
             "training_plan_approval": "True",
             "allow_preproc": "True",
             "allow_federated_analytics": "True",
+            "minimum_samples": "0",
         }
 
         self.node_config._cfg = self.config
