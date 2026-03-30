@@ -319,6 +319,14 @@ class FedPerceptron(FedSGDClassifier):
         #
         # If the user hasn't provided specific values for certain hyperparameters,
         # we have to change the default values of SGDClassifier to the default values of the Perceptron.
+        model_hyperparameters = self._model.get_params()
         for hyperparameter_name, val in perceptron_default_values.items():
-            if hyperparameter_name not in model_args:
+            if (
+                hyperparameter_name
+                not in model_args.keys()  # If the user hasn't provided a value
+                and hyperparameter_name
+                in model_hyperparameters  # and it is a hyperparameter that exists for the SGDClassifier as well
+                and model_hyperparameters[hyperparameter_name]
+                != val  # and the current value is different from the Perceptron default
+            ):
                 self._model.set_params(**{hyperparameter_name: val})
