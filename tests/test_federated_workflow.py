@@ -396,7 +396,9 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
     ):
         # define attributes that will be saved in breakpoint
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
-        _training_data.data.return_value = {"training": {"data": "data"}}
+        _training_data.data.return_value = {
+            "training": {"data": "data", "data_type": "csv"}
+        }
         exp = FederatedWorkflow(
             training_data=_training_data,
         )
@@ -407,7 +409,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             {
                 "id": exp.id,
                 "breakpoint_version": str(__breakpoints_version__),
-                "training_data": {"training": {"data": "data"}},
+                "training_data": {"training": {"data": "data", "data_type": "csv"}},
                 "experimentation_folder": exp.experimentation_folder(),
                 "tags": exp.tags(),
                 "nodes": exp.nodes(),
@@ -426,7 +428,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             {
                 "id": exp.id,
                 "breakpoint_version": str(__breakpoints_version__),
-                "training_data": {"training": {"data": "data"}},
+                "training_data": {"training": {"data": "data", "data_type": "csv"}},
                 "experimentation_folder": exp.experimentation_folder(),
                 "tags": exp.tags(),
                 "nodes": exp.nodes(),
@@ -438,7 +440,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
                     },
                     "attributes": {
                         "_preproc_id": exp.preprocessing._preproc_id,
-                        "_do_harmonization": exp.preprocessing._do_harmonization,
+                        "_harmonized": exp.preprocessing._harmonized,
                         "_harmonized_datasets": exp.preprocessing._harmonized_datasets,
                     },
                 },
@@ -480,7 +482,9 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         breakpoint_json = {
             "id": "exp-id",
             "breakpoint_version": str(__breakpoints_version__),
-            "training_data": {"node1": [{"training": "data", "tags": "some-tags"}]},
+            "training_data": {
+                "node1": [{"training": "data", "tags": "some-tags", "data_type": "csv"}]
+            },
             "experimentation_folder": "some-folder",
             "tags": ["some-tags"],
             "nodes": ["node1"],
@@ -512,14 +516,14 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertEqual(exp.id, "exp-id")
         self.assertEqual(
             exp.training_data().data(),
-            {"node1": {"training": "data", "tags": "some-tags"}},
+            {"node1": {"training": "data", "tags": "some-tags", "data_type": "csv"}},
         )
         self.assertListEqual(exp.nodes(), ["node1"])
         self.assertListEqual(exp.tags(), ["some-tags"])
         self.assertEqual(saved_state["id"], "exp-id")
         self.assertEqual(
             saved_state["training_data"],
-            {"node1": {"training": "data", "tags": "some-tags"}},
+            {"node1": {"training": "data", "tags": "some-tags", "data_type": "csv"}},
         )
         self.assertListEqual(saved_state["nodes"], ["node1"])
         self.assertListEqual(saved_state["tags"], ["some-tags"])
@@ -533,7 +537,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
             "arguments": {"preproc_args": {"some": "args"}},
             "attributes": {
                 "_preproc_id": "preproc-id",
-                "_do_harmonization": True,
+                "_harmonized": False,
                 "_harmonized_datasets": {"node1": "dataset-id-1"},
             },
         }
@@ -543,7 +547,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
         self.assertIsNotNone(exp.preprocessing)
         self.assertEqual(exp.preprocessing._preproc_id, "preproc-id")
-        self.assertTrue(exp.preprocessing._do_harmonization)
+        self.assertFalse(exp.preprocessing._harmonized)
         self.assertDictEqual(
             exp.preprocessing._harmonized_datasets, {"node1": "dataset-id-1"}
         )

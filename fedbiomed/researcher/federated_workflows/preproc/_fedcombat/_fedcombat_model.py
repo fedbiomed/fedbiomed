@@ -6,23 +6,26 @@
 import copy
 from typing import Dict, List, Optional, Union
 
+import torch
 import torch.nn as nn
 from torch.optim import Adam
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import TabularDataset
-from fedbiomed.common.exceptions import FedbiomedExperimentError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
+from fedbiomed.common.preproc import FedCombatModelWrapper
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
 
 
+# Use a PyTorch linear model without bias as the biological model for Fed-ComBat,
+# wrapped in a custom wrapper to handle the bias term separately.
 class _FedCombatTrainingPlan(TorchTrainingPlan):
     """Training plan for Fed-ComBat harmonization model."""
 
-    # TODO: THIS IS A DUMMY MODEL FOR NOW
     class Net(nn.Module):
         def __init__(
             self,
@@ -36,7 +39,13 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
             return self.linear(x)
 
     def init_model(self, model_args: dict) -> nn.Module:
-        return self.Net(
+        # from fedbiomed.common.preproc import FedCombatModelWrapper
+
+        return FedCombatModelWrapper(
+            self.Net(
+                n_covariates=len(model_args.get("covariates")),
+                n_phenotypes=len(model_args.get("phenotypes")),
+            ),
             n_covariates=len(model_args.get("covariates")),
             n_phenotypes=len(model_args.get("phenotypes")),
         )
@@ -48,12 +57,15 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
         return [
             "from torch.optim import Adam",
             "from fedbiomed.common.dataset import TabularDataset",
+            "from fedbiomed.common.preproc import FedCombatModelWrapper",
         ]
 
     def training_data(self):
         dataset = TabularDataset(
             input_columns=self.model_args()["covariates"],
             target_columns=self.model_args()["phenotypes"],
+            transform=lambda xs: torch.as_tensor(xs, dtype=torch.float32),
+            target_transform=lambda xs: torch.as_tensor(xs, dtype=torch.float32),
         )
         train_kwargs = {"shuffle": True}
         return DataManager(dataset=dataset, **train_kwargs)
@@ -94,7 +106,7 @@ class _FedCombatTrainModel:
             rounds: Number of federated training rounds for the harmonization model.
 
         Raises:
-            FedbiomedExperimentError: if covariates or phenotypes are not provided.
+            FedbiomedExperimentError: if covariates or phenotypes are not provided and correct.
         """
 
         self._fds = fds
@@ -202,6 +214,9 @@ class _FedCombatTrainModel:
                 # save_breakpoints=False,  # Don't save breakpoints
                 # config_path=None,  # Use default config path
             )
+        except FedbiomedError:
+            logger.setPrefix("")
+            raise
         except Exception as e:
             logger.setPrefix("")
             raise FedbiomedExperimentError(
@@ -211,6 +226,9 @@ class _FedCombatTrainModel:
 
         try:
             experiment.run()
+        except FedbiomedError:
+            logger.setPrefix("")
+            raise
         except Exception as e:
             logger.setPrefix("")
             raise FedbiomedExperimentError(

@@ -35,6 +35,7 @@ Each author can mention his/her name only or give more information in the follow
 - Marco Lorenzi
 - Riham Nehmeh
 - Ange Ouya
+- Ghiles Reguig
 - Prapoojitha Santosha-Dasari
 - Jose-Francisco Saray-Villamizar
 - Andrea Senacheribbe

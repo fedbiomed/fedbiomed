@@ -704,8 +704,12 @@ class FederatedWorkflow(ABC):
         Args:
             preproc_type: Type of preprocessing to apply, or None or False for no preprocessing
             preproc_args: Arguments for the preprocessing
+
         Returns:
             Preprocessing object if `preproc_type` is not `PreprocType.NONE`, None otherwise
+
+        Raises:
+            FedbiomedTypeError: bad argument type
         """
         if preproc_type is None or preproc_type is False:
             preproc_type = PreprocType.NONE

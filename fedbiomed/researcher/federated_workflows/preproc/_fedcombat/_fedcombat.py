@@ -6,14 +6,17 @@
 import uuid
 from typing import Any, Optional
 
+import torch
+
 from fedbiomed.common.constants import ErrorNumbers, HarmonizationStep, PreprocType
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.requests import Requests
 
-from ..jobs import PreprocRequestJob
+from ...jobs import PreprocRequestJob
 from ._fedcombat_model import _FedCombatTrainModel
+from ._fedcombat_parameters import _FedCombatParameters
 
 
 class FedCombatPreproc:
@@ -48,6 +51,7 @@ class FedCombatPreproc:
             uuid.uuid4()
         )  # creating a unique preprocessing id
         self._fds = fds
+        self._fds = fds
         self._experiment_id = experiment_id
         self._researcher_id = researcher_id
         self._reqs = reqs
@@ -59,21 +63,49 @@ class FedCombatPreproc:
 
         self._init_harmonization()
 
+        self._check_fds_compatibility()
+
+    def _check_fds_compatibility(self) -> None:
+        """Check that the federated dataset is compatible with FedComBat.
+
+        Raises:
+            FedbiomedExperimentError: if the federated dataset is not compatible with FedComBat
+        """
+
+        try:
+            fds_meta = self._fds.data()
+        except Exception as e:
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: Unable to access federated dataset metadata: {str(e)}"
+            ) from e
+
+        invalid_nodes = []
+        for node_id, meta in fds_meta.items():
+            data_type = meta.get("data_type") if isinstance(meta, dict) else None
+            if data_type != "csv":
+                invalid_nodes.append((node_id, data_type))
+
+        if invalid_nodes:
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: FedComBat requires all datasets to be in CSV format. "
+                f"Invalid entries: {invalid_nodes}"
+            )
+
     def _init_harmonization(self) -> None:
         """Initialize harmonization context."""
-        # Indicates whether harmonization must be done with current context
-        self._do_harmonization: bool = True
+        # Indicates whether harmonization has already been done for this preproc instance
+        self._harmonized: bool = False
         # Context of last harmonization, dict with keys: node ID, values: dataset ID
         self._harmonized_datasets: Optional[dict[str, str]] = None
 
     def _update_harmonization_done(self) -> None:
         """Update harmonization context after a harmonization is performed."""
-        self._do_harmonization = False
+        self._harmonized = True
         self._harmonized_datasets = {
             node_id: self._fds.data()[node_id]["dataset_id"] for node_id in self._nodes
         }
 
-    def _needs_harmonization(self) -> bool:
+    def _needs_harmonization(self, force: bool = False) -> bool:
         """Determine whether harmonization is needed based on current context.
 
         Harmonization is needed if:
@@ -81,10 +113,13 @@ class FedCombatPreproc:
         - The set of nodes has changed since the last harmonization.
         - The federated dataset has changed since the last harmonization.
 
+        Args:
+            force: If True, forces harmonization even if context did not change. Default is False
+
         Returns:
             bool: True if harmonization is needed, False otherwise.
         """
-        if self._do_harmonization:
+        if not self._harmonized or force:
             return True
 
         # Check if the set of nodes has changed
@@ -109,7 +144,7 @@ class FedCombatPreproc:
         """
         self._nodes = nodes
 
-    def execute(self) -> bool:
+    def execute(self, force: bool = False) -> bool:
         """Execute Fed-ComBat harmonization across the federated dataset for this experiment.
 
         Harmonization is specific to the experiment context which includes the set of nodes,
@@ -120,10 +155,18 @@ class FedCombatPreproc:
 
         After harmonization completes, updates the federated dataset in place and returns True.
 
+        Args:
+            force: If True, forces harmonization even if it has already been performed with same
+                context. Default is False
+
         Returns:
             bool: True if harmonization was performed, False otherwise.
+
+        Raises:
+            FedbiomedExperimentError: if bad parameters are provided for harmonization.
+            FedbiomedExperimentError: if an error occurs during harmonization.
         """
-        if not self._needs_harmonization():
+        if not self._needs_harmonization(force):
             return False
         logger.info(
             "Starting Fed-ComBat harmonization for experiment "
@@ -137,14 +180,29 @@ class FedCombatPreproc:
                 "request or sampling strategy returned an empty list."
             )
 
+        fedcombat_parameters = _FedCombatParameters()
+
+        fedcombat_replies = {}
+        preproc_replies = []
+
+        # Stores all the parameters from all steps in order to carry them from one step to the other
+        # TODO: when implementing node state and final version, keep only necessary parameters for each step
+        all_parameters = {}
+
         for preproc_step in range(1, 7):
-            if preproc_step == 1:
-                logger.debug(
-                    "Starting FedCombat preprocessing step 1: use federated analytics "
-                    "to compute global means and variances"
+            try:
+                step_args = fedcombat_parameters(
+                    HarmonizationStep(preproc_step), preproc_replies
                 )
-                continue
-            elif preproc_step == 3:
+            except Exception as e:
+                raise FedbiomedExperimentError(
+                    f"{ErrorNumbers.FB420.value}: "
+                    f"Error during Fed-ComBat preprocessing step {preproc_step}: {str(e)}"
+                ) from e
+
+            all_parameters.update(step_args)
+            # The step 3 involves training a model
+            if preproc_step == HarmonizationStep.STEP3_TRAIN.value:
                 logger.debug(
                     "Starting FedCombat preprocessing step 3: train harmonization model"
                 )
@@ -162,9 +220,17 @@ class FedCombatPreproc:
                 logger.debug(
                     "Completed FedCombat preprocessing step 3: train harmonization model"
                 )
+
+                # TODO: These are dummy arguments. This is where the training plan should hand
+                # a way for the nodes to access the models
+                # NB: local bias is a local model and the global bias is an average of all local biases
+                ######################## DUMMY ARGS ###############################################
+                all_parameters["biological_model"] = self.read_biological_model_values()
+                all_parameters["global_bias_model"] = self.read_bias_model_values()
+                ####################################################################################
+
                 continue
 
-            logger.debug(f"Starting FedCombat preprocessing step {preproc_step}")
             preproc_job = PreprocRequestJob(
                 experiment_id=self._experiment_id,
                 preproc_type=PreprocType(PreprocType.FEDCOMBAT),
@@ -173,15 +239,16 @@ class FedCombatPreproc:
                 ),  # dummy computation for now to remember to derive proper step value
                 preproc_id=self._preproc_id,
                 federated_dataset=self._fds,
-                preproc_args={
-                    "dummy": f"Preprocessing step {preproc_step}",
-                },
+                preproc_args=all_parameters,
                 state_id=None,  # dont have state_id for now
                 researcher_id=self._researcher_id,
                 requests=self._reqs,
                 nodes=self._nodes,
             )
             fedcombat_replies = preproc_job.execute()
+            preproc_replies = [
+                reply.preproc_output for reply in fedcombat_replies.values()
+            ]
 
             logger.debug(
                 f"Fed-ComBat replies after harmonization step {preproc_step}: {fedcombat_replies}"
@@ -216,7 +283,7 @@ class FedCombatPreproc:
             },
             "attributes": {
                 "_preproc_id": self._preproc_id,
-                "_do_harmonization": self._do_harmonization,
+                "_harmonized": self._harmonized,
                 "_harmonized_datasets": self._harmonized_datasets,
             },
         }
@@ -236,3 +303,17 @@ class FedCombatPreproc:
         for key, value in state["attributes"].items():
             setattr(instance, f"{key}", value)
         return instance
+
+    ###### DUMMY DATA ######
+    shape_phenotypes = torch.rand((100, 2))
+    ########################
+
+    #####################################
+    ########## DUMMY FUNCTIONS ##########
+    #####################################
+
+    def read_biological_model_values(self):
+        return self.shape_phenotypes
+
+    def read_bias_model_values(self):
+        return torch.zeros_like(self.shape_phenotypes)

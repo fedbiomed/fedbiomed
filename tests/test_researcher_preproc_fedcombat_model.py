@@ -9,7 +9,7 @@ from fedbiomed.common.dataset import TabularDataset
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.datasets import FederatedDataset
-from fedbiomed.researcher.federated_workflows.preproc._fedcombat_model import (
+from fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_model import (
     _FedCombatTrainingPlan,
     _FedCombatTrainModel,
 )
@@ -171,17 +171,25 @@ def test_fedcombat_tm_execute(base_preproc_tm, mocker, monkeypatch):
     mock_instance.run.assert_called_once()
 
     # 2. execute with failure at Experiment()
-    mock_instance.run.reset_mock()
-    MockExperiment.side_effect = Exception()
-    with pytest.raises(FedbiomedExperimentError):
-        base_preproc_tm.execute()
+    for exc in [
+        FedbiomedExperimentError("Experiment constructor failed"),
+        Exception("Experiment constructor failed"),
+    ]:
+        mock_instance.run.reset_mock()
+        MockExperiment.side_effect = exc
+        with pytest.raises(FedbiomedExperimentError):
+            base_preproc_tm.execute()
 
     # 3. execute with failure at .run()
-    mock_instance.run.reset_mock()
-    MockExperiment.side_effect = None
-    mock_instance.run.side_effect = Exception()
-    with pytest.raises(FedbiomedExperimentError):
-        base_preproc_tm.execute()
+    for exc in [
+        FedbiomedExperimentError("Experiment run failed"),
+        Exception("Experiment run failed"),
+    ]:
+        mock_instance.run.reset_mock()
+        MockExperiment.side_effect = None
+        mock_instance.run.side_effect = exc
+        with pytest.raises(FedbiomedExperimentError):
+            base_preproc_tm.execute()
 
 
 def test_fedcombat_tm_instantiate_training_plan(mocker):
@@ -189,22 +197,22 @@ def test_fedcombat_tm_instantiate_training_plan(mocker):
 
     # Patch dependencies of _FedCombatTrainingPlan
     mock_loss = mocker.patch(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_model.nn.MSELoss",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_model.nn.MSELoss",
         new=mocker.MagicMock(),
     )
     mock_loss.return_value = lambda x, y: float(torch.mean((x - y) ** 2))
     mocker.patch(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_model.TabularDataset",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_model.TabularDataset",
         mocker.MagicMock(spec=TabularDataset),
     )
     mock_datamanager = mocker.MagicMock(spec=DataManager)
     mock_datamanager.return_value = "training_data_return_value"
     mocker.patch(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_model.DataManager",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_model.DataManager",
         mock_datamanager,
     )
     mocker.patch(
-        "fedbiomed.researcher.federated_workflows.preproc._fedcombat_model.TorchTrainingPlan",
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_model.TorchTrainingPlan",
         new=mocker.MagicMock(),
     )
 
