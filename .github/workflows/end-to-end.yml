@@ -8,10 +8,10 @@ on:
   workflow_dispatch:
     inputs:
       python-version:
-        description: "Python version (e.g. 3.10). Leave empty for all."
+        description: 'Python version (e.g. ["3.10"]). Leave empty for all.'
         required: false
       os:
-        description: "OS (e.g. ubuntu-latest). Leave empty for all."
+        description: 'OS (e.g. ["ubuntu-latest"]). Leave empty for all.'
         required: false
       
   push:
