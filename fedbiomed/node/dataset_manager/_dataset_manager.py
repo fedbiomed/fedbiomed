@@ -31,12 +31,34 @@ class DatasetManager:
     for the node. Currently uses TinyDB.
     """
 
-    def __init__(self, path: str):
-        """Initialize with database path."""
+    def __init__(self, path: str, min_samples: int = 0):
+        """Initialize with database path.
+
+        Args:
+            path: Path to the database file.
+            min_samples: Minimum number of samples required when adding a dataset.
+                Defaults to 0 (no minimum enforced).
+        """
+        self._min_samples = min_samples
         self._dataset_table = DatasetTable(path)
         self._dynamic_dataset_table = DynamicDatasetTable(path)
         self._dlp_table = DlpTable(path)
         self._dlb_table = DlbTable(path)
+
+    def validate_samples(self, n_samples: int) -> None:
+        """Raise FedbiomedError if n_samples is below the configured minimum.
+
+        Args:
+            n_samples: Number of samples in the dataset to validate.
+
+        Raises:
+            FedbiomedError: If n_samples is below the configured minimum.
+        """
+        if self._min_samples > 0 and n_samples < self._min_samples:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset has {n_samples} samples, "
+                f"which is below the node's minimum required ({self._min_samples})."
+            )
 
     @property
     def dataset_table(self) -> DatasetTable:
@@ -55,7 +77,15 @@ class DatasetManager:
         return self._dlb_table
 
     def get_dlp_by_id(self, dlp_id: str) -> Tuple[Optional[dict], List[dict]]:
-        """Get data loading plan by ID and its associated data loading blocks."""
+        """Get a data loading plan and its associated data loading blocks by ID.
+
+        Args:
+            dlp_id: ID of the data loading plan to retrieve.
+
+        Returns:
+            A tuple of (dlp_metadata, dlbs) where dlp_metadata is the DLP dict
+            (or None if not found) and dlbs is a list of associated DLB dicts.
+        """
         dlp_metadata = self.dlp_table.get_by_id(dlp_id)
 
         if dlp_metadata is None:
@@ -228,7 +258,30 @@ class DatasetManager:
         description: Optional[str] = None,
         data_loading_plan: Optional[DataLoadingPlan] = None,
         extra_fields: Optional[dict] = None,
-    ):
+    ) -> dict:
+        """Build the database entry dict for a dataset by instantiating its controller.
+
+        Instantiates the appropriate dataset controller to resolve the path, shape,
+        and dtypes, then assembles the fields to store in the database.
+
+        Args:
+            data_type: Dataset type string (e.g. 'tabular', 'medical-folder', 'custom').
+            path: Filesystem root path of the dataset.
+            dataset_id: ID to assign; if None, the table will generate one on insert.
+            dataset_parameters: Extra controller kwargs (e.g. tabular_file for medical-folder).
+            name: Human-readable name for the dataset.
+            tags: Tags used by researchers to search for this dataset.
+            description: Free-text description of the dataset.
+            data_loading_plan: Optional DLP to attach to the controller and record.
+            extra_fields: Additional key-value pairs to merge into the entry (e.g. for
+                dynamic datasets: researcher_id, experiment_id, processing_id).
+
+        Returns:
+            Dict ready to be inserted into the dataset table.
+
+        Raises:
+            FedbiomedError: If the data_type is unsupported or sample count is below minimum.
+        """
         controller_params = {
             "root": path,
             **(dataset_parameters or {}),
@@ -242,6 +295,10 @@ class DatasetManager:
             controller_parameters=controller_params,
         )
 
+        # Custom datasets don't expose a fixed sample count, so skip validation.
+        if data_type != "custom":
+            self.validate_samples(len(controller))
+
         # Creating common entry fields
         entry = {
             "dataset_id": dataset_id,
@@ -252,6 +309,7 @@ class DatasetManager:
             "path": controller._controller_kwargs["root"],
             "shape": controller.shape(),
             "dtypes": controller.get_types(),
+            # Exclude 'root' (stored separately as 'path') and 'dlp' (stored via dlp_id).
             "dataset_parameters": {
                 k: v
                 for k, v in controller._controller_kwargs.items()
@@ -278,9 +336,11 @@ class DatasetManager:
         Args:
             dataset_id: the id of the dataset to validate
 
+        Returns:
+            Tuple of (entry dict, table name string) identifying where the record lives.
+
         Raises:
-            FedbiomedError:
-            - If dataset or dynamic dataset does not exist.
+            FedbiomedError: If dataset or dynamic dataset does not exist.
         """
 
         dataset_entry = self.dataset_table.get_by_id(dataset_id)
@@ -373,16 +433,15 @@ class DatasetManager:
             dataset_id: the ID of the root of the subtree to delete
         """
         subtree = self.dynamic_dataset_table.collect_subtree(dataset_id)
-        # Delete children in reversed order
+        # Delete leaf-first (reversed BFS/DFS order) so foreign-key constraints are respected.
         for dyn_id in reversed(subtree):
             self.dynamic_dataset_table.delete_by_id(dyn_id)
 
-    def remove_dlp_by_id(self, dlp_id: str):
-        """Removes a data loading plan (DLP) from the database,
-        along with its associated data loading blocks (DLBs).
+    def remove_dlp_by_id(self, dlp_id: str) -> None:
+        """Remove a data loading plan (DLP) and its associated data loading blocks (DLBs).
 
         Args:
-            dlp_id: the DataLoadingPlan id
+            dlp_id: ID of the DataLoadingPlan to remove.
         """
         dlp, dlbs = self.get_dlp_by_id(dlp_id)
 
@@ -420,16 +479,15 @@ class DatasetManager:
             data_loading_plan: the DataLoadingPlan to be saved, or None.
 
         Returns:
-            The `dlp_id` if a DLP was saved, otherwise None
-
+            The `dlp_id` if a DLP was saved, otherwise None.
         """
         if data_loading_plan is None:
             return None
 
         dlp_metadata, dlbs_metadata = data_loading_plan.serialize()
-        _ = self.dlp_table.insert(dlp_metadata)
+        self.dlp_table.insert(dlp_metadata)
         for dlb_metadata in dlbs_metadata:
-            _ = self.dlb_table.insert(dlb_metadata)
+            self.dlb_table.insert(dlb_metadata)
         return data_loading_plan.dlp_id
 
     @staticmethod
@@ -442,8 +500,7 @@ class DatasetManager:
         prevent sharing this information with a researcher through a reply message.
 
         Args:
-            database_metadata: an iterable of metadata information objects, one per dataset. Each metadata object
-                should be in the format af key-value pairs, such as e.g. a dict.
+            database_metadata: Iterable of metadata dicts, one per dataset.
 
         Returns:
              the updated iterable of metadata information objects without privacy-sensitive information

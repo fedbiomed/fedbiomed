@@ -64,7 +64,7 @@ class MedicalFolderController(Controller):
             FedbiomedError:
             - if one in `tabular_file` and `index_col` is given and the other is not
         """
-        DataLoadingPlanMixin.__init__(self)
+        super().__init__()  # initialises DataLoadingPlanMixin (self._dlp = None)
         self.root = root
         self._tabular_file = self._validate_tabular_file(tabular_file)
         self._index_col = self._validate_index_col(index_col)

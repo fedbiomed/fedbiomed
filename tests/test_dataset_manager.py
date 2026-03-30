@@ -70,8 +70,12 @@ class FakeDynamicDatasetTable(FakeTable):
 
 
 class FakeController:
-    def __init__(self, **kwargs):
+    def __init__(self, n_samples=100, **kwargs):
         self._controller_kwargs = kwargs
+        self._n_samples = n_samples
+
+    def __len__(self):
+        return self._n_samples
 
     def shape(self):
         return (3, 4)
@@ -158,6 +162,13 @@ def test_save_data_loading_plan_and_get_back():
     assert {d["dlb_id"] for d in dlbs} == {"DLB-9"}
 
 
+def test_get_dlp_by_id_not_found():
+    dm = dm_mod.DatasetManager(path="/db")
+    dlp, dlbs = dm.get_dlp_by_id("does-not-exist")
+    assert dlp is None
+    assert dlbs == []
+
+
 def test_add_database_with_and_without_persisting_dlp():
     dm = dm_mod.DatasetManager(path="/db")
 
@@ -216,6 +227,16 @@ def test_list_my_datasets_strips_dtypes_and_prints(capsys):
     assert isinstance(out, list) and out
     assert "dtypes" not in out[0]  # the method should remove dtypes before returning
     assert capsys.readouterr().out.strip() != ""  # something was printed
+
+
+def test_list_my_datasets_not_verbose(capsys):
+    dm = dm_mod.DatasetManager(path="/db")
+    dm.dataset_table.insert({"dataset_id": "ds1", "name": "B", "dtypes": {"x": "int"}})
+    out = dm.list_my_datasets(verbose=False)
+
+    assert isinstance(out, list) and out
+    assert "dtypes" not in out[0]
+    assert capsys.readouterr().out == ""  # nothing printed
 
 
 def test_save_data_loading_plan_none_returns_none():
@@ -293,6 +314,34 @@ def test_add_dynamic_dataset():
     assert entry["data_type"] == "tabular"
     assert entry["shape"] == (3, 4)
     assert entry["dtypes"] == {"col1": "float", "col2": "int"}
+
+
+def test_add_dynamic_dataset_parent_not_found():
+    dm = dm_mod.DatasetManager(path="/db")
+    with pytest.raises(FedbiomedError):
+        dm.add_dynamic_dataset(
+            path="/path",
+            researcher_id="r",
+            experiment_id="e",
+            processing_id="p",
+            parent_dataset_id="does-not-exist",
+        )
+
+
+def test_build_dataset_entry_strips_root_from_dataset_parameters():
+    """root (and dlp) must not leak into the stored dataset_parameters."""
+    dm = dm_mod.DatasetManager(path="/db")
+    did = dm.add_database(
+        name="N",
+        data_type="tabular",
+        tags=["t"],
+        description="d",
+        path="/root",
+        dataset_parameters={"extra_param": 42},
+    )
+    entry = dm.dataset_table.get_by_id(did)
+    assert "root" not in entry["dataset_parameters"]
+    assert entry["dataset_parameters"].get("extra_param") == 42
 
 
 def test_delete_dynamic_single():
@@ -458,3 +507,141 @@ def test_delete_dataset_with_children_recursive():
 
     assert dm.dataset_table.get_by_id(parent) is None
     assert dm.dynamic_dataset_table.get_by_id(child) is None
+
+
+# ------------------------------------- MINIMUM SAMPLES TESTS -------------------------------------
+
+
+@pytest.mark.parametrize(
+    "min_samples,n_samples",
+    [
+        (0, 0),  # default: no minimum, zero samples allowed
+        (0, 100),  # default: no minimum, any size accepted
+        (50, 100),  # above minimum
+        (50, 50),  # exactly at minimum (boundary)
+    ],
+)
+def test_validate_samples_does_not_raise(min_samples, n_samples):
+    dm = dm_mod.DatasetManager(path="/db", min_samples=min_samples)
+    dm.validate_samples(n_samples)  # must not raise
+
+
+def test_validate_samples_below_minimum_raises():
+    """validate_samples raises FedbiomedError when n_samples < min_samples."""
+    dm = dm_mod.DatasetManager(path="/db", min_samples=50)
+    with pytest.raises(FedbiomedError, match="below the node's minimum required"):
+        dm.validate_samples(10)
+
+
+def test_add_database_below_minimum_samples_raises(monkeypatch):
+    """add_database raises FedbiomedError via validate_samples when dataset is too small."""
+    monkeypatch.setattr(
+        dm_mod,
+        "get_controller",
+        lambda data_type, controller_parameters: FakeController(
+            n_samples=10, **controller_parameters
+        ),
+    )
+    dm = dm_mod.DatasetManager(path="/db", min_samples=50)
+    with pytest.raises(FedbiomedError, match="below the node's minimum required"):
+        dm.add_database(
+            name="small",
+            data_type="tabular",
+            tags=["t"],
+            description="d",
+            path="/root",
+        )
+
+
+def test_add_dynamic_dataset_below_minimum_samples_raises(monkeypatch):
+    """add_dynamic_dataset also enforces min_samples via _build_dataset_entry."""
+    monkeypatch.setattr(
+        dm_mod,
+        "get_controller",
+        lambda data_type, controller_parameters: FakeController(
+            n_samples=5, **controller_parameters
+        ),
+    )
+    dm = dm_mod.DatasetManager(path="/db", min_samples=50)
+    dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    with pytest.raises(FedbiomedError, match="below the node's minimum required"):
+        dm.add_dynamic_dataset(
+            path="/path",
+            researcher_id="r",
+            experiment_id="e",
+            processing_id="p",
+            parent_dataset_id="raw1",
+        )
+
+
+def test_custom_data_type_skips_sample_validation(monkeypatch):
+    """Custom datasets bypass min_samples since they don't expose a fixed sample count."""
+    monkeypatch.setattr(
+        dm_mod,
+        "get_controller",
+        lambda data_type, controller_parameters: FakeController(
+            n_samples=0, **controller_parameters
+        ),
+    )
+    dm = dm_mod.DatasetManager(path="/db", min_samples=100)
+    # Must not raise despite n_samples=0 < min_samples=100
+    dm.add_database(name="C", data_type="custom", tags=[], description="", path="/root")
+
+
+def test_build_dataset_entry_strips_dlp_from_dataset_parameters():
+    """The 'dlp' controller kwarg must not appear in the stored dataset_parameters."""
+    dm = dm_mod.DatasetManager(path="/db")
+    dlp = MinimalDLP(dlp_id="dlp-x")
+    did = dm.add_database(
+        name="N",
+        data_type="tabular",
+        tags=[],
+        description="",
+        path="/root",
+        data_loading_plan=dlp,
+        save_dlp=False,
+    )
+    entry = dm.dataset_table.get_by_id(did)
+    assert "dlp" not in entry["dataset_parameters"]
+    assert entry["dlp_id"] == "dlp-x"
+
+
+def test_read_csv_with_index_col(tmp_path):
+    dm = dm_mod.DatasetManager(path="/tmp/db")
+    f = tmp_path / "indexed.csv"
+    f.write_text("idx,val\na,1\nb,2\n", encoding="utf-8")
+    df = dm.read_csv(str(f), index_col=0)
+    assert df.index.tolist() == ["a", "b"]
+    assert list(df.columns) == ["val"]
+
+
+def test_add_dynamic_dataset_with_optional_fields():
+    """All optional fields are forwarded and stored correctly."""
+    dm = dm_mod.DatasetManager(path="/db")
+    dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+
+    dyn_id = dm.add_dynamic_dataset(
+        path="/path",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p",
+        parent_dataset_id="raw1",
+        name="my-dyn",
+        tags=["tag1"],
+        description="some desc",
+        dataset_id="explicit-dyn-id",
+        dataset_parameters={"extra": 42},
+    )
+
+    assert dyn_id == "explicit-dyn-id"
+    entry = dm.dynamic_dataset_table.get_by_id(dyn_id)
+    assert entry["name"] == "my-dyn"
+    assert entry["tags"] == ["tag1"]
+    assert entry["description"] == "some desc"
+    assert entry["dataset_parameters"].get("extra") == 42
+
+
+def test_delete_dataset_by_id_not_found():
+    dm = dm_mod.DatasetManager(path="/db")
+    with pytest.raises(FedbiomedError):
+        dm.delete_dataset_by_id("no-such-id")

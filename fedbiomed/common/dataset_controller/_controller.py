@@ -19,6 +19,9 @@ from fedbiomed.common.exceptions import FedbiomedError
 class Controller(ABC, DataLoadingPlanMixin):
     _controller_kwargs: Dict[str, Any]
 
+    def __init__(self):
+        super().__init__()  # initialises DataLoadingPlanMixin (self._dlp = None)
+
     # === Properties ===
     @property
     def root(self):

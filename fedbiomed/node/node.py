@@ -116,7 +116,10 @@ class Node:
             self._controller_data,
         )
 
-        self.dataset_manager = DatasetManager(path=self._db_path)
+        self.dataset_manager = DatasetManager(
+            path=self._db_path,
+            min_samples=self._config.getint("security", "minimum_samples"),
+        )
         self.tp_security_manager = TrainingPlanSecurityManager(
             db=self._db_path,
             node_id=self._node_id,
