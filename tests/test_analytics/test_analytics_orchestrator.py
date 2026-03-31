@@ -143,7 +143,7 @@ def test_create_accumulator_sequence(orchestrator):
 
 def test_create_accumulator_row(orchestrator):
     acc = orchestrator._create_accumulator(
-        {"type": DatasetElementType.ROW, "conf": {"c1": {}}, "columns": ["c1"]}
+        {"type": DatasetElementType.ROW, "conf": {"c1": {}}, "schema_columns": ["c1"]}
     )
     assert isinstance(acc, RowAccumulator)
 
@@ -270,7 +270,7 @@ def test_handle_dict_stats_args_routed_per_key(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         orchestrator._handle_dict(
             schema, subschema=None, stats=None, stats_args=stats_args, n_samples=5
@@ -330,7 +330,7 @@ def test_handle_sequence_subschema_list_wraps_for_single_active(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         result = orchestrator._handle_sequence(
             schema, subschema=["c1", "c2"], stats=None, stats_args=None, n_samples=5
@@ -352,7 +352,7 @@ def test_handle_sequence_subschema_single_column_wraps_for_single_active(orchest
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         result = orchestrator._handle_sequence(
             schema, subschema=["c1"], stats=None, stats_args=None, n_samples=5
@@ -372,7 +372,7 @@ def test_handle_sequence_subschema_already_nested_not_rewrapped(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         orchestrator._handle_sequence(
             schema, subschema=[["c1", "c2"]], stats=None, stats_args=None, n_samples=5
@@ -424,7 +424,7 @@ def test_handle_sequence_explicit_none_skips_position(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         result = orchestrator._handle_sequence(
             schema,
@@ -452,7 +452,7 @@ def test_handle_sequence_none_subschema_processes_all(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         orchestrator._handle_sequence(
             schema, subschema=None, stats=None, stats_args=None, n_samples=5
@@ -470,7 +470,7 @@ def test_handle_sequence_stats_args_routed(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         orchestrator._handle_sequence(
             schema, subschema=None, stats=None, stats_args=stats_args, n_samples=5
@@ -548,7 +548,7 @@ def test_handle_row_return_value(mock_compile, orchestrator):
     result = orchestrator._handle_row(schema, None, None, None, n_samples=5)
 
     assert result["type"] == DatasetElementType.ROW
-    assert result["columns"] == ["c1", "c2"]
+    assert result["schema_columns"] == ["c1", "c2"]
     assert set(result["conf"].keys()) == {"c1", "c2"}
 
 
@@ -566,7 +566,10 @@ def test_handle_row_columns_follow_schema_order_when_subschema_reorders(
         schema, ["year", "price"], None, None, n_samples=5
     )
 
-    assert result["columns"] == ["price", "year"]  # schema order, not ["year", "price"]
+    assert result["schema_columns"] == [
+        "price",
+        "year",
+    ]  # schema order, not ["year", "price"]
     assert set(result["conf"].keys()) == {"price", "year"}
 
 

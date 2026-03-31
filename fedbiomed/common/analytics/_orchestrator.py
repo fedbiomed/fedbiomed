@@ -322,14 +322,10 @@ class AnalyticsOrchestrator:
                 DatasetElementType.ROW, stats, col_args, n_samples
             )
 
-        # columns must be the full schema list so RowAccumulator maps each name
-        # to its correct data index (data always arrives in schema order).
-        column_order = schema.columns
-
         return {
             "type": DatasetElementType.ROW,
             "conf": col_configs,
-            "columns": column_order,
+            "schema_columns": schema.columns,
         }
 
     def _handle_image(
