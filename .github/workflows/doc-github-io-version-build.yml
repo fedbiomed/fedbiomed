@@ -1,3 +1,4 @@
+---
 name: Publish NEW TAG in fedbiomed/fedbiomed.github.io
 on:
   push:
@@ -11,7 +12,7 @@ jobs:
     environment: fedbiomed.github.io
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout to commmit
+      - name: Checkout to commit
         uses: actions/checkout@v4
 
       - name: Checkout to fedbiomed.github.io
@@ -21,9 +22,8 @@ jobs:
           ssh-key: ${{ secrets.FEDBIOMED_GITHUB_IO_DEPLOY_KEY }}
           path: build-repo
 
-      - name: git
+      - name: Configure git
         run: |
-          # setup the username and email. I tend to use 'GitHub Actions Bot' with no email by default
           git --version
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "<fedbiomed>"
@@ -52,8 +52,8 @@ jobs:
           git add .
           git commit -m "Deploy documentation version: ${{ env.RELEASE_VERSION }}"
           git pull --no-edit --no-rebase
-          if [ ! git commit -a -m "Pulling recent changes" ]; then
-            echo "o changes to commit"
+          if ! git commit -a -m "Pulling recent changes"; then
+            echo "No changes to commit"
           fi
           git push
           cd ../
