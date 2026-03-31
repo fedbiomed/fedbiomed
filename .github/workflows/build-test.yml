@@ -9,7 +9,7 @@ on:
       - ready_for_review
     branches:
       - develop
-
+      - master
   schedule:
     - cron: "0 4 * * *"
 
@@ -27,5 +27,5 @@ jobs:
     uses: ./.github/workflows/fbm-generic-test.yml
     secrets: inherit
     with:
-      python-versions: ${{ github.event_name == 'schedule' || inputs.full == 'true' && '["3.10","3.11"]' || '["3.11"]' }}
-      os-list: ${{ github.event_name == 'schedule' || inputs.full == 'true' && '["ubuntu-latest"]' || '["ubuntu-latest","ubuntu-22.04","macos-latest","macos-m1"]' }}
+      python-versions: ${{ ( github.event_name == 'schedule' || inputs.full == 'true' ) && '["3.10","3.11"]' || '["3.11"]' }}
+      os-list: ${{ ( github.event_name == 'schedule' || inputs.full == 'true' ) && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest","ubuntu-22.04","macos-latest","macos-m1"]' }}
