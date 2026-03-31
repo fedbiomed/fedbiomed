@@ -587,6 +587,22 @@ def test_handle_row_reversed_subschema_values_mapped_correctly(orchestrator):
     assert result["year"]["mean"] == pytest.approx(2020.0)
 
 
+def test_handle_row_subset_values_mapped_to_correct_column(orchestrator):
+    """Selecting a subset must not shift data indices — col2 must get col2's value."""
+    schema = RowSpec(columns=["col1", "col2"])
+    config = orchestrator._handle_row(
+        schema, ["col2"], stats=["mean"], stats_args=None, n_samples=2
+    )
+
+    acc = RowAccumulator(config)
+    # data in schema order: index 0 = col1 (10.0), index 1 = col2 (99.0)
+    for _ in range(2):
+        acc.update(np.array([10.0, 99.0]))
+
+    result = acc.finalize()
+    assert result["col2"]["mean"] == pytest.approx(99.0)  # not 10.0
+
+
 def test_handle_row_validation_errors(orchestrator):
     schema = RowSpec(columns=["c1"])
 

@@ -43,9 +43,9 @@ class RowAccumulator(Accumulator):
             raise FedbiomedError(
                 "RowAccumulator requires 'columns' in config to map column names to indices."
             )
-        if not all(col in self.column_configs for col in self.column_order):
+        if not all(col in self.column_order for col in self.column_configs):
             raise FedbiomedError(
-                "All columns in 'columns' must have corresponding entries in 'conf'."
+                "All columns in 'conf' must have corresponding entries in 'columns'."
             )
 
         # O(1) lookup for column index
