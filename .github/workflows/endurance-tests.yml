@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 360  # matches the GitHub-hosted runner default; prevents infinite hangs on self-hosted runners
     defaults:
       run:
-        shell:  bash -l {0}
+        shell: bash -l {0}
     name: Endurance Tests
     strategy:
       fail-fast: false
