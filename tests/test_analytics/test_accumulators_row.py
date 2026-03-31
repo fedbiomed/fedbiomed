@@ -32,7 +32,7 @@ def mock_registry(monkeypatch):
 def basic_row_config():
     """Provides a valid standard configuration for RowAccumulator."""
     return {
-        "columns": ["age", "salary"],
+        "schema_columns": ["age", "salary"],
         "conf": {
             "age": {"mean": {}},  # Vectorizable (no args)
             "salary": {"mean": {}},  # Vectorizable (no args)
@@ -68,20 +68,10 @@ def test_row_accumulator_init_success(mock_registry, basic_row_config):
 def test_row_accumulator_init_missing_columns_key():
     """Test that missing 'columns' key raises FedbiomedError."""
     config = {"conf": {}}
-    with pytest.raises(FedbiomedError, match="RowAccumulator requires 'columns'"):
+    with pytest.raises(
+        FedbiomedError, match="RowAccumulator requires 'schema_columns'"
+    ):
         RowAccumulator(config)
-
-
-def test_row_accumulator_init_missing_columns(basic_row_config):
-    """
-    Test that RowAccumulator raises FedbiomedError if strict configuration validation fails.
-    Scenario: 'height' is in 'columns' but missing from 'conf'.
-    """
-    basic_row_config["columns"].append("height")
-    # 'height' not added to 'conf'
-
-    with pytest.raises(FedbiomedError, match="must have corresponding entries"):
-        RowAccumulator(basic_row_config)
 
 
 def test_row_accumulator_update_logic(mock_registry, basic_row_config):
@@ -155,7 +145,7 @@ def test_row_accumulator_partial_columns(mock_registry):
     Test configuration where only a subset of columns have statistics.
     """
     config = {
-        "columns": ["id", "age"],
+        "schema_columns": ["id", "age"],
         "conf": {
             "id": {},  # No stats for ID
             "age": {"mean": {}},  # specific stat for age
@@ -180,7 +170,10 @@ def test_row_accumulator_independent_accumulators(mock_registry):
     mock_class, mock_instance = mock_registry
 
     # "percentile" with args -> should be treated as independent
-    config = {"columns": ["salary"], "conf": {"salary": {"percentile": {"q": 90}}}}
+    config = {
+        "schema_columns": ["salary"],
+        "conf": {"salary": {"percentile": {"q": 90}}},
+    }
 
     row_acc = RowAccumulator(config)
 
@@ -225,7 +218,7 @@ def test_row_accumulator_mixed_vectorized_and_independent(mock_registry):
     mock_class.side_effect = [MagicMock(), MagicMock()]
 
     config = {
-        "columns": ["age", "salary"],
+        "schema_columns": ["age", "salary"],
         "conf": {
             "age": {"mean": {}},  # Vectorized
             "salary": {"percentile": {"q": 50}},  # Independent

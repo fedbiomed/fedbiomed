@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 from fedbiomed.common.analytics import AnalyticsOrchestrator
@@ -142,7 +143,7 @@ def test_create_accumulator_sequence(orchestrator):
 
 def test_create_accumulator_row(orchestrator):
     acc = orchestrator._create_accumulator(
-        {"type": DatasetElementType.ROW, "conf": {"c1": {}}, "columns": ["c1"]}
+        {"type": DatasetElementType.ROW, "conf": {"c1": {}}, "schema_columns": ["c1"]}
     )
     assert isinstance(acc, RowAccumulator)
 
@@ -269,7 +270,7 @@ def test_handle_dict_stats_args_routed_per_key(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         orchestrator._handle_dict(
             schema, subschema=None, stats=None, stats_args=stats_args, n_samples=5
@@ -329,7 +330,7 @@ def test_handle_sequence_subschema_list_wraps_for_single_active(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         result = orchestrator._handle_sequence(
             schema, subschema=["c1", "c2"], stats=None, stats_args=None, n_samples=5
@@ -351,7 +352,7 @@ def test_handle_sequence_subschema_single_column_wraps_for_single_active(orchest
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         result = orchestrator._handle_sequence(
             schema, subschema=["c1"], stats=None, stats_args=None, n_samples=5
@@ -371,7 +372,7 @@ def test_handle_sequence_subschema_already_nested_not_rewrapped(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         orchestrator._handle_sequence(
             schema, subschema=[["c1", "c2"]], stats=None, stats_args=None, n_samples=5
@@ -423,7 +424,7 @@ def test_handle_sequence_explicit_none_skips_position(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         result = orchestrator._handle_sequence(
             schema,
@@ -451,7 +452,7 @@ def test_handle_sequence_none_subschema_processes_all(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         orchestrator._handle_sequence(
             schema, subschema=None, stats=None, stats_args=None, n_samples=5
@@ -469,7 +470,7 @@ def test_handle_sequence_stats_args_routed(orchestrator):
         mock_bvc.return_value = {
             "type": DatasetElementType.ROW,
             "conf": {},
-            "columns": [],
+            "schema_columns": [],
         }
         orchestrator._handle_sequence(
             schema, subschema=None, stats=None, stats_args=stats_args, n_samples=5
@@ -547,8 +548,62 @@ def test_handle_row_return_value(mock_compile, orchestrator):
     result = orchestrator._handle_row(schema, None, None, None, n_samples=5)
 
     assert result["type"] == DatasetElementType.ROW
-    assert result["columns"] == ["c1", "c2"]
+    assert result["schema_columns"] == ["c1", "c2"]
     assert set(result["conf"].keys()) == {"c1", "c2"}
+
+
+@patch(
+    "fedbiomed.common.analytics._orchestrator.AnalyticsOrchestrator._compile_leaf_stats"
+)
+def test_handle_row_columns_follow_schema_order_when_subschema_reorders(
+    mock_compile, orchestrator
+):
+    """columns in the config must follow schema order, not subschema order."""
+    mock_compile.return_value = {"mean": {}}
+    schema = RowSpec(columns=["price", "year"])
+
+    result = orchestrator._handle_row(
+        schema, ["year", "price"], None, None, n_samples=5
+    )
+
+    assert result["schema_columns"] == [
+        "price",
+        "year",
+    ]  # schema order, not ["year", "price"]
+    assert set(result["conf"].keys()) == {"price", "year"}
+
+
+def test_handle_row_reversed_subschema_values_mapped_correctly(orchestrator):
+    """Results must be attributed to the correct columns even when subschema reverses order."""
+    schema = RowSpec(columns=["price", "year"])
+    config = orchestrator._handle_row(
+        schema, ["year", "price"], stats=["mean"], stats_args=None, n_samples=3
+    )
+
+    acc = RowAccumulator(config)
+    # price=100, year=2020 — in schema (data) order: index 0 = price, index 1 = year
+    for _ in range(3):
+        acc.update(np.array([100.0, 2020.0]))
+
+    result = acc.finalize()
+    assert result["price"]["mean"] == pytest.approx(100.0)
+    assert result["year"]["mean"] == pytest.approx(2020.0)
+
+
+def test_handle_row_subset_values_mapped_to_correct_column(orchestrator):
+    """Selecting a subset must not shift data indices — col2 must get col2's value."""
+    schema = RowSpec(columns=["col1", "col2"])
+    config = orchestrator._handle_row(
+        schema, ["col2"], stats=["mean"], stats_args=None, n_samples=2
+    )
+
+    acc = RowAccumulator(config)
+    # data in schema order: index 0 = col1 (10.0), index 1 = col2 (99.0)
+    for _ in range(2):
+        acc.update(np.array([10.0, 99.0]))
+
+    result = acc.finalize()
+    assert result["col2"]["mean"] == pytest.approx(99.0)  # not 10.0
 
 
 def test_handle_row_validation_errors(orchestrator):

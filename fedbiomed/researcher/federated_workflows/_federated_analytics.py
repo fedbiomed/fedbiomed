@@ -445,6 +445,21 @@ class FederatedAnalytics:
         return node_ids
 
     @staticmethod
+    def _sort_schema(obj):
+        """Recursively sort dicts by key and lists by JSON repr, so list order is irrelevant."""
+        if isinstance(obj, dict):
+            return {
+                k: FederatedAnalytics._sort_schema(v) for k, v in sorted(obj.items())
+            }
+        elif isinstance(obj, list):
+            return sorted(
+                (FederatedAnalytics._sort_schema(item) for item in obj),
+                key=lambda x: json.dumps(x, sort_keys=True, default=str),
+            )
+        else:
+            return obj
+
+    @staticmethod
     def make_cache_key(
         node_ids: list[str],
         dataset_schema: Optional[str | list[str | dict]],
@@ -462,7 +477,9 @@ class FederatedAnalytics:
         """
         key_data = {
             "node_ids": sorted(node_ids),
-            "dataset_schema": dataset_schema,
+            "dataset_schema": FederatedAnalytics._sort_schema(
+                dataset_schema
+            ),  # order-insensitive
             "stats_args": stats_args,
         }
         return hashlib.md5(

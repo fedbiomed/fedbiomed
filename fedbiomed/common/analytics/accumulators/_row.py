@@ -37,19 +37,19 @@ class RowAccumulator(Accumulator):
         self.vectorized_output_map: Dict[str, Dict[int, int]] = {}
 
         self.column_configs = config.get("conf", {})
-        self.column_order = config.get("columns")
+        self.schema_columns = config.get("schema_columns")
 
-        if not self.column_order:
+        if not self.schema_columns:
             raise FedbiomedError(
-                "RowAccumulator requires 'columns' in config to map column names to indices."
+                "RowAccumulator requires 'schema_columns' in config to map column names to data indices."
             )
-        if not all(col in self.column_configs for col in self.column_order):
+        if not all(col in self.schema_columns for col in self.column_configs):
             raise FedbiomedError(
-                "All columns in 'columns' must have corresponding entries in 'conf'."
+                "All columns in 'conf' must be present in 'schema_columns'."
             )
 
-        # O(1) lookup for column index
-        self.col_map = {name: i for i, name in enumerate(self.column_order)}
+        # O(1) lookup: column name -> index in the incoming data array
+        self.col_map = {name: i for i, name in enumerate(self.schema_columns)}
 
         # Iterate over each column configuration to determine which accumulator to use
         for col_name, stats in self.column_configs.items():
@@ -92,7 +92,9 @@ class RowAccumulator(Accumulator):
                         self.vectorized_accumulators_classes[stat]()
                     )
 
-        logger.info(f"RowAccumulator initialized with columns: {self.column_order}")
+        logger.debug(
+            f"RowAccumulator initialized with schema_columns: {self.schema_columns}"
+        )
 
     def _add_independent_accumulator(
         self,
