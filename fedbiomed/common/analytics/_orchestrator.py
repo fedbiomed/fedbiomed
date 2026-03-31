@@ -325,7 +325,7 @@ class AnalyticsOrchestrator:
         return {
             "type": DatasetElementType.ROW,
             "conf": col_configs,
-            "columns": selected_cols,  # Preserve column order for accumulators
+            "schema_columns": schema.columns,
         }
 
     def _handle_image(

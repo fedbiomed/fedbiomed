@@ -51,7 +51,7 @@ class ImageAccumulator(Accumulator):
                 )
             self.accumulators[stat] = accumulator_class(**stat_args)
 
-        logger.info("ImageAccumulator initialized")
+        logger.debug("ImageAccumulator initialized")
 
     def update(self, value: np.ndarray) -> None:
         """Update all stat accumulators with a new image sample.
