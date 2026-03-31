@@ -224,8 +224,9 @@ class SKLearnTrainingPlanPartialFit(SKLearnTrainingPlan, metaclass=ABCMeta):
             split = row.rsplit("loss: ", 1)
             if len(split) == 1:  # no "loss: " in the line
                 continue
+            loss_str = split[1].split(",", 1)[0].strip()
             try:
-                losses.append(float(split[1]))
+                losses.append(float(loss_str))
             except ValueError as exc:
                 logger.error(f"Value error during monitoring: {exc}")
         return losses
@@ -303,18 +304,29 @@ class FedPerceptron(FedSGDClassifier):
     ) -> None:
         # get default values of Perceptron model (different from SGDClassifier model default values)
         perceptron_default_values = Perceptron().get_params()
-        sgd_classifier_default_values = SGDClassifier().get_params()
+
         # make sure loss used is perceptron loss - can not be changed by user
         model_args["loss"] = "perceptron"
         super().post_init(model_args, training_args, node_id=node_id)
         self._model.set_params(loss="perceptron")
 
-        # collect default values of Perceptron and set it to the model FedPerceptron
+        # Since we are using the SGDClassifier as a base model,
+        # we need to make sure that all the default values of the Perceptron model are set in the model,
+        # otherwise we might have some unexpected behaviors if the default values for the SGDClassifier and the Perceptron differ for some hyperparameters.
+        #
+        # (for instance, the default value of the `penalty` hyperparameter is None for Perceptron and 'l2' for SGDClassifier,
+        # which means that if we do not set it to None, we will be applying L2 regularization to our Perceptron model, which is not what we want).
+        #
+        # If the user hasn't provided specific values for certain hyperparameters,
+        # we have to change the default values of SGDClassifier to the default values of the Perceptron.
         model_hyperparameters = self._model.get_params()
         for hyperparameter_name, val in perceptron_default_values.items():
             if (
-                model_hyperparameters[hyperparameter_name]
-                == sgd_classifier_default_values[hyperparameter_name]
+                hyperparameter_name
+                not in model_args.keys()  # If the user hasn't provided a value
+                and hyperparameter_name
+                in model_hyperparameters  # and it is a hyperparameter that exists for the SGDClassifier as well
+                and model_hyperparameters[hyperparameter_name]
+                != val  # and the current value is different from the Perceptron default
             ):
-                # this means default parameter of SGDClassifier has not been changed by user
                 self._model.set_params(**{hyperparameter_name: val})

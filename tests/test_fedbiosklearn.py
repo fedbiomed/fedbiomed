@@ -906,18 +906,35 @@ class TestSklearnFedPerceptron(unittest.TestCase):
         fed_perp.post_init({"n_classes": 2, "n_features": 2}, FakeTrainingArgs())
         sk_perceptron = Perceptron()
 
-        for fed_name_param, fed_value in sk_perceptron.get_params().items():
-            if fed_name_param != "verbose":
-                self.assertEqual(fed_value, fed_perp._model.get_params(fed_name_param))
+        self.assertEqual(
+            fed_perp._model.get_params("loss"),
+            "perceptron",
+            "Loss should be 'perceptron' for FedPerceptron by default",
+        )
+
+        for default_parameter_name, default_value in sk_perceptron.get_params().items():
+            if default_parameter_name != "verbose":
+                self.assertEqual(
+                    default_value, fed_perp._model.get_params(default_parameter_name)
+                )
 
         # with a few values set by end-user
-
         values_sets = (
             {"penalty": None, "shuffle": True, "tol": 0.03},
             {"penalty": "l1", "fit_intercept": True, "tol": 0.06, "eta0": 0.01},
+            {
+                "penalty": "l2",
+                "alpha": 0.0001,
+                "l1_ratio": 0.15,
+            },  # Additional case to test for the new default values of SkLearn 1.8.0.
         )
 
-        additional_inputs_for_fed_model = {"n_classes": 2, "n_features": 2}
+        # IMPORTANT: Loss should always get overridden to "perceptron" regardless of the value set by the user, otherwise the model will not be a Perceptron and the test will fail
+        additional_inputs_for_fed_model = {
+            "n_classes": 2,
+            "n_features": 2,
+            "loss": "hinge",
+        }
         for values_set in values_sets:
             sk_perceptron = Perceptron(**values_set)
 
@@ -925,10 +942,20 @@ class TestSklearnFedPerceptron(unittest.TestCase):
             fed_perp = FedPerceptron()
             fed_perp.post_init(values_set, FakeTrainingArgs())
 
-            for fed_name_param, fed_value in sk_perceptron.get_params().items():
-                if fed_name_param != "verbose":
+            self.assertEqual(
+                fed_perp._model.get_params("loss"),
+                "perceptron",
+                "Loss should be 'perceptron' for FedPerceptron by default",
+            )
+
+            for (
+                default_parameter_name,
+                default_value,
+            ) in sk_perceptron.get_params().items():
+                if default_parameter_name != "verbose":
                     self.assertEqual(
-                        fed_value, fed_perp._model.get_params(fed_name_param)
+                        default_value,
+                        fed_perp._model.get_params(default_parameter_name),
                     )
 
 
