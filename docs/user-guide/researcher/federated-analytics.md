@@ -114,7 +114,7 @@ result = exp.analytics.fetch_stats(
 )
 
 # Globally aggregated value for a single named statistic
-variance_result = result.global_stat("variance")
+variance_result = result.global_stats("variance")
 
 # All available stats merged into one nested dict: {column: {stat_name: value}}
 all_stats = result.global_stats()
@@ -149,7 +149,7 @@ result = exp.analytics.fetch_stats_with_args(
 
 `fetch_stats` returns an `FAResult` object. Rather than returning a plain dict immediately, FedBioMed gives you this object for two reasons:
 
-- **Lazy aggregation.** Per-node outputs are stored as-is. Global aggregation only happens when you call a method like `global_stat()`, so you pay the cost only when you need the result.
+- **Lazy aggregation.** Per-node outputs are stored as-is. Global aggregation only happens when you call a method like `global_stats()`, so you pay the cost only when you need the result.
 - **Incremental merging.** If you make a second `fetch_stats` call for a different statistic (but the same nodes and schema), the new results are merged into the same `FAResult` — no data is lost and no nodes are re-contacted for stats already in the cache.
 - **Per-node access.** You can inspect what each individual node returned before aggregation, which is useful for detecting data quality issues or comparing site-specific distributions.
 
@@ -187,7 +187,7 @@ print(result.computable_stats())  # ['count', 'mean', 'std', 'sum', 'variance']
 
 ```python
 # Globally aggregated value for one statistic — same structure as per-node output
-result.global_stat("mean")
+result.global_stats("mean")
 # → {'age': 45.8, 'income': 53200, ...}
 
 # All computable stats merged into {column: {stat_name: value}}
@@ -198,7 +198,7 @@ result.global_stats()
 result.node_stats("NODE_abc")
 
 # Outputs from all nodes
-result.all_node_stats()
+result.node_stats()
 
 # Inspect the output tree structure without raw values
 result.schema
@@ -212,10 +212,10 @@ result.node_ids
 
 | Method / property | Description |
 |---|---|
-| `result.global_stat(stat_name)` | The globally aggregated value for one statistic (e.g. `"mean"`) |
+| `result.global_stats(stat_name)` | The globally aggregated value for one statistic (e.g. `"mean"`) |
 | `result.global_stats()` | All computable stats aggregated and merged into `{column: {stat_name: value}}` |
 | `result.node_stats(node_id)` | The raw statistics returned by a single node, before aggregation |
-| `result.all_node_stats()` | Dict of all per-node raw outputs keyed by node ID |
+| `result.node_stats()` | Dict of all per-node raw outputs keyed by node ID |
 | `result.computable_stats()` | List of statistic names that can be derived from the stored data |
 | `result.available_stats()` | List of raw stat keys present in the stored output |
 | `result.node_ids` | List of node IDs whose results are stored |
@@ -227,5 +227,5 @@ result.node_ids
 
 | Error message | Cause | Fix |
 |---|---|---|
-| `At least one of 'stats' or 'stats_args' must be provided` | `fetch_stats()` was called with no arguments | Pass at least `stats="mean"` (or another statistic name), or use `fetch_stats_with_args` with a `stats_args` dict |
+| `'stats' must be a non-empty string or list` | `fetch_stats([])` was called with an explicit empty list | Pass at least one statistic name, e.g. `fetch_stats("mean")`, or omit `stats` to use the default `["count", "mean", "variance"]` |
 | `Federated Analytics are not allowed on this node` | A node has `allow_federated_analytics = False` in its config | Ask the node operator to enable the flag — see [Federated Analytics — Nodes](../nodes/federated-analytics.md) |
