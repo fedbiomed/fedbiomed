@@ -107,7 +107,7 @@ class _FedCombatParameters:
         )
 
         # FA glitch: currently need to request `variance` to retrieve `std`
-        result = analytics.fetch_stats(["count", "mean", "variance"])
+        result = analytics.fetch_stats(["mean", "variance"])
 
         global_mean_covariates = [
             v for k, v in result.global_stat("mean").items() if k in covariates
