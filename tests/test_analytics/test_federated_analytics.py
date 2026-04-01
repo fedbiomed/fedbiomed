@@ -347,18 +347,18 @@ class TestFAResult:
         assert isinstance(global_mean, dict)
         assert abs(global_mean["tabular"]["age"] - expected_age) < 1e-9
 
-    def test_global_stats_missing_stat_raises(self):
+    def test_global_stats_missing_data_raises(self):
+        # variance is valid but requires data not present → "cannot be computed"
         replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         result = FAResult(replies)
-        with pytest.raises(FedbiomedError, match="not computable"):
+        with pytest.raises(FedbiomedError, match="cannot be computed"):
             result.global_stats("variance")
 
-    def test_global_stats_unregistered_stat_raises(self):
-        # A stat key exists in the data but has no registered aggregator;
-        # no leaf dict is detected so the stat is not computable
-        replies = {"n1": _make_reply({"skewness": 0.5})}
+    def test_global_stats_unknown_stat_raises(self):
+        # "skewness" is not a registered statistic at all → "not a valid statistic"
+        replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         result = FAResult(replies)
-        with pytest.raises(FedbiomedError, match="not computable"):
+        with pytest.raises(FedbiomedError, match="not a valid statistic"):
             result.global_stats("skewness")
 
     # --- merge ---
@@ -653,15 +653,46 @@ class TestFederatedAnalytics:
 
         assert mock_fa_job_cls.call_count == 1  # second call served from cache
 
-    def test_fetch_stats_no_stats_raises(self, base_fa):
-        """Calling fetch_stats without stats raises TypeError (required argument)."""
-        with pytest.raises(TypeError):
-            base_fa.fetch_stats()
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fetch_stats_none_defaults_to_count_mean_variance(
+        self, mock_fa_job_cls, base_fa
+    ):
+        """fetch_stats() with no argument requests count, mean, and variance."""
+        replies = {
+            "node-1": _make_reply(
+                {"age": {"count": 100, "mean": 45.0, "variance": 4.0}}
+            )
+        }
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        result = base_fa.fetch_stats()
+
+        assert isinstance(result, FAResult)
+        call_kwargs = mock_fa_job_cls.call_args.kwargs
+        assert sorted(call_kwargs["stats"]) == ["count", "mean", "variance"]
 
     def test_fetch_stats_empty_list_raises(self, base_fa):
-        """Passing an empty list must raise FedbiomedError."""
+        """Passing an explicit empty list must raise FedbiomedError."""
         with pytest.raises(FedbiomedError, match="stats"):
             base_fa.fetch_stats([])
+
+    def test_fetch_stats_unknown_stat_raises(self, base_fa):
+        """Requesting a stat that is not registered at all raises FedbiomedError."""
+        with pytest.raises(FedbiomedError, match="not valid"):
+            base_fa.fetch_stats("skewness")
+
+    def test_fetch_stats_computed_only_stat_raises(self, base_fa):
+        """Requesting a derived stat (e.g. 'std') that cannot be requested from nodes raises."""
+        with pytest.raises(FedbiomedError, match="derived"):
+            base_fa.fetch_stats("std")
+
+    def test_fetch_stats_mixed_invalid_stats_raises(self, base_fa):
+        """Unknown and derived stats in the same call both appear in the error."""
+        with pytest.raises(FedbiomedError) as exc_info:
+            base_fa.fetch_stats(["skewness", "std"])
+        msg = str(exc_info.value)
+        assert "skewness" in msg
+        assert "std" in msg
 
     def test_fetch_stats_with_args_empty_raises(self, base_fa):
         """Calling fetch_stats_with_args with empty dict must raise FedbiomedError."""
@@ -986,10 +1017,10 @@ class TestGlobalStats:
         assert global_std["age"] > 0
 
     def test_not_computable_raises(self):
-        # variance is not computable when only mean+count are stored
+        # variance is valid but missing required data when only mean+count are stored
         replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
         result = FAResult(replies)
-        with pytest.raises(FedbiomedError, match="not computable"):
+        with pytest.raises(FedbiomedError, match="cannot be computed"):
             result.global_stats("variance")
 
     def test_no_stat_name_all_stats_match_individual_calls(self):
