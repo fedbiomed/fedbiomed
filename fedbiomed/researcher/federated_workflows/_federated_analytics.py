@@ -233,31 +233,29 @@ class FAResult:
     # Access & Aggregation
     # ------------------------------------------------------------------
 
-    def node_stats(self, node_id: str) -> Any:
-        """Return a copy of the raw statistics output for *node_id*.
+    def node_stats(self, node_id: Optional[str] = None) -> Any:
+        """Return a copy of the raw statistics output for one or all nodes.
 
         Args:
-            node_id: Identifier of the node.
+            node_id: Identifier of the node. When omitted, returns a dict
+                mapping every node ID to its output.
 
         Returns:
-            Per-node output mirroring the dataset's schema
-            (e.g. ``{col: {stat: val}}`` for row data, ``{stat: val}`` for image data).
+            Per-node output when *node_id* is given, or a ``{node_id: output}``
+            dict for all nodes when omitted.
 
         Raises:
             FedbiomedError: If *node_id* is not found.
         """
+        if node_id is None:
+            return {nid: copy.deepcopy(output) for nid, output in self._data.items()}
+
         if node_id not in self._data:
             raise FedbiomedError(
                 f"Node '{node_id}' not found in results. "
                 f"Available nodes: {self.node_ids}."
             )
         return copy.deepcopy(self._data[node_id])
-
-    def all_node_stats(self) -> dict[str, Any]:
-        """Return a dict mapping each node ID to a deep copy of its output."""
-        return {
-            node_id: copy.deepcopy(output) for node_id, output in self._data.items()
-        }
 
     @staticmethod
     def _aggregate_tree(
@@ -336,22 +334,32 @@ class FAResult:
         # Scalar leaf: collect all stat values at this position
         return stat_results
 
-    def global_stat(self, stat_name: str) -> Any:
-        """Compute the globally aggregated value for *stat_name* across all nodes.
-
-        The result preserves the schema structure of the node output.
+    def global_stats(self, stat_name: Optional[str] = None) -> Any:
+        """Compute globally aggregated value(s) across all nodes.
 
         Args:
-            stat_name: Name of the statistic to aggregate (e.g. ``"mean"``).
-                Must appear in :meth:`computable_stats`.
+            stat_name: Statistic to aggregate (e.g. ``"mean"``). Must appear in
+                :meth:`computable_stats`. When omitted, all computable statistics
+                are aggregated and merged into a ``{stat_name: value}`` tree.
 
         Returns:
-            Aggregated value with the same structural shape as the per-node output tree
+            Aggregated value for the given stat, or a merged tree of all computable
+            statistics when *stat_name* is omitted (``{}`` if no data is stored).
 
         Raises:
-            FedbiomedError: If no node data is stored, if *stat_name* is not
-                computable, or if a node output contains an unexpected scalar leaf.
+            FedbiomedError: If no node data is stored, *stat_name* is unknown or
+                not computable from available data.
         """
+        if stat_name is None:
+            if not self._data:
+                return {}
+            all_outputs = list(self._data.values())
+            per_stat = {
+                s: FAResult._aggregate_tree(all_outputs, AGGREGATORS_MAP[s])
+                for s in self.computable_stats()
+            }
+            return FAResult._merge_stat_results(per_stat)
+
         if not self._data:
             raise FedbiomedError(
                 "Cannot compute global stat: FAResult contains no node data."
@@ -374,24 +382,6 @@ class FAResult:
         return FAResult._aggregate_tree(
             list(self._data.values()), AGGREGATORS_MAP[stat_name]
         )
-
-    def global_stats(self) -> Any:
-        """Compute globally aggregated values for all computable statistics.
-
-        Returns:
-            A tree whose leaves are ``{stat_name: value}`` dicts.
-
-        Raises:
-            FedbiomedError: If a node output contains an unexpected scalar leaf.
-        """
-        if not self._data:
-            return {}
-        all_outputs = list(self._data.values())
-        per_stat = {
-            s: FAResult._aggregate_tree(all_outputs, AGGREGATORS_MAP[s])
-            for s in self.computable_stats()
-        }
-        return FAResult._merge_stat_results(per_stat)
 
 
 class FederatedAnalytics:
@@ -673,7 +663,7 @@ class FederatedAnalytics:
             stats=Stats.COUNT.value,
             dataset_schema=dataset_schema,
         )
-        return fa_result.global_stat("count")
+        return fa_result.global_stats("count")
 
     def mean(
         self,
@@ -684,7 +674,7 @@ class FederatedAnalytics:
             stats=Stats.MEAN.value,
             dataset_schema=dataset_schema,
         )
-        return fa_result.global_stat("mean")
+        return fa_result.global_stats("mean")
 
     def variance(
         self,
@@ -695,7 +685,7 @@ class FederatedAnalytics:
             stats=Stats.VARIANCE.value,
             dataset_schema=dataset_schema,
         )
-        return fa_result.global_stat("variance")
+        return fa_result.global_stats("variance")
 
     def std(
         self,
@@ -707,4 +697,4 @@ class FederatedAnalytics:
             stats=Stats.VARIANCE.value,
             dataset_schema=dataset_schema,
         )
-        return fa_result.global_stat("std")
+        return fa_result.global_stats("std")
