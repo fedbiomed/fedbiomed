@@ -10,46 +10,36 @@ from fedbiomed.node.jobs._fedcombat_jobs import _FedCombatJobs
 def test_fedcombat_jobs_compute():
     fedcombat_jobs = _FedCombatJobs()
 
-    # Step 1: compute mean and std
-    step1_params = {}
-    step1_output_keys = {
-        "mean_covariates",
-        "mean_phenotypes",
-        "std_covariates",
-        "std_phenotypes",
-        "n_samples",
-    }
-
-    # Step 2: standardize data
-    step2_params = {
+    # Step 1: standardize data
+    step1_params = {
         "global_mean_covariates": torch.tensor([1.0]),
         "global_mean_phenotypes": torch.tensor([1.0]),
         "global_std_covariates": torch.tensor([1.0]),
         "global_std_phenotypes": torch.tensor([1.0]),
     }
+    step1_output_keys = {}
+
+    # Step 2: train model - no job
+    step2_params = {}
     step2_output_keys = {}
 
-    # Step 3: train model - no job
-    step3_params = {}
-    step3_output_keys = {}
-
-    # Step 4: compute residual variance
-    step4_params = {
+    # Step 3: compute residual variance
+    step3_params = {
         "biological_model": torch.tensor([[1.0]]),
         "global_bias_model": torch.tensor([[1.0]]),
     }
-    step4_output_keys = {"residual_variance", "n_samples"}
+    step3_output_keys = {"residual_variance", "n_samples"}
 
-    # Step 5: compute std residuals
-    step5_params = {
+    # Step 4: compute std residuals
+    step4_params = {
         "biological_model": torch.tensor([[1.0]]),
         "global_bias_model": torch.tensor([[1.0]]),
         "sigma_hat_g": torch.tensor([1.0]),
     }
-    step5_output_keys = {"gamma_hat_ig", "delta_hat_ig"}
+    step4_output_keys = {"gamma_hat_ig", "delta_hat_ig"}
 
-    # Step 6: compute fedcombat params
-    step6_params = {
+    # Step 5: compute fedcombat params
+    step5_params = {
         "biological_model": torch.tensor([[1.0]]),
         "global_bias_model": torch.tensor([[1.0]]),
         "gamma_bar": torch.tensor([1.0]),
@@ -58,7 +48,7 @@ def test_fedcombat_jobs_compute():
         "theta_bar_i": torch.tensor([1.0]),
         "sigma_hat_g": torch.tensor([1.0]),
     }
-    step6_output_keys = {"harmonized_dataset_id"}
+    step5_output_keys = {"harmonized_dataset_id"}
 
     step_params_list = [
         step1_params,
@@ -66,7 +56,6 @@ def test_fedcombat_jobs_compute():
         step3_params,
         step4_params,
         step5_params,
-        step6_params,
     ]
     step_output_keys = [
         step1_output_keys,
@@ -74,10 +63,9 @@ def test_fedcombat_jobs_compute():
         step3_output_keys,
         step4_output_keys,
         step5_output_keys,
-        step6_output_keys,
     ]
 
-    for step_index in [1, 2, 4, 5, 6]:
+    for step_index in [1, 3, 4, 5]:
         step_params = step_params_list[step_index - 1]
         step_output = fedcombat_jobs(HarmonizationStep(step_index), "csv", step_params)
 

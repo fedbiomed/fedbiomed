@@ -52,7 +52,7 @@ def test_preproc_request_message_creation():
         researcher_id="researcher_1234",
         experiment_id="experiment_1234",
         preproc_type=PreprocType.FEDCOMBAT.value,
-        preproc_step=HarmonizationStep.STEP2_STANDARDIZE.value,
+        preproc_step=HarmonizationStep.STANDARDIZE.value,
         preproc_id="preproc_1234",
         preproc_args={"test": "output_data"},
         dataset_id="dataset_1234",

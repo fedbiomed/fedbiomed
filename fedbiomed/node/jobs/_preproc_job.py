@@ -112,14 +112,15 @@ class PreprocJob(_BaseJob):
             )
         except Exception as e:
             return self._build_error_msg(
-                f"Preprocessing job failed: {str(e)}",
+                f"Preprocessing job failed for {self._preproc_type.name} "
+                f"step {self._preproc_step_raw} / {self._preproc_step.name}: {str(e)}",
                 errnum=ErrorNumbers.FB326.value,
             )
 
         msg = (
             f"Node {self._node_name} ({self._node_id}): "
-            f"Preprocessing step {self._preproc_step.name} of type {self._preproc_type.name} "
-            f"for experiment {self._experiment_id}"
+            f"Preprocessing step {self._preproc_step_raw} / {self._preproc_step.name} "
+            f"of type {self._preproc_type.name} for experiment {self._experiment_id}"
         )
         exclude_args = ["biological_model", "global_bias_model"]
         filtered_args = {
@@ -132,7 +133,8 @@ class PreprocJob(_BaseJob):
         }
 
         logger.info(
-            f"Preprocessing executed successfully for {self._preproc_type.name} / {self._preproc_step.name} "
+            f"Preprocessing executed successfully for {self._preproc_type.name} "
+            f"step {self._preproc_step_raw} / {self._preproc_step.name} "
             f"with request id {self._request_id} preproc_id {self._preproc_id} dataset_id {self._dataset_id} "
             f"preproc_args {filtered_args} except {exclude_args} and output_summary {preproc_output_summary}"
         )
