@@ -47,11 +47,7 @@ class FAResult:
 
     @staticmethod
     def _traverse_stat_leaves(obj: Any) -> Iterator[dict]:
-        """Yield every stat-leaf dict found in *obj* (depth-first).
-
-        Args:
-            obj: A nested structure of dicts, lists, tuples, and scalar leaves.
-        """
+        """Yield every stat-leaf dict found in *obj* (depth-first)."""
         if isinstance(obj, dict):
             if FAResult._is_stat_leaf(obj):
                 yield obj
@@ -83,6 +79,55 @@ class FAResult:
         if not self._data:
             raise FedbiomedError("FAResult contains no node data.")
         return next(iter(self._data.values()))
+
+    @staticmethod
+    def _filter_output(output: Any, schema: list) -> Optional[Any]:
+        """Return a filtered copy of *output* keeping only keys listed in *schema*.
+
+        Returns ``None`` if *output* is not a filterable dict, a key is absent, a child
+        schema is given for a non-dict value, or a schema item type is unsupported.
+        """
+        # Stat-leaves are terminal values, not filterable structural dicts.
+        if not isinstance(output, dict) or FAResult._is_stat_leaf(output):
+            return None
+        result: dict = {}
+        for item in schema:
+            if isinstance(item, str):
+                key, child_sub = item, None
+            elif isinstance(item, dict) and len(item) == 1:
+                key, child_sub = next(iter(item.items()))
+            else:
+                return None  # unsupported schema item type
+            if key not in output:
+                return None
+            if isinstance(child_sub, str):
+                child_sub = [child_sub]  # normalise bare-string child schema to list
+            if child_sub is None:
+                result[key] = copy.deepcopy(
+                    output[key]
+                )  # no sub-schema: copy subtree as-is
+            elif not isinstance(output[key], dict):
+                return None  # child schema given but value is not a filterable dict
+            elif isinstance(child_sub, (list, tuple)):
+                child = FAResult._filter_output(output[key], list(child_sub))
+                if child is None:
+                    return None
+                result[key] = child
+            else:
+                return None  # child_sub is an unexpected type
+        return result
+
+    def _filtered_copy(self, schema: list) -> Optional["FAResult"]:
+        """Return a copy filtered to *schema*, or ``None`` if any node output cannot be filtered."""
+        filtered_data: dict[str, Any] = {}
+        for node_id, output in self._data.items():
+            out = FAResult._filter_output(output, schema)
+            if out is None:
+                return None
+            filtered_data[node_id] = out
+        result = FAResult(None)
+        result._data = filtered_data
+        return result
 
     @staticmethod
     def _deep_merge(existing: Any, new: Any) -> Any:
@@ -172,7 +217,7 @@ class FAResult:
         def _schema(obj: Any) -> Any:
             if isinstance(obj, dict):
                 if FAResult._is_stat_leaf(obj):
-                    return {}
+                    return {}  # stat-leaf: replace values with empty sentinel
                 return {k: _schema(v) for k, v in obj.items()}
             if isinstance(obj, (list, tuple)):
                 items = [_schema(item) for item in obj]
@@ -451,8 +496,19 @@ class FederatedAnalytics:
                 k: FederatedAnalytics._sort_schema(v) for k, v in sorted(obj.items())
             }
         elif isinstance(obj, list):
+
+            def _norm(item):
+                if isinstance(item, dict) and len(item) == 1:
+                    k, v = next(iter(item.items()))
+                    return {
+                        k: FederatedAnalytics._sort_schema(
+                            [v] if isinstance(v, str) else v
+                        )
+                    }  # normalise "x" → ["x"]
+                return FederatedAnalytics._sort_schema(item)
+
             return sorted(
-                (FederatedAnalytics._sort_schema(item) for item in obj),
+                (_norm(i) for i in obj),
                 key=lambda x: json.dumps(x, sort_keys=True, default=str),
             )
         else:
@@ -476,15 +532,19 @@ class FederatedAnalytics:
         """
         key_data = {
             "node_ids": sorted(node_ids),
-            "dataset_schema": FederatedAnalytics._sort_schema(
-                dataset_schema
-            ),  # order-insensitive
+            "dataset_schema": FederatedAnalytics._sort_schema(dataset_schema),
             "stats_args": stats_args,
         }
         return hashlib.md5(
             json.dumps(key_data, sort_keys=True, default=str).encode(),
             usedforsecurity=False,
         ).hexdigest()
+
+    def _cache_store(self, key: str, result: FAResult) -> None:
+        """Insert *result* at *key* and evict the oldest entry if over capacity."""
+        self._results_store[key] = result
+        if len(self._results_store) > self._MAX_CACHE_SIZE:
+            self._results_store.popitem(last=False)
 
     def _execute_and_update_cache(
         self,
@@ -531,9 +591,7 @@ class FederatedAnalytics:
             cached = FAResult(analytics_replies)
         else:
             cached.merge(analytics_replies)
-        self._results_store[cache_key] = cached
-        if len(self._results_store) > self._MAX_CACHE_SIZE:
-            self._results_store.popitem(last=False)  # evict oldest (FIFO)
+        self._cache_store(cache_key, cached)
         return cached
 
     def fetch_stats(
@@ -586,8 +644,7 @@ class FederatedAnalytics:
         if errors:
             raise FedbiomedError(" ".join(errors))
 
-        # Normalize string schema to ensure expected behavior (e.g. "col1" vs ["col1"]).
-        if isinstance(dataset_schema, str):
+        if isinstance(dataset_schema, str):  # str → [str]
             dataset_schema = [dataset_schema]
 
         node_ids = self.get_node_ids()
@@ -596,6 +653,20 @@ class FederatedAnalytics:
 
         missing = [s for s in stats if cached is None or not cached.has_stat(s)]
         if missing:
+            # Scan cache for a superset-schema entry before contacting nodes.
+            # _filtered_copy returns None on any missing key, so success implies superset.
+            if dataset_schema is not None and cached is None:
+                for other in self._results_store.values():
+                    if not all(other.has_stat(s) for s in missing):
+                        continue
+                    filtered = other._filtered_copy(dataset_schema)
+                    if filtered is not None:
+                        self._cache_store(cache_key, filtered)
+                        logger.info(
+                            f"Statistics {missing} recovered from cached result "
+                            "— skipping node requests."
+                        )
+                        return filtered
             cached = self._execute_and_update_cache(
                 cache_key, missing, None, dataset_schema, node_ids, cached
             )
@@ -624,7 +695,7 @@ class FederatedAnalytics:
             stats_args: Structured analytics arguments that encode both schema selection
                 and computation parameters (e.g.
                 ``{"image": {"histogram": {"bin_edges": [0, 128, 256]}}}``
-                or ``{"col": {"quantile": {"q": 0.5}}}``\).
+                or ``{"col": {"quantile": {"q": 0.5}}}``).
 
         Returns:
             A :class:`FAResult` containing per-node data and supporting global aggregation.
@@ -654,47 +725,27 @@ class FederatedAnalytics:
     # Convenience methods
     # ------------------------------------------------------------------
 
-    def count(
+    def _stat(
         self,
+        fetch_stat: str,
+        aggregate_stat: str,
         dataset_schema: Optional[str | list[str | dict]] = None,
     ) -> Any:
+        """Fetch *fetch_stat* primitives then aggregate *aggregate_stat* from the result."""
+        return self.fetch_stats(fetch_stat, dataset_schema).global_stats(aggregate_stat)
+
+    def count(self, dataset_schema: Optional[str | list[str | dict]] = None) -> Any:
         """Return the global count across nodes."""
-        fa_result = self.fetch_stats(
-            stats=Stats.COUNT.value,
-            dataset_schema=dataset_schema,
-        )
-        return fa_result.global_stats("count")
+        return self._stat(Stats.COUNT.value, "count", dataset_schema)
 
-    def mean(
-        self,
-        dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> Any:
+    def mean(self, dataset_schema: Optional[str | list[str | dict]] = None) -> Any:
         """Return the global mean across nodes."""
-        fa_result = self.fetch_stats(
-            stats=Stats.MEAN.value,
-            dataset_schema=dataset_schema,
-        )
-        return fa_result.global_stats("mean")
+        return self._stat(Stats.MEAN.value, "mean", dataset_schema)
 
-    def variance(
-        self,
-        dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> Any:
+    def variance(self, dataset_schema: Optional[str | list[str | dict]] = None) -> Any:
         """Return the global variance across nodes."""
-        fa_result = self.fetch_stats(
-            stats=Stats.VARIANCE.value,
-            dataset_schema=dataset_schema,
-        )
-        return fa_result.global_stats("variance")
+        return self._stat(Stats.VARIANCE.value, "variance", dataset_schema)
 
-    def std(
-        self,
-        dataset_schema: Optional[str | list[str | dict]] = None,
-    ) -> Any:
+    def std(self, dataset_schema: Optional[str | list[str | dict]] = None) -> Any:
         """Return the global standard deviation across nodes."""
-        # std is derived from variance+mean+count; requesting variance primitives is sufficient.
-        fa_result = self.fetch_stats(
-            stats=Stats.VARIANCE.value,
-            dataset_schema=dataset_schema,
-        )
-        return fa_result.global_stats("std")
+        return self._stat(Stats.VARIANCE.value, "std", dataset_schema)
