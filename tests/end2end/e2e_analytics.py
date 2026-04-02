@@ -109,7 +109,7 @@ def test_02_analytics_variance_available_computable_and_mean():
     )
 
     # Step 4: compute mean directly — no new message sent to nodes
-    mean_result = fa_result.global_stat("mean")
+    mean_result = fa_result.global_stats("mean")
 
     assert isinstance(mean_result, dict), (
         "mean result should be a dict keyed by column name"
@@ -142,7 +142,7 @@ def test_04_analytics_schema_filter():
 
     selected_cols = ["AGE", "MMSE.bl"]
     fa_result = exp.analytics.fetch_stats("mean", dataset_schema=selected_cols)
-    global_mean = fa_result.global_stat("mean")
+    global_mean = fa_result.global_stats("mean")
 
     assert set(selected_cols).issubset(set(global_mean.keys())), (
         f"Expected columns {selected_cols} to be present in {set(global_mean.keys())}"

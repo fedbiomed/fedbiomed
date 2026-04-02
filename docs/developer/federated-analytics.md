@@ -41,7 +41,7 @@ FederatedAnalytics.fetch_stats()
 | `Stats.HISTOGRAM` | `"histogram"` | `bin_edges` | - |
 
 !!! note "Researcher-only derived stats"
-    `std` and `sum` are computable on the researcher side from `mean`/`variance`/`count` via `FAResult.global_stat()` — they are never sent from nodes.
+    `std` and `sum` are computable on the researcher side from `mean`/`variance`/`count` via `FAResult.global_stats()` — they are never sent from nodes.
 
 `FederatedAnalytics` is the entry point for all analytics requests. It handles caching and delegates network I/O to `FARequestJob`. The API is split into two methods depending on whether the requested statistic needs extra parameters.
 
@@ -49,7 +49,7 @@ Use `fetch_stats` when no computation arguments are needed — statistics are id
 
 ```python
 fetch_stats(
-    stats: str | list[str],                   # one or more Stats string values
+    stats: str | list[str] | None = None,     # one or more Stats string values; None → ["count", "mean", "variance"]
     dataset_schema: str | list | None = None, # column/modality filter; None → whole schema
 ) -> FAResult
 ```
@@ -64,7 +64,7 @@ fetch_stats_with_args(
 
 Both methods cache their results. `fetch_stats` keys the cache by `(node_ids, dataset_schema)`; `fetch_stats_with_args` keys it by `(node_ids, stats_args)`. In both cases, an identical call is served from the cache without a network round-trip.
 
-Convenience methods are thin wrappers around `fetch_stats` + `global_stat` for the most common stats:
+Convenience methods are thin wrappers around `fetch_stats` + `global_stats` for the most common stats:
 
 ```python
 exp.analytics.mean(dataset_schema=None)
