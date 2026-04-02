@@ -29,12 +29,12 @@ class _FedCombatJobs:
         self.n_samples = torch.tensor(self.covariates.shape[0])
 
         self.step_functions = {
-            HarmonizationStep.STEP1_STANDARDIZE: self._standardize_data,
-            # There is no step 2 as it's a model training handled by a training plan
-            # HarmonizationStep.STEP2_TRAIN: lambda x: {},
-            HarmonizationStep.STEP3_RESID_VAR: self._compute_residual_variance,
-            HarmonizationStep.STEP4_RESID_PARAMS: self._compute_standardized_residuals_params,
-            HarmonizationStep.STEP5_FC_PARAMS: self._compute_fedcombat_params,
+            HarmonizationStep.STANDARDIZE: self._standardize_data,
+            # There is no such step as it's a model training handled by a training plan
+            # HarmonizationStep.TRAIN: lambda x: {},
+            HarmonizationStep.RESID_VAR: self._compute_residual_variance,
+            HarmonizationStep.RESID_PARAMS: self._compute_standardized_residuals_params,
+            HarmonizationStep.FC_PARAMS: self._compute_fedcombat_params,
         }
 
     def __call__(

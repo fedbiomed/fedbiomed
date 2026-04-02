@@ -35,11 +35,11 @@ class _FedCombatParameters:
         self._nodes = nodes
 
         self.step_functions = {
-            HarmonizationStep.STEP1_STANDARDIZE: self._compute_global_mean_std,
-            HarmonizationStep.STEP2_TRAIN: self._train_harmonization_model,
-            HarmonizationStep.STEP3_RESID_VAR: lambda: {},
-            HarmonizationStep.STEP4_RESID_PARAMS: self._compute_pooled_variance,
-            HarmonizationStep.STEP5_FC_PARAMS: self._compute_residual_parameters,
+            HarmonizationStep.STANDARDIZE: self._compute_global_mean_std,
+            HarmonizationStep.TRAIN: self._train_harmonization_model,
+            HarmonizationStep.RESID_VAR: lambda: {},
+            HarmonizationStep.RESID_PARAMS: self._compute_pooled_variance,
+            HarmonizationStep.FC_PARAMS: self._compute_residual_parameters,
         }
 
     def __call__(self, harmonization_step: HarmonizationStep, list_dict_params: List):
@@ -55,8 +55,8 @@ class _FedCombatParameters:
             Dict: parameters resulting from the harmonization_step computation from the researcher
         """
         if harmonization_step in [
-            HarmonizationStep.STEP1_STANDARDIZE,
-            HarmonizationStep.STEP2_TRAIN,
+            HarmonizationStep.STANDARDIZE,
+            HarmonizationStep.TRAIN,
         ]:
             kwargs = list_dict_params[0] if len(list_dict_params) > 0 else {}
         else:
