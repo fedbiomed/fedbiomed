@@ -75,7 +75,7 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
 
 
 class _FedCombatTrainModel:
-    """Class to handle Fed-ComBat harmonization step 2: train harmonization model."""
+    """Class to handle Fed-ComBat harmonization: train harmonization model."""
 
     def __init__(
         self,

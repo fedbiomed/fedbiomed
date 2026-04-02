@@ -16,11 +16,11 @@ from ...jobs import PreprocRequestJob
 from ._fedcombat_parameters import _FedCombatParameters
 
 _fedcombat_steps = {
-    HarmonizationStep.STEP1_STANDARDIZE: "Compute global mean and std then standardize the data on each node",
-    HarmonizationStep.STEP2_TRAIN: "Train the model on the standardized data",
-    HarmonizationStep.STEP3_RESID_VAR: "Computes the variance of the residuals from the biological model on each node",
-    HarmonizationStep.STEP4_RESID_PARAMS: "Computes the standardized residuals means and variance on each node",
-    HarmonizationStep.STEP5_FC_PARAMS: "Estimates the ComBat parameters and creates the harmonized datasets on each node",
+    HarmonizationStep.STANDARDIZE: "Compute global mean and std then standardize the data on each node",
+    HarmonizationStep.TRAIN: "Train the model on the standardized data",
+    HarmonizationStep.RESID_VAR: "Computes the variance of the residuals from the biological model on each node",
+    HarmonizationStep.RESID_PARAMS: "Computes the standardized residuals means and variance on each node",
+    HarmonizationStep.FC_PARAMS: "Estimates the ComBat parameters and creates the harmonized datasets on each node",
 }
 
 
@@ -199,12 +199,12 @@ class FedCombatPreproc:
 
         for preproc_step in HarmonizationStep:
             logger.info(
-                f"Starting FedCombat preprocessing {preproc_step.name} : "
+                f"Starting FedCombat preprocessing {preproc_step.value} / {preproc_step.name} : "
                 f"{_fedcombat_steps[preproc_step]}"
             )
 
-            # Step 1 and 2 uses arguments provided by researcher side
-            if preproc_step == HarmonizationStep.STEP1_STANDARDIZE:
+            # These steps use arguments provided by researcher side
+            if preproc_step == HarmonizationStep.STANDARDIZE:
                 # Nota: don't assign default values are _preproc_args are later checked by _FedCombatParameters
                 step_args = [
                     {
@@ -212,7 +212,7 @@ class FedCombatPreproc:
                         "phenotypes": self._preproc_args.get("phenotypes"),
                     }
                 ]
-            if preproc_step == HarmonizationStep.STEP2_TRAIN:
+            if preproc_step == HarmonizationStep.TRAIN:
                 # Nota: don't assign default values are _preproc_args are later checked by _FedCombatTrainModel
                 step_args = [
                     {
@@ -229,14 +229,14 @@ class FedCombatPreproc:
                 step_params = fedcombat_parameters(preproc_step, step_args)
             except Exception as e:
                 raise FedbiomedExperimentError(
-                    f"{ErrorNumbers.FB420.value}: "
-                    f"Error during Fed-ComBat preprocessing step {preproc_step.name}: {str(e)}"
+                    f"{ErrorNumbers.FB420.value}: Error during Fed-ComBat preprocessing "
+                    f"step {preproc_step.value} / {preproc_step.name}: {str(e)}"
                 ) from e
 
             all_parameters.update(step_params)
 
-            # Step 3 does not involve a PreprocRequestJob
-            if preproc_step == HarmonizationStep.STEP2_TRAIN:
+            # Training does not involve a PreprocRequestJob
+            if preproc_step == HarmonizationStep.TRAIN:
                 step_args = []
                 continue
 
@@ -257,13 +257,15 @@ class FedCombatPreproc:
             step_args = [reply.preproc_output for reply in fedcombat_replies.values()]
 
             logger.debug(
-                f"Fed-ComBat replies after harmonization step {preproc_step.name}: {fedcombat_replies}"
+                "Fed-ComBat replies after harmonization "
+                f"step {preproc_step.value} / {preproc_step.name}: {fedcombat_replies}"
             )
 
             if fedcombat_replies.keys() != set(self._nodes):
                 raise FedbiomedExperimentError(
                     f"{ErrorNumbers.FB420.value}: "
-                    f"Not all nodes replied to Fed-ComBat preprocessing step {preproc_step.name}: "
+                    f"Not all nodes replied to Fed-ComBat preprocessing "
+                    f"step {preproc_step.value} / {preproc_step.name}: "
                     f"received {fedcombat_replies.keys()}, expected {self._nodes}."
                 )
 
