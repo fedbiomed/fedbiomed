@@ -890,6 +890,13 @@ class TestMakeCacheKey:
         k2 = FederatedAnalytics.make_cache_key(["node-2"], None, None)
         assert k1 != k2
 
+    def test_string_child_normalized_to_list(self):
+        """_sort_schema normalises {key: "x"} → {key: ["x"]} so bare-string and
+        single-element-list children hash identically."""
+        k1 = FederatedAnalytics.make_cache_key(["node-1"], [{"demo": "col1"}], None)
+        k2 = FederatedAnalytics.make_cache_key(["node-1"], [{"demo": ["col1"]}], None)
+        assert k1 == k2
+
 
 # ---------------------------------------------------------------------------
 # TestComputableStats
@@ -1103,3 +1110,355 @@ class TestGlobalStats:
         # element 1: flat image stat map
         assert "count" in all_stats[1]
         assert all_stats[1]["count"] == 90
+
+
+# ---------------------------------------------------------------------------
+# TestFilterOutput
+# ---------------------------------------------------------------------------
+
+
+class TestFilterOutput:
+    """Tests for FAResult._filter_output and FAResult._filtered_copy."""
+
+    # ---- _filter_output: string items ----
+
+    def test_string_item_keeps_key(self):
+        output = {
+            "age": {"mean": 40.0, "count": 100},
+            "weight": {"mean": 70.0, "count": 100},
+        }
+        result = FAResult._filter_output(output, ["age"])
+        assert result == {"age": {"mean": 40.0, "count": 100}}
+
+    def test_multiple_string_items(self):
+        output = {
+            "age": {"mean": 40.0, "count": 100},
+            "weight": {"mean": 70.0, "count": 100},
+            "height": {"mean": 170.0, "count": 100},
+        }
+        result = FAResult._filter_output(output, ["age", "weight"])
+        assert set(result.keys()) == {"age", "weight"}
+        assert "height" not in result
+
+    # ---- _filter_output: dict items ----
+
+    def test_dict_item_with_list_child(self):
+        output = {
+            "demo": {
+                "col1": {"mean": 1.0, "count": 10},
+                "col2": {"mean": 2.0, "count": 10},
+            }
+        }
+        result = FAResult._filter_output(output, [{"demo": ["col1"]}])
+        assert result == {"demo": {"col1": {"mean": 1.0, "count": 10}}}
+
+    def test_dict_item_with_string_child_normalized(self):
+        """Single string child is treated as a one-element list child schema."""
+        output = {
+            "demo": {
+                "col1": {"mean": 1.0, "count": 10},
+                "col2": {"mean": 2.0, "count": 10},
+            }
+        }
+        result_str = FAResult._filter_output(output, [{"demo": "col1"}])
+        result_list = FAResult._filter_output(output, [{"demo": ["col1"]}])
+        assert result_str == result_list
+        assert result_str == {"demo": {"col1": {"mean": 1.0, "count": 10}}}
+
+    # ---- _filter_output: None / error cases ----
+
+    def test_dict_item_non_dict_value_with_child_returns_none(self):
+        """A child schema on a non-dict value (e.g. list) cannot be applied → returns None."""
+        output = {"tag": [1, 2, 3]}
+        assert FAResult._filter_output(output, [{"tag": ["x"]}]) is None
+
+    def test_non_dict_output_returns_none(self):
+        assert FAResult._filter_output([{"mean": 1.0}], ["x"]) is None
+
+    def test_stat_leaf_output_returns_none(self):
+        # A dict whose every key is in AGGREGATORS_MAP is a stat-leaf → filter returns None
+        assert FAResult._filter_output({"mean": 40.0, "count": 100}, ["mean"]) is None
+
+    def test_missing_key_returns_none(self):
+        output = {"age": {"mean": 40.0, "count": 100}}
+        assert FAResult._filter_output(output, ["weight"]) is None
+
+    def test_multi_key_dict_item_returns_none(self):
+        output = {"age": {"mean": 40.0}, "weight": {"mean": 70.0}}
+        # A dict item with more than one key is unsupported
+        assert (
+            FAResult._filter_output(output, [{"age": "mean", "weight": "mean"}]) is None
+        )
+
+    def test_unsupported_item_type_returns_none(self):
+        output = {"age": {"mean": 40.0}}
+        assert FAResult._filter_output(output, [42]) is None
+
+    def test_recursive_child_failure_returns_none(self):
+        output = {"demo": {"col1": {"mean": 1.0, "count": 10}}}
+        # "missing_col" does not exist under demo → recursive call returns None
+        assert FAResult._filter_output(output, [{"demo": ["missing_col"]}]) is None
+
+    def test_result_is_independent_deep_copy(self):
+        output = {"age": {"mean": 40.0, "count": 100}}
+        result = FAResult._filter_output(output, ["age"])
+        result["age"]["mean"] = 999.0
+        assert output["age"]["mean"] == 40.0  # original unaffected
+
+    # ---- _filtered_copy ----
+
+    def test_filtered_copy_returns_fa_result(self):
+        replies = {
+            "n1": _make_reply(
+                {
+                    "age": {"mean": 40.0, "count": 100},
+                    "weight": {"mean": 70.0, "count": 100},
+                }
+            ),
+            "n2": _make_reply(
+                {
+                    "age": {"mean": 45.0, "count": 80},
+                    "weight": {"mean": 75.0, "count": 80},
+                }
+            ),
+        }
+        result = FAResult(replies)
+        filtered = result._filtered_copy(["age"])
+        assert isinstance(filtered, FAResult)
+        assert set(filtered._data["n1"].keys()) == {"age"}
+        assert set(filtered._data["n2"].keys()) == {"age"}
+
+    def test_filtered_copy_does_not_modify_original(self):
+        replies = {
+            "n1": _make_reply(
+                {
+                    "age": {"mean": 40.0, "count": 100},
+                    "weight": {"mean": 70.0, "count": 100},
+                }
+            )
+        }
+        result = FAResult(replies)
+        result._filtered_copy(["age"])
+        assert "weight" in result._data["n1"]
+
+    def test_filtered_copy_returns_none_for_sequence_output(self):
+        replies = {"n1": _make_reply([{"mean": 40.0, "count": 100}])}
+        result = FAResult(replies)
+        assert result._filtered_copy(["age"]) is None
+
+    def test_filtered_copy_returns_none_when_key_missing(self):
+        replies = {"n1": _make_reply({"age": {"mean": 40.0, "count": 100}})}
+        result = FAResult(replies)
+        assert result._filtered_copy(["weight"]) is None
+
+    def test_filtered_copy_one_node_failure_returns_none(self):
+        """If any node's output cannot be filtered, filtered_copy returns None."""
+        replies = {
+            "n1": _make_reply({"age": {"mean": 40.0, "count": 100}}),
+            "n2": _make_reply({"weight": {"mean": 70.0, "count": 100}}),  # no "age"
+        }
+        result = FAResult(replies)
+        assert result._filtered_copy(["age"]) is None
+
+    def test_filtered_copy_empty_result(self):
+        """An empty schema list produces empty dicts per node (no keys requested)."""
+        replies = {"n1": _make_reply({"age": {"mean": 40.0, "count": 100}})}
+        result = FAResult(replies)
+        filtered = result._filtered_copy([])
+        assert isinstance(filtered, FAResult)
+        assert filtered._data["n1"] == {}
+
+
+# ---------------------------------------------------------------------------
+# TestCacheFallback
+# ---------------------------------------------------------------------------
+
+
+class TestCacheFallback:
+    """Tests for the superset-schema cache fallback in fetch_stats."""
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_none_schema_serves_subset_request(self, mock_fa_job_cls, base_fa):
+        """A None-schema cached result is reused (filtered) for a specific schema request."""
+        replies = {
+            "node-1": _make_reply(
+                {
+                    "age": {"mean": 40.0, "count": 100},
+                    "weight": {"mean": 70.0, "count": 100},
+                }
+            ),
+            "node-2": _make_reply(
+                {
+                    "age": {"mean": 45.0, "count": 80},
+                    "weight": {"mean": 75.0, "count": 80},
+                }
+            ),
+        }
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        # First call: None schema — populates cache
+        base_fa.fetch_stats("mean")
+        assert mock_fa_job_cls.call_count == 1
+
+        # Second call: specific schema — should be served from cache without a new request
+        result = base_fa.fetch_stats("mean", dataset_schema=["age"])
+        assert mock_fa_job_cls.call_count == 1  # no additional request
+        assert isinstance(result, FAResult)
+        assert set(result._data["node-1"].keys()) == {"age"}
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_larger_explicit_schema_serves_subset(self, mock_fa_job_cls, base_fa):
+        """A cached result for a superset schema is reused for a subset schema request."""
+        replies = {
+            "node-1": _make_reply(
+                {
+                    "age": {"mean": 40.0, "count": 100},
+                    "weight": {"mean": 70.0, "count": 100},
+                }
+            ),
+            "node-2": _make_reply(
+                {
+                    "age": {"mean": 45.0, "count": 80},
+                    "weight": {"mean": 75.0, "count": 80},
+                }
+            ),
+        }
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        base_fa.fetch_stats("mean", dataset_schema=["age", "weight"])
+        assert mock_fa_job_cls.call_count == 1
+
+        result = base_fa.fetch_stats("mean", dataset_schema=["age"])
+        assert mock_fa_job_cls.call_count == 1  # fallback used, no new request
+        assert set(result._data["node-1"].keys()) == {"age"}
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fallback_result_stored_in_cache(self, mock_fa_job_cls, base_fa):
+        """The filtered result is stored so a third call with the same schema costs nothing."""
+        replies = {
+            "node-1": _make_reply(
+                {
+                    "age": {"mean": 40.0, "count": 100},
+                    "weight": {"mean": 70.0, "count": 100},
+                }
+            ),
+            "node-2": _make_reply(
+                {
+                    "age": {"mean": 45.0, "count": 80},
+                    "weight": {"mean": 75.0, "count": 80},
+                }
+            ),
+        }
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        base_fa.fetch_stats("mean")
+        base_fa.fetch_stats("mean", dataset_schema=["age"])  # fallback
+        base_fa.fetch_stats("mean", dataset_schema=["age"])  # should hit cache directly
+        assert mock_fa_job_cls.call_count == 1
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fallback_skipped_when_superset_lacks_stat(self, mock_fa_job_cls, base_fa):
+        """Fallback is not used when the cached result does not have all requested stats."""
+        replies_count_only = {
+            "node-1": _make_reply({"age": {"count": 100}, "weight": {"count": 100}}),
+            "node-2": _make_reply({"age": {"count": 80}, "weight": {"count": 80}}),
+        }
+        replies_mean = {
+            "node-1": _make_reply({"age": {"mean": 40.0, "count": 100}}),
+            "node-2": _make_reply({"age": {"mean": 45.0, "count": 80}}),
+        }
+        mock_fa_job_cls.return_value.execute.side_effect = [
+            replies_count_only,
+            replies_mean,
+        ]
+
+        base_fa.fetch_stats("count")  # cached result has no "mean"
+        base_fa.fetch_stats("mean", dataset_schema=["age"])  # must issue a new request
+        assert mock_fa_job_cls.call_count == 2
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fallback_skipped_when_schema_is_none(self, mock_fa_job_cls, base_fa):
+        """Fallback scan is only triggered when dataset_schema is not None."""
+        replies = {
+            "node-1": _make_reply({"age": {"mean": 40.0, "count": 100}}),
+            "node-2": _make_reply({"age": {"mean": 45.0, "count": 80}}),
+        }
+        mock_fa_job_cls.return_value.execute.return_value = replies
+
+        # Two None-schema calls must each hit cache the second time — not fallback
+        base_fa.fetch_stats("mean")
+        base_fa.fetch_stats("mean")  # exact cache hit
+        assert mock_fa_job_cls.call_count == 1  # only one network request
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fallback_skipped_when_partial_cache_exists(self, mock_fa_job_cls, base_fa):
+        """Fallback is skipped when a partial (non-None) cached entry already exists.
+
+        Sequence: build a partial cache via a direct network request (no superset in cache
+        yet), then add a superset, then request a missing stat — the partial cache entry
+        (cached is not None) prevents fallback from triggering, so a merge request is sent.
+        """
+        replies_count_age = {
+            "node-1": _make_reply({"age": {"count": 100}}),
+            "node-2": _make_reply({"age": {"count": 80}}),
+        }
+        replies_superset = {
+            "node-1": _make_reply(
+                {
+                    "age": {"mean": 40.0, "count": 100},
+                    "weight": {"mean": 70.0, "count": 100},
+                }
+            ),
+            "node-2": _make_reply(
+                {
+                    "age": {"mean": 45.0, "count": 80},
+                    "weight": {"mean": 75.0, "count": 80},
+                }
+            ),
+        }
+        replies_mean_age = {
+            "node-1": _make_reply({"age": {"mean": 40.0}}),
+            "node-2": _make_reply({"age": {"mean": 45.0}}),
+        }
+        mock_fa_job_cls.return_value.execute.side_effect = [
+            replies_count_age,  # step 1: partial cache for ["age"] (no superset yet → network)
+            replies_superset,  # step 2: superset cached under None schema
+            replies_mean_age,  # step 3: merge "mean" into ["age"] partial (fallback skipped)
+        ]
+
+        # Step 1: populate partial cache for ["age"] schema (no superset in cache → network request)
+        base_fa.fetch_stats("count", dataset_schema=["age"])
+        assert mock_fa_job_cls.call_count == 1
+
+        # Step 2: populate superset under None schema
+        base_fa.fetch_stats("mean")
+        assert mock_fa_job_cls.call_count == 2
+
+        # Step 3: request "mean" for ["age"] — partial cache exists (not None), so fallback is
+        # skipped and a merge network request is made instead
+        result = base_fa.fetch_stats("mean", dataset_schema=["age"])
+        assert mock_fa_job_cls.call_count == 3
+        assert result.has_stat("mean")
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fallback_skipped_for_sequence_output(self, mock_fa_job_cls, base_fa):
+        """filtered_copy returns None for sequence outputs — fallback is not used."""
+        replies_seq = {
+            "node-1": _make_reply(
+                [{"mean": 40.0, "count": 100}, {"mean": 128.0, "count": 50}]
+            ),
+            "node-2": _make_reply(
+                [{"mean": 45.0, "count": 80}, {"mean": 130.0, "count": 40}]
+            ),
+        }
+        replies_schema = {
+            "node-1": _make_reply({"age": {"mean": 40.0, "count": 100}}),
+            "node-2": _make_reply({"age": {"mean": 45.0, "count": 80}}),
+        }
+        mock_fa_job_cls.return_value.execute.side_effect = [replies_seq, replies_schema]
+
+        base_fa.fetch_stats("mean")  # sequence output cached under None schema
+        base_fa.fetch_stats(
+            "mean", dataset_schema=["age"]
+        )  # filtered_copy fails → new request
+        assert mock_fa_job_cls.call_count == 2
