@@ -32,16 +32,36 @@ class NipoppyController(Controller):
         self._controller_kwargs = {
             "root": str(self.root),
         }
+        self._data: Optional[pd.DataFrame] = None  # lazy loaded
 
+    def _read_and_filter_data(self,
+                          phenotypes: Optional[List[str]] = None,
+                          derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
+        """Reads the data and applies filtering based on phenotypes and derivatives
+
+        Args:
+            phenotypes: List of phenotypes to filter the data
+            derivatives: List of derivatives to filter the data
+
+        Returns:
+            Filtered DataFrame
+        """
+        self._data = self._reader._read(phenotypes=phenotypes, derivatives=derivatives)
+        return self._data
+    
     def get_sample(self, 
                    index: int, 
                    phenotypes: Optional[List[str]] = None,
                    derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
         """Retrieve a data sample without applying transforms"""
-        return self._reader.get(index, phenotypes=phenotypes, derivatives=derivatives)
+        if self._data is None:
+            self._read_and_filter_data(phenotypes=phenotypes, derivatives=derivatives)
+        return self._data.iloc[index]
 
     def __len__(self) -> int:
-        return self._reader.len()
+        return self.shape()[0]
 
     def shape(self) -> Dict:
-        return self._reader.shape()
+        if self._data is None:
+            return {"nipoppy": (-1, -1)}
+        return {"nipoppy": self._data.shape}

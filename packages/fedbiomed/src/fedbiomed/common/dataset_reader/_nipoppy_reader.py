@@ -39,55 +39,8 @@ class NipoppyReader:
         """Reads all dataset and returns the dataframe.
 
         Returns:
-            Polars DataFrame: The content of the CSV file.
+            Pandas DataFrame: The content of the CSV file.
         Raises:
             FedbiomedError: if the CSV file cannot be read due to inconsistent lines
         """
         return self._retriever.get_tabular_data(phenotypes=phenotypes, derivatives=derivatives)
-
-    def shape(self):
-        """Returns the shape of the csv dataset.
-
-        Computed before applying transforms or conversion to other format.
-
-        Returns:
-            Dictionary with the shape and other necessary info for the dataset
-        """
-        if self._data is None:
-            return {"nipoppy": (-1, -1)}
-        return {"nipoppy": self._data.shape}
-
-    def get(
-        self,
-        indexes: int | Iterable[int],
-        phenotypes: Optional[Iterable | int | str] = None,
-        derivatives: Optional[Iterable | int | str] = None,
-    ) -> pd.DataFrame:
-        """Gets the specified rows and columns in the dataset.
-
-        Args:
-            indexes: Row indexes to retrieve.
-            columns: (Optional) list of columns to retrieve.
-        Returns:
-            Polars DataFrame: The specified dataframe.
-        """
-        # Convert indexes to an iterable if it is not already
-        if not isinstance(indexes, Iterable) or isinstance(indexes, int):
-            indexes = [indexes]
-
-        if self._data is None:
-            self._data = self._read(phenotypes=phenotypes, derivatives=derivatives)
-            
-        return self._data.iloc[indexes]
-
-    def to_pandas(self) -> pd.DataFrame:
-        """Returns the data as a Pandas Dataframe."""
-        return self._data
-
-    def to_numpy(self):
-        """Returns the data as a Numpy ndarray."""
-        return self._data.values
-
-    def len(self) -> int:
-        """Get number of samples"""
-        return self.shape()["nipoppy"][0]
