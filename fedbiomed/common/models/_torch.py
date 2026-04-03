@@ -193,8 +193,9 @@ class TorchModel(Model):
             missing = params.intersection(incompatible.missing_keys)
             if missing:
                 logger.warning(
-                    "'TorchModel.set_weights' received inputs that did not cover all"
-                    "trainable model parameters; missing weights: %s",
+                    "'TorchModel.set_weights' received inputs that did not cover all "
+                    "trainable model parameters; missing weights: %s. "
+                    "This behaviour is expected if some parameters are tagged as private.",
                     missing,
                 )
         # Warn about invalid (hence, unused) inputs.
