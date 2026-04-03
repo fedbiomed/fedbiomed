@@ -206,6 +206,145 @@ class Optimizer:
                 f"{ErrorNumbers.FB621.value}: `Optimizer.set_aux`: {exc}"
             ) from exc
 
+    def filter_aux(
+        self, aux_vars: Dict[str, AuxVar], private_params: list[str]
+    ) -> Dict[str, AuxVar]:
+        """Remove selected parameter entries from Declearn auxiliary variables.
+
+        Iterates over optimizer auxiliary variables collected from Declearn
+        modules and removes the specified parameter names from any contained
+        Vector objects (e.g. TorchVector, NumpyVector). The filtering is applied
+        to every module present in the auxiliary variable dictionary.
+
+        Args:
+            aux_vars: Dictionary of auxiliary variables,
+                mapping module names to their corresponding ``AuxVar`` objects.
+            private_params: List of parameter names to remove from auxiliary
+                vectors (e.g. ``"conv1.weight"``).
+
+        Returns:
+            The modified auxiliary variables dictionary with the selected
+            parameters removed from any contained vectors.
+
+        Raises:
+            FedbiomedOptimizerError: If ``aux_vars`` is not a dictionary, if an
+                unexpected vector structure is encountered, or if an error occurs
+                while processing auxiliary variables for a module.
+        """
+
+        if not isinstance(aux_vars, dict):
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB621.value}: Auxiliary variables must be a dict"
+            )
+
+        for module_name, auxvar in aux_vars.items():
+            try:
+                # Iterate through AuxVar attributes
+                for attr_name in vars(auxvar):
+                    attr_val = getattr(auxvar, attr_name)
+
+                    # Identify Declearn vectors by presence of `.coefs`
+                    if hasattr(attr_val, "coefs"):
+                        vector = attr_val
+
+                        if not isinstance(vector.coefs, dict):
+                            raise FedbiomedOptimizerError(
+                                f"{ErrorNumbers.FB621.value}: Unexpected vector structure in module '{module_name}', "
+                                f"attribute '{attr_name}'"
+                            )
+
+                        for layer in private_params:
+                            vector.coefs.pop(layer, None)
+
+            except Exception as exc:
+                raise FedbiomedOptimizerError(
+                    f"{ErrorNumbers.FB621.value}: Failed while processing auxiliary variables for module "
+                    f"'{module_name}': {exc}"
+                ) from exc
+
+        return aux_vars
+
+    def restore_aux(
+        self,
+        aux_vars: Dict[str, AuxVar],
+        reference_params: Dict[str, Any],
+        private_params: list[str],
+    ) -> Dict[str, AuxVar]:
+        """Restore missing auxiliary variables for private model parameters.
+
+        Ensures that auxiliary variables received from the researcher contain
+        entries for parameters that are kept private on the node side. For each
+        missing parameter name, a zero-valued tensor matching the local model
+        parameter shape is inserted into the corresponding Declearn Vector.
+
+        Args:
+            aux_vars: Dictionary of auxiliary variables received from the
+                researcher.
+            reference_vector: local model weights providing reference tensors
+                for model parameters (used to infer tensor shapes and dtypes).
+            private_params: List of parameter names that are private to the node
+                and therefore absent from researcher auxiliary variables
+                (e.g. ``"conv1.weight"``).
+
+        Returns:
+            The modified auxiliary variables dictionary where missing private
+            parameters have been restored with zero-valued tensors.
+
+        Raises:
+            FedbiomedOptimizerError: If ``aux_vars`` is not a dictionary, if
+                reference tensors cannot be mapped to Declearn Vector, if
+                reference tensors cannot be found for private parameters, or
+                if an unexpected auxiliary-variable structure is encountered.
+        """
+
+        if not isinstance(aux_vars, dict):
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB621.value}: Auxiliary variables must be a dict"
+            )
+
+        # Try to convert reference parameters to Declearn Vector
+        try:
+            reference_vector = Vector.build(reference_params)
+        except Exception as exc:
+            raise FedbiomedOptimizerError(
+                f"{ErrorNumbers.FB621.value}: Failed while instantiating Declearn "
+                f"Vector: {exc}"
+            ) from exc
+
+        for module_name, auxvar in aux_vars.items():
+            try:
+                for attr_name in vars(auxvar):
+                    attr_val = getattr(auxvar, attr_name)
+
+                    if hasattr(attr_val, "coefs"):
+                        vector = attr_val
+
+                        if not isinstance(vector.coefs, dict):
+                            raise FedbiomedOptimizerError(
+                                f"{ErrorNumbers.FB621.value}: Unexpected vector structure "
+                                f"in module '{module_name}', attribute '{attr_name}'"
+                            )
+
+                        for layer in private_params:
+                            # If layer missing, recreate zero tensor
+                            if layer not in vector.coefs:
+                                if layer not in reference_vector.coefs:
+                                    raise FedbiomedOptimizerError(
+                                        f"{ErrorNumbers.FB621.value}: Cannot infer shape "
+                                        f"for private parameter '{layer}'"
+                                    )
+
+                                ref_tensor = reference_vector.coefs[layer]
+                                vector.coefs[layer] = ref_tensor.clone().zero_()
+
+            except Exception as exc:
+                raise FedbiomedOptimizerError(
+                    f"{ErrorNumbers.FB621.value}: Failed while restoring auxiliary "
+                    f"variables for module '{module_name}': {exc}"
+                ) from exc
+
+        return aux_vars
+
     def get_aux_names(self) -> List[str]:
         """Gathers list of names of modules requiring auxiliary variables"""
         aux_names = []

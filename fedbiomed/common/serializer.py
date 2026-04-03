@@ -164,6 +164,12 @@ class Serializer:
             return VectorSpec(**obj["value"])
         if objtype == "AuxVar":
             return json_unpack(obj["value"])
+        if objtype.startswith("AuxVar"):
+            try:
+                return json_unpack(obj)
+            except Exception:
+                logger.warning("Failed to unpack AuxVar subtype.")
+                return obj
         if objtype == "MetricTypes":
             return MetricTypes.get_metric_type_by_name(obj["value"])
         if objtype == "EncryptedAuxVar":

@@ -762,6 +762,7 @@ class Round:
 
     def process_optim_aux_var(self) -> Optional[str]:
         """Process researcher-emitted Optimizer auxiliary variables, if any.
+        Reset auxiliary variables to zero vectors for private parameters.
 
         Returns:
             Error message, empty if the operation was successful.
@@ -782,6 +783,16 @@ class Round:
             )
         # Pass auxiliary variables to the Optimizer.
         try:
+            full_model_weights = self.training_plan.get_model_params(
+                only_trainable=False, exclude_buffers=False, private_params=None
+            )
+            private = self.training_plan.filter_model_params_by_tags(
+                full_model_weights,
+                required_tags={"private"},
+            )
+            self.aux_vars = optimizer.optimizer.restore_aux(
+                self.aux_vars, full_model_weights, private
+            )
             optimizer.optimizer.set_aux(self.aux_vars)
         except FedbiomedOptimizerError as exc:
             return (
@@ -959,7 +970,8 @@ class Round:
     def collect_optim_aux_var(
         self,
     ) -> Dict[str, AuxVar]:
-        """Collect auxiliary variables from the wrapped Optimizer, if any.
+        """Collect auxiliary variables from the wrapped Optimizer, if any,
+        and remove auxiliary variables related to private parameters, if any.
 
         If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
         empty dict. If it does not hold any BaseOptimizer however, raise a
@@ -970,7 +982,18 @@ class Round:
         """
         optimizer = self._get_base_optimizer()
         if isinstance(optimizer.optimizer, Optimizer):
-            return optimizer.optimizer.get_aux()
+            full_aux_var = optimizer.optimizer.get_aux()
+            # Remove auxiliary variables related to private parameters
+            full_model_weights = self.training_plan.get_model_params(
+                only_trainable=False, exclude_buffers=False, private_params=None
+            )
+            private = self.training_plan.filter_model_params_by_tags(
+                full_model_weights,
+                required_tags={"private"},
+            )
+            aux_var = optimizer.optimizer.filter_aux(full_aux_var, private)
+
+            return aux_var
         return {}
 
     def _get_base_optimizer(self) -> BaseOptimizer:
