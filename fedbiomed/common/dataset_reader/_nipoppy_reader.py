@@ -31,6 +31,7 @@ class NipoppyReader:
         """
         self._path = path
         self._data: Optional[pd.DataFrame] = None  # lazy loaded
+        self._retriever = NipoppyDataRetriever(self._path)
 
     def _read(self,
               phenotypes: Optional[List[str]] = None,
@@ -42,7 +43,7 @@ class NipoppyReader:
         Raises:
             FedbiomedError: if the CSV file cannot be read due to inconsistent lines
         """
-        return NipoppyDataRetriever(self._path).get_tabular_data(phenotypes=phenotypes, derivatives=derivatives)
+        return self._retriever.get_tabular_data(phenotypes=phenotypes, derivatives=derivatives)
 
     def shape(self):
         """Returns the shape of the csv dataset.
