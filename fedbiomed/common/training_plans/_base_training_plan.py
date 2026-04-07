@@ -974,3 +974,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             Node id
         """
         return self._node_id
+
+    @property
+    def local_params(self) -> Optional[List[str]]:
+        """Retrieves local parameters
+
+        Returns:
+            Parameters tagged as local in the training plan
+        """
+        return self._local_params

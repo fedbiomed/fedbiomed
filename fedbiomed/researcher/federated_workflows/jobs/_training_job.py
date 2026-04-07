@@ -153,7 +153,7 @@ class TrainingJob(Job):
                 exclude_buffers=not self._training_args.dict()[
                     "share_persistent_buffers"
                 ],
-                local_params=self._training_plan._local_params,
+                local_params=self._training_plan.local_params,
             ),
             "secagg_arguments": self._secagg_arguments,
             "aggregator_args": {},

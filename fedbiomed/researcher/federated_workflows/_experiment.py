@@ -439,7 +439,7 @@ class Experiment(TrainingPlanWorkflow):
                 f"Optimizer instance or None, not {type(agg_optimizer)}."
             )
         self._agg_optimizer = agg_optimizer
-        if isinstance(agg_optimizer, Optimizer) and self.training_plan()._local_params:
+        if isinstance(agg_optimizer, Optimizer) and self.training_plan().local_params:
             logger.warning(
                 "Using Declearn optimizers for aggregation and parameters tagged "
                 "as local may lead to unexpected behaviours."
@@ -858,7 +858,7 @@ class Experiment(TrainingPlanWorkflow):
         )
 
         # Update the training plan with the aggregated parameters
-        local_params = self.training_plan()._local_params
+        local_params = self.training_plan().local_params
         self.training_plan().set_model_params(
             aggregated_params, local_params=local_params
         )
@@ -982,7 +982,7 @@ class Experiment(TrainingPlanWorkflow):
             n_aux_var = encrypted_auxvar.get_num_expected_params()
         # Perform secure aggregation of all encrypted parameters.
         exclude_buffers = not self.training_args()["share_persistent_buffers"]
-        local_params = self.training_plan()._local_params
+        local_params = self.training_plan().local_params
         num_expected_params = len(
             self.training_plan()
             .get_model_wrapper_class()
@@ -1058,7 +1058,7 @@ class Experiment(TrainingPlanWorkflow):
         # aggregated_params = agg({w^t - sum_k(eta_{k,i,t} * grad_{k,i,t})}_i)
         # hence aggregated_params = w^t - agg(updates_i)
         # hence agg_gradients = agg_i(updates_i)
-        local_params = training_plan._local_params
+        local_params = training_plan.local_params
         names = set(
             training_plan.get_model_params(
                 only_trainable=True, local_params=local_params
