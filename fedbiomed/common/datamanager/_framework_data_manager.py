@@ -7,7 +7,7 @@ Generic data manager
 
 import math
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloader import DataLoader
@@ -263,7 +263,7 @@ class FrameworkDataManager(ABC):
             A Dict containing data loader state.
         """
 
-        data_manager_state = {}
+        data_manager_state: Dict[str, Any] = {}
         data_manager_state["training_index"] = self._training_index
         data_manager_state["testing_index"] = self._testing_index
         data_manager_state["test_ratio"] = self._test_ratio
