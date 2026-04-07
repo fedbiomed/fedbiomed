@@ -4,7 +4,7 @@
 import os
 import warnings
 from pathlib import Path
-from typing import Union
+from typing import List, Optional, Union
 
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
@@ -46,12 +46,12 @@ def _confirm_predefined_dataset_tags(dataset_name: str, default_tags: list) -> l
 def add_database(
     dataset_manager: DatasetManager,
     interactive: bool = True,
-    path: str = None,
-    name: str = None,
-    tags: str = None,
-    description: str = None,
-    data_type: str = None,
-    dataset_parameters: dict = None,
+    path: Optional[str] = None,
+    name: Optional[str] = None,
+    tags: Optional[Union[str, List[str]]] = None,
+    description: Optional[str] = None,
+    data_type: Optional[str] = None,
+    dataset_parameters: Optional[dict] = None,
 ) -> None:
     """Adds a dataset to the node database.
 
@@ -124,10 +124,11 @@ def add_database(
                 )
 
             elif data_type == "custom":
-                path = Path(input("Path to the dataset: ")).resolve()
+                abs_path = Path(input("Path to the dataset: ")).resolve()
                 # Existence check
-                if not path.exists():
-                    raise FedbiomedDatasetError(f"Path not found: {path}")
+                if not abs_path.exists():
+                    raise FedbiomedDatasetError(f"Path not found: {abs_path}")
+                path = str(abs_path)
 
             else:
                 path = validated_path_input(data_type)
@@ -168,10 +169,12 @@ def add_database(
             data_type = "default"
 
         # Validate path
-        if not os.path.exists(path):
+        if path is not None and not os.path.exists(path):
             logger.critical("provided path does not exists: " + path)
 
     # Ensure path is absolute
+    if path is None:
+        raise FedbiomedDatasetManagerError("Dataset path is not set")
     path = os.path.abspath(path)
     logger.info(f"Dataset absolute path: {path}")
 

@@ -354,6 +354,12 @@ def view_training_plan(tp_security_manager: TrainingPlanSecurityManager) -> None
             training_plan_name
         )
 
+        if training_plan is None:
+            logger.critical(
+                f"Training plan '{training_plan_name}' not found. Aborting."
+            )
+            return
+
         try:
             training_plan_source = highlight(
                 training_plan["training_plan"], PythonLexer(), Terminal256Formatter()

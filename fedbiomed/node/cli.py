@@ -658,7 +658,7 @@ class GUIControl(CLIArgumentParser):
             certificate = []
 
         fedbiomed_gui = importlib.import_module("fedbiomed_gui")
-        server_app = Path(fedbiomed_gui.__file__).parent
+        server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
         print("path to server", server_app)
 
         host_port = ["--host", args.host, "--port", args.port]
