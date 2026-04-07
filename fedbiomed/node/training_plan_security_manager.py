@@ -8,7 +8,7 @@ import os
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 from python_minifier import minify
 from tabulate import tabulate
@@ -32,7 +32,7 @@ from fedbiomed.common.message import (
 from fedbiomed.common.utils import SHARE_DIR
 
 # Collect provided hashing function into a dict
-HASH_FUNCTIONS = {
+HASH_FUNCTIONS: Dict[str, Callable[[], Any]] = {
     HashingAlgorithms.SHA256.value: hashlib.sha256,
     HashingAlgorithms.SHA384.value: hashlib.sha384,
     HashingAlgorithms.SHA512.value: hashlib.sha512,
@@ -83,7 +83,7 @@ class TrainingPlanSecurityManager:
         self._hashing = hashing
         self._tags_to_remove = ["hash", "date_modified", "date_created"]
 
-    def _create_hash(self, source: str, from_string: str = False):
+    def _create_hash(self, source: str, from_string: bool = False):
         """Creates hash with given training plan
 
         Args:
@@ -196,7 +196,7 @@ class TrainingPlanSecurityManager:
                     "same name: '{name}' Please use different name"
                 )
 
-        if hash is not None or algorithm is not None:
+        if hash_ is not None or algorithm is not None:
             if algorithm is None:
                 training_plans_hash_get = self._db.get(self._database.hash == hash_)
             elif hash_ is None:
@@ -221,8 +221,8 @@ class TrainingPlanSecurityManager:
         description: str,
         path: str,
         training_plan_type: str = TrainingPlanStatus.REGISTERED.value,
-        training_plan_id: str = None,
-        researcher_id: str = None,
+        training_plan_id: Optional[str] = None,
+        researcher_id: Optional[str] = None,
     ) -> str:
         """Approves/registers training plan file through CLI.
 
@@ -359,7 +359,7 @@ class TrainingPlanSecurityManager:
         self,
         training_plan_source: str,
         state: Union[TrainingPlanApprovalStatus, TrainingPlanStatus, None],
-    ) -> Tuple[bool, Dict[str, Any]]:
+    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """Checks whether training plan exists in database and has the specified status.
 
         Sends a query to database to search for hash of requested training plan.
@@ -513,7 +513,7 @@ class TrainingPlanSecurityManager:
             request: approval request message, received from Researcher
         """
 
-        reply = {
+        reply: Dict[str, Any] = {
             "researcher_id": request.researcher_id,
             "request_id": request.request_id,
             "node_id": self._node_id,
@@ -626,7 +626,7 @@ class TrainingPlanSecurityManager:
         """
 
         # Main header for the training plan status request
-        reply = {
+        reply: Dict[str, Any] = {
             "researcher_id": request.researcher_id,
             "request_id": request.request_id,
             "node_id": self._node_id,
@@ -770,13 +770,13 @@ class TrainingPlanSecurityManager:
 
             # Check if hashing algorithm has changed
             try:
-                hash, algorithm, _ = self._create_hash(
+                hash_, algorithm, _ = self._create_hash(
                     os.path.join(self._default_tps, training_plan)
                 )
 
                 if training_plan_info["algorithm"] != self._hashing:
                     # Verify no such training plan already exists in DB
-                    self._check_training_plan_not_existing(None, hash, algorithm)
+                    self._check_training_plan_not_existing(None, hash_, algorithm)
                     logger.info(
                         f"Recreating hashing for : {training_plan_info['name']} \t"
                         '{training_plan_info["training_plan_id"]}'
@@ -784,7 +784,7 @@ class TrainingPlanSecurityManager:
 
                     self._db.update(
                         {
-                            "hash": hash,
+                            "hash": hash_,
                             "algorithm": algorithm,
                             "date_last_action": datetime.now().strftime(
                                 "%d-%m-%Y %H:%M:%S.%f"
@@ -799,9 +799,9 @@ class TrainingPlanSecurityManager:
                 ):
                     # only check when hash changes
                     # else we have error because this training plan exists in database with same hash
-                    if hash != training_plan_info["hash"]:
+                    if hash_ != training_plan_info["hash"]:
                         # Verify no such training plan already exists in DB
-                        self._check_training_plan_not_existing(None, hash, algorithm)
+                        self._check_training_plan_not_existing(None, hash_, algorithm)
 
                     logger.info(
                         "Modified default training plan file has been detected. "
@@ -828,7 +828,7 @@ class TrainingPlanSecurityManager:
                     f"{str(err)}"
                 ) from err
 
-    def update_training_plan_hash(self, training_plan_id: str, path: str) -> True:
+    def update_training_plan_hash(self, training_plan_id: str, path: str) -> bool:
         """Updates an existing training plan entry in training plan database.
 
         Training plan entry cannot be a default training plan.
@@ -858,10 +858,15 @@ class TrainingPlanSecurityManager:
                 ErrorNumbers.FB606.value + ": get request on database failed."
                 f" Details: {str(err)}"
             ) from err
+        if training_plan is None:
+            raise FedbiomedTrainingPlanSecurityManagerError(
+                ErrorNumbers.FB606.value
+                + f": training plan with id {training_plan_id} not found in database"
+            )
         if training_plan["training_plan_type"] != TrainingPlanStatus.DEFAULT.value:
-            hash, algorithm, source = self._create_hash(path)
+            hash_, algorithm, source = self._create_hash(path)
             # Verify no such training plan already exists in DB
-            self._check_training_plan_not_existing(None, hash, algorithm)
+            self._check_training_plan_not_existing(None, hash_, algorithm)
 
             # Get modification date
             mtime = datetime.fromtimestamp(os.path.getmtime(path))
@@ -871,7 +876,7 @@ class TrainingPlanSecurityManager:
             try:
                 self._db.update(
                     {
-                        "hash": hash,
+                        "hash": hash_,
                         "algorithm": algorithm,
                         "date_modified": mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
                         "date_created": ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
@@ -902,7 +907,7 @@ class TrainingPlanSecurityManager:
         training_plan_id: str,
         training_plan_status: TrainingPlanApprovalStatus,
         notes: Union[str, None] = None,
-    ) -> True:
+    ) -> bool:
         """Updates training plan entry ([`training_plan_status`] field) for a given [`training_plan_id`] in the database
 
         Args:
@@ -952,7 +957,7 @@ class TrainingPlanSecurityManager:
 
     def approve_training_plan(
         self, training_plan_id: str, extra_notes: Union[str, None] = None
-    ) -> True:
+    ) -> bool:
         """Approves a training plan stored into the database given its [`training_plan_id`]
 
         Args:
@@ -969,7 +974,7 @@ class TrainingPlanSecurityManager:
 
     def reject_training_plan(
         self, training_plan_id: str, extra_notes: Union[str, None] = None
-    ) -> True:
+    ) -> bool:
         """Approves a training plan stored into the database given its [`training_plan_id`]
 
         Args:
@@ -984,7 +989,7 @@ class TrainingPlanSecurityManager:
         )
         return res
 
-    def delete_training_plan(self, training_plan_id: str) -> True:
+    def delete_training_plan(self, training_plan_id: str) -> bool:
         """Removes training plan file from database.
 
         Only removes `registered` and `requested` type of training plans from the database.
@@ -1005,7 +1010,7 @@ class TrainingPlanSecurityManager:
         """
 
         try:
-            training_plan, doc = self._db.get(
+            training_plan, doc = self._db.get(  # type: ignore[call-arg, misc]
                 self._database.training_plan_id == training_plan_id, add_docs=True
             )
         except Exception as err:
@@ -1040,7 +1045,9 @@ class TrainingPlanSecurityManager:
     def list_training_plans(
         self,
         sort_by: Union[str, None] = None,
-        select_status: Union[None, List[TrainingPlanApprovalStatus]] = None,
+        select_status: Union[
+            None, TrainingPlanApprovalStatus, List[TrainingPlanApprovalStatus]
+        ] = None,
         verbose: bool = True,
         search: Union[dict, None] = None,
     ) -> List[Dict[str, Any]]:
@@ -1075,12 +1082,12 @@ class TrainingPlanSecurityManager:
                 # convert everything into a list
                 select_status = [select_status]
 
-            select_status = [
+            _status_values = [
                 x.value
                 for x in select_status
                 if isinstance(x, TrainingPlanApprovalStatus)
             ]
-            query = self._database.training_plan_status.one_of(select_status)
+            query = self._database.training_plan_status.one_of(_status_values)
             # extract value from TrainingPlanApprovalStatus
 
         if search:
@@ -1117,7 +1124,8 @@ class TrainingPlanSecurityManager:
 
             print(tabulate(training_plans_verbose, headers="keys"))
 
-        return training_plans
+        # No-op at runtime: widens List[Document] to List[Dict] for mypy (lists are invariant).
+        return cast(List[Dict[str, Any]], training_plans)
 
     def _remove_sensible_keys_from_request(self, doc: Dict[str, Any]):
         # Drop some keys for security reasons
