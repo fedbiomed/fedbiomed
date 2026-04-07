@@ -52,16 +52,18 @@ class NipoppyDataset(Dataset):
         drop_na: bool = True,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
+        reader_transform: Optional[Callable] = None,
     ) -> None:
         """
         """
-        self.phenotypes = phenotypes + target
+        self.phenotypes = phenotypes
         self.derivatives = derivatives
         self.transform = transform
         self.target_transform = target_transform 
         self.target = target
         self.session_filters = session_filters
         self._drop_na = drop_na
+        self._reader_transform = reader_transform
     
     def complete_initialization(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
@@ -73,13 +75,15 @@ class NipoppyDataset(Dataset):
             to_format: format associated to expected return format
         """
         controller_kwargs["session_filters"] = self.session_filters
-        controller_kwargs["drop_na"] = self._drop_na 
+        controller_kwargs["drop_na"] = self._drop_na
+        controller_kwargs["reader_transform"] = self._reader_transform
         self._init_controller(controller_kwargs=controller_kwargs)
         self._to_format = to_format
 
     def __getitem__(self, idx) -> Tuple[pd.DataFrame, pd.DataFrame | None]:
+        target_ = self.target if self.target is not None else []
         sample: pd.DataFrame = self._controller.get_sample(idx,
-                                                           phenotypes=self.phenotypes,
+                                                           phenotypes=self.phenotypes + target_,
                                                            derivatives=self.derivatives)  # type: ignore
         Y = sample[self.target] if self.target is not None else None
         X = sample.drop(self.target) if self.target is not None else sample
@@ -97,13 +101,52 @@ class NipoppyDataset(Dataset):
 
 if __name__ == "__main__":
     from fedbiomed.common.dataset_types import DataReturnFormat
-    dataset = NipoppyDataset([NipoppyDataset.TERMURL_SEX],
-                             None,
-                             [NipoppyDataset.TERMURL_AGE],
-                             '01',  # session filter
-                             None)
+    from skrub import TableVectorizer
+    from sklearn.preprocessing import OneHotEncoder
+    def transform_skrub(df: pd.DataFrame) -> pd.DataFrame:
+        specific_transformers = []
+        if NipoppyDataset.TERMURL_SEX in df.columns:
+            specific_transformers.append(
+                (
+                    OneHotEncoder(
+                        drop=[NipoppyDataset.TERMURL_MALE], sparse_output=False
+                    ),
+                    [NipoppyDataset.TERMURL_SEX],
+                )
+            )
+        if NipoppyDataset.TERMURL_COG_DECLINE in df.columns:
+            specific_transformers.append(
+                (
+                    OneHotEncoder(
+                        drop=[NipoppyDataset.TERMURL_UNAVAILABLE],
+                        sparse_output=False,
+                        feature_name_combiner=lambda x, _: x,
+                    ),
+                    [NipoppyDataset.TERMURL_COG_DECLINE],
+                )
+            )
+
+        table_vectorizer = TableVectorizer(specific_transformers=specific_transformers)
+        df = table_vectorizer.fit_transform(df)
+        return df
+    dataset = NipoppyDataset(phenotypes=[
+        NipoppyDataset.TERMURL_AGE,
+        NipoppyDataset.TERMURL_SEX,
+        NipoppyDataset.TERMURL_DIAGNOSIS,
+        NipoppyDataset.TERMURL_COG_DECLINE_AVAILABILITY,
+    ],
+                            derivatives=[("freesurfer",
+                                          "7.3.2",
+                                          "idp/fs_stats-0.2.1/fs7.3.2-aparc.DKTatlas-thickness.tsv",)],
+                            target=[NipoppyDataset.TERMURL_COG_DECLINE],
+                            session_filters='01',  # session filter
+                            drop_na=True,
+                            transform=None,
+                            target_transform=None,
+                            reader_transform=transform_skrub)
     dataset.complete_initialization(
         controller_kwargs={"root": 
             "/Users/fcremone/dev/projects/nipoppy/nipoppy_example/my_dataset"}, 
         to_format=DataReturnFormat.SKLEARN)
     print(dataset[0])
+    print(dataset[1])
