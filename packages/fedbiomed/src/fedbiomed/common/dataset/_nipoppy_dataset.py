@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 import pandas as pd
 import torch
 
@@ -49,15 +49,19 @@ class NipoppyDataset(Dataset):
         derivatives,
         target,
         session_filters,
-        transforms,
+        drop_na: bool = True,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
     ) -> None:
         """
         """
         self.phenotypes = phenotypes + target
         self.derivatives = derivatives
-        self.transforms = transforms
+        self.transform = transform
+        self.target_transform = target_transform 
         self.target = target
         self.session_filters = session_filters
+        self._drop_na = drop_na
     
     def complete_initialization(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
@@ -69,6 +73,7 @@ class NipoppyDataset(Dataset):
             to_format: format associated to expected return format
         """
         controller_kwargs["session_filters"] = self.session_filters
+        controller_kwargs["drop_na"] = self._drop_na 
         self._init_controller(controller_kwargs=controller_kwargs)
         self._to_format = to_format
 
@@ -78,7 +83,15 @@ class NipoppyDataset(Dataset):
                                                            derivatives=self.derivatives)  # type: ignore
         Y = sample[self.target] if self.target is not None else None
         X = sample.drop(self.target) if self.target is not None else sample
-        X,Y = map(self._get_format_conversion_callable(), (X,Y))
+        X, Y = map(self._get_format_conversion_callable(), (X, Y))
+        X, Y = self._apply_transform(X, Y)
+        return X, Y
+    
+    def _apply_transform(self, X, Y):
+        if self.transform is not None:
+            X = self.transform(X)
+        if self.target_transform is not None and Y is not None:
+            Y = self.target_transform(Y)
         return X, Y
 
 
