@@ -76,7 +76,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     _type = TrainingPlans.NoneTrainingPlan
 
     # Allowed tags for parameter behavior customization
-    _allowed_tags: Set[str] = {"private", "persistent"}
+    _allowed_tags: Set[str] = {"local", "persistent"}
 
     def __init__(self) -> None:
         """Construct the base training plan."""
@@ -93,7 +93,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
         self._node_id: Optional[str] = None
-        self._private_params: Optional[List[str]] = None
+        self._local_params: Optional[List[str]] = None
 
         self._error_msg_import_model: str = (
             f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n"
@@ -337,7 +337,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self,
         only_trainable: bool = False,
         exclude_buffers: bool = True,
-        private_params: Optional[List[str]] = None,
+        local_params: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Return a copy of the model's trainable weights.
 
@@ -350,7 +350,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
-            private_params: List of parameter names to exclude from the output.
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
@@ -358,10 +358,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         return self._model.get_weights(
             only_trainable=only_trainable,
             exclude_buffers=exclude_buffers,
-            private_params=private_params,
+            local_params=local_params,
         )
 
-    def set_model_params(self, params: Dict[str, Any]) -> None:
+    def set_model_params(
+        self, params: Dict[str, Any], local_params: Optional[List[str]] = None
+    ) -> None:
         """Assign new values to the model's trainable parameters.
 
         The type of data structure used to store weights depends on the actual
@@ -370,8 +372,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             params: model weights, as a dictionary mapping parameters' names
                 to their value.
+            local_params: List of parameter names tagged as local.
         """
-        self._model.set_weights(params)
+        self._model.set_weights(params, local_params=local_params)
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")
@@ -708,9 +711,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         have multiple tags.
 
         Valid Tags:
-        private:
+        local:
             The parameter is never shared nor aggregated.
-        persistent
+        persistent:
             The parameter is saved on the client and is persisted locally
             across federated rounds.
 
@@ -856,10 +859,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         )
         if flatten:
             return self._model.flatten(
-                exclude_buffers=exclude_buffers, private_params=self._private_params
+                exclude_buffers=exclude_buffers, local_params=self._local_params
             )
         return self.get_model_params(
-            exclude_buffers=exclude_buffers, private_params=self._private_params
+            exclude_buffers=exclude_buffers, local_params=self._local_params
         )
 
     def export_model(self, filename: str) -> None:
@@ -915,7 +918,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         if self._model is None:
             raise FedbiomedTrainingPlanError(self._error_msg_import_model % "import")
         try:
-            self._model.reload(filename)
+            self._model.reload(filename, self._local_params)
         except FedbiomedModelError as exc:
             msg = (
                 f"{ErrorNumbers.FB304.value}: failed to import a model from "

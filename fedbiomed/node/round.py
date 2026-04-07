@@ -342,7 +342,7 @@ class Round:
 
         # load all initial models weights
         initial_model_weights = self.training_plan.get_model_params(
-            only_trainable=False, exclude_buffers=False, private_params=None
+            only_trainable=False, exclude_buffers=False, local_params=None
         )
 
         # load node state
@@ -367,7 +367,7 @@ class Round:
 
         # Load full model parameters
         try:
-            self.training_plan.set_model_params(full_model_weights)
+            self.training_plan.set_model_params(full_model_weights, local_params=None)
         except Exception as e:
             error_message = "Cannot initialize model parameters."
             logger.error(f"{error_message} Details: {repr(e)}")
@@ -762,7 +762,7 @@ class Round:
 
     def process_optim_aux_var(self) -> Optional[str]:
         """Process researcher-emitted Optimizer auxiliary variables, if any.
-        Reset auxiliary variables to zero vectors for private parameters.
+        Reset auxiliary variables to zero vectors for local parameters.
 
         Returns:
             Error message, empty if the operation was successful.
@@ -784,14 +784,14 @@ class Round:
         # Pass auxiliary variables to the Optimizer.
         try:
             full_model_weights = self.training_plan.get_model_params(
-                only_trainable=False, exclude_buffers=False, private_params=None
+                only_trainable=False, exclude_buffers=False, local_params=None
             )
-            private = self.training_plan.filter_model_params_by_tags(
+            local_params = self.training_plan.filter_model_params_by_tags(
                 full_model_weights,
-                required_tags={"private"},
+                required_tags={"local"},
             )
             self.aux_vars = optimizer.optimizer.restore_aux(
-                self.aux_vars, full_model_weights, private
+                self.aux_vars, full_model_weights, local_params
             )
             optimizer.optimizer.set_aux(self.aux_vars)
         except FedbiomedOptimizerError as exc:
@@ -932,7 +932,7 @@ class Round:
         # save model weights with "persistent" tag
         state["persistent_model_weights"] = None
         full_model_weights = self.training_plan.get_model_params(
-            only_trainable=False, exclude_buffers=False, private_params=None
+            only_trainable=False, exclude_buffers=False, local_params=None
         )
         # Deal with potential differential privacy, that change model parameters names
         dp_controller = self.training_plan.get_dp_controller()
@@ -971,7 +971,7 @@ class Round:
         self,
     ) -> Dict[str, AuxVar]:
         """Collect auxiliary variables from the wrapped Optimizer, if any,
-        and remove auxiliary variables related to private parameters, if any.
+        and remove auxiliary variables related to local parameters, if any.
 
         If the TrainingPlan does not use a Fed-BioMed Optimizer, return an
         empty dict. If it does not hold any BaseOptimizer however, raise a
@@ -983,15 +983,15 @@ class Round:
         optimizer = self._get_base_optimizer()
         if isinstance(optimizer.optimizer, Optimizer):
             full_aux_var = optimizer.optimizer.get_aux()
-            # Remove auxiliary variables related to private parameters
+            # Remove auxiliary variables related to local parameters
             full_model_weights = self.training_plan.get_model_params(
-                only_trainable=False, exclude_buffers=False, private_params=None
+                only_trainable=False, exclude_buffers=False, local_params=None
             )
-            private = self.training_plan.filter_model_params_by_tags(
+            local_params = self.training_plan.filter_model_params_by_tags(
                 full_model_weights,
-                required_tags={"private"},
+                required_tags={"local"},
             )
-            aux_var = optimizer.optimizer.filter_aux(full_aux_var, private)
+            aux_var = optimizer.optimizer.filter_aux(full_aux_var, local_params)
 
             return aux_var
         return {}
@@ -1177,13 +1177,13 @@ class Round:
 
         This method merges parameters received from the researcher (typically
         aggregated global parameters) with locally managed parameters based on
-        their associated tags ("private", "persistent").
+        their associated tags ("local", "persistent").
 
         The reconstruction follows these rules:
-            - Parameters tagged as both "private" and "persistent" are restored
+            - Parameters tagged as both "local" and "persistent" are restored
             from `persistent_model_weights` if available. If not (e.g., first
             round), they are initialized from `initial_model_weights`.
-            - Parameters tagged as "private" but not "persistent" are always
+            - Parameters tagged as "local" but not "persistent" are always
             reinitialized from `initial_model_weights` at each round.
             - All other parameters are kept as provided in `weights_from_researcher`.
 
@@ -1201,26 +1201,26 @@ class Round:
         # Start from parameters received by researcher
         full_params = dict(weights_from_researcher)
 
-        # private and persistent parameters: override with saved values
-        private_persistent = self.training_plan.filter_model_params_by_tags(
+        # local and persistent parameters: override with saved values
+        local_persistent = self.training_plan.filter_model_params_by_tags(
             initial_model_weights,
-            required_tags={"private", "persistent"},
+            required_tags={"local", "persistent"},
         )
-        for name in private_persistent.keys():
+        for name in local_persistent.keys():
             if name in persistent_model_weights.keys():
                 full_params[name] = persistent_model_weights[name]
             else:
                 # First round: use initial model weight
                 full_params[name] = initial_model_weights[name]
 
-        # private only parameters: override with initial values
-        private_only = self.training_plan.filter_model_params_by_tags(
+        # local only parameters: override with initial values
+        local_only = self.training_plan.filter_model_params_by_tags(
             initial_model_weights,
-            required_tags={"private"},
+            required_tags={"local"},
             forbidden_tags={"persistent"},
         )
 
-        for name in private_only.keys():
+        for name in local_only.keys():
             full_params[name] = initial_model_weights[name]
 
         return full_params

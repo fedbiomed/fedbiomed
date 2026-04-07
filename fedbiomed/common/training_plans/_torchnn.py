@@ -192,13 +192,13 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         )
 
         self._configure_model_and_optimizer(initialize_optimizer)
-        # Configure the parameters tagged as private
-        self._private_params = list(
+        # Configure the parameters tagged as local
+        self._local_params = list(
             self.filter_model_params_by_tags(
                 self.get_model_params(
-                    only_trainable=False, exclude_buffers=False, private_params=None
+                    only_trainable=False, exclude_buffers=False, local_params=None
                 ),
-                required_tags={"private"},
+                required_tags={"local"},
             ).keys()
         )
 
@@ -780,7 +780,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         training arguments, then we return only the output of
         [Model.get_weights][fedbiomed.common.models.TorchModel.get_weights],
         which considers only the trainable parameters.
-        If the researcher specified some parameters tagged as 'private', then these
+        If the researcher specified some parameters tagged as 'local', then these
         parameters are not returned
         Otherwise, the default behaviour is to return the complete `state_dict`.
 
@@ -798,7 +798,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Note: this is mostly about sharing statistics from BatchNorm layers.
         exclude_buffers = not self._share_persistent_buffers
         all_params = self.get_model_params(
-            exclude_buffers=exclude_buffers, private_params=None
+            exclude_buffers=exclude_buffers, local_params=None
         )
         logger.debug(
             "Collected raw training parameters: parameter_count=%s",
@@ -832,16 +832,16 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             flatten,
         )
         # Update the model (needed to use flatten)
-        self._model.set_weights(all_params)
-        # Remove private params
-        private_params = (
-            [rename_mapping.get(name, name) for name in self._private_params]
-            if self._private_params is not None
+        self._model.set_weights(all_params, local_params=None)
+        # Remove local params
+        local_params = (
+            [rename_mapping.get(name, name) for name in self._local_params]
+            if self._local_params is not None
             else None
         )
         if flatten:
             params = self._model.flatten(
-                exclude_buffers=exclude_buffers, private_params=private_params
+                exclude_buffers=exclude_buffers, local_params=local_params
             )
             logger.debug(
                 "Flattened training parameters for aggregation: flattened_count=%s",
@@ -849,7 +849,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             )
         else:
             params = self.get_model_params(
-                exclude_buffers=exclude_buffers, private_params=private_params
+                exclude_buffers=exclude_buffers, local_params=local_params
             )
             # Final renaming before being sent to the researcher
             params, _ = self._dp_controller.rename_params(params)

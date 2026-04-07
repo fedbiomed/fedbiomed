@@ -541,14 +541,14 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             os.path.join("..", os.path.basename(training_plan_file)),
         )
         params_path = os.path.join(breakpoint_path, f"model_params_{uuid.uuid4()}.mpk")
-        private_params = self.training_plan()._private_params
+        local_params = self.training_plan()._local_params
         Serializer.dump(
             self.training_plan()
             .get_model_wrapper_class()
             .get_weights(
                 only_trainable=False,
                 exclude_buffers=False,
-                private_params=private_params,
+                local_params=local_params,
             ),
             params_path,
         )
@@ -606,7 +606,10 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
         param_path = saved_state["model_weights_path"]
         params = Serializer.load(param_path)
-        loaded_exp.training_plan().get_model_wrapper_class().set_weights(params)
+        local_params = training_plan._local_params
+        loaded_exp.training_plan().get_model_wrapper_class().set_weights(
+            params, local_params=local_params
+        )
 
         return loaded_exp, saved_state, tempo_id
 
@@ -654,10 +657,13 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
 
         if keep_weights and self._training_plan is not None:
-            weights = self._training_plan.get_model_params(exclude_buffers=False)
+            local_params = self.training_plan()._local_params
+            weights = self._training_plan.get_model_params(
+                exclude_buffers=False, local_params=local_params
+            )
             yield
             try:
-                self._training_plan.set_model_params(weights)
+                self._training_plan.set_model_params(weights, local_params=local_params)
             except Exception as e:
                 msg = (
                     f"{ErrorNumbers.FB410.value}. Attempting to keep same weights even though model has changed "
