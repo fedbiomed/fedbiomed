@@ -32,7 +32,7 @@ class MnistController(Controller):
         root: Union[str, Path],
         train: bool = True,
         download: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> None:
         """Constructor of the class
 
         Args:
