@@ -1,25 +1,28 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import datetime
-from typing import Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from fedbiomed.common.logger import logger
 
 from ._status import PolicyStatus, RequestStatus
 
-TRequest = TypeVar("TRequest")
+if TYPE_CHECKING:
+    from ._requests import Request
 
 
 class RequestPolicy:
     """Base strategy to collect replies from remote agents"""
 
     def __init__(self, nodes: Optional[List[str]] = None):
-        self.status = None
+        self.status: Optional[PolicyStatus] = None
         self._nodes = nodes
-        self.stop_caused_by = None
+        self.stop_caused_by: Any = None
 
-    def continue_(self, requests) -> PolicyStatus:
+    def continue_(self, requests: List[Request]) -> PolicyStatus:
         """Default strategy stops collecting result once all nodes has answered
 
         Returns:
@@ -61,7 +64,7 @@ class _ReplyTimeoutPolicy(RequestPolicy):
         """
         super().__init__(nodes)
         self.timeout = timeout
-        self._time = None
+        self._time: Optional[datetime.datetime] = None
 
     def is_timeout(self) -> bool:
         """Checks if timeout is reached.
@@ -73,7 +76,7 @@ class _ReplyTimeoutPolicy(RequestPolicy):
         time_interest = datetime.datetime.now()
         return (time_interest - self._time).seconds > self.timeout
 
-    def apply(self, requests: List[TRequest], stop: bool) -> PolicyStatus:
+    def apply(self, requests: List[Request], stop: bool) -> PolicyStatus:
         """Applies timeout loop over requests
 
         Args:
@@ -100,7 +103,7 @@ class _ReplyTimeoutPolicy(RequestPolicy):
 class DiscardOnTimeout(_ReplyTimeoutPolicy):
     """Discards request that do not answer in given timeout"""
 
-    def continue_(self, requests: TRequest) -> PolicyStatus:
+    def continue_(self, requests: List[Request]) -> PolicyStatus:
         """Discards requests that reach timeout, always continue
 
         Returns:
@@ -112,7 +115,7 @@ class DiscardOnTimeout(_ReplyTimeoutPolicy):
 class StopOnTimeout(_ReplyTimeoutPolicy):
     """Stops the request if nodes do not answer in given timeout"""
 
-    def continue_(self, requests) -> PolicyStatus:
+    def continue_(self, requests: List[Request]) -> PolicyStatus:
         """Continues federated request if nodes dont reach timeout
 
         Returns:
@@ -125,7 +128,7 @@ class StopOnTimeout(_ReplyTimeoutPolicy):
 class StopOnDisconnect(_ReplyTimeoutPolicy):
     """Stops collecting results if a node disconnects"""
 
-    def continue_(self, requests: TRequest) -> PolicyStatus:
+    def continue_(self, requests: List[Request]) -> PolicyStatus:
         """Continues federated request if nodes are not disconnect
 
         Returns:
@@ -147,7 +150,7 @@ class StopOnDisconnect(_ReplyTimeoutPolicy):
 class StopOnError(RequestPolicy):
     """Stops collecting results if a node returns an error"""
 
-    def continue_(self, requests: TRequest) -> PolicyStatus:
+    def continue_(self, requests: List[Request]) -> PolicyStatus:
         """Continues federated request if nodes does not return error
 
         Returns:
@@ -173,7 +176,7 @@ class PolicyController:
         policies.insert(0, RequestPolicy())
         self._policies = policies
 
-    def continue_all(self, requests: List[TRequest]) -> PolicyStatus:
+    def continue_all(self, requests: List[Request]) -> PolicyStatus:
         """Checks if all policies indicate to continue.
 
         Args:
@@ -185,7 +188,7 @@ class PolicyController:
         """
 
         if not requests:
-            return False
+            return PolicyStatus.COMPLETED
 
         status = all(
             [
