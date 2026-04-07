@@ -98,7 +98,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         self,
         only_trainable: bool = False,
         exclude_buffers: bool = True,
-        private_params: Optional[List[str]] = None,
+        local_params: Optional[List[str]] = None,
     ) -> Dict[str, DT]:
         """Return a copy of the model's trainable weights.
 
@@ -108,19 +108,22 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
-            private_params: List of parameter names to exclude from the output.
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             Model weights, as a dict mapping parameters' names to their value.
         """
 
     @abstractmethod
-    def set_weights(self, weights: Dict[str, DT]) -> None:
+    def set_weights(
+        self, weights: Dict[str, DT], local_params: Optional[List[str]] = None
+    ) -> None:
         """Assign new values to the model's trainable weights.
 
         Args:
             weights: Model weights, as a dict mapping parameters' names
                 to their value.
+            local_params: List of parameter names tagged as local.
         """
 
     @abstractmethod
@@ -137,7 +140,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         self,
         only_trainable: bool = False,
         exclude_buffers: bool = True,
-        private_params: Optional[List[str]] = None,
+        local_params: Optional[List[str]] = None,
     ) -> List[float]:
         """Flattens model weights
 
@@ -147,7 +150,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
-            private_params: List of parameter names to exclude from the output.
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             List of model weights as float.
@@ -169,11 +172,12 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def reload(self, filename: str) -> None:
+    def reload(self, filename: str, local_params: Optional[List[str]] = None) -> None:
         """Import and replace the wrapped model from a dump file.
 
         Args:
             filename: path to the file where the model has been exported.
+            local_params: List of parameter names tagged as local.
 
         !!! info "Notes":
             This method is designed to load the model from a local dump
@@ -200,7 +204,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
         weights_vector: List[float],
         only_trainable: bool = False,
         exclude_buffers: bool = True,
-        private_params: Optional[List[str]] = None,
+        local_params: Optional[List[str]] = None,
     ) -> None:
         """Revert flatten model weights back model-dict form.
 
@@ -211,7 +215,7 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
-            private_params: List of parameter names to exclude from the output.
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             Model dictionary

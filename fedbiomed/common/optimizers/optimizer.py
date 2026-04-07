@@ -207,7 +207,7 @@ class Optimizer:
             ) from exc
 
     def filter_aux(
-        self, aux_vars: Dict[str, AuxVar], private_params: list[str]
+        self, aux_vars: Dict[str, AuxVar], local_params: list[str]
     ) -> Dict[str, AuxVar]:
         """Remove selected parameter entries from Declearn auxiliary variables.
 
@@ -219,7 +219,7 @@ class Optimizer:
         Args:
             aux_vars: Dictionary of auxiliary variables,
                 mapping module names to their corresponding ``AuxVar`` objects.
-            private_params: List of parameter names to remove from auxiliary
+            local_params: List of parameter names to remove from auxiliary
                 vectors (e.g. ``"conv1.weight"``).
 
         Returns:
@@ -253,7 +253,7 @@ class Optimizer:
                                 f"attribute '{attr_name}'"
                             )
 
-                        for layer in private_params:
+                        for layer in local_params:
                             vector.coefs.pop(layer, None)
 
             except Exception as exc:
@@ -268,12 +268,12 @@ class Optimizer:
         self,
         aux_vars: Dict[str, AuxVar],
         reference_params: Dict[str, Any],
-        private_params: list[str],
+        local_params: list[str],
     ) -> Dict[str, AuxVar]:
-        """Restore missing auxiliary variables for private model parameters.
+        """Restore missing auxiliary variables for local model parameters.
 
         Ensures that auxiliary variables received from the researcher contain
-        entries for parameters that are kept private on the node side. For each
+        entries for parameters that are kept local on the node side. For each
         missing parameter name, a zero-valued tensor matching the local model
         parameter shape is inserted into the corresponding Declearn Vector.
 
@@ -282,18 +282,18 @@ class Optimizer:
                 researcher.
             reference_vector: local model weights providing reference tensors
                 for model parameters (used to infer tensor shapes and dtypes).
-            private_params: List of parameter names that are private to the node
+            local_params: List of parameter names that are local to the node
                 and therefore absent from researcher auxiliary variables
                 (e.g. ``"conv1.weight"``).
 
         Returns:
-            The modified auxiliary variables dictionary where missing private
+            The modified auxiliary variables dictionary where missing local
             parameters have been restored with zero-valued tensors.
 
         Raises:
             FedbiomedOptimizerError: If ``aux_vars`` is not a dictionary, if
                 reference tensors cannot be mapped to Declearn Vector, if
-                reference tensors cannot be found for private parameters, or
+                reference tensors cannot be found for local parameters, or
                 if an unexpected auxiliary-variable structure is encountered.
         """
 
@@ -325,13 +325,13 @@ class Optimizer:
                                 f"in module '{module_name}', attribute '{attr_name}'"
                             )
 
-                        for layer in private_params:
+                        for layer in local_params:
                             # If layer missing, recreate zero tensor
                             if layer not in vector.coefs:
                                 if layer not in reference_vector.coefs:
                                     raise FedbiomedOptimizerError(
                                         f"{ErrorNumbers.FB621.value}: Cannot infer shape "
-                                        f"for private parameter '{layer}'"
+                                        f"for local parameter '{layer}'"
                                     )
 
                                 ref_tensor = reference_vector.coefs[layer]

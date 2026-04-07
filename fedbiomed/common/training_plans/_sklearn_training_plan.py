@@ -130,13 +130,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             f"optimizer_wrapper={type(self._optimizer).__name__ if self._optimizer is not None else None} "
             f"initialize_optimizer={initialize_optimizer}"
         )
-        # Configure the parameters tagged as private
-        self._private_params = list(
+        # Configure the parameters tagged as local
+        self._local_params = list(
             self.filter_model_params_by_tags(
                 self.get_model_params(
-                    only_trainable=False, exclude_buffers=False, private_params=None
+                    only_trainable=False, exclude_buffers=False, local_params=None
                 ),
-                required_tags={"private"},
+                required_tags={"local"},
             ).keys()
         )
 

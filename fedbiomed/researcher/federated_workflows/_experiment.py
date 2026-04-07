@@ -853,7 +853,10 @@ class Experiment(TrainingPlanWorkflow):
         )
 
         # Update the training plan with the aggregated parameters
-        self.training_plan().set_model_params(aggregated_params)
+        local_params = self.training_plan()._local_params
+        self.training_plan().set_model_params(
+            aggregated_params, local_params=local_params
+        )
 
         # Update experiment's in-memory history
         self.commit_experiment_history(training_replies, aggregated_params)
@@ -974,11 +977,11 @@ class Experiment(TrainingPlanWorkflow):
             n_aux_var = encrypted_auxvar.get_num_expected_params()
         # Perform secure aggregation of all encrypted parameters.
         exclude_buffers = not self.training_args()["share_persistent_buffers"]
-        private_params = self.training_plan()._private_params
+        local_params = self.training_plan()._local_params
         num_expected_params = len(
             self.training_plan()
             .get_model_wrapper_class()
-            .flatten(exclude_buffers=exclude_buffers, private_params=private_params)
+            .flatten(exclude_buffers=exclude_buffers, local_params=local_params)
         )
 
         flattened_model_weights = self._secagg.aggregate(
@@ -1014,7 +1017,7 @@ class Experiment(TrainingPlanWorkflow):
             .unflatten(
                 flattened_model_weights,
                 exclude_buffers=exclude_buffers,
-                private_params=private_params,
+                local_params=local_params,
             )
         )
         # Return aggregated model parameters and optimizer auxiliary variables.
@@ -1050,17 +1053,17 @@ class Experiment(TrainingPlanWorkflow):
         # aggregated_params = agg({w^t - sum_k(eta_{k,i,t} * grad_{k,i,t})}_i)
         # hence aggregated_params = w^t - agg(updates_i)
         # hence agg_gradients = agg_i(updates_i)
-        private_params = training_plan._private_params
+        local_params = training_plan._local_params
         names = set(
             training_plan.get_model_params(
-                only_trainable=True, private_params=private_params
+                only_trainable=True, local_params=local_params
             )
         )
         init_params = Vector.build(
             {
                 k: v
                 for k, v in training_plan.get_model_params(
-                    private_params=private_params
+                    local_params=local_params
                 ).items()
                 if k in names
             }
