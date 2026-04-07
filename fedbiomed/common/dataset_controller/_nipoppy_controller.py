@@ -19,7 +19,8 @@ class NipoppyController(Controller):
     def __init__(
         self,
         root: Union[str, Path],
-        session_filters: Optional[str | List[str] | List[Tuple[str,str]]] = None,
+        session_filters: Optional[str | List[str] | List[Tuple[str, str]]] = None,
+        drop_na: bool = True,
     ) -> None:
         """Constructor of the class
 
@@ -37,6 +38,7 @@ class NipoppyController(Controller):
         self._data: Optional[pd.DataFrame] = None  # lazy loaded
         session_filters = [session_filters] if isinstance(session_filters, str) else session_filters  # wrap single string in list
         self._session_filters = session_filters
+        self._drop_na = drop_na
 
     def _read_and_filter_data(self,
                           phenotypes: Optional[List[str]] = None,
@@ -62,6 +64,8 @@ class NipoppyController(Controller):
                 self._data = self._data.set_index([NipoppyController.COL_PARTICIPANT_ID, NipoppyController.COL_SESSION_ID])
                 self._data = self._data.loc[idx]   
                 self._data = self._data.reset_index()
+        if self._drop_na:
+            self._data = self._data.dropna()
         self._validate_data_after_filtering()
         return self._data
     
