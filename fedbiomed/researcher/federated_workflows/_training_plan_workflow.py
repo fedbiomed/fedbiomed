@@ -541,7 +541,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             os.path.join("..", os.path.basename(training_plan_file)),
         )
         params_path = os.path.join(breakpoint_path, f"model_params_{uuid.uuid4()}.mpk")
-        local_params = self.training_plan()._local_params
+        local_params = self.training_plan().local_params
         Serializer.dump(
             self.training_plan()
             .get_model_wrapper_class()
@@ -606,7 +606,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
         param_path = saved_state["model_weights_path"]
         params = Serializer.load(param_path)
-        local_params = training_plan._local_params
+        local_params = training_plan.local_params
         loaded_exp.training_plan().get_model_wrapper_class().set_weights(
             params, local_params=local_params
         )
@@ -657,7 +657,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
 
         if keep_weights and self._training_plan is not None:
-            local_params = self.training_plan()._local_params
+            local_params = self.training_plan().local_params
             weights = self._training_plan.get_model_params(
                 exclude_buffers=False, local_params=local_params
             )
