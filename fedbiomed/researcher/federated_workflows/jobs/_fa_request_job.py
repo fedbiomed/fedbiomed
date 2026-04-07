@@ -6,6 +6,7 @@ from typing import Dict, Optional
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
+from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.requests import MessagesByNode
 
 from ._job import Job
@@ -21,7 +22,7 @@ class FARequestJob(Job):
         self,
         experiment_id: str,
         fa_id: str,
-        federated_dataset: dict,
+        federated_dataset: FederatedDataSet,
         stats_args: Optional[dict],
         stats: Optional[list],
         dataset_schema: Optional[list],

@@ -51,10 +51,10 @@ class Job(ABC):
         self._nodes: List[str] = (
             nodes or []
         )  # List of node ids participating in this task
-        self._policies: List[RequestPolicy] | None = None
+        self._policies: List[RequestPolicy] = []
 
     @property
-    def requests(self) -> List[RequestPolicy] | None:
+    def requests(self) -> Requests:
         return self._reqs
 
     @property
