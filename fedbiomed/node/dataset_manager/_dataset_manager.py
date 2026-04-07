@@ -138,7 +138,7 @@ class DatasetManager:
         self,
         name: str,
         data_type: str,
-        tags: Union[tuple, list],
+        tags: List[str],
         description: str,
         path: str,
         dataset_id: Optional[str] = None,
@@ -242,9 +242,7 @@ class DatasetManager:
                 "parent_dataset_id": parent_dataset_id,
             },
         )
-        dataset_id = self.dynamic_dataset_table.insert(entry)
-
-        return dataset_id
+        return self.dynamic_dataset_table.insert(entry)
 
     def _build_dataset_entry(
         self,
