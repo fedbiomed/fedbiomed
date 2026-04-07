@@ -92,6 +92,11 @@ class Config(metaclass=ABCMeta):
         facility_name = self.get("syslog", "facility", fallback="user").lower()
         level_name = self.get("syslog", "level", fallback="INFO").upper()
 
+        logger.info(
+            f"Enabling syslog logging with host={host}, port={port}, protocol={protocol}, "
+            f"facility={facility_name}, level={level_name}"
+        )
+
         if protocol not in {"udp", "tcp"}:
             raise FedbiomedConfigurationError(
                 f"{ErrorNumbers.FB600.value}: Unsupported syslog protocol: {protocol}"

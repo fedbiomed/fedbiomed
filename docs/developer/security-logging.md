@@ -155,6 +155,71 @@ This avoids cases where security events are emitted at INFO but dropped because 
 
 The security file handler supports daily timed rotation by default. Rollover to a new file each day avoids log files growing too large and ensures.
 
+## Syslog integration
+
+### What is Syslog?
+
+Syslog is a standard protocol used to send log records to a central log collector or SIEM. Instead of keeping audit information only in the local `security_audit.log` file, a node can also forward security events to a remote syslog server for aggregation, retention, monitoring, and alerting.
+
+In Fedbiomed, syslog is an optional output for security logs. When enabled, FedLogger adds a dedicated `SYSLOG` handler that sends security events to the configured remote syslog endpoint.
+
+### What it does in Fedbiomed
+
+When syslog is enabled:
+
+- Only security events are forwarded to syslog.
+- The same security filter is applied as for the dedicated security log file.
+- The same structured JSON security formatter is used, so the payload stays aligned with the local security audit log.
+- Events are sent to the configured remote host and port over UDP or TCP.
+
+When syslog is disabled, no remote syslog handler is created and security events remain local unless another handler is configured.
+
+### How to configure syslog in `config.ini`
+
+Syslog is configured through the `[syslog]` section of the component `config.ini` file.
+
+Example:
+
+```ini
+[syslog]
+enable = True
+host = localhost
+port = 514
+protocol = udp
+facility = user
+level = INFO
+```
+
+Available fields:
+
+- `enable`: enables or disables syslog forwarding. Accepted values follow the usual boolean config parsing (`True`, `False`, `1`, etc.).
+- `host`: hostname or IP address of the remote syslog server.
+- `port`: remote syslog port.
+- `protocol`: transport protocol. Supported values are `udp` and `tcp`.
+- `facility`: syslog facility name. This must match one of the facilities supported by Python's `SysLogHandler`, such as `user`, `daemon`, `local0`, ..., `local7`.
+- `level`: minimum Fedbiomed log level that the syslog handler will emit. This must match the logging levels supported by the Python library, which are `DEBUG`, `INFO`, `WARNING`, `ERROR` and `CRITICAL`.
+
+If `protocol`, `facility`, or `level` contains an unsupported value, configuration loading raises an error.
+
+### Defaults and behavior when not configured
+
+If the `[syslog]` section is missing or `enable = False`, syslog forwarding is disabled by default.
+
+If syslog is enabled but some values are omitted in the `config.ini` file, Fedbiomed uses these defaults:
+
+- `host = localhost`
+- `port = 514`
+- `protocol = udp`
+- `facility = user`
+- `level = INFO`
+
+These are the default values used for forwarding the logs to the local system level syslog process, which writes the logs to the system level default file. This file location can change depending on the UNIX distribution, it is usually in one of:
+
+- `var/log/syslog`
+- `var/log/messages`
+
+For node configuration files, recent configuration migration code also writes these same defaults into the `[syslog]` section in the `config.ini` file when upgrading the older configuration files.
+
 ## Practical guidance and conventions
 
 ### Required event fields
