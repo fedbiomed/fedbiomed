@@ -20,6 +20,8 @@ class NipoppyDataset(Dataset):
     }
 
     # columns
+    COL_PARTICIPANT_ID = NipoppyController.COL_PARTICIPANT_ID
+    COL_SESSION_ID = NipoppyController.COL_SESSION_ID
     TERMURL_AGE = "nb:Age"
     TERMURL_SEX = "nb:Sex"
     TERMURL_COG_DECLINE = "fl:cognitive_decline_status"
@@ -75,7 +77,7 @@ class NipoppyDataset(Dataset):
                                                            phenotypes=self.phenotypes,
                                                            derivatives=self.derivatives)  # type: ignore
         Y = sample[self.target] if self.target is not None else None
-        X = sample.drop(columns=self.target) if self.target is not None else sample
+        X = sample.drop(self.target) if self.target is not None else sample
         X,Y = map(self._get_format_conversion_callable(), (X,Y))
         return X, Y
 

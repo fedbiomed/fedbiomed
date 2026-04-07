@@ -86,7 +86,7 @@ class NipoppyController(Controller):
         """Validate the data after applying session filters
 
         Raises:
-            FedbiomedError: if the resulting data is empty after filtering
+            ValueError: if the resulting data is empty after filtering
         """
         if self._data is not None and self._data.empty:
             raise ValueError("No data left after applying session filters. Please check your session filters and the dataset.")
