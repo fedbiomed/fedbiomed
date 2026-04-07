@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Any, Dict, Tuple
-import numpy as np
 import pandas as pd
 import torch
 
@@ -21,8 +20,6 @@ class NipoppyDataset(Dataset):
     }
 
     # columns
-    COL_PARTICIPANT_ID = "participant_id"
-    COL_SESSION_ID = "session_id"
     TERMURL_AGE = "nb:Age"
     TERMURL_SEX = "nb:Sex"
     TERMURL_COG_DECLINE = "fl:cognitive_decline_status"
@@ -48,8 +45,9 @@ class NipoppyDataset(Dataset):
         self,
         phenotypes,
         derivatives,
-        transforms,
         target,
+        session_filters,
+        transforms,
     ) -> None:
         """
         """
@@ -57,6 +55,7 @@ class NipoppyDataset(Dataset):
         self.derivatives = derivatives
         self.transforms = transforms
         self.target = target
+        self.session_filters = session_filters
     
     def complete_initialization(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
@@ -67,7 +66,7 @@ class NipoppyDataset(Dataset):
             path: path to dataset
             to_format: format associated to expected return format
         """
-
+        controller_kwargs["session_filters"] = self.session_filters
         self._init_controller(controller_kwargs=controller_kwargs)
         self._to_format = to_format
 
@@ -83,7 +82,11 @@ class NipoppyDataset(Dataset):
 
 if __name__ == "__main__":
     from fedbiomed.common.dataset_types import DataReturnFormat
-    dataset = NipoppyDataset([NipoppyDataset.TERMURL_SEX],None,None,[NipoppyDataset.TERMURL_AGE])
+    dataset = NipoppyDataset([NipoppyDataset.TERMURL_SEX],
+                             None,
+                             [NipoppyDataset.TERMURL_AGE],
+                             '01',  # session filter
+                             None)
     dataset.complete_initialization(
         controller_kwargs={"root": 
             "/Users/fcremone/dev/projects/nipoppy/nipoppy_example/my_dataset"}, 
