@@ -130,7 +130,9 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
 
         unknown = local_params_set - set(self.param_list)
         if unknown:
-            raise ValueError(f"Unknown local parameters: {unknown}")
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value}: Unknown local parameters: {unknown}"
+            )
 
         # Gather copies of the model weights.
         weights = {}  # type: Dict[str, np.ndarray]

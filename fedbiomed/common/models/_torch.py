@@ -85,7 +85,9 @@ class TorchModel(Model):
 
         unknown = local_params_set - {name for name, _ in param_iterator}
         if unknown:
-            raise ValueError(f"Unknown local parameters: {unknown}")
+            raise FedbiomedModelError(
+                f"{ErrorNumbers.FB622.value}: Unknown local parameters: {unknown}"
+            )
 
         parameters = {
             name: param.detach().clone()
