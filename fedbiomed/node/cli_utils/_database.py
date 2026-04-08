@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import warnings
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -11,7 +10,11 @@ from fedbiomed.common.exceptions import (
     FedbiomedDatasetManagerError,
 )
 from fedbiomed.common.logger import logger
-from fedbiomed.node.cli_utils._io import validated_data_type_input, validated_path_input
+from fedbiomed.node.cli_utils._io import (
+    _prompt_path_cli,
+    validated_data_type_input,
+    validated_path_input,
+)
 from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
 )
@@ -71,10 +74,8 @@ def add_database(
     """
     data_loading_plan = None
 
-    # if all args are provided, just try to load the data
-    # if not, ask the user more information
     need_interactive_input = (
-        interactive is True
+        interactive
         or path is None
         or name is None
         or tags is None
@@ -83,37 +84,28 @@ def add_database(
     )
 
     if need_interactive_input:
-        # Interactive mode: collect dataset parameters from user
         print("Welcome to the Fed-BioMed CLI data manager")
 
-        # Determine data type
-        if interactive is True:
-            data_type = validated_data_type_input()
-        else:
-            data_type = "default"
+        data_type = validated_data_type_input() if interactive else "default"
 
-        if data_type == "default":
-            name = "MNIST"
-            description = "MNIST database"
-            tags = ["#MNIST", "#dataset"]
-            if interactive is True:
+        _predefined = {
+            "default": ("MNIST", "MNIST database", ["#MNIST", "#dataset"]),
+            "mednist": ("MEDNIST", "MEDNIST dataset", ["#MEDNIST", "#dataset"]),
+        }
+
+        if data_type in _predefined:
+            name, description, tags = _predefined[data_type]
+            if interactive:
                 tags = _confirm_predefined_dataset_tags(name, tags)
                 path = validated_path_input(data_type)
 
-        elif data_type == "mednist":
-            name = "MEDNIST"
-            description = "MEDNIST dataset"
-            tags = ["#MEDNIST", "#dataset"]
-            if interactive is True:
-                tags = _confirm_predefined_dataset_tags(name, tags)
-                path = validated_path_input(data_type)
-
-        # Handle custom datasets
         else:
-            # Collect dataset metadata
             name = input("Name of the database: ")
-            tags = input("Tags (separate them by comma and no spaces): ")
-            tags = tags.replace(" ", "").split(",")
+            tags = (
+                input("Tags (separate them by comma and no spaces): ")
+                .replace(" ", "")
+                .split(",")
+            )
             description = input("Description: ")
 
             if data_type == "medical-folder":
@@ -122,57 +114,46 @@ def add_database(
                         dataset_parameters, data_loading_plan
                     )
                 )
-
             elif data_type == "custom":
-                abs_path = Path(input("Path to the dataset: ")).resolve()
-                # Existence check
-                if not abs_path.exists():
-                    raise FedbiomedDatasetError(f"Path not found: {abs_path}")
+                while True:
+                    abs_path = Path(input("Path to the dataset: ")).resolve()
+                    if abs_path.exists():
+                        break
+                    print(f"Path not found: {abs_path}. Please try again.")
                 path = str(abs_path)
-
             else:
                 path = validated_path_input(data_type)
 
-        # if a data loading plan was specified, we now ask for the description
-        if interactive is True and data_loading_plan is not None:
-            keep_asking_for_input = True
-            while keep_asking_for_input:
+        if interactive and data_loading_plan is not None:
+            while True:
                 desc = input(
                     "Please input a short name/description for your data loading plan:"
                 )
-                if len(desc) < 4:
-                    print("Description must be at least 4 characters long.")
-                else:
-                    keep_asking_for_input = False
+                if len(desc) >= 4:
+                    break
+                print("Description must be at least 4 characters long.")
             data_loading_plan.desc = desc
 
     else:
-        # Non-interactive mode:
-        # all data have been provided at call
-        # check few things
-
-        # transform a string with comma(s) as a string list
         tags = str(tags).split(",")
         name = str(name)
         description = str(description)
 
-        # Validate data type
         data_type = str(data_type).lower()
-        if data_type not in [
+        if data_type not in (
             "csv",
             "default",
             "mednist",
             "images",
             "medical-folder",
             "custom",
-        ]:
+        ):
             data_type = "default"
 
-        # Validate path
         if path is not None and not os.path.exists(path):
-            logger.critical("provided path does not exists: " + path)
+            logger.warning("provided path does not exist: " + path)
+            path = _prompt_path_cli(data_type)
 
-    # Ensure path is absolute
     if path is None:
         raise FedbiomedDatasetManagerError("Dataset path is not set")
     path = os.path.abspath(path)
@@ -189,19 +170,18 @@ def add_database(
             data_loading_plan=data_loading_plan,
         )
     except (AssertionError, FedbiomedDatasetManagerError) as e:
-        if interactive is True and messagebox is not None:
+        if interactive and messagebox is not None:
             messagebox.showwarning(title="Warning", message=str(e))
         else:
-            warnings.warn(f"[ERROR]: {e}", stacklevel=1)
+            logger.error(str(e))
         exit(1)
     except FedbiomedDatasetError as err:
-        warnings.warn(
-            f"[ERROR]: {err} ... Aborting"
-            "\nHint: are you sure you have selected the correct index in Demographic file?",
-            stacklevel=1,
+        logger.error(
+            f"{err} ... Aborting"
+            "\nHint: are you sure you have selected the correct index in Demographic file?"
         )
+        exit(1)
 
-    # Display success message
     print("\nGreat! Take a look at your data:")
     dataset_manager.list_my_datasets(verbose=True)
 
@@ -224,9 +204,9 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
         return
 
     msg: str = ""
-    d_id: Union[str, None] = None
+    d_id: Optional[str] = None
 
-    if interactive is True:
+    if interactive:
         options = [d["name"] for d in my_data]
         msg = "Select the dataset to delete:\n"
         msg += "\n".join([f"{i}) {d}" for i, d in enumerate(options, 1)])
@@ -234,7 +214,7 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
 
     while True:
         try:
-            if interactive is True:
+            if interactive:
                 opt_idx = int(input(msg)) - 1
                 assert opt_idx in range(len(my_data))
 
@@ -252,8 +232,8 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
             logger.info("Dataset removed. Here your available datasets")
             dataset_manager.list_my_datasets()
             return
-        except (ValueError, IndexError, AssertionError):
-            logger.error("Invalid option. Please, try again.")
+        except (ValueError, AssertionError):
+            print("Invalid option. Please try again.")
 
 
 def delete_all_database(dataset_manager: DatasetManager) -> None:

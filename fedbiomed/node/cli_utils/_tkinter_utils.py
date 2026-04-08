@@ -29,5 +29,5 @@ try:
 
 except ImportError:
 
-    class TclError(Exception):
+    class TclError(Exception):  # type: ignore[no-redef]
         """Raised in place of tkinter.TclError when tkinter is not installed."""

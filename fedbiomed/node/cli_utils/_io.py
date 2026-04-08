@@ -1,7 +1,6 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import warnings
 from pathlib import Path
 
 from fedbiomed.common.logger import logger
@@ -15,15 +14,8 @@ def validated_data_type_input() -> str:
         A string keyword for one of the possible data type
             ('csv', 'default', 'mednist', 'images', 'medical-folder', 'custom').
     """
-    valid_options = [
-        "csv",
-        "default",
-        "mednist",
-        "images",
-        "medical-folder",
-        "custom",
-    ]
-    valid_options = {i: val for i, val in enumerate(valid_options, 1)}
+    _types = ["csv", "default", "mednist", "images", "medical-folder", "custom"]
+    valid_options = dict(enumerate(_types, 1))
 
     msg = "Please select the data type that you're configuring:\n"
     msg += "\n".join([f"\t{i}) {val}" for i, val in valid_options.items()])
@@ -35,7 +27,10 @@ def validated_data_type_input() -> str:
             assert t in valid_options.keys()
             break
         except Exception:
-            warnings.warn("\n[ERROR] Please, enter a valid option", stacklevel=1)
+            print(
+                "Invalid option. Please enter a number between 1 and",
+                len(valid_options),
+            )
 
     return valid_options[t]
 
@@ -79,6 +74,29 @@ def pick_with_tkinter(type: str = "csv") -> str | None:
         return None
 
 
+def _prompt_path_cli(type: str) -> str:
+    """Prompts the user for a valid path via CLI only.
+
+    Args:
+        type: `'csv'` or `'txt'` for a file; any other value for a directory.
+
+    Returns:
+        The selected, validated path.
+    """
+    is_file_mode = type in ("csv", "txt")
+    prompt = f"Insert the path of the {'file' if is_file_mode else 'folder'}: "
+    while True:
+        raw = input(prompt).strip()
+        if not raw:
+            print("Path cannot be empty.")
+            continue
+        path_obj = Path(raw).expanduser()
+        if not (path_obj.is_file() if is_file_mode else path_obj.is_dir()):
+            print("Please enter a valid path.")
+            continue
+        return str(path_obj)
+
+
 def validated_path_input(type: str) -> str:
     """Returns a validated path, trying the GUI first then falling back to CLI.
 
@@ -88,29 +106,12 @@ def validated_path_input(type: str) -> str:
     Returns:
         The selected, validated path.
     """
-    is_file_mode = type in ("csv", "txt")
-
-    # Try GUI first if available
     if filedialog is not None:
         path = pick_with_tkinter(type=type)
         if path is not None:
             return path
-        warnings.warn("[WARNING] GUI failed. Falling back to CLI", stacklevel=1)
+        logger.warning("GUI failed. Falling back to CLI.")
     else:
-        warnings.warn("[WARNING] GUI not available. Falling back to CLI", stacklevel=1)
+        logger.warning("GUI not available. Falling back to CLI.")
 
-    # CLI fallback: loop until a valid path is entered
-    prompt = f"Insert the path of the {'file' if is_file_mode else 'folder'}: "
-    while True:
-        raw = input(prompt).strip()
-
-        if not raw:
-            warnings.warn("[ERROR] Path cannot be empty", stacklevel=1)
-            continue
-
-        path_obj = Path(raw).expanduser()
-        if not (path_obj.is_file() if is_file_mode else path_obj.is_dir()):
-            warnings.warn("[ERROR] Please enter a valid path", stacklevel=1)
-            continue
-
-        return str(path_obj)
+    return _prompt_path_cli(type)
