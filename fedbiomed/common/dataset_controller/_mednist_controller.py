@@ -70,7 +70,7 @@ class MedNistController(Controller):
         └── HeadCT/
     """
 
-    def __init__(self, root: Union[str, Path]) -> Dict[str, Any]:
+    def __init__(self, root: Union[str, Path]) -> None:
         """Constructor of the class
 
         Args:

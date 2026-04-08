@@ -24,7 +24,7 @@ class Controller(ABC, DataLoadingPlanMixin):
 
     # === Properties ===
     @property
-    def root(self):
+    def root(self) -> Path:
         return self._root
 
     @root.setter

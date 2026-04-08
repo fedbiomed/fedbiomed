@@ -35,7 +35,7 @@ class ImageFolderController(Controller):
     _is_valid_file: Optional[Callable[[str], bool]] = None
     _allow_empty: bool = False
 
-    def __init__(self, root: Union[str, Path]) -> Dict[str, Any]:
+    def __init__(self, root: Union[str, Path]) -> None:
         """Constructor of the class
 
         Args:
