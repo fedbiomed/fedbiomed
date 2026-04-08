@@ -235,7 +235,7 @@ class Monitor:
         self._log_dir = results_dir
         self._round = 1
         self._metric_store = MetricStore()
-        self._event_writers = {}
+        self._event_writers: Dict[str, SummaryWriter] = {}
         self._round_state = 0
         self._tensorboard = False
 
@@ -286,13 +286,13 @@ class Monitor:
         # Log metric result
         self._log_metric_result(message=msg, cum_iter=cumulative_iter)
 
-    def set_tensorboard(self, tensorboard: bool):
-        """Sets tensorboard flag, which is used to decide the behavior of the writing scalar values into
-         tensorboard log files.
+    def set_tensorboard(self, tensorboard: object) -> None:
+        """Sets whether scalar metrics are written to TensorBoard log files.
 
         Args:
-            tensorboard: if True, data contained in AddScalarReply message will be passed to tensorboard
-                         if False, fata will only be logged on the console
+            tensorboard (bool): If ``True``, data from ``AddScalarReply`` messages is forwarded to
+                TensorBoard. If ``False``, metrics are only logged to the console.
+                Non-bool values are rejected and the flag defaults to ``False``.
         """
         if isinstance(tensorboard, bool):
             self._tensorboard = tensorboard
