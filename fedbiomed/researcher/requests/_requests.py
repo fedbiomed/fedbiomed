@@ -24,6 +24,7 @@ from fedbiomed.common.message import (
     ListRequest,
     Message,
     PingRequest,
+    RequestReply,
     SearchRequest,
 )
 from fedbiomed.common.singleton import SingletonMeta
@@ -49,7 +50,7 @@ class MessagesByNode(dict):
 class Request:
     def __init__(
         self,
-        message: Message,
+        message: RequestReply,
         node: NodeAgent,
         sem_pending: threading.Semaphore,
         request_id: Optional[str] = None,
@@ -62,17 +63,17 @@ class Request:
             request_id: unique ID of request
             sem_pending: semaphore for signaling new pending reply
         """
-        self._send_time = None
-        self._reply_time = None
+        self._send_time: Optional[float] = None
+        self._reply_time: Optional[float] = None
         self._request_id = request_id if request_id else str(uuid.uuid4())
         self._node = node
         self._message = message
 
         self._sem_pending = sem_pending
 
-        self.reply = None
-        self.error = None
-        self.status = None
+        self.reply: Optional[Message] = None
+        self.error: Optional[ErrorMessage] = None
+        self.status: Optional[RequestStatus] = None
 
     @property
     def node(self) -> NodeAgent:
@@ -188,7 +189,7 @@ class FederatedRequest:
         self._nodes = nodes
         self._requests = []
         self._request_id = REQUEST_PREFIX + str(uuid.uuid4())
-        self._nodes_status = {}
+        self._nodes_status: Dict[str, Any] = {}
 
         self._pending_replies = threading.Semaphore(value=0)
 
@@ -204,7 +205,7 @@ class FederatedRequest:
         )
 
         # Set up single requests
-        if isinstance(self._message, Message):
+        if isinstance(self._message, RequestReply):
             for node in self._nodes:
                 self._requests.append(
                     Request(
@@ -277,7 +278,11 @@ class FederatedRequest:
             A dict of replies `Message` received for this request, indexed by node ID
         """
 
-        return {req.node.id: req.reply for req in self._requests if req.reply}
+        return {
+            req.node.id: reply
+            for req in self._requests
+            if (reply := req.reply) is not None
+        }
 
     def errors(self) -> Dict[str, ErrorMessage]:
         """Returns errors of each request
@@ -286,9 +291,13 @@ class FederatedRequest:
             A dict of error `Message` received for this request, indexed by node ID
         """
 
-        return {req.node.id: req.error for req in self._requests if req.error}
+        return {
+            req.node.id: error
+            for req in self._requests
+            if (error := req.error) is not None
+        }
 
-    def disconnected_requests(self) -> List[Message]:
+    def disconnected_requests(self) -> List[Request]:
         """Returns the requests to disconnected nodes
 
         Returns:
@@ -358,9 +367,7 @@ class Requests(metaclass=SingletonMeta):
         logger.debug("Starting researcher messaging GRPC Server endpoint")
         self._grpc_server.start()
 
-    def on_message(
-        self, msg: Union[Dict[str, Any], Message], type_: MessageType
-    ) -> None:
+    def on_message(self, msg: Message, type_: MessageType) -> None:
         """Handles arbitrary messages received from the remote agents
 
         This callback is only used for feedback messages from nodes (logs, experiment
@@ -431,7 +438,7 @@ class Requests(metaclass=SingletonMeta):
         self,
         message: Union[Message, MessagesByNode],
         nodes: Optional[List[str]] = None,
-        policies: List[RequestPolicy] = None,
+        policies: Optional[List[RequestPolicy]] = None,
     ) -> FederatedRequest:
         """Sends federated request to given nodes with given message
 
@@ -446,11 +453,15 @@ class Requests(metaclass=SingletonMeta):
         """
 
         if nodes is not None:
-            nodes = [self._grpc_server.get_node(node) for node in nodes]
+            node_agents: List[NodeAgent] = [
+                n
+                for node in nodes
+                if (n := self._grpc_server.get_node(node)) is not None
+            ]
         else:
-            nodes = self._grpc_server.get_all_nodes()
+            node_agents = self._grpc_server.get_all_nodes()
 
-        return FederatedRequest(message, nodes, policies)
+        return FederatedRequest(message, node_agents, policies)
 
     def search(self, tags: List[str], nodes: Optional[list] = None) -> dict:
         """Searches available data by tags
