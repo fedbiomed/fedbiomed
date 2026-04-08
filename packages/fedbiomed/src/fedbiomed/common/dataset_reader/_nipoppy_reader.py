@@ -30,7 +30,6 @@ class NipoppyReader:
                 detect itself whether the file has a delimiter or not.
         """
         self._path = path
-        self._data: Optional[pd.DataFrame] = None  # lazy loaded
         self._retriever = NipoppyDataRetriever(self._path)
 
     def _read(self,
@@ -44,3 +43,5 @@ class NipoppyReader:
             FedbiomedError: if the CSV file cannot be read due to inconsistent lines
         """
         return self._retriever.get_tabular_data(phenotypes=phenotypes, derivatives=derivatives)
+
+    

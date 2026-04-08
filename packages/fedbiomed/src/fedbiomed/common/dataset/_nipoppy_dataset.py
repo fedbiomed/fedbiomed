@@ -50,20 +50,20 @@ class NipoppyDataset(Dataset):
         target,
         session_filters,
         drop_na: bool = True,
-        transform: Optional[Callable] = None,
-        target_transform: Optional[Callable] = None,
-        reader_transform: Optional[Callable] = None,
+        sample_level_transform: Optional[Callable] = None,
+        sample_level_target_transform: Optional[Callable] = None,
+        whole_df_level_transform: Optional[Callable] = None,
     ) -> None:
         """
         """
         self.phenotypes = phenotypes
         self.derivatives = derivatives
-        self.transform = transform
-        self.target_transform = target_transform 
+        self.transform = sample_level_transform
+        self.target_transform = sample_level_target_transform 
         self.target = target
         self.session_filters = session_filters
         self._drop_na = drop_na
-        self._reader_transform = reader_transform
+        self._whole_df_level_transform = whole_df_level_transform
     
     def complete_initialization(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
@@ -76,7 +76,7 @@ class NipoppyDataset(Dataset):
         """
         controller_kwargs["session_filters"] = self.session_filters
         controller_kwargs["drop_na"] = self._drop_na
-        controller_kwargs["reader_transform"] = self._reader_transform
+        controller_kwargs["whole_df_transform"] = self._whole_df_level_transform
         self._init_controller(controller_kwargs=controller_kwargs)
         self._to_format = to_format
 
@@ -97,56 +97,3 @@ class NipoppyDataset(Dataset):
         if self.target_transform is not None and Y is not None:
             Y = self.target_transform(Y)
         return X, Y
-
-
-if __name__ == "__main__":
-    from fedbiomed.common.dataset_types import DataReturnFormat
-    from skrub import TableVectorizer
-    from sklearn.preprocessing import OneHotEncoder
-    def transform_skrub(df: pd.DataFrame) -> pd.DataFrame:
-        specific_transformers = []
-        if NipoppyDataset.TERMURL_SEX in df.columns:
-            specific_transformers.append(
-                (
-                    OneHotEncoder(
-                        drop=[NipoppyDataset.TERMURL_MALE], sparse_output=False
-                    ),
-                    [NipoppyDataset.TERMURL_SEX],
-                )
-            )
-        if NipoppyDataset.TERMURL_COG_DECLINE in df.columns:
-            specific_transformers.append(
-                (
-                    OneHotEncoder(
-                        drop=[NipoppyDataset.TERMURL_UNAVAILABLE],
-                        sparse_output=False,
-                        feature_name_combiner=lambda x, _: x,
-                    ),
-                    [NipoppyDataset.TERMURL_COG_DECLINE],
-                )
-            )
-
-        table_vectorizer = TableVectorizer(specific_transformers=specific_transformers)
-        df = table_vectorizer.fit_transform(df)
-        return df
-    dataset = NipoppyDataset(phenotypes=[
-        NipoppyDataset.TERMURL_AGE,
-        NipoppyDataset.TERMURL_SEX,
-        NipoppyDataset.TERMURL_DIAGNOSIS,
-        NipoppyDataset.TERMURL_COG_DECLINE_AVAILABILITY,
-    ],
-                            derivatives=[("freesurfer",
-                                          "7.3.2",
-                                          "idp/fs_stats-0.2.1/fs7.3.2-aparc.DKTatlas-thickness.tsv",)],
-                            target=[NipoppyDataset.TERMURL_COG_DECLINE],
-                            session_filters='01',  # session filter
-                            drop_na=True,
-                            transform=None,
-                            target_transform=None,
-                            reader_transform=transform_skrub)
-    dataset.complete_initialization(
-        controller_kwargs={"root": 
-            "/Users/fcremone/dev/projects/nipoppy/nipoppy_example/my_dataset"}, 
-        to_format=DataReturnFormat.SKLEARN)
-    print(dataset[0])
-    print(dataset[1])
