@@ -281,7 +281,7 @@ class Dataset(ABC):
                 f"{ErrorNumbers.FB632.value}: Failed to create Controller. {e}"
             ) from e
 
-    def apply_transforms(self, sample: Dict[str, Any]) -> None:
+    def apply_transforms(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Apply transforms to sample in place
 
         Args:

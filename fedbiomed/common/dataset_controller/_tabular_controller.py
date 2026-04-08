@@ -33,7 +33,7 @@ class TabularController(Controller):
             "root": str(self.root),
         }
 
-    def get_sample(self, index: int) -> pl.DataFrame:
+    def get_sample(self, index: int) -> pl.DataFrame:  # type: ignore[override]
         """Retrieve a data sample without applying transforms"""
         if index >= self.__len__():
             raise FedbiomedError(

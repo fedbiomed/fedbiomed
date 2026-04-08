@@ -6,7 +6,7 @@ Registry for dataset controllers and their parameters
 """
 
 from dataclasses import asdict, dataclass, fields
-from typing import Optional
+from typing import Dict, Optional, Tuple, Type
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
@@ -22,6 +22,7 @@ from fedbiomed.common.dataset_controller import (
 from fedbiomed.common.exceptions import FedbiomedError
 
 from ._custom_dataset import CustomDataset
+from ._dataset import Dataset
 from ._image_label_dataset import (
     ImageFolderDataset,
     MedNistDataset,
@@ -30,8 +31,8 @@ from ._image_label_dataset import (
 from ._medical_folder_dataset import MedicalFolderDataset
 from ._tabular_dataset import TabularDataset
 
-DATASET_CLASSES_PER_TYPE = {
-    DatasetTypes.CUSTOM: CustomDataset,
+DATASET_CLASSES_PER_TYPE: Dict[DatasetTypes, Type[Dataset]] = {
+    DatasetTypes.CUSTOM: CustomDataset,  # type: ignore[type-abstract]
     DatasetTypes.IMAGES: ImageFolderDataset,
     DatasetTypes.MEDICAL_FOLDER: MedicalFolderDataset,
     DatasetTypes.MEDNIST: MedNistDataset,
@@ -63,7 +64,9 @@ class MedicalFolderParameters(ControllerParametersBase):
 
 
 # Registry mapping data types to corresponding controller and expected parameters
-REGISTRY_CONTROLLERS = {
+REGISTRY_CONTROLLERS: Dict[
+    DatasetTypes, Tuple[Type[Controller], Type[ControllerParametersBase], Type[Dataset]]
+] = {
     DatasetTypes.TABULAR: (
         TabularController,
         ControllerParametersBase,
@@ -103,14 +106,14 @@ def get_controller(
 ) -> Controller:
     """Get controller instance based on data_type and dataset_parameters"""
     # Validate that data_type is implemented.
-    data_type = DatasetTypes.get_type_by_value(data_type)
-    if not data_type or data_type not in REGISTRY_CONTROLLERS:
+    data_type_: Optional[DatasetTypes] = DatasetTypes.get_type_by_value(data_type)
+    if not data_type_ or data_type_ not in REGISTRY_CONTROLLERS:
         raise FedbiomedError(
             f"{ErrorNumbers.FB632.value}: "
             f"Unknown 'data_type', implemented are: {list(REGISTRY_CONTROLLERS.keys())}"
         )
 
-    controller_class, parameters_class, _ = REGISTRY_CONTROLLERS[data_type]
+    controller_class, parameters_class, _ = REGISTRY_CONTROLLERS[data_type_]
 
     # Validate and instantiate parameters
     try:
