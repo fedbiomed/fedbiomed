@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -21,6 +21,7 @@ class NipoppyController(Controller):
         root: Union[str, Path],
         session_filters: Optional[str | List[str] | List[Tuple[str, str]]] = None,
         drop_na: bool = True,
+        whole_df_transform: Optional[Callable] = None,
     ) -> None:
         """Constructor of the class
 
@@ -39,6 +40,7 @@ class NipoppyController(Controller):
         session_filters = [session_filters] if isinstance(session_filters, str) else session_filters  # wrap single string in list
         self._session_filters = session_filters
         self._drop_na = drop_na
+        self._whole_df_transform = whole_df_transform
 
     def _read_and_filter_data(self,
                           phenotypes: Optional[List[str]] = None,
@@ -66,6 +68,7 @@ class NipoppyController(Controller):
                 self._data = self._data.reset_index()
         if self._drop_na:
             self._data = self._data.dropna()
+        self._apply_whole_df_transform()
         self._validate_data_after_filtering()
         return self._data
     
@@ -79,12 +82,22 @@ class NipoppyController(Controller):
         return self._data.iloc[index]
 
     def __len__(self) -> int:
-        return self.shape()[0]
+        return self.shape()['nipoppy'][0]
 
     def shape(self) -> Dict:
         if self._data is None:
-            return {"nipoppy": (-1, -1)}
+            return {"nipoppy": (1, 1)}
         return {"nipoppy": self._data.shape}
+
+    def _apply_whole_df_transform(self) -> None:
+        """Apply any necessary transformations to the data after reading and filtering
+
+        This method can be used to apply any transformations that are necessary after reading
+        and filtering the data, such as encoding categorical variables, normalizing numerical
+        variables, etc. This is a placeholder for now and can be implemented as needed.
+        """
+        if self._whole_df_transform:
+            self._data = self._whole_df_transform(self._data)
 
     def _validate_data_after_filtering(self) -> None:
         """Validate the data after applying session filters
