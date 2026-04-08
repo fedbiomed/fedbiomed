@@ -189,6 +189,70 @@ def start_node(config, node_args):
         logger.critical(f"Node stopped. {exp}")
 
 
+def start_gui_server(
+    component_root: str,
+    data_folder: str = "",
+    cert_file: str | None = None,
+    key_file: str | None = None,
+    port: str = "8484",
+    host: str = "localhost",
+    development: bool = False,
+) -> None:
+    """Launches the node GUI server."""
+
+    fedbiomed_root = os.path.abspath(component_root)
+
+    if data_folder == "":
+        data_folder = os.path.join(component_root, NODE_DATA_FOLDER)
+    else:
+        data_folder = os.path.abspath(data_folder)
+    if not os.path.isdir(data_folder):
+        raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
+
+    current_env = os.environ.copy()
+    current_env.update(
+        {
+            "DATA_PATH": data_folder,
+            "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
+        }
+    )
+
+    if key_file and cert_file:
+        certificate = ["--keyfile", key_file, "--certfile", cert_file]
+    else:
+        certificate = []
+
+    fedbiomed_gui = importlib.import_module("fedbiomed_gui")
+    server_app = Path(fedbiomed_gui.__file__).parent
+    print("path to server", server_app)
+
+    host_port = ["--host", host, "--port", port]
+    if development:
+        command = [
+            "FLASK_ENV=development",
+            f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
+            "flask",
+            "run",
+            *host_port,
+            *certificate,
+        ]
+    else:
+        command = [
+            "gunicorn",
+            "--workers",
+            "1",
+            *certificate,
+            "-b",
+            f"{host}:{port}",
+            "--access-logfile",
+            "-",
+            "fedbiomed_gui.server.wsgi:app",
+        ]
+
+    with subprocess.Popen(" ".join(command), env=current_env, shell=True) as proc:
+        proc.wait()
+
+
 class DatasetArgumentParser(CLIArgumentParser):
     """Initializes CLI options for dataset actions"""
 
@@ -463,6 +527,15 @@ class NodeControl(CLIArgumentParser):
         start = self._subparser.add_parser("start", help="Starts the node")
         start.set_defaults(func=self.start)
 
+        stop = self._subparser.add_parser("stop", help="Stops the node")
+        stop.set_defaults(func=self.stop)
+
+        restart = self._subparser.add_parser("restart", help="Restarts the node")
+        restart.set_defaults(func=self.restart)
+
+        status = self._subparser.add_parser("status", help="Gets node status")
+        status.set_defaults(func=self.status)
+
         start.add_argument(
             "--gpu",
             action="store_true",
@@ -495,6 +568,21 @@ class NodeControl(CLIArgumentParser):
             help="Activate debug mode for the Node. Default is `False`",
         )
 
+        start.add_argument(
+            "--no-backend",
+            action="store_true",
+            required=False,
+            help="Starts only the node backend without launching the GUI.",
+        )
+
+        start.add_argument(
+            "--no-start-node",
+            action="store_true",
+            required=False,
+            help="Starts only the GUI without launching the node."
+            "Same as 'fedbiomed node gui start'",
+        )
+
     def start(self, args):
         """Starts the node"""
         intro()
@@ -509,6 +597,51 @@ class NodeControl(CLIArgumentParser):
 
         # Node instance has to be re-instantiated in start_node
         # It is because Process can only pickle pure python objects
+
+        ###################################################
+        #
+        # DRAFT IMPLEMENTATION FOR PROCESS MANAGEMENT.
+        #
+        ###################################################
+        #
+        # The GUI start have been moved to a separate function to be called easily from other classes.
+        # The node start/stop/restart logic have been moved to nodeProcessController.
+        #
+        # We have three different start scenarios
+        # 1. Start both GUI and node backend (default behavior)
+        # 2. Start only node backend without GUI (if --no-backend is set)
+        # 3. Start only GUI without node backend (if --no-start-node is set)
+
+        # Start only the node without launching the GUI
+        # if args.no_backend:
+        #     logger.info("Starting node backend without launching the GUI.")
+        #     nodeProcessController.start(
+        #         config=self._node.config,
+        #         node_args=node_args,
+        #     )
+        #     return
+
+        # # Start only the GUI without launching the node
+        # if args.no_start_node:
+        #     logger.info("Starting GUI without launching the node backend.")
+        #     start_gui_server(
+        #         component_root=self._node.config.root,
+        #         data_folder=self._node.config.get("default", "data_folder"),
+        #     )
+        #     return
+
+        # # Start both the node backend and the GUI
+        # start_gui_server(
+        #     component_root=self._node.config.root,
+        #     data_folder=self._node.config.get("default", "data_folder"),
+        # )
+        # nodeProcessController.start(
+        #     config=self._node.config,
+        #     node_args=node_args,
+        # )
+        #
+        # The below code will be removed in this implementation and the start logic will be handled by NodeProcessController
+
         p = Process(
             target=start_node,
             name=f"node-{self._node.config.get('default', 'id')}",
@@ -537,6 +670,32 @@ class NodeControl(CLIArgumentParser):
             p.join(timeout=0.1)
             logger.info("Exited with code " + str(p.exitcode))
             sys.exit(0)
+
+    def stop(self):
+        """Stops the node."""
+
+        # Draft implementation:
+        # This command will call `nodeProcessController.stop()`.
+        # The controller will be responsible for checking whether a node process
+        # is tracked and, if so, stopping it gracefully.
+        logger.info("Draft command: node stop is not implemented yet.")
+
+    def restart(self, args):
+        """Restarts the node."""
+
+        # Draft implementation:
+        # This command will call `nodeProcessController.restart(...)` using the
+        # current node configuration and the same node arguments used by `start`.
+        # The controller will handle the stop-then-start sequence.
+        logger.info("Draft command: node restart is not implemented yet.")
+
+    def status(self):
+        """Gets node status."""
+
+        # Draft implementation:
+        # This command will call `nodeProcessController.get_status()` and print
+        # or log the resulting status for the user.
+        logger.info("Draft command: node status is not implemented yet.")
 
 
 class GUIControl(CLIArgumentParser):
@@ -636,60 +795,16 @@ class GUIControl(CLIArgumentParser):
             args: parser argument's namespace
         """
 
-        fedbiomed_root = os.path.abspath(args.path)
-
-        if args.data_folder == "":
-            data_folder = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
-        else:
-            data_folder = os.path.abspath(args.data_folder)
-        if not os.path.isdir(data_folder):
-            raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
-        os.environ.update(
-            {
-                "DATA_PATH": data_folder,
-                "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
-            }
-        )
-        current_env = os.environ.copy()
-
-        if args.key_file and args.cert_file:
-            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file]
-        else:
-            certificate = []
-
-        fedbiomed_gui = importlib.import_module("fedbiomed_gui")
-        server_app = Path(fedbiomed_gui.__file__).parent
-        print("path to server", server_app)
-
-        host_port = ["--host", args.host, "--port", args.port]
-        if args.development:
-            command = [
-                "FLASK_ENV=development",
-                f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
-                "flask",
-                "run",
-                *host_port,
-                *certificate,
-            ]
-        else:
-            command = [
-                "gunicorn",
-                "--workers",
-                "1",
-                # str(os.cpu_count()),
-                *certificate,
-                "-b",
-                f"{args.host}:{args.port}",
-                "--access-logfile",
-                "-",
-                "fedbiomed_gui.server.wsgi:app",
-            ]
-
         try:
-            with subprocess.Popen(
-                " ".join(command), env=current_env, shell=True
-            ) as proc:
-                proc.wait()
+            start_gui_server(
+                component_root=args.path,
+                data_folder=args.data_folder,
+                cert_file=args.cert_file,
+                key_file=args.key_file,
+                port=args.port,
+                host=args.host,
+                development=args.development,
+            )
         except Exception as e:
             print(e)
 
