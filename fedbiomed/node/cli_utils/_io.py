@@ -67,6 +67,7 @@ def pick_with_tkinter(type: str = "csv") -> str | None:
         )
         if not path:
             logger.warning(empty_msg)
+            return None
         return path
     except (RuntimeError, TclError) as e:
         error_msg = f"GUI failed: {e}. Falling back to CLI."
@@ -94,8 +95,9 @@ def validated_path_input(type: str) -> str:
         path = pick_with_tkinter(type=type)
         if path is not None:
             return path
+        warnings.warn("[WARNING] GUI failed. Falling back to CLI", stacklevel=1)
     else:
-        warnings.warn("[WARNING] GUI not available. Falling back to CLI", stacklevel=1)  # type: ignore[unreachable]
+        warnings.warn("[WARNING] GUI not available. Falling back to CLI", stacklevel=1)
 
     # CLI fallback: loop until a valid path is entered
     prompt = f"Insert the path of the {'file' if is_file_mode else 'folder'}: "

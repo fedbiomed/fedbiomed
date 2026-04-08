@@ -15,20 +15,19 @@ from typing import Optional
 filedialog: Optional[ModuleType] = None
 messagebox: Optional[ModuleType] = None
 available: bool = False
+TclError: type[Exception]
 
 try:
-    import tkinter._tkinter as _tkinter_internal
+    import tkinter
     import tkinter.filedialog as _filedialog
     import tkinter.messagebox as _messagebox
 
     filedialog = _filedialog
     messagebox = _messagebox
     available = True
-
-    class TclError(_tkinter_internal.TclError):
-        pass
+    TclError = tkinter.TclError
 
 except ImportError:
 
-    class TclError(Exception):  # type: ignore[no-redef]
+    class TclError(Exception):
         """Raised in place of tkinter.TclError when tkinter is not installed."""
