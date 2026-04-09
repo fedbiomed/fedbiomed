@@ -24,11 +24,13 @@ class NodeStateAgent:
             node_ids: list of node IDs of the nodes for which to maintain state ID
         """
         self._fds = federated_dataset
-        self._collection_state_ids: Dict[str, str] = {  # Mapping <node_id, state_id>
+        self._collection_state_ids: Dict[
+            str, Optional[str]
+        ] = {  # Mapping <node_id, state_id>
             node_id: None for node_id in self._fds.data().keys()
         }
 
-    def get_last_node_states(self) -> Dict[str, str]:
+    def get_last_node_states(self) -> Dict[str, Optional[str]]:
         """Returns a dictionary mapping <node_id, state_id> from latest `Nodes` replies.
 
         If used before the end of the first Round, each state_id is set to None
@@ -93,7 +95,7 @@ class NodeStateAgent:
         """
         return {"collection_state_ids": self._collection_state_ids}
 
-    def load_state_breakpoint(self, node_state: Dict):
+    def load_state_breakpoint(self, node_state: Dict[str, Optional[str]]) -> None:
         """Loads NodeStateAgent's state from saved state.
 
         Args:
