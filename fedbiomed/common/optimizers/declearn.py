@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Imports of declearn Optimizers Optimodules that are compatible with FedBioMed"""
 
-from typing import Dict
+from typing import Dict, Type
 
 from declearn.optimizer.modules import (
     AdaGradModule,
@@ -64,16 +64,16 @@ _MODULES = (
 )
 
 
-def list_optim_regularizers() -> Dict[str, Regularizer]:
+def list_optim_regularizers() -> Dict[str, Type[Regularizer]]:
     """Returns list of available `declearn` `Regularizer` that are compatible with Fed-BioMed framework.
 
     Returns:
-        Dict[str, Regularizer]: Mapping of <regularizer name, Regularizer class>
+        Dict[str, Type[Regularizer]]: Mapping of <regularizer name, Regularizer class>
     """
     return {r.name: r for r in _REGULARIZERS}
 
 
-def list_optim_modules() -> Dict[str, OptiModule]:
+def list_optim_modules() -> Dict[str, Type[OptiModule]]:
     """Returns a dictionary of all available OptiModules of `Declearn` compatible
     with Fed-BioMed frameworks.
 
