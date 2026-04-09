@@ -11,6 +11,7 @@ from typing import Dict
 from fedbiomed.common.constants import PreprocStep, PreprocType
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.requests import MessagesByNode
 
 from ._job import Job
@@ -29,7 +30,7 @@ class PreprocRequestJob(Job):
         preproc_type: PreprocType,
         preproc_step: PreprocStep,
         preproc_id: str,
-        federated_dataset: dict,
+        federated_dataset: FederatedDataset,
         preproc_args: dict,
         state_id: dict[str, str] | None = None,
         **kwargs,
