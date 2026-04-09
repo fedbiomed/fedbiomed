@@ -97,7 +97,7 @@ class VarianceAccumulator(BaseStatAccumulator):
         self._validate_shape(val)
         mask = np.isfinite(val)
 
-        if self.counts is None:
+        if self.counts is None or self.mean_val is None or self.m2_val is None:
             self.counts = mask.astype(np.int32)
             self.mean_val = np.where(mask, val, 0.0).astype(np.float32)
             self.m2_val = np.zeros(val.shape, dtype=np.float32)
