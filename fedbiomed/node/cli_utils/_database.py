@@ -41,6 +41,13 @@ def _confirm_predefined_dataset_tags(dataset_name: str, default_tags: list) -> l
             return default_tags
         elif response in ["n", "no"]:
             tags = input("Tags (separate them by comma and no spaces): ")
+            while not tags or not all(
+                len(tag) >= 3 for tag in tags.replace(" ", "").split(",")
+            ):
+                print(
+                    "Please enter at least one tag, and ensure all tags are at least 3 characters long."
+                )
+                tags = input("Tags (separate them by comma and no spaces): ")
             return tags.replace(" ", "").split(",")
         else:
             print("Please enter 'y' for yes or 'n' for no.")
@@ -100,13 +107,27 @@ def add_database(
                 path = validated_path_input(data_type)
 
         else:
-            name = input("Name of the database: ")
-            tags = (
-                input("Tags (separate them by comma and no spaces): ")
-                .replace(" ", "")
-                .split(",")
-            )
-            description = input("Description: ")
+            while True:
+                name = input("Name of the database: ")
+                if len(name) >= 3:
+                    break
+                print("Name must be at least 3 characters long.")
+            while True:
+                tags = (
+                    input("Tags (separate them by comma and no spaces): ")
+                    .replace(" ", "")
+                    .split(",")
+                )
+                if len(tags) >= 1 and all(len(tag) >= 3 for tag in tags):
+                    break
+                print(
+                    "Please enter at least one tag, and ensure all tags are at least 3 characters long."
+                )
+            while True:
+                description = input("Description: ")
+                if len(description) >= 3:
+                    break
+                print("Description must be at least 3 characters long.")
 
             if data_type == "medical-folder":
                 path, dataset_parameters, data_loading_plan = (
@@ -138,6 +159,17 @@ def add_database(
         tags = str(tags).split(",")
         name = str(name)
         description = str(description)
+
+        if (
+            tags == ""
+            or not all(len(tag) >= 3 for tag in tags)
+            or len(name) < 3
+            or len(description) < 3
+        ):
+            raise FedbiomedDatasetManagerError(
+                "Invalid dataset parameters. Please ensure that tags are not empty, "
+                "and tags, name and description are at least 3 characters long."
+            )
 
         data_type = str(data_type).lower()
         if data_type not in (
