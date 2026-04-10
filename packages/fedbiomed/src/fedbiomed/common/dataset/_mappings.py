@@ -17,6 +17,7 @@ from fedbiomed.common.dataset_controller import (
     MedNistController,
     MnistController,
     TabularController,
+    NipoppyController
 )
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -69,7 +70,7 @@ REGISTRY_CONTROLLERS: Dict[DatasetTypes, Tuple[Type[Controller], Type[Dataset]]]
         DATASET_CLASSES_PER_TYPE[DatasetTypes.CUSTOM],
     ),
     DatasetTypes.NIPOPPY: (
-        CustomController,
+        NipoppyController,
         ControllerParametersBase,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.NIPOPPY],
     )
