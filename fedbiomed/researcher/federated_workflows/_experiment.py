@@ -439,11 +439,13 @@ class Experiment(TrainingPlanWorkflow):
                 f"Optimizer instance or None, not {type(agg_optimizer)}."
             )
         self._agg_optimizer = agg_optimizer
-        if isinstance(agg_optimizer, Optimizer) and self.training_plan().local_params:
-            logger.warning(
-                "Using Declearn optimizers for aggregation and parameters tagged "
-                "as local may lead to unexpected behaviours."
-            )
+        if isinstance(agg_optimizer, Optimizer):
+            tp = self.training_plan()
+            if tp is not None and tp.local_params:
+                logger.warning(
+                    "Using Declearn optimizers for aggregation and parameters tagged "
+                    "as local may lead to unexpected behaviours."
+                )
         return self._agg_optimizer
 
     @exp_exceptions
