@@ -22,12 +22,6 @@ class NipoppyReader:
 
         Args:
             path: The path of the csv file that contains the dataset.
-            has_header: Boolean to indicate whether the file has a header or not.
-                By default it is set as 'auto', which is the case that the reader tries to
-                detect itself whether the file has a header or not.
-            delimiter: The delimiter used in the csv file.
-                By default it is set as None, which is the case that the reader tries to
-                detect itself whether the file has a delimiter or not.
         """
         self._path = path
         self._retriever = NipoppyDataRetriever(self._path)
