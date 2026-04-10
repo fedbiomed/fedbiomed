@@ -21,6 +21,7 @@ const SideNav= (props) => {
             { key: '4', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon, action: null },
             { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset/', icon: PlusIcon, action: null },
             { key: '6', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon, action: null },
+            { key: '7', label: 'Node Management', path: '/node-management/', icon: ConfIcon, action: null },
         ]
     }, [])
 

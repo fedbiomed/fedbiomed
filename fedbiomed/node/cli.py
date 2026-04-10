@@ -200,6 +200,8 @@ def start_gui_server(
 ) -> None:
     """Launches the node GUI server."""
 
+    logger.info("Starting GUI server...")
+
     fedbiomed_root = os.path.abspath(component_root)
 
     if data_folder == "":
@@ -651,6 +653,11 @@ class NodeControl(CLIArgumentParser):
         p.start()
 
         logger.info("Node started as process with pid = " + str(p.pid))
+        start_gui_server(
+            component_root=os.environ.get("FBM_NODE_COMPONENT_ROOT"),
+            data_folder=os.path.join(os.environ.get("FBM_NODE_COMPONENT_ROOT"), "data"),
+        )
+        logger.info("GUI server stopped. Stopping node process...")
         try:
             print("To stop press Ctrl + C.")
             p.join()
