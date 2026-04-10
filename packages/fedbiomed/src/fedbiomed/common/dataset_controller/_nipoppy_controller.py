@@ -55,17 +55,16 @@ class NipoppyController(Controller):
             Filtered DataFrame
         """
         self._data = self._reader._read(phenotypes=phenotypes, derivatives=derivatives)
-        self._data = self._data.reset_index()
         if self._session_filters:
             # self._session_filters at this point is guaranteed to be a non-empty list of either strings or tuples due to the wrapping logic in __init__
             if all(isinstance(filter, str) for filter in self._session_filters):
-                self._data = self._data[self._data[NipoppyController.COL_SESSION_ID].isin(self._session_filters)]
+                self._data = self._data.query(
+                    f"{NipoppyController.COL_SESSION_ID} in @self._session_filters"
+                )
             elif all(isinstance(filter, tuple) and len(filter) == 2 for filter in self._session_filters):
                 idx = pd.MultiIndex.from_tuples(self._session_filters, 
                                                 names=[NipoppyController.COL_PARTICIPANT_ID, NipoppyController.COL_SESSION_ID])
-                self._data = self._data.set_index([NipoppyController.COL_PARTICIPANT_ID, NipoppyController.COL_SESSION_ID])
-                self._data = self._data.loc[idx]   
-                self._data = self._data.reset_index()
+                self._data = self._data.loc[idx]
         if self._drop_na:
             self._data = self._data.dropna()
         self._apply_whole_df_transform()
@@ -105,8 +104,12 @@ class NipoppyController(Controller):
         Raises:
             ValueError: if the resulting data is empty after filtering
         """
+        if self._data is None:
+            raise RuntimeError("Data should have been loaded and filtered at this point, but it is None.")
         if self._data is not None and self._data.empty:
             raise ValueError("No data left after applying session filters. Please check your session filters and the dataset.")
-        participant_ids = self._data[NipoppyController.COL_PARTICIPANT_ID].tolist()
+        participant_ids = self._data.index.get_level_values(
+            NipoppyController.COL_PARTICIPANT_ID
+        ).tolist()
         if len(participant_ids) != len(set(participant_ids)):
             raise ValueError("Some participants have more than one session")
