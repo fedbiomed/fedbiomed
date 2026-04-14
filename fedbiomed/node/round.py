@@ -786,14 +786,15 @@ class Round:
             full_model_weights = self.training_plan.get_model_params(
                 only_trainable=False, exclude_buffers=False, local_params=None
             )
-            local_params = self.training_plan.filter_model_params_by_tags(
-                full_model_weights,
-                required_tags={"local"},
+            local_params = list(
+                self.training_plan.filter_model_params_by_tags(
+                    full_model_weights, required_tags={"local"}
+                ).keys()
             )
-            self.aux_vars = optimizer.optimizer.restore_aux(
+            aux_vars = optimizer.optimizer.restore_aux(
                 self.aux_vars, full_model_weights, local_params
             )
-            optimizer.optimizer.set_aux(self.aux_vars)
+            optimizer.optimizer.set_aux(aux_vars)
         except FedbiomedOptimizerError as exc:
             return (
                 "TrainingPlan Optimizer failed to ingest the provided "
@@ -987,9 +988,10 @@ class Round:
             full_model_weights = self.training_plan.get_model_params(
                 only_trainable=False, exclude_buffers=False, local_params=None
             )
-            local_params = self.training_plan.filter_model_params_by_tags(
-                full_model_weights,
-                required_tags={"local"},
+            local_params = list(
+                self.training_plan.filter_model_params_by_tags(
+                    full_model_weights, required_tags={"local"}
+                ).keys()
             )
             aux_var = optimizer.optimizer.filter_aux(full_aux_var, local_params)
 
