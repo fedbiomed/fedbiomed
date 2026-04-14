@@ -372,6 +372,30 @@ class TestScaffold(unittest.TestCase):
                     training_plan=training_plan, training_replies=training_replies
                 )
 
+        # test case where local_params is non-None: should be forwarded to get_model_params
+        lr = {"layer-1": 0.1, "layer-2": 0.2}
+        n_model_layer = len(lr)
+        training_replies = {
+            node_id: {"node_id": node_id, "optimizer_args": {"lr": lr}}
+            for node_id in self.node_ids
+        }
+        training_plan2 = MagicMock()
+        training_plan2.local_params = ["layer-3.weight"]
+        get_model_params_mock2 = MagicMock()
+        get_model_params_mock2.__len__ = MagicMock(return_value=n_model_layer)
+        training_plan2.get_model_params.return_value = get_model_params_mock2
+        fds2 = FederatedDataset({node_id: {} for node_id in self.node_ids})
+        scaffold2 = Scaffold(fds=fds2)
+        node_lr = scaffold2.set_nodes_learning_rate_after_training(
+            training_plan=training_plan2, training_replies=training_replies
+        )
+        training_plan2.get_model_params.assert_called_with(
+            only_trainable=False,
+            exclude_buffers=True,
+            local_params=["layer-3.weight"],
+        )
+        self.assertDictEqual(node_lr, {node_id: lr for node_id in self.node_ids})
+
 
 class TestIntegrationScaffold(unittest.TestCase):
     # For testing training_plan setter of Experiment
