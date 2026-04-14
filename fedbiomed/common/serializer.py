@@ -128,7 +128,9 @@ class Serializer:
         if isinstance(obj, VectorSpec):
             return {"__type__": "VectorSpec", "value": dataclasses.asdict(obj)}
         if isinstance(obj, AuxVar):
-            return {"__type__": "AuxVar", "value": json_pack(obj)}
+            return json_pack(
+                obj
+            )  # json_pack of Declearn already adds the "__type__" field
         if isinstance(obj, MetricTypes):
             return {"__type__": "MetricTypes", "value": obj.name}
         if isinstance(obj, EncryptedAuxVar):
@@ -162,10 +164,11 @@ class Serializer:
             return Vector.build(obj["value"])
         if objtype == "VectorSpec":
             return VectorSpec(**obj["value"])
-        if objtype == "AuxVar":
-            return json_unpack(obj["value"])
-        if objtype.startswith("AuxVar"):
+        if objtype.startswith(
+            "AuxVar"
+        ):  # Declearn scaffold aux var type is AuxVar>ScaffoldAuxVar
             try:
+                # json_upack of Declearn expects the "__type__" field to be present in the dict
                 return json_unpack(obj)
             except Exception:
                 logger.warning("Failed to unpack AuxVar subtype.")
