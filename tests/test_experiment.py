@@ -1,6 +1,6 @@
 import unittest
 from itertools import product
-from unittest.mock import MagicMock, create_autospec, patch
+from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 from declearn.model.api import Vector
 from declearn.optimizer.modules import AuxVar
@@ -351,6 +351,21 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertEqual(exp.round_current(), 7)
         # ------------------------------------------------------------------------
 
+        # Test run_once with local parameters ------------------------------------
+        self.mock_job.reset_mock()
+        _strategy.reset_mock()
+        _aggregator.reset_mock()
+        exp.training_plan().reset_mock()
+        self.mock_tp._local_params = ["layer1.weight"]
+        type(self.mock_tp).local_params = PropertyMock(
+            return_value=self.mock_tp._local_params
+        )
+
+        exp.run_once(increase=True)
+        _, kwargs = exp.training_plan().set_model_params.call_args
+        self.assertEqual(kwargs["local_params"], ["layer1.weight"])
+        # ------------------------------------------------------------------------
+
     def test_experiment_05_run(self):
         """Tests run method of the experiment"""
         exp = Experiment(round_limit=2)
@@ -669,7 +684,8 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp.set_test_on_global_updates(False)
         self.assertFalse(exp.test_on_global_updates())
 
-    def test_experiment_12_set_agg_optimizer(self):
+    @patch("fedbiomed.researcher.experiment.logger.warning")
+    def test_experiment_12_set_agg_optimizer(self, mock_warning):
         """Tests setting aggregator optimizer"""
 
         exp = Experiment()
@@ -690,6 +706,14 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # Check getter
         exp._agg_optimizer = _agg_optim
         self.assertEqual(exp.agg_optimizer(), _agg_optim)
+
+        # Check warning if optimizer is set with a local parameters in training plan
+        mock_tp = MagicMock()
+        mock_tp._local_params = ["layer.weight"]
+        exp._training_plan = mock_tp
+        exp.set_agg_optimizer(_agg_optim)
+
+        mock_warning.assert_called_once()
 
     def test_experiment_13_set_round_limit(self):
         """Tests setting round limit"""
@@ -886,6 +910,118 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         state_agent.reset_mock()
         exp._update_nodes_states_agent({"hello": "world"})
         state_agent.update_node_states.assert_called_once_with({"hello": "world"})
+
+    def test_experiment_24_aggregate_encrypted_model_params_passes_local_params(self):
+        """Test _aggregate_encrypted_model_params_and_optim_auxvar forwards local_params.
+
+        Verifies that both flatten() (on get_model_wrapper_class()) and unflatten()
+        receive the local_params from the training plan.
+        """
+        exp = Experiment()
+
+        # Mock secagg
+        mock_secagg = MagicMock(spec=_SecureAggregation)
+        mock_secagg.aggregate.return_value = [0.0, 1.0]
+        exp._secagg = mock_secagg
+
+        # training_args share_persistent_buffers
+        exp._training_args = MagicMock()
+        exp._training_args.__getitem__ = MagicMock(
+            side_effect=lambda k: True if k == "share_persistent_buffers" else None
+        )
+
+        # Training plan with non-empty local_params
+        local = ["fc.bias"]
+        mock_tp = MagicMock()
+        mock_tp._local_params = local
+        type(mock_tp).local_params = PropertyMock(return_value=mock_tp._local_params)
+
+        # Model wrapper: flatten returns a size-2 list, unflatten returns a dict
+        mock_wrapper = MagicMock()
+        mock_wrapper.flatten.return_value = [0.0, 1.0]
+        mock_wrapper.unflatten.return_value = {"fc1.weight": 0.0, "fc2.weight": 1.0}
+        mock_tp.get_model_wrapper_class.return_value = mock_wrapper
+
+        exp.training_plan = MagicMock(return_value=mock_tp)
+
+        aggregated_params, aggregated_auxvar = (
+            exp._aggregate_encrypted_model_params_and_optim_auxvar(
+                model_params={"node-1": [0, 1]},
+                optim_auxvar={},
+                encryption_factors=None,
+                total_sample_size=10,
+            )
+        )
+
+        # flatten must have been called with local_params=local
+        flatten_kwargs = mock_wrapper.flatten.call_args
+        self.assertEqual(
+            flatten_kwargs.kwargs.get("local_params"),
+            local,
+            "flatten() was not called with the correct local_params",
+        )
+
+        # unflatten must have been called with local_params=local
+        unflatten_kwargs = mock_wrapper.unflatten.call_args
+        self.assertEqual(
+            unflatten_kwargs.kwargs.get("local_params"),
+            local,
+            "unflatten() was not called with the correct local_params",
+        )
+        self.assertIsNone(aggregated_auxvar)
+
+    def test_experiment_25_run_agg_optimizer_passes_local_params(self):
+        """Test that _run_agg_optimizer filters model params through local_params.
+
+        Two sub-cases:
+        A. No agg_optimizer set: returns aggregated_params unchanged.
+        B. agg_optimizer set with local_params: get_model_params called with
+           local_params on both the trainable-only and full-params calls.
+        """
+        exp = Experiment()
+
+        aggregated_params = {"fc.weight": MagicMock(), "fc.bias": MagicMock()}
+
+        # A. No optimizer
+        exp._agg_optimizer = None
+        mock_tp_no_optim = MagicMock()
+        result = exp._run_agg_optimizer(mock_tp_no_optim, aggregated_params)
+        self.assertEqual(result, aggregated_params)
+        mock_tp_no_optim.get_model_params.assert_not_called()
+
+        # B. Optimizer set: local_params must propagate
+        local = ["fc.bias"]
+        mock_tp = MagicMock()
+        mock_tp._local_params = local
+        type(mock_tp).local_params = PropertyMock(return_value=mock_tp._local_params)
+
+        # get_model_params returns params compatible with Vector.build
+        param_tensor = MagicMock()
+        mock_tp.get_model_params.return_value = {"fc.weight": param_tensor}
+
+        _agg_optim = MagicMock(spec=fedbiomed.common.optimizers.Optimizer)
+        mock_update = MagicMock()
+        mock_update.coefs = {}
+        _agg_optim.step.return_value = mock_update
+
+        exp._agg_optimizer = _agg_optim
+
+        with patch.object(Vector, "build", return_value=MagicMock()):
+            exp._run_agg_optimizer(mock_tp, aggregated_params)
+
+        # Both get_model_params calls must include local_params=local
+        calls = mock_tp.get_model_params.call_args_list
+        self.assertGreaterEqual(
+            len(calls),
+            2,
+            "Expected at least two get_model_params calls",
+        )
+        for call in calls:
+            self.assertEqual(
+                call.kwargs.get("local_params"),
+                local,
+                f"get_model_params was called without local_params=local: {call}",
+            )
 
 
 if __name__ == "__main__":  # pragma: no cover

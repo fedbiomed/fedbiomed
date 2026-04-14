@@ -4,8 +4,8 @@
 """Unit tests for the declearn-interfacing Optimizer class."""
 
 import json
-from typing import Dict, List
 import unittest
+from typing import Dict, List
 from unittest import mock
 
 import declearn
@@ -45,7 +45,7 @@ class TestOptimizer(unittest.TestCase):
             modules=modules,
             regularizers=regularizers,
         )
-        d_opt = getattr(optim, "_optimizer")
+        d_opt = optim._optimizer
         self.assertIsInstance(d_opt, DeclearnOptimizer)
         self.assertEqual(d_opt.lrate, 1e-3)
         self.assertEqual(d_opt.w_decay, 1e-4)
@@ -138,10 +138,10 @@ class TestOptimizer(unittest.TestCase):
         mockaux = mock.create_autospec(AuxVar, instance=True)
         mod_aux = mock.create_autospec(OptiModule, instance=True)
         mod_aux.collect_aux_var.return_value = mockaux
-        setattr(mod_aux, "aux_name", "mock-module-1")
+        mod_aux.aux_name = "mock-module-1"
         mod_nox = mock.create_autospec(OptiModule, instance=True)
         mod_nox.collect_aux_var.return_value = None
-        setattr(mod_nox, "aux_name", "mock-module-2")
+        mod_nox.aux_name = "mock-module-2"
         optim = Optimizer(lr=0.001, modules=[mod_aux, mod_nox])
         # Call 'get_aux' and assert that the results match expectations.
         aux = optim.get_aux()
@@ -166,7 +166,7 @@ class TestOptimizer(unittest.TestCase):
         """Test `Optimizer.set_aux` using a mock Module."""
         # Set up an Optimizer, a mock module and mock aux-var inputs.
         module = mock.create_autospec(OptiModule, instance=True)
-        setattr(module, "aux_name", "mock-module")
+        module.aux_name = "mock-module"
         optim = Optimizer(lr=0.001, modules=[module])
         state = mock.MagicMock()
         # Call 'set_aux' and assert that the information was passed.
@@ -301,6 +301,99 @@ class TestOptimizer(unittest.TestCase):
         """Test that `Optimizer.load_state` exceptions are wrapped."""
         with self.assertRaises(FedbiomedOptimizerError):
             Optimizer.load_state({})
+
+    def test_optimizer_19_filter_aux(self):
+        """Test that filter_aux removes local parameters from aux vectors."""
+        optim = Optimizer(lr=0.001)
+        aux_var = ScaffoldAuxVar(
+            delta=Vector.build(
+                {
+                    "weight": torch.ones(2, 2),
+                    "bias": torch.ones(2),
+                }
+            ),
+            clients={"node-1"},
+        )
+        aux = {"scaffold": aux_var}
+        filtered = optim.filter_aux(aux, local_params=["bias"])
+        self.assertIn("scaffold", filtered)
+        self.assertNotIn("bias", filtered["scaffold"].delta.coefs)
+        self.assertIn("weight", filtered["scaffold"].delta.coefs)
+
+    def test_optimizer_20_filter_aux_invalid_aux(self):
+        """Test filter_aux fails if aux_vars is not a dict."""
+        optim = Optimizer(lr=0.001)
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.filter_aux(aux_vars="not-a-dict", local_params=["bias"])
+
+    def test_optimizer_21_filter_aux_invalid_vector_structure(self):
+        """Test filter_aux fails when vector.coefs is not a dict."""
+        optim = Optimizer(lr=0.001)
+        bad_vector = mock.MagicMock()
+        bad_vector.coefs = "not-a-dict"
+        auxvar = mock.MagicMock()
+        auxvar.delta = bad_vector
+        aux = {"module": auxvar}
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.filter_aux(aux, local_params=["bias"])
+
+    def test_optimizer_22_restore_aux(self):
+        """Test that restore_aux recreates missing local parameters."""
+        optim = Optimizer(lr=0.001)
+        aux_var = ScaffoldAuxVar(
+            delta=Vector.build({"weight": torch.ones(2, 2)}), clients={"node-1"}
+        )
+        aux = {"scaffold": aux_var}
+        reference_params = {"weight": torch.ones(2, 2), "bias": torch.ones(2)}
+        restored = optim.restore_aux(
+            aux_vars=aux, reference_params=reference_params, local_params=["bias"]
+        )
+        self.assertIn("bias", restored["scaffold"].delta.coefs)
+        self.assertTrue(
+            torch.equal(
+                restored["scaffold"].delta.coefs["bias"],
+                torch.zeros_like(reference_params["bias"]),
+            )
+        )
+
+    def test_optimizer_23_restore_aux_invalid_aux(self):
+        """Test restore_aux fails if aux_vars is not a dict."""
+        optim = Optimizer(lr=0.001)
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.restore_aux("not-a-dict", {}, [])
+
+    def test_optimizer_24_restore_aux_vector_build_fails(self):
+        """Test restore_aux wraps Vector.build failure."""
+        optim = Optimizer(lr=0.001)
+        aux = {}
+        with mock.patch("declearn.model.api.Vector.build", side_effect=RuntimeError):
+            with self.assertRaises(FedbiomedOptimizerError):
+                optim.restore_aux(aux, {"w": torch.ones(1)}, ["w"])
+
+    def test_optimizer_25_restore_aux_invalid_vector_structure(self):
+        """Test restore_aux fails when vector.coefs is invalid."""
+        optim = Optimizer(lr=0.001)
+        bad_vector = mock.MagicMock()
+        bad_vector.coefs = "not-a-dict"
+        auxvar = mock.MagicMock()
+        auxvar.delta = bad_vector
+        aux = {"module": auxvar}
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.restore_aux(aux, {"w": torch.ones(1)}, ["w"])
+
+    def test_optimizer_25_restore_aux_missing_reference(self):
+        """Test restore_aux fails if reference tensor is missing."""
+        optim = Optimizer(lr=0.001)
+        aux_var = ScaffoldAuxVar(
+            delta=Vector.build({"weight": torch.ones(2, 2)}), clients={"node-1"}
+        )
+        aux = {"scaffold": aux_var}
+        with self.assertRaises(FedbiomedOptimizerError):
+            optim.restore_aux(
+                aux,
+                reference_params={"weight": torch.ones(2, 2)},
+                local_params=["bias"],
+            )
 
 
 if __name__ == "__main__":  # pragma: no cover

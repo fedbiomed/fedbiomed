@@ -209,6 +209,38 @@ class TestSklearnTrainingPlanBasicInheritance(unittest.TestCase):
             training_plan.import_model("filename")
             self.assertIs(training_plan._model.model, model)
 
+    def test_sklearntrainingplanbasicinheritance_05_post_init_local_params(self):
+        """Ensure post_init correctly computes _local_params from tagged parameters."""
+
+        training_plan = SKLearnTrainingPlan()
+
+        # mock model
+        mock_model = MagicMock()
+        mock_model.get_weights.return_value = {
+            "coef_": np.array([0.0]),
+            "intercept_": np.array([0.0]),
+        }
+
+        # patch get_model_params to return fake params
+        training_plan.get_model_params = MagicMock(
+            return_value={"coef_": np.array([0.0]), "intercept_": np.array([0.0])}
+        )
+
+        # simulate tagging behaviour
+        def fake_filter(params, required_tags=None, forbidden_tags=None):
+            return {"coef_": params["coef_"]}  # only coef_ tagged local
+
+        training_plan.filter_model_params_by_tags = MagicMock(side_effect=fake_filter)
+
+        training_plan._model = mock_model
+
+        training_plan.post_init(
+            {"n_classes": 2, "n_features": 2},
+            FakeTrainingArgs(),
+        )
+
+        self.assertEqual(training_plan._local_params, ["coef_"])
+
 
 class TestSklearnTrainingPlanPartialFit(unittest.TestCase):
     def setUp(self):
@@ -601,6 +633,15 @@ class TestSklearnTrainingPlansCommonFunctionalities(unittest.TestCase):
             self.assertEqual(
                 training_plan._model.model.n_iter_, 1
             )  # n_iter_ == 1 always after calling _train_over_batch
+
+    def test_sklearntrainingplancommonfunctionalities_06_local_params_default_empty(
+        self,
+    ):
+        """Ensure sklearn training plans have no local parameters by default."""
+
+        for training_plan in self.training_plans:
+            self.assertIsInstance(training_plan._local_params, list)
+            self.assertEqual(training_plan._local_params, [])
 
 
 class TestSklearnTrainingPlansRegression(unittest.TestCase):
