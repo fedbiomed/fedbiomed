@@ -15,6 +15,7 @@ from fedbiomed.common.training_args import TrainingArgs
 
 # from fedbiomed.common.dataloader import NPDataLoader
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
+from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 class SimpleTrainingPlan(BaseTrainingPlan):
@@ -369,11 +370,11 @@ class TestBaseTrainingPlan(unittest.TestCase):
             # data.__len__.return_value = 2
             # test_data = MagicMock(spec=np.ndarray, dataset = MagicMock(return_value=test_data_loader))
             # test_data.__len__.return_value = test_batch_size
-            data = NPDataLoader(
+            data = NPDataLoader(  # noqa: F821
                 dataset=train_data_loader, target=train_data_loader_target
             )
 
-            test_data = NPDataLoader(
+            test_data = NPDataLoader(  # noqa: F821
                 dataset=test_data_loader,
                 target=test_data_loader_target,
                 batch_size=test_batch_size,
@@ -454,6 +455,121 @@ class TestBaseTrainingPlan(unittest.TestCase):
                 nb_samples_test_dataset % test_batch_size > 0
             )
             self.assertEqual(model.predict.call_count, nb_test_batch)
+
+    def test_base_training_plan_11_local_params_property(self):
+        """Test local_params property"""
+
+        self.assertIsNone(self.tp.local_params)
+
+        self.tp._local_params = ["param1", "param2"]
+        self.assertEqual(self.tp.local_params, ["param1", "param2"])
+
+    def test_base_training_plan_12_get_dp_controller(self):
+        """Test default DP controller getter"""
+        self.assertIsNone(self.tp.get_dp_controller())
+
+    def test_base_training_plan_13_validate_parameter_tags(self):
+        """Test validation of parameter tags"""
+
+        # valid case
+        tags = {"local"}
+        validated = self.tp._validate_parameter_tags("weight", tags)
+        self.assertEqual(validated, tags)
+
+        # invalid type
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp._validate_parameter_tags("weight", ["local"])
+
+        # invalid tag
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp._validate_parameter_tags("weight", {"invalid"})
+
+    def test_base_training_plan_14_get_parameter_tags(self):
+        """Test retrieving parameter tags"""
+
+        tags = self.tp.get_parameter_tags("weight")
+        self.assertEqual(tags, set())
+
+    def test_base_training_plan_15_filter_model_params_by_tags(self):
+        """Test filtering model parameters based on tags"""
+
+        params = {"w1": 1, "w2": 2, "w3": 3}
+
+        def fake_tag_parameters(name):
+            if name == "w1":
+                return {"local"}
+            if name == "w2":
+                return {"persistent"}
+            return set()
+
+        self.tp.tag_parameters = fake_tag_parameters
+
+        # filter required tag
+        filtered = self.tp.filter_model_params_by_tags(params, required_tags={"local"})
+        self.assertEqual(filtered, {"w1": 1})
+        # invalid required tag
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp.filter_model_params_by_tags(params, required_tags=["local"])
+
+        # filter forbidden tag
+        filtered = self.tp.filter_model_params_by_tags(params, forbidden_tags={"local"})
+        self.assertNotIn("w1", filtered)
+        # invalid forbidden tag
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp.filter_model_params_by_tags(params, forbidden_tags="local")
+
+    def test_base_training_plan_16_get_model_params_local(self):
+        """Test get_model_params passes local_params to model"""
+
+        model = MagicMock()
+        model.get_weights.return_value = {"w": 1}
+
+        self.tp._model = model
+
+        self.tp.get_model_params(local_params=["w"])
+
+        model.get_weights.assert_called_once_with(
+            only_trainable=False, exclude_buffers=True, local_params=["w"]
+        )
+
+    def test_base_training_plan_17_set_model_params_local(self):
+        """Test set_model_params passes local_params to model"""
+
+        model = MagicMock()
+        self.tp._model = model
+
+        params = {"w": 1}
+
+        self.tp.set_model_params(params, local_params=["w"])
+
+        model.set_weights.assert_called_once_with(params, local_params=["w"])
+
+    def test_base_training_plan_18_after_training_params(self):
+        """Test after_training_params uses local_params"""
+
+        model = MagicMock()
+        model.get_weights.return_value = {"w": 1}
+
+        self.tp._model = model
+        self.tp._local_params = ["w"]
+        self.tp._training_args = {"share_persistent_buffers": False}
+
+        self.tp.after_training_params()
+
+        model.get_weights.assert_called_once_with(
+            only_trainable=False, exclude_buffers=True, local_params=["w"]
+        )
+
+    def test_base_training_plan_19_import_model(self):
+        """Test import_model passes local_params"""
+
+        model = MagicMock()
+        self.tp._model = model
+        self.tp._local_params = ["w"]
+
+        self.tp.import_model("model.pt")
+
+        model.reload.assert_called_once_with("model.pt", ["w"])
 
 
 if __name__ == "__main__":  # pragma: no cover

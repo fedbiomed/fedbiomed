@@ -152,7 +152,9 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         self.mock_tp.get_model_params.return_value = {"model": "params"}
         exp.set_training_plan_class(FakeTorchTrainingPlan)
 
-        self.mock_tp.set_model_params.assert_called_once_with({"model": "params"})
+        self.mock_tp.set_model_params.assert_called_once_with(
+            {"model": "params"}, local_params=self.mock_tp.local_params
+        )
 
         # check that weights are not preserved if we explicitly ask not to
         self.mock_tp.set_model_params.reset_mock()
@@ -193,7 +195,9 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         exp.set_model_args({"model": "other-args"})
 
         self.assertDictEqual(exp.model_args(), {"model": "other-args"})
-        self.mock_tp.set_model_params.assert_called_once_with({"model": "new-params"})
+        self.mock_tp.set_model_params.assert_called_once_with(
+            {"model": "new-params"}, local_params=self.mock_tp.local_params
+        )
 
         # Invalid model args type
         with self.assertRaises(FedbiomedExperimentError):
@@ -263,6 +267,12 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
             "breakpoint_0000",
             f"model_params_{mock_uuid.return_value}.mpk",
         )
+        local_params = self.mock_tp.local_params
+        self.mock_tp.get_model_wrapper_class.return_value.get_weights.assert_called_once_with(
+            only_trainable=False,
+            exclude_buffers=False,
+            local_params=local_params,
+        )
         mock_serializer_dump.assert_called_once_with(
             self.mock_tp.get_model_wrapper_class.return_value.get_weights.return_value,
             params_path,
@@ -327,8 +337,9 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
             TrainingArgs({"num_updates": 42}, only_required=False).dict(),
         )
         # Test if set_weights is called with the right arguments
+        local_params = self.mock_tp.local_params
         exp.training_plan().get_model_wrapper_class.return_value.set_weights.assert_called_once_with(
-            mock_serializer_load.return_value
+            mock_serializer_load.return_value, local_params=local_params
         )
         self.assertIsInstance(exp_tempo_id, str)
 
@@ -403,6 +414,8 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
 
         exp = TrainingPlanWorkflow()
         training_plan = MagicMock(spec=BaseTrainingPlan)
+        training_plan.local_params = ["fc1.bias"]
+        training_plan.get_model_params.return_value = {"fc1.weight": 0.123}
         exp._training_plan = training_plan
 
         def dummy_yield():
@@ -411,7 +424,15 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         # Check correct case
         with exp._keep_weights(True):
             dummy_yield()
-        training_plan.set_model_params.assert_called_once()
+
+        training_plan.get_model_params.assert_called_once_with(
+            exclude_buffers=False,
+            local_params=["fc1.bias"],
+        )
+        training_plan.set_model_params.assert_called_once_with(
+            {"fc1.weight": 0.123},
+            local_params=["fc1.bias"],
+        )
 
         # Check set_model_params raises an exception
 

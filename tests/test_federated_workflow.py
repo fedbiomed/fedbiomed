@@ -463,8 +463,12 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
     @patch(
         "fedbiomed.researcher.federated_workflows._federated_workflow.NodeStateAgent.load_state_breakpoint"
     )
+    @patch(
+        "fedbiomed.researcher.federated_workflows._federated_workflow.NodeStateAgent.load_fds_breakpoint"
+    )
     def test_federated_workflow_05_load_breakpoint(
         self,
+        mock_load_fds,
         mock_node_state_load,
         mock_bkpt_file,
         mock_json_load,
@@ -531,6 +535,7 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertDictEqual(saved_state["node_state"], {"node_state": "bkpt"})
         self.assertEqual(exp.secagg.scheme, SecureAggregationSchemes.LOM)
         self.assertIsInstance(exp_tempo_id, str)
+        mock_load_fds.assert_called_once_with(breakpoint_json["training_data"])
 
         # 2. Test with preprocessing
         breakpoint_json["preprocessing"] = {

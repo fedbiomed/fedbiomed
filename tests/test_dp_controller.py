@@ -1,16 +1,15 @@
 import unittest
+from unittest.mock import MagicMock, patch
 
 import torch
-
 from torch.nn import Module
 from torch.optim import Adam
 from torch.utils.data import DataLoader, Dataset
 
-from unittest.mock import patch, MagicMock
+from fedbiomed.common.exceptions import FedbiomedDPControllerError
 from fedbiomed.common.models import TorchModel
 from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 from fedbiomed.common.privacy import DPController
-from fedbiomed.common.exceptions import FedbiomedDPControllerError
 
 
 class TestDPController(unittest.TestCase):
@@ -187,22 +186,39 @@ class TestDPController(unittest.TestCase):
         )
 
     def test_dep_controller_07_post_process_dp(self):
-        """Tests before training method with different scenarios"""
+        """Tests postprocess dp renaming behaviour"""
 
-        params = {"a_module.": torch.zeros([2, 4]), "b_module.": torch.zeros([2, 4])}
-
-        # Post processes with DPL
-        p = self.dpl._postprocess_dp(params)
-        self.assertTrue(
-            "module" not in list(p.keys())[0],
-            "`module tag is not properly removed from private end-model`",
-        )
+        params = {
+            "_module.weight": torch.zeros([2, 4]),
+            "_module.bias": torch.zeros([2, 4]),
+        }
 
         # Post processes with DPC
-        p = self.dpc._postprocess_dp(params)
+        # With renaming=True
+        p = self.dpc._postprocess_dp(params, renaming=True)
         self.assertTrue(
-            "module" not in list(p.keys())[0],
-            "`module tag is not properly removed from private end-model`",
+            "_module." not in list(p.keys())[0],
+            "Opacus prefix not removed when renaming=True",
+        )
+        # With renaming=False
+        p = self.dpc._postprocess_dp(params, renaming=False)
+        self.assertTrue(
+            "_module." in list(p.keys())[0],
+            "Opacus prefix removed when renaming=False",
+        )
+
+        # Post processes with DPL
+        # With renaming=True
+        p = self.dpl._postprocess_dp(params, renaming=True)
+        self.assertTrue(
+            "_module." not in list(p.keys())[0],
+            "Opacus prefix not removed when renaming=True",
+        )
+        # With renaming=False
+        p = self.dpl._postprocess_dp(params, renaming=False)
+        self.assertTrue(
+            "_module." in list(p.keys())[0],
+            "Opacus prefix removed when renaming=False",
         )
 
     @patch("fedbiomed.common.privacy.DPController._postprocess_dp")
@@ -211,15 +227,73 @@ class TestDPController(unittest.TestCase):
 
         postprocess.return_value = "POSTPROCESS"
 
-        params = {"a_module.": torch.zeros([2, 4]), "b_module.": torch.zeros([2, 4])}
+        params = {
+            "_module.weight": torch.zeros([2, 4]),
+            "_module.bias": torch.zeros([2, 4]),
+        }
 
         # Post processes with DPL
+        # Default renaming=True
         p = self.dpl.after_training(params)
         self.assertEqual(p, "POSTPROCESS")
+        postprocess.assert_called_with(params, True)
+        postprocess.reset_mock()
+        # renaming=False
+        p = self.dpl.after_training(params, renaming=False)
+        self.assertEqual(p, "POSTPROCESS")
+        postprocess.assert_called_with(params, False)
+        postprocess.reset_mock()
 
         # Post processes with DPC
+        # Default renaming=True
         p = self.dpc.after_training(params)
         self.assertEqual(p, "POSTPROCESS")
+        postprocess.assert_called_with(params, True)
+        postprocess.reset_mock()
+        # renaming=False
+        p = self.dpc.after_training(params, renaming=False)
+        self.assertEqual(p, "POSTPROCESS")
+        postprocess.assert_called_with(params, False)
+
+    def test_dep_controller_09_rename_params(self):
+        """Test rename_params strips Opacus prefix"""
+
+        params = {
+            "_module.weight": torch.zeros(2, 2),
+            "_module.bias": torch.zeros(2),
+            "normal_param": torch.zeros(1),
+        }
+
+        renamed, mapping = self.dpl.rename_params(params)
+
+        self.assertIn("weight", renamed)
+        self.assertIn("bias", renamed)
+        self.assertIn("normal_param", renamed)
+
+        self.assertNotIn("_module.weight", renamed)
+
+        self.assertEqual(mapping["weight"], "_module.weight")
+        self.assertEqual(mapping["bias"], "_module.bias")
+
+    def test_dep_controller_10_revert_rename_params(self):
+        """Test revert_rename_params restores original names"""
+
+        params = {
+            "weight": torch.zeros(2, 2),
+            "bias": torch.zeros(2),
+        }
+        mapping = {
+            "weight": "_module.weight",
+            "bias": "_module.bias",
+        }
+
+        reverted = self.dpl.revert_rename_params(params, mapping)
+
+        self.assertIn("_module.weight", reverted)
+        self.assertIn("_module.bias", reverted)
+
+        self.assertNotIn("weight", reverted)
+        self.assertNotIn("bias", reverted)
 
 
 if __name__ == "__main__":  # pragma: no cover

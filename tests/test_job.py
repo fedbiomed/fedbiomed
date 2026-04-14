@@ -116,6 +116,7 @@ class TestJob(unittest.TestCase):
         mock_tp_class.__name__ = "mock_tp_class"
 
         mock_tp = mock_tp_class()
+        mock_tp.local_params = None
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
 
@@ -248,6 +249,7 @@ class TestJob(unittest.TestCase):
         mock_tp_class.__name__ = "mock_tp_class"
 
         mock_tp = mock_tp_class()
+        mock_tp.local_params = None
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
 
@@ -420,6 +422,7 @@ class TestJob(unittest.TestCase):
         mock_tp_class.__name__ = "mock_tp_class"
 
         mock_tp = mock_tp_class()
+        mock_tp.local_params = None
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
 
@@ -472,6 +475,7 @@ class TestJob(unittest.TestCase):
         mock_tp_class.__name__ = "mock_tp_class"
 
         mock_tp = mock_tp_class()
+        mock_tp.local_params = None
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
 
@@ -585,6 +589,7 @@ class TestJob(unittest.TestCase):
         mock_tp = create_autospec(spec=BaseTrainingPlan, instance=True)
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
+        mock_tp.local_params = None
         # Set up stub node state ids.
         fake_node_state_ids = {"node-1": "node-1_nsid", "node-2": "node-2_nsid"}
         # Set up a mock dataset.

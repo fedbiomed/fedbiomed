@@ -51,7 +51,7 @@ class TestScaffold(unittest.TestCase):
         self.replies = [self.replies]
         self.weights = [
             {node_id: random.random()}
-            for (node_id, _) in zip(self.node_ids, self.models)
+            for (node_id, _) in zip(self.node_ids, self.models, strict=True)
         ]
 
         # setting all coefficients of `zero_model` to 0
@@ -206,6 +206,7 @@ class TestScaffold(unittest.TestCase):
         for v_s, v_f in zip(
             aggregated_model_params_scaffold.values(),
             aggregated_model_params_fedavg.values(),
+            strict=True,
         ):
             self.assertTrue(torch.isclose(v_s, v_f * 0.2).all())
 
@@ -248,8 +249,10 @@ class TestScaffold(unittest.TestCase):
         agg_args = agg.create_aggregator_args(self.model.state_dict(), self.node_ids)
 
         for node_id in self.node_ids:
-            for (k, v), (k0, v0) in zip(
-                agg.nodes_deltas[node_id].items(), self.zero_model.state_dict().items()
+            for (_k, v), (_k0, v0) in zip(
+                agg.nodes_deltas[node_id].items(),
+                self.zero_model.state_dict().items(),
+                strict=True,
             ):
                 self.assertTrue(torch.isclose(v, v0).all())
 
@@ -292,7 +295,7 @@ class TestScaffold(unittest.TestCase):
             save_patch.call_count, 2, "'Serializer.dump' should be called 2 times"
         )
 
-        for node_id in self.node_ids:
+        for _node_id in self.node_ids:
             self.assertIsInstance(state["parameters"], str)
 
         self.assertEqual(state["class"], Scaffold.__name__)
@@ -331,17 +334,23 @@ class TestScaffold(unittest.TestCase):
             for node_id in self.node_ids
         }
         training_plan = MagicMock()
+        training_plan.local_params = None
         get_model_params_mock = MagicMock()
         get_model_params_mock.__len__ = MagicMock(return_value=n_model_layer)
         training_plan.get_model_params.return_value = get_model_params_mock
         fds = FederatedDataset({node_id: {} for node_id in self.node_ids})
         scaffold = Scaffold(fds=fds)
-        for n_round in range(n_rounds):
+        for _n_round in range(n_rounds):
             node_lr = scaffold.set_nodes_learning_rate_after_training(
                 training_plan=training_plan, training_replies=training_replies
             )
             test_node_lr = {node_id: lr for node_id in self.node_ids}
             self.assertDictEqual(node_lr, test_node_lr)
+        training_plan.get_model_params.assert_called_with(
+            only_trainable=False,
+            exclude_buffers=True,
+            local_params=None,
+        )
 
         # same test with a mix of present and absent nodes in training_replies
         fds = FederatedDataset({node_id: {} for node_id in self.node_ids + ["node_99"]})
@@ -349,7 +358,7 @@ class TestScaffold(unittest.TestCase):
         optim_w.get_learning_rate = MagicMock(return_value=lr)
         training_plan.optimizer = MagicMock(return_value=optim_w)
         scaffold = Scaffold(fds=fds)
-        for n_round in range(n_rounds):
+        for _n_round in range(n_rounds):
             node_lr = scaffold.set_nodes_learning_rate_after_training(
                 training_plan=training_plan, training_replies=training_replies
             )
@@ -357,7 +366,7 @@ class TestScaffold(unittest.TestCase):
         # test case where len(lr) != n_model_layer
         lr.update({"layer-4": 0.333})
         training_plan.get_learning_rate = MagicMock(return_value=lr)
-        for n_round in range(n_rounds):
+        for _n_round in range(n_rounds):
             with self.assertRaises(FedbiomedAggregatorError):
                 scaffold.set_nodes_learning_rate_after_training(
                     training_plan=training_plan, training_replies=training_replies
@@ -400,7 +409,10 @@ class TestIntegrationScaffold(unittest.TestCase):
             # for test Exprmient 26 (test_experiment_26_run_once_with_scaffold_and_training_args)
             # this has be done to avoid mocking a private attribute (`_dp_controller`), which is inappropriate
             self._dp_controller = MagicMock()
-            do_nothing = lambda x: x
+
+            def do_nothing(x):
+                return x
+
             self._dp_controller.side_effect = do_nothing
 
         def init_model(self, args):
@@ -439,7 +451,7 @@ class TestIntegrationScaffold(unittest.TestCase):
 
         self.weights = [
             {node_id: random.random()}
-            for (node_id, _) in zip(self.node_ids, self.models)
+            for (node_id, _) in zip(self.node_ids, self.models, strict=True)
         ]
 
     # after the tests
@@ -483,7 +495,7 @@ class TestIntegrationScaffold(unittest.TestCase):
             scaffold = Scaffold(server_lr=1)
 
             scaffold.set_fds(self.fds)
-            agg_params = scaffold.aggregate(
+            scaffold.aggregate(
                 local_models,
                 self.weights,
                 global_model=global_params,
@@ -528,7 +540,7 @@ class TestIntegrationScaffold(unittest.TestCase):
         scaffold = Scaffold(server_lr=server_lr)
 
         scaffold.set_fds(self.fds)
-        agg_params = scaffold.aggregate(
+        scaffold.aggregate(
             local_models,
             self.weights,
             global_model=global_params,
@@ -572,7 +584,7 @@ class TestIntegrationScaffold(unittest.TestCase):
             for i, node_id in enumerate(self.node_ids)
         }
 
-        agg_params_2 = loaded_scaffold.aggregate(
+        loaded_scaffold.aggregate(
             local_models,
             self.weights,
             global_model=global_params,
@@ -601,9 +613,10 @@ class TestIntegrationScaffold(unittest.TestCase):
             )
         # delta_i = (c_i - c)
         for node_id in self.node_ids:
-            for (k_ns, v_ns), (k_d, v_d) in zip(
+            for (k_ns, v_ns), (_k_d, v_d) in zip(
                 loaded_scaffold.nodes_states[node_id].items(),
                 loaded_scaffold.nodes_deltas[node_id].items(),
+                strict=True,
             ):
                 self.assertTrue(
                     torch.isclose(v_d, v_ns - loaded_scaffold.global_state[k_ns]).all()
