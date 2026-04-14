@@ -943,23 +943,35 @@ class TestRound(unittest.TestCase):
         self.assertIsInstance(msg, str)
 
     def test_round_16_process_optim_aux_var_with_optimizer_error(self):
-        """Test that 'process_optim_aux_var' documents 'Optimizer.set_aux' error."""
-        # Set up a Round with fake pre-downloaded aux vars.
-        mock_aux_var = {"module": create_autospec(AuxVar, instance=True)}
-        self.r1.aux_vars = mock_aux_var
-        # Set up a mock BaseOptimizer with an attached failing Optimizer.
-        mock_optim = create_autospec(Optimizer, instance=True)
-        fake_error = "fake FedbiomedOptimizerError on 'set_aux' call"
-        mock_optim.set_aux.side_effect = FedbiomedOptimizerError(fake_error)
+        """Test that 'process_optim_aux_var' returns an error when 'restore_aux' or 'set_aux' raise."""
         mock_b_opt = create_autospec(BaseOptimizer, instance=True)
-        mock_b_opt.optimizer = mock_optim
-        # Attach the former to the Round's mock TrainingPlan.
         self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
         self.r1.training_plan.optimizer.return_value = mock_b_opt
-        # Call the tested method, verifying that it returns an error.
+        self.r1.training_plan.get_model_params.return_value = {"w": 1}
+        self.r1.training_plan.filter_model_params_by_tags.return_value = {}
+
+        # Sub-case 1: restore_aux raises.
+        mock_aux_var = {"module": create_autospec(AuxVar, instance=True)}
+        self.r1.aux_vars = mock_aux_var
+        mock_optim = create_autospec(Optimizer, instance=True)
+        restore_error = "fake FedbiomedOptimizerError on 'restore_aux' call"
+        mock_optim.restore_aux.side_effect = FedbiomedOptimizerError(restore_error)
+        mock_b_opt.optimizer = mock_optim
         msg = self.r1.process_optim_aux_var()
-        self.assertTrue(fake_error in msg)
-        mock_optim.set_aux.assert_called_once()
+        self.assertIsInstance(msg, str)
+        self.assertIn(restore_error, msg)
+        mock_optim.restore_aux.assert_called_once()
+        mock_optim.set_aux.assert_not_called()
+
+        # Sub-case 2: set_aux raises.
+        mock_optim2 = create_autospec(Optimizer, instance=True)
+        set_aux_error = "fake FedbiomedOptimizerError on 'set_aux' call"
+        mock_optim2.set_aux.side_effect = FedbiomedOptimizerError(set_aux_error)
+        mock_b_opt.optimizer = mock_optim2
+        msg = self.r1.process_optim_aux_var()
+        self.assertIsInstance(msg, str)
+        self.assertIn(set_aux_error, msg)
+        mock_optim2.set_aux.assert_called_once()
 
     def test_round_17_collect_optim_aux_var(self):
         """Test that 'collect_optim_aux_var' works properly with an Optimizer."""
