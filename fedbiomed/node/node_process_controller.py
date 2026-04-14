@@ -1,4 +1,5 @@
 import enum
+from multiprocessing import Process
 
 from fedbiomed.common.logger import logger
 
@@ -13,49 +14,113 @@ class NodeProcessController:
     """Draft controller for node process lifecycle management."""
 
     def __init__(self):
-        # Check if a default database (or file) is already created for keeping the process id
-        # If not, create one
-        pass
+        self._process = None
+        self._node_id = None
+
+    def _cleanup_process(self) -> None:
+        if self._process is None:
+            self._node_id = None
+            return
+
+        if self._process.is_alive():
+            return
+
+        self._process.join(timeout=0.1)
+        self._process = None
+        self._node_id = None
+
+    def _is_process_running(self) -> bool:
+        if self._process is None:
+            return False
+
+        if self._process.is_alive():
+            return True
+
+        self._cleanup_process()
+        return False
 
     def start(self, config, node_args) -> None:
-        """Draft entry point for starting the node."""
+        from fedbiomed.node.cli import start_node
 
-        # Get the latest entry from the database (or file) to check if a node process is already running
-        # If a process is already running, log a warning and skip starting a new one
-        # If no process is running (or there is no entry in the database yet), start the node backend
+        node_id = config.get("default", "id")
+
+        if self._is_process_running() and node_id == self._node_id:
+            logger.warning(
+                "Node process is already running with pid=%s for node_id=%s",
+                self._process.pid,
+                self._node_id,
+            )
+            return
+
+        self._cleanup_process()
+
         logger.info(
-            "Starting node process with config: %s and node_args: %s", config, node_args
+            "Starting node process with config: %s and node_args: %s",
+            config,
+            node_args,
         )
-        pass
+
+        self._process = Process(
+            target=start_node,
+            name=f"node-{node_id}",
+            args=(config, node_args),
+        )
+        self._process.daemon = True
+        self._process.start()
+        self._node_id = node_id
+
+        logger.info(
+            "Node process started with pid=%s for node_id=%s",
+            self._process.pid,
+            node_id,
+        )
 
     def stop(self) -> None:
-        """Draft entry point for stopping the node."""
+        if not self._is_process_running():
+            logger.warning("No running node process found to stop.")
+            self._cleanup_process()
+            return
 
-        # Get the latest entry from the database (or file) to check if a node process is running
-        # If a process is running, attempt to stop it gracefully (e.g., by sending a termination signal)
-        # If the process stops successfully, update the database entry to reflect that it is no longer running
-        # If there is no process running (or no entry in the database), log a warning and skip stopping
-        logger.info("Stopping node process...")
-        pass
+        logger.info(
+            "Stopping node process with pid=%s for node_id=%s",
+            self._process.pid,
+            self._node_id,
+        )
+
+        self._process.terminate()
+        self._process.join(timeout=5)
+
+        if self._process.is_alive():
+            logger.warning(
+                "Node process did not stop after terminate(), killing pid=%s for node_id=%s",
+                self._process.pid,
+                self._node_id,
+            )
+            self._process.kill()
+            self._process.join(timeout=2)
+
+        if self._process.is_alive():
+            logger.error(
+                "Failed to stop node process with pid=%s for node_id=%s",
+                self._process.pid,
+                self._node_id,
+            )
+            return
+
+        stopped_node_id = self._node_id
+        self._cleanup_process()
+        logger.info("Node process stopped successfully for node_id=%s", stopped_node_id)
 
     def restart(self, config, node_args) -> None:
-        """Draft entry point for restarting the node."""
-
-        # Get the latest entry from the database (or file) to check if a node process is running
-        # If a process is running, call the stop method to stop it gracefully
-        # Then, call the start method with the provided configuration and arguments to start a new process
         logger.info("Restarting node process...")
-        pass
+        self.stop()
+        self.start(config, node_args)
 
     def get_status(self) -> NodeStatus:
-        """Draft status accessor for the node."""
+        if self._is_process_running():
+            return NodeStatus.RUNNING
 
-        # Get the latest entry from the database (or file) to check if a node process is running
-        # Use the process id to check if the process is still active (e.g., by checking the process table or using a system command)
-        # Return the status of the node (e.g., running, stopped, or unknown)
-        logger.info("Retrieving node process status...")
-        pass
+        return NodeStatus.STOPPED
 
 
-# To ensure that the node process controller is a singleton
 nodeProcessController = NodeProcessController()

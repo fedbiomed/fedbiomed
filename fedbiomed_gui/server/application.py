@@ -2,16 +2,18 @@ import os
 import secrets
 from datetime import timedelta
 from pathlib import Path
+
 from flask import Flask, send_from_directory
 from flask_jwt_extended import JWTManager
 
+from fedbiomed.common.logger import logger
+from fedbiomed.node.node_process_controller import nodeProcessController
 
-from .utils import error
 from .config import config
 
 # Import api route blueprint before importing routes and register as blueprint
 from .routes import api, auth
-
+from .utils import error
 
 build_dir = os.path.join(Path(__file__).parent, "..", "ui", "build")
 
@@ -23,6 +25,11 @@ app = Flask(__name__, static_folder=build_dir)
 # Configure Flask app
 db_prefix = os.getenv("DB_PREFIX", "db_")
 app.config.update(config.configuration)
+app.config["START_NODE"] = os.getenv("FBM_GUI_START_NODE", "0").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
 
 # Configure application to store JWTs in cookies. Whenever you make
@@ -50,6 +57,22 @@ assert (
 jwt = JWTManager(app)
 app.register_blueprint(api)
 app.register_blueprint(auth)
+
+
+def _default_node_args() -> dict:
+    return {
+        "gpu": False,
+        "gpu_num": 1,
+        "gpu_only": False,
+        "debug": False,
+    }
+
+
+if app.config.get("START_NODE", False):
+    try:
+        nodeProcessController.start(config.node_config, _default_node_args())
+    except Exception as exc:
+        logger.error("Unable to auto-start node from GUI application startup: %s", exc)
 
 
 # Routes for react build directory

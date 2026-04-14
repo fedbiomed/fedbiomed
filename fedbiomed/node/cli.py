@@ -13,7 +13,6 @@ import signal
 import subprocess
 import sys
 import time
-from multiprocessing import Process
 from pathlib import Path
 from types import FrameType
 from typing import Dict, List, Union
@@ -37,7 +36,7 @@ from fedbiomed.node.cli_utils import (
     update_training_plan,
     view_training_plan,
 )
-from fedbiomed.node.config import node_component
+from fedbiomed.node.config import NodeConfig, node_component
 from fedbiomed.node.node import Node
 
 # Please use following code generate similar intro
@@ -75,6 +74,9 @@ def start_node(config, node_args):
         name: Config name for the node
         node_args: Arguments for the node
     """
+
+    if isinstance(config, (str, os.PathLike)):
+        config = NodeConfig(root=os.fspath(config))
 
     _node = Node(config, node_args)
 
@@ -197,6 +199,7 @@ def start_gui_server(
     port: str = "8484",
     host: str = "localhost",
     development: bool = False,
+    startNode: bool = False,
 ) -> None:
     """Launches the node GUI server."""
 
@@ -216,6 +219,7 @@ def start_gui_server(
         {
             "DATA_PATH": data_folder,
             "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
+            "FBM_GUI_START_NODE": "1" if startNode else "0",
         }
     )
 
@@ -524,19 +528,19 @@ class NodeControl(CLIArgumentParser):
 
     _node: Node
 
+    @staticmethod
+    def _build_node_args(args) -> dict:
+        return {
+            "gpu": (args.gpu is True) or (args.gpu_only is True),
+            "gpu_num": args.gpu_num,
+            "gpu_only": True if args.gpu_only else False,
+            "debug": True if args.debug else False,
+        }
+
     def initialize(self):
         """Initializes missinon control argument parser"""
         start = self._subparser.add_parser("start", help="Starts the node")
         start.set_defaults(func=self.start)
-
-        stop = self._subparser.add_parser("stop", help="Stops the node")
-        stop.set_defaults(func=self.stop)
-
-        restart = self._subparser.add_parser("restart", help="Restarts the node")
-        restart.set_defaults(func=self.restart)
-
-        status = self._subparser.add_parser("status", help="Gets node status")
-        status.set_defaults(func=self.status)
 
         start.add_argument(
             "--gpu",
@@ -588,121 +592,26 @@ class NodeControl(CLIArgumentParser):
     def start(self, args):
         """Starts the node"""
         intro()
+        node_args = self._build_node_args(args)
 
-        # Define arguments
-        node_args = {
-            "gpu": (args.gpu is True) or (args.gpu_only is True),
-            "gpu_num": args.gpu_num,
-            "gpu_only": True if args.gpu_only else False,
-            "debug": True if args.debug else False,
-        }
+        if args.no_backend:
+            logger.info("Starting node backend without launching the GUI.")
+            start_node(config=self._node.config, node_args=node_args)
+            return
 
-        # Node instance has to be re-instantiated in start_node
-        # It is because Process can only pickle pure python objects
+        if args.no_start_node:
+            logger.info("Starting GUI without launching the node backend.")
+            start_gui_server(
+                component_root=self._node.config.root,
+                data_folder=os.path.join(self._node.config.root, "data"),
+            )
+            return
 
-        ###################################################
-        #
-        # DRAFT IMPLEMENTATION FOR PROCESS MANAGEMENT.
-        #
-        ###################################################
-        #
-        # The GUI start have been moved to a separate function to be called easily from other classes.
-        # The node start/stop/restart logic have been moved to nodeProcessController.
-        #
-        # We have three different start scenarios
-        # 1. Start both GUI and node backend (default behavior)
-        # 2. Start only node backend without GUI (if --no-backend is set)
-        # 3. Start only GUI without node backend (if --no-start-node is set)
-
-        # Start only the node without launching the GUI
-        # if args.no_backend:
-        #     logger.info("Starting node backend without launching the GUI.")
-        #     nodeProcessController.start(
-        #         config=self._node.config,
-        #         node_args=node_args,
-        #     )
-        #     return
-
-        # # Start only the GUI without launching the node
-        # if args.no_start_node:
-        #     logger.info("Starting GUI without launching the node backend.")
-        #     start_gui_server(
-        #         component_root=self._node.config.root,
-        #         data_folder=self._node.config.get("default", "data_folder"),
-        #     )
-        #     return
-
-        # # Start both the node backend and the GUI
-        # start_gui_server(
-        #     component_root=self._node.config.root,
-        #     data_folder=self._node.config.get("default", "data_folder"),
-        # )
-        # nodeProcessController.start(
-        #     config=self._node.config,
-        #     node_args=node_args,
-        # )
-        #
-        # The below code will be removed in this implementation and the start logic will be handled by NodeProcessController
-
-        p = Process(
-            target=start_node,
-            name=f"node-{self._node.config.get('default', 'id')}",
-            args=(self._node.config, node_args),
-        )
-        p.daemon = True
-        p.start()
-
-        logger.info("Node started as process with pid = " + str(p.pid))
         start_gui_server(
-            component_root=os.environ.get("FBM_NODE_COMPONENT_ROOT"),
-            data_folder=os.path.join(os.environ.get("FBM_NODE_COMPONENT_ROOT"), "data"),
+            component_root=self._node.config.root,
+            data_folder=os.path.join(self._node.config.root, "data"),
+            startNode=True,
         )
-        logger.info("GUI server stopped. Stopping node process...")
-        try:
-            print("To stop press Ctrl + C.")
-            p.join()
-        except KeyboardInterrupt:
-            p.terminate()
-            for _ in range(3):
-                if not p.is_alive():
-                    break
-                logger.info("Terminating process id = " + str(p.pid))
-                time.sleep(0.5)
-            if p.is_alive():
-                logger.info("Killing process id = " + str(p.pid))
-                p.kill()
-                start_time = time.time()
-                while p.is_alive() and (time.time() - start_time < 0.5):
-                    time.sleep(0.1)
-            p.join(timeout=0.1)
-            logger.info("Exited with code " + str(p.exitcode))
-            sys.exit(0)
-
-    def stop(self):
-        """Stops the node."""
-
-        # Draft implementation:
-        # This command will call `nodeProcessController.stop()`.
-        # The controller will be responsible for checking whether a node process
-        # is tracked and, if so, stopping it gracefully.
-        logger.info("Draft command: node stop is not implemented yet.")
-
-    def restart(self, args):
-        """Restarts the node."""
-
-        # Draft implementation:
-        # This command will call `nodeProcessController.restart(...)` using the
-        # current node configuration and the same node arguments used by `start`.
-        # The controller will handle the stop-then-start sequence.
-        logger.info("Draft command: node restart is not implemented yet.")
-
-    def status(self):
-        """Gets node status."""
-
-        # Draft implementation:
-        # This command will call `nodeProcessController.get_status()` and print
-        # or log the resulting status for the user.
-        logger.info("Draft command: node status is not implemented yet.")
 
 
 class GUIControl(CLIArgumentParser):
