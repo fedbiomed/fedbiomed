@@ -5,7 +5,7 @@ import {
   EuiCallOut,
   EuiFlexGroup,
   EuiFlexItem,
-  EuiPanel,
+  EuiHealth,
   EuiSpacer,
   EuiText,
   EuiTitle,
@@ -22,6 +22,23 @@ const NodeManagement = () => {
   const [currentStatus, setCurrentStatus] = React.useState('unknown')
   const [lastMessage, setLastMessage] = React.useState('')
   const [loadingAction, setLoadingAction] = React.useState('')
+
+  const statusColor = React.useMemo(() => {
+    if (currentStatus === 'running') {
+      return 'success'
+    }
+
+    if (currentStatus === 'stopped') {
+      return 'danger'
+    }
+
+    return 'subdued'
+  }, [currentStatus])
+
+  const canStart = currentStatus !== 'running' && loadingAction === ''
+  const canStop = currentStatus === 'running' && loadingAction === ''
+  const canRestart = currentStatus === 'running' && loadingAction === ''
+  const canRefreshStatus = loadingAction === ''
 
   const loadStatus = React.useCallback(async () => {
     setLoadingAction('status')
@@ -59,62 +76,71 @@ const NodeManagement = () => {
       </EuiTitle>
       <EuiSpacer size="m" />
 
-      <EuiPanel paddingSize="l">
-        <EuiText>
-          <p>Use these controls to call the draft backend routes for node lifecycle management.</p>
-          <p><strong>Current status:</strong> {currentStatus}</p>
-        </EuiText>
+      <EuiText>
+        <p>Use these controls to call the draft backend routes for node lifecycle management.</p>
+        <p>
+          <strong>Current status:</strong>{' '}
+          <EuiHealth color={statusColor}>{currentStatus}</EuiHealth>
+        </p>
+      </EuiText>
 
-        <EuiSpacer size="m" />
+      <EuiSpacer size="m" />
 
-        <EuiFlexGroup wrap gutterSize="m">
-          <EuiFlexItem grow={false}>
-            <EuiButton
-              fill
-              onClick={() => callNodeRoute('start', EP_NODE_START)}
-              isLoading={loadingAction === 'start'}
-            >
-              Start
-            </EuiButton>
-          </EuiFlexItem>
+      <EuiFlexGroup wrap gutterSize="m">
+        <EuiFlexItem grow={false}>
+          <EuiButton
+            fill
+            color="primary"
+            onClick={() => callNodeRoute('start', EP_NODE_START)}
+            isLoading={loadingAction === 'start'}
+            isDisabled={!canStart}
+          >
+            Start
+          </EuiButton>
+        </EuiFlexItem>
 
-          <EuiFlexItem grow={false}>
-            <EuiButton
-              color="warning"
-              onClick={() => callNodeRoute('stop', EP_NODE_STOP)}
-              isLoading={loadingAction === 'stop'}
-            >
-              Stop
-            </EuiButton>
-          </EuiFlexItem>
+        <EuiFlexItem grow={false}>
+          <EuiButton
+            fill
+            color="primary"
+            onClick={() => callNodeRoute('stop', EP_NODE_STOP)}
+            isLoading={loadingAction === 'stop'}
+            isDisabled={!canStop}
+          >
+            Stop
+          </EuiButton>
+        </EuiFlexItem>
 
-          <EuiFlexItem grow={false}>
-            <EuiButton
-              color="primary"
-              onClick={() => callNodeRoute('restart', EP_NODE_RESTART)}
-              isLoading={loadingAction === 'restart'}
-            >
-              Restart
-            </EuiButton>
-          </EuiFlexItem>
+        <EuiFlexItem grow={false}>
+          <EuiButton
+            fill
+            color="primary"
+            onClick={() => callNodeRoute('restart', EP_NODE_RESTART)}
+            isLoading={loadingAction === 'restart'}
+            isDisabled={!canRestart}
+          >
+            Restart
+          </EuiButton>
+        </EuiFlexItem>
 
-          <EuiFlexItem grow={false}>
-            <EuiButton
-              color="success"
-              onClick={loadStatus}
-              isLoading={loadingAction === 'status'}
-            >
-              Status
-            </EuiButton>
-          </EuiFlexItem>
-        </EuiFlexGroup>
+        <EuiFlexItem grow={false}>
+          <EuiButton
+            fill
+            color="primary"
+            onClick={loadStatus}
+            isLoading={loadingAction === 'status'}
+            isDisabled={!canRefreshStatus}
+          >
+            Status
+          </EuiButton>
+        </EuiFlexItem>
+      </EuiFlexGroup>
 
-        <EuiSpacer size="m" />
+      <EuiSpacer size="m" />
 
-        {lastMessage ? (
-          <EuiCallOut title={lastMessage} iconType="iInCircle" />
-        ) : null}
-      </EuiPanel>
+      {lastMessage ? (
+        <EuiCallOut title={lastMessage} iconType="iInCircle" />
+      ) : null}
     </>
   )
 }
