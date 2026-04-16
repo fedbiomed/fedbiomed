@@ -22,26 +22,6 @@ class NipoppyDataset(Dataset):
     # columns
     COL_PARTICIPANT_ID = NipoppyController.COL_PARTICIPANT_ID
     COL_SESSION_ID = NipoppyController.COL_SESSION_ID
-    TERMURL_AGE = "nb:Age"
-    TERMURL_SEX = "nb:Sex"
-    TERMURL_COG_DECLINE = "fl:cognitive_decline_status"
-    TERMURL_COG_DECLINE_AVAILABILITY = "fl:cognitive_decline_availability"
-    TERMURL_DIAGNOSIS = "nb:Diagnosis"
-
-    # values
-    TERMURL_AVAILABLE = "nb:available"
-    TERMURL_UNAVAILABLE = "nb:unavailable"
-    TERMURL_MALE = "snomed:248153007"
-    TERMURL_FEMALE = "snomed:248152002"
-    TERMURL_HEALTHY_CONTROL = "ncit:C94342"
-
-    # for derivatives specs
-    FS_NAME = "freesurfer"
-    FS_VERSION = "7.3.2"
-    FS_STATS_NAME = "fs_stats"
-    FS_STATS_VERSION = "0.2.1"
-    SUFFIX_APARC = "-aparc.DKTatlas-thickness.tsv"
-    SUFFIX_ASEG = "-aseg-volume.tsv"
 
     def __init__(
         self,

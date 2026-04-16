@@ -5,12 +5,12 @@
 Reader implementation for CSV file
 """
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from nipoppy import NipoppyDataRetriever
-
-from fedbiomed.common.exceptions import FedbiomedError
+from nipoppy.layout import DatasetLayout as NippopyDatasetLayout
+from nipoppy.study import Study as NippopyStudy
 
 
 class NipoppyReader:
@@ -38,4 +38,13 @@ class NipoppyReader:
         """
         return self._retriever.get_tabular_data(phenotypes=phenotypes, derivatives=derivatives)
 
-    
+    def get_schema(self) -> Dict[str, str]:
+        """Gets the schema of the dataset.
+
+        Returns:
+            Dict[str, str]: The schema of the dataset.
+        """
+        return {str(col): str(dtype) for col, dtype in self._retriever.get_all_phenotypes().dtypes.items()}
+
+    def __len__(self):
+        return len(NippopyStudy(NippopyDatasetLayout(self._path)))
