@@ -13,6 +13,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 
 
+@dataclass
 class TableEntry:
     """Base class for database entries with common conversion methods"""
 
