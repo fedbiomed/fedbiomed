@@ -71,7 +71,7 @@ class RowAccumulator(Accumulator):
                         self.vectorized_indices[stat] = []
                     self.vectorized_indices[stat].append(idx)
                 # Case B: Complex or Argument-Dependent Stat
-                else:
+                elif accumulator_class is not None:
                     self._add_independent_accumulator(
                         idx, stat, stat_args, accumulator_class
                     )

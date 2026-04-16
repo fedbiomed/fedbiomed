@@ -85,7 +85,7 @@ SERVER_certificate_prefix = "server_certificate"
 # 2. bump the version below: if your change breaks backward compatibility you must increase the
 # major version, else the minor version. Micro versions are supported but their use is currently discouraged.
 
-__version__ = FBM_Component_Version(__version__)  # Fed-BioMed software version
+__version__ = FBM_Component_Version(__version__)  # type: ignore[assignment]  # Fed-BioMed software version
 
 """
 !IMPORTANT!
@@ -164,8 +164,8 @@ class ComponentType(_BaseEnum):
         NODE: Node component
     """
 
-    RESEARCHER: int = 1
-    NODE: int = 2
+    RESEARCHER = 1
+    NODE = 2
 
 
 class HashingAlgorithms(_BaseEnum):
@@ -209,6 +209,7 @@ class TrainingPlanApprovalStatus(_BaseEnum):
     REJECTED = "Rejected"
     PENDING = "Pending"
 
+    @staticmethod
     def str2enum(name: str):
         for e in TrainingPlanApprovalStatus:
             if e.value == name:
@@ -283,6 +284,7 @@ class DatasetTypes(_BaseEnum):
     CUSTOM = "custom"
     NONE = "none"
 
+    @staticmethod
     def get_type_by_value(value: str):
         for dataset_type in DatasetTypes:
             if dataset_type.value == value:
@@ -293,9 +295,9 @@ class DatasetTypes(_BaseEnum):
 class SecureAggregationSchemes(_BaseEnum):
     """Enumeration class for secure aggregation schemes"""
 
-    NONE: int = 0
-    JOYE_LIBERT: int = 1
-    LOM: int = 2
+    NONE = 0
+    JOYE_LIBERT = 1
+    LOM = 2
 
 
 class SecaggElementTypes(_BaseEnum):
@@ -306,8 +308,8 @@ class SecaggElementTypes(_BaseEnum):
         DIFFIE_HELLMAN: one pair of DH key for each node party, public key shared with other node parties
     """
 
-    SERVER_KEY: int = 0
-    DIFFIE_HELLMAN: int = 1
+    SERVER_KEY = 0
+    DIFFIE_HELLMAN = 1
 
     @staticmethod
     def get_element_from_value(element_value: int):
@@ -319,8 +321,8 @@ class SecaggElementTypes(_BaseEnum):
 class PreprocType(_BaseEnum):
     """Enumeration class for dataset preprocessing types"""
 
-    NONE: int = 0
-    FEDCOMBAT: int = 1
+    NONE = 0
+    FEDCOMBAT = 1
 
 
 class PreprocStep(_BaseEnum):
@@ -465,7 +467,7 @@ class Stats(_BaseEnum):
         HISTOGRAM: histogram of values
     """
 
-    COUNT: str = "count"
-    MEAN: str = "mean"
-    VARIANCE: str = "variance"
-    HISTOGRAM: str = "histogram"
+    COUNT = "count"
+    MEAN = "mean"
+    VARIANCE = "variance"
+    HISTOGRAM = "histogram"

@@ -199,8 +199,9 @@ class _FedCombatJobs:
             )
             gamma_star_ig /= self.n_samples * tau_2 + delta2_star_ig
 
+            # `dim` is the native PyTorch name for `axis`
             delta2_star_ig = theta_bar_i + 0.5 * torch.sum(
-                (z - gamma_star_ig) ** 2, axis=0
+                (z - gamma_star_ig) ** 2, dim=0
             )
             delta2_star_ig /= 0.5 * self.n_samples + lambda_bar_i - 1
 
