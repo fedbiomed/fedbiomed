@@ -3,9 +3,7 @@
 
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
-
 import pandas as pd
-
 from fedbiomed.common.dataset_controller._controller import Controller
 from fedbiomed.common.dataset_reader._nipoppy_reader import NipoppyReader
 
@@ -35,6 +33,7 @@ class NipoppyController(Controller):
         self._reader = NipoppyReader(self.root)
         self._controller_kwargs = {
             "root": str(self.root),
+            "available_phenotypes": list(self._reader.get_schema().keys()),
         }
         self._data: Optional[pd.DataFrame] = None  # lazy loaded
         session_filters = [session_filters] if isinstance(session_filters, str) else session_filters  # wrap single string in list
@@ -70,7 +69,7 @@ class NipoppyController(Controller):
         self._apply_whole_df_transform()
         self._validate_data_after_filtering()
         return self._data
-    
+
     def get_sample(self, 
                    index: int, 
                    phenotypes: Optional[List[str]] = None,
@@ -85,7 +84,7 @@ class NipoppyController(Controller):
 
     def shape(self) -> Dict:
         if self._data is None:
-            return {"nipoppy": (1, 1)}
+            return {"nipoppy": (len(self._reader), 1)}
         return {"nipoppy": self._data.shape}
 
     def _apply_whole_df_transform(self) -> None:
@@ -113,3 +112,6 @@ class NipoppyController(Controller):
         ).tolist()
         if len(participant_ids) != len(set(participant_ids)):
             raise ValueError("Some participants have more than one session")
+
+    def get_types(self) -> Dict[str, str]:
+        return self._reader.get_schema()
