@@ -52,7 +52,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from logging.handlers import SysLogHandler, TimedRotatingFileHandler
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
@@ -72,7 +72,7 @@ DEBUG_FORMAT = (
 )
 
 # --- Security context (propagates across modules) ---
-SECURITY_CONTEXT: ContextVar[dict] = ContextVar(
+SECURITY_CONTEXT: ContextVar[Optional[dict]] = ContextVar(
     "fedbiomed_security_context", default=None
 )
 
@@ -214,7 +214,7 @@ class _GrpcHandler(logging.Handler):
     def __init__(
         self,
         on_log: Callable,
-        node_id: str = None,
+        node_id: Optional[str] = None,
     ) -> None:
         """Constructor
 
@@ -282,7 +282,7 @@ class FedLogger(metaclass=SingletonMeta):
     Should not be imported
     """
 
-    def __init__(self, level: str = DEFAULT_LOG_LEVEL):
+    def __init__(self, level: str = logging.getLevelName(DEFAULT_LOG_LEVEL)):
         """Constructor of base class
 
         An initial console logger is installed (so the logger has at minimum one handler)
@@ -325,15 +325,15 @@ class FedLogger(metaclass=SingletonMeta):
         self._logger.setLevel(self._default_level)
 
         # Store base format used by handlers
-        self._original_format = {}
-        self._handler_prefix = {}
+        self._original_format: Dict[str, Optional[str]] = {}
+        self._handler_prefix: Dict[str, str] = {}
 
         # init the handlers list and add a console handler on startup
-        self._handlers = {}
+        self._handlers: Dict[str, logging.Handler] = {}
         self.add_console_handler()
 
         # --- Security log defaults (filled by Node at startup) ---
-        self._security_defaults = {
+        self._security_defaults: Dict[str, Any] = {
             "component_id": None,
             "component_name": None,
             "fedbiomed_version": None,
@@ -527,7 +527,10 @@ class FedLogger(metaclass=SingletonMeta):
         )
 
     def _internal_add_handler(
-        self, handler_key: str, handler: Callable, format: Optional[str] = None
+        self,
+        handler_key: str,
+        handler: Optional[logging.Handler],
+        format: Optional[str] = None,
     ):
         """Private method
 
@@ -642,7 +645,7 @@ class FedLogger(metaclass=SingletonMeta):
         self,
         filename: str = DEFAULT_LOG_FILE,
         format: str = DEFAULT_FORMAT,
-        level: any = DEFAULT_LOG_LEVEL,
+        level: Any = DEFAULT_LOG_LEVEL,
     ):
         """Adds a file handler
 
@@ -666,6 +669,7 @@ class FedLogger(metaclass=SingletonMeta):
             format: the format string of the logger
             level: initial level of the logger for this handler (optional) if not given, the default level is set
         """
+        handler: logging.Handler
         if is_ipython():
             handler = _IpythonConsoleHandler()
         else:
@@ -681,7 +685,7 @@ class FedLogger(metaclass=SingletonMeta):
         pass
 
     def add_grpc_handler(
-        self, on_log: Callable = None, node_id: str = None, level: Any = logging.INFO
+        self, on_log: Callable, node_id: Optional[str] = None, level: Any = logging.INFO
     ):
         """Adds a gRPC handler, to publish error message on a topic
 

@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple, Union
 from OpenSSL import crypto
 from tabulate import tabulate
 from tinydb import Query, TinyDB
-from tinydb.table import Table
+from tinydb.table import Document, Table
 
 from fedbiomed.common.constants import (
     CERTS_FOLDER_NAME,
@@ -30,18 +30,26 @@ class CertificateManager:
         _db: TinyDB database to store certificates
     """
 
-    def __init__(self, db_path: str = None):
+    def __init__(self, db_path: Optional[str] = None):
         """Constructs certificate manager
 
         Args:
             db: The name of the DB file to connect through TinyDB
         """
 
-        self._db: Union[Table, None] = None
+        self._db: Optional[Table] = None
         self._query: Query = Query()
 
         if db_path is not None:
             self.set_db(db_path)
+
+    @property
+    def _table(self) -> Table:
+        if self._db is None:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Database not initialized. Call set_db() first."
+            )
+        return self._db
 
     def set_db(self, db_path: str) -> None:
         """Sets database
@@ -51,7 +59,7 @@ class CertificateManager:
         """
         db = TinyDB(db_path)
         db.table_class = DBTable
-        self._db: Table = db.table("Certificates")
+        self._db = db.table("Certificates")
 
     def insert(
         self,
@@ -78,7 +86,7 @@ class CertificateManager:
         """
         certificate_ = self.get(party_id=party_id)
         if not certificate_:
-            return self._db.insert(
+            return self._table.insert(
                 {
                     "certificate": certificate,
                     "party_id": party_id,
@@ -87,7 +95,7 @@ class CertificateManager:
             )
 
         if upsert:
-            return self._db.upsert(
+            return self._table.upsert(
                 {
                     "certificate": certificate,
                     "component": component,
@@ -110,7 +118,7 @@ class CertificateManager:
             Certificate, dict like TinyDB document
         """
 
-        v = self._db.get(self._query.party_id == party_id)
+        v = self._table.get(self._query.party_id == party_id)
         return v
 
     def delete(self, party_id) -> List[int]:
@@ -123,9 +131,9 @@ class CertificateManager:
             The document IDs of deleted certificates
         """
 
-        return self._db.remove(self._query.party_id == party_id)
+        return self._table.remove(self._query.party_id == party_id)
 
-    def list(self, verbose: bool = False) -> List[dict]:
+    def list(self, verbose: bool = False) -> List[Document]:
         """Lists registered certificates.
 
         Args:
@@ -134,7 +142,7 @@ class CertificateManager:
         Returns:
             List of certificate objects registered in DB
         """
-        certificates = self._db.all()
+        certificates = self._table.all()
 
         if verbose:
             to_print = copy.deepcopy(certificates)
@@ -256,10 +264,10 @@ class CertificateManager:
         on = subject.get("OrganizationName", component_id)
 
         x509 = crypto.X509()
-        subject = x509.get_subject()
-        subject.commonName = cn
-        subject.organizationName = on
-        x509.set_issuer(subject)
+        x509_subject = x509.get_subject()
+        x509_subject.commonName = cn
+        x509_subject.organizationName = on
+        x509.set_issuer(x509_subject)
 
         extensions = []
         try:
