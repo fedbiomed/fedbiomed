@@ -15,7 +15,7 @@ class NiftiReader:
     data_type = nib.nifti1.Nifti1Image
 
     @classmethod
-    def read(cls, path: Union[str, Path]) -> nib.Nifti1Image:
+    def read(cls, path: Union[str, Path]) -> nib.filebasedimages.FileBasedImage:
         """Reads the NIfTI file and returns it as a tensor, optionally transformed.
 
         Args:

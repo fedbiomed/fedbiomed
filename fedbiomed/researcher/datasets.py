@@ -18,6 +18,8 @@ class FederatedDataset:
     or sampling strategies on researcher's side
     """
 
+    _data: Dict
+
     def __init__(self, data: Optional[Dict] = None):
         """Construct FederatedDataset object.
 
