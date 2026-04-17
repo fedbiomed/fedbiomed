@@ -8,7 +8,7 @@ import torch
 from fedbiomed.common.dataset._dataset import Dataset
 from fedbiomed.common.dataset_controller._nipoppy_controller import NipoppyController
 from fedbiomed.common.dataset_types import DataReturnFormat
-
+from fedbiomed.common.logger import logger
 
 
 class NipoppyDataset(Dataset):
@@ -30,6 +30,7 @@ class NipoppyDataset(Dataset):
         target,
         session_filters,
         drop_na: bool = True,
+        drop_na_kwargs: Optional[Dict[str, Any]] = None,
         sample_level_transform: Optional[Callable] = None,
         sample_level_target_transform: Optional[Callable] = None,
         whole_df_level_transform: Optional[Callable] = None,
@@ -43,7 +44,11 @@ class NipoppyDataset(Dataset):
         self.target = target
         self.session_filters = session_filters
         self._drop_na = drop_na
+        self._drop_na_kwargs = drop_na_kwargs
         self._whole_df_level_transform = whole_df_level_transform
+
+        if not self._drop_na and drop_na_kwargs is not None:
+            logger.warning("drop_na is set to False but drop_na_kwargs is not None. drop_na_kwargs will be ignored.")
     
     def complete_initialization(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
@@ -56,6 +61,7 @@ class NipoppyDataset(Dataset):
         """
         controller_kwargs["session_filters"] = self.session_filters
         controller_kwargs["drop_na"] = self._drop_na
+        controller_kwargs["drop_na_kwargs"] = self._drop_na_kwargs
         controller_kwargs["whole_df_transform"] = self._whole_df_level_transform
         self._init_controller(controller_kwargs=controller_kwargs)
         self._to_format = to_format
