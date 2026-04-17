@@ -21,6 +21,7 @@ class NipoppyController(Controller):
         drop_na: bool = True,
         drop_na_kwargs: Optional[Dict[str, Any]] = None,
         whole_df_transform: Optional[Callable] = None,
+        **kwargs  # avoids issues with unexpected kwargs due to `available_phenotypes` when initializing controller from dataset
     ) -> None:
         """Constructor of the class
 
