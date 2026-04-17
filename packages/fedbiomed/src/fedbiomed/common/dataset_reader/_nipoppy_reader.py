@@ -26,7 +26,7 @@ class NipoppyReader:
         self._path = path
         self._retriever = NipoppyDataRetriever(self._path)
 
-    def _read(self,
+    def read(self,
               phenotypes: Optional[List[str]] = None,
               derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
         """Reads all dataset and returns the dataframe.
@@ -36,6 +36,8 @@ class NipoppyReader:
         Raises:
             FedbiomedError: if the CSV file cannot be read due to inconsistent lines
         """
+        if phenotypes is None and derivatives is None:
+            return self._retriever.get_all_phenotypes()
         return self._retriever.get_tabular_data(phenotypes=phenotypes, derivatives=derivatives)
 
     def get_schema(self) -> Dict[str, str]:
