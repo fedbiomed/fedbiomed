@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import pandas as pd
 from fedbiomed.common.dataset_controller._controller import Controller
 from fedbiomed.common.dataset_reader._nipoppy_reader import NipoppyReader
@@ -19,6 +19,7 @@ class NipoppyController(Controller):
         root: Union[str, Path],
         session_filters: Optional[str | List[str] | List[Tuple[str, str]]] = None,
         drop_na: bool = True,
+        drop_na_kwargs: Optional[Dict[str, Any]] = None,
         whole_df_transform: Optional[Callable] = None,
     ) -> None:
         """Constructor of the class
@@ -39,6 +40,7 @@ class NipoppyController(Controller):
         session_filters = [session_filters] if isinstance(session_filters, str) else session_filters  # wrap single string in list
         self._session_filters = session_filters
         self._drop_na = drop_na
+        self._drop_na_kwargs = drop_na_kwargs if drop_na_kwargs is not None else {}
         self._whole_df_transform = whole_df_transform
 
     def _read_and_postprocess_data(self, 
@@ -70,7 +72,7 @@ class NipoppyController(Controller):
                                                 names=[NipoppyController.COL_PARTICIPANT_ID, NipoppyController.COL_SESSION_ID])
                 df = df.loc[idx]
         if self._drop_na:
-            df = df.dropna()
+            df = df.dropna(**self._drop_na_kwargs)
         df = self._apply_whole_df_transform(df)
         return df
 
