@@ -41,9 +41,9 @@ class NipoppyController(Controller):
         self._drop_na = drop_na
         self._whole_df_transform = whole_df_transform
 
-    def _read_and_filter_data(self,
-                          phenotypes: Optional[List[str]] = None,
-                          derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
+    def _read_and_postprocess_data(self, 
+                              phenotypes: Optional[List[str]] = None,
+                              derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
         """Reads the data and applies filtering based on phenotypes and derivatives
 
         Args:
@@ -53,22 +53,26 @@ class NipoppyController(Controller):
         Returns:
             Filtered DataFrame
         """
-        self._data = self._reader._read(phenotypes=phenotypes, derivatives=derivatives)
+        self._data = self._reader.read(phenotypes=phenotypes, derivatives=derivatives)
+        self._data = self._filter_transform_data(self._data)
+        self._validate_data_after_filtering()
+        return self._data
+
+    def _filter_transform_data(self, df: pd.DataFrame) -> pd.DataFrame:
         if self._session_filters:
             # self._session_filters at this point is guaranteed to be a non-empty list of either strings or tuples due to the wrapping logic in __init__
             if all(isinstance(filter, str) for filter in self._session_filters):
-                self._data = self._data.query(
+                df = df.query(
                     f"{NipoppyController.COL_SESSION_ID} in @self._session_filters"
                 )
             elif all(isinstance(filter, tuple) and len(filter) == 2 for filter in self._session_filters):
                 idx = pd.MultiIndex.from_tuples(self._session_filters, 
                                                 names=[NipoppyController.COL_PARTICIPANT_ID, NipoppyController.COL_SESSION_ID])
-                self._data = self._data.loc[idx]
+                df = df.loc[idx]
         if self._drop_na:
-            self._data = self._data.dropna()
-        self._apply_whole_df_transform()
-        self._validate_data_after_filtering()
-        return self._data
+            df = df.dropna()
+        df = self._apply_whole_df_transform(df)
+        return df
 
     def get_sample(self, 
                    index: int, 
@@ -76,18 +80,31 @@ class NipoppyController(Controller):
                    derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
         """Retrieve a data sample without applying transforms"""
         if self._data is None:
-            self._read_and_filter_data(phenotypes=phenotypes, derivatives=derivatives)
+            self._read_and_postprocess_data(phenotypes=phenotypes, derivatives=derivatives)
         return self._data.iloc[index]
 
     def __len__(self) -> int:
         return self.shape()['nipoppy'][0]
 
     def shape(self) -> Dict:
+        """"Get the shape of the dataset.
+        
+        Need to be careful because of lazy loading. 
+        If the data has not been loaded yet, we distinguish two cases:
+        - If there are no session filters and no whole_df_transform, we get the shape from the reader (i.e. total number of participants in the study)
+        - If there are session filters or a whole_df_transform, we read all phenotypes and apply filters and transforms.
+        """
+            
         if self._data is None:
-            return {"nipoppy": (len(self._reader), 1)}
+            if self._session_filters is None and self._whole_df_transform is None and not self._drop_na:
+                return {"nipoppy": (len(self._reader), 1)}
+            else:
+                all_phenotypes = self._reader.read()
+                all_phenotypes = self._filter_transform_data(all_phenotypes)
+                return {"nipoppy": all_phenotypes.shape}
         return {"nipoppy": self._data.shape}
 
-    def _apply_whole_df_transform(self) -> None:
+    def _apply_whole_df_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply any necessary transformations to the data after reading and filtering
 
         This method can be used to apply any transformations that are necessary after reading
@@ -95,7 +112,8 @@ class NipoppyController(Controller):
         variables, etc. This is a placeholder for now and can be implemented as needed.
         """
         if self._whole_df_transform:
-            self._data = self._whole_df_transform(self._data)
+            df = self._whole_df_transform(df)
+        return df
 
     def _validate_data_after_filtering(self) -> None:
         """Validate the data after applying session filters
