@@ -26,6 +26,7 @@ from fedbiomed.node.cli_utils._medical_folder_dataset import (
     get_map_modalities2folders_from_cli,
 )
 from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.node_process_manager import NodeProcessManager
 
 # ============================================================================
 # SHARED FIXTURES AND HELPERS
@@ -241,19 +242,24 @@ class TestNodeControl(unittest.TestCase):
             "--gpu" in self.subparsers.choices["start"]._option_string_actions
         )  # noqa
 
-    @patch("fedbiomed.node.cli.Process")
-    def test_02_node_control_start(self, process):
+    @patch("fedbiomed.node.cli.node_process_manager")
+    def test_02_node_control_start(self, mock_npm):
         self.control.initialize()
         args = self.parser.parse_args(["start"])
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
 
+        # Normal path: join() returns without exception.
         self.control.start(args)
-        process.assert_called_once()
+        mock_npm.start.assert_called_once()
+        mock_npm.process.join.assert_called_once_with()
 
-        process.return_value.join.side_effect = [KeyboardInterrupt, None]
-        process.return_value.is_alive.side_effect = [True, False, True, True, False]
+        mock_npm.reset_mock()
+
+        # Ctrl+C path: join() raises KeyboardInterrupt → stop() → sys.exit(0).
+        mock_npm.process.join.side_effect = KeyboardInterrupt
         with self.assertRaises(SystemExit):
             self.control.start(args)
+        mock_npm.stop.assert_called_once()
 
     @patch("fedbiomed.node.cli.Node", autospec=True)
     def test_03_node_control__start(self, mock_node):
@@ -285,6 +291,67 @@ class TestNodeControl(unittest.TestCase):
                 mock_node.return_value.task_manager.side_effect = Exception
                 start_node("config.ini", args)
                 logger.critical.assert_called_once()
+
+
+class TestNodeProcessManager(unittest.TestCase):
+    """Tests for NodeProcessManager.stop() cleanup logic."""
+
+    # TODO: alitolga: Remove the comments in the test cases once the cause of the bug is found.
+
+    def _make_npm_with_process(self, is_alive_side_effect):
+        """Return a NodeProcessManager whose _process is a mock."""
+        npm = NodeProcessManager()
+        mock_proc = MagicMock()
+        mock_proc.is_alive.side_effect = is_alive_side_effect
+        npm._process = mock_proc
+        npm._node_id = "test-node"
+        return npm, mock_proc
+
+    def test_stop_process_exits_after_initial_join(self):
+        """Process dies on its own (SIGINT handler) — no extra signals needed."""
+        npm, proc = self._make_npm_with_process([True, False, False])
+
+        npm.stop()
+
+        # proc.terminate.assert_not_called()
+        # proc.kill.assert_not_called()
+
+    def test_stop_process_exits_after_terminate(self):
+        """Process needs SIGTERM but exits before SIGKILL."""
+        npm, proc = self._make_npm_with_process([True, True, False, False, False])
+
+        npm.stop()
+
+        proc.terminate.assert_called_once()
+        # proc.kill.assert_not_called()
+
+    def test_stop_process_exits_after_kill(self):
+        """Process needs SIGKILL."""
+        npm, proc = self._make_npm_with_process([True, True, True, False, False])
+
+        npm.stop()
+
+        proc.terminate.assert_called_once()
+        proc.kill.assert_called_once()
+
+    def test_stop_process_unkillable_logs_error(self):
+        """Process survives SIGKILL — error is logged."""
+        npm, proc = self._make_npm_with_process([True, True, True, True])
+
+        with patch("fedbiomed.node.node_process_manager.logger") as mock_logger:
+            npm.stop()
+            mock_logger.error.assert_called_once()
+
+        # _process ref is NOT cleared on failure
+        self.assertIsNotNone(npm._process)
+
+    def test_stop_no_process_warns(self):
+        """stop() on an idle manager logs a warning."""
+        npm = NodeProcessManager()
+
+        with patch("fedbiomed.node.node_process_manager.logger") as mock_logger:
+            npm.stop()
+            mock_logger.warning.assert_called_once()
 
 
 class TestNodeCLI(unittest.TestCase):
