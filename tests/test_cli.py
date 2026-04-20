@@ -296,8 +296,6 @@ class TestNodeControl(unittest.TestCase):
 class TestNodeProcessManager(unittest.TestCase):
     """Tests for NodeProcessManager.stop() cleanup logic."""
 
-    # TODO: alitolga: Remove the comments in the test cases once the cause of the bug is found.
-
     def _make_npm_with_process(self, is_alive_side_effect):
         """Return a NodeProcessManager whose _process is a mock."""
         npm = NodeProcessManager()
@@ -313,8 +311,8 @@ class TestNodeProcessManager(unittest.TestCase):
 
         npm.stop()
 
-        # proc.terminate.assert_not_called()
-        # proc.kill.assert_not_called()
+        proc.terminate.assert_not_called()
+        proc.kill.assert_not_called()
 
     def test_stop_process_exits_after_terminate(self):
         """Process needs SIGTERM but exits before SIGKILL."""
@@ -323,7 +321,7 @@ class TestNodeProcessManager(unittest.TestCase):
         npm.stop()
 
         proc.terminate.assert_called_once()
-        # proc.kill.assert_not_called()
+        proc.kill.assert_not_called()
 
     def test_stop_process_exits_after_kill(self):
         """Process needs SIGKILL."""

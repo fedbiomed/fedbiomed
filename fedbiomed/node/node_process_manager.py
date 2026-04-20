@@ -92,12 +92,18 @@ class NodeProcessManager:
             self._cleanup_process()
             return
 
+        self._cleanup_process()
+        if self._process is None:
+            logger.info("Node process stopped.")
+            return
+
         self._process.terminate()
         logger.info(
             f"Sent termination signal to node process (pid={self._process.pid})."
         )
         time.sleep(0.5)
-        if self._is_process_running():
+        self._cleanup_process()
+        if self._process is not None:
             logger.warning(
                 f"Federated Node Process did not terminate; sending SIGKILL to (pid={self._process.pid})."
             )
@@ -105,7 +111,7 @@ class NodeProcessManager:
             time.sleep(0.5)
 
         self._cleanup_process()
-        if self._is_process_running():
+        if self._process is not None:
             logger.error(
                 f"Failed to kill node process (pid={self._process.pid}). "
                 "Process leak — manual intervention required."
