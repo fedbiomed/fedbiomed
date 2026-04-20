@@ -229,3 +229,22 @@ class DlbTable(BaseTable):
     _table_name = "Dlbs"
     _id_name = "dlb_id"
     _dataclass = DlbEntry
+
+
+class NodeProcessStateTable(TinyTableConnector):
+    """Database table for the current managed node process state."""
+
+    _table_name = "NodeProcessState"
+    _id_name = "node_id"
+
+    def update_or_insert_by_id(self, node_id: str, entry: dict):
+        """Update the process state for a node, or insert it if absent."""
+        if self._id_name in entry and entry[self._id_name] != node_id:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Cannot change the field '{self._id_name}'"
+            )
+
+        entry[self._id_name] = node_id
+        if self.get_by_id(node_id) is None:
+            return self._table.insert(entry, stacklevel=4)
+        return self._table.update(entry, self._query.node_id == node_id, stacklevel=4)
