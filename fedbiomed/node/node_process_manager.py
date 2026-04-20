@@ -31,26 +31,28 @@ class NodeProcessManager:
         self._process: multiprocessing.Process | None = None
         self._node_id: str | None = None
         self._node_name: str | None = None
-        self._state_manager: NodeProcessStateManager | None = None
+        self._state_manager: "NodeProcessStateManager | None" = None
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _cleanup_process(self) -> None:
+    def _cleanup_process(self, clear_metadata: bool = True) -> None:
         """Clear refs if the process has already exited."""
         if self._process is None:
-            self._node_id = None
-            self._node_name = None
-            self._state_manager = None
+            if clear_metadata:
+                self._node_id = None
+                self._node_name = None
+                self._state_manager = None
             return
         if self._process.is_alive():
             return
         self._process.join(timeout=0.1)
         self._process = None
-        self._node_id = None
-        self._node_name = None
-        self._state_manager = None
+        if clear_metadata:
+            self._node_id = None
+            self._node_name = None
+            self._state_manager = None
 
     def _is_process_running(self) -> bool:
         if self._process is None:
@@ -104,7 +106,8 @@ class NodeProcessManager:
             node_args: Dict of arguments forwarded to ``start_node``.
             actor: Optional user/source metadata for process state attribution.
         """
-        # Lazy import to avoid circular dependency at module load time.
+        # Lazy import to avoid a circular dependency at module load time:
+        # cli imports this module to access the singleton.
         from fedbiomed.node.cli import start_node  # noqa: PLC0415
 
         node_id = config.get("default", "id")
@@ -166,12 +169,24 @@ class NodeProcessManager:
             actor=actor,
             reason=reason,
         )
+        self._cleanup_process(clear_metadata=False)
+        if self._process is None:
+            self._set_process_state(
+                state=NodeState.STOPPED,
+                action="stop",
+                actor=actor,
+                reason=reason,
+            )
+            logger.info("Node process stopped.")
+            return
+
         self._process.terminate()
         logger.info(
             f"Sent termination signal to node process (pid={self._process.pid})."
         )
         time.sleep(0.5)
-        if self._process is not None and self._process.is_alive():
+        self._cleanup_process(clear_metadata=False)
+        if self._process is not None:
             logger.warning(
                 f"Federated Node Process did not terminate; sending SIGKILL to (pid={self._process.pid})."
             )
@@ -179,7 +194,8 @@ class NodeProcessManager:
             time.sleep(0.5)
 
         exit_code = self._process.exitcode if self._process else None
-        if self._process is not None and self._process.is_alive():
+        self._cleanup_process(clear_metadata=False)
+        if self._process is not None:
             logger.error(
                 f"Failed to kill node process (pid={self._process.pid}). "
                 "Process leak - manual intervention required."
