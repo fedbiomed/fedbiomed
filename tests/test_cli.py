@@ -362,19 +362,24 @@ class TestNodeControl(unittest.TestCase):
             "--gpu" in self.subparsers.choices["start"]._option_string_actions
         )  # noqa
 
-    @patch("fedbiomed.node.cli.Process")
-    def test_02_node_control_start(self, process):
+    @patch("fedbiomed.node.cli.node_process_manager")
+    def test_02_node_control_start(self, mock_npm):
         self.control.initialize()
         args = self.parser.parse_args(["start"])
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
 
+        # Normal path: join() returns without exception.
         self.control.start(args)
-        process.assert_called_once()
+        mock_npm.start.assert_called_once()
+        mock_npm.process.join.assert_called_once_with()
 
-        process.return_value.join.side_effect = [KeyboardInterrupt, None]
-        process.return_value.is_alive.side_effect = [True, False, True, True, False]
+        mock_npm.reset_mock()
+
+        # Ctrl+C path: join() raises KeyboardInterrupt -> stop() -> sys.exit(0).
+        mock_npm.process.join.side_effect = KeyboardInterrupt
         with self.assertRaises(SystemExit):
             self.control.start(args)
+        mock_npm.stop.assert_called_once()
 
     @patch("fedbiomed.node.cli.Process")
     def test_04_node_control_start_gpu_and_debug_flags(self, mock_process):
