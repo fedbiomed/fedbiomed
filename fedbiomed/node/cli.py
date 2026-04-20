@@ -13,7 +13,6 @@ import signal
 import subprocess
 import sys
 import time
-from multiprocessing import Process
 from pathlib import Path
 from types import FrameType
 from typing import Dict, List, Union
@@ -39,6 +38,7 @@ from fedbiomed.node.cli_utils import (
 )
 from fedbiomed.node.config import node_component
 from fedbiomed.node.node import Node
+from fedbiomed.node.node_process_manager import node_process_manager
 
 # Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -499,7 +499,6 @@ class NodeControl(CLIArgumentParser):
         """Starts the node"""
         intro()
 
-        # Define arguments
         node_args = {
             "gpu": (args.gpu is True) or (args.gpu_only is True),
             "gpu_num": args.gpu_num,
@@ -507,35 +506,13 @@ class NodeControl(CLIArgumentParser):
             "debug": True if args.debug else False,
         }
 
-        # Node instance has to be re-instantiated in start_node
-        # It is because Process can only pickle pure python objects
-        p = Process(
-            target=start_node,
-            name=f"node-{self._node.config.get('default', 'id')}",
-            args=(self._node.config, node_args),
-        )
-        p.daemon = True
-        p.start()
+        node_process_manager.start(self._node.config, node_args)
 
-        logger.info("Node started as process with pid = " + str(p.pid))
         try:
             print("To stop press Ctrl + C.")
-            p.join()
+            node_process_manager.process.join()
         except KeyboardInterrupt:
-            p.terminate()
-            for _ in range(3):
-                if not p.is_alive():
-                    break
-                logger.info("Terminating process id = " + str(p.pid))
-                time.sleep(0.5)
-            if p.is_alive():
-                logger.info("Killing process id = " + str(p.pid))
-                p.kill()
-                start_time = time.time()
-                while p.is_alive() and (time.time() - start_time < 0.5):
-                    time.sleep(0.1)
-            p.join(timeout=0.1)
-            logger.info("Exited with code " + str(p.exitcode))
+            node_process_manager.stop()
             sys.exit(0)
 
 
