@@ -85,8 +85,10 @@ class TorchModel(Model):
 
         unknown = local_params_set - {name for name, _ in param_iterator}
         if unknown:
-            raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622.value}: Unknown local parameters: {unknown}"
+            logger.warning(
+                "'TorchModel.get_weights' received unknown local parameters "
+                "that are not part of the model; unknown parameters: %s. ",
+                unknown,
             )
 
         parameters = {

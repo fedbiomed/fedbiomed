@@ -470,7 +470,7 @@ class MyTrainingPlan(FedSGDClassifier):
         pass
 ```
 
-### What happens on the node side during training
+### Handling of parameters tagged as `local` or `persistent` during training
 
 The way tagged parameters are handled is determined at the node level during each round, across three key steps.
 
@@ -483,6 +483,11 @@ The way tagged parameters are handled is determined at the node level during eac
 **At the end of a round**, the node saves the current values of all parameters tagged as `persistent`. These saved values will be loaded and restored at the beginning of the next round.
 
 **When sending parameters back to the researcher**, parameters tagged as `local` are excluded from the payload. The researcher therefore never sees or aggregates them, and they play no role in the global model update.
+
+From the researcher's perspective, this has the following practical implications:
+
+- `local` parameters are absent from aggregation results: they will not appear in `experiment.aggregated_params()`, nor in the raw per-node replies accessible via `experiment.training_replies()`.
+- `local` parameters are still present in the researcher-side training plan: they remain accessible through `experiment.training_plan().get_model_params()` and `experiment.training_plan().model()`. However, these values originate from `init_model`: they reflect the initial weights as defined by the researcher, not the values that were actually trained and retained on each node. In particular, they do not correspond to the local parameter values that nodes will restore at the start of the next round (which, for parameters tagged as both `local` and `persistent`, are the node's own saved values from the previous round).
 
 ### Caution with advanced optimizers
 
