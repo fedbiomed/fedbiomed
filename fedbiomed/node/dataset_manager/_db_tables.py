@@ -248,3 +248,18 @@ class NodeProcessStateTable(TinyTableConnector):
         if self.get_by_id(node_id) is None:
             return self._table.insert(entry, stacklevel=4)
         return self._table.update(entry, self._query.node_id == node_id, stacklevel=4)
+
+
+class NodeProcessStateHistoryTable(TinyTableConnector):
+    """Append-only database table for node process state history."""
+
+    _table_name = "NodeProcessStateHistory"
+    _id_name = "pid"
+
+    def insert(self, entry: dict) -> int:
+        """Insert a history entry, allowing multiple entries for the same pid."""
+        if not isinstance(entry, dict):
+            raise TypeError(f"Expected entry to be dict, got {type(entry)}.")
+        if self._id_name not in entry:
+            raise ValueError(f"Entry must contain '{self._id_name}' field.")
+        return self._table.insert(entry, stacklevel=4)

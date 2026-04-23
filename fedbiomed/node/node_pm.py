@@ -4,12 +4,19 @@
 """Node process lifecycle manager."""
 
 import enum
+import getpass
 import multiprocessing
+import os
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME
 from fedbiomed.common.logger import logger
-from fedbiomed.node.process_state_manager import NodeProcessStateManager
+from fedbiomed.node.dataset_manager._db_tables import (
+    NodeProcessStateHistoryTable,
+    NodeProcessStateTable,
+)
 
 
 class NodeState(enum.Enum):
@@ -18,6 +25,16 @@ class NodeState(enum.Enum):
     STOPPING = "stopping"
     STOPPED = "stopped"
     UNKNOWN = "unknown"  # used only in route layer as a fallback
+
+
+def _utc_now() -> str:
+    """Return the current UTC time as an ISO-8601 string."""
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 class NodeProcessManager:
@@ -31,36 +48,54 @@ class NodeProcessManager:
         self._process: multiprocessing.Process | None = None
         self._node_id: str | None = None
         self._node_name: str | None = None
-        self._state_manager: "NodeProcessStateManager | None" = None
+        self._state_table: NodeProcessStateTable | None = None
+        self._history_table: NodeProcessStateHistoryTable | None = None
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _cleanup_process(self, clear_metadata: bool = True) -> None:
-        """Clear refs if the process has already exited."""
-        if self._process is None:
-            if clear_metadata:
-                self._node_id = None
-                self._node_name = None
-                self._state_manager = None
-            return
-        if self._process.is_alive():
-            return
-        self._process.join(timeout=0.1)
+    def _cleanup_process(self) -> None:
+        """Clear process and metadata references."""
         self._process = None
-        if clear_metadata:
-            self._node_id = None
-            self._node_name = None
-            self._state_manager = None
+        self._node_id = None
+        self._node_name = None
+        self._state_table = None
+        self._history_table = None
 
-    def _is_process_running(self) -> bool:
-        if self._process is None:
-            return False
-        if self._process.is_alive():
-            return True
-        self._cleanup_process()
-        return False
+    @staticmethod
+    def _build_actor(actor: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Build a sanitized actor dictionary for process state attribution."""
+        base = {
+            "source": "local",
+            "local_username": getpass.getuser(),
+        }
+        if not actor:
+            return base
+
+        allowed = {
+            "source",
+            "user_id",
+            "email",
+            "role",
+            "name",
+            "surname",
+            "local_username",
+        }
+        base.update({key: value for key, value in actor.items() if key in allowed})
+        return base
+
+    def _init_state_tables(self, config) -> None:
+        """Initialize the node process state tables from config."""
+        db_path = os.path.abspath(
+            os.path.join(
+                config.root,
+                CONFIG_FOLDER_NAME,
+                config.get("default", "db"),
+            )
+        )
+        self._state_table = NodeProcessStateTable(db_path)
+        self._history_table = NodeProcessStateHistoryTable(db_path)
 
     def _set_process_state(
         self,
@@ -72,20 +107,44 @@ class NodeProcessManager:
         exit_code: Optional[int] = None,
     ) -> None:
         """Persist the current process state if the node DB is available."""
-        if not self._state_manager or not self._node_id or not self._node_name:
+        if (
+            not self._state_table
+            or not self._history_table
+            or not self._node_id
+            or not self._node_name
+        ):
             return
 
         try:
-            self._state_manager.set_state(
-                node_id=self._node_id,
-                node_name=self._node_name,
-                pid=self._process.pid if self._process else None,
-                state=state.value,
-                action=action,
-                actor=actor,
-                reason=reason,
-                exit_code=exit_code,
-            )
+            now = _utc_now()
+            existing = self._state_table.get_by_id(self._node_id) or {}
+            entry = {
+                "node_id": self._node_id,
+                "node_name": self._node_name,
+                "state": state.value,
+                "pid": self._process.pid if self._process else None,
+                "action": action,
+                "reason": reason,
+                "actor": self._build_actor(actor),
+                "updated_at": now,
+                "started_at": existing.get("started_at"),
+                "stopped_at": existing.get("stopped_at"),
+                "exit_code": exit_code,
+            }
+
+            if state == NodeState.RUNNING:
+                entry["started_at"] = existing.get("started_at") or now
+                entry["stopped_at"] = None
+                entry["exit_code"] = None
+            elif state == NodeState.STOPPED:
+                entry["stopped_at"] = now
+            elif state == NodeState.STARTING:
+                entry["started_at"] = None
+                entry["stopped_at"] = None
+                entry["exit_code"] = None
+
+            self._state_table.update_or_insert_by_id(self._node_id, entry)
+            self._history_table.insert(entry.copy())
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
 
@@ -113,23 +172,25 @@ class NodeProcessManager:
         node_id = config.get("default", "id")
         node_name = config.get("default", "name")
 
-        if self._is_process_running() and node_id == self._node_id:
-            self._set_process_state(
-                state=NodeState.RUNNING,
-                action="start",
-                actor=actor,
-                reason="already_running",
-            )
-            logger.warning(
-                f"Node '{node_id}' is already running (pid={self._process.pid}). "
-                "Ignoring start request."
-            )
-            return
+        if self._process is not None:
+            if self._process.is_alive():
+                if node_id == self._node_id:
+                    self._set_process_state(
+                        state=NodeState.RUNNING,
+                        action="start",
+                        actor=actor,
+                        reason="already_running",
+                    )
+                    logger.warning(
+                        f"Node '{node_id}' is already running (pid={self._process.pid}). "
+                        "Ignoring start request."
+                    )
+                return
+            self._cleanup_process()
 
-        self._cleanup_process()
         self._node_id = node_id
         self._node_name = node_name
-        self._state_manager = NodeProcessStateManager.from_config(config)
+        self._init_state_tables(config)
         self._set_process_state(
             state=NodeState.STARTING,
             action="start",
@@ -158,9 +219,8 @@ class NodeProcessManager:
         reason: str = "stop_requested",
     ) -> None:
         """Terminate the running node subprocess."""
-        if not self._is_process_running():
+        if self._process is None or not self._process.is_alive():
             logger.warning("No node process is running.")
-            self._cleanup_process()
             return
 
         self._set_process_state(
@@ -169,33 +229,20 @@ class NodeProcessManager:
             actor=actor,
             reason=reason,
         )
-        self._cleanup_process(clear_metadata=False)
-        if self._process is None:
-            self._set_process_state(
-                state=NodeState.STOPPED,
-                action="stop",
-                actor=actor,
-                reason=reason,
-            )
-            logger.info("Node process stopped.")
-            return
-
         self._process.terminate()
         logger.info(
             f"Sent termination signal to node process (pid={self._process.pid})."
         )
         time.sleep(0.5)
-        self._cleanup_process(clear_metadata=False)
-        if self._process is not None:
+        if self._process.is_alive():
             logger.warning(
                 f"Federated Node Process did not terminate; sending SIGKILL to (pid={self._process.pid})."
             )
             self._process.kill()
             time.sleep(0.5)
 
-        exit_code = self._process.exitcode if self._process else None
-        self._cleanup_process(clear_metadata=False)
-        if self._process is not None:
+        exit_code = self._process.exitcode
+        if self._process.is_alive():
             logger.error(
                 f"Failed to kill node process (pid={self._process.pid}). "
                 "Process leak - manual intervention required."
@@ -223,7 +270,7 @@ class NodeProcessManager:
         self.start(config, node_args, actor=actor)
 
     def get_status(self) -> NodeState:
-        if self._is_process_running():
+        if self._process is not None and self._process.is_alive():
             return NodeState.RUNNING
         return NodeState.STOPPED
 

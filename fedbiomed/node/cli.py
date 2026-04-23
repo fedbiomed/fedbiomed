@@ -38,7 +38,7 @@ from fedbiomed.node.cli_utils import (
 )
 from fedbiomed.node.config import node_component
 from fedbiomed.node.node import Node
-from fedbiomed.node.node_process_manager import node_process_manager
+from fedbiomed.node.node_pm import node_process_manager
 
 # Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
