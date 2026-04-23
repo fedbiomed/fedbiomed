@@ -1198,31 +1198,12 @@ class Round:
             the complete set of parameters to be loaded into the model before training
         """
         # Deal with the case where persistent_model_weights is None
-        persistent_model_weights = persistent_model_weights or {}
-
-        # Start from parameters received by researcher
-        full_params = dict(weights_from_researcher)
-
-        # local and persistent parameters: override with saved values
-        local_persistent = self.training_plan.filter_model_params_by_tags(
-            initial_model_weights,
-            required_tags={"local", "persistent"},
-        )
-        for name in local_persistent.keys():
-            if name in persistent_model_weights.keys():
-                full_params[name] = persistent_model_weights[name]
-            else:
-                # First round: use initial model weight
-                full_params[name] = initial_model_weights[name]
-
-        # local only parameters: override with initial values
-        local_only = self.training_plan.filter_model_params_by_tags(
-            initial_model_weights,
-            required_tags={"local"},
-            forbidden_tags={"persistent"},
+        persistent_model_weights = (
+            persistent_model_weights if persistent_model_weights is not None else {}
         )
 
-        for name in local_only.keys():
-            full_params[name] = initial_model_weights[name]
-
-        return full_params
+        return {
+            **initial_model_weights,
+            **persistent_model_weights,
+            **weights_from_researcher,
+        }
