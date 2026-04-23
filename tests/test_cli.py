@@ -1,8 +1,10 @@
 import argparse
 import configparser
 import io
+import json
 import os
 import shutil
+import signal
 import sys
 import tempfile
 import unittest
@@ -13,12 +15,16 @@ import pytest
 
 import fedbiomed
 import fedbiomed.node.cli_utils
+from fedbiomed.common.constants import NODE_DATA_FOLDER
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.cli import (
     DatasetArgumentParser,
+    GUIControl,
     NodeCLI,
     NodeControl,
     TrainingPlanArgumentParser,
+    _node_signal_trigger_term,
+    intro,
     start_node,
 )
 from fedbiomed.node.cli_utils._medical_folder_dataset import (
@@ -142,6 +148,14 @@ class TestTrainingPlanArgumentParser(unittest.TestCase):
             self.tp_arg_pars.reject(args)
             m.assert_called_once()
 
+    def test_03_training_plan_argument_parser_approve(self):
+        """Tests training plan approve action calls approve_training_plan."""
+        self.tp_arg_pars.initialize()
+        with patch.object(fedbiomed.node.cli, "approve_training_plan") as m:
+            args = self.parser.parse_args(["training-plan", "approve"])
+            self.tp_arg_pars.approve(args)
+            m.assert_called_once()
+
 
 class TestDatasetArgumentParser(unittest.TestCase):
     """Test case for node cli dataset argument parse"""
@@ -212,8 +226,115 @@ class TestDatasetArgumentParser(unittest.TestCase):
         args = self.parser.parse_args(["dataset", "list"])
         self.dataset_arg_pars.list(args)
 
-        self.node.dataset_manager.list_my_datasets.return_value = []
         self.node.dataset_manager.list_my_datasets.assert_called_once_with(verbose=True)
+
+    def test_05_dataset_argument_parser_add_file(self):
+        """Tests add() dispatches to _add_dataset_from_file when --file is given."""
+        self.dataset_arg_pars.initialize()
+        with patch.object(self.dataset_arg_pars, "_add_dataset_from_file") as m:
+            args = self.parser.parse_args(
+                ["dataset", "add", "--file", "/path/to/dataset.json"]
+            )
+            self.dataset_arg_pars.add(args)
+            m.assert_called_once_with(path="/path/to/dataset.json")
+
+    def test_06_dataset_argument_parser_add_mnist_default_path(self):
+        """Tests add() uses node data folder when --mnist is given without a value."""
+        self.dataset_arg_pars.initialize()
+        self.node.config.root = "/test/root"
+        with patch.object(fedbiomed.node.cli, "add_database") as m:
+            args = self.parser.parse_args(["dataset", "add", "--mnist"])
+            self.dataset_arg_pars.add(args)
+            expected_path = os.path.join("/test/root", NODE_DATA_FOLDER)
+            m.assert_called_once_with(
+                self.node.dataset_manager, interactive=False, path=expected_path
+            )
+
+    def test_07_add_dataset_from_file_absolute_path(self):
+        """Tests _add_dataset_from_file preserves absolute paths."""
+        self.dataset_arg_pars.initialize()
+        dataset_json = {
+            "path": "/absolute/data/path",
+            "data_type": "csv",
+            "description": "Test dataset",
+            "tags": "#test",
+            "name": "TestData",
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(dataset_json, f)
+            json_path = f.name
+        try:
+            with patch.object(fedbiomed.node.cli, "add_database") as m:
+                self.dataset_arg_pars._add_dataset_from_file(path=json_path)
+                m.assert_called_once_with(
+                    self.node.dataset_manager,
+                    interactive=False,
+                    path="/absolute/data/path",
+                    data_type="csv",
+                    description="Test dataset",
+                    tags="#test",
+                    name="TestData",
+                    dataset_parameters=None,
+                )
+        finally:
+            os.unlink(json_path)
+
+    def test_08_add_dataset_from_file_relative_path(self):
+        """Tests _add_dataset_from_file prepends config.root for relative paths."""
+        self.dataset_arg_pars.initialize()
+        self.node.config.root = "/test/root"
+        dataset_json = {
+            "path": "relative/data",
+            "data_type": "csv",
+            "description": "Test",
+            "tags": "#test",
+            "name": "RelData",
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(dataset_json, f)
+            json_path = f.name
+        try:
+            with patch.object(fedbiomed.node.cli, "add_database") as m:
+                self.dataset_arg_pars._add_dataset_from_file(path=json_path)
+                call_kwargs = m.call_args[1]
+                self.assertIn("/test/root", call_kwargs["path"])
+                self.assertIn("relative", call_kwargs["path"])
+        finally:
+            os.unlink(json_path)
+
+    def test_09_add_dataset_from_file_env_var_path(self):
+        """Tests _add_dataset_from_file expands environment variable in path."""
+        self.dataset_arg_pars.initialize()
+        dataset_json = {
+            "path": "$FBM_TEST_DATA/data",
+            "data_type": "csv",
+            "description": "Test",
+            "tags": "#test",
+            "name": "EnvData",
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(dataset_json, f)
+            json_path = f.name
+        try:
+            with patch.dict(os.environ, {"FBM_TEST_DATA": "/env/path"}):
+                with patch.object(fedbiomed.node.cli, "add_database") as m:
+                    self.dataset_arg_pars._add_dataset_from_file(path=json_path)
+                    call_kwargs = m.call_args[1]
+                    self.assertIn("/env/path", call_kwargs["path"])
+        finally:
+            os.unlink(json_path)
+
+    def test_10_add_dataset_from_file_invalid_json(self):
+        """Tests _add_dataset_from_file exits when the file is not valid JSON."""
+        self.dataset_arg_pars.initialize()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            f.write("not valid json {{{")
+            json_path = f.name
+        try:
+            with self.assertRaises(SystemExit):
+                self.dataset_arg_pars._add_dataset_from_file(path=json_path)
+        finally:
+            os.unlink(json_path)
 
 
 class TestNodeControl(unittest.TestCase):
@@ -255,6 +376,23 @@ class TestNodeControl(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.control.start(args)
 
+    @patch("fedbiomed.node.cli.Process")
+    def test_04_node_control_start_gpu_and_debug_flags(self, mock_process):
+        """Tests GPU and debug flags are correctly forwarded in node_args."""
+        self.control.initialize()
+        os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
+
+        args = self.parser.parse_args(
+            ["start", "--gpu", "--gpu-num", "2", "--gpu-only", "--debug"]
+        )
+        self.control.start(args)
+
+        node_args = mock_process.call_args[1]["args"][1]
+        self.assertTrue(node_args["gpu"])
+        self.assertEqual(node_args["gpu_num"], 2)
+        self.assertTrue(node_args["gpu_only"])
+        self.assertTrue(node_args["debug"])
+
     @patch("fedbiomed.node.cli.Node", autospec=True)
     def test_03_node_control__start(self, mock_node):
         """Tests node start"""
@@ -285,6 +423,177 @@ class TestNodeControl(unittest.TestCase):
                 mock_node.return_value.task_manager.side_effect = Exception
                 start_node("config.ini", args)
                 logger.critical.assert_called_once()
+
+
+class TestGUIControl(unittest.TestCase):
+    """Tests for GUIControl argument parser."""
+
+    def setUp(self):
+        self.parser = argparse.ArgumentParser()
+        self.subparsers = self.parser.add_subparsers()
+        self.control = GUIControl(self.subparsers)
+        self.node = MagicMock()
+        self.control._node = self.node
+
+    def test_01_gui_control_initialize(self):
+        """Tests gui subparser and all its start options are registered."""
+        self.control.initialize()
+        self.assertIn("gui", self.subparsers.choices)
+
+        gui_subparsers = (
+            self.subparsers.choices["gui"]._subparsers._group_actions[0].choices
+        )
+        self.assertIn("start", gui_subparsers)
+
+        start_options = gui_subparsers["start"]._option_string_actions
+        for opt in [
+            "--port",
+            "--host",
+            "--cert-file",
+            "--key-file",
+            "--debug",
+            "--recreate",
+            "--development",
+            "--data-folder",
+        ]:
+            self.assertIn(opt, start_options)
+
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("os.path.isdir", return_value=True)
+    def test_02_gui_control_forward_gunicorn(
+        self, mock_isdir, mock_importlib, mock_subprocess
+    ):
+        """Tests forward() launches gunicorn when development mode is off."""
+        self.control.initialize()
+        self.node.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
+
+        args = argparse.Namespace(
+            path="/some/fedbiomed/path",
+            data_folder="/test/data",
+            key_file=None,
+            cert_file=None,
+            development=False,
+            host="localhost",
+            port="8484",
+            debug=False,
+            recreate=False,
+        )
+        self.control.forward(args, [])
+
+        mock_subprocess.Popen.assert_called_once()
+        command = mock_subprocess.Popen.call_args[0][0]
+        self.assertIn("gunicorn", command)
+
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("os.path.isdir", return_value=True)
+    def test_03_gui_control_forward_development_mode(
+        self, mock_isdir, mock_importlib, mock_subprocess
+    ):
+        """Tests forward() uses flask when development mode is on."""
+        self.control.initialize()
+        self.node.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
+
+        args = argparse.Namespace(
+            path="/some/fedbiomed/path",
+            data_folder="/test/data",
+            key_file=None,
+            cert_file=None,
+            development=True,
+            host="localhost",
+            port="8484",
+            debug=False,
+            recreate=False,
+        )
+        self.control.forward(args, [])
+
+        command = mock_subprocess.Popen.call_args[0][0]
+        self.assertIn("flask", command)
+
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("os.path.isdir", return_value=True)
+    def test_04_gui_control_forward_ssl_certificates(
+        self, mock_isdir, mock_importlib, mock_subprocess
+    ):
+        """Tests forward() passes --keyfile/--certfile to gunicorn when SSL is configured."""
+        self.control.initialize()
+        self.node.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
+
+        args = argparse.Namespace(
+            path="/some/fedbiomed/path",
+            data_folder="/test/data",
+            key_file="server.key",
+            cert_file="server.pem",
+            development=False,
+            host="localhost",
+            port="8484",
+            debug=False,
+            recreate=False,
+        )
+        self.control.forward(args, [])
+
+        command = mock_subprocess.Popen.call_args[0][0]
+        self.assertIn("--keyfile", command)
+        self.assertIn("--certfile", command)
+
+    @patch("os.path.isdir", return_value=False)
+    def test_05_gui_control_forward_invalid_data_folder(self, mock_isdir):
+        """Tests forward() raises FedbiomedError when the data folder does not exist."""
+        self.control.initialize()
+        self.node.config.root = "/node/root"
+
+        args = argparse.Namespace(
+            path="/some/fedbiomed/path",
+            data_folder="/nonexistent/data",
+            key_file=None,
+            cert_file=None,
+            development=False,
+            host="localhost",
+            port="8484",
+            debug=False,
+            recreate=False,
+        )
+        with self.assertRaises(FedbiomedError):
+            self.control.forward(args, [])
+
+
+class TestStartNode(unittest.TestCase):
+    """Tests for the start_node function."""
+
+    @patch("fedbiomed.node.cli.Node")
+    def test_01_start_node_training_plan_approval_with_default_plans(self, mock_node):
+        """Tests tp_security_manager methods are called when approval + default plans are enabled."""
+        mock_node.return_value.config.getbool.return_value = True
+
+        start_node("config.ini", {"gpu": False})
+
+        mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
+        mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_called_once()
+
+    @patch("fedbiomed.node.cli.Node")
+    def test_02_start_node_training_plan_approval_no_default_plans(self, mock_node):
+        """Tests register_update_default_training_plans is NOT called when allow_default_training_plans is False."""
+
+        def _getbool(section, key):
+            return key == "training_plan_approval"
+
+        mock_node.return_value.config.getbool.side_effect = _getbool
+
+        start_node("config.ini", {"gpu": False})
+
+        mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
+        mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_not_called()
 
 
 class TestNodeCLI(unittest.TestCase):
@@ -547,6 +856,24 @@ def test_get_map_modalities2folders_from_cli_scenarios(
         dlb = get_map_modalities2folders_from_cli(modality_folder_names)
 
     assert dlb.map == expected_map
+
+
+def test_intro():
+    """Tests intro() prints the active node ID from the environment."""
+    os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
+    with patch("builtins.print") as mock_print:
+        intro()
+    printed = " ".join(
+        str(arg) for call in mock_print.call_args_list for arg in call.args
+    )
+    assert "test-node-id" in printed
+
+
+def test_node_signal_trigger_term():
+    """Tests _node_signal_trigger_term sends SIGTERM to the current process."""
+    with patch("os.kill") as mock_kill:
+        _node_signal_trigger_term()
+    mock_kill.assert_called_once_with(os.getpid(), signal.SIGTERM)
 
 
 if __name__ == "__main__":

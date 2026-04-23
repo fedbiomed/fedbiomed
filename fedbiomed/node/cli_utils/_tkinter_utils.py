@@ -2,33 +2,32 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Simple tkinter import compatibility for Fed-BioMed CLI utilities.
+Tkinter import compatibility for Fed-BioMed CLI utilities.
 
-Centralizes tkinter imports in one place and exposes an 'available' flag.
-Each file can use try/catch patterns based on this flag.
+Centralizes tkinter imports and exposes an `available` flag so callers
+can guard GUI operations without handling ImportError themselves.
 """
 
-# Try to import tkinter modules
+from types import ModuleType
+from typing import Optional
+
+# None if tkinter is unavailable on this platform
+filedialog: Optional[ModuleType] = None
+messagebox: Optional[ModuleType] = None
+available: bool = False
+TclError: type[Exception]
+
 try:
-    import tkinter.filedialog
-    import tkinter.messagebox
-    from tkinter import _tkinter
+    import tkinter
+    import tkinter.filedialog as _filedialog
+    import tkinter.messagebox as _messagebox
 
+    filedialog = _filedialog
+    messagebox = _messagebox
     available = True
-except (ImportError, ModuleNotFoundError):
-    tkinter = None
-    available = False
+    TclError = tkinter.TclError
 
-# Export for convenience when available
-if available:
-    filedialog = tkinter.filedialog
-    messagebox = tkinter.messagebox
-    TclError = _tkinter.TclError
-else:
-    filedialog = None
-    messagebox = None
+except ImportError:
 
-    class TclError(Exception):
-        """Fallback TclError when tkinter is not available."""
-
-        pass
+    class TclError(Exception):  # type: ignore[no-redef]
+        """Raised in place of tkinter.TclError when tkinter is not installed."""
