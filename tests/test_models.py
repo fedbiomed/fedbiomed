@@ -397,12 +397,13 @@ class TestSkLearnModel(unittest.TestCase):
                 model.get_weights()
 
     def test_sklearnmodel_09b_get_weights_unknown_local_params(self):
-        """Test that get_weights raises FedbiomedModelError for unknown local_params entries."""
+        """Test that get_weights logs a warning for unknown local_params entries."""
         for skmodel in self.models:
             model = SkLearnModel(skmodel)
             model.set_init_params(model_args={"n_classes": 2, "n_features": 3})
-            with self.assertRaises(FedbiomedModelError):
+            with patch("fedbiomed.common.models._sklearn.logger.warning") as mock_warn:
                 model.get_weights(local_params=["nonexistent_param"])
+            mock_warn.assert_called()
 
     def test_sklearnmodel_09c_get_weights_with_local_params(self):
         """Test that get_weights correctly excludes local_params from the output."""
@@ -705,10 +706,11 @@ class TestTorchModel(unittest.TestCase):
         for name in param_names[1:]:
             self.assertIn(name, weights)
 
-    def test_torchmodel_02c_get_weights_unknown_local_params_raises(self):
-        """Test that unknown local_params entries raise FedbiomedModelError."""
-        with self.assertRaises(FedbiomedModelError):
+    def test_torchmodel_02c_get_weights_unknown_local_params(self):
+        """Test that unknown local_params entries logs a warning."""
+        with patch("fedbiomed.common.models._sklearn.logger.warning") as mock_warn:
             self.model.get_weights(local_params=["nonexistent_layer"])
+        mock_warn.assert_called()
 
     def test_torchmodel_02d_get_weights_exclude_buffers_false(self):
         """Test that exclude_buffers=False includes buffers from state_dict."""

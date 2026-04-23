@@ -1520,7 +1520,11 @@ class TestRound(unittest.TestCase):
         )
 
     def test_round_34_reconstruct_full_params(self):
-        self.r1.training_plan = MagicMock()
+        # Scenario:
+        # - a is tagged as "local" and "persistent" (not shared and aggregated with researcher, and saved locally)
+        # - b is tagged as "local" only (not shared and aggregated with researcher, and not saved locally)
+        # - c is tagged as "persistent" only (shared and aggregated with researcher, but not saved locally)
+        # - d is untagged (global)
 
         initial = {
             "a": 1,
@@ -1530,38 +1534,28 @@ class TestRound(unittest.TestCase):
         }
 
         received = {
-            "a": 10,
-            "b": 20,
             "c": 30,
             "d": 40,
         }
 
-        persistent = {"a": 100}
-
-        # Mock tag filtering behavior
-        def filter_params(params, required_tags=None, forbidden_tags=None):
-            if required_tags == {"local", "persistent"}:
-                return {"a": params["a"]}
-            if required_tags == {"local"} and forbidden_tags == {"persistent"}:
-                return {"b": params["b"]}
-            return {}
-
-        self.r1.training_plan.filter_model_params_by_tags.side_effect = filter_params
+        persistent = {"a": 100, "c": 300}
 
         # Test 1: with already persistent parameters saved
         result = self.r1._reconstruct_full_params(initial, received, persistent)
 
-        assert result["a"] == 100  # persistent overrides with stored parameters
+        assert (
+            result["a"] == 100
+        )  # local and persistent overrides with stored parameters
         assert result["b"] == 2  # local-only reset to initial
-        assert result["c"] == 30  # unchanged from researcher
+        assert result["c"] == 30  # persistent only, unchanged from researcher
         assert result["d"] == 40  # unchanged from researcher
 
         # Test 2: with no persistent parameters saved
         result = self.r1._reconstruct_full_params(initial, received, None)
 
-        assert result["a"] == 1  # persistent overrides with initial values
+        assert result["a"] == 1  # local and persistent overrides with initial values
         assert result["b"] == 2  # local-only reset to initial
-        assert result["c"] == 30  # unchanged from researcher
+        assert result["c"] == 30  # persistent only, unchanged from researcher
         assert result["d"] == 40  # unchanged from researcher
 
 
