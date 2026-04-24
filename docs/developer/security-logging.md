@@ -2,7 +2,9 @@
 
 ## Overview
 
-Security logs are audit-grade records of security-relevant activity. They exist for a different purpose than application logs:
+Security logs are audit-grade records of security-relevant activity. 
+
+They serve a different purpose than application logs:
 
 Application logs help developers debug and operate the system (errors, warnings, performance, flow).
 Security logs provide an audit trail of sensitive actions and security events (who did what, when, and with what outcome).
@@ -103,7 +105,8 @@ logger.info(
 )
 ```
 
-***Important***: `Operation` is a required field in security logs. It is used as a stable identifier to separate security logs from application logs. Any security log without an `operation` field will raise an error.
+!!! warning "Important" 
+    `Operation` is a required field in security logs. It is used as a stable identifier to separate security logs from application logs. Any security log without an `operation` field will raise an error.
 
 ## Setting shared fields with Security Context
 
@@ -222,7 +225,7 @@ For node configuration files, recent configuration migration code also writes th
 
 ## Practical guidance and conventions
 
-### Required event fields
+### 1) Required event fields
 
 For meaningful security logs, include:
 
@@ -233,13 +236,12 @@ For meaningful security logs, include:
 
 Information regarding the node (node id, node name), fedbiomed version and timestamp are included by default.
 
-### Don’t log secrets
+### 2) Don’t log secrets
 
-Never include:
-
-- Credentials, tokens, keys, passwords
-- Personal data unless necessary and approved
-- Full exception payloads of sensitive objects
+!!! warning "Never include:"
+    - Credentials, tokens, keys, passwords
+    - Personal data unless necessary and approved
+    - Full exception payloads of sensitive objects
 
 ## Summary
 
