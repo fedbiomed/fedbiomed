@@ -176,6 +176,7 @@ nav:
           - "Testing in Fed-BioMed": "./developer/testing-in-fedbiomed.md"
           - "RPC Protocol and Messages": "./developer/messaging.md"
           - "Federated Analytics": "./developer/federated-analytics.md"
+          - "Security Logging": "./developer/security-logging.md"
       #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
       - "FAQ & Troubleshooting": "./support/troubleshooting.md"
   - Footer:
