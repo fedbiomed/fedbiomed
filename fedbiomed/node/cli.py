@@ -38,7 +38,6 @@ from fedbiomed.node.cli_utils import (
 )
 from fedbiomed.node.config import node_component
 from fedbiomed.node.node import Node
-from fedbiomed.node.node_pm import node_process_manager
 
 # Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -187,6 +186,97 @@ def start_node(config, node_args):
         # by the previous FedbiomedError)
         _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
         logger.critical(f"Node stopped. {exp}")
+
+
+def _default_node_args() -> Dict[str, Union[bool, int, None]]:
+    """Return the default node startup arguments."""
+    return {
+        "gpu": False,
+        "gpu_num": None,
+        "gpu_only": False,
+        "debug": False,
+    }
+
+
+def _build_node_args(args: argparse.Namespace) -> Dict[str, Union[bool, int, None]]:
+    """Build node startup arguments from CLI options."""
+    return {
+        "gpu": (args.gpu is True) or (args.gpu_only is True),
+        "gpu_num": args.gpu_num,
+        "gpu_only": True if args.gpu_only else False,
+        "debug": True if args.debug else False,
+    }
+
+
+def _start_gui(
+    *,
+    fedbiomed_root: str,
+    node_root: str,
+    data_folder: str,
+    host: str,
+    port: str,
+    development: bool,
+    key_file: str | None,
+    cert_file: str | None,
+    gui_debug: bool,
+    node_args: Dict[str, Union[bool, int, None]] | None = None,
+) -> None:
+    """Launch the GUI server and pass node startup settings through the environment."""
+    if data_folder == "":
+        data_path = os.path.join(node_root, NODE_DATA_FOLDER)
+    else:
+        data_path = os.path.abspath(data_folder)
+    if not os.path.isdir(data_path):
+        raise FedbiomedError(f"path {data_path} is not a folder. Aborting")
+
+    current_env = os.environ.copy()
+    current_env.update(
+        {
+            "DATA_PATH": data_path,
+            "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
+            "FBM_START_NODE_WITH_GUI": "true",
+            "FBM_NODE_START_ARGS": json.dumps(node_args or _default_node_args()),
+            "FBM_DEBUG": str(gui_debug).lower(),
+        }
+    )
+
+    if key_file and cert_file:
+        certificate = ["--keyfile", key_file, "--certfile", cert_file]
+    else:
+        certificate = []
+
+    fedbiomed_gui = importlib.import_module("fedbiomed_gui")
+    server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
+    print("path to server", server_app)
+
+    host_port = ["--host", host, "--port", port]
+    if development:
+        command = [
+            "FLASK_ENV=development",
+            f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
+            "flask",
+            "run",
+            *host_port,
+            *certificate,
+        ]
+    else:
+        command = [
+            "gunicorn",
+            "--workers",
+            "1",
+            *certificate,
+            "-b",
+            f"{host}:{port}",
+            "--access-logfile",
+            "-",
+            "fedbiomed_gui.server.wsgi:app",
+        ]
+
+    try:
+        with subprocess.Popen(" ".join(command), env=current_env, shell=True) as proc:
+            proc.wait()
+    except Exception as e:
+        print(e)
 
 
 class DatasetArgumentParser(CLIArgumentParser):
@@ -498,22 +588,18 @@ class NodeControl(CLIArgumentParser):
     def start(self, args):
         """Starts the node"""
         intro()
-
-        node_args = {
-            "gpu": (args.gpu is True) or (args.gpu_only is True),
-            "gpu_num": args.gpu_num,
-            "gpu_only": True if args.gpu_only else False,
-            "debug": True if args.debug else False,
-        }
-
-        node_process_manager.start(self._node.config, node_args)
-
-        try:
-            print("To stop press Ctrl + C.")
-            node_process_manager.process.join()
-        except KeyboardInterrupt:
-            node_process_manager.stop()
-            sys.exit(0)
+        _start_gui(
+            fedbiomed_root=self._node.config.root,
+            node_root=self._node.config.root,
+            data_folder="",
+            host="localhost",
+            port="8484",
+            development=False,
+            key_file=None,
+            cert_file=None,
+            gui_debug=False,
+            node_args=_build_node_args(args),
+        )
 
 
 class GUIControl(CLIArgumentParser):
@@ -612,63 +698,17 @@ class GUIControl(CLIArgumentParser):
         Args:
             args: parser argument's namespace
         """
-
-        fedbiomed_root = os.path.abspath(args.path)
-
-        if args.data_folder == "":
-            data_folder = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
-        else:
-            data_folder = os.path.abspath(args.data_folder)
-        if not os.path.isdir(data_folder):
-            raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
-        os.environ.update(
-            {
-                "DATA_PATH": data_folder,
-                "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
-            }
+        _start_gui(
+            fedbiomed_root=os.path.abspath(args.path),
+            node_root=self._node.config.root,
+            data_folder=args.data_folder,
+            host=args.host,
+            port=args.port,
+            development=args.development,
+            key_file=args.key_file,
+            cert_file=args.cert_file,
+            gui_debug=args.debug,
         )
-        current_env = os.environ.copy()
-
-        if args.key_file and args.cert_file:
-            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file]
-        else:
-            certificate = []
-
-        fedbiomed_gui = importlib.import_module("fedbiomed_gui")
-        server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
-        print("path to server", server_app)
-
-        host_port = ["--host", args.host, "--port", args.port]
-        if args.development:
-            command = [
-                "FLASK_ENV=development",
-                f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
-                "flask",
-                "run",
-                *host_port,
-                *certificate,
-            ]
-        else:
-            command = [
-                "gunicorn",
-                "--workers",
-                "1",
-                # str(os.cpu_count()),
-                *certificate,
-                "-b",
-                f"{args.host}:{args.port}",
-                "--access-logfile",
-                "-",
-                "fedbiomed_gui.server.wsgi:app",
-            ]
-
-        try:
-            with subprocess.Popen(
-                " ".join(command), env=current_env, shell=True
-            ) as proc:
-                proc.wait()
-        except Exception as e:
-            print(e)
 
 
 class NodeCLI(CommonCLI):
