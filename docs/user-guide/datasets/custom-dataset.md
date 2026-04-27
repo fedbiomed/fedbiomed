@@ -9,7 +9,7 @@
 - `CustomDataset` enforces the implementation of `read`, `get_item`, and `__len__` methods in subclasses.
 - You should avoid overriding `__getitem__` and `__init__`; `CustomDataset` will raise an error if these methods are overwritten, as they are reserved for internal use.
 - Ensure that `get_item` returns a tuple (e.g., `(data, target)`); `CustomDataset` automatically checks that this method returns a tuple.
-- `CustomDataset` must respect the data format required by the training plan. `get_item` should return `data` and `target` in the format expected by the framework used for training (e.g., `np.ndarray` for scikit-learn, `torch.Tensor` for PyTorch).
+- `CustomDataset` must respect the data format required by the training plan. `get_item` should return `data` and `target` in the format expected by the framework used for training (e.g., `np.ndarray` or a `dict` of one `np.ndarray` for scikit-learn, `torch.Tensor` or a `dict` of `torch.Tensor` for PyTorch).
 
 ## How to Use
 
@@ -28,7 +28,7 @@ To create your own dataset class, inherit from `CustomDataset`. The `CustomDatas
 
 `read(self)` has to be written in the subclass. This method is called once. It should read the data from the file system and loaded in the correct format.
 
-`get_item(self, idx)` is responsible for getting a single sample from the dataset. It should return a tuple `(data, target)` for the given index. For analytics or non-target studies it can return `data, None`.  The return format should follow the framework-specific convention (e.g., `torch.Tensor` for PyTorch and `numpy.ndarray` for scikit-learn). For a complete list of supported formats, see `fedbiomed.common.data_type.DataReturnFormat`."
+`get_item(self, idx)` is responsible for getting a single sample from the dataset. It should return a tuple `(data, target)` for the given index. For analytics or non-target studies it can return `data, None`.  The return format should follow the framework-specific convention (e.g., `torch.Tensor` or a `dict` of `torch.Tensor` for PyTorch and `numpy.ndarray` or a `dict` of one `numpy.ndarray` for scikit-learn). For a complete list of supported formats, see `fedbiomed.common.data_type.DataReturnFormat`."
 
 - `__len__(self)` should returns the number of samples in the dataset.
 
