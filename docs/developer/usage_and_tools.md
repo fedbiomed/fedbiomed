@@ -189,7 +189,7 @@ If there is some reason to keep it, it should then be renamed to something start
 
 ## Organization and Scrum
 
-* **The development team** is in charge of implementing Fed-BioMed's project goal and roadmap. It carries the bulk of the development effort, coordinating the work of Reviewers, Team Developers, Core Developers.
+* **The development team** is in charge of implementing Fed-BioMed's product goal, using product backlog and roadmap. It carries the bulk of the development effort, coordinating the work of Reviewers, Team Developers, Core Developers.
 
     It works as an agile team inspiring from [Scrum](https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf) and loosely implementing it. Development team's work is usually organized in sprints.
 
@@ -203,24 +203,42 @@ If there is some reason to keep it, it should then be renamed to something start
 * **External developers** are autonomous developers (Contributors) working at their own pace. This typically fits primarily for punctual contribution, work on some specific function, PoC, etc. External developers are encouraged to interact with the development team to ensure coherence of their planned contributions with the rest of the development activity.
 
 
+### Product goal
+
+
+Fed-BioMed is an open-source software platform for collaborative health data programs. It enables hospitals, biobanks, registries, clinical networks, and any organization holding sensitive health or subject data to collaborate with research teams and industry partners in a privacy-preserving way - without sharing or moving that data.
+
+Fed-BioMed is an ecosystem of partners with diverse objectives - researchers, industry, consortia - united by a shared commitment to collaborative studies in the healthcare domain.
+
+Fed-BioMed offers a modular set of core capabilities that can work together or be adopted selectively to fit the specific needs of each organization:
+
+* Federated framework: Provides the foundation to deploy, connect, and manage distributed data nodes across institutions, supporting long-term, multi-study collaboration within a federation of partners, by joining an existing federation or creating a new one.
+* Federated access control: Enforces fine-grained, role-based, decentralized permissions over who can access data and trigger computations across the federation, translating governance rules and regulatory requirements into consistent, auditable controls
+* Federated discovery: Enables exploration and querying of distributed datasets for cohort definition and feasibility studies through shared metadata, relying on common data models and standards. 
+* Federated preparation: Provides coordinated methods for preprocessing, harmonization, augmentation and presentation of distributed datasets consistently across sites
+* Federated analytics: Performs distributed statistical analysis and exploratory computations to extract global insights across datasets without pooling data
+* Federated learning: Trains and evaluates machine learning models across distributed datasets producing globally informed models while data stays local
+* Federated integration: Interoperates with existing software pipelines at each site by leveraging common data models, standardized data exchange formats and shared metadata schemas
+
+Fed-BioMed is built on key transversal principles:
+
+* Security by design: Raw data never leaves its original location. Access is minimized, local and secured at every layer.
+* Governance: Data owners retain full control, defining study-specific permissions that contribute to compliance with legal and regulatory requirements.
+* Accessible user experience: The platform provides interfaces for users with diverse backgrounds, from clinicians to data scientists.
+* Easy deployment: Organizations can set up their federated node quickly, and operate it with minimal effort
+
+
 ### Product backlog
 
 Product backlog is a [Scrum artifact](https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf)
 composed of the product goal and product backlog entries. Each product backlog entry can contain a functional requirement, a user story, a task, etc.
-
-The current product goal content is:
-
-1. **priority 1** : translating Collaborative Learning to real world healthcare applications
-2. **priority 2** : as an open source software initiative, developing of the community, welcoming other contributions
-3. **priority 3** : supporting initiatives that use Fed-BioMed
-4. **priority 4** : experimenting new research and technologies
 
 Product backlog entries are:
 
 * all milestones except those with a *[PoC]* mark starting their title
 * issues with a *product backlog* label
 
-Product backlog is modified **by the product owner only or with explicit validation of the product owner**.
+Product backlog is modified **by the product owner or with explicit validation of the product owner**.
 
 Modifications of the product backlog include:
 
