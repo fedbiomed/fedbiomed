@@ -104,6 +104,30 @@ def test_init_with_stats_args_only(fa_job_setup):
     assert job._stats_args == stats_args
 
 
+@pytest.mark.parametrize(
+    "stats_args,stats,dataset_schema,match",
+    [
+        (None, None, ["col1", "col2"], "At least one of"),
+        ({Stats.MEAN.value: {}}, [Stats.MEAN.value], None, "mutually exclusive"),
+        ({Stats.MEAN.value: {}}, None, ["col1"], "mutually exclusive"),
+    ],
+)
+def test_init_validation_raises(fa_job_setup, stats_args, stats, dataset_schema, match):
+    setup = fa_job_setup
+    with pytest.raises(FedbiomedError, match=match):
+        FARequestJob(
+            experiment_id=setup["experiment_id"],
+            fa_id=setup["fa_id"],
+            federated_dataset=setup["federated_dataset"],
+            stats_args=stats_args,
+            stats=stats,
+            dataset_schema=dataset_schema,
+            nodes=setup["nodes"],
+            requests=setup["reqs"],
+            researcher_id=setup["researcher_id"],
+        )
+
+
 def test_execute_success(fa_job_setup):
     """Test execute sends correct per-node FARequests and returns all replies."""
     job = fa_job_setup["job"]
@@ -219,6 +243,43 @@ def test_execute_no_replies_raises(fa_job_setup):
 
     with pytest.raises(FedbiomedError, match="No successful replies"):
         job.execute()
+
+
+def test_execute_with_stats_args(fa_job_setup):
+    """Test execute builds FARequests with stats_args when stats_args is set."""
+    setup = fa_job_setup
+    reqs = setup["reqs"]
+    experiment_id = setup["experiment_id"]
+    fa_id = setup["fa_id"]
+    stats_args = {Stats.MEAN.value: {"col1": {}}}
+
+    job = FARequestJob(
+        experiment_id=experiment_id,
+        fa_id=fa_id,
+        federated_dataset=setup["federated_dataset"],
+        stats_args=stats_args,
+        stats=None,
+        dataset_schema=None,
+        nodes=setup["nodes"],
+        requests=reqs,
+        researcher_id=setup["researcher_id"],
+    )
+    job._policies = setup["policies"]
+
+    responses_mock = MagicMock()
+    responses_mock.errors.return_value = {}
+    responses_mock.replies.return_value = {"node1": MagicMock()}
+    reqs.send.return_value.__enter__.return_value = responses_mock
+
+    job.execute()
+
+    args, _ = reqs.send.call_args
+    sent_requests = args[0]
+    req_node1 = sent_requests["node1"]
+    assert isinstance(req_node1, FARequest)
+    assert req_node1.stats_args == stats_args
+    assert req_node1.stats is None
+    assert req_node1.dataset_schema is None
 
 
 def test_execute_errors_are_logged(fa_job_setup):

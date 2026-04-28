@@ -406,6 +406,25 @@ def test_handle_sequence_args_errors(orchestrator):
         )
 
 
+def test_handle_sequence_single_active_stats_args_scalar_wrapped(orchestrator):
+    """A non-list stats_args is auto-wrapped when there is exactly one active element."""
+    schema = [RowSpec(columns=["c1"])]
+    scalar_args = {"mean": {}}
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "schema_columns": [],
+        }
+        orchestrator._handle_sequence(
+            schema, subschema=None, stats=None, stats_args=scalar_args, n_samples=5
+        )
+
+    # The scalar dict must have been wrapped into a list and forwarded as the child args
+    assert mock_bvc.call_args[0][3] == scalar_args
+
+
 def test_handle_sequence_explicit_none_skips_position(orchestrator):
     """Explicit None at a subschema position skips that element from the recursive call."""
     schema = [RowSpec(columns=["c1"]), RowSpec(columns=["c2"])]
