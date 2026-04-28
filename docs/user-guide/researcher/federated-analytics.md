@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Federated Analytics (FA)** lets you compute statistics — such as means, variances, or histograms — across datasets held by multiple remote nodes, without the raw data ever leaving those nodes.
+**Federated Analytics (FA)** lets you compute statistics — such as means and variances — across datasets held by multiple remote nodes, without the raw data ever leaving those nodes.
 
 This page covers the **researcher side**: how to issue analytics requests and interpret the results.
 
@@ -72,7 +72,7 @@ The return value is a dict keyed by column name (for tabular data) or by modalit
 
 !!! note "Convenience method limitations"
     - `count` can differ per column when a column has missing values.
-    - `histogram` does not have a convenience method as it requires bin-edge arguments — use [`fetch_stats` with `stats_args`] (see below).
+    - `histogram` is not yet available — it is under validation and its implementation is not yet complete.
 
 ### Filtering with `dataset_schema`
 
@@ -123,11 +123,14 @@ all_stats = result.global_stats()
 node_output = result.node_stats("node-id-1")
 ```
 
-For statistics that require computation parameters (e.g. `histogram`), use `fetch_stats_with_args` instead. Schema selection and parameters are both encoded inside `stats_args` — there is no separate `dataset_schema`.
+For statistics that require computation parameters (e.g. `histogram`), `fetch_stats_with_args` will be the entry point once those statistics are available. Schema selection and parameters are both encoded inside `stats_args` — there is no separate `dataset_schema`.
 
 ---
 
 ### Statistics Requiring Arguments
+
+!!! warning "`histogram` is not yet available"
+    `histogram` is partially implemented but is currently **under validation**. The API and example below describe the intended interface for when it becomes available — do not rely on it in production yet.
 
 `histogram` needs to know the bin edges for each column upfront. The bins must be **identical across all nodes** so that the per-node counts can be summed into a global histogram. Use `fetch_stats_with_args` and supply both schema selection and parameters inside `stats_args`:
 
