@@ -47,15 +47,6 @@ def test_compute_stats_missing_capability(orchestrator):
         orchestrator.compute_stats(dataset, stats=["mean"])
 
 
-def test_compute_stats_no_stats_no_stats_args_raises(orchestrator, mock_dataset):
-    """Both stats and stats_args being empty/None must raise immediately."""
-    with pytest.raises(FedbiomedError, match="At least one of 'stats' or 'stats_args'"):
-        orchestrator.compute_stats(mock_dataset)
-
-    with pytest.raises(FedbiomedError, match="At least one of 'stats' or 'stats_args'"):
-        orchestrator.compute_stats(mock_dataset, stats=[], stats_args={})
-
-
 def test_compute_stats_invalid_format(orchestrator, mock_dataset):
     mock_dataset.to_format = DataReturnFormat.TORCH
     with pytest.raises(FedbiomedError, match="Dataset format: '.*' is not supported"):

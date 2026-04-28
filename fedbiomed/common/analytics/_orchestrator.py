@@ -49,12 +49,6 @@ class AnalyticsOrchestrator:
             FedbiomedError: If both 'stats' and 'stats_args' are empty/None, if validation
                 fails, or if the dataset is missing required analytics capabilities.
         """
-        # Validation: Ensure at least one of stats or stats_args is provided
-        if not stats and not stats_args:
-            raise FedbiomedError(
-                "At least one of 'stats' or 'stats_args' must be provided."
-            )
-
         # Analytics currently only supports datasets that return data in numpy format
         if dataset.to_format != DataReturnFormat.SKLEARN:
             raise FedbiomedError(
@@ -367,8 +361,8 @@ class AnalyticsOrchestrator:
             # allowed until the remaining ones are validated and enabled.
             if stat not in ["count", "mean", "variance"]:
                 raise FedbiomedError(
-                    f"Statistic '{stat}' is not yet fully supported. Only 'count', 'mean', "
-                    f"and 'variance' are currently enabled (temporal restriction)."
+                    f"Statistic '{stat}' is not yet supported. Only 'count', 'mean', "
+                    f"and 'variance' are currently enabled."
                 )
 
             is_explicit = stat in stats_args

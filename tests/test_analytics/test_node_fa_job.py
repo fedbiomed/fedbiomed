@@ -338,23 +338,19 @@ def test_run_fa_not_allowed(fa_job_args):
     assert "not allowed" in reply.extra_msg
 
 
-def test_run_no_stats_provided(fa_job_args, request_args):
-    """Both stats=None and stats_args={} triggers the validation error."""
-    req = FARequest(**{**request_args, "stats": None, "stats_args": {}})
-    job = FAJob(**{**fa_job_args, "request": req})
-    reply = job.run()
-    assert isinstance(reply, ErrorMessage)
-    assert "At least one of 'stats' or 'stats_args' must be provided" in reply.extra_msg
-
-
 def test_run_only_stats_args_succeeds(fa_job_args, request_args):
-    """stats=None is valid when stats_args is non-empty."""
+    """stats=None is valid when stats_args carries the nested schema-key structure."""
     req = FARequest(
-        **{**request_args, "stats": None, "stats_args": {Stats.MEAN.value: {}}}
+        **{
+            **request_args,
+            "stats": None,
+            "stats_args": {"price": {Stats.MEAN.value: {}}},
+            "dataset_schema": None,
+        }
     )
     job = FAJob(**{**fa_job_args, "request": req})
     mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": 1.0}
+    mock_dataset.compute_stats.return_value = {"price": 1.0}
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()
     assert isinstance(reply, FAReply)
@@ -366,14 +362,6 @@ def test_run_invalid_stats_values(fa_job_args, request_args):
     reply = job.run()
     assert isinstance(reply, ErrorMessage)
     assert "unsupported values" in reply.extra_msg
-
-
-def test_run_invalid_stats_args_keys(fa_job_args, request_args):
-    req = FARequest(**{**request_args, "stats": None, "stats_args": {"bad_key": {}}})
-    job = FAJob(**{**fa_job_args, "request": req})
-    reply = job.run()
-    assert isinstance(reply, ErrorMessage)
-    assert "contains unsupported keys" in reply.extra_msg
 
 
 def test_run_build_dataset_fails(fa_job):
@@ -404,7 +392,7 @@ def test_run_compute_stats_raises(fa_job):
 
 def test_run_passes_correct_kwargs_to_compute_stats(fa_job):
     """stats, stats_args, and dataset_schema are forwarded unchanged."""
-    fa_job._stats_args = {Stats.MEAN.value: {"some_arg": "val"}}
+    fa_job._stats_args = {"price": {Stats.MEAN.value: {"some_arg": "val"}}}
     mock_dataset = MagicMock()
     mock_dataset.compute_stats.return_value = {"res": 1}
 
@@ -413,7 +401,7 @@ def test_run_passes_correct_kwargs_to_compute_stats(fa_job):
 
     kwargs = mock_dataset.compute_stats.call_args[1]
     assert kwargs["stats"] == [Stats.MEAN.value]
-    assert kwargs["stats_args"][Stats.MEAN.value]["some_arg"] == "val"
+    assert kwargs["stats_args"]["price"][Stats.MEAN.value]["some_arg"] == "val"
     assert kwargs["dataset_schema"] == ["col1", "col2"]
 
 

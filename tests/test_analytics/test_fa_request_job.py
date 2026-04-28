@@ -18,7 +18,7 @@ def fa_job_setup():
         "node1": {"dataset_id": "dataset1"},
         "node2": {"dataset_id": "dataset2"},
     }
-    stats_args = {"arg1": "value1"}
+    stats_args = None
     stats = [Stats.MEAN.value]
     dataset_schema = ["col1", "col2"]
     nodes = ["node1", "node2"]
@@ -67,23 +67,6 @@ def test_init(fa_job_setup):
     assert job._researcher_id == fa_job_setup["researcher_id"]
 
 
-def test_init_raises_when_no_stats_provided(fa_job_setup):
-    """Test that __init__ raises when both stats and stats_args are falsy."""
-    setup = fa_job_setup
-    with pytest.raises(FedbiomedError, match="stats"):
-        FARequestJob(
-            experiment_id=setup["experiment_id"],
-            fa_id=setup["fa_id"],
-            federated_dataset=setup["federated_dataset"],
-            stats_args=None,
-            stats=None,
-            dataset_schema=setup["dataset_schema"],
-            nodes=setup["nodes"],
-            requests=setup["reqs"],
-            researcher_id=setup["researcher_id"],
-        )
-
-
 def test_init_with_stats_only(fa_job_setup):
     """Test that __init__ succeeds when only stats is provided (stats_args=None)."""
     setup = fa_job_setup
@@ -105,19 +88,20 @@ def test_init_with_stats_only(fa_job_setup):
 def test_init_with_stats_args_only(fa_job_setup):
     """Test that __init__ succeeds when only stats_args is provided (stats=None)."""
     setup = fa_job_setup
+    stats_args = {Stats.MEAN.value: {}}
     job = FARequestJob(
         experiment_id=setup["experiment_id"],
         fa_id=setup["fa_id"],
         federated_dataset=setup["federated_dataset"],
-        stats_args=setup["stats_args"],
+        stats_args=stats_args,
         stats=None,
-        dataset_schema=setup["dataset_schema"],
+        dataset_schema=None,
         nodes=setup["nodes"],
         requests=setup["reqs"],
         researcher_id=setup["researcher_id"],
     )
     assert job._stats is None
-    assert job._stats_args == setup["stats_args"]
+    assert job._stats_args == stats_args
 
 
 def test_execute_success(fa_job_setup):

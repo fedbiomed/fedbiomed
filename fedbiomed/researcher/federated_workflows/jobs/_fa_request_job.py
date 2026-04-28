@@ -41,9 +41,20 @@ class FARequestJob(Job):
         """
         super().__init__(**kwargs)
 
-        if stats is None and not stats_args:
+        # Validate that exactly one stats specification is provided and that schema is not mixed with stats_args.
+        if not stats and not stats_args:
             raise FedbiomedError(
                 "At least one of 'stats' or 'stats_args' must be provided."
+            )
+        if stats_args and stats:
+            raise FedbiomedError(
+                "'stats_args' and 'stats' are mutually exclusive. "
+                "Use 'stats_args' for fine-grained control or 'stats' for a flat list."
+            )
+        if stats_args and dataset_schema is not None:
+            raise FedbiomedError(
+                "'stats_args' and 'dataset_schema' are mutually exclusive. "
+                "Schema selection is encoded in the structure of 'stats_args'."
             )
 
         self._experiment_id = experiment_id
