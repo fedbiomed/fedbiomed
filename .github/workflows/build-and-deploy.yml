@@ -69,14 +69,18 @@ jobs:
 
       - name: Restore gh-pages from deployed state
         run: |
+          # Save current ref before switching branches.
+          HEAD_REF=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse HEAD)
           # Seed the local gh-pages branch from the current output-repo so that
           # mike accumulates versions instead of starting from scratch each run.
           git checkout --orphan gh-pages
           git rm -rf . --quiet
           rsync -av --exclude='.git' output-repo/ .
+          # Prevent output-repo (a nested git repo) from being added as a submodule.
+          echo "output-repo" >> .gitignore
           git add -A
           git commit -m "Restore deployed state" --allow-empty
-          git checkout -
+          git checkout "$HEAD_REF"
 
       - name: Build docs with mike
         run: |
