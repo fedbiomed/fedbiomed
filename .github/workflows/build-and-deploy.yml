@@ -69,14 +69,17 @@ jobs:
 
       - name: Build docs with mike
         run: |
-          mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} \
-            --update-aliases \
-            --deploy-prefix output-repo
+          mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} --update-aliases
           if [ -n "${{ steps.version.outputs.ALIAS }}" ]; then
-            mike set-default ${{ steps.version.outputs.ALIAS }} --deploy-prefix output-repo
+            mike set-default ${{ steps.version.outputs.ALIAS }}
           else
-            mike set-default ${{ steps.version.outputs.VERSION }} --deploy-prefix output-repo
+            mike set-default ${{ steps.version.outputs.VERSION }}
           fi
+
+      - name: Export gh-pages to output-repo
+        run: |
+          git worktree add /tmp/built-site gh-pages
+          rsync -av --delete --exclude='.git' --exclude='CNAME' /tmp/built-site/ output-repo/
 
       - name: Restore CNAME
         run: echo "docs.fedbiomed.org" > output-repo/CNAME
@@ -89,5 +92,5 @@ jobs:
             echo "Nessuna modifica da pubblicare."
             exit 0
           fi
-          git commit -m "Deploy docs [${GITHUB_SHA::8}]"
+          git commit -m "Deploy docs v${{ steps.version.outputs.VERSION }} [${GITHUB_SHA::8}]"
           git push
