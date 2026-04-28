@@ -1,0 +1,91 @@
+ <section class="fbm-doc-hero">
+    <div class="fbm-doc-hero-container">
+        <div class="fbm-doc-hero-inner">
+            <h1 class="fbm-doc-hero-title">{{ page.title }}</h1>
+            {% if page.meta and page.meta.route %}
+            <p class="fbm-doc-hero-subtitle">{{ page.meta.route }}</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<div class="fbm-mobile-doc-toolbar" aria-label="Documentation navigation">
+    <div class="fbm-mobile-doc-toolbar-inner">
+        <label class="fbm-mobile-doc-tool" for="__drawer" tabindex="0">
+            <span class="fbm-mobile-doc-tool__icon fbm-mobile-doc-tool__icon--nav" aria-hidden="true"></span>
+            <span>Browse docs</span>
+        </label>
+        <label class="fbm-mobile-doc-tool fbm-mobile-doc-tool--secondary" for="__toc" tabindex="0">
+            <span class="fbm-mobile-doc-tool__icon fbm-mobile-doc-tool__icon--toc" aria-hidden="true"></span>
+            <span>On this page</span>
+        </label>
+    </div>
+</div>
+
+<script>
+(function () {
+  var toolbar = document.querySelector('.fbm-mobile-doc-toolbar');
+  var drawer = document.getElementById('__drawer');
+  var toc = document.getElementById('__toc');
+  var topbar = document.querySelector('.fbm-topbar');
+  var ticking = false;
+
+  document.querySelectorAll('.fbm-mobile-doc-tool').forEach(function (tool) {
+    tool.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        tool.click();
+      }
+    });
+  });
+
+  if (!document.getElementById('__toc')) {
+    var tocTool = document.querySelector('.fbm-mobile-doc-tool--secondary');
+    if (tocTool) tocTool.style.display = 'none';
+  }
+
+  function syncToolbarVisibility() {
+    if (!toolbar) return;
+    var hidden = Boolean(
+      (drawer && drawer.checked) ||
+      (toc && toc.checked)
+    );
+    toolbar.classList.toggle('fbm-mobile-doc-toolbar--hidden', hidden);
+  }
+
+  function syncToolbarStickiness() {
+    if (!toolbar || !topbar || window.innerWidth > 1199.98) {
+      if (toolbar) toolbar.classList.remove('fbm-mobile-doc-toolbar--stuck');
+      return;
+    }
+
+    var topbarHeight = topbar.offsetHeight || 0;
+    var toolbarTop = toolbar.getBoundingClientRect().top;
+    var stuck = toolbarTop <= topbarHeight + 2;
+    toolbar.classList.toggle('fbm-mobile-doc-toolbar--stuck', stuck);
+  }
+
+  function requestSyncToolbarStickiness() {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () {
+      syncToolbarStickiness();
+      ticking = false;
+    });
+  }
+
+  if (drawer) {
+    drawer.addEventListener('change', syncToolbarVisibility);
+  }
+
+  if (toc) {
+    toc.addEventListener('change', syncToolbarVisibility);
+  }
+
+  syncToolbarVisibility();
+  syncToolbarStickiness();
+
+  window.addEventListener('scroll', requestSyncToolbarStickiness, { passive: true });
+  window.addEventListener('resize', requestSyncToolbarStickiness);
+})();
+</script>
