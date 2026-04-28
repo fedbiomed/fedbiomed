@@ -1741,3 +1741,39 @@ body.fbm-nav-lock {
     margin: 0 20px;
   }
 }
+
+/* ── Navigazione pagine (precedente / successiva) ─────────── */
+.fbm-footer-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1320px;
+  margin: 0 auto 4rem auto;
+  padding: 1.5rem 1.5rem 0;
+  gap: 1rem;
+}
+
+.fbm-footer-nav-prev,
+.fbm-footer-nav-next {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: 0.7rem;
+  font-family: "Nunito Sans", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: white !important;
+  text-decoration: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background-image: linear-gradient(125deg, #90E0EF 0%, #00B4D8 50%);
+}
+
+.fbm-footer-nav-prev:hover,
+.fbm-footer-nav-next:hover {
+  box-shadow: 0 2px 8px rgba(0, 119, 182, 0.1);
+  transform: translateY(-0.15rem);
+}
+
+.fbm-footer-nav-next {
+  margin-left: auto;
+}

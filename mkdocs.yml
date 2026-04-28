@@ -16,23 +16,46 @@ theme:
     - content.code.copy
     - content.tabs.link
     - toc.follow
+    - navigation.footer
 
 plugins:
-  - search
+  - search:
+      lang: en
+  - mike
   - mkdocs-jupyter:
       include_source: True
   - mkdocstrings:
+      custom_templates: docs/.templates
       default_handler: python
       handlers:
         python:
-          paths:
-            - ../../fedbiomed
+          paths: 
+            - fedbiomed
+          import:
+            - https://requests.readthedocs.io/en/master/objects.inv
+            - https://numpy.org/doc/stable/objects.inv
+            - https://docs.python.org/3/objects.inv
+            - https://scikit-learn.org/stable/objects.inv
+            - https://pytorch.org/docs/stable/objects.inv
           options:
+            filters:
+              - "!^__"
+              - "!^_"
             docstring_style: google
-            show_source: true
+            docstring_options:
+              ignore_init_summary: yes
+            merge_init_into_class: yes
+            show_source: yes
+            show_submodules: false
             show_if_no_docstring: true
-            merge_init_into_class: true
             separate_signature: true
+            separate_signature_for_function: false
+            disable_private: true
+            show_category_heading: true
+            show_root_toc_entry: no
+            show_root_full_path: true
+  - minify:
+      minify_html: true
 
 markdown_extensions:
   - admonition
@@ -230,8 +253,8 @@ extra:
     provider: mike
   fbm_nav:
     brand_url: https://fedbiomed.org/test-fbm-site/
-    brand_logo: assets/img/logo_full.webp
-    brand_logo_2x: assets/img/logo_full@2x.webp
+    brand_logo: assets/img/logo_full.svg
+    brand_logo_2x: assets/img/logo_full.svg
 
     main:
       - title: Docs
