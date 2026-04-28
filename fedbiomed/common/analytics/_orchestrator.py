@@ -363,9 +363,13 @@ class AnalyticsOrchestrator:
 
         # Validate and filter candidates
         for stat in candidates:
-            # TODO: Temporal protection to allow just approved stats to be called
+            # TODO: Temporal safeguard — only stats with full end-to-end support are
+            # allowed until the remaining ones are validated and enabled.
             if stat not in ["count", "mean", "variance"]:
-                raise FedbiomedError(f"Statistic '{stat}' is not implemented yet.")
+                raise FedbiomedError(
+                    f"Statistic '{stat}' is not yet fully supported. Only 'count', 'mean', "
+                    f"and 'variance' are currently enabled (temporal restriction)."
+                )
 
             is_explicit = stat in stats_args
             current_args = stats_args.get(stat, {})
