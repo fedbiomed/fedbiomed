@@ -78,13 +78,6 @@ jobs:
             mike set-default ${{ steps.version.outputs.VERSION }} --deploy-prefix output-repo
           fi
 
-      - name: Sync built site to fedbiomed-docs-public
-        run: |
-          rsync -av --delete \
-            --exclude='.git' \
-            --exclude='CNAME' \
-            /tmp/docs-public/ output-repo/
-      
       - name: Restore CNAME
         run: echo "docs.fedbiomed.org" > output-repo/CNAME
 
