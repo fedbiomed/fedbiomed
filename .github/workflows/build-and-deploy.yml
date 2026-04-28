@@ -67,6 +67,17 @@ jobs:
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "ALIAS=${ALIAS}" >> $GITHUB_OUTPUT
 
+      - name: Restore gh-pages from deployed state
+        run: |
+          # Seed the local gh-pages branch from the current output-repo so that
+          # mike accumulates versions instead of starting from scratch each run.
+          git checkout --orphan gh-pages
+          git rm -rf . --quiet
+          rsync -av --exclude='.git' output-repo/ .
+          git add -A
+          git commit -m "Restore deployed state" --allow-empty
+          git checkout -
+
       - name: Build docs with mike
         run: |
           mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} --update-aliases
