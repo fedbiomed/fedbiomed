@@ -1,0 +1,260 @@
+<nav class="fbm-topbar">
+  <div class="fbm-topbar-container">
+
+    <div class="fbm-brand-wrap">
+      <a class="fbm-brand" href="{{ config.extra.fbm_nav.brand_url }}">
+        <img
+          src="{{ config.extra.fbm_nav.brand_logo | url }}"
+          srcset="{{ config.extra.fbm_nav.brand_logo_2x | url }} 2x"
+          alt="Fed-BioMed"
+        >
+      </a>
+    </div>
+
+    <div class="fbm-nav-center">
+      <ul class="fbm-main-nav">
+        {% for item in config.extra.fbm_nav.main %}
+          {% if item["type"] == "link" %}
+            <li class="fbm-nav-item">
+              <a class="fbm-nav-link" href="{{ item['url'] }}">{{ item["title"] }}</a>
+            </li>
+          {% elif item["type"] == "dropdown" %}
+            <li class="fbm-nav-item fbm-nav-dropdown">
+              <a class="fbm-nav-link fbm-dropdown-toggle" href="#">
+                {{ item["title"] }}
+              </a>
+              <ul class="fbm-dropdown-menu">
+                {% for subitem in item["items"] %}
+                  <li>
+                    <a class="fbm-dropdown-item" href="{{ subitem['url'] }}">{{ subitem["title"] }}</a>
+                  </li>
+                {% endfor %}
+              </ul>
+            </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="fbm-nav-other">
+      <div class="fbm-version-selector" id="fbm-version-selector">
+        <button class="fbm-version-btn" id="fbm-version-btn" aria-haspopup="true" aria-expanded="false">
+          <span id="fbm-version-label">...</span>
+          <span class="fbm-version-arrow"></span>
+        </button>
+        <ul class="fbm-version-menu" id="fbm-version-menu" role="listbox"></ul>
+      </div>
+
+    </div>
+
+    <button
+      class="fbm-toggler"
+      type="button"
+      aria-label="Toggle navigation"
+      aria-controls="fbm-mobile-menu"
+      aria-expanded="false"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+  </div>
+
+  <button class="fbm-mobile-backdrop" type="button" aria-label="Close navigation"></button>
+
+  <div class="fbm-mobile-menu" id="fbm-mobile-menu" aria-hidden="true">
+    <div class="fbm-mobile-menu-header">
+      <a class="fbm-mobile-brand" href="{{ config.extra.fbm_nav.brand_url }}">
+        <img
+          src="{{ config.extra.fbm_nav.brand_logo | url }}"
+          srcset="{{ config.extra.fbm_nav.brand_logo_2x | url }} 2x"
+          alt="Fed-BioMed"
+        >
+      </a>
+
+      <button class="fbm-mobile-close" type="button" aria-label="Close navigation">
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+
+    <div class="fbm-mobile-menu-body">
+      <ul class="fbm-mobile-nav">
+        {% for item in config.extra.fbm_nav.main %}
+          {% if item["type"] == "link" %}
+            <li><a class="fbm-mobile-link" href="{{ item['url'] }}">{{ item["title"] }}</a></li>
+          {% elif item["type"] == "dropdown" %}
+            <li class="fbm-mobile-group">
+              <button class="fbm-mobile-group-toggle" type="button" aria-expanded="false">
+                {{ item["title"] }}
+                <span class="fbm-mobile-arrow"></span>
+              </button>
+              <ul class="fbm-mobile-submenu">
+                {% for subitem in item["items"] %}
+                  <li><a class="fbm-mobile-link fbm-mobile-sublink" href="{{ subitem['url'] }}">{{ subitem["title"] }}</a></li>
+                {% endfor %}
+              </ul>
+            </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    </div>
+
+  </div>
+
+</nav>
+
+<script>
+(function () {
+  var toggler = document.querySelector('.fbm-toggler');
+  var navbar  = document.querySelector('.fbm-topbar');
+  var menu    = document.querySelector('.fbm-mobile-menu');
+  var closeBtn = document.querySelector('.fbm-mobile-close');
+  var backdrop = document.querySelector('.fbm-mobile-backdrop');
+  if (!toggler) return;
+
+  function setMenuState(open) {
+    navbar.classList.toggle('fbm-menu-open', open);
+    document.body.classList.toggle('fbm-nav-lock', open);
+    toggler.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (menu) menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+  }
+
+  toggler.addEventListener('click', function () {
+    setMenuState(!navbar.classList.contains('fbm-menu-open'));
+  });
+
+  document.querySelectorAll('.fbm-mobile-group-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var li = btn.closest('.fbm-mobile-group');
+      var open = li.classList.toggle('fbm-open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  });
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function () {
+      setMenuState(false);
+    });
+  }
+
+  if (backdrop) {
+    backdrop.addEventListener('click', function () {
+      setMenuState(false);
+    });
+  }
+
+  document.querySelectorAll('.fbm-mobile-link').forEach(function (link) {
+    link.addEventListener('click', function () {
+      setMenuState(false);
+    });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      setMenuState(false);
+    }
+  });
+
+  window.addEventListener('resize', function () {
+    if (window.innerWidth > 1199.98) {
+      setMenuState(false);
+    }
+  });
+})();
+
+// ── Version selector ─────────────────────────────────────────
+(function () {
+  var btn   = document.getElementById('fbm-version-btn');
+  var label = document.getElementById('fbm-version-label');
+  var menu  = document.getElementById('fbm-version-menu');
+  if (!btn) return;
+
+  var parts = window.location.pathname.split('/').filter(Boolean);
+  var mobileSelect = document.getElementById('fbm-mobile-version-select');
+
+  // Try fetching versions.json walking up the path tree
+  // Handles both /version/page (local) and /repo/version/page (GitHub Pages)
+  function tryFetch(candidates) {
+    if (!candidates.length) return Promise.reject();
+    var c = candidates[0];
+    return fetch(c.base + 'versions.json')
+      .then(function (r) {
+        if (!r.ok) throw new Error();
+        return r.json().then(function (data) {
+          if (!Array.isArray(data)) throw new Error();
+          return { base: c.base, versions: data, currentVersion: parts[c.versionIdx] || 'latest' };
+        });
+      })
+      .catch(function () { return tryFetch(candidates.slice(1)); });
+  }
+
+  tryFetch([
+    { base: '/',                          versionIdx: 0 },
+    { base: '/' + parts[0] + '/',         versionIdx: 1 },
+    { base: '/' + parts.slice(0,2).join('/') + '/', versionIdx: 2 }
+  ]).then(function (result) {
+    var base = result.base;
+    var currentVersion = result.currentVersion;
+    var versions = result.versions;
+
+    var current = versions.find(function (v) {
+      return v.version === currentVersion || v.aliases.indexOf(currentVersion) !== -1;
+    });
+    label.textContent = current ? current.title : currentVersion;
+
+    // Current page path relative to version root (e.g. "getting-started/what-is-fedbiomed/")
+    var pagePath = window.location.pathname.replace(base + currentVersion + '/', '');
+
+    // Legacy versions (e.g. v4.3, v3.1) have no subpages — only a root redirect to GitLab Pages.
+    // Detect them by their two-segment version string (vX.Y vs vX.Y.Z).
+    function isLegacy(v) {
+      return /^v\d+\.\d+$/.test(v.version);
+    }
+
+    function versionUrl(v) {
+      return isLegacy(v) ? base + v.version + '/' : base + v.version + '/' + pagePath;
+    }
+
+    // Populate desktop dropdown
+    versions.forEach(function (v) {
+      var li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      var a = document.createElement('a');
+      a.className = 'fbm-version-item' + (current && v.version === current.version ? ' fbm-version-item--active' : '');
+      a.href = versionUrl(v);
+      a.textContent = v.title + (v.aliases.length ? ' (' + v.aliases.join(', ') + ')' : '');
+      li.appendChild(a);
+      menu.appendChild(li);
+    });
+
+    // Populate mobile select
+    if (mobileSelect) {
+      versions.forEach(function (v) {
+        var opt = document.createElement('option');
+        opt.value = versionUrl(v);
+        opt.textContent = v.title + (v.aliases.length ? ' (' + v.aliases.join(', ') + ')' : '');
+        if (current && v.version === current.version) opt.selected = true;
+          mobileSelect.appendChild(opt);
+        });
+        mobileSelect.addEventListener('change', function () {
+          window.location.href = mobileSelect.value;
+        });
+      }
+    })
+    .catch(function () { label.textContent = '—'; });
+
+  btn.addEventListener('click', function () {
+    var open = menu.classList.toggle('fbm-version-menu--open');
+    btn.setAttribute('aria-expanded', open);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!btn.closest('#fbm-version-selector').contains(e.target)) {
+      menu.classList.remove('fbm-version-menu--open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+})();
+</script>

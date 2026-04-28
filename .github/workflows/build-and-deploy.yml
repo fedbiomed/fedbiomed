@@ -1,0 +1,68 @@
+name: Build and deploy docs to fedbiomed-docs-public
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fedbiomed-docs (sorgente)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout fedbiomed-docs-public (destinazione)
+        uses: actions/checkout@v4
+        with:
+          repository: fedbiomed/fedbiomed-docs-public
+          ssh-key: ${{ secrets.DOCS_PUBLIC_DEPLOY_KEY }}
+          path: output-repo
+          
+      - name: Checkout fedbiomed (per modulo Python)
+        uses: actions/checkout@v4
+        with:
+          repository: fedbiomed/fedbiomed
+          path: fedbiomed-src
+
+      - name: Add fedbiomed to PYTHONPATH
+        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)/fedbiomed-src" >> $GITHUB_ENV
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install mike
+
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "fedbiomed-bot@users.noreply.github.com"
+
+      - name: Build docs with mike
+        run: |
+          mike deploy latest
+          mike set-default latest
+
+      - name: Copy built files to output repo
+        run: |
+          git worktree add /tmp/built-site gh-pages
+          rsync -av --delete --exclude='.git' /tmp/built-site/ output-repo/
+
+      - name: Push to fedbiomed-docs-public
+        run: |
+          cd output-repo
+          git add .
+          if git diff --cached --quiet; then
+            echo "Nessuna modifica da pubblicare."
+            exit 0
+          fi
+          git commit -m "Deploy docs [${GITHUB_SHA::8}]"
+          git push
