@@ -3,7 +3,7 @@ name: Build and deploy docs to fedbiomed-docs-public
 on:
   push:
     branches:
-      - master
+      - feature/new-docs-template-and-build-process
 
 jobs:
   build-and-deploy:
