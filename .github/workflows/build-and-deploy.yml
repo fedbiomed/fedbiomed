@@ -45,10 +45,12 @@ jobs:
           mike deploy latest
           mike set-default latest
 
-      - name: Copy built files to output repo
+      - name: Sync built site to docs.fedbiomed
         run: |
-          git worktree add /tmp/built-site gh-pages
-          rsync -av --delete --exclude='.git' /tmp/built-site/ output-repo/
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='CNAME' \
+            /tmp/built-site/ output-repo/
 
       - name: Push to fedbiomed-docs-public
         run: |
