@@ -49,7 +49,6 @@ plugins:
             show_submodules: false
             show_if_no_docstring: true
             separate_signature: true
-            disable_private: true
             show_category_heading: true
             show_root_toc_entry: no
             show_root_full_path: true
