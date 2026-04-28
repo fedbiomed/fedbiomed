@@ -29,7 +29,7 @@
           <h4>{{ config.extra.fbm_footer.left_bottom.title }}</h4>
           <div class="fbm-footer-links-grid">
             {% for link in config.extra.fbm_footer.left_bottom.links %}
-              <a href="{{ link.url }}">{{ link.title }}</a>
+              <a href="{{ link.url }}" data-fbm-versioned>{{ link.title }}</a>
             {% endfor %}
           </div>
         </div>

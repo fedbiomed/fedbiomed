@@ -204,6 +204,17 @@
     });
     label.textContent = current ? current.title : currentVersion;
 
+    // Rewrite version-relative nav links to stay in the current version.
+    // Links whose href starts with "/" are internal absolute paths; prepend
+    // the resolved base + currentVersion so they land in the right version.
+    var vPrefix = base + currentVersion;
+    document.querySelectorAll('.fbm-nav-link, .fbm-dropdown-item, .fbm-mobile-link, .fbm-mobile-sublink, [data-fbm-versioned]').forEach(function(a) {
+      var href = a.getAttribute('href');
+      if (href && href.charAt(0) === '/') {
+        a.href = vPrefix + href;
+      }
+    });
+
     // Current page path relative to version root (e.g. "getting-started/what-is-fedbiomed/")
     var pagePath = window.location.pathname.replace(base + currentVersion + '/', '');
 
