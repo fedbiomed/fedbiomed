@@ -705,22 +705,6 @@ def test_compile_leaf_stats(mock_registry, orchestrator):
     )
     assert "mean" in config
 
-    # TODO: Re-enable once stats are approved and the temporary protection is removed
-
-    # # Invalid explicit stat raises
-    # mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "invalid"
-    # with pytest.raises(FedbiomedError, match="is not valid for type"):
-    #     orchestrator._compile_leaf_stats(
-    #         DatasetElementType.ROW, stats=[], stats_args={"invalid": {}}, n_samples=10
-    #     )
-
-    # # Invalid default stat is silently skipped
-    # mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "bad_default"
-    # config = orchestrator._compile_leaf_stats(
-    #     DatasetElementType.ROW, stats=["bad_default"], stats_args={}, n_samples=10
-    # )
-    # assert "bad_default" not in config
-
 
 def test_compile_leaf_stats_histogram_without_bin_edges_raises(orchestrator):
     """Requesting histogram raises an error (either not-yet-available or missing bin_edges)."""

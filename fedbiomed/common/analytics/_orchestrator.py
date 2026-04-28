@@ -156,7 +156,7 @@ class AnalyticsOrchestrator:
             if invalid:
                 raise FedbiomedError(f"Args keys {invalid} not found in schema.")
 
-        # keys_map: maps key required in output -> subschema for that key
+        # keys_map: maps each schema key to its child subschema selection (None = no selection)
         keys_map = {}
 
         if subschema is None:
@@ -215,8 +215,8 @@ class AnalyticsOrchestrator:
         stats_args: Optional[Union[List, Tuple]],
         n_samples: int,
     ) -> Dict[str, Any]:
-        # None entries in schema mark positions to skip (e.g. the label in (data, label)).
-        # subschema and stats_args are indexed against active positions only.
+        # Schema positions set to None are skipped (e.g. the label in (data, label)).
+        # subschema and stats_args must align with the schema's active positions.
         active = [(orig_idx, s) for orig_idx, s in enumerate(schema) if s is not None]
 
         # Validate Subschema
@@ -226,10 +226,10 @@ class AnalyticsOrchestrator:
                     f"Subschema for sequence must be list/tuple. Got {type(subschema)}."
                 )
 
-            # Convenience: when there is one active element, allow callers to pass the
-            # child subschema directly (e.g. ["col1"]) instead of nested (e.g. [["col1"]]).
-            # Wrap when lengths differ OR when the single element is a bare scalar (not a
-            # valid child-subschema container), distinguishing ["col1"] from [["col1"]].
+            # When the schema has exactly one active element, the child subschema may be
+            # passed directly (e.g. ["col1"]) instead of wrapped (e.g. [["col1"]]).
+            # Wrap when lengths differ OR when the single entry is a bare scalar rather
+            # than a valid child-subschema container, distinguishing ["col1"] from [["col1"]].
             needs_wrap = len(subschema) != len(active) or (
                 len(active) == 1
                 and not isinstance(subschema[0], (list, tuple, dict, type(None)))
@@ -245,10 +245,15 @@ class AnalyticsOrchestrator:
         # Validate Args
         if stats_args is not None:
             if not isinstance(stats_args, (list, tuple)):
-                raise FedbiomedError(
-                    f"Args for sequence must be list/tuple. Got {type(stats_args)}."
-                )
-            # Must supply one entry per active element; use None to skip an element.
+                # When the schema has exactly one active element, child args may be passed
+                # directly without wrapping (mirrors the subschema convenience above).
+                if len(active) == 1:
+                    stats_args = [stats_args]
+                else:
+                    raise FedbiomedError(
+                        f"Args for sequence must be list/tuple. Got {type(stats_args)}."
+                    )
+            # Must supply one entry per active schema element; use None to skip one.
             if len(stats_args) != len(active):
                 raise FedbiomedError(
                     "Args length mismatch. Pass None to ignore elements in list/tuple."
