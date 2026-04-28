@@ -205,8 +205,8 @@
     label.textContent = current ? current.title : currentVersion;
 
     // Rewrite version-relative nav links to stay in the current version.
-    // Links whose href starts with "/" are internal absolute paths; prepend
-    // the resolved base + currentVersion so they land in the right version.
+    // Use whatever slug is in the URL (version number or alias like "latest")
+    // so that /latest/... URLs stay on /latest/... and older versions keep their number.
     var vPrefix = base + currentVersion;
     document.querySelectorAll('.fbm-nav-link, .fbm-dropdown-item, .fbm-mobile-link, .fbm-mobile-sublink, [data-fbm-versioned]').forEach(function(a) {
       var href = a.getAttribute('href');
@@ -225,7 +225,10 @@
     }
 
     function versionUrl(v) {
-      return isLegacy(v) ? base + v.version + '/' : base + v.version + '/' + pagePath;
+      if (isLegacy(v)) return base + v.version + '/';
+      // Prefer the 'latest' alias so the URL stays /latest/... for the current latest version.
+      var slug = v.aliases.indexOf('latest') !== -1 ? 'latest' : v.version;
+      return base + slug + '/' + pagePath;
     }
 
     // Populate desktop dropdown
