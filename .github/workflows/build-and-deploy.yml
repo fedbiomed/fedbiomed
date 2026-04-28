@@ -50,7 +50,7 @@ jobs:
           rsync -av --delete \
             --exclude='.git' \
             --exclude='CNAME' \
-            /tmp/built-site/ output-repo/
+            site/ output-repo/
 
       - name: Push to fedbiomed-docs-public
         run: |
