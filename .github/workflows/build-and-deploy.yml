@@ -69,14 +69,13 @@ jobs:
 
       - name: Build docs with mike
         run: |
-          git clone https://x-access-token:${{ secrets.DOCS_PUBLIC_DEPLOY_KEY }}@github.com/fedbiomed/fedbiomed-docs-public.git /tmp/docs-public
           mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} \
             --update-aliases \
-            --deploy-prefix /tmp/docs-public
+            --deploy-prefix output-repo
           if [ -n "${{ steps.version.outputs.ALIAS }}" ]; then
-            mike set-default ${{ steps.version.outputs.ALIAS }} --deploy-prefix /tmp/docs-public
+            mike set-default ${{ steps.version.outputs.ALIAS }} --deploy-prefix output-repo
           else
-            mike set-default ${{ steps.version.outputs.VERSION }} --deploy-prefix /tmp/docs-public
+            mike set-default ${{ steps.version.outputs.VERSION }} --deploy-prefix output-repo
           fi
 
       - name: Sync built site to fedbiomed-docs-public
