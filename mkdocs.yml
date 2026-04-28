@@ -22,6 +22,9 @@ plugins:
   - search:
       lang: en
   - mike
+  - redirects:
+      redirect_maps:
+        'index.md': 'docs.md'
   - mkdocs-jupyter:
       include_source: True
   - mkdocstrings:
@@ -88,6 +91,7 @@ extra_css:
 
 
 nav:
+  - "Docs": "./docs.md"
   - "Getting Started":
       - "What's Fed-BioMed": "./getting-started/what-is-fedbiomed.md"
       - "Fedbiomed Architecture": "./getting-started/fedbiomed-architecture.md"
