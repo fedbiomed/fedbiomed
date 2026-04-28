@@ -6,6 +6,15 @@ on:
       - feature/new-docs-template-and-build-process
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+    workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (ex. 6.0.0)"
+        required: true
+      alias:
+        description: "Alias (es. latest)"
+        required: false
+        default: "latest"
 
 jobs:
   build-and-deploy:
@@ -45,7 +54,10 @@ jobs:
       - name: Resolve version
         id: version
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            ALIAS="${{ github.event.inputs.alias }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
             ALIAS="latest"
           else
@@ -70,6 +82,9 @@ jobs:
             --exclude='.git' \
             --exclude='CNAME' \
             site/ output-repo/
+      
+      - name: Restore CNAME
+        run: echo "docs.fedbiomed.org" > output-repo/CNAME
 
       - name: Push to fedbiomed-docs-public
         run: |
