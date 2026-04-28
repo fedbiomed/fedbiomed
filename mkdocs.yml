@@ -6,7 +6,7 @@ docs_dir: docs
 
 theme:
   name: material
-  custom_dir: overrides
+  custom_dir: docs/overrides
   logo: assets/img/logo_icon.png
   favicon: assets/img/favicon.png
   features:

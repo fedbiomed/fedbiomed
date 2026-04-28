@@ -10,26 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout fedbiomed-docs (sorgente)
+      - name: Checkout fedbiomed-docs (source)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Checkout fedbiomed-docs-public (destinazione)
+      - name: Checkout fedbiomed-docs-public (destination)
         uses: actions/checkout@v4
         with:
           repository: fedbiomed/fedbiomed-docs-public
           ssh-key: ${{ secrets.DOCS_PUBLIC_DEPLOY_KEY }}
           path: output-repo
-          
-      - name: Checkout fedbiomed (per modulo Python)
-        uses: actions/checkout@v4
-        with:
-          repository: fedbiomed/fedbiomed
-          path: fedbiomed-src
 
       - name: Add fedbiomed to PYTHONPATH
-        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)/fedbiomed-src" >> $GITHUB_ENV
+        run: echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
 
       - name: Setup Python
         uses: actions/setup-python@v5
