@@ -320,49 +320,49 @@ extra:
       title: Helpful links
       links:
         - title: Fed-BioMed
-          url: https://fedbiomed.org/test-fbm-site/
+          url: https://fedbiomed.org/
         - title: Federated Learning
-          url: https://fedbiomed.org/test-fbm-site/federated_learning/
+          url: https://fedbiomed.org/federated_learning/
         - title: Architecture
-          url: https://fedbiomed.org/test-fbm-site/federated_network/#architecture
+          url: https://fedbiomed.org/federated_network/#architecture
         - title: Workflow
-          url: https://fedbiomed.org/test-fbm-site/federated_network/#workflow
+          url: https://fedbiomed.org/federated_network/#workflow
         - title: Security in Practice
-          url: https://fedbiomed.org/test-fbm-site/federated_learning/#security-in-practice
+          url: https://fedbiomed.org/federated_learning/#security-in-practice
         - title: Real world projects
-          url: https://fedbiomed.org/test-fbm-site/realworld_projects
+          url: https://fedbiomed.org/realworld_projects
 
     left_bottom:
       title: Documentation
       links:
         - title: Get Started
-          url: https://fedbiomed.org/fedbiomed-docs/latest/getting-started/what-is-fedbiomed/
+          url: /getting-started/what-is-fedbiomed/
         - title: Installation
-          url: https://fedbiomed.org/fedbiomed-docs/latest/getting-started/installation/
+          url: /getting-started/installation/
         - title: Tutorials
-          url: https://fedbiomed.org/fedbiomed-docs/latest/tutorials/pytorch/01_PyTorch_MNIST_Single_Node_Tutorial/
+          url: /tutorials/pytorch/01_PyTorch_MNIST_Single_Node_Tutorial/
         - title: User Guide
-          url: https://fedbiomed.org/fedbiomed-docs/latest/user-guide/glossary/
+          url: /user-guide/glossary/
         - title: Developer
-          url: https://fedbiomed.org/fedbiomed-docs/latest/developer/usage_and_tools/
+          url: /developer/usage_and_tools/
         - title: Examples
-          url: https://fedbiomed.org/fedbiomed-docs/latest/getting-started/basic-example/
+          url: /getting-started/basic-example/
 
     right_top:
       title: About
       links:
         - title: Funding & Institutional Support
-          url: https://fedbiomed.org/test-fbm-site/about#funding
+          url: https://fedbiomed.org/about#funding
         - title: Roadmap
-          url: https://fedbiomed.org/test-fbm-site/about#roadmap
+          url: https://fedbiomed.org/about#roadmap
         - title: FAQ
-          url: https://fedbiomed.org/test-fbm-site/faq/
+          url: https://fedbiomed.org/faq/
         - title: Support & Contacts
-          url: https://fedbiomed.org/test-fbm-site/about#contacts
+          url: https://fedbiomed.org/about#contacts
         - title: How to cite
-          url: https://fedbiomed.org/test-fbm-site/about#how-to-cite-us
+          url: https://fedbiomed.org/about#how-to-cite-us
         - title: Team
-          url: https://fedbiomed.org/test-fbm-site/about#team
+          url: https://fedbiomed.org/about#team
 
     social:
       links:
