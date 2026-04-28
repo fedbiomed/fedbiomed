@@ -58,7 +58,11 @@ jobs:
       - name: Build docs with mike
         run: |
           mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} --update-aliases
-          mike set-default ${{ steps.version.outputs.ALIAS }}
+          if [ -n "${{ steps.version.outputs.ALIAS }}" ]; then
+            mike set-default ${{ steps.version.outputs.ALIAS }}
+          else
+            mike set-default ${{ steps.version.outputs.VERSION }}
+          fi
 
       - name: Sync built site to docs.fedbiomed
         run: |
