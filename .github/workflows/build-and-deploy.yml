@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - feature/new-docs-template-and-build-process
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
   build-and-deploy:
@@ -40,9 +42,22 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "fedbiomed-bot@users.noreply.github.com"
 
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            ALIAS="latest"
+          else
+            VERSION="dev"
+            ALIAS="dev"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "ALIAS=${ALIAS}" >> $GITHUB_OUTPUT
+
       - name: Build docs with mike
         run: |
-          mike deploy latest
+          mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }}
           mike set-default latest
 
       - name: Sync built site to docs.fedbiomed
