@@ -1341,7 +1341,7 @@ body.fbm-nav-lock {
   align-items: center;
   margin-bottom: 1.5rem;
   padding: 0.45rem 1rem;
-  border-radius: 6px;
+  border-radius: 0.7rem;
   background: var(--fbm-gradient-dark);
   color: #fff !important;
   font-size: 0.85rem;
