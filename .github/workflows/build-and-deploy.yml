@@ -2,8 +2,6 @@ name: Build and deploy docs to fedbiomed-docs-public
 
 on:
   push:
-    branches:
-      - feature/new-docs-template-and-build-process
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
@@ -15,6 +13,10 @@ on:
         description: "Alias (ex. latest)"
         required: false
         default: ""
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
@@ -108,4 +110,5 @@ jobs:
             exit 0
           fi
           git commit -m "Deploy docs v${{ steps.version.outputs.VERSION }} [${GITHUB_SHA::8}]"
+          git pull --rebase
           git push
