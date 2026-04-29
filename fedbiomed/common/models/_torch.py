@@ -4,7 +4,7 @@
 """Torch interfacing Model class."""
 
 import copy
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import torch
@@ -56,7 +56,10 @@ class TorchModel(Model):
         return gradients
 
     def get_weights(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        local_params: Optional[List[str]] = None,
     ) -> Dict[str, torch.Tensor]:
         """Return the model's parameters.
 
@@ -66,25 +69,41 @@ class TorchModel(Model):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their
                 torch tensor.
         """
-        param_iterator = (
+        local_params_set = set(local_params) if local_params else set()
+
+        param_iterator = list(
             self.model.named_parameters()
             if exclude_buffers
             else self.model.state_dict().items()
         )
+
+        unknown = local_params_set - {name for name, _ in param_iterator}
+        if unknown:
+            logger.warning(
+                "'TorchModel.get_weights' received unknown local parameters "
+                "that are not part of the model; unknown parameters: %s. ",
+                unknown,
+            )
+
         parameters = {
             name: param.detach().clone()
             for name, param in param_iterator
-            if param.requires_grad or not only_trainable
+            if (param.requires_grad or not only_trainable)
+            and name not in local_params_set
         }
         return parameters
 
     def flatten(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        local_params: Optional[List[str]] = None,
     ) -> List[float]:
         """Gets weights as flatten vector
 
@@ -94,13 +113,16 @@ class TorchModel(Model):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             to_list: Convert np.ndarray to a list if it is True.
         """
         params: List[float] = torch.nn.utils.parameters_to_vector(
             self.get_weights(
-                only_trainable=only_trainable, exclude_buffers=exclude_buffers
+                only_trainable=only_trainable,
+                exclude_buffers=exclude_buffers,
+                local_params=local_params,
             ).values()
         ).tolist()
 
@@ -111,6 +133,7 @@ class TorchModel(Model):
         weights_vector: List[float],
         only_trainable: bool = False,
         exclude_buffers: bool = True,
+        local_params: Optional[List[str]] = None,
     ) -> Dict[str, torch.Tensor]:
         """Unflatten vectorized model weights using [`vector_to_parameters`][torch.nn.utils.vector_to_parameters]
 
@@ -123,18 +146,21 @@ class TorchModel(Model):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             Model dictionary
         """
 
-        super().unflatten(weights_vector, only_trainable, exclude_buffers)
+        super().unflatten(weights_vector, only_trainable, exclude_buffers, local_params)
 
         # Copy model to make sure global model parameters won't be overwritten
         model = copy.deepcopy(self)
         vector = torch.as_tensor(weights_vector).type(torch.DoubleTensor)
         weights = model.get_weights(
-            only_trainable=only_trainable, exclude_buffers=exclude_buffers
+            only_trainable=only_trainable,
+            exclude_buffers=exclude_buffers,
+            local_params=local_params,
         )
 
         # Following operation updates model parameters of copied model object
@@ -149,12 +175,14 @@ class TorchModel(Model):
     def set_weights(
         self,
         weights: Dict[str, torch.Tensor],
+        local_params: Optional[List[str]] = None,
     ) -> None:
         """Sets model weights.
 
         Args:
             weights: Model weights, as a dict mapping parameters' names
                 to their torch tensor.
+            local_params: List of parameter names tagged as local.
         """
         self._assert_dict_inputs(weights)
         incompatible = self.model.load_state_dict(weights, strict=False)
@@ -167,10 +195,13 @@ class TorchModel(Model):
                 key for key, prm in self.model.named_parameters() if prm.requires_grad
             }
             missing = params.intersection(incompatible.missing_keys)
+            # Remove local parameters from the warning
+            local_params_set = set(local_params or [])
+            missing = missing - local_params_set
             if missing:
                 logger.warning(
-                    "'TorchModel.set_weights' received inputs that did not cover all"
-                    "trainable model parameters; missing weights: %s",
+                    "'TorchModel.set_weights' received inputs that did not cover all "
+                    "trainable model parameters; missing weights: %s. ",
                     missing,
                 )
         # Warn about invalid (hence, unused) inputs.
@@ -284,13 +315,14 @@ class TorchModel(Model):
         """
         torch.save(self.model.state_dict(), filename)
 
-    def reload(self, filename: str) -> None:
+    def reload(self, filename: str, local_params: Optional[List[str]] = None) -> None:
         """Import and replace the wrapped model from a dump file.
 
         For PyTorch, only import the model weights.
 
         Args:
             filename: path to the file where the model has been exported.
+            local_params: List of parameter names tagged as local.
 
         !!! info "Notes":
             This method is designed to load the model from a local dump
@@ -303,7 +335,7 @@ class TorchModel(Model):
         """
         weights = torch.load(filename)
         # check format of weights and apply them to the model
-        self.set_weights(weights)
+        self.set_weights(weights, local_params=local_params)
 
     def _reload(self, filename: str) -> None:
         """Model-class-specific backend to the `reload` method.

@@ -6,7 +6,17 @@
 import random
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    TypedDict,
+    Union,
+)
 
 import numpy as np
 import torch
@@ -65,6 +75,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     # Training plan type needs to be defined for every framework
     _type = TrainingPlans.NoneTrainingPlan
 
+    # Allowed tags for parameter behavior customization
+    _allowed_tags: Set[str] = {"local", "persistent"}
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -80,6 +93,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
         self._node_id: Optional[str] = None
+        self._local_params: Optional[List[str]] = None
 
         self._error_msg_import_model: str = (
             f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n"
@@ -102,6 +116,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             if model is not instantiated.
         """
         return self._model
+
+    def get_dp_controller(self) -> Optional[Any]:
+        """Getter for dp controller"""
+        return None
 
     def type(self) -> TrainingPlans:
         """Getter for training plan type"""
@@ -316,7 +334,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         raise FedbiomedTrainingPlanError(msg)
 
     def get_model_params(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        local_params: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Return a copy of the model's trainable weights.
 
@@ -329,15 +350,20 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
         """
         return self._model.get_weights(
-            only_trainable=only_trainable, exclude_buffers=exclude_buffers
+            only_trainable=only_trainable,
+            exclude_buffers=exclude_buffers,
+            local_params=local_params,
         )
 
-    def set_model_params(self, params: Dict[str, Any]) -> None:
+    def set_model_params(
+        self, params: Dict[str, Any], local_params: Optional[List[str]] = None
+    ) -> None:
         """Assign new values to the model's trainable parameters.
 
         The type of data structure used to store weights depends on the actual
@@ -346,8 +372,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             params: model weights, as a dictionary mapping parameters' names
                 to their value.
+            local_params: List of parameter names tagged as local.
         """
-        self._model.set_weights(params)
+        self._model.set_weights(params, local_params=local_params)
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")
@@ -671,6 +698,117 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             f"samples={n_samples}"
         )
 
+    def tag_parameters(self, name: str) -> Set[str]:
+        """Assign tags to a model parameter.
+
+        This method allows researchers to override the default federated
+        behavior of specific parameters by assigning them one or more tags.
+        Parameters that are not tagged follow the default behavior
+        (i.e., globally shared, aggregated, and trainable).
+
+        Tags define how the federated engine should treat the parameter
+        during training, aggregation, and persistence. A parameter may
+        have multiple tags.
+
+        Valid Tags:
+        local:
+            The parameter is never shared nor aggregated.
+        persistent:
+            The parameter is saved on the client and is persisted locally
+            across federated rounds.
+
+        Args:
+            name: The name of the parameter to tag (e.g. `"encoder.layer3.1.conv2.weight"`
+            for a PyTorch model, or `"intercept_"` for a sklearn model).
+
+        Returns:
+            A set of tags associated with the parameter. Must be a subset of
+            `self._allowed_tags`. Return an empty set for default federated behavior
+        """
+        return set()
+
+    def _validate_parameter_tags(self, name: str, tags: Set[str]) -> Set[str]:
+        """Validate that a set of parameter tags is correct.
+
+        Checks that the `tags` argument is a set and contains only allowed tags.
+        Raises an error if the input is invalid.
+
+        Args:
+            name: The name of the parameter whose tags are being validated.
+            tags: The set of tags returned by `tag_parameters`.
+
+        Returns:
+            The validated set of tags.
+
+        Raises:
+            FedbiomedTrainingPlanError if `tags` is not a set or contains invalid tags.
+        """
+        if not isinstance(tags, set):
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: tag_parameters must return a set, "
+                f"got: {type(tags)} for parameter '{name}'"
+            )
+
+        invalid_tags = tags - self._allowed_tags
+        if invalid_tags:
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: Invalid tags {invalid_tags} for parameter '{name}'. "
+                f"Allowed tags are {self._allowed_tags}"
+            )
+
+        return tags
+
+    def get_parameter_tags(self, name: str) -> Set[str]:
+        """Retrieve and validate the tags for a given parameter.
+
+        Args:
+            name: The name of the parameter whose tags are being retrieved.
+
+        Returns:
+            The validated set of tags associated with the parameter.
+        """
+        tags = self.tag_parameters(name)
+        return self._validate_parameter_tags(name, tags)
+
+    def filter_model_params_by_tags(
+        self,
+        params: Dict[str, Any],
+        required_tags: Optional[Set[str]] = None,
+        forbidden_tags: Optional[Set[str]] = None,
+    ) -> Dict[str, Any]:
+        """Filters a given parameter dict based on required or forbidden tags.
+
+        Args:
+            params: Dictionary of model parameters (e.g. output of get_model_params)
+            required_tags: Set of tags that parameters must include (AND logic)
+            forbidden_tags: Set of tags that parameters must NOT include
+
+        Returns:
+            Filtered dictionary of parameters
+        """
+        filtered_params = {}
+
+        required_tags = required_tags or set()
+        forbidden_tags = forbidden_tags or set()
+
+        if not isinstance(required_tags, set) or not isinstance(forbidden_tags, set):
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: required_tags and forbidden_tags must be sets"
+            )
+
+        for name, value in params.items():
+            tags = self.get_parameter_tags(name)
+
+            if required_tags and not required_tags.issubset(tags):
+                continue
+
+            if forbidden_tags and not tags.isdisjoint(forbidden_tags):
+                continue
+
+            filtered_params[name] = value
+
+        return filtered_params
+
     @staticmethod
     def _infer_batch_size(
         data: Union[dict, list, tuple, "torch.Tensor", "np.ndarray"],
@@ -720,8 +858,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             f"exclude_buffers={exclude_buffers}"
         )
         if flatten:
-            return self._model.flatten(exclude_buffers=exclude_buffers)
-        return self.get_model_params(exclude_buffers=exclude_buffers)
+            return self._model.flatten(
+                exclude_buffers=exclude_buffers, local_params=self._local_params
+            )
+        return self.get_model_params(
+            exclude_buffers=exclude_buffers, local_params=self._local_params
+        )
 
     def export_model(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
@@ -776,7 +918,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         if self._model is None:
             raise FedbiomedTrainingPlanError(self._error_msg_import_model % "import")
         try:
-            self._model.reload(filename)
+            self._model.reload(filename, self._local_params)
         except FedbiomedModelError as exc:
             msg = (
                 f"{ErrorNumbers.FB304.value}: failed to import a model from "
@@ -832,3 +974,12 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             Node id
         """
         return self._node_id
+
+    @property
+    def local_params(self) -> Optional[List[str]]:
+        """Retrieves local parameters
+
+        Returns:
+            Parameters tagged as local in the training plan
+        """
+        return self._local_params

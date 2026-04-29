@@ -439,6 +439,13 @@ class Experiment(TrainingPlanWorkflow):
                 f"Optimizer instance or None, not {type(agg_optimizer)}."
             )
         self._agg_optimizer = agg_optimizer
+        if isinstance(agg_optimizer, Optimizer):
+            tp = self.training_plan()
+            if tp is not None and tp.local_params:
+                logger.warning(
+                    "Using Declearn optimizers for aggregation and parameters tagged "
+                    "as local may lead to unexpected behaviours."
+                )
         return self._agg_optimizer
 
     @exp_exceptions
@@ -853,7 +860,10 @@ class Experiment(TrainingPlanWorkflow):
         )
 
         # Update the training plan with the aggregated parameters
-        self.training_plan().set_model_params(aggregated_params)
+        local_params = self.training_plan().local_params
+        self.training_plan().set_model_params(
+            aggregated_params, local_params=local_params
+        )
 
         # Update experiment's in-memory history
         self.commit_experiment_history(training_replies, aggregated_params)
@@ -974,10 +984,11 @@ class Experiment(TrainingPlanWorkflow):
             n_aux_var = encrypted_auxvar.get_num_expected_params()
         # Perform secure aggregation of all encrypted parameters.
         exclude_buffers = not self.training_args()["share_persistent_buffers"]
+        local_params = self.training_plan().local_params
         num_expected_params = len(
             self.training_plan()
             .get_model_wrapper_class()
-            .flatten(exclude_buffers=exclude_buffers)
+            .flatten(exclude_buffers=exclude_buffers, local_params=local_params)
         )
 
         flattened_model_weights = self._secagg.aggregate(
@@ -1010,7 +1021,11 @@ class Experiment(TrainingPlanWorkflow):
         aggregated_params: Dict[str, Union[torch.Tensor, np.ndarray]] = (
             self.training_plan()
             .get_model_wrapper_class()
-            .unflatten(flattened_model_weights, exclude_buffers=exclude_buffers)
+            .unflatten(
+                flattened_model_weights,
+                exclude_buffers=exclude_buffers,
+                local_params=local_params,
+            )
         )
         # Return aggregated model parameters and optimizer auxiliary variables.
         return aggregated_params, aggregated_auxvar
@@ -1045,9 +1060,20 @@ class Experiment(TrainingPlanWorkflow):
         # aggregated_params = agg({w^t - sum_k(eta_{k,i,t} * grad_{k,i,t})}_i)
         # hence aggregated_params = w^t - agg(updates_i)
         # hence agg_gradients = agg_i(updates_i)
-        names = set(training_plan.get_model_params(only_trainable=True))
+        local_params = training_plan.local_params
+        names = set(
+            training_plan.get_model_params(
+                only_trainable=True, local_params=local_params
+            )
+        )
         init_params = Vector.build(
-            {k: v for k, v in training_plan.get_model_params().items() if k in names}
+            {
+                k: v
+                for k, v in training_plan.get_model_params(
+                    local_params=local_params
+                ).items()
+                if k in names
+            }
         )
         agg_gradients = init_params - Vector.build(
             {k: v for k, v in aggregated_params.items() if k in names}

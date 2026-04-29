@@ -6,7 +6,7 @@ import re
 import tempfile
 import types
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import torch
 import torch.nn as nn
@@ -169,9 +169,17 @@ class TestTorchnn(unittest.TestCase):
     @patch(
         "fedbiomed.common.training_plans.TorchTrainingPlan._configure_model_and_optimizer"
     )
-    def test_torch_training_plan_02_post_init(self, conf_optimizer_model, conf_deps):
+    @patch(
+        "fedbiomed.common.training_plans.TorchTrainingPlan.filter_model_params_by_tags"
+    )
+    @patch("fedbiomed.common.training_plans.TorchTrainingPlan.get_model_params")
+    def test_torch_training_plan_02_post_init(
+        self, get_params, filter_params, conf_optimizer_model, conf_deps
+    ):
         conf_optimizer_model.return_value = None
         conf_deps.return_value = None
+        get_params.return_value = {}
+        filter_params.return_value = {}
 
         tp = TorchTrainingPlan()
         tp._model = Module()
@@ -398,6 +406,86 @@ class TestTorchnn(unittest.TestCase):
             self.assertTrue(torch.all(torch.isclose(value, sd2[key])))
 
         os.remove(paramfile)
+
+    def test_torch_training_plan_10_get_dp_controller(self):
+        """Test get_dp_controller getter returns the _dp_controller attribute."""
+        tp = TorchTrainingPlan()
+
+        # Before post_init, dp_controller should be None
+        self.assertIsNone(tp.get_dp_controller())
+
+        # After assigning a mock dp_controller, getter should return it
+        mock_dp = MagicMock()
+        tp._dp_controller = mock_dp
+        self.assertIs(tp.get_dp_controller(), mock_dp)
+
+    @patch(
+        "fedbiomed.common.training_plans.TorchTrainingPlan._configure_model_and_optimizer"
+    )
+    @patch("fedbiomed.common.training_plans.TorchTrainingPlan._configure_dependencies")
+    def test_torch_training_plan_11_post_init_local_params(
+        self, conf_deps, conf_model_optimizer
+    ):
+        """Test that post_init correctly initialises _local_params via filter_model_params_by_tags.
+
+        Three sub-cases are verified:
+        1. No params tagged 'local'  → _local_params is an empty list.
+        2. Some params tagged 'local' → _local_params contains exactly those param names.
+        3. filter_model_params_by_tags returns all params tagged 'local' regardless of
+           other tags on the same parameter.
+        """
+        conf_deps.return_value = None
+        conf_model_optimizer.return_value = None
+
+        # Sub-case 1: no local params
+        tp = TorchTrainingPlan()
+        tp._model = MagicMock()
+
+        with (
+            patch.object(
+                tp,
+                "get_model_params",
+                return_value={"layer.weight": MagicMock(), "layer.bias": MagicMock()},
+            ),
+            patch.object(
+                tp,
+                "filter_model_params_by_tags",
+                return_value={},  # no params tagged 'local'
+            ) as mock_filter,
+        ):
+            tp.post_init({}, TestTorchnn.FakeTrainingArgs())
+
+        mock_filter.assert_called_once_with(
+            {
+                "layer.weight": mock_filter.call_args[0][0]["layer.weight"],
+                "layer.bias": mock_filter.call_args[0][0]["layer.bias"],
+            },
+            required_tags={"local"},
+        )
+        self.assertEqual(tp._local_params, [])
+
+        # Sub-case 2: some params tagged 'local'
+        tp2 = TorchTrainingPlan()
+        tp2._model = MagicMock()
+
+        with (
+            patch.object(
+                tp2,
+                "get_model_params",
+                return_value={
+                    "layer.weight": MagicMock(),
+                    "local_layer.weight": MagicMock(),
+                },
+            ),
+            patch.object(
+                tp2,
+                "filter_model_params_by_tags",
+                return_value={"local_layer.weight": MagicMock()},
+            ),
+        ):
+            tp2.post_init({}, TestTorchnn.FakeTrainingArgs())
+
+        self.assertEqual(tp2._local_params, ["local_layer.weight"])
 
     @patch("torch.nn.Module.__call__")
     def test_torch_nn_03_testing_routine(self, patch_model_call):
@@ -796,9 +884,10 @@ class TestTorchnn(unittest.TestCase):
         tp_scaffold.training_routine(None, None)
 
         # test that model trained with scaffold is equivalent to model trained with fedavg
-        for (name, layer_fedavg), (name, layer_scaffold) in zip(
+        for (_name, layer_fedavg), (_name, layer_scaffold) in zip(
             tp_fedavg._model.model.state_dict().items(),
             tp_scaffold._model.model.state_dict().items(),
+            strict=True,
         ):
             self.assertTrue(torch.isclose(layer_fedavg, layer_scaffold).all())
 
@@ -866,8 +955,8 @@ class TestTorchnn(unittest.TestCase):
                 tp.post_init({}, TrainingArgs(training_args, only_required=False))
             tp._model.init_training()
             for _ in range(2):
-                corrected_l, l = tp._train_over_batch(model[1], model[2])
-            self.assertEqual(corrected_l, l)  # no fedprox updates
+                corrected_l, loss = tp._train_over_batch(model[1], model[2])
+            self.assertEqual(corrected_l, loss)  # no fedprox updates
 
             training_args = {"fedprox_mu": 1.0, "epochs": 1}
             with (
@@ -881,10 +970,10 @@ class TestTorchnn(unittest.TestCase):
                 tp.post_init({}, TrainingArgs(training_args, only_required=False))
             tp._model.init_training()
             for _ in range(2):
-                corrected_l, l = tp._train_over_batch(model[1], model[2])
+                corrected_l, loss = tp._train_over_batch(model[1], model[2])
 
             self.assertGreaterEqual(
-                corrected_l, l
+                corrected_l, loss
             )  # if fedprox_mu is positive, regularization term will be positive
             # and thus, corrected loss will always be greater than the actual loss (correct_loss = loss + fedprox_mu * reg / 2)
 
@@ -1142,6 +1231,446 @@ class TestTorchNNTrainingRoutineDataloaderTypes(unittest.TestCase):
         )
         patch_tensor_backward.assert_called_once()
         # tp._optimizer.step.assert_called()
+
+
+class TestAfterTrainingParams(unittest.TestCase):
+    """Exhaustive tests for TorchTrainingPlan.after_training_params()"""
+
+    def setUp(self):
+        """Set up test fixtures"""
+        self.patcher = patch.multiple(TorchTrainingPlan, __abstractmethods__=set())
+        self.patcher.start()
+        self.tp = TorchTrainingPlan()
+        self.tp._model = MagicMock(spec=TorchModel)
+        self.tp._dp_controller = MagicMock()
+        self.tp._local_params = None
+        self.tp._share_persistent_buffers = True
+
+    def tearDown(self):
+        self.patcher.stop()
+
+    def test_after_training_params_01_basic(self):
+        """Test returning dict without flattening, local params, DP and postprocess method"""
+        params_dict = {
+            "layer1.weight": torch.tensor([1.0]),
+            "layer1.bias": torch.tensor([0.1]),
+        }
+        self.tp._dp_controller.rename_params.return_value = (params_dict, {})
+        self.tp._dp_controller.after_training.return_value = params_dict
+
+        with patch.object(
+            self.tp, "get_model_params", return_value=params_dict
+        ) as mock_get:
+            result = self.tp.after_training_params(flatten=False)
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("layer1.weight", result)
+        self.assertIn("layer1.bias", result)
+        self.assertEqual(result["layer1.weight"], params_dict["layer1.weight"])
+        self.assertEqual(result["layer1.bias"], params_dict["layer1.bias"])
+        self.tp._dp_controller.after_training.assert_called_once_with(
+            params_dict, renaming=False
+        )
+        self.tp._model.set_weights.assert_called_once_with(
+            params_dict, local_params=None
+        )
+        mock_get.assert_has_calls(
+            [
+                call(exclude_buffers=False, local_params=None),
+                call(exclude_buffers=False, local_params=None),
+            ]
+        )
+        self.tp._dp_controller.rename_params.assert_has_calls(
+            [
+                call(params_dict),
+                call(params_dict),
+            ]
+        )
+
+    def test_after_training_params_02_postprocess(self):
+        """Test returning dict with postprocess method"""
+        params_dict_before_postprocess = {
+            "layer1.weight": torch.tensor([1.0]),
+            "layer1.bias": torch.tensor([0.1]),
+        }
+        params_dict_after_postprocess = {
+            "layer1.weight": torch.tensor([1.1]),
+            "layer1.bias": torch.tensor([0.11]),
+        }
+        self.tp._dp_controller.rename_params.side_effect = [
+            (params_dict_before_postprocess, {}),
+            (params_dict_after_postprocess, {}),
+        ]
+        self.tp._dp_controller.revert_rename_params.return_value = (
+            params_dict_after_postprocess
+        )
+        self.tp._dp_controller.after_training.return_value = (
+            params_dict_after_postprocess
+        )
+
+        # Add postprocess method
+        postprocess_mock = MagicMock(return_value=params_dict_after_postprocess)
+        self.tp.postprocess = postprocess_mock
+
+        with patch.object(
+            self.tp,
+            "get_model_params",
+            side_effect=[params_dict_before_postprocess, params_dict_after_postprocess],
+        ) as mock_get:
+            result = self.tp.after_training_params(flatten=False)
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("layer1.weight", result)
+        self.assertIn("layer1.bias", result)
+        self.assertEqual(
+            result["layer1.weight"], params_dict_after_postprocess["layer1.weight"]
+        )
+        self.assertEqual(
+            result["layer1.bias"], params_dict_after_postprocess["layer1.bias"]
+        )
+        self.tp.postprocess.assert_called_once_with(params_dict_before_postprocess)
+        self.tp._dp_controller.revert_rename_params.assert_called_once_with(
+            params_dict_after_postprocess, {}
+        )
+        self.tp._dp_controller.after_training.assert_called_once_with(
+            params_dict_after_postprocess, renaming=False
+        )
+        self.tp._model.set_weights.assert_called_once_with(
+            params_dict_after_postprocess, local_params=None
+        )
+        mock_get.assert_has_calls(
+            [
+                call(exclude_buffers=False, local_params=None),
+                call(exclude_buffers=False, local_params=None),
+            ]
+        )
+        self.tp._dp_controller.rename_params.assert_has_calls(
+            [
+                call(params_dict_before_postprocess),
+                call(params_dict_after_postprocess),
+            ]
+        )
+
+    def test_after_training_params_03_postprocess_raises(self):
+        """Test exception handling when postprocess raises"""
+        params_dict_before_postprocess = {
+            "layer1.weight": torch.tensor([1.0]),
+            "layer1.bias": torch.tensor([0.1]),
+        }
+        self.tp._dp_controller.rename_params.return_value = (
+            params_dict_before_postprocess,
+            {},
+        )
+
+        # Add postprocess method
+        postprocess_mock = MagicMock(side_effect=ValueError("postprocess error"))
+        self.tp.postprocess = postprocess_mock
+
+        with patch.object(
+            self.tp, "get_model_params", return_value=params_dict_before_postprocess
+        ):
+            with self.assertRaises(FedbiomedTrainingPlanError) as context:
+                self.tp.after_training_params(flatten=False)
+
+        self.assertIn("Error while running post-process", str(context.exception))
+
+    def test_after_training_params_04_DP(self):
+        """Test returning dict with DP method"""
+        initial_params_dict = {
+            "_module.layer1.weight": torch.tensor([1.0]),
+            "_module.layer1.bias": torch.tensor([0.1]),
+        }
+        renamed_params_dict_before_DP = {
+            "layer1.weight": torch.tensor([1.0]),
+            "layer1.bias": torch.tensor([0.1]),
+        }
+        rename_mapping = {
+            "layer1.weight": "_module.layer1.weight",
+            "layer1.bias": "_module.layer1.bias",
+        }
+        params_dict_after_DP = {
+            "_module.layer1.weight": torch.tensor([1.001]),
+            "_module.layer1.bias": torch.tensor([0.1002]),
+        }
+        renamed_params_dict_after_DP = {
+            "layer1.weight": torch.tensor([1.001]),
+            "layer1.bias": torch.tensor([0.1002]),
+        }
+        self.tp._dp_controller.rename_params.side_effect = [
+            (renamed_params_dict_before_DP, rename_mapping),
+            (renamed_params_dict_after_DP, rename_mapping),
+        ]
+        self.tp._dp_controller.after_training.return_value = params_dict_after_DP
+
+        with patch.object(
+            self.tp,
+            "get_model_params",
+            side_effect=[initial_params_dict, params_dict_after_DP],
+        ) as mock_get:
+            result = self.tp.after_training_params(flatten=False)
+
+        self.assertIsInstance(result, dict)
+        self.assertIn("layer1.weight", result)
+        self.assertIn("layer1.bias", result)
+        self.assertEqual(
+            result["layer1.weight"], renamed_params_dict_after_DP["layer1.weight"]
+        )
+        self.assertEqual(
+            result["layer1.bias"], renamed_params_dict_after_DP["layer1.bias"]
+        )
+        self.tp._dp_controller.after_training.assert_called_once_with(
+            initial_params_dict, renaming=False
+        )
+        self.tp._model.set_weights.assert_called_once_with(
+            params_dict_after_DP, local_params=None
+        )
+        self.tp._dp_controller.rename_params.assert_has_calls(
+            [
+                call(initial_params_dict),
+                call(params_dict_after_DP),
+            ]
+        )
+        mock_get.assert_has_calls(
+            [
+                call(exclude_buffers=False, local_params=None),
+                call(exclude_buffers=False, local_params=None),
+            ]
+        )
+
+    def test_after_training_params_05_local_params(self):
+        """Test returning dict with local params"""
+        self.tp._local_params = ["layer1.weight"]
+        initial_params_dict = {
+            "layer1.weight": torch.tensor([1.0]),
+            "layer1.bias": torch.tensor([0.1]),
+        }
+        params_dict_without_local_params = {"layer1.bias": torch.tensor([0.1])}
+        self.tp._dp_controller.rename_params.side_effect = [
+            (initial_params_dict, {}),
+            (params_dict_without_local_params, {}),
+        ]
+        self.tp._dp_controller.after_training.return_value = initial_params_dict
+
+        with patch.object(
+            self.tp,
+            "get_model_params",
+            side_effect=[initial_params_dict, params_dict_without_local_params],
+        ) as mock_get:
+            result = self.tp.after_training_params(flatten=False)
+
+        self.assertIsInstance(result, dict)
+        self.assertNotIn("layer1.weight", result)
+        self.assertIn("layer1.bias", result)
+        self.assertEqual(
+            result["layer1.bias"], params_dict_without_local_params["layer1.bias"]
+        )
+        self.tp._dp_controller.after_training.assert_called_once_with(
+            initial_params_dict, renaming=False
+        )
+        self.tp._model.set_weights.assert_called_once_with(
+            initial_params_dict, local_params=None
+        )
+        self.tp._dp_controller.rename_params.assert_has_calls(
+            [
+                call(initial_params_dict),
+                call(params_dict_without_local_params),
+            ]
+        )
+        mock_get.assert_has_calls(
+            [
+                call(exclude_buffers=False, local_params=None),
+                call(exclude_buffers=False, local_params=["layer1.weight"]),
+            ]
+        )
+
+    def test_after_training_params_06_flatten(self):
+        """Test returning params with flatten"""
+        initial_params_dict = {
+            "layer1.weight": torch.tensor([1.0]),
+            "layer1.bias": torch.tensor([0.1]),
+        }
+        params_flatten = [1.0, 0.1]
+        self.tp._dp_controller.rename_params.return_value = (initial_params_dict, {})
+        self.tp._dp_controller.after_training.return_value = initial_params_dict
+        self.tp._model.flatten.return_value = params_flatten
+
+        with patch.object(
+            self.tp, "get_model_params", return_value=initial_params_dict
+        ) as mock_get:
+            result = self.tp.after_training_params(flatten=True)
+
+        self.assertIsInstance(result, list)
+        self.assertEqual(result, params_flatten)
+        mock_get.assert_called_once_with(exclude_buffers=False, local_params=None)
+        self.tp._dp_controller.rename_params.assert_called_once_with(
+            initial_params_dict
+        )
+        self.tp._dp_controller.after_training.assert_called_once_with(
+            initial_params_dict, renaming=False
+        )
+        self.tp._model.set_weights.assert_called_once_with(
+            initial_params_dict, local_params=None
+        )
+        self.tp._model.flatten.assert_called_once_with(
+            exclude_buffers=False, local_params=None
+        )
+
+    def test_after_training_params_07_integration_no_flatten(self):
+        """Test returning dict with: local params, postprocess, DP"""
+        self.tp._local_params = ["layer1.weight"]
+        initial_params_dict = {
+            "_module.layer1.weight": torch.tensor([1.0]),
+            "_module.layer1.bias": torch.tensor([0.1]),
+        }
+        renamed_params_dict_before_postprocess = {
+            "layer1.weight": torch.tensor([1.0]),
+            "layer1.bias": torch.tensor([0.1]),
+        }
+        rename_mapping = {
+            "layer1.weight": "_module.layer1.weight",
+            "layer1.bias": "_module.layer1.bias",
+        }
+        renamed_params_dict_after_postprocess = {
+            "layer1.weight": torch.tensor([10.0]),
+            "layer1.bias": torch.tensor([1.0]),
+        }
+        initial_params_dict_after_postprocess = {
+            "_module.layer1.weight": torch.tensor([10.0]),
+            "_module.layer1.bias": torch.tensor([1.0]),
+        }
+        params_dict_after_DP = {
+            "_module.layer1.weight": torch.tensor([10.001]),
+            "_module.layer1.bias": torch.tensor([1.0002]),
+        }
+        params_dict_after_DP_without_local = {
+            "_module.layer1.bias": torch.tensor([1.0002])
+        }
+        renamed_params_dict_after_DP_without_local = {
+            "layer1.bias": torch.tensor([1.0002])
+        }
+        final_rename_mapping = {"layer1.bias": "_module.layer1.bias"}
+
+        self.tp._dp_controller.rename_params.side_effect = [
+            (renamed_params_dict_before_postprocess, rename_mapping),
+            (renamed_params_dict_after_DP_without_local, final_rename_mapping),
+        ]
+        self.tp._dp_controller.after_training.return_value = params_dict_after_DP
+        self.tp._dp_controller.revert_rename_params.return_value = (
+            initial_params_dict_after_postprocess
+        )
+
+        # Add postprocess method
+        postprocess_mock = MagicMock(return_value=renamed_params_dict_after_postprocess)
+        self.tp.postprocess = postprocess_mock
+
+        with patch.object(
+            self.tp,
+            "get_model_params",
+            side_effect=[initial_params_dict, params_dict_after_DP_without_local],
+        ) as mock_get:
+            result = self.tp.after_training_params(flatten=False)
+
+        self.assertIsInstance(result, dict)
+        self.assertNotIn("layer1.weight", result)
+        self.assertIn("layer1.bias", result)
+        self.assertEqual(
+            result["layer1.bias"],
+            renamed_params_dict_after_DP_without_local["layer1.bias"],
+        )
+        self.tp.postprocess.assert_called_once_with(
+            renamed_params_dict_before_postprocess
+        )
+        self.tp._dp_controller.revert_rename_params.assert_called_once_with(
+            renamed_params_dict_after_postprocess, rename_mapping
+        )
+        self.tp._dp_controller.after_training.assert_called_once_with(
+            initial_params_dict_after_postprocess, renaming=False
+        )
+        self.tp._model.set_weights.assert_called_once_with(
+            params_dict_after_DP, local_params=None
+        )
+        self.tp._dp_controller.rename_params.assert_has_calls(
+            [
+                call(initial_params_dict),
+                call(params_dict_after_DP_without_local),
+            ]
+        )
+        mock_get.assert_has_calls(
+            [
+                call(exclude_buffers=False, local_params=None),
+                call(exclude_buffers=False, local_params=["_module.layer1.weight"]),
+            ]
+        )
+
+    def test_after_training_params_08_integration_flatten(self):
+        """Test returning dict with: local params, postprocess, DP, flatten"""
+        self.tp._local_params = ["layer1.weight"]
+        initial_params_dict = {
+            "_module.layer1.weight": torch.tensor([1.0]),
+            "_module.layer1.bias": torch.tensor([0.1]),
+        }
+        renamed_params_dict_before_postprocess = {
+            "layer1.weight": torch.tensor([1.0]),
+            "layer1.bias": torch.tensor([0.1]),
+        }
+        rename_mapping = {
+            "layer1.weight": "_module.layer1.weight",
+            "layer1.bias": "_module.layer1.bias",
+        }
+        renamed_params_dict_after_postprocess = {
+            "layer1.weight": torch.tensor([10.0]),
+            "layer1.bias": torch.tensor([1.0]),
+        }
+        initial_params_dict_after_postprocess = {
+            "_module.layer1.weight": torch.tensor([10.0]),
+            "_module.layer1.bias": torch.tensor([1.0]),
+        }
+        params_dict_after_DP = {
+            "_module.layer1.weight": torch.tensor([10.001]),
+            "_module.layer1.bias": torch.tensor([1.0002]),
+        }
+        flattened_params_after_DP_without_local = [1.0002]
+
+        self.tp._dp_controller.rename_params.return_value = (
+            renamed_params_dict_before_postprocess,
+            rename_mapping,
+        )
+        self.tp._dp_controller.after_training.return_value = params_dict_after_DP
+        self.tp._dp_controller.revert_rename_params.return_value = (
+            initial_params_dict_after_postprocess
+        )
+        self.tp._model.flatten.return_value = flattened_params_after_DP_without_local
+
+        # Add postprocess method
+        postprocess_mock = MagicMock(return_value=renamed_params_dict_after_postprocess)
+        self.tp.postprocess = postprocess_mock
+
+        with patch.object(
+            self.tp, "get_model_params", return_value=initial_params_dict
+        ) as mock_get:
+            result = self.tp.after_training_params(flatten=True)
+
+        self.assertIsInstance(result, list)
+        self.assertEqual(result, flattened_params_after_DP_without_local)
+        self.tp.postprocess.assert_called_once_with(
+            renamed_params_dict_before_postprocess
+        )
+        self.tp._dp_controller.revert_rename_params.assert_called_once_with(
+            renamed_params_dict_after_postprocess, rename_mapping
+        )
+        self.tp._dp_controller.after_training.assert_called_once_with(
+            initial_params_dict_after_postprocess, renaming=False
+        )
+        self.tp._model.set_weights.assert_called_once_with(
+            params_dict_after_DP, local_params=None
+        )
+        self.tp._dp_controller.rename_params.assert_called_once_with(
+            initial_params_dict
+        )
+        mock_get.assert_called_once_with(exclude_buffers=False, local_params=None)
+        self.tp._model.flatten.assert_called_once_with(
+            exclude_buffers=False, local_params=["_module.layer1.weight"]
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

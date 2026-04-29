@@ -127,6 +127,10 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Add dependencies
         self._configure_dependencies()
 
+    def get_dp_controller(self) -> Optional[DPController]:
+        """Getter for dp controller"""
+        return self._dp_controller
+
     def post_init(
         self,
         model_args: Dict[str, Any],
@@ -188,6 +192,15 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         )
 
         self._configure_model_and_optimizer(initialize_optimizer)
+        # Configure the parameters tagged as local
+        self._local_params = list(
+            self.filter_model_params_by_tags(
+                self.get_model_params(
+                    only_trainable=False, exclude_buffers=False, local_params=None
+                ),
+                required_tags={"local"},
+            ).keys()
+        )
 
     @abstractmethod
     def init_model(self):
@@ -767,6 +780,8 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         training arguments, then we return only the output of
         [Model.get_weights][fedbiomed.common.models.TorchModel.get_weights],
         which considers only the trainable parameters.
+        If the researcher specified some parameters tagged as 'local', then these
+        parameters are not returned
         Otherwise, the default behaviour is to return the complete `state_dict`.
 
         Returns:
@@ -781,38 +796,64 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         )
         # Either include non-parameter buffers to the outputs or not.
         # Note: this is mostly about sharing statistics from BatchNorm layers.
-        params = super().after_training_params()
+        exclude_buffers = not self._share_persistent_buffers
+        all_params = self.get_model_params(
+            exclude_buffers=exclude_buffers, local_params=None
+        )
         logger.debug(
             "Collected raw training parameters: parameter_count=%s",
-            len(params),
+            len(all_params),
         )
+        # Deal with DP first, that may change names of parameters in case OPACUS is used
+        renamed_all_params, rename_mapping = self._dp_controller.rename_params(
+            all_params
+        )
+
         # Check whether postprocess method exists, and use it.
         if hasattr(self, "postprocess"):
             logger.debug("running model.postprocess() method")
             try:
-                params = self.postprocess(
-                    self._model.model.state_dict()
-                )  # Post process
+                all_params = self.postprocess(renamed_all_params)  # Post process
+                # Retrieve original OPACUS naming to update model
+                all_params = self._dp_controller.revert_rename_params(
+                    all_params, rename_mapping
+                )
             except Exception as e:
                 raise FedbiomedTrainingPlanError(
                     f"{ErrorNumbers.FB605.value}: Error while running post-process {e}"
                 ) from e
 
-        # Run (optional) DP controller adjustments as well.
-        params = self._dp_controller.after_training(params)
+        # Run (optional) central DP controller adjustments as well to all parameters.
+        # Do not rename parameters yet, because the model parameters need to be updated first
+        all_params = self._dp_controller.after_training(all_params, renaming=False)
         logger.debug(
             "Applied DP/postprocess adjustments to parameters: parameter_count=%s flatten=%s",
-            len(params),
+            len(all_params),
             flatten,
+        )
+        # Update the model (needed to use flatten)
+        self._model.set_weights(all_params, local_params=None)
+        # Remove local params
+        local_params = (
+            [rename_mapping.get(name, name) for name in self._local_params]
+            if self._local_params is not None
+            else None
         )
         if flatten:
             params = self._model.flatten(
-                exclude_buffers=not self._share_persistent_buffers
+                exclude_buffers=exclude_buffers, local_params=local_params
             )
             logger.debug(
                 "Flattened training parameters for aggregation: flattened_count=%s",
                 len(params),
             )
+        else:
+            params = self.get_model_params(
+                exclude_buffers=exclude_buffers, local_params=local_params
+            )
+            # Final renaming before being sent to the researcher
+            params, _ = self._dp_controller.rename_params(params)
+
         return params
 
     def __norm_l2(self) -> float:

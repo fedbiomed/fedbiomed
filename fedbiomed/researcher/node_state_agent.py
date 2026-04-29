@@ -100,3 +100,11 @@ class NodeStateAgent:
             node_state: state of `NodeStateAgent` to be loaded.
         """
         self._collection_state_ids = node_state.get("collection_state_ids")
+
+    def load_fds_breakpoint(self, fds_bkpt: Dict) -> None:
+        """Loads NodeStateAgent's federated dataset state from saved state.
+
+        Args:
+            fds_bkpt: state of `NodeStateAgent` to be loaded.
+        """
+        self._fds = FederatedDataset(fds_bkpt)

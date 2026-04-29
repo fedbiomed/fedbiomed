@@ -89,6 +89,7 @@ class Aggregator:
 
         # Convert model params
         model = training_plan.get_model_wrapper_class()
+        # TODO: to be updated with local_params here ?
         model_params = model.unflatten(aggregated_params)
 
         return model_params

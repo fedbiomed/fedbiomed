@@ -177,7 +177,9 @@ class DeclearnOptimizer(BaseOptimizer):
         # otherwise, computation will be incorrect
         grad = declearn.model.api.Vector.build(self._model.get_gradients())
         weights = declearn.model.api.Vector.build(
-            self._model.get_weights(only_trainable=False, exclude_buffers=True)
+            self._model.get_weights(
+                only_trainable=False, exclude_buffers=True, local_params=None
+            )
         )
         updates = self.optimizer.step(grad, weights)
         self._model.apply_updates(updates.coefs)

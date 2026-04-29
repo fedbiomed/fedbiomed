@@ -141,6 +141,24 @@ class TestNodeStateAgent(unittest.TestCase):
             last_nodes_states_after_saving, last_nodes_states_before_saving
         )
 
+    def test_node_state_agent_9_load_fds_breakpoint(self):
+        fds_bkpt = {
+            "NODE_node_id": {
+                "name": "some-name",
+                "data_type": "some-type",
+                "tags": [
+                    "some-tags",
+                ],
+                "description": "some-description",
+                "dataset_id": "some-id",
+            }
+        }
+
+        nsa = NodeStateAgent(federated_dataset=FederatedDataset(None))
+        nsa.load_fds_breakpoint(fds_bkpt)
+
+        self.assertDictEqual(fds_bkpt, nsa._fds._data)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

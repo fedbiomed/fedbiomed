@@ -394,3 +394,107 @@ model_args = {
     }
 }
 ```
+
+## Advanced: tagging model parameters
+
+Fed-BioMed provides a mechanism to customize how individual model parameters are handled during federated training through the `tag_parameters` method. By default, all parameters follow the standard federated learning workflow: they are aggregated globally across nodes and updated each round from the researcher-aggregated values. Overriding `tag_parameters` allows you to exclude specific parameters out of this default behavior.
+
+### Available tags
+
+The `tag_parameters` method currently supports two tags:
+
+- **`local`**: The parameter is never shared with the researcher nor included in aggregation. It remains entirely local to the node.
+- **`persistent`**: The parameter is saved locally on the node at the end of each round.
+
+Tags can be combined: a parameter tagged as both `local` and `persistent` will be kept local *and* saved across rounds, and will be restored at the start of every round. A parameter tagged as `local` only (without `persistent`) is reset to its initial value at the start of every round.
+
+### Defining `tag_parameters`
+
+The `tag_parameters` method takes a parameter name as input and returns a set of tags. Return an empty set (the default) for standard federated behavior.
+
+#### PyTorch example
+
+```python
+import torch
+import torch.nn as nn
+from fedbiomed.common.training_plans import TorchTrainingPlan
+
+class MyTrainingPlan(TorchTrainingPlan):
+
+    class Net(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.shared_layer = nn.Linear(128, 64)
+            self.local_bn = nn.BatchNorm1d(64)
+            self.local_bias = nn.Parameter(torch.zeros(64))
+
+        def forward(self, x):
+            x = self.shared_layer(x)
+            x = self.local_bn(x)
+            return x
+
+    def init_model(self, model_args):
+        return self.Net()
+
+    def tag_parameters(self, name):
+        if name == "local_bias":
+            return {"local", "persistent"}
+        if name == "local_bn":
+            return {"local"}
+        return set()
+
+    # ... rest of the training plan
+```
+
+#### Scikit-learn example
+
+```python
+from fedbiomed.common.training_plans import FedSGDClassifier
+
+class MyTrainingPlan(FedSGDClassifier):
+
+    def tag_parameters(self, name):
+        # Keep the intercept local and persistent across rounds
+        if name == "intercept_":
+            return {"local", "persistent"}
+        return set()
+
+    def training_data(self):
+        # returns a Fed-BioMed DataManager object
+        pass
+
+    def init_optimizer(self, optimizer_args):
+        pass
+
+    def init_dependencies(self):
+        pass
+```
+
+### Handling of parameters tagged as `local` or `persistent` during training
+
+The way tagged parameters are handled is determined at the node level during each round, across three key steps.
+
+**At the start of a round**, the node reconstructs the full set of model parameters before loading them into the model. Parameters received from the researcher (i.e., the aggregated global parameters) serve as the base. The node then overrides specific entries depending on their tags:
+
+- Parameters tagged as both `local` and `persistent` are restored from the values saved at the end of the previous round. If no previous round exists (i.e., the first round), they are initialized from the model's initial weights as defined in `init_model`.
+- Parameters tagged as `local` only (without `persistent`) are always reinitialized from the model's initial weights at each round, regardless of any training that may have occurred in previous rounds.
+- All other parameters are taken as-is from the researcher-provided aggregated weights.
+
+**At the end of a round**, the node saves the current values of all parameters tagged as `persistent`. These saved values will be loaded and restored at the beginning of the next round.
+
+**When sending parameters back to the researcher**, parameters tagged as `local` are excluded from the payload. The researcher therefore never sees or aggregates them, and they play no role in the global model update.
+
+From the researcher's perspective, this has the following practical implications:
+
+- `local` parameters are absent from aggregation results: they will not appear in `experiment.aggregated_params()`, nor in the raw per-node replies accessible via `experiment.training_replies()`.
+- `local` parameters are still present in the researcher-side training plan: they remain accessible through `experiment.training_plan().get_model_params()` and `experiment.training_plan().model()`. However, these values originate from `init_model`: they reflect the initial weights as defined by the researcher, not the values that were actually trained and retained on each node. In particular, they do not correspond to the local parameter values that nodes will restore at the start of the next round (which, for parameters tagged as both `local` and `persistent`, are the node's own saved values from the previous round).
+
+### Caution with advanced optimizers
+
+When using a `declearn`-based optimizer, the federated engine also exchanges optimizer auxiliary variables between the node and the researcher at each round (e.g., control variates for Scaffold). Fed-BioMed handles `local` parameters specifically in this exchange:
+
+- **When collecting auxiliary variables** to send back to the researcher (at the end of a round), auxiliary variables corresponding to `local` parameters are stripped from the payload. The researcher therefore never receives nor aggregates the optimizer state associated with local parameters.
+- **When processing auxiliary variables** received from the researcher (at the beginning of a round), the auxiliary variables for `local` parameters are reset to zero vectors on the node side. This prevents any cross-round accumulation of optimizer state for parameters that are not globally shared.
+
+!!! warning "Interaction with Declearn optimizers"
+    Using parameters tagged as `local` in combination with more complex federated optimizers such as those provided by `declearn` (e.g., Scaffold, or other stateful `OptiModule`-based optimizers) may lead to unexpected or incorrect behavior. These optimizers maintain internal auxiliary variables (e.g., gradient moments, control variates) that are tracked per parameter. When a parameter is tagged as `local`, its associated auxiliary variables are not shared nor aggregated. In practice, this may cause training instability or degraded convergence. It is therefore strongly recommended to use `local` parameters only with simple, stateless optimizers, unless you are fully aware of the implications for the optimizer state.

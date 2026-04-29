@@ -9,12 +9,13 @@ import torch
 # Import again the full module: we need it to test saving code without dependencies. Do not delete the line below.
 import fedbiomed.common.training_plans._base_training_plan  # noqa
 from fedbiomed.common.constants import ProcessTypes
+from fedbiomed.common.dataloader import SkLearnDataLoader
+from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedTrainingPlanError
 from fedbiomed.common.models._torch import TorchModel
 from fedbiomed.common.training_args import TrainingArgs
-
-# from fedbiomed.common.dataloader import NPDataLoader
 from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan  # noqa
+from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 class SimpleTrainingPlan(BaseTrainingPlan):
@@ -339,83 +340,39 @@ class TestBaseTrainingPlan(unittest.TestCase):
         )
 
     # test for bug #893
-    @unittest.skip("Deprecated class")
-    def test_base_training_plan_10_node_out_of_memory_bug_npdataloader(self):
-        # bug description: validation testing uses batch size equal to all the validation dataset, which leads to some
-        # OutOfMemory errors.
-        # It tests the introduction of new feature `test_batch_size`, in order to compute validation
-        # metric for every batches (and avoid loading the whole dataset, thus OutOfMemory errors)
-        nb_samples_test_dataset = 123
-        test_batch_sizes = (
-            1,
-            2,
-            10,
-            nb_samples_test_dataset,
-            nb_samples_test_dataset + 10,
-            nb_samples_test_dataset - 1,
-        )
+    def test_base_training_plan_10_node_out_of_memory_bug(self):
+        # bug description: validation testing uses batch size equal to all the validation dataset,
+        # which leads to OutOfMemory errors. Tests that testing_routine iterates over
+        # test_batch_size-sized batches rather than loading the whole dataset at once.
+        # Covers both sklearn (SkLearnDataLoader) and pytorch (torch.utils.data.DataLoader) paths.
 
-        for test_batch_size in test_batch_sizes:
-            test_data_loader = np.random.randn(nb_samples_test_dataset, 100)
-            test_data_loader_target = np.random.randint(
-                0, 2, size=nb_samples_test_dataset
-            )
-            train_data_loader = np.random.randn(64, 100)
-            train_data_loader_target = np.random.randint(0, 2, size=64)
-            nb_test_batch = nb_samples_test_dataset // test_batch_size + int(
-                nb_samples_test_dataset % test_batch_size > 0
-            )
-            # data = MagicMock(spec=np.ndarray, dataset = MagicMock(retrun_value = train_data_loader))
-            # data.__len__.return_value = 2
-            # test_data = MagicMock(spec=np.ndarray, dataset = MagicMock(return_value=test_data_loader))
-            # test_data.__len__.return_value = test_batch_size
-            data = NPDataLoader(
-                dataset=train_data_loader, target=train_data_loader_target
-            )
+        class FakeSkLearnDataset(Dataset):
+            def __init__(self, nb_samples: int, n_features: int = 10):
+                self._data = [np.random.randn(n_features) for _ in range(nb_samples)]
+                self._target = [
+                    np.array(np.random.randint(0, 2)) for _ in range(nb_samples)
+                ]
 
-            test_data = NPDataLoader(
-                dataset=test_data_loader,
-                target=test_data_loader_target,
-                batch_size=test_batch_size,
-            )
+            def complete_initialization(self, *args, **kwargs) -> None:
+                pass
 
-            def predict(x: np.ndarray):
-                return x.T[0]
+            def __getitem__(self, idx: int):
+                return self._data[idx], self._target[idx]
 
-            model = MagicMock(predict=MagicMock(side_effect=predict))
+            def __len__(self) -> int:
+                return len(self._data)
 
-            self.tp._model = model
-            self.tp._training_args = TrainingArgs(only_required=False)
-            self.tp.set_data_loaders(data, test_data)
-            self.tp.testing_routine(
-                metric=None,
-                metric_args={},
-                history_monitor=None,
-                before_train=True,
-            )
-
-            # here we are checking how many time we are calling model.`predict` method, which is equal to
-            # how many batch sizes are processed
-            self.assertEqual(model.predict.call_count, nb_test_batch)
-
-    # 2nd test for bug #893
-    def test_base_training_plan_10_node_out_of_memory_bug_pytorch(self):
-        # bug description: validation testing uses batch size equal to all the validation dataset, which leads to some
-        # OutOfMemory errors.
-        #
-        class FakeDataset(torch.utils.data.Dataset):
-            def __init__(self, nb_samples_dataset: int = 1234):
-                self.train_dataset = torch.randn(nb_samples_dataset, 100)
-                self.train_label = torch.randint(0, 5, size=(nb_samples_dataset,))
-                self.nb_samples = nb_samples_dataset
+        class FakeTorchDataset(torch.utils.data.Dataset):
+            def __init__(self, nb_samples: int = 1234):
+                self.data = torch.randn(nb_samples, 100)
+                self.label = torch.randint(0, 5, size=(nb_samples,))
+                self.nb_samples = nb_samples
 
             def __len__(self):
                 return self.nb_samples
 
             def __getitem__(self, idx):
-                data = self.train_dataset[idx]
-                label = self.train_label[idx]
-                return data, label
+                return self.data[idx], self.label[idx]
 
         nb_samples_test_dataset = 123
         test_batch_sizes = (
@@ -426,34 +383,163 @@ class TestBaseTrainingPlan(unittest.TestCase):
             nb_samples_test_dataset + 10,
             nb_samples_test_dataset - 1,
         )
-        nb_samples_train_dataset = 1234
 
-        for test_batch_size in test_batch_sizes:
-            train_dataloader = torch.utils.data.DataLoader(
-                FakeDataset(nb_samples_train_dataset),
-            )
-            test_dataloader = torch.utils.data.DataLoader(
-                FakeDataset(nb_samples_test_dataset), batch_size=test_batch_size
-            )
+        loader_cases = [
+            # (train_loader, test_loader_factory, predict_fn, model_spec)
+            (
+                SkLearnDataLoader(dataset=FakeSkLearnDataset(64)),
+                lambda bs: SkLearnDataLoader(
+                    dataset=FakeSkLearnDataset(nb_samples_test_dataset), batch_size=bs
+                ),
+                lambda x: np.zeros(x.shape[0], dtype=int),
+                None,
+            ),
+            (
+                torch.utils.data.DataLoader(FakeTorchDataset(1234)),
+                lambda bs: torch.utils.data.DataLoader(
+                    FakeTorchDataset(nb_samples_test_dataset), batch_size=bs
+                ),
+                lambda x: x.T[0].numpy(),
+                TorchModel,
+            ),
+        ]
 
-            def predict(x: torch.Tensor):
-                return x.T[0].numpy()
+        for train_loader, test_loader_factory, predict_fn, model_spec in loader_cases:
+            for test_batch_size in test_batch_sizes:
+                model = MagicMock(
+                    predict=MagicMock(side_effect=predict_fn),
+                    **({"spec": model_spec} if model_spec else {}),
+                )
+                self.tp._model = model
+                self.tp._training_args = TrainingArgs(only_required=False)
+                self.tp.set_data_loaders(
+                    train_loader, test_loader_factory(test_batch_size)
+                )
+                self.tp.testing_routine(
+                    metric=None,
+                    metric_args={},
+                    history_monitor=None,
+                    before_train=True,
+                )
+                nb_test_batch = nb_samples_test_dataset // test_batch_size + int(
+                    nb_samples_test_dataset % test_batch_size > 0
+                )
+                self.assertEqual(model.predict.call_count, nb_test_batch)
 
-            model = MagicMock(predict=MagicMock(side_effect=predict), spec=TorchModel)
-            self.tp._model = model
-            self.tp._training_args = TrainingArgs(only_required=False)
-            self.tp.set_data_loaders(train_dataloader, test_dataloader)
-            self.tp.testing_routine(
-                metric=None,
-                metric_args={},
-                history_monitor=None,
-                before_train=True,
-            )
+    def test_base_training_plan_11_local_params_property(self):
+        """Test local_params property"""
 
-            nb_test_batch = nb_samples_test_dataset // test_batch_size + int(
-                nb_samples_test_dataset % test_batch_size > 0
-            )
-            self.assertEqual(model.predict.call_count, nb_test_batch)
+        self.assertIsNone(self.tp.local_params)
+
+        self.tp._local_params = ["param1", "param2"]
+        self.assertEqual(self.tp.local_params, ["param1", "param2"])
+
+    def test_base_training_plan_12_get_dp_controller(self):
+        """Test default DP controller getter"""
+        self.assertIsNone(self.tp.get_dp_controller())
+
+    def test_base_training_plan_13_validate_parameter_tags(self):
+        """Test validation of parameter tags"""
+
+        # valid case
+        tags = {"local"}
+        validated = self.tp._validate_parameter_tags("weight", tags)
+        self.assertEqual(validated, tags)
+
+        # invalid type
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp._validate_parameter_tags("weight", ["local"])
+
+        # invalid tag
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp._validate_parameter_tags("weight", {"invalid"})
+
+    def test_base_training_plan_14_get_parameter_tags(self):
+        """Test retrieving parameter tags"""
+
+        tags = self.tp.get_parameter_tags("weight")
+        self.assertEqual(tags, set())
+
+    def test_base_training_plan_15_filter_model_params_by_tags(self):
+        """Test filtering model parameters based on tags"""
+
+        params = {"w1": 1, "w2": 2, "w3": 3}
+
+        def fake_tag_parameters(name):
+            if name == "w1":
+                return {"local"}
+            if name == "w2":
+                return {"persistent"}
+            return set()
+
+        self.tp.tag_parameters = fake_tag_parameters
+
+        # filter required tag
+        filtered = self.tp.filter_model_params_by_tags(params, required_tags={"local"})
+        self.assertEqual(filtered, {"w1": 1})
+        # invalid required tag
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp.filter_model_params_by_tags(params, required_tags=["local"])
+
+        # filter forbidden tag
+        filtered = self.tp.filter_model_params_by_tags(params, forbidden_tags={"local"})
+        self.assertNotIn("w1", filtered)
+        # invalid forbidden tag
+        with self.assertRaises(FedbiomedTrainingPlanError):
+            self.tp.filter_model_params_by_tags(params, forbidden_tags="local")
+
+    def test_base_training_plan_16_get_model_params_local(self):
+        """Test get_model_params passes local_params to model"""
+
+        model = MagicMock()
+        model.get_weights.return_value = {"w": 1}
+
+        self.tp._model = model
+
+        self.tp.get_model_params(local_params=["w"])
+
+        model.get_weights.assert_called_once_with(
+            only_trainable=False, exclude_buffers=True, local_params=["w"]
+        )
+
+    def test_base_training_plan_17_set_model_params_local(self):
+        """Test set_model_params passes local_params to model"""
+
+        model = MagicMock()
+        self.tp._model = model
+
+        params = {"w": 1}
+
+        self.tp.set_model_params(params, local_params=["w"])
+
+        model.set_weights.assert_called_once_with(params, local_params=["w"])
+
+    def test_base_training_plan_18_after_training_params(self):
+        """Test after_training_params uses local_params"""
+
+        model = MagicMock()
+        model.get_weights.return_value = {"w": 1}
+
+        self.tp._model = model
+        self.tp._local_params = ["w"]
+        self.tp._training_args = {"share_persistent_buffers": False}
+
+        self.tp.after_training_params()
+
+        model.get_weights.assert_called_once_with(
+            only_trainable=False, exclude_buffers=True, local_params=["w"]
+        )
+
+    def test_base_training_plan_19_import_model(self):
+        """Test import_model passes local_params"""
+
+        model = MagicMock()
+        self.tp._model = model
+        self.tp._local_params = ["w"]
+
+        self.tp.import_model("model.pt")
+
+        model.reload.assert_called_once_with("model.pt", ["w"])
 
 
 if __name__ == "__main__":  # pragma: no cover

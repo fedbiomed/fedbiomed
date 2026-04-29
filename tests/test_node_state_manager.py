@@ -3,10 +3,12 @@ import os
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
+
+from testsupport.fake_uuid import FakeUuid
+
 from fedbiomed.common.constants import NODE_STATE_PREFIX, __node_state_version__
 from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
-from fedbiomed.node.node_state_manager import NodeStateManager, NodeStateFileName
-from testsupport.fake_uuid import FakeUuid
+from fedbiomed.node.node_state_manager import NodeStateFileName, NodeStateManager
 
 
 class TestNodeStateManager(unittest.TestCase):
@@ -67,7 +69,7 @@ class TestNodeStateManager(unittest.TestCase):
         db_patcher.start()
 
         with self.assertRaises(FedbiomedNodeStateManagerError):
-            nsm = NodeStateManager(self.temp_dir.name, "test-node-id", "path/to/db")
+            _nsm = NodeStateManager(self.temp_dir.name, "test-node-id", "path/to/db")
 
         query_patcher.stop()
         table_patcher.stop()
@@ -258,6 +260,14 @@ class TestNodeStateFileName(unittest.TestCase):
                     f"error in NodeStateFileName, entry {entry_value} doesn't respect formatting convention"
                     f" details : {te}",
                 )
+
+    def test_node_state_file_name_2_model_weights_entry(self):
+        """Test that MODEL_WEIGHTS entry exists and formats correctly."""
+        entry = NodeStateFileName.MODEL_WEIGHTS.value
+
+        formatted = entry % ("round_id", "node_state_id")
+
+        self.assertEqual(formatted, "persistent_model_weights_round_id_node_state_id")
 
 
 if __name__ == "__main__":  # pragma: no cover

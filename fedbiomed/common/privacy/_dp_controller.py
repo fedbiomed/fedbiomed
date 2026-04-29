@@ -102,11 +102,12 @@ class DPController:
                 ) from e
         return optimizer, loader
 
-    def after_training(self, params: Dict) -> Dict:
+    def after_training(self, params: Dict, renaming: bool = True) -> Dict:
         """DP actions after the training.
 
         Args:
             params: Contains model parameters after training with DP
+            renaming: whether to modify parameters names
         Returns:
             `params` fixed model parameters after applying differential privacy
         """
@@ -116,7 +117,7 @@ class DPController:
                 self._dp_args.get("type"),
                 len(params),
             )
-            params = self._postprocess_dp(params)
+            params = self._postprocess_dp(params, renaming)
         return params
 
     def _configure_dp_args(self) -> None:
@@ -182,7 +183,7 @@ class DPController:
         )
         return eps, alpha
 
-    def _postprocess_dp(self, params: Dict) -> Dict:
+    def _postprocess_dp(self, params: Dict, renaming: bool = True) -> Dict:
         """Postprocess of model's parameters after training with DP.
 
         **Postprocess of DP parameters implies**
@@ -196,6 +197,8 @@ class DPController:
 
         Args:
             params: Contains model parameters after training with DP
+            renaming: whether to modify parameters names
+
         Returns:
             Contains (post processed) parameters
         """
@@ -207,7 +210,8 @@ class DPController:
             len(params),
         )
         # Rename parameters when needed.
-        params = {key.replace("_module.", ""): param for key, param in params.items()}
+        if renaming:
+            params, _ = self.rename_params(params)
         # When using central DP, postprocess the parameters.
         if self._dp_args["type"] == "central":
             logger.debug("Applying central DP noise during postprocessing")
@@ -216,3 +220,37 @@ class DPController:
                 noise = sigma * self._dp_args["clip"] * torch.randn_like(param)
                 params[key] = param + noise
         return params
+
+    def rename_params(self, params: Dict) -> Tuple[Dict, Dict[str, str]]:
+        """Rename the model parameters modified by Opacus
+
+        Args:
+            params: Contains model parameters after training with DP
+
+        Returns:
+            renamed_params: parameters with Opacus prefix stripped.
+            rename_mapping: maps new names to original Opacus names,
+                only for parameters whose names were actually modified.
+        """
+        renamed_params = {}
+        rename_mapping = {}
+        for key, param in params.items():
+            new_key = key.replace("_module.", "")
+            renamed_params[new_key] = param
+            if new_key != key:
+                rename_mapping[new_key] = key
+        return renamed_params, rename_mapping
+
+    def revert_rename_params(
+        self, params: Dict, rename_mapping: Dict[str, str]
+    ) -> Dict:
+        """Restore the original Opacus parameter names using a rename mapping.
+
+        Args:
+            params: Contains model parameters with stripped names.
+            rename_mapping: Maps stripped names back to original Opacus names,
+                as returned by rename_params.
+        Returns:
+            Parameters with original Opacus names restored.
+        """
+        return {rename_mapping.get(key, key): param for key, param in params.items()}
