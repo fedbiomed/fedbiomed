@@ -310,6 +310,23 @@ def test_mean_accumulator_update_with_inf():
     np.testing.assert_array_equal(acc.counts, np.array([1, 0, 0], dtype=np.int32))
 
 
+def test_mean_accumulator_update_with_object_dtype():
+    """Test update when passed array has the incorrect dtype (object)."""
+    acc = MeanAccumulator()
+    acc.update(np.array([2.0, np.nan, -np.inf], dtype=object))
+
+    # inf replaced with 0 in sum
+    np.testing.assert_array_almost_equal(
+        acc.sum_val, np.array([2.0, 0.0, 0.0], dtype=np.float32)
+    )
+    # inf not counted
+    np.testing.assert_array_equal(acc.counts, np.array([1, 0, 0], dtype=np.int32))
+
+    # Test edge case where a string is passed in object array - should raise error
+    acc = MeanAccumulator()
+    with pytest.raises(ValueError, match="could not convert string to float"):
+        acc.update(np.array([2.0, np.nan, -np.inf, 'a string'], dtype=object))
+
 def test_mean_accumulator_multiple_updates():
     """Test multiple updates accumulate correctly."""
     acc = MeanAccumulator()
