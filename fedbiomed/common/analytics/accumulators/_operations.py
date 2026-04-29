@@ -65,11 +65,11 @@ class MeanAccumulator(BaseStatAccumulator):
         self._validate_shape(val)
 
         # Sum (replace non-finite with 0, initialize as float32)
-        zeroed = np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+        zeroed = np.nan_to_num(val.astype(float), nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
         self.sum_val = zeroed if self.sum_val is None else self.sum_val + zeroed
 
         # Count (finite values only)
-        increment = np.isfinite(val).astype(np.int32)
+        increment = np.isfinite(val.astype(float)).astype(np.int32)
         self.counts = increment if self.counts is None else self.counts + increment
 
     def finalize(self) -> Dict[str, Any]:
