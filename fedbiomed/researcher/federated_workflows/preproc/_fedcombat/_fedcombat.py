@@ -127,7 +127,9 @@ class FedCombatPreproc:
             return True
 
         # Check if the set of nodes has changed
-        if set(self._harmonized_datasets.keys()) != set(self._nodes):
+        if self._harmonized_datasets is None or set(
+            self._harmonized_datasets.keys()
+        ) != set(self._nodes):
             return True
 
         # Check if the dataset IDs have changed for any node
