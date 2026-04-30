@@ -13,10 +13,11 @@
 
 import threading
 from abc import ABCMeta
+from typing import Any
 
 
 class SingletonABCMeta(ABCMeta, type):
-    _objects = {}
+    _objects: dict[type, Any] = {}
     _lock_instantiation = threading.Lock()
 
     def __call__(cls, *args, **kwargs):
@@ -36,7 +37,7 @@ class SingletonMeta(type):
     (Request, FedLogger,...)
     """
 
-    _objects = {}
+    _objects: dict[type, Any] = {}
     _lock_instantiation = threading.Lock()
 
     def __call__(cls, *args, **kwargs):

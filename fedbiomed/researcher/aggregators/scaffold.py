@@ -453,7 +453,7 @@ class Scaffold(Aggregator):
             breakpoint_path, global_model=global_model, node_ids=self._fds.node_ids()
         )
 
-    def load_state_breakpoint(self, state: Dict[str, Any] = None):
+    def load_state_breakpoint(self, state: Dict[str, Any]):
         super().load_state_breakpoint(state)
 
         self.server_lr = self._aggregator_args["server_lr"]
