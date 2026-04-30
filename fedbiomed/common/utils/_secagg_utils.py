@@ -134,7 +134,7 @@ def multiply(xs: List[int], k: int) -> List[int]:
     return [e * k for e in xs]
 
 
-def divide(xs: List[int], k: int) -> List[int]:
+def divide(xs: List[int], k: int) -> List[float]:
     """
     Divides a list of integers by a constant
 
@@ -150,7 +150,7 @@ def divide(xs: List[int], k: int) -> List[int]:
 
 
 def reverse_quantize(
-    weights: List[int],
+    weights: List[float],
     clipping_range: Union[int, None] = None,
     target_range: int = SAParameters.TARGET_RANGE,
 ) -> List[float]:
@@ -182,8 +182,7 @@ def reverse_quantize(
     f = np.vectorize(lambda x: (min_range + step_size * x), otypes=[np.float64])
 
     # TODO: we could check that received values are in the range
-    weights = np.array(weights, dtype=np.uint64)
-    reverse_quantized_list = f(weights)
+    reverse_quantized_list = f(np.array(weights, dtype=np.uint64))
 
     return reverse_quantized_list.tolist()
 
