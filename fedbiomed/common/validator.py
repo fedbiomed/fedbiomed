@@ -185,6 +185,8 @@ class SchemeValidator(object):
     # even if the default may be checked against the list of the rules
     _optional = {"default": None, "required": bool}
 
+    _scheme: Dict[str, Dict]
+
     def __init__(self, scheme: Dict[str, Dict]):
         """
         Create a SchemeValidator instance, and validate the scheme passed as input.
@@ -235,14 +237,9 @@ class SchemeValidator(object):
         """
         status = self.__validate_scheme(scheme)
 
-        if isinstance(status, bool) and status:
-            self._scheme = scheme
-            self._is_valid = True
-
-        else:
-            self._scheme = None  # type: ignore
-            self._is_valid = False
+        if not (isinstance(status, bool) and status):
             raise RuleError(f"scheme is not valid: {status}")
+        self._scheme = scheme
 
     def validate(self, value: Dict) -> bool:
         """
@@ -257,11 +254,6 @@ class SchemeValidator(object):
         Raises:
             ValidateError: if provided value is invalid
         """
-        # TODO: raises error messages
-        # or store error string in self._error and provide a error() method
-        if not self.is_valid():  # pragma: no cover
-            return False
-
         if not isinstance(value, dict):
             raise ValidateError("value is not a dict")
 
@@ -306,9 +298,6 @@ class SchemeValidator(object):
             RuleError: if scheme provided at init contains a required rules without default value
             ValidatorError: if input value was not a dict
         """
-        if not self.is_valid():  # pragma: no cover
-            return {}
-
         # check the value against the scheme
         if isinstance(value, dict):
             result = deepcopy(value)
@@ -399,15 +388,6 @@ class SchemeValidator(object):
                             )
         # scheme is validated
         return True
-
-    def is_valid(self) -> bool:
-        """
-        Status of the scheme passed at creation time.
-
-        Returns:
-            True if scheme is valid, False instead
-        """
-        return (self._scheme is not None) or self._is_valid
 
     def scheme(self) -> Dict[str, Dict]:
         """

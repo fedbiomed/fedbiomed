@@ -6,7 +6,7 @@ Provide a way to easily to manage training arguments.
 """
 
 from copy import deepcopy
-from typing import Any, Callable, Dict, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedUserInputError
@@ -56,7 +56,10 @@ class TrainingArgs:
     """
 
     def __init__(
-        self, ta: Dict = None, extra_scheme: Dict = None, only_required: bool = True
+        self,
+        ta: Optional[Dict] = None,
+        extra_scheme: Optional[Dict] = None,
+        only_required: bool = True,
     ):
         """
         Create a TrainingArgs from a Dict with input validation.
@@ -194,21 +197,24 @@ class TrainingArgs:
     def _nonnegative_integer_value_validator_hook(name: str) -> Callable:
         @validator_decorator
         def _named_nonnegative_integer_value_validator_hook(
-            val: Union[int, None],
+            val: object,
         ) -> Union[Tuple[bool, str], bool]:
-            if val is None or isinstance(val, (float, int)):
-                if val is not None:
-                    if int(val) != float(val) or val < 0:
-                        return (
-                            False,
-                            f"{name} should be a non-negative integer or None, but got {val}",
-                        )
+            """Validates that a training argument is a non-negative integer or None.
+
+            Args:
+                val: Non-negative integer or None.
+
+            Returns:
+                True if valid; (False, error_message) tuple otherwise.
+            """
+            if val is None:
                 return True
-            else:
-                return (
-                    False,
-                    f"{name} should be a non-negative integer or None, but got {val}",
-                )
+            if isinstance(val, (int, float)) and int(val) == float(val) and val >= 0:
+                return True
+            return (
+                False,
+                f"{name} should be a non-negative integer or None, but got {val}",
+            )
 
         return _named_nonnegative_integer_value_validator_hook
 
@@ -216,7 +222,7 @@ class TrainingArgs:
     @validator_decorator
     def _metric_validation_hook(
         metric: Union[MetricTypes, str, None],
-    ) -> Union[bool, str]:
+    ) -> Union[Tuple[bool, str], bool]:
         """
         Validate the metric argument of test_metric.
         """
@@ -236,18 +242,21 @@ class TrainingArgs:
     @staticmethod
     @validator_decorator
     def _fedprox_mu_validator(
-        val: Union[float, int, None],
+        val: object,
     ) -> Union[Tuple[bool, str], bool]:
-        """Validates fedprox_mu type whether it None or float or int
+        """Validates that fedprox_mu is a float, int, or None.
+
+        Args:
+            val: Float, int, or None.
 
         Returns:
-            Validation status  or/and error message
+            True if valid; (False, error_message) tuple otherwise.
         """
         if val is None or isinstance(val, (int, float)):
             return True
         return (
             False,
-            f"Expected `fedprox_mu` type is float or int, but got {type(val)}. ",
+            f"Expected `fedprox_mu` type is float or int, but got {type(val)}.",
         )
 
     @staticmethod
@@ -484,7 +493,7 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg) from e
 
-    def update(self, values: Dict) -> TypeVar("TrainingArgs"):
+    def update(self, values: Dict) -> "TrainingArgs":
         """
         Update multiple keys of the training arguments.
 
@@ -501,7 +510,7 @@ class TrainingArgs:
             self.__setitem__(k, values[k])
         return self
 
-    def __ixor__(self, other: Dict) -> TypeVar("TrainingArgs"):
+    def __ixor__(self, other: Dict) -> "TrainingArgs":
         """
         Syntax sugar for update().
 
@@ -582,13 +591,9 @@ class TrainingArgs:
     @classmethod
     def load_state_breakpoint(cls, state: Dict) -> "TrainingArgs":
         """Loads training arguments state"""
-        if state.get("test_metric"):
+        if metric_name := state.get("test_metric"):
             state.update(
-                {
-                    "test_metric": MetricTypes.get_metric_type_by_name(
-                        state.get("test_metric")
-                    )
-                }
+                {"test_metric": MetricTypes.get_metric_type_by_name(metric_name)}
             )
 
         return cls(state)

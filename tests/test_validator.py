@@ -1,12 +1,14 @@
-from typing import Tuple
 import unittest
+from typing import Tuple
+
 from fedbiomed.common.validator import (
-    Validator,
+    RuleError,
     SchemeValidator,
-    validator_decorator,
+    ValidateError,
+    Validator,
     _ValidatorHookType,
+    validator_decorator,
 )
-from fedbiomed.common.validator import ValidateError, RuleError
 
 
 class TestValidator(unittest.TestCase):
@@ -338,7 +340,9 @@ class TestValidator(unittest.TestCase):
         """
         check against a lambda expression
         """
-        my_lambda = lambda a: isinstance(a, bool)
+
+        def my_lambda(a):
+            return isinstance(a, bool)
 
         v = Validator()
         self.assertTrue(v.validate(True, my_lambda))
@@ -389,8 +393,9 @@ class TestValidator(unittest.TestCase):
         # functions
         self.assertEqual(Validator()._hook_type(self), _ValidatorHookType.FUNCTION)
 
-        my_lambda = lambda: True
-        self.assertEqual(Validator()._hook_type(my_lambda), _ValidatorHookType.LAMBDA)
+        self.assertEqual(
+            Validator()._hook_type(lambda: True), _ValidatorHookType.LAMBDA
+        )
 
     def test_validator_11_default_value(self):
         """
@@ -398,12 +403,11 @@ class TestValidator(unittest.TestCase):
         """
 
         # check that default value is conform to the rules
-        sc = SchemeValidator({"a": {"rules": [str], "default": "default_value"}})
-        self.assertTrue(sc.is_valid())
+        SchemeValidator({"a": {"rules": [str], "default": "default_value"}})
 
         # this one is bad
         with self.assertRaises(RuleError):
-            sc = SchemeValidator({"a": {"rules": [str], "default": 1.0}})
+            SchemeValidator({"a": {"rules": [str], "default": 1.0}})
 
 
 class TestSchemeValidator(unittest.TestCase):
@@ -451,13 +455,13 @@ class TestSchemeValidator(unittest.TestCase):
         with self.assertRaises(RuleError):
             v = SchemeValidator({"data": {"rules": [1.0]}})
 
-        # empty array for rules is OK
-        self.assertTrue(SchemeValidator({"data": {"rules": []}}).is_valid())
+        # empty array for rules is OK — construction without raising is sufficient
+        SchemeValidator({"data": {"rules": []}})
 
         # verify scheme() again
         grammar = {"data": {"rules": []}}
         v = SchemeValidator(grammar)
-        self.assertTrue(v.is_valid())
+
         self.assertEqual(v.scheme(), grammar)
 
         with self.assertRaises(ValidateError):
@@ -473,7 +477,7 @@ class TestSchemeValidator(unittest.TestCase):
             "loss": {"rules": [float, self.always_true_hook], "default": 1.0},
         }
         v = SchemeValidator(training_args_scheme)
-        self.assertTrue(v.is_valid())
+
         self.assertTrue(v.validate({"loss": 0.9}))
 
         with self.assertRaises(ValidateError):
@@ -556,7 +560,6 @@ class TestSchemeValidator(unittest.TestCase):
             },
         }
         v = SchemeValidator(training_args_scheme)
-        self.assertTrue(v.is_valid())
 
         training_args = {
             "loader_args": {
@@ -597,7 +600,6 @@ class TestSchemeValidator(unittest.TestCase):
                 "d": {"rules": [str]},
             }
         )
-        self.assertTrue(sc.is_valid())
 
         bad = {"a": 1.0}
         with self.assertRaises(ValidateError):
