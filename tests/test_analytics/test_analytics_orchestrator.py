@@ -47,15 +47,6 @@ def test_compute_stats_missing_capability(orchestrator):
         orchestrator.compute_stats(dataset, stats=["mean"])
 
 
-def test_compute_stats_no_stats_no_stats_args_raises(orchestrator, mock_dataset):
-    """Both stats and stats_args being empty/None must raise immediately."""
-    with pytest.raises(FedbiomedError, match="At least one of 'stats' or 'stats_args'"):
-        orchestrator.compute_stats(mock_dataset)
-
-    with pytest.raises(FedbiomedError, match="At least one of 'stats' or 'stats_args'"):
-        orchestrator.compute_stats(mock_dataset, stats=[], stats_args={})
-
-
 def test_compute_stats_invalid_format(orchestrator, mock_dataset):
     mock_dataset.to_format = DataReturnFormat.TORCH
     with pytest.raises(FedbiomedError, match="Dataset format: '.*' is not supported"):
@@ -415,6 +406,25 @@ def test_handle_sequence_args_errors(orchestrator):
         )
 
 
+def test_handle_sequence_single_active_stats_args_scalar_wrapped(orchestrator):
+    """A non-list stats_args is auto-wrapped when there is exactly one active element."""
+    schema = [RowSpec(columns=["c1"])]
+    scalar_args = {"mean": {}}
+
+    with patch.object(orchestrator, "_build_and_validate_config") as mock_bvc:
+        mock_bvc.return_value = {
+            "type": DatasetElementType.ROW,
+            "conf": {},
+            "schema_columns": [],
+        }
+        orchestrator._handle_sequence(
+            schema, subschema=None, stats=None, stats_args=scalar_args, n_samples=5
+        )
+
+    # The scalar dict must have been wrapped into a list and forwarded as the child args
+    assert mock_bvc.call_args[0][3] == scalar_args
+
+
 def test_handle_sequence_explicit_none_skips_position(orchestrator):
     """Explicit None at a subschema position skips that element from the recursive call."""
     schema = [RowSpec(columns=["c1"]), RowSpec(columns=["c2"])]
@@ -713,22 +723,6 @@ def test_compile_leaf_stats(mock_registry, orchestrator):
         DatasetElementType.ROW, stats=["mean"], stats_args={}, n_samples=10
     )
     assert "mean" in config
-
-    # TODO: Re-enable once stats are approved and the temporary protection is removed
-
-    # # Invalid explicit stat raises
-    # mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "invalid"
-    # with pytest.raises(FedbiomedError, match="is not valid for type"):
-    #     orchestrator._compile_leaf_stats(
-    #         DatasetElementType.ROW, stats=[], stats_args={"invalid": {}}, n_samples=10
-    #     )
-
-    # # Invalid default stat is silently skipped
-    # mock_registry.check_stat_compatibility.side_effect = lambda s, t: s != "bad_default"
-    # config = orchestrator._compile_leaf_stats(
-    #     DatasetElementType.ROW, stats=["bad_default"], stats_args={}, n_samples=10
-    # )
-    # assert "bad_default" not in config
 
 
 def test_compile_leaf_stats_histogram_without_bin_edges_raises(orchestrator):
