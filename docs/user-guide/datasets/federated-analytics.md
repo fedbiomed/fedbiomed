@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Federated Analytics (FA)** lets researchers compute statistics — such as means, variances, or histograms — across datasets that live on multiple remote **nodes**, all **without the raw data ever leaving those nodes**.
+**Federated Analytics (FA)** lets researchers compute statistics — such as means and variances — across datasets that live on multiple remote **nodes**, all **without the raw data ever leaving those nodes**.
 
 In FedBioMed, a *node* is a machine controlled by a data owner (e.g. a hospital) that holds a local dataset. Instead of centralising data, each node computes statistics locally and sends only the aggregated summaries back to the researcher.
 
@@ -32,28 +32,25 @@ FA treats every dataset as a collection of samples, and each sample as one or mo
 
 ### Available statistics
 
-The statistics available depend on the element type:
-
----
+!!! warning "Current implementation status"
+    Only **tabular (ROW) data** is currently supported. Image datasets are not yet covered by FA.
+    The enabled statistics are **`count`**, **`mean`**, and **`variance`**.
+    `histogram` is partially implemented but is **under validation** and not yet available for use.
 
 **ROW elements (tabular data)**
 
-| Statistic | What it computes | Extra arguments required |
-|---|---|---|
-| `count` | Number of non-missing values per column | — |
-| `mean` | Weighted mean per column across all nodes | — |
-| `variance` | Population variance per column across all nodes | — |
-| `histogram` | Per-column frequency counts in fixed bins | `bin_edges` per column (must be identical on all nodes) |
+| Statistic | What it computes | Extra arguments required | Status |
+|---|---|---|---|
+| `count` | Number of non-missing values per column | — | Enabled |
+| `mean` | Weighted mean per column across all nodes | — | Enabled |
+| `variance` | Population variance per column across all nodes | — | Enabled |
+| `histogram` | Per-column frequency counts in fixed bins | `bin_edges` per column (must be identical on all nodes) | Under validation |
 
 ---
 
-**IMAGE elements**
+**IMAGE elements** *(not yet supported)*
 
-| Statistic | What it computes | Extra arguments required |
-|---|---|---|
-| `count` | Number of samples and shape information | — |
-| `mean` | Element-wise mean across all nodes | — |
-| `variance` | Element-wise population variance across all nodes | — |
+Image datasets are not covered by the current FA implementation. The `ImageSpec` and `_image.py` accumulator exist in the codebase but are not active. Support will be added in a future release.
 
 ---
 
@@ -104,6 +101,9 @@ For a **multi-modal dataset** whose `__getitem__` returns a `dict` as its first 
             "T1": ImageSpec(),
         }, None
 ```
+
+!!! warning "Image support not yet available"
+    `ImageSpec` is defined in the codebase but image datasets are not yet supported by FA. Including an `ImageSpec` modality will have no effect until image support is complete.
 
 ---
 

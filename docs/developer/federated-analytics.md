@@ -33,12 +33,17 @@ FederatedAnalytics.fetch_stats()
 
 `Stats` (in `fedbiomed/common/constants.py`) is the single source of truth for stat names. Every node accumulator, registry entry, and aggregator function must reference one of these values. Adding a stat starts here.
 
-| Enum | String value | Required `stats_args` key | Notes |
-|------|-------------|--------------------------|-------|
-| `Stats.COUNT` | `"count"` | — | Per-column non-null count (ROW), or shape count (IMAGE) |
-| `Stats.MEAN` | `"mean"` | — | auto-requests `count` as dependency |
-| `Stats.VARIANCE` | `"variance"` | — | auto-requests `mean` + `count` |
-| `Stats.HISTOGRAM` | `"histogram"` | `bin_edges` | - |
+!!! warning "Current implementation status"
+    Only **tabular (ROW) data** is supported. Image datasets are not yet covered by FA.
+    The enabled statistics are **`count`**, **`mean`**, and **`variance`**.
+    `histogram` is defined and partially implemented but is **under validation** — its implementation is not yet complete.
+
+| Enum | String value | Required `stats_args` key | Status |
+|------|-------------|--------------------------|--------|
+| `Stats.COUNT` | `"count"` | — | Enabled (tabular only) |
+| `Stats.MEAN` | `"mean"` | — | Enabled; auto-requests `count` as dependency |
+| `Stats.VARIANCE` | `"variance"` | — | Enabled; auto-requests `mean` + `count` |
+| `Stats.HISTOGRAM` | `"histogram"` | `bin_edges` | Under validation — implementation incomplete |
 
 !!! note "Researcher-only derived stats"
     `std` and `sum` are computable on the researcher side from `mean`/`variance`/`count` via `FAResult.global_stats()` — they are never sent from nodes.
@@ -85,15 +90,15 @@ The orchestrator resolves dependencies automatically before building the accumul
 
 Once all nodes have replied, `FAResult` calls `AGGREGATORS_MAP` to combine per-node partial results into a single global value per modality or column. Each function is registered via the `@aggregator(stat)` decorator; its parameter names match `Stats` string values. 
 
-| Stat | Aggregation logic |
-|------|------------------|
-| `count` | sum (scalar int, or dict of per-key counts) |
-| `sum` | Σ(mean × count) per node |
-| `mean` | weighted mean: Σ(mean × count) / Σcount |
-| `variance` | combined sample variance via SS-within + SS-between |
-| `std` | √variance (derived; never sent from nodes) |
-| `histogram` | element-wise count sum (bin edges must match across nodes) |
-| `quantile` | linear interpolation on the aggregated histogram |
+| Stat | Aggregation logic | Status |
+|------|------------------|--------|
+| `count` | sum (scalar int, or dict of per-key counts) | Enabled |
+| `sum` | Σ(mean × count) per node | Derived (researcher side) |
+| `mean` | weighted mean: Σ(mean × count) / Σcount | Enabled |
+| `variance` | combined sample variance via SS-within + SS-between | Enabled |
+| `std` | √variance (derived; never sent from nodes) | Derived (researcher side) |
+| `histogram` | element-wise count sum (bin edges must match across nodes) | Under validation |
+| `quantile` | linear interpolation on the aggregated histogram | Under validation |
 
 ---
 
@@ -110,7 +115,7 @@ Once all nodes have replied, `FAResult` calls `AGGREGATORS_MAP` to combine per-n
 | `fedbiomed/common/analytics/accumulators/_registry.py` | Links stat names ↔ accumulator classes and element types; update here to register a new stat |
 | `fedbiomed/common/analytics/accumulators/_operations.py` | Primitive accumulator implementations (sum, count, histogram, quantile, …) |
 | `fedbiomed/common/analytics/accumulators/_row.py` | Vectorised accumulator for tabular / row data |
-| `fedbiomed/common/analytics/accumulators/_image.py` | Accumulator for N-D array data |
+| `fedbiomed/common/analytics/accumulators/_image.py` | Accumulator for N-D array data — **not yet supported**; image datasets are not covered by FA |
 | `fedbiomed/common/analytics/accumulators/_base.py` | `Accumulator` abstract base class |
 
 ### Node layer

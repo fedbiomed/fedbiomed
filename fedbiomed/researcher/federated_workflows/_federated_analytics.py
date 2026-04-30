@@ -226,16 +226,6 @@ class FAResult:
 
         return _schema(self._first_output)
 
-    def has_stat(self, stat_name: str) -> bool:
-        """Return ``True`` if *stat_name* is present at every stat-leaf of every node's output."""
-        if not self._data:
-            return False
-        for out in self._data.values():
-            leaves = list(FAResult._traverse_stat_leaves(out))
-            if not leaves or not all(stat_name in leaf for leaf in leaves):
-                return False
-        return True
-
     def available_stats(self) -> list[str]:
         """Return statistic names found anywhere in the first node's output.
 
@@ -651,13 +641,15 @@ class FederatedAnalytics:
         cache_key = FederatedAnalytics.make_cache_key(node_ids, dataset_schema, None)
         cached = self._results_store.get(cache_key)
 
-        missing = [s for s in stats if cached is None or not cached.has_stat(s)]
+        missing = [
+            s for s in stats if cached is None or s not in cached.available_stats()
+        ]
         if missing:
             # Scan cache for a superset-schema entry before contacting nodes.
             # _filtered_copy returns None on any missing key, so success implies superset.
             if dataset_schema is not None and cached is None:
                 for other in self._results_store.values():
-                    if not all(other.has_stat(s) for s in missing):
+                    if not all(s in other.available_stats() for s in missing):
                         continue
                     filtered = other._filtered_copy(dataset_schema)
                     if filtered is not None:

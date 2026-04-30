@@ -95,71 +95,6 @@ class TestFAResult:
         with pytest.raises(FedbiomedError):
             FAResult({"n1": _make_reply(None)})
 
-    # --- has_stat ---
-
-    def test_has_stat_true_row(self):
-        # ROW: {col: {stat: val}}
-        replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        result = FAResult(replies)
-        assert result.has_stat("mean") is True
-        assert result.has_stat("count") is True
-
-    def test_has_stat_false_missing(self):
-        replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
-        result = FAResult(replies)
-        assert result.has_stat("variance") is False
-
-    def test_has_stat_false_partial_columns(self):
-        # mean in one column but not another → has_stat should be False
-        replies = {
-            "n1": _make_reply(
-                {"age": {"mean": 45.0, "count": 100}, "weight": {"count": 100}}
-            ),
-        }
-        result = FAResult(replies)
-        assert result.has_stat("mean") is False
-        assert result.has_stat("count") is True
-
-    def test_has_stat_false_partial_nodes(self):
-        # mean missing from one node → has_stat should be False
-        replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
-            "n2": _make_reply({"age": {"count": 80}}),
-        }
-        result = FAResult(replies)
-        assert result.has_stat("mean") is False
-        assert result.has_stat("count") is True
-
-    def test_has_stat_image_flat(self):
-        # IMAGE: {stat: val}
-        replies = {"n1": _make_reply({"mean": 128.0, "count": 100})}
-        result = FAResult(replies)
-        assert result.has_stat("mean") is True
-        assert result.has_stat("variance") is False
-
-    def test_has_stat_nested_dict_schema(self):
-        # Nested: {key: {col: {stat: val}}}
-        replies = {
-            "n1": _make_reply({"tabular": {"age": {"mean": 45.0, "count": 100}}}),
-        }
-        result = FAResult(replies)
-        assert result.has_stat("mean") is True
-        assert result.has_stat("variance") is False
-
-    def test_has_stat_sequence_schema(self):
-        # Tuple schema: ({col: {stat}}, {stat: val})
-        replies = {
-            "n1": _make_reply(
-                ({"age": {"mean": 45.0, "count": 100}}, {"mean": 128.0, "count": 50})
-            ),
-        }
-        result = FAResult(replies)
-        assert result.has_stat("mean") is True
-        assert result.has_stat("variance") is False
-
-    def test_has_stat_empty_returns_false(self):
-        assert FAResult({}).has_stat("mean") is False
-
     # --- available_stats ---
 
     def test_available_stats_row(self):
@@ -369,8 +304,8 @@ class TestFAResult:
             "n1": _make_reply({"age": {"variance": 4.0, "mean": 45.0, "count": 100}})
         }
         result.merge(new_replies)
-        assert result.has_stat("variance")
-        assert result.has_stat("mean")
+        assert "variance" in result.available_stats()
+        assert "mean" in result.available_stats()
 
     def test_merge_preserves_existing_stats(self):
         result = FAResult({"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})})
@@ -378,8 +313,8 @@ class TestFAResult:
             "n1": _make_reply({"age": {"mean": 45.0, "count": 100, "variance": 4.0}})
         }
         result.merge(new_replies)
-        assert result.has_stat("mean")
-        assert result.has_stat("variance")
+        assert "mean" in result.available_stats()
+        assert "variance" in result.available_stats()
 
     def test_merge_adds_new_node(self):
         result = FAResult({"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})})
@@ -587,7 +522,7 @@ class TestFederatedAnalytics:
         assert second_call_kwargs["stats"] == ["variance"]
 
         assert isinstance(result, FAResult)
-        assert result.has_stat("variance")
+        assert "variance" in result.available_stats()
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_compute_multiple_stats_at_once(self, mock_fa_job_cls, base_fa):
@@ -600,8 +535,8 @@ class TestFederatedAnalytics:
 
         result = base_fa.fetch_stats(stats=["mean", "variance"])
 
-        assert result.has_stat("mean")
-        assert result.has_stat("variance")
+        assert "mean" in result.available_stats()
+        assert "variance" in result.available_stats()
         assert mock_fa_job_cls.call_count == 1
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
@@ -1438,7 +1373,7 @@ class TestCacheFallback:
         # skipped and a merge network request is made instead
         result = base_fa.fetch_stats("mean", dataset_schema=["age"])
         assert mock_fa_job_cls.call_count == 3
-        assert result.has_stat("mean")
+        assert "mean" in result.available_stats()
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_fallback_skipped_for_sequence_output(self, mock_fa_job_cls, base_fa):

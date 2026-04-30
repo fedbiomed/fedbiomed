@@ -171,27 +171,13 @@ class FAJob(_BaseJob):
                 errnum=ErrorNumbers.FB325.value,
             )
 
-        # Validate that at least one of stats or stats_args is provided
-        if self._stats is None and not self._stats_args:
-            return self._build_error_msg(
-                msg="At least one of 'stats' or 'stats_args' must be provided.",
-                errnum=ErrorNumbers.FB325.value,
-            )
-
-        # Validate that all requested stats and stats_args keys are valid enum values
+        # Validate that all requested stats are valid enum values
         valid_stats = {s.value for s in Stats}
         if self._stats is not None:
             invalid = [s for s in self._stats if s not in valid_stats]
             if invalid:
                 return self._build_error_msg(
                     msg=f"'stats' contains unsupported values: {invalid}",
-                    errnum=ErrorNumbers.FB325.value,
-                )
-        if self._stats_args is not None:
-            invalid = [k for k in self._stats_args if k not in valid_stats]
-            if invalid:
-                return self._build_error_msg(
-                    msg=f"'stats_args' contains unsupported keys: {invalid}",
                     errnum=ErrorNumbers.FB325.value,
                 )
 
