@@ -4,7 +4,7 @@
 import uuid
 from abc import ABC, abstractmethod
 from importlib import import_module
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from fedbiomed.common.constants import DataLoadingBlockTypes, DatasetTypes, ErrorNumbers
 from fedbiomed.common.exceptions import (
@@ -22,9 +22,6 @@ from fedbiomed.common.validator import (
     ValidatorError,
     validator_decorator,
 )
-
-TDataLoadingPlan = TypeVar("TDataLoadingPlan", bound="DataLoadingPlan")
-TDataLoadingBlock = TypeVar("TDataLoadingBlock", bound="DataLoadingBlock")
 
 
 class SerializationValidation:
@@ -171,9 +168,13 @@ class SerializationValidation:
     @staticmethod
     @validator_decorator
     def _loading_blocks_types_validator(
-        loading_blocks: dict,
+        loading_blocks: object,
     ) -> Union[bool, Tuple[bool, str]]:
-        """Validate that loading blocks is a dict of {DataLoadingBlockTypes: str}."""
+        """Validate that loading blocks is a dict of {DataLoadingBlockTypes: str}.
+
+        Args:
+            loading_blocks: expected ``dict[str, str]``.
+        """
         if not isinstance(loading_blocks, dict):
             return (
                 False,
@@ -195,9 +196,13 @@ class SerializationValidation:
     @staticmethod
     @validator_decorator
     def _key_paths_validator(
-        key_paths: Dict[DataLoadingBlockTypes, Union[tuple, list]],
+        key_paths: object,
     ) -> Union[bool, Tuple[bool, str]]:
-        """Validate that key_paths is of the form {DataLoadingBlockTypes: (str, str)}."""
+        """Validate that key_paths is of the form {DataLoadingBlockTypes: (str, str)}.
+
+        Args:
+            key_paths: expected ``dict[str, tuple[str, str]]``.
+        """
         if not isinstance(key_paths, dict):
             return (
                 False,
@@ -332,7 +337,7 @@ class DataLoadingBlock(ABC):
             dlb_id=self.__serialization_id,
         )
 
-    def deserialize(self, load_from: dict) -> TDataLoadingBlock:
+    def deserialize(self, load_from: dict) -> "DataLoadingBlock":
         """Reconstruct the DataLoadingBlock from a serialized version.
 
         Args:
@@ -352,7 +357,7 @@ class DataLoadingBlock(ABC):
         pass
 
     @staticmethod
-    def instantiate_class(loading_block: dict) -> TDataLoadingBlock:
+    def instantiate_class(loading_block: dict) -> "DataLoadingBlock":
         """Instantiate one [DataLoadingBlock][fedbiomed.common.dataloadingplan.DataLoadingBlock]
         object of the type defined in the arguments.
 
@@ -514,8 +519,13 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
             SerializationValidation.dlp_default_scheme()
         )
 
-    def __setitem__(self, key: DataLoadingBlockTypes, value: DataLoadingBlock):
-        """Type-check the arguments then call dict.__setitem__."""
+    def __setitem__(self, key: object, value: object) -> None:
+        """Type-check the arguments then call dict.__setitem__.
+
+        Args:
+            key: expected ``DataLoadingBlockTypes``.
+            value: expected ``DataLoadingBlock``.
+        """
         if not isinstance(key, DataLoadingBlockTypes):
             msg = (
                 f"{ErrorNumbers.FB615.value} Key {key} is not of enum type DataLoadingBlockTypes in"
@@ -557,7 +567,7 @@ class DataLoadingPlan(Dict[DataLoadingBlockTypes, DataLoadingBlock]):
 
     def deserialize(
         self, serialized_dlp: dict, serialized_loading_blocks: List[dict]
-    ) -> TDataLoadingPlan:
+    ) -> "DataLoadingPlan":
         """Reconstruct the DataLoadingPlan][fedbiomed.common.dataloadingplan.DataLoadingPlan] from a serialized version.
 
         !!! warning "Calling this function will *clear* the contained [DataLoadingBlockTypes]."
@@ -660,8 +670,12 @@ class DataLoadingPlanMixin:
     def __init__(self):
         self._dlp = None
 
-    def set_dlp(self, dlp: DataLoadingPlan):
-        """Sets the dlp if the target dataset type is appropriate"""
+    def set_dlp(self, dlp: object) -> None:
+        """Sets the dlp if the target dataset type is appropriate.
+
+        Args:
+            dlp: expected ``DataLoadingPlan``.
+        """
         if not isinstance(dlp, DataLoadingPlan):
             msg = (
                 f"{ErrorNumbers.FB615.value} Trying to set a DataLoadingPlan but the argument is of type "
