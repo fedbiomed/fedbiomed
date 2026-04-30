@@ -7,7 +7,17 @@ Generic data manager
 
 import math
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+)
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloader import DataLoader
@@ -16,15 +26,19 @@ from fedbiomed.common.dataset_types import DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
+# WrappedDatasetT is the framework-specific wrapped dataset type produced by _dataset_wrapper
+# (e.g. TorchDataset for Torch, fedbiomed Dataset for SkLearn).
+WrappedDatasetT = TypeVar("WrappedDatasetT")
 
-class FrameworkSubset(ABC):
+
+class FrameworkSubset(ABC, Generic[WrappedDatasetT]):
     """Subset of a dataset at specified indices."""
 
-    dataset: Dataset
-    indices: List[int]
+    # Sequence (not List) to stay compatible with TorchSubset.indices which is Sequence[int]
+    indices: Sequence[int]
 
     @abstractmethod
-    def __init__(self, dataset: Dataset, indices: List[int]) -> None:
+    def __init__(self, dataset: WrappedDatasetT, indices: List[int]) -> None:
         """Class constructor
 
         Args:
@@ -55,7 +69,7 @@ class FrameworkSubset(ABC):
         """
 
 
-class FrameworkDataManager(ABC):
+class FrameworkDataManager(ABC, Generic[WrappedDatasetT]):
     """Class for creating data loaders from dataset depending on training plans"""
 
     _loader_class: Type[DataLoader]
@@ -63,10 +77,10 @@ class FrameworkDataManager(ABC):
     _dataset_wrapper: Callable
 
     _dataset: Dataset
-    _subset_class: Type[FrameworkSubset]
+    _subset_class: Type[FrameworkSubset[WrappedDatasetT]]
 
-    _subset_test: Optional[FrameworkSubset] = None
-    _subset_train: Optional[FrameworkSubset] = None
+    _subset_test: Optional[FrameworkSubset[WrappedDatasetT]] = None
+    _subset_train: Optional[FrameworkSubset[WrappedDatasetT]] = None
 
     _training_index: List[int] = []
     _testing_index: List[int] = []
@@ -103,8 +117,8 @@ class FrameworkDataManager(ABC):
 
     @abstractmethod
     def _random_split(
-        self, dataset: Dataset, lengths: List[int]
-    ) -> Tuple[FrameworkSubset, FrameworkSubset]:
+        self, dataset: WrappedDatasetT, lengths: List[int]
+    ) -> Tuple[FrameworkSubset[WrappedDatasetT], FrameworkSubset[WrappedDatasetT]]:
         """Randomly split a dataset into 2 non-overlapping subsets of given lengths.
 
         Args:
@@ -159,7 +173,7 @@ class FrameworkDataManager(ABC):
                 f"equal or between 0 and 1, not {test_ratio}"
             )
 
-        # Wrap dataset in framework specific class if needed
+        # WrappedDatasetTrap dataset in framework specific class if needed
         framework_dataset = self._dataset_wrapper(self._dataset)
 
         try:
@@ -241,7 +255,7 @@ class FrameworkDataManager(ABC):
 
     def _load_indexes(
         self,
-        dataset: Dataset,
+        dataset: WrappedDatasetT,
         training_index: List[int],
         testing_index: List[int],
     ):
@@ -263,7 +277,7 @@ class FrameworkDataManager(ABC):
             A Dict containing data loader state.
         """
 
-        data_manager_state: Dict[str, Any] = {}
+        data_manager_state: Dict[str, object] = {}
         data_manager_state["training_index"] = self._training_index
         data_manager_state["testing_index"] = self._testing_index
         data_manager_state["test_ratio"] = self._test_ratio
@@ -271,7 +285,6 @@ class FrameworkDataManager(ABC):
 
     def load_state(self, state: Dict):
         """Loads state of the data loader
-
 
         It currently keep only testing index, training index and test ratio
         as state.

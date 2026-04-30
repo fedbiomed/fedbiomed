@@ -5,7 +5,7 @@
 Data manager for Pytorch training plan
 """
 
-from typing import List, Optional, Tuple, Type
+from typing import List, Optional, Tuple
 
 import torch
 from torch.utils.data import (
@@ -30,7 +30,8 @@ from fedbiomed.common.exceptions import FedbiomedError
 from ._framework_data_manager import FrameworkDataManager, FrameworkSubset
 
 
-class _TorchSubset(TorchSubset, FrameworkSubset):
+# misc: TorchSubset.dataset is generic Dataset[T_co]; FrameworkSubset expects concrete TorchDataset
+class _TorchSubset(TorchSubset, FrameworkSubset[TorchDataset]):  # type: ignore[misc]
     pass
 
 
@@ -122,7 +123,7 @@ class _DatasetWrapper(TorchDataset):
         return data, target
 
 
-class TorchDataManager(FrameworkDataManager):
+class TorchDataManager(FrameworkDataManager[TorchDataset]):
     """Class for creating data loaders from dataset for Pytorch training plans"""
 
     _loader_class = PytorchDataLoader
@@ -132,7 +133,6 @@ class TorchDataManager(FrameworkDataManager):
     # Better type hinting
     _subset_train: Optional[_TorchSubset] = None
     _subset_test: Optional[_TorchSubset] = None
-    _loader_class: Type[PytorchDataLoader]
 
     def __init__(self, dataset: Dataset, **kwargs: dict):
         """Class constructor
@@ -183,7 +183,7 @@ class TorchDataManager(FrameworkDataManager):
         return self._create_data_loader(torch_dataset, **self._loader_arguments)  # type: ignore
 
     def _random_split(
-        self, dataset: Dataset, lengths: List[int]
+        self, dataset: TorchDataset, lengths: List[int]
     ) -> Tuple[_TorchSubset, _TorchSubset]:
         """Randomly split a dataset into 2 non-overlapping subsets of given lengths.
 
@@ -194,4 +194,8 @@ class TorchDataManager(FrameworkDataManager):
         Returns:
             List of subsets of the dataset. `None` if the subset is empty.
         """
-        return random_split(dataset, lengths)  # type: ignore[return-value]
+        result = random_split(dataset, lengths)
+        return (
+            _TorchSubset(dataset, list(result[0].indices)),
+            _TorchSubset(dataset, list(result[1].indices)),
+        )
