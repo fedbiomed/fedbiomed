@@ -336,6 +336,12 @@ class NodeControl(CLIArgumentParser):
 
         _add_node_runtime_args(start)
         _add_gui_start_args(start)
+        start.add_argument(
+            "--no-gui",
+            action="store_true",
+            required=False,
+            help="Start only the federation node without the REST backend or GUI.",
+        )
 
     def start(self, args):
         """Starts the node"""
