@@ -128,12 +128,18 @@ researcher = [
 	"ipython"
 ]
 
+restful = [
+    # REST backend deps only
+    "flask >=2.3.1,<24.0",
+    "jsonschema ~=4.18.0",
+    "Flask-JWT-Extended >=4.4.4,<4.5.0",
+    "cachelib >=0.10.2,<0.11.0",
+    "gunicorn ~=23.0.0",
+]
+
 gui = [
-	"flask >=2.3.1,<24.0",
-	"jsonschema ~=4.18.0",
-	"Flask-JWT-Extended >=4.4.4,<4.5.0",
-	"cachelib >=0.10.2,<0.11.0",
-	"gunicorn ~=23.0.0"
+    # Python side for serving/managing GUI; frontend assets are packaged separately
+    "fedbiomed[restful]",
 ]
 
 [tool.hatch.metadata]
