@@ -659,10 +659,36 @@ class NodeControl(CLIArgumentParser):
 
         _add_node_runtime_args(start)
         _add_gui_start_args(start)
+        start.add_argument(
+            "--no-gui",
+            action="store_true",
+            required=False,
+            help="Start only the federation node without the REST backend or GUI.",
+        )
 
     def start(self, args):
         """Starts the node"""
         intro()
+        if args.no_gui:
+            from fedbiomed.node.node_pm import node_process_manager  # noqa: PLC0415
+
+            actor = {"source": "cli"}
+            node_process_manager.start(
+                self._node.config,
+                _build_node_args(args),
+                actor=actor,
+            )
+            process = node_process_manager.process
+            if process:
+                try:
+                    process.join()
+                except KeyboardInterrupt:
+                    node_process_manager.stop(
+                        actor=actor,
+                        reason="keyboard_interrupt",
+                    )
+            return
+
         _start_gui(
             fedbiomed_root=self._node.config.root,
             node_root=self._node.config.root,
