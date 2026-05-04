@@ -245,15 +245,15 @@ def _start_gui(
     else:
         certificate = []
 
-    fedbiomed_gui = importlib.import_module("fedbiomed_gui")
-    server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
-    print("path to server", server_app)
+    fedbiomed_restful = importlib.import_module("fedbiomed.restful")
+    server_app = Path(fedbiomed_restful.__file__).parent  # type: ignore[arg-type]
+    print(f"Starting Restful API server with app from {server_app}...")
 
     host_port = ["--host", host, "--port", port]
     if development:
         command = [
             "FLASK_ENV=development",
-            f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
+            f"FLASK_APP={os.path.join(server_app, 'wsgi.py')}",
             "flask",
             "run",
             *host_port,
@@ -269,7 +269,7 @@ def _start_gui(
             f"{host}:{port}",
             "--access-logfile",
             "-",
-            "fedbiomed_gui.server.wsgi:app",
+            "fedbiomed.restful.wsgi:app",
         ]
 
     try:
