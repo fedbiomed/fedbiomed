@@ -208,6 +208,110 @@ def _build_node_args(args: argparse.Namespace) -> Dict[str, Union[bool, int, Non
     }
 
 
+def _add_node_runtime_args(parser: argparse.ArgumentParser) -> None:
+    """Add node runtime options shared by node and GUI start commands."""
+    parser.add_argument(
+        "--gpu",
+        action="store_true",
+        help="Activate GPU usage if the flag is present",
+    )
+
+    parser.add_argument(
+        "--gpu-num",
+        "-gn",
+        type=int,
+        nargs="?",
+        required=False,
+        default=1,
+        help="Number of GPU that is going to be used",
+    )
+
+    parser.add_argument(
+        "--gpu-only",
+        "-go",
+        action="store_true",
+        help="Node performs training only using GPU resources."
+        "This flag automatically activate GPU.",
+    )
+
+    parser.add_argument(
+        "--debug",
+        "-D",
+        "-dbg",
+        action="store_true",
+        required=False,
+        help="Activate debug mode for the Node and GUI. Default is `False`",
+    )
+
+
+def _add_gui_start_args(parser: argparse.ArgumentParser) -> None:
+    """Add GUI startup options shared by node and GUI start commands."""
+    parser.add_argument(
+        "--data-folder",
+        "-df",
+        type=str,
+        nargs="?",
+        default="",  # data folder in root directory
+        required=False,
+    )
+
+    parser.add_argument(
+        "--cert-file",
+        "-cf",
+        type=str,
+        nargs="?",
+        required=False,
+        help="Name of the certificate to use in order to enable HTTPS. "
+        "If cert file doesn't exist script will raise an error.",
+    )
+
+    parser.add_argument(
+        "--key-file",
+        "-kf",
+        type=str,
+        nargs="?",
+        required=False,
+        help="Name of the private key for the SSL certificate. "
+        "If the key file doesn't exist, the script will raise an error.",
+    )
+
+    parser.add_argument(
+        "--port",
+        "-p",
+        type=str,
+        nargs="?",
+        default="8484",
+        required=False,
+        help="HTTP port that GUI will be served. Default is `8484`",
+    )
+
+    parser.add_argument(
+        "--host",
+        "-ho",
+        type=str,
+        default="localhost",
+        nargs="?",
+        required=False,
+        help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)",
+    )
+
+    parser.add_argument(
+        "--recreate",
+        "-rc",
+        action="store_true",
+        required=False,
+        help="Re-creates gui build",
+    )
+
+    parser.add_argument(
+        "--development",
+        "-dev",
+        action="store_true",
+        required=False,
+        help="If it is set, GUI will start in development mode.",
+    )
+
+
 def _start_gui(
     *,
     fedbiomed_root: str,
@@ -553,37 +657,8 @@ class NodeControl(CLIArgumentParser):
         start = self._subparser.add_parser("start", help="Starts the node")
         start.set_defaults(func=self.start)
 
-        start.add_argument(
-            "--gpu",
-            action="store_true",
-            help="Activate GPU usage if the flag is present",
-        )
-
-        start.add_argument(
-            "--gpu-num",
-            "-gn",
-            type=int,
-            nargs="?",
-            required=False,
-            default=1,
-            help="Number of GPU that is going to be used",
-        )
-
-        start.add_argument(
-            "--gpu-only",
-            "-go",
-            action="store_true",
-            help="Node performs training only using GPU resources."
-            "This flag automatically activate GPU.",
-        )
-
-        start.add_argument(
-            "--debug",
-            "-D",
-            action="store_true",
-            required=False,
-            help="Activate debug mode for the Node. Default is `False`",
-        )
+        _add_node_runtime_args(start)
+        _add_gui_start_args(start)
 
     def start(self, args):
         """Starts the node"""
@@ -591,13 +666,13 @@ class NodeControl(CLIArgumentParser):
         _start_gui(
             fedbiomed_root=self._node.config.root,
             node_root=self._node.config.root,
-            data_folder="",
-            host="localhost",
-            port="8484",
-            development=False,
-            key_file=None,
-            cert_file=None,
-            gui_debug=False,
+            data_folder=args.data_folder,
+            host=args.host,
+            port=args.port,
+            development=args.development,
+            key_file=args.key_file,
+            cert_file=args.cert_file,
+            gui_debug=args.debug,
             node_args=_build_node_args(args),
         )
 
@@ -619,78 +694,8 @@ class GUIControl(CLIArgumentParser):
 
         start.set_defaults(func=self.forward)
 
-        start.add_argument(
-            "--data-folder",
-            "-df",
-            type=str,
-            nargs="?",
-            default="",  # data folder in root directory
-            required=False,
-        )
-
-        start.add_argument(
-            "--cert-file",
-            "-cf",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of the certificate to use in order to enable HTTPS. "
-            "If cert file doesn't exist script will raise an error.",
-        )
-
-        start.add_argument(
-            "--key-file",
-            "-kf",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of the private key for the SSL certificate. "
-            "If the key file doesn't exist, the script will raise an error.",
-        )
-
-        start.add_argument(
-            "--port",
-            "-p",
-            type=str,
-            nargs="?",
-            default="8484",
-            required=False,
-            help="HTTP port that GUI will be served. Default is `8484`",
-        )
-
-        start.add_argument(
-            "--host",
-            "-ho",
-            type=str,
-            default="localhost",
-            nargs="?",
-            required=False,
-            help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)",
-        )
-
-        start.add_argument(
-            "--debug",
-            "-dbg",
-            action="store_true",
-            required=False,
-            help="HTTP port that GUI will be served. Default is `8484`",
-        )
-
-        start.add_argument(
-            "--recreate",
-            "-rc",
-            action="store_true",
-            required=False,
-            help="Re-creates gui build",
-        )
-
-        start.add_argument(
-            "--development",
-            "-dev",
-            action="store_true",
-            required=False,
-            help="If it is set, GUI will start in development mode.",
-        )
+        _add_gui_start_args(start)
+        _add_node_runtime_args(start)
 
     def forward(self, args: argparse.Namespace, extra_args):
         """Launches Fed-BioMed Node GUI
@@ -708,6 +713,7 @@ class GUIControl(CLIArgumentParser):
             key_file=args.key_file,
             cert_file=args.cert_file,
             gui_debug=args.debug,
+            node_args=_build_node_args(args),
         )
 
 
