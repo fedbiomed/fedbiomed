@@ -1,3 +1,5 @@
+import atexit
+import importlib
 import os
 import secrets
 from datetime import timedelta
@@ -12,12 +14,13 @@ from .config import config
 from .routes import api, auth
 from .utils import error
 
-build_dir = os.path.join(Path(__file__).parent, "..", "ui", "build")
-
-print(build_dir)
+fedbiomed_gui = importlib.import_module("fedbiomed_gui")
+build_dir = (
+    Path(fedbiomed_gui.__file__).parent / "ui" / "build"  # type: ignore[arg-type]
+)
 
 # Create Flask Application
-app = Flask(__name__, static_folder=build_dir)
+app = Flask(__name__, static_folder=str(build_dir))
 
 # Configure Flask app
 db_prefix = os.getenv("DB_PREFIX", "db_")
