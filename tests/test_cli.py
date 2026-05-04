@@ -23,6 +23,7 @@ from fedbiomed.node.cli import (
     NodeCLI,
     NodeControl,
     TrainingPlanArgumentParser,
+    _default_node_args,
     _node_signal_trigger_term,
     intro,
     start_node,
@@ -362,24 +363,38 @@ class TestNodeControl(unittest.TestCase):
             "--gpu" in self.subparsers.choices["start"]._option_string_actions
         )  # noqa
 
-    @patch("fedbiomed.node.cli.Process")
-    def test_02_node_control_start(self, process):
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("os.path.isdir", return_value=True)
+    def test_02_node_control_start(self, mock_isdir, mock_importlib, mock_subprocess):
         self.control.initialize()
+        self.node.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
         args = self.parser.parse_args(["start"])
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
 
         self.control.start(args)
-        process.assert_called_once()
+        mock_subprocess.Popen.assert_called_once()
+        command = mock_subprocess.Popen.call_args[0][0]
+        env = mock_subprocess.Popen.call_args[1]["env"]
+        self.assertIn("gunicorn", command)
+        self.assertEqual(env["FBM_NODE_COMPONENT_ROOT"], "/node/root")
+        self.assertEqual(env["FBM_NODE_START_ARGS"], json.dumps(_default_node_args()))
 
-        process.return_value.join.side_effect = [KeyboardInterrupt, None]
-        process.return_value.is_alive.side_effect = [True, False, True, True, False]
-        with self.assertRaises(SystemExit):
-            self.control.start(args)
-
-    @patch("fedbiomed.node.cli.Process")
-    def test_04_node_control_start_gpu_and_debug_flags(self, mock_process):
-        """Tests GPU and debug flags are correctly forwarded in node_args."""
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("os.path.isdir", return_value=True)
+    def test_04_node_control_start_gpu_and_debug_flags(
+        self, mock_isdir, mock_importlib, mock_subprocess
+    ):
+        """Tests GPU and debug flags are correctly forwarded in node startup args."""
         self.control.initialize()
+        self.node.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
 
         args = self.parser.parse_args(
@@ -387,7 +402,8 @@ class TestNodeControl(unittest.TestCase):
         )
         self.control.start(args)
 
-        node_args = mock_process.call_args[1]["args"][1]
+        env = mock_subprocess.Popen.call_args[1]["env"]
+        node_args = json.loads(env["FBM_NODE_START_ARGS"])
         self.assertTrue(node_args["gpu"])
         self.assertEqual(node_args["gpu_num"], 2)
         self.assertTrue(node_args["gpu_only"])
@@ -486,7 +502,10 @@ class TestGUIControl(unittest.TestCase):
 
         mock_subprocess.Popen.assert_called_once()
         command = mock_subprocess.Popen.call_args[0][0]
+        env = mock_subprocess.Popen.call_args[1]["env"]
         self.assertIn("gunicorn", command)
+        self.assertEqual(env["FBM_START_NODE_WITH_GUI"], "true")
+        self.assertEqual(env["FBM_NODE_START_ARGS"], json.dumps(_default_node_args()))
 
     @patch("fedbiomed.node.cli.subprocess")
     @patch("fedbiomed.node.cli.importlib")
@@ -515,7 +534,9 @@ class TestGUIControl(unittest.TestCase):
         self.control.forward(args, [])
 
         command = mock_subprocess.Popen.call_args[0][0]
+        env = mock_subprocess.Popen.call_args[1]["env"]
         self.assertIn("flask", command)
+        self.assertEqual(env["FBM_DEBUG"], "false")
 
     @patch("fedbiomed.node.cli.subprocess")
     @patch("fedbiomed.node.cli.importlib")
