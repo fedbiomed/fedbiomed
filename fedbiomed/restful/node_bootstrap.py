@@ -25,7 +25,7 @@ def _get_node_process_manager():
 
 def _should_start_node_with_gui() -> bool:
     """Return whether the GUI process should manage the node lifecycle."""
-    return os.getenv("FBM_START_NODE_WITH_GUI", "true").lower() in (
+    return os.getenv("FBM_START_NODE_WITH_RESTFUL", "true").lower() in (
         "1",
         "true",
         "yes",

@@ -10,6 +10,7 @@ import importlib
 import json
 import os
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -312,6 +313,30 @@ def _add_gui_start_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _find_available_port(host: str, start_port: str) -> str:
+    """Return the first available TCP port at or above start_port."""
+    try:
+        port = int(start_port)
+    except ValueError as e:
+        raise FedbiomedError(f"Invalid GUI port: {start_port}") from e
+
+    if not 0 < port <= 65535:
+        raise FedbiomedError(f"Invalid GUI port: {start_port}")
+
+    while port <= 65535:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind((host, port))
+        except OSError:
+            port += 1
+            continue
+        return str(port)
+
+    raise FedbiomedError(
+        f"No available GUI port found starting from {start_port} on host {host}"
+    )
+
+
 def _start_gui(
     *,
     fedbiomed_root: str,
@@ -333,14 +358,24 @@ def _start_gui(
     if not os.path.isdir(data_path):
         raise FedbiomedError(f"path {data_path} is not a folder. Aborting")
 
+    requested_port = port
+    port = _find_available_port(host, requested_port)
+    if port != requested_port:
+        print(
+            f"INFO: Port {requested_port} is already in use on host {host}. "
+            f"Using port {port} instead."
+        )
+
     current_env = os.environ.copy()
     current_env.update(
         {
             "DATA_PATH": data_path,
             "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
-            "FBM_START_NODE_WITH_GUI": "true",
+            "FBM_START_NODE_WITH_RESTFUL": "true",
             "FBM_NODE_START_ARGS": json.dumps(node_args or _default_node_args()),
             "FBM_DEBUG": str(gui_debug).lower(),
+            "FBM_RESTFUL_HOST": host,
+            "FBM_RESTFUL_PORT": port,
         }
     )
 

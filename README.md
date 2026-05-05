@@ -158,7 +158,7 @@ fedbiomed node [--path [COMPONENT_DIRECTORY]] gui start --data-folder <path-for-
 Please see possible argument using `fedbiomed node gui start --help`.
 
 
-It is also possible to start the GUI on a specific host and port. By default, it starts on `localhost` as the host and `8484` as the port. To change these settings, you can modify the following command. The GUI is based on HTTPS and will, by default, generate a self-signed certificate. However, you can also start the GUI by specifying the certificate and private key names you want to use for HTTPS support.
+It is also possible to start the GUI on a specific host and port. By default, it starts on `localhost` as the host and `8484` as the port. If the requested port is already in use, Fed-BioMed uses the next available port. To change these settings, you can modify the following command. The GUI is based on HTTPS and will, by default, generate a self-signed certificate. However, you can also start the GUI by specifying the certificate and private key names you want to use for HTTPS support.
 
 ```shell
 fedbiomed node --path <path/to/component/directory> gui start --data-folder <path-for-data-folder> --cert-file <path-to-certificate> --key-file <path-to-private-key>
@@ -176,7 +176,7 @@ fedbiomed node -p </path/to/my-node> gui --data-folder /another/data-dir --port 
 
 ### Launching Multiple Node GUI
 
-It is possible to start multiple Node GUIs for different nodes as long as the http ports are different.
+It is possible to start multiple Node GUIs for different nodes. If multiple GUIs request the same HTTP port, later instances use the next available port.
 
 ```shell
 fedbiomed node -p my-node gui start --port 8181

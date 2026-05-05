@@ -34,11 +34,11 @@ By default, the Node GUI assumes that data files are stored in the `data` direct
 fedbiomed node gui start
 ```
 
-After running this command the GUI will start listening on `localhost` on port `8484`. You can access the GUI through browser `http://localhost:8484`. This page will redirect you to the login page. The credentials and possible configurations for log-in are explained in the [default admin configuration](#default-admin-configuration).
+After running this command the GUI will start listening on `localhost` on port `8484`, or the next available port if `8484` is already in use. You can access the GUI through browser `http://localhost:8484` when the default port is available. This page will redirect you to the login page. The credentials and possible configurations for log-in are explained in the [default admin configuration](#default-admin-configuration).
 
 #### Using different port and host
 
-Custom ports and host IP address can be specified as long as the port in the specified IP isn't already in use.
+Custom ports and host IP address can be specified. If the requested port is already in use on the specified host, Fed-BioMed uses the next available port.
 
 ```shell
 $ fedbiomed node gui start --port <port> --host <ip-address|localhost>
@@ -64,7 +64,7 @@ It is possible to specify the node that the user interface will be used for thro
 $ fedbiomed node --path <path/to/component/directory> gui start
 ````
 
-Thanks to this option it is possible to start multiple GUI for multiple nodes on the same machine as long as the ports are different.
+Thanks to this option it is possible to start multiple GUI for multiple nodes on the same machine. If multiple GUIs request the same port, later instances use the next available port.
 
 
 ```shell
