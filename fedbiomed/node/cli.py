@@ -7,6 +7,7 @@ Command line user interface for the node component
 
 import argparse
 import importlib
+import importlib.util
 import json
 import os
 import signal
@@ -335,6 +336,46 @@ def _find_available_port(host: str, start_port: str) -> str:
     raise FedbiomedError(
         f"No available GUI port found starting from {start_port} on host {host}"
     )
+
+
+def _missing_restful_gui_dependencies(development: bool) -> List[str]:
+    """Return missing dependencies required to launch REST services and the GUI."""
+    modules = [
+        "cachelib",
+        "fedbiomed_gui",
+        "flask",
+        "flask_jwt_extended",
+        "jsonschema",
+    ]
+    modules.append("flask" if development else "gunicorn")
+
+    missing = []
+    for module in sorted(set(modules)):
+        if importlib.util.find_spec(module) is None:
+            missing.append(module)
+
+    return missing
+
+
+def _start_managed_node(config, node_args: Dict[str, Union[bool, int, None]]) -> None:
+    """Start the federation node through NodeProcessManager and wait for it."""
+    from fedbiomed.node.node_pm import node_process_manager  # noqa: PLC0415
+
+    actor = {"source": "cli"}
+    node_process_manager.start(
+        config,
+        node_args,
+        actor=actor,
+    )
+    process = node_process_manager.process
+    if process:
+        try:
+            process.join()
+        except KeyboardInterrupt:
+            node_process_manager.stop(
+                actor=actor,
+                reason="keyboard_interrupt",
+            )
 
 
 def _start_gui(
@@ -704,24 +745,20 @@ class NodeControl(CLIArgumentParser):
     def start(self, args):
         """Starts the node"""
         intro()
+        node_args = _build_node_args(args)
         if args.no_gui:
-            from fedbiomed.node.node_pm import node_process_manager  # noqa: PLC0415
+            _start_managed_node(self._node.config, node_args)
+            return
 
-            actor = {"source": "cli"}
-            node_process_manager.start(
-                self._node.config,
-                _build_node_args(args),
-                actor=actor,
+        missing_dependencies = _missing_restful_gui_dependencies(args.development)
+        if missing_dependencies:
+            print(
+                "WARNING: REST backend / GUI dependencies are missing: "
+                + ", ".join(missing_dependencies)
+                + ". Starting only the federation node. Install the GUI extra "
+                + "to enable REST backend and GUI startup."
             )
-            process = node_process_manager.process
-            if process:
-                try:
-                    process.join()
-                except KeyboardInterrupt:
-                    node_process_manager.stop(
-                        actor=actor,
-                        reason="keyboard_interrupt",
-                    )
+            _start_managed_node(self._node.config, node_args)
             return
 
         _start_gui(
@@ -734,7 +771,7 @@ class NodeControl(CLIArgumentParser):
             key_file=args.key_file,
             cert_file=args.cert_file,
             gui_debug=args.debug,
-            node_args=_build_node_args(args),
+            node_args=node_args,
         )
 
 
