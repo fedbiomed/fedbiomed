@@ -113,10 +113,12 @@ class Config(dict):
 
         # Serve  configurations PORT and IP
         self.configuration["PORT"] = os.getenv(
-            "FBM_GUI_PORT", cfg.get("server", "PORT", fallback=8484)
+            "FBM_RESTFUL_PORT",
+            os.getenv("FBM_GUI_PORT", cfg.get("server", "PORT", fallback=8484)),
         )
         self.configuration["HOST"] = os.getenv(
-            "FBM_GUI_HOST", cfg.get("server", "HOST", fallback="localhost")
+            "FBM_RESTFUL_HOST",
+            os.getenv("FBM_GUI_HOST", cfg.get("server", "HOST", fallback="localhost")),
         )
 
         # Log information for setting up a node connection
