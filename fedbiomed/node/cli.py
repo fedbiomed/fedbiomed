@@ -7,12 +7,14 @@ Command line user interface for the node component
 
 import argparse
 import importlib
+import importlib.util
 import json
 import os
+import socket
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from fedbiomed.common.cli import (
     CLIArgumentParser,
@@ -58,6 +60,272 @@ def intro():
 
     print(__intro__)
     print("\t- 🆔 Your node ID:", os.environ["FEDBIOMED_ACTIVE_NODE_ID"], "\n")
+
+def _default_node_args() -> Dict[str, Union[bool, int, None]]:
+    """Return the default node startup arguments."""
+    return {
+        "gpu": False,
+        "gpu_num": None,
+        "gpu_only": False,
+        "debug": False,
+    }
+
+
+def _build_node_args(args: argparse.Namespace) -> Dict[str, Union[bool, int, None]]:
+    """Build node startup arguments from CLI options."""
+    return {
+        "gpu": (args.gpu is True) or (args.gpu_only is True),
+        "gpu_num": args.gpu_num,
+        "gpu_only": True if args.gpu_only else False,
+        "debug": True if args.debug else False,
+    }
+
+
+def _add_node_runtime_args(parser: argparse.ArgumentParser) -> None:
+    """Add node runtime options shared by node and GUI start commands."""
+    parser.add_argument(
+        "--gpu",
+        action="store_true",
+        help="Activate GPU usage if the flag is present",
+    )
+
+    parser.add_argument(
+        "--gpu-num",
+        "-gn",
+        type=int,
+        nargs="?",
+        required=False,
+        default=1,
+        help="Number of GPU that is going to be used",
+    )
+
+    parser.add_argument(
+        "--gpu-only",
+        "-go",
+        action="store_true",
+        help="Node performs training only using GPU resources."
+        "This flag automatically activate GPU.",
+    )
+
+    parser.add_argument(
+        "--debug",
+        "-D",
+        "-dbg",
+        action="store_true",
+        required=False,
+        help="Activate debug mode for the Node and GUI. Default is `False`",
+    )
+
+
+def _add_gui_start_args(parser: argparse.ArgumentParser) -> None:
+    """Add GUI startup options shared by node and GUI start commands."""
+    parser.add_argument(
+        "--data-folder",
+        "-df",
+        type=str,
+        nargs="?",
+        default="",  # data folder in root directory
+        required=False,
+    )
+
+    parser.add_argument(
+        "--cert-file",
+        "-cf",
+        type=str,
+        nargs="?",
+        required=False,
+        help="Name of the certificate to use in order to enable HTTPS. "
+        "If cert file doesn't exist script will raise an error.",
+    )
+
+    parser.add_argument(
+        "--key-file",
+        "-kf",
+        type=str,
+        nargs="?",
+        required=False,
+        help="Name of the private key for the SSL certificate. "
+        "If the key file doesn't exist, the script will raise an error.",
+    )
+
+    parser.add_argument(
+        "--port",
+        "-p",
+        type=str,
+        nargs="?",
+        default="8484",
+        required=False,
+        help="HTTP port that GUI will be served. Default is `8484`",
+    )
+
+    parser.add_argument(
+        "--host",
+        "-ho",
+        type=str,
+        default="localhost",
+        nargs="?",
+        required=False,
+        help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)",
+    )
+
+    parser.add_argument(
+        "--recreate",
+        "-rc",
+        action="store_true",
+        required=False,
+        help="Re-creates gui build",
+    )
+
+    parser.add_argument(
+        "--development",
+        "-dev",
+        action="store_true",
+        required=False,
+        help="If it is set, GUI will start in development mode.",
+    )
+
+
+def _find_available_port(host: str, start_port: str) -> str:
+    """Return the first available TCP port at or above start_port."""
+    try:
+        port = int(start_port)
+    except ValueError as e:
+        raise FedbiomedError(f"Invalid GUI port: {start_port}") from e
+
+    if not 0 < port <= 65535:
+        raise FedbiomedError(f"Invalid GUI port: {start_port}")
+
+    while port <= 65535:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind((host, port))
+        except OSError:
+            port += 1
+            continue
+        return str(port)
+
+    raise FedbiomedError(
+        f"No available GUI port found starting from {start_port} on host {host}"
+    )
+
+
+def _missing_restful_gui_dependencies(development: bool) -> List[str]:
+    """Return missing dependencies required to launch REST services and the GUI."""
+    modules = [
+        "cachelib",
+        "fedbiomed_gui",
+        "flask",
+        "flask_jwt_extended",
+        "jsonschema",
+    ]
+    modules.append("flask" if development else "gunicorn")
+
+    missing = []
+    for module in sorted(set(modules)):
+        if importlib.util.find_spec(module) is None:
+            missing.append(module)
+
+    return missing
+
+
+def _start_managed_node(config, node_args: Dict[str, Union[bool, int, None]]) -> None:
+    """Start the federation node through NodeProcessManager and wait for it."""
+    actor = {"source": "cli"}
+    node_process_manager.start(
+        config,
+        node_args,
+        actor=actor,
+    )
+    process = node_process_manager.process
+    if process:
+        try:
+            process.join()
+        except KeyboardInterrupt:
+            node_process_manager.stop(
+                actor=actor,
+                reason="keyboard_interrupt",
+            )
+
+
+def _start_gui(
+    *,
+    fedbiomed_root: str,
+    node_root: str,
+    data_folder: str,
+    host: str,
+    port: str,
+    development: bool,
+    key_file: str | None,
+    cert_file: str | None,
+    gui_debug: bool,
+    node_args: Dict[str, Union[bool, int, None]] | None = None,
+) -> None:
+    """Launch the GUI server and pass node startup settings through the environment."""
+    if data_folder == "":
+        data_path = os.path.join(node_root, NODE_DATA_FOLDER)
+    else:
+        data_path = os.path.abspath(data_folder)
+    if not os.path.isdir(data_path):
+        raise FedbiomedError(f"path {data_path} is not a folder. Aborting")
+
+    requested_port = port
+    port = _find_available_port(host, requested_port)
+    if port != requested_port:
+        print(
+            f"INFO: Port {requested_port} is already in use on host {host}. "
+            f"Using port {port} instead."
+        )
+
+    current_env = os.environ.copy()
+    current_env.update(
+        {
+            "DATA_PATH": data_path,
+            "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
+            "FBM_START_NODE_WITH_RESTFUL": "true",
+            "FBM_NODE_START_ARGS": json.dumps(node_args or _default_node_args()),
+            "FBM_DEBUG": str(gui_debug).lower(),
+            "FBM_RESTFUL_HOST": host,
+            "FBM_RESTFUL_PORT": port,
+        }
+    )
+
+    if key_file and cert_file:
+        certificate = ["--keyfile", key_file, "--certfile", cert_file]
+    else:
+        certificate = []
+
+    fedbiomed_restful = importlib.import_module("fedbiomed.restful")
+    server_app = Path(fedbiomed_restful.__file__).parent  # type: ignore[arg-type]
+    print(f"Starting Restful API server with app from {server_app}...")
+
+    host_port = ["--host", host, "--port", port]
+    if development:
+        command = [
+            "FLASK_ENV=development",
+            f"FLASK_APP={os.path.join(server_app, 'wsgi.py')}",
+            "flask",
+            "run",
+            *host_port,
+            *certificate,
+        ]
+    else:
+        command = [
+            "gunicorn",
+            "--workers",
+            "1",
+            *certificate,
+            "-b",
+            f"{host}:{port}",
+            "--access-logfile",
+            "-",
+            "fedbiomed.restful.wsgi:app",
+        ]
+
+    try:
+        with subprocess.Popen(" ".join(command), env=current_env, shell=True) as proc:
+            proc.wait()
+    except Exception as e:
+        print(e)
 
 
 class DatasetArgumentParser(CLIArgumentParser):
@@ -346,27 +614,34 @@ class NodeControl(CLIArgumentParser):
     def start(self, args):
         """Starts the node"""
         intro()
-
-        node_args = {
-            "gpu": (args.gpu is True) or (args.gpu_only is True),
-            "gpu_num": args.gpu_num,
-            "gpu_only": True if args.gpu_only else False,
-            "debug": True if args.debug else False,
-        }
-
-        node_process_manager = NodeProcessManager(self._node.config)
-        node_process_manager.start(node_args)
-        process = node_process_manager.process
-        if process is None:
+        node_args = _build_node_args(args)
+        if args.no_gui:
+            _start_managed_node(self._node.config, node_args)
             return
 
-        logger.info("Node started as process with pid = " + str(process.pid))
-        try:
-            print("To stop press Ctrl + C.")
-            process.join()
-        except KeyboardInterrupt:
-            node_process_manager.stop(reason="keyboard_interrupt")
-            sys.exit(0)
+        missing_dependencies = _missing_restful_gui_dependencies(args.development)
+        if missing_dependencies:
+            print(
+                "WARNING: REST backend / GUI dependencies are missing: "
+                + ", ".join(missing_dependencies)
+                + ". Starting only the federation node. Install the GUI extra "
+                + "to enable REST backend and GUI startup."
+            )
+            _start_managed_node(self._node.config, node_args)
+            return
+
+        _start_gui(
+            fedbiomed_root=self._node.config.root,
+            node_root=self._node.config.root,
+            data_folder=args.data_folder,
+            host=args.host,
+            port=args.port,
+            development=args.development,
+            key_file=args.key_file,
+            cert_file=args.cert_file,
+            gui_debug=args.debug,
+            node_args=node_args,
+        )
 
 
 class GUIControl(CLIArgumentParser):
