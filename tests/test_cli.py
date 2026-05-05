@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import sys
 import tempfile
 import unittest
@@ -23,6 +24,8 @@ from fedbiomed.node.cli import (
     NodeCLI,
     NodeControl,
     TrainingPlanArgumentParser,
+    _find_available_port,
+    _node_signal_trigger_term,
     intro,
 )
 from fedbiomed.node.cli_utils._medical_folder_dataset import (
@@ -90,6 +93,28 @@ class MockInputHelper:
     @staticmethod
     def mock_input(x):
         return MockInputHelper.inputs.pop(0)
+
+
+@pytest.fixture
+def node_control_parser():
+    """Fixture for NodeControl parser tests."""
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    control = NodeControl(subparsers)
+    node = MagicMock()
+    control._node = node
+    return parser, subparsers, control, node
+
+
+@pytest.fixture
+def gui_control_parser():
+    """Fixture for GUIControl parser tests."""
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    control = GUIControl(subparsers)
+    node = MagicMock()
+    control._node = node
+    return parser, subparsers, control, node
 
 
 # ============================================================================
@@ -361,8 +386,19 @@ class TestNodeControl(unittest.TestCase):
             "--gpu" in self.subparsers.choices["start"]._option_string_actions
         )  # noqa
 
-    @patch("fedbiomed.node.cli.NodeProcessManager")
-    def test_02_node_control_start(self, mock_node_process_manager_cls):
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("fedbiomed.node.cli._start_managed_node")
+    @patch("fedbiomed.node.cli._missing_restful_gui_dependencies", return_value=[])
+    @patch("os.path.isdir", return_value=True)
+    def test_02_node_control_start(
+        self,
+        mock_isdir,
+        mock_missing_dependencies,
+        mock_start_managed_node,
+        mock_importlib,
+        mock_subprocess,
+    ):
         self.control.initialize()
         process = MagicMock(pid=1234)
         mock_node_process_manager = mock_node_process_manager_cls.return_value
@@ -372,25 +408,38 @@ class TestNodeControl(unittest.TestCase):
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
 
         self.control.start(args)
-        mock_node_process_manager_cls.assert_called_once_with(self.node.config)
-        mock_node_process_manager.start.assert_called_once_with(
-            {
-                "gpu": False,
-                "gpu_num": 1,
-                "gpu_only": False,
-                "debug": False,
-            },
+        mock_subprocess.Popen.assert_called_once()
+        command = mock_subprocess.Popen.call_args[0][0]
+        env = mock_subprocess.Popen.call_args[1]["env"]
+        self.assertIn("gunicorn", command)
+        self.assertEqual(env["FBM_NODE_COMPONENT_ROOT"], "/node/root")
+        self.assertEqual(env["FBM_START_NODE_WITH_RESTFUL"], "true")
+        self.assertEqual(env["FBM_RESTFUL_HOST"], "localhost")
+        self.assertEqual(env["FBM_RESTFUL_PORT"], "8484")
+        self.assertEqual(
+            env["FBM_NODE_START_ARGS"],
+            json.dumps({"gpu": False, "gpu_num": 1, "gpu_only": False, "debug": False}),
         )
-        process.join.assert_called_once_with()
+        mock_missing_dependencies.assert_called_once_with(False)
+        mock_start_managed_node.assert_not_called()
 
-    @patch("fedbiomed.node.cli.NodeProcessManager")
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("fedbiomed.node.cli._missing_restful_gui_dependencies", return_value=[])
+    @patch("os.path.isdir", return_value=True)
     def test_04_node_control_start_gpu_and_debug_flags(
-        self, mock_node_process_manager_cls
+        self,
+        mock_isdir,
+        mock_missing_dependencies,
+        mock_importlib,
+        mock_subprocess,
     ):
         """Tests GPU and debug flags are correctly forwarded in node startup args."""
         self.control.initialize()
-        mock_node_process_manager = mock_node_process_manager_cls.return_value
-        mock_node_process_manager.process = MagicMock(pid=1234)
+        self.node.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
 
         args = self.parser.parse_args(
@@ -398,15 +447,12 @@ class TestNodeControl(unittest.TestCase):
         )
         self.control.start(args)
 
-        mock_node_process_manager_cls.assert_called_once_with(self.node.config)
-        mock_node_process_manager.start.assert_called_once_with(
-            {
-                "gpu": True,
-                "gpu_num": 2,
-                "gpu_only": True,
-                "debug": True,
-            },
-        )
+        env = mock_subprocess.Popen.call_args[1]["env"]
+        node_args = json.loads(env["FBM_NODE_START_ARGS"])
+        self.assertTrue(node_args["gpu"])
+        self.assertEqual(node_args["gpu_num"], 2)
+        self.assertTrue(node_args["gpu_only"])
+        self.assertTrue(node_args["debug"])
 
     @patch("fedbiomed.node.node_pm.Node", autospec=True)
     def test_03_node_control__start(self, mock_node):
@@ -503,10 +549,13 @@ class TestGUIControl(unittest.TestCase):
         command = mock_subprocess.Popen.call_args[0][0]
         env = mock_subprocess.Popen.call_args[1]["env"]
         self.assertIn("gunicorn", command)
-        self.assertEqual(env["DATA_PATH"], "/test/data")
-        self.assertEqual(env["FBM_NODE_COMPONENT_ROOT"], "/some/fedbiomed/path")
-        self.assertNotIn("FBM_START_NODE_WITH_GUI", env)
-        self.assertNotIn("FBM_NODE_START_ARGS", env)
+        self.assertEqual(env["FBM_START_NODE_WITH_RESTFUL"], "true")
+        self.assertEqual(
+            env["FBM_NODE_START_ARGS"],
+            json.dumps({"gpu": False, "gpu_num": 1, "gpu_only": False, "debug": False}),
+        )
+        self.assertEqual(env["FBM_RESTFUL_HOST"], "localhost")
+        self.assertEqual(env["FBM_RESTFUL_PORT"], "8484")
 
     @patch("fedbiomed.node.cli.subprocess")
     @patch("fedbiomed.node.cli.importlib")
@@ -614,6 +663,100 @@ class TestStartNodeProcess(unittest.TestCase):
 
         mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
         mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_not_called()
+
+
+def test_node_control_start_falls_back_when_restful_gui_deps_missing(
+    node_control_parser, mocker, monkeypatch
+):
+    """Tests node start falls back to federation node when REST/GUI deps are missing."""
+    parser, _, control, node = node_control_parser
+    control.initialize()
+    node.config.root = "/node/root"
+    mocker.patch(
+        "fedbiomed.node.cli._missing_restful_gui_dependencies",
+        return_value=["flask", "gunicorn"],
+    )
+    mock_start_managed_node = mocker.patch("fedbiomed.node.cli._start_managed_node")
+    monkeypatch.setenv("FEDBIOMED_ACTIVE_NODE_ID", "test-node-id")
+
+    args = parser.parse_args(["start"])
+    control.start(args)
+
+    mock_start_managed_node.assert_called_once_with(
+        node.config,
+        {"gpu": False, "gpu_num": 1, "gpu_only": False, "debug": False},
+    )
+
+
+def test_node_control_start_no_gui_starts_managed_node_only(
+    node_control_parser, mocker, monkeypatch
+):
+    """Tests --no-gui bypasses REST/GUI startup and starts only the node."""
+    parser, _, control, node = node_control_parser
+    control.initialize()
+    node.config.root = "/node/root"
+    mock_start_managed_node = mocker.patch("fedbiomed.node.cli._start_managed_node")
+    monkeypatch.setenv("FEDBIOMED_ACTIVE_NODE_ID", "test-node-id")
+
+    args = parser.parse_args(["start", "--no-gui", "--debug"])
+    control.start(args)
+
+    mock_start_managed_node.assert_called_once_with(
+        node.config,
+        {"gpu": False, "gpu_num": 1, "gpu_only": False, "debug": True},
+    )
+
+
+def test_gui_control_forward_uses_next_available_port(gui_control_parser, mocker):
+    """Tests forward() uses the selected available port for command and env."""
+    _, _, control, node = gui_control_parser
+    control.initialize()
+    node.config.root = "/node/root"
+    mocker.patch("os.path.isdir", return_value=True)
+    mock_find_available_port = mocker.patch(
+        "fedbiomed.node.cli._find_available_port", return_value="8485"
+    )
+    mock_importlib = mocker.patch("fedbiomed.node.cli.importlib")
+    mock_subprocess = mocker.patch("fedbiomed.node.cli.subprocess")
+    mock_importlib.import_module.return_value.__file__ = (
+        "/path/to/fedbiomed_gui/__init__.py"
+    )
+
+    args = argparse.Namespace(
+        path="/some/fedbiomed/path",
+        data_folder="/test/data",
+        key_file=None,
+        cert_file=None,
+        development=False,
+        host="localhost",
+        port="8484",
+        debug=False,
+        recreate=False,
+    )
+    control.forward(args, [])
+
+    command = mock_subprocess.Popen.call_args[0][0]
+    env = mock_subprocess.Popen.call_args[1]["env"]
+    mock_find_available_port.assert_called_once_with("localhost", "8484")
+    assert "localhost:8485" in command
+    assert env["FBM_RESTFUL_PORT"] == "8485"
+
+
+def test_find_available_port_skips_occupied_port():
+    """Tests occupied ports are skipped in favor of a later available port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("localhost", 0))
+        occupied_port = sock.getsockname()[1]
+
+        available_port = int(_find_available_port("localhost", str(occupied_port)))
+
+    assert available_port > occupied_port
+
+
+def test_find_available_port_rejects_invalid_port():
+    """Tests invalid port values raise a FedbiomedError."""
+    with pytest.raises(FedbiomedError):
+        _find_available_port("localhost", "not-a-port")
 
 
 class TestNodeCLI(unittest.TestCase):
