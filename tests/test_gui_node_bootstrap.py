@@ -1,6 +1,6 @@
 import pytest
 
-from fedbiomed_gui.server import node_bootstrap
+from fedbiomed.restful import node_bootstrap
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def test_gui_node_bootstrap_03_start_node_for_gui_uses_env_args(
     node_config,
 ):
     mock_get_manager = mocker.patch.object(node_bootstrap, "_get_node_process_manager")
-    monkeypatch.delenv("FBM_START_NODE_WITH_GUI", raising=False)
+    monkeypatch.delenv("FBM_START_NODE_WITH_RESTFUL", raising=False)
     monkeypatch.setenv(
         "FBM_NODE_START_ARGS",
         '{"gpu": true, "gpu_num": 2, "gpu_only": false, "debug": true}',
@@ -70,7 +70,7 @@ def test_gui_node_bootstrap_04_stop_node_for_gui_stops_managed_node(
     mocker,
 ):
     mock_get_manager = mocker.patch.object(node_bootstrap, "_get_node_process_manager")
-    monkeypatch.delenv("FBM_START_NODE_WITH_GUI", raising=False)
+    monkeypatch.delenv("FBM_START_NODE_WITH_RESTFUL", raising=False)
 
     node_bootstrap.stop_node_for_gui()
 
@@ -87,7 +87,7 @@ def test_gui_node_bootstrap_start_node_for_gui_skips_when_disabled(
     value,
 ):
     mock_get_manager = mocker.patch.object(node_bootstrap, "_get_node_process_manager")
-    monkeypatch.setenv("FBM_START_NODE_WITH_GUI", value)
+    monkeypatch.setenv("FBM_START_NODE_WITH_RESTFUL", value)
 
     node_bootstrap.start_node_for_gui(node_config)
 
