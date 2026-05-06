@@ -1,9 +1,12 @@
 site_name: Fed-BioMed Documentation
 site_url: https://docs.fedbiomed.org/
 site_description: Open-source collaborative learning framework for federated learning and federated analytics.
+site_dir: public
 
 docs_dir: docs
 
+site_description: >-
+    Open, Transparent and Trusted Collaborative Learning for Real-world Healthcare Applications
 theme:
   name: material
   custom_dir: docs/overrides
@@ -17,77 +20,6 @@ theme:
     - content.tabs.link
     - toc.follow
     - navigation.footer
-
-plugins:
-  - search:
-      lang: en
-  - mike
-  - redirects:
-      redirect_maps:
-        'index.md': 'docs.md'
-  - mkdocs-jupyter:
-      include_source: True
-  - mkdocstrings:
-      custom_templates: docs/.templates
-      default_handler: python
-      handlers:
-        python:
-          paths:
-            - .
-          inventories:
-            - https://requests.readthedocs.io/en/master/objects.inv
-            - https://numpy.org/doc/stable/objects.inv
-            - https://docs.python.org/3/objects.inv
-            - https://scikit-learn.org/stable/objects.inv
-            - https://pytorch.org/docs/stable/objects.inv
-          options:
-            filters:
-              - "!^__"
-              - "!^_"
-            docstring_style: google
-            docstring_options:
-              ignore_init_summary: yes
-            merge_init_into_class: yes
-            show_source: yes
-            show_submodules: false
-            show_if_no_docstring: true
-            separate_signature: true
-            show_category_heading: true
-            show_root_toc_entry: no
-            show_root_full_path: true
-  - minify:
-      minify_html: true
-
-markdown_extensions:
-  - admonition
-  - pymdownx.details
-  - pymdownx.superfences
-  - pymdownx.magiclink
-  - pymdownx.snippets:
-      check_paths: true
-  - pymdownx.tasklist
-  - pymdownx.keys
-  - pymdownx.highlight:
-      use_pygments: true
-      linenums_style: pymdownx-inline
-  - pymdownx.inlinehilite
-  - pymdownx.tabbed:
-      alternate_style: true
-  - attr_list
-  - md_in_html
-  - tables
-  - toc:
-      permalink: true
-  - meta
-  - pymdownx.arithmatex:
-      generic: true
-  - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-
-
-extra_css:
-  - stylesheets/extra.css
 
 
 nav:
@@ -244,17 +176,13 @@ nav:
       - "Testing in Fed-BioMed": "./developer/testing-in-fedbiomed.md"
       - "RPC Protocol and Messages": "./developer/messaging.md"
       - "Federated Analytics": "./developer/federated-analytics.md"
-  #    - 'API Reference': ./developer/api/ # Uncomment this if auto generate is active
   - "FAQ & Troubleshooting": "./support/troubleshooting.md"
-
-extra_javascript:
-  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 extra:
   version:
     provider: mike
   fbm_nav:
-    brand_url: https://fedbiomed.org/test-fbm-site/
+    brand_url: https://fedbiomed.org/
     brand_logo: assets/img/logo_full.svg
     brand_logo_2x: assets/img/logo_full.svg
 
@@ -329,8 +257,8 @@ extra:
           url: https://fedbiomed.org/federated_network/#workflow
         - title: Security in Practice
           url: https://fedbiomed.org/federated_learning/#security-in-practice
-        - title: Real world projects
-          url: https://fedbiomed.org/realworld_projects
+        - title: Use Cases
+          url: https://fedbiomed.org/use_cases
 
     left_bottom:
       title: Documentation
@@ -378,3 +306,88 @@ extra:
 
     right_bottom:
       address: 2004 Rte des Lucioles, 06902 Sophia Antipolis, France
+
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.magiclink
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.tasklist
+  - pymdownx.keys
+  - pymdownx.highlight:
+      use_pygments: true
+      linenums_style: pymdownx-inline
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - meta
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search:
+      lang: en
+  - mike
+  - redirects:
+      redirect_maps:
+        'index.md': 'docs.md'
+  - mkdocs-jupyter:
+      include_source: True
+  - mkdocstrings:
+      custom_templates: docs/.templates
+      default_handler: python
+      handlers:
+        python:
+          paths:
+            - .
+          inventories:
+            - https://requests.readthedocs.io/en/master/objects.inv
+            - https://numpy.org/doc/stable/objects.inv
+            - https://docs.python.org/3/objects.inv
+            - https://scikit-learn.org/stable/objects.inv
+            - https://pytorch.org/docs/stable/objects.inv
+          options:
+            filters:
+              - "!^__"
+              - "!^_"
+            docstring_style: google
+            docstring_options:
+              ignore_init_summary: yes
+            merge_init_into_class: yes
+            show_source: yes
+            show_submodules: false
+            show_if_no_docstring: true
+            separate_signature: true
+            show_category_heading: true
+            show_root_toc_entry: no
+            show_root_full_path: true
+  - minify:
+      minify_html: true
+
+  - redirects:
+      redirect_maps:
+        './getting-started/getting-started.md': './getting-started/basic-example.md'
+        './tutorials/0-basic-software-installation.md': './getting-started/installation.md'
+        # 'old/file.md': 'new/file.md'
+
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - assets/javascript/lunr.js
+  - assets/javascript/theme.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - stylesheets/extra.css
