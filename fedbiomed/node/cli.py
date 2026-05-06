@@ -202,11 +202,16 @@ def _default_node_args() -> Dict[str, Union[bool, int, None]]:
 
 def _build_node_args(args: argparse.Namespace) -> Dict[str, Union[bool, int, None]]:
     """Build node startup arguments from CLI options."""
+    gpu = getattr(args, "gpu", False)
+    gpu_num = getattr(args, "gpu_num", 1)
+    gpu_only = getattr(args, "gpu_only", False)
+    debug = getattr(args, "debug", False)
+
     return {
-        "gpu": (args.gpu is True) or (args.gpu_only is True),
-        "gpu_num": args.gpu_num,
-        "gpu_only": True if args.gpu_only else False,
-        "debug": True if args.debug else False,
+        "gpu": (gpu is True) or (gpu_only is True),
+        "gpu_num": gpu_num,
+        "gpu_only": True if gpu_only else False,
+        "debug": True if debug else False,
     }
 
 
