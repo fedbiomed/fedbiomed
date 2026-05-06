@@ -86,6 +86,9 @@ class _ChannelKeys:
             distant_node_id: unique ID of the peer node
         """
         if distant_node_id not in self._channel_keys:
+            logger.debug(
+                f"Creating node-to-node channel state: distant_node_id={distant_node_id}"
+            )
             local_key = DHKey()
             self._channel_manager.add(distant_node_id, local_key.export_private_key())
 
@@ -118,6 +121,10 @@ class _ChannelKeys:
         """
         async with self._channel_keys_lock:
             self._channel_keys[distant_node_id].pending_requests.append(request_id)
+            logger.debug(
+                f"Registered pending node-to-node channel request: distant_node_id={distant_node_id} "
+                f"request_id={request_id} pending_count={len(self._channel_keys[distant_node_id].pending_requests)}"
+            )
 
     async def set_distant_key(
         self,
@@ -147,12 +154,19 @@ class _ChannelKeys:
                 or request_id
                 not in self._channel_keys[distant_node_id].pending_requests
             ):
+                logger.debug(
+                    f"Ignoring distant node key update: distant_node_id={distant_node_id} "
+                    f"request_id={request_id} reason=unregistered_or_unexpected"
+                )
                 return False
 
             self._channel_keys[distant_node_id].distant_key = dh_key
             r = self._channel_keys[distant_node_id].pending_requests
             r.pop(r.index(request_id))
             self._channel_keys[distant_node_id].ready_event.set()
+            logger.debug(
+                f"Stored distant node key: distant_node_id={distant_node_id} request_id={request_id}"
+            )
             return True
 
     async def get_local_public_key(self, distant_node_id: str) -> bytes:
@@ -177,12 +191,21 @@ class _ChannelKeys:
             True if keys for the channel are ready for usage, False if keys are not ready.
         """
         try:
+            logger.debug(
+                f"Waiting for node-to-node channel readiness: distant_node_id={distant_node_id}"
+            )
             await asyncio.wait_for(
                 self._channel_keys[distant_node_id].ready_event.wait(),
                 TIMEOUT_NODE_TO_NODE_REQUEST,
             )
+            logger.debug(
+                f"Node-to-node channel ready: distant_node_id={distant_node_id}"
+            )
             return True
         except TimeoutError:
+            logger.debug(
+                f"Node-to-node channel wait timed out: distant_node_id={distant_node_id}"
+            )
             return False
 
 
@@ -294,6 +317,10 @@ class OverlayChannel:
         Returns:
             True if the distant key was set, False if it was not set
         """
+        logger.debug(
+            f"Setting distant channel key: node_id={self._node_id} distant_node_id={distant_node_id} "
+            f"request_id={request_id}"
+        )
         return await self._channel_keys.set_distant_key(
             distant_node_id, public_key_pem, request_id
         )
@@ -323,6 +350,11 @@ class OverlayChannel:
             FedbiomedNodeToNodeError: distant node does not answer during channel setup
         """
 
+        logger.debug(
+            f"Preparing node-to-node channel keys: node_id={self._node_id} distant_node_id={distant_node_id} "
+            f"researcher_id={researcher_id} setup={setup} salt_len={len(salt)}"
+        )
+
         if setup:
             # If we are doing channel setup exchange, then use the default or "master" keys
             # for the channel
@@ -344,6 +376,10 @@ class OverlayChannel:
 
                 await self._channel_keys.add_pending_request(
                     distant_node_id, distant_node_message.request_id
+                )
+                logger.debug(
+                    f"Sending channel setup request: node_id={self._node_id} distant_node_id={distant_node_id} "
+                    f"request_id={distant_node_message.request_id}"
                 )
                 received = await self.send_node_setup(
                     researcher_id,
@@ -370,6 +406,10 @@ class OverlayChannel:
         ).agree(
             node_v_id=distant_node_id,
             public_key_pem=distant_key.export_public_key(),
+        )
+        logger.debug(
+            f"Derived node-to-node symmetric key: node_id={self._node_id} distant_node_id={distant_node_id} "
+            f"setup={setup}"
         )
         return local_key, distant_key, derived_key
 
@@ -398,6 +438,12 @@ class OverlayChannel:
             raise FedbiomedNodeToNodeError(
                 f"{ErrorNumbers.FB324.value}: not an inner message"
             )
+
+        logger.debug(
+            f"Formatting outgoing overlay message: node_id={self._node_id} "
+            f"dest_node_id={message.get_param('dest_node_id')} type={message.__name__} "
+            f"request_id={getattr(message, 'request_id', None)} setup={setup}"
+        )
 
         # Value for salting the symmetric encryption key generation for this message
         # Adjust length of `salt` depending on algorithm
@@ -432,7 +478,13 @@ class OverlayChannel:
             mode=None,
             backend=default_backend(),
         ).encryptor()
-        return encryptor.update(signed) + encryptor.finalize(), salt, nonce
+        overlay = encryptor.update(signed) + encryptor.finalize()
+        logger.debug(
+            f"Formatted outgoing overlay payload: node_id={self._node_id} "
+            f"dest_node_id={message.get_param('dest_node_id')} type={message.__name__} "
+            f"request_id={getattr(message, 'request_id', None)} payload_bytes={len(overlay)}"
+        )
+        return overlay, salt, nonce
 
     async def format_incoming_overlay(
         self, overlay_msg: OverlayMessage
@@ -459,6 +511,11 @@ class OverlayChannel:
             raise FedbiomedNodeToNodeError(
                 f"{ErrorNumbers.FB324.value}: not an overlay message"
             )
+
+        logger.debug(
+            f"Formatting incoming overlay message: node_id={self._node_id} src_node_id={overlay_msg.node_id} "
+            f"dest_node_id={overlay_msg.dest_node_id} setup={overlay_msg.setup} payload_bytes={len(overlay_msg.overlay)}"
+        )
 
         _, distant_node_public_key, derived_key = await self._setup_use_channel_keys(
             overlay_msg.node_id,
@@ -517,6 +574,11 @@ class OverlayChannel:
                 f"inner_node_id={inner_msg.dest_node_id} overlay_node_id={overlay_msg.dest_node_id}"
             )
 
+        logger.debug(
+            f"Validated incoming overlay message: node_id={self._node_id} src_node_id={overlay_msg.node_id} "
+            f"type={inner_msg.__name__} request_id={getattr(inner_msg, 'request_id', None)} setup={overlay_msg.setup}"
+        )
+
         return inner_msg
 
     async def send_node_setup(
@@ -535,6 +597,10 @@ class OverlayChannel:
         Returns:
             True if channel is ready, False if channel not ready after timeout
         """
+        logger.debug(
+            f"Starting node-to-node channel setup send: node_id={self._node_id} distant_node_id={node} "
+            f"type={message.__name__} request_id={getattr(message, 'request_id', None)}"
+        )
         overlay, salt, nonce = await self.format_outgoing_overlay(
             message, researcher_id, True
         )
@@ -550,4 +616,9 @@ class OverlayChannel:
 
         self._grpc_client.send(message_overlay)
 
-        return await self._channel_keys.wait_ready_channel(node)
+        ready = await self._channel_keys.wait_ready_channel(node)
+        logger.debug(
+            f"Completed node-to-node channel setup send: node_id={self._node_id} distant_node_id={node} "
+            f"request_id={getattr(message, 'request_id', None)} ready={ready}"
+        )
+        return ready

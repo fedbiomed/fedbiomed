@@ -186,3 +186,7 @@ fedbiomed node -p my-second-node gui start --port 8383
 
 Please see `docs/developer/development-environment.md` to find out how to debug and lunch UI for development purposes.
 
+## Troubleshooting
+
+Fedbiomed includes a debug mode, which when enabled prints more outputs with more details, making it easier to troubleshoot. For details on how to use debug mode, refer to [troubleshooting](https://fedbiomed.org/support/troubleshooting/).
+

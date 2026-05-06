@@ -4,6 +4,9 @@ from dataclasses import dataclass
 import fedbiomed.common.message as message
 from fedbiomed.common.constants import (
     ErrorNumbers,
+    HarmonizationStep,
+    PreprocType,
+    Stats,
     TrainingPlanApprovalStatus,
 )
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedMessageError
@@ -16,6 +19,57 @@ from fedbiomed.common.message import (
     AdditiveSSSetupRequest,
     catch_dataclass_exception,
 )
+
+
+def test_fa_request_message_creation():
+    """Test FARequest message creation"""
+    _ = message.FARequest(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        fa_id="fa_1234",
+        dataset_id="dataset_1234",
+        stats=[Stats.MEAN.value],
+        stats_args={"test": "output_data"},
+    )
+
+
+def test_fa_reply_message_creation():
+    """Test FAReply message creation"""
+    _ = message.FAReply(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        fa_id="fa_1234",
+        node_id="node_1234",
+        node_name="node_name_1234",
+        stats=[Stats.MEAN.value],
+        output={"test": "output_data"},
+    )
+
+
+def test_preproc_request_message_creation():
+    """Test PreprocRequest message creation"""
+    _ = message.PreprocRequest(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        preproc_type=PreprocType.FEDCOMBAT.value,
+        preproc_step=HarmonizationStep.STANDARDIZE.value,
+        preproc_id="preproc_1234",
+        preproc_args={"test": "output_data"},
+        dataset_id="dataset_1234",
+        state_id="state_1234",
+    )
+
+
+def test_preproc_reply_message_creation():
+    """Test PreprocReply message creation"""
+    _ = message.PreprocReply(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        node_id="node_1234",
+        node_name="node_name_1234",
+        msg="my message",
+        preproc_output={"test": "output_data"},
+    )
 
 
 class TestMessage(unittest.TestCase):
@@ -63,7 +117,7 @@ class TestMessage(unittest.TestCase):
             for c in all_classes:
                 if cls == c:
                     # print("DEBUG: detected class:", c)
-                    m = c(**kwargs)
+                    _ = c(**kwargs)
                     valid_class = True
                     break
 
@@ -155,7 +209,7 @@ class TestMessage(unittest.TestCase):
         # bad parameter type for a
         bad_result = False
         try:
-            m1 = self.DummyMessage(a="oh your god!", b="oh my god!")
+            _ = self.DummyMessage(a="oh your god!", b="oh my god!")
         except FedbiomedMessageError:
             # we must arrive here, because message is malformed
             bad_result = True
@@ -173,7 +227,7 @@ class TestMessage(unittest.TestCase):
         # bad params number
         bad_result = False
         try:
-            m2 = self.DummyMessage(1, "foobar", False)
+            _ = self.DummyMessage(1, "foobar", False)
 
         except FedbiomedMessageError:
             #

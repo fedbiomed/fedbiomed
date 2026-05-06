@@ -1,7 +1,5 @@
-"""
-This file is originally part of Fed-BioMed
-SPDX-License-Identifier: Apache-2.0
-"""
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
 
 import inspect
 import os
@@ -463,7 +461,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             researcher_id=self._researcher_id,
             requests=self._reqs,
             nodes=self.training_data().node_ids(),
-            keep_files_dir=self.experimentation_path(),
             experiment_id=self._experiment_id,
             training_plan=self.training_plan(),
         )
@@ -495,7 +492,6 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             researcher_id=self._researcher_id,
             requests=self._reqs,
             nodes=self.training_data().node_ids(),
-            keep_files_dir=self.experimentation_path(),
             training_plan=self.training_plan(),
             description=description,
         )
@@ -545,10 +541,15 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             os.path.join("..", os.path.basename(training_plan_file)),
         )
         params_path = os.path.join(breakpoint_path, f"model_params_{uuid.uuid4()}.mpk")
+        local_params = self.training_plan().local_params
         Serializer.dump(
             self.training_plan()
             .get_model_wrapper_class()
-            .get_weights(only_trainable=False, exclude_buffers=False),
+            .get_weights(
+                only_trainable=False,
+                exclude_buffers=False,
+                local_params=local_params,
+            ),
             params_path,
         )
         state["model_weights_path"] = params_path
@@ -559,7 +560,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
     @exp_exceptions
     def load_breakpoint(
         cls, breakpoint_folder_path: Optional[str] = None
-    ) -> Tuple[TrainingPlanWorkflowT, dict]:
+    ) -> Tuple[TrainingPlanWorkflowT, dict, str]:
         """
         Loads breakpoint (provided a breakpoint has been saved)
         so the workflow can be resumed.
@@ -576,7 +577,9 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
                 content (corrupted)
         """
-        loaded_exp, saved_state = super().load_breakpoint(breakpoint_folder_path)
+        loaded_exp, saved_state, tempo_id = super().load_breakpoint(
+            breakpoint_folder_path
+        )
 
         # Define type for pylint
         loaded_exp: TrainingPlanWorkflow
@@ -603,9 +606,12 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             raise FedbiomedExperimentError(msg)
         param_path = saved_state["model_weights_path"]
         params = Serializer.load(param_path)
-        loaded_exp.training_plan().get_model_wrapper_class().set_weights(params)
+        local_params = training_plan.local_params
+        loaded_exp.training_plan().get_model_wrapper_class().set_weights(
+            params, local_params=local_params
+        )
 
-        return loaded_exp, saved_state
+        return loaded_exp, saved_state, tempo_id
 
     def _check_round_value_consistency(
         self, round_current: int, variable_name: str
@@ -651,10 +657,13 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         """
 
         if keep_weights and self._training_plan is not None:
-            weights = self._training_plan.get_model_params(exclude_buffers=False)
+            local_params = self.training_plan().local_params
+            weights = self._training_plan.get_model_params(
+                exclude_buffers=False, local_params=local_params
+            )
             yield
             try:
-                self._training_plan.set_model_params(weights)
+                self._training_plan.set_model_params(weights, local_params=local_params)
             except Exception as e:
                 msg = (
                     f"{ErrorNumbers.FB410.value}. Attempting to keep same weights even though model has changed "

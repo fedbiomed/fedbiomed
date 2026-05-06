@@ -90,6 +90,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         training_args: TrainingArgs,
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
+        node_id: Optional[str] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -103,7 +104,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             initialize_optimizer: Unused.
         """
         model_args.setdefault("verbose", 1)
-        super().post_init(model_args, training_args, aggregator_args)
+        super().post_init(model_args, training_args, aggregator_args, node_id=node_id)
         self._model = SkLearnModel(self._model_cls)
         self._batch_maxnum = self._training_args.get("batch_maxnum", self._batch_maxnum)
         self._warn_about_training_args()
@@ -121,6 +122,23 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._model.set_params(**params)
         # Set up additional parameters (normally created by `self._model.fit`).
         self._model.set_init_params(model_args)
+        logger.debug(
+            "Sklearn training plan post_init: "
+            f"model_cls={self._model_cls.__name__} "
+            f"model_args_keys={sorted((model_args or {}).keys())} "
+            f"batch_maxnum={self._batch_maxnum} "
+            f"optimizer_wrapper={type(self._optimizer).__name__ if self._optimizer is not None else None} "
+            f"initialize_optimizer={initialize_optimizer}"
+        )
+        # Configure the parameters tagged as local
+        self._local_params = list(
+            self.filter_model_params_by_tags(
+                self.get_model_params(
+                    only_trainable=False, exclude_buffers=False, local_params=None
+                ),
+                required_tags={"local"},
+            ).keys()
+        )
 
     def set_data_loaders(
         self,
@@ -209,6 +227,12 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # then build optimizer wrapper given model and optimizer
         self._optimizer = optim_builder.build(self._type, self._model, optimizer)
+        logger.debug(
+            "Sklearn optimizer configured: "
+            f"model_cls={self._model_cls.__name__} "
+            f"optimizer_type={type(optimizer).__name__ if optimizer is not None else None} "
+            f"wrapper_type={type(self._optimizer).__name__ if self._optimizer is not None else None}"
+        )
 
     def init_optimizer(self) -> Optional[FedOptimizer]:
         """Creates and configures optimizer. By default, returns None (meaning native inner scikit
@@ -237,9 +261,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 "Optimizer is None, please run `post_init` beforehand"
             )
 
-        # Run preprocesses
-        self._preprocess()
-
         # Warn if GPU-use was expected (as it is not supported).
         if node_args is not None and node_args.get("gpu_only", False):
             self._optimizer.send_to_device(
@@ -249,9 +270,28 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 "Node would like to force GPU usage, but sklearn training "
                 "plan does not support it. Training on CPU."
             )
+
+        logger.debug(
+            "Sklearn training routine start: "
+            f"model_cls={self._model_cls.__name__} "
+            f"train_loader_type={type(self.training_data_loader).__name__ if self.training_data_loader is not None else None} "
+            f"train_dataset_size={len(self.training_data_loader.dataset) if self.training_data_loader is not None and hasattr(self.training_data_loader, 'dataset') else None} "
+            f"history_monitor={history_monitor is not None} "
+            f"node_args_keys={sorted((node_args or {}).keys())}"
+        )
+
+        # Run preprocesses
+        self._preprocess()
+
         # Run the model-specific training routine.
         try:
-            return self._training_routine(history_monitor)
+            num_samples_trained = self._training_routine(history_monitor)
+            logger.debug(
+                "Sklearn training routine completed: "
+                f"model_cls={self._model_cls.__name__} "
+                f"num_samples_trained={num_samples_trained}"
+            )
+            return num_samples_trained
         except Exception as exc:
             msg = f"{ErrorNumbers.FB605.value}: error while fitting the model: {exc}"
             logger.critical(msg)

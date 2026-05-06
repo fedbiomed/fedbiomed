@@ -1,33 +1,32 @@
 import unittest
 from itertools import product
-from unittest.mock import create_autospec, MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 from declearn.model.api import Vector
-
-from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedExperimentError
-from fedbiomed.common.training_args import TrainingArgs
-from fedbiomed.common.metrics import MetricTypes
-
-from fedbiomed.researcher.aggregators.aggregator import Aggregator
-from fedbiomed.researcher.datasets import FederatedDataSet
-
-from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
-from fedbiomed.researcher.monitor import Monitor
-from fedbiomed.researcher.node_state_agent import NodeStateAgent
+from declearn.optimizer.modules import AuxVar
 from testsupport.base_mocks import MockRequestModule
 from testsupport.fake_training_plan import (
-    FakeTorchTrainingPlan,
     FakeSKLearnTrainingPlan,
+    FakeTorchTrainingPlan,
 )
 
-
-from declearn.optimizer.modules import AuxVar
-
 import fedbiomed
-from fedbiomed.common.optimizers import AuxVar
+from fedbiomed.common.constants import PreprocType
+from fedbiomed.common.exceptions import (
+    FedbiomedExperimentError,
+    FedbiomedTypeError,
+    FedbiomedValueError,
+)
+from fedbiomed.common.metrics import MetricTypes
+from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.researcher.aggregators.aggregator import Aggregator
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
+from fedbiomed.researcher.monitor import Monitor
+from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.secagg._secure_aggregation import _SecureAggregation
+from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 
 
 class TestExperiment(unittest.TestCase, MockRequestModule):
@@ -70,7 +69,11 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         )  # set by default
 
         # Test all possible combinations of init arguments
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = {
+            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}],
+            "node-2": [{"dataset_id": "dataset-id-2", "shape": [120, 120]}],
+        }
+
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
         _aggregator.aggregator_name = "mock aggregator"
@@ -93,30 +96,48 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             "retain_full_history": (True, False),
         }  # some of the parameters which have already been tested in FederatedWorkflow have been simplified here
         # Compute cartesian product of parameter values to obtain all possible combinations
-        keys, values = zip(*parameters_and_possible_values.items())
-        all_parameter_combinations = [dict(zip(keys, v)) for v in product(*values)]
+        keys, values = zip(*parameters_and_possible_values.items(), strict=True)
+        all_parameter_combinations = [
+            dict(zip(keys, value_combination, strict=True))
+            for value_combination in product(*values)
+        ]
         for params in all_parameter_combinations:
             try:
                 exp = Experiment(**params)
-            except SystemExit as e:
+            except Exception as e:
                 print(
                     f"Could not instantiate Experiment: exception {e} raised with the following constructor"
                     f"arguments:\n {params}"
                 )
                 raise e
 
+    def test_experiment_01_delete(self):
+        """Tests deletion of Experiment object"""
+
+        exp = Experiment()
+        requests = exp.requests
+
+        with patch(
+            "fedbiomed.researcher.federated_workflows._experiment.isinstance"
+        ) as mock_isinstance:
+            mock_isinstance.return_value = True
+            del exp
+
+        requests.remove_monitor_callback.assert_called_once()
+
     def test_experiment_02_set_aggregator(self):
         """Tests setting the Experiment's aggregator and related side effects"""
         exp = Experiment()
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = {
+            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}]
+        }
         exp.set_training_data(_training_data)
-
         # test default case
         exp.set_aggregator()
         self.assertIsInstance(
             exp.aggregator(), fedbiomed.researcher.aggregators.FedAverage
         )
-        self.assertEqual(exp.aggregator()._fds, _training_data)
+        self.assertEqual(exp.aggregator()._fds, exp._fds)
 
         # setting through an object instance
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
@@ -135,14 +156,14 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             aggregator_name = "aggregator"
             is_set_fds_called = False
 
-            def set_fds(self, fds: FederatedDataSet) -> FederatedDataSet:
+            def set_fds(self, fds: FederatedDataset) -> FederatedDataset:
                 if not self.is_set_fds_called:
                     self.is_set_fds_called = True
                 return super().set_fds(fds)
 
         _aggregator_class = FakeAggregator
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_aggregator(_aggregator_class)
 
         exp.set_aggregator(FakeAggregator())
@@ -155,7 +176,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp.set_aggregator(_aggregator)
         exp.set_training_data(_training_data)
         _aggregator.set_fds.assert_called_with(exp.training_data())
-        self.assertEqual(_aggregator.set_fds.call_count, 2)
+        self.assertEqual(_aggregator.set_fds.call_count, 1)
 
     def test_experiment_03_set_strategy(self):
         """Tests setting the Experiment's node selection strategy and related side effects"""
@@ -188,7 +209,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _strategy_class = MagicMock()
         _strategy_class.return_value = _strategy
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_strategy(FakeStrategy)
 
         exp.set_strategy(FakeStrategy())
@@ -197,7 +218,9 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
     #    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
     def test_experiment_04_run_once_base_case(self):
         """Tests run once method of experiment"""
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = {
+            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}]
+        }
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
         _aggregator.aggregator_name = "mock-aggregator"
         _strategy = MagicMock(
@@ -215,13 +238,13 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         )
 
         # Test error case -------------------------------
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.run_once(increase="invalid-type")
         # ------------------------------------------------
 
         # Test if no training nodes are returned from strategy.sample_nodes ---
         _strategy.sample_nodes.return_value = []
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.run_once()
         _strategy.sample_nodes.return_value = ["node-1", "node-2"]
         # ---------------------------------------------------------------------
@@ -232,9 +255,9 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Check if it raises if there is missing object block --------
         exp._fds = None
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(AttributeError):
             exp.run_once()
-        exp._fds = _training_data
+        exp._fds = FederatedDataset(_training_data)
         # -------------------------------------------------------------
 
         # Run experiment ----------------------------------------------
@@ -274,6 +297,16 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertEqual(exp._round_limit, 3)
         # ------------------------------------------------------------
 
+        # Run once with preprocessing --------------------------------
+        _preproc = MagicMock(
+            spec=fedbiomed.researcher.federated_workflows.preproc.FedCombatPreproc
+        )
+        _preproc.execute.return_value = True
+        exp._fed_preproc = _preproc
+        exp.run_once(increase=True)
+        _preproc.execute.assert_called_once()
+        exp.set_preprocessing(PreprocType.NONE)
+
         # Run once with secure aggregation ----------------------------------------
         secagg = MagicMock(spec=_SecureAggregation, instance=True)
         type(secagg).active = True
@@ -310,12 +343,27 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertEqual(self.mock_job.return_value.execute.call_count, 2)
         # 4 replies also from previous executions
         self.assertEqual(
-            len(exp.training_replies()), 5
+            len(exp.training_replies()), 6
         )  # validation replies are not saved
         _strategy.refine.assert_called_once()
         _aggregator.aggregate.assert_called_once()
         exp.training_plan().set_model_params.assert_called_once()
-        self.assertEqual(exp.round_current(), 6)
+        self.assertEqual(exp.round_current(), 7)
+        # ------------------------------------------------------------------------
+
+        # Test run_once with local parameters ------------------------------------
+        self.mock_job.reset_mock()
+        _strategy.reset_mock()
+        _aggregator.reset_mock()
+        exp.training_plan().reset_mock()
+        self.mock_tp._local_params = ["layer1.weight"]
+        type(self.mock_tp).local_params = PropertyMock(
+            return_value=self.mock_tp._local_params
+        )
+
+        exp.run_once(increase=True)
+        _, kwargs = exp.training_plan().set_model_params.call_args
+        self.assertEqual(kwargs["local_params"], ["layer1.weight"])
         # ------------------------------------------------------------------------
 
     def test_experiment_05_run(self):
@@ -359,13 +407,13 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # wrong argument types
         with patch.object(exp, "run_once", return_value=1) as mock_run_once:
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.run(rounds=-1)
                 self.assertFalse(mock_run_once.called)
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.run(rounds="one")
                 self.assertFalse(mock_run_once.called)
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.run(increase="True")
                 self.assertFalse(mock_run_once.called)
 
@@ -397,14 +445,16 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Tests if run once return 0
         with patch.object(exp, "run_once", return_value=0) as mock_run_once:
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(FedbiomedExperimentError):
                 exp.set_round_limit(exp.round_current() + 1)
                 x = exp.run()
 
     def test_experiment_06_run_once_special_cases(self):
         """Tests running experiment special casses"""
 
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = {
+            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}]
+        }
         _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
         _aggregator.aggregator_name = "mock-aggregator"
         _aggregator.create_aggregator_args.return_value = ({}, {})
@@ -449,7 +499,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         )
         with patch.object(FedbiomedExperimentError, "__init__") as patch_exc:
             patch_exc.return_value = None  # __init__ must return None
-            self.assertRaises(SystemExit, exp.run_once)
+            self.assertRaises(FedbiomedExperimentError, exp.run_once)
         patch_exc.assert_called_once()
         error_msg = patch_exc.call_args[0][0]
         self.assertTrue(
@@ -520,7 +570,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         )
 
         # Test if current round is less than 1 meaning that there is no round ran
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp._set_round_current(0)
             exp.breakpoint()
         # ----------------------------------------------------------------------
@@ -529,11 +579,11 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         with (
             patch.object(
                 exp, "save_aggregated_params", return_value={"agg_params": "bkpt"}
-            ) as mock_agg_param_save,
+            ),
             patch.object(
                 exp, "save_training_replies", return_value={"replies": "bkpt"}
-            ) as mock_save_replies,
-            patch.object(exp, "training_plan") as mock_tp,
+            ),
+            patch.object(exp, "training_plan"),
         ):
             exp.breakpoint()
 
@@ -579,6 +629,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
                     0: {"node1": {"params_path": "bkpt", "other": "reply-data"}}
                 },
             },
+            "some-exp-tempo-id",
         )
 
         def _gen():
@@ -598,8 +649,8 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         with patch.object(
             Experiment, "_create_object", new=create_strategy_then_aggregator
-        ) as mock_creat:
-            exp = Experiment.load_breakpoint()
+        ):
+            Experiment.load_breakpoint()
 
     def test_experiment_11_testing_args(self):
         """Tests training arguments setter and getter"""
@@ -633,7 +684,8 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp.set_test_on_global_updates(False)
         self.assertFalse(exp.test_on_global_updates())
 
-    def test_experiment_12_set_agg_optimizer(self):
+    @patch("fedbiomed.researcher.experiment.logger.warning")
+    def test_experiment_12_set_agg_optimizer(self, mock_warning):
         """Tests setting aggregator optimizer"""
 
         exp = Experiment()
@@ -648,25 +700,33 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertIsNone(exp._agg_optimizer)
 
         invalid_type_optimizer = MagicMock()
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.set_agg_optimizer(invalid_type_optimizer)
 
         # Check getter
         exp._agg_optimizer = _agg_optim
         self.assertEqual(exp.agg_optimizer(), _agg_optim)
 
+        # Check warning if optimizer is set with a local parameters in training plan
+        mock_tp = MagicMock()
+        mock_tp._local_params = ["layer.weight"]
+        exp._training_plan = mock_tp
+        exp.set_agg_optimizer(_agg_optim)
+
+        mock_warning.assert_called_once()
+
     def test_experiment_13_set_round_limit(self):
         """Tests setting round limit"""
 
         # Normal good case
         exp = Experiment()
-        limit = exp.set_round_limit(2)
+        exp.set_round_limit(2)
         self.assertEqual(exp._round_limit, 2)
 
         # Test if round limit less than current round number
         exp._round_current = 2
-        with self.assertRaises(SystemExit):
-            limit = exp.set_round_limit(1)
+        with self.assertRaises(FedbiomedValueError):
+            exp.set_round_limit(1)
 
         # Test setting it to None
         exp.set_round_limit(None)
@@ -682,7 +742,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
 
         # Exception if round limit is less than round current
         exp._round_limit = 4
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp._set_round_current(5)
 
         # Check monitor called correctly
@@ -699,7 +759,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp._monitor.set_tensorboard.assert_called_once_with(True)
 
         # Invalid type
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.set_tensorboard("oops")
 
     def test_experiment_16_set_retain_full_history(self):
@@ -710,7 +770,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertTrue(exp.retain_full_history())
 
         # Tests setting invalid type
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             exp.set_retain_full_history("invalid_type")
 
     def test_experiment_17_commit_experiment_history(self):
@@ -769,20 +829,18 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp = Experiment()
 
         # Error case invalid aggregated params
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.save_aggregated_params("boom", path)
 
         # Error case invalid path
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.save_aggregated_params(params, True)
 
         # Error case invalid params
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.save_aggregated_params({"x": 1}, path)
 
-        with patch(
-            "fedbiomed.researcher.federated_workflows._experiment.Serializer"
-        ) as ser:
+        with patch("fedbiomed.researcher.federated_workflows._experiment.Serializer"):
             aggregated_params = exp.save_aggregated_params(params, path)
 
         self.assertTrue(0 in aggregated_params)
@@ -796,7 +854,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp = Experiment()
 
         # Invalid type of aggregated params
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp._load_aggregated_params(None)
 
         with patch(
@@ -829,8 +887,6 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
     def test_experiment_22_load_optimizer(self):
         """Tests loading experiment"""
 
-        path = "sate-path"
-
         exp = Experiment()
         r = exp._load_optimizer(None)
         self.assertIsNone(r)
@@ -839,9 +895,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             patch(
                 "fedbiomed.researcher.federated_workflows._experiment.Optimizer"
             ) as opt,
-            patch(
-                "fedbiomed.researcher.federated_workflows._experiment.Serializer"
-            ) as ser,
+            patch("fedbiomed.researcher.federated_workflows._experiment.Serializer"),
         ):
             exp._load_optimizer("state-path")
             opt.load_state.assert_called_once()
@@ -850,25 +904,123 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         """Tests updating node state agent"""
 
         state_agent = MagicMock(spec=NodeStateAgent)
-        exp = Experiment()
+        exp = Experiment(training_data={"node-1": {"xx": "xx"}, "node-2": {"yy": "yy"}})
         exp._node_state_agent = state_agent
-
-        with patch.object(exp, "all_federation_nodes") as afn:
-            afn.return_value = ["node-1", "node-2"]
-            exp._update_nodes_states_agent(before_training=True, training_replies=None)
-            state_agent.update_node_states.assert_called_once()
-
-        # Test if training replies None while before_training=False
-        with self.assertRaises(FedbiomedValueError):
-            exp._update_nodes_states_agent(False, None)
-
         # Test normal case
         state_agent.reset_mock()
-        with patch.object(exp, "all_federation_nodes") as afn:
-            afn.return_value = ["node-1", "node-2"]
-            exp._update_nodes_states_agent(False, {"hello": "world"})
-            state_agent.update_node_states.assert_called_once_with(
-                ["node-1", "node-2"], {"hello": "world"}
+        exp._update_nodes_states_agent({"hello": "world"})
+        state_agent.update_node_states.assert_called_once_with({"hello": "world"})
+
+    def test_experiment_24_aggregate_encrypted_model_params_passes_local_params(self):
+        """Test _aggregate_encrypted_model_params_and_optim_auxvar forwards local_params.
+
+        Verifies that both flatten() (on get_model_wrapper_class()) and unflatten()
+        receive the local_params from the training plan.
+        """
+        exp = Experiment()
+
+        # Mock secagg
+        mock_secagg = MagicMock(spec=_SecureAggregation)
+        mock_secagg.aggregate.return_value = [0.0, 1.0]
+        exp._secagg = mock_secagg
+
+        # training_args share_persistent_buffers
+        exp._training_args = MagicMock()
+        exp._training_args.__getitem__ = MagicMock(
+            side_effect=lambda k: True if k == "share_persistent_buffers" else None
+        )
+
+        # Training plan with non-empty local_params
+        local = ["fc.bias"]
+        mock_tp = MagicMock()
+        mock_tp._local_params = local
+        type(mock_tp).local_params = PropertyMock(return_value=mock_tp._local_params)
+
+        # Model wrapper: flatten returns a size-2 list, unflatten returns a dict
+        mock_wrapper = MagicMock()
+        mock_wrapper.flatten.return_value = [0.0, 1.0]
+        mock_wrapper.unflatten.return_value = {"fc1.weight": 0.0, "fc2.weight": 1.0}
+        mock_tp.get_model_wrapper_class.return_value = mock_wrapper
+
+        exp.training_plan = MagicMock(return_value=mock_tp)
+
+        aggregated_params, aggregated_auxvar = (
+            exp._aggregate_encrypted_model_params_and_optim_auxvar(
+                model_params={"node-1": [0, 1]},
+                optim_auxvar={},
+                encryption_factors=None,
+                total_sample_size=10,
+            )
+        )
+
+        # flatten must have been called with local_params=local
+        flatten_kwargs = mock_wrapper.flatten.call_args
+        self.assertEqual(
+            flatten_kwargs.kwargs.get("local_params"),
+            local,
+            "flatten() was not called with the correct local_params",
+        )
+
+        # unflatten must have been called with local_params=local
+        unflatten_kwargs = mock_wrapper.unflatten.call_args
+        self.assertEqual(
+            unflatten_kwargs.kwargs.get("local_params"),
+            local,
+            "unflatten() was not called with the correct local_params",
+        )
+        self.assertIsNone(aggregated_auxvar)
+
+    def test_experiment_25_run_agg_optimizer_passes_local_params(self):
+        """Test that _run_agg_optimizer filters model params through local_params.
+
+        Two sub-cases:
+        A. No agg_optimizer set: returns aggregated_params unchanged.
+        B. agg_optimizer set with local_params: get_model_params called with
+           local_params on both the trainable-only and full-params calls.
+        """
+        exp = Experiment()
+
+        aggregated_params = {"fc.weight": MagicMock(), "fc.bias": MagicMock()}
+
+        # A. No optimizer
+        exp._agg_optimizer = None
+        mock_tp_no_optim = MagicMock()
+        result = exp._run_agg_optimizer(mock_tp_no_optim, aggregated_params)
+        self.assertEqual(result, aggregated_params)
+        mock_tp_no_optim.get_model_params.assert_not_called()
+
+        # B. Optimizer set: local_params must propagate
+        local = ["fc.bias"]
+        mock_tp = MagicMock()
+        mock_tp._local_params = local
+        type(mock_tp).local_params = PropertyMock(return_value=mock_tp._local_params)
+
+        # get_model_params returns params compatible with Vector.build
+        param_tensor = MagicMock()
+        mock_tp.get_model_params.return_value = {"fc.weight": param_tensor}
+
+        _agg_optim = MagicMock(spec=fedbiomed.common.optimizers.Optimizer)
+        mock_update = MagicMock()
+        mock_update.coefs = {}
+        _agg_optim.step.return_value = mock_update
+
+        exp._agg_optimizer = _agg_optim
+
+        with patch.object(Vector, "build", return_value=MagicMock()):
+            exp._run_agg_optimizer(mock_tp, aggregated_params)
+
+        # Both get_model_params calls must include local_params=local
+        calls = mock_tp.get_model_params.call_args_list
+        self.assertGreaterEqual(
+            len(calls),
+            2,
+            "Expected at least two get_model_params calls",
+        )
+        for call in calls:
+            self.assertEqual(
+                call.kwargs.get("local_params"),
+                local,
+                f"get_model_params was called without local_params=local: {call}",
             )
 
 

@@ -11,10 +11,6 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 
 def test_complete_initialization_wires_controller_and_validates(mocker):
-    ds = TabularDataset(
-        input_columns=["data"], target_columns=["target"], transform=None
-    )
-
     df = pl.DataFrame({"data": [1], "target": [2]})
 
     # Stub a controller that returns a sample
@@ -27,6 +23,15 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
             return cols
 
     captured_kwargs = {}
+
+    mock_logger_warning = mocker.patch(
+        "fedbiomed.common.dataset._tabular_dataset.logger.warning"
+    )
+
+    # 1. base test
+    ds = TabularDataset(
+        input_columns=["data"], target_columns=["target"], transform=None
+    )
 
     def fake_init_controller(*, controller_kwargs):
         captured_kwargs.update(controller_kwargs)
@@ -45,6 +50,60 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
 
     # The kwargs were enriched with columns
     assert captured_kwargs["root"] == "/path"
+
+    mock_logger_warning.assert_not_called()
+
+    # 2. test with duplicate column
+
+    ds = TabularDataset(
+        input_columns=["data", "target"], target_columns=["target"], transform=None
+    )
+
+    def fake_init_controller(*, controller_kwargs):
+        captured_kwargs.update(controller_kwargs)
+        ds._controller = StubController()
+
+    # Patch instance methods
+    mocker.patch.object(ds, "_init_controller", side_effect=fake_init_controller)
+
+    ds.complete_initialization(
+        controller_kwargs={"root": "/path"},
+        to_format=DataReturnFormat.SKLEARN,
+    )
+
+    mock_logger_warning.assert_called_once()
+
+
+def test_complete_initialization_raises_if_sample_multiline(mocker):
+    # Sample with multiple rows (instead of single-row)
+    df = pl.DataFrame({"col1": [1, 2], "col2": [2, 3], "col3": [3, 4]})
+
+    class StubController:
+        def get_sample(self, idx):
+            # Returns 2 rows
+            return df
+
+        def normalize_columns(self, cols):
+            return cols
+
+    ds = TabularDataset(input_columns=["col1"], target_columns=["col3"], transform=None)
+
+    mocker.patch.object(
+        ds,
+        "_init_controller",
+        side_effect=lambda controller_kwargs: setattr(
+            ds, "_controller", StubController()
+        ),
+    )
+
+    # Patch validation to avoid unrelated errors if it were called
+    mocker.patch.object(ds, "_validate_format_and_transformations")
+
+    with pytest.raises(FedbiomedError) as exc:
+        ds.complete_initialization(
+            controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
+        )
+    assert "TabularDataset currently only supports row-wise samples" in str(exc.value)
 
 
 # ---------- _get_format_conversion_callable ----------
@@ -386,3 +445,36 @@ def test_apply_transforms_error_cases(mocker):
         ds.apply_transforms(sample)
 
     assert "Failed to apply default training plan types to `target`" in str(exc4.value)
+
+
+# ---------- analytics ----------
+
+
+def test_analytics_schema(mocker):
+    ds = TabularDataset(input_columns=["a"], target_columns=["b"])
+
+    class StubController:
+        def normalize_columns(self, cols):
+            return [c + "_norm" for c in cols]
+
+    ds._controller = StubController()
+    ds._input_columns = ds._controller.normalize_columns(ds._input_columns)
+    ds._target_columns = ds._controller.normalize_columns(ds._target_columns)
+
+    input_spec, target_spec = ds.analytics_schema()
+    assert input_spec.columns == ["a_norm"]
+    assert target_spec is None
+
+
+def test_analytics_schema_no_target(mocker):
+    ds = TabularDataset(input_columns=["a"], target_columns=None)
+
+    class StubController:
+        def normalize_columns(self, cols):
+            return [c + "_norm" for c in cols]
+
+    ds._controller = StubController()
+    ds._input_columns = ds._controller.normalize_columns(ds._input_columns)
+
+    input_spec, target_spec = ds.analytics_schema()
+    assert input_spec.columns == ["a_norm"]

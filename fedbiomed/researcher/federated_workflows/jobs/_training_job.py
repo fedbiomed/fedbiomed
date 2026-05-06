@@ -11,7 +11,7 @@ from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.requests import MessagesByNode
 
 from ._job import Job
@@ -30,9 +30,10 @@ class TrainingJob(Job):
         training_plan: BaseTrainingPlan,
         training_args: TrainingArgs,
         model_args: Optional[dict],
-        data: FederatedDataSet,
+        data: FederatedDataset,
         nodes_state_ids: Dict[str, str],
         aggregator_args: Dict[str, Dict[str, Any]],
+        keep_files_dir: str,
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, AuxVar]] = None,
@@ -50,14 +51,14 @@ class TrainingJob(Job):
             data: metadata of the federated data set
             nodes_state_ids: unique IDs of the node states saved remotely
             aggregator_args: aggregator arguments required for remote execution
+            keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
+                of the job.
             secagg_arguments: Secure aggregation arguments, some depending on scheme used
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
                 Note that such variables may only be used if both the Experiment and node-side training plan
                 hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
                 are coherent with each other as to expected information exchange.
-            *args: Positional argument of parent class
-                [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
             **kwargs: Named arguments of parent class. Please see
                 [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
         """
@@ -76,6 +77,7 @@ class TrainingJob(Job):
         )  # Assign empty dict to secagg arguments if it is None
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
+        self._keep_files_dir = keep_files_dir
 
     def _get_training_results(
         self,
@@ -150,7 +152,8 @@ class TrainingJob(Job):
             "params": self._training_plan.get_model_params(
                 exclude_buffers=not self._training_args.dict()[
                     "share_persistent_buffers"
-                ]
+                ],
+                local_params=self._training_plan.local_params,
             ),
             "secagg_arguments": self._secagg_arguments,
             "aggregator_args": {},

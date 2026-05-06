@@ -1,4 +1,6 @@
+# This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
+
 
 """Common CLI Modules
 
@@ -117,7 +119,6 @@ class ComponentDirectoryAction(ABC, argparse.Action):
         self.set_component(component_dir)
 
         # this may be changed on command line or in the config_node.ini
-        logger.setLevel("DEBUG")
 
 
 class CommonCLI:
@@ -135,6 +136,10 @@ class CommonCLI:
         self._certificate_manager: CertificateManager = CertificateManager()
         self._description: str = ""
         self._args = None
+        if os.environ.get("FBM_DEBUG", "").lower() in ("1", "true", "yes"):
+            logger.setLevel("DEBUG")
+        else:
+            logger.setLevel("INFO")
 
     @property
     def parser(self) -> argparse.ArgumentParser:

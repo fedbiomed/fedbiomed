@@ -29,6 +29,7 @@ import PasswordChange from "./pages/authentication/PasswordChange";
 import UserInfo from "./pages/authentication/UserInfo";
 import UserManagement from "./pages/admin/UserManagement";
 import AccountRequestManagement from "./pages/admin/AccountRequestManagement";
+import SecurityLogs from "./pages/admin/SecurityLogs";
 import UserAccount from './pages/authentication/UserAccount';
 
 
@@ -54,6 +55,7 @@ function App(props) {
                       <Route path={"change-password"} element={<PasswordChange/>} />
                       <Route path={"user-management"} element={<AdminProtected redirect_to={'/user-account'}><UserManagement/></AdminProtected>}/>
                       <Route path={"account-requests"} element={<AdminProtected redirect_to={'/user-account'}><AccountRequestManagement/></AdminProtected>}/>
+                      <Route path={"security-logs"} element={<AdminProtected redirect_to={'/user-account'}><SecurityLogs/></AdminProtected>}/>
                   </Route>
                   <Route path="/repository/" element={<Repository/>} />
                   <Route path="/training-plans/" element={<TrainingPlans/>} />

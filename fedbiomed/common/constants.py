@@ -85,7 +85,7 @@ SERVER_certificate_prefix = "server_certificate"
 # 2. bump the version below: if your change breaks backward compatibility you must increase the
 # major version, else the minor version. Micro versions are supported but their use is currently discouraged.
 
-__version__ = FBM_Component_Version(__version__)  # Fed-BioMed software version
+__version__ = FBM_Component_Version(__version__)  # type: ignore[assignment]  # Fed-BioMed software version
 
 """
 !IMPORTANT!
@@ -94,11 +94,11 @@ __version__ = FBM_Component_Version(__version__)  # Fed-BioMed software version
 __researcher_config_version__ = FBM_Component_Version(
     "3.1.0"
 )  # researcher config file version
-__node_config_version__ = FBM_Component_Version("2")  # node config file version
+__node_config_version__ = FBM_Component_Version("2.3.0")  # node config file version
 
 __node_state_version__ = FBM_Component_Version("2")  # node state version
-__breakpoints_version__ = FBM_Component_Version("3")  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version("6")  # format of gRPC messages.
+__breakpoints_version__ = FBM_Component_Version("4")  # breakpoints format version
+__messaging_protocol_version__ = FBM_Component_Version("7")  # format of gRPC messages.
 __secagg_element_version__ = FBM_Component_Version(
     "2"
 )  # format of secagg database elements
@@ -164,8 +164,8 @@ class ComponentType(_BaseEnum):
         NODE: Node component
     """
 
-    RESEARCHER: int = 1
-    NODE: int = 2
+    RESEARCHER = 1
+    NODE = 2
 
 
 class HashingAlgorithms(_BaseEnum):
@@ -209,6 +209,7 @@ class TrainingPlanApprovalStatus(_BaseEnum):
     REJECTED = "Rejected"
     PENDING = "Pending"
 
+    @staticmethod
     def str2enum(name: str):
         for e in TrainingPlanApprovalStatus:
             if e.value == name:
@@ -280,16 +281,23 @@ class DatasetTypes(_BaseEnum):
     DEFAULT = "default"
     MEDNIST = "mednist"
     MEDICAL_FOLDER = "medical-folder"
-    TEST = "test"
+    CUSTOM = "custom"
     NONE = "none"
+
+    @staticmethod
+    def get_type_by_value(value: str):
+        for dataset_type in DatasetTypes:
+            if dataset_type.value == value:
+                return dataset_type
+        return None
 
 
 class SecureAggregationSchemes(_BaseEnum):
     """Enumeration class for secure aggregation schemes"""
 
-    NONE: int = 0
-    JOYE_LIBERT: int = 1
-    LOM: int = 2
+    NONE = 0
+    JOYE_LIBERT = 1
+    LOM = 2
 
 
 class SecaggElementTypes(_BaseEnum):
@@ -300,14 +308,35 @@ class SecaggElementTypes(_BaseEnum):
         DIFFIE_HELLMAN: one pair of DH key for each node party, public key shared with other node parties
     """
 
-    SERVER_KEY: int = 0
-    DIFFIE_HELLMAN: int = 1
+    SERVER_KEY = 0
+    DIFFIE_HELLMAN = 1
 
     @staticmethod
     def get_element_from_value(element_value: int):
         for element in SecaggElementTypes:
             if element.value == element_value:
                 return element
+
+
+class PreprocType(_BaseEnum):
+    """Enumeration class for dataset preprocessing types"""
+
+    NONE = 0
+    FEDCOMBAT = 1
+
+
+class PreprocStep(_BaseEnum):
+    """Abstract base enumeration class for dataset preprocessing steps"""
+
+
+class HarmonizationStep(PreprocStep):
+    """Enumeration class for dataset preprocessing steps"""
+
+    STANDARDIZE: int = 1
+    TRAIN: int = 2
+    RESID_VAR: int = 3
+    RESID_PARAMS: int = 4
+    FC_PARAMS: int = 5
 
 
 class SAParameters:
@@ -348,7 +377,8 @@ class ErrorNumbers(_BaseEnum):
     FB322 = "FB322: Dataset registration error"
     FB323 = "FB323: Node State error"
     FB324 = "FB324: Node to node overlay communication error"
-
+    FB325 = "FB325: Node federated analytics error"
+    FB326 = "FB326: Node Preprocessing error"
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
@@ -366,6 +396,7 @@ class ErrorNumbers(_BaseEnum):
     FB416 = "FB416: federated dataset error"
     FB417 = "FB417: secure aggregation error"
     FB419 = "FB419: node state agent error"
+    FB420 = "FB420: preprocessing error"
 
     # general application errors (common to node/researcher/..)
 
@@ -397,6 +428,7 @@ class ErrorNumbers(_BaseEnum):
     FB630 = "FB630: Additive Secret Sharing error"
     FB631 = "FB631: Node to node channels database error"
     FB632 = "FB632: Data handling error"
+    FB633 = "FB633: Federated Analytics error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 
@@ -423,3 +455,19 @@ class UserRequestStatus(str, _BaseEnum):
 
     NEW = "NEW"
     REJECTED = "REJECTED"
+
+
+class Stats(_BaseEnum):
+    """Enumeration class for Federated Analytics types
+
+    Attributes:
+        COUNT: Count of values
+        MEAN: Mean value
+        VARIANCE: Variance of values
+        HISTOGRAM: histogram of values
+    """
+
+    COUNT = "count"
+    MEAN = "mean"
+    VARIANCE = "variance"
+    HISTOGRAM = "histogram"

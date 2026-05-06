@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
 import torch
 
+from fedbiomed.common.analytics import AnalyticsOrchestrator
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import Controller
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
@@ -44,7 +45,11 @@ class Dataset(ABC):
 
     # === Abstract functions ===
     @abstractmethod
-    def complete_initialization(self) -> None:
+    def complete_initialization(
+        self,
+        controller_kwargs: Dict[str, Any],
+        to_format: DataReturnFormat,
+    ) -> None:
         """Finalize initialization of object to be able to recover items"""
         # Recover sample and validate consistency of transforms
         pass
@@ -276,7 +281,7 @@ class Dataset(ABC):
                 f"{ErrorNumbers.FB632.value}: Failed to create Controller. {e}"
             ) from e
 
-    def apply_transforms(self, sample: Dict[str, Any]) -> None:
+    def apply_transforms(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Apply transforms to sample in place
 
         Args:
@@ -305,27 +310,66 @@ class Dataset(ABC):
                 f"in sample in {self._to_format.value} format."
             ) from e
 
-        try:
-            sample["target"] = self._target_transform(
-                self._get_default_types_callable()(
-                    self._get_format_conversion_callable()(sample["target"])
+        if sample.get("target") is not None:
+            try:
+                sample["target"] = self._target_transform(
+                    self._get_default_types_callable()(
+                        self._get_format_conversion_callable()(sample["target"])
+                    )
                 )
-            )
-        except Exception as e:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform` to "
-                f"`target` in sample in {self._to_format.value} format."
-            ) from e
+            except Exception as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to apply `target_transform` to "
+                    f"`target` in sample in {self._to_format.value} format."
+                ) from e
 
-        try:
-            sample["target"] = self._get_default_types_callable()(sample["target"])
-        except Exception as e:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types to `target` "
-                f"in sample in {self._to_format.value} format."
-            ) from e
+            try:
+                sample["target"] = self._get_default_types_callable()(sample["target"])
+            except Exception as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types to `target` "
+                    f"in sample in {self._to_format.value} format."
+                ) from e
 
         return sample
 
+    def compute_stats(
+        self,
+        dataset_schema: Optional[Union[str, List[str], Dict[str, Any]]] = None,
+        stats: Optional[List[str]] = None,
+        stats_args: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Computes statistics over the dataset using the AnalyticsOrchestrator.
+
+        Args:
+            schema_args: Selection arguments to filter the schema (e.g. subset of columns/keys).
+            stats: List of statistics names to compute (e.g. ['mean', 'std']).
+                   If None or empty, default statistics are chosen based on data type.
+            stats_args: Specific arguments for statistics, structured matching the schema.
+
+        Returns:
+            Computed statistics structure.
+
+        Raises:
+            FedbiomedError: If the dataset does not support analytics (missing get_schema_for_analytics).
+        """
+        orchestrator = AnalyticsOrchestrator()
+        return orchestrator.compute_stats(
+            self,
+            dataset_schema=dataset_schema,
+            stats=stats,
+            stats_args=stats_args,
+        )
+
     def __len__(self) -> int:
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
+            )
         return len(self._controller)
+
+    def __iter__(self):
+        """Iterator to properly control iteration over dataset items."""
+        for idx in range(len(self)):
+            yield self[idx]

@@ -1,8 +1,10 @@
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 
 from fedbiomed.common.dataset import MedicalFolderDataset
+from fedbiomed.common.dataset._medical_folder_dataset import _to_numpy
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
@@ -23,6 +25,9 @@ class DummyController:
     def get_sample(self, idx):
         return self.samples[idx]
 
+    def demographics_columns_names(self):
+        return ["age", "sex"]
+
     def __len__(self):
         return len(self.samples)
 
@@ -37,19 +42,19 @@ def sample_dict():
             "T1": DummyNifti(arr1),
             "T2": DummyNifti(arr2),
             "label": DummyNifti(arr_label),
-            "demographics": {"age": 30, "sex": "M"},
+            "demographics": pd.Series({"age": 30.0, "sex": 0.0}),
         },
         {
             "T1": DummyNifti(arr1 * 2),
             "T2": DummyNifti(arr2 * 2),
             "label": DummyNifti(arr_label + 1),
-            "demographics": {"age": 40, "sex": "F"},
+            "demographics": pd.Series({"age": 40.0, "sex": 1.0}),
         },
         {
             "T1": DummyNifti(arr1 * 3),
             "T2": DummyNifti(arr2 * 3),
             "label": DummyNifti(arr_label + 2),
-            "demographics": {"age": 50, "sex": "O"},
+            "demographics": pd.Series({"age": 50.0, "sex": 2.0}),
         },
     ]
 
@@ -217,10 +222,8 @@ def test_getitem_transform_error(monkeypatch, sample_dict, bad_transform):
 
 
 def test_demographics_transform(monkeypatch, sample_dict):
-    def demo_transform(demo):
-        dict_transform = {"M": 0, "F": 1, "O": 2}
-        demo["sex"] = dict_transform[demo["sex"]]
-        return np.array(demo["sex"])
+    def demo_transform(demo_arr):
+        return demo_arr * 2.0  # simple element-wise operation
 
     monkeypatch.setattr(
         MedicalFolderDataset,
@@ -238,10 +241,41 @@ def test_demographics_transform(monkeypatch, sample_dict):
 
     ds._to_format = DataReturnFormat.SKLEARN
     ds._controller = DummyController(sample_dict)
+    ages = [30.0, 40.0, 50.0]
     for idx in range(3):
         data, _ = ds.__getitem__(idx)
         assert "demographics" in data
-        assert data["demographics"] in [0, 1, 2]
+        assert isinstance(data["demographics"], np.ndarray)
+        # transform doubled the values; first element is age
+        assert data["demographics"][0] == ages[idx] * 2.0
+
+
+def test_demographics_transform_error(monkeypatch, sample_dict):
+    """Test that a failing demographics transform propagates as FedbiomedError"""
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", DummyController(sample_dict)
+        ),
+    )
+
+    ds = MedicalFolderDataset(
+        data_modalities=["demographics"],
+        target_modalities=None,
+        transform={"demographics": lambda x: (_ for _ in ()).throw(ValueError("fail"))},
+        target_transform=None,
+    )
+    ds._to_format = DataReturnFormat.SKLEARN
+    ds._controller = DummyController(sample_dict)
+
+    # After format conversion (pd.Series → ndarray via pd.Series.to_numpy),
+    # the transform itself raises; _validate_transformation wraps it in FedbiomedError.
+    sample = sample_dict[0]
+    data = {"demographics": sample["demographics"]}
+
+    with pytest.raises(FedbiomedError, match="Unable to apply transform"):
+        ds._validate_format_and_transformations(data, ds._transform)
 
 
 @pytest.mark.parametrize(
@@ -384,8 +418,9 @@ def test_process_sample_data(monkeypatch, sample_dict):
         ),
     )
 
-    def demo_transform(demo):
-        return np.array(demo["age"])
+    # After format conversion, demographics are np.ndarray [age, sex_encoded].
+    def demo_transform(demo_arr):
+        return demo_arr * 3.0  # arbitrary scalar op
 
     ds = MedicalFolderDataset(
         data_modalities=["T1", "demographics"],
@@ -406,10 +441,11 @@ def test_process_sample_data(monkeypatch, sample_dict):
     assert "demographics" in result
     assert isinstance(result["T1"], np.ndarray)
     assert isinstance(result["demographics"], np.ndarray)
-    assert result["demographics"] in [30, 40, 50]
-    # Check transform was applied (doubled)
+    # T1 transform doubled the values
     expected_t1 = np.ones((3, 4, 5)) * 2
     np.testing.assert_array_equal(result["T1"], expected_t1)
+    # demographics transform tripled the values; first element is age=30
+    assert result["demographics"][0] == 30.0 * 3.0
 
 
 def test_process_sample_data_transform_error(monkeypatch, sample_dict):
@@ -474,6 +510,46 @@ def test_native_to_framework_conversions(sample_dict):
     expected_torch = torch.from_numpy(dummy_nifti.get_fdata())
     assert torch.equal(result_torch, expected_torch)
     assert isinstance(result_torch, torch.Tensor)
+
+
+def test_to_numpy_nifti():
+    """_to_numpy dispatches to get_fdata() for NIfTI-like objects."""
+    arr = np.array([1.0, 2.0, 3.0])
+    result = _to_numpy(DummyNifti(arr))
+    np.testing.assert_array_equal(result, arr)
+
+
+def test_to_numpy_series():
+    """_to_numpy converts pd.Series demographics values into a numeric ndarray."""
+    series = pd.Series({"age": 30.0, "sex": 1.0})
+    result = _to_numpy(series)
+    np.testing.assert_array_equal(result, np.array([30.0, 1.0]))
+
+
+def test_to_numpy_dict_raises():
+    """_to_numpy raises FedbiomedError for plain dicts — demographics are now pd.Series."""
+    with pytest.raises(FedbiomedError, match="Unsupported type for format conversion"):
+        _to_numpy({"age": 30.0, "sex": 1.0})
+
+
+def test_to_numpy_unsupported_raises():
+    """_to_numpy raises FedbiomedError for unsupported types."""
+    with pytest.raises(FedbiomedError, match="Unsupported type for format conversion"):
+        _to_numpy(42)
+
+
+def test_native_to_framework_series():
+    """_native_to_framework handles pd.Series inputs for both formats."""
+    series = pd.Series({"age": 30.0, "sex": 1.0})
+    expected = np.array([30.0, 1.0])
+
+    sklearn_func = MedicalFolderDataset._native_to_framework[DataReturnFormat.SKLEARN]
+    np.testing.assert_array_equal(sklearn_func(series), expected)
+
+    torch_func = MedicalFolderDataset._native_to_framework[DataReturnFormat.TORCH]
+    result = torch_func(series)
+    assert isinstance(result, torch.Tensor)
+    assert torch.equal(result, torch.from_numpy(expected))
 
 
 def test_validate_format_and_transformations_target(monkeypatch, sample_dict):
@@ -638,3 +714,353 @@ def test_torch_format_conversion(monkeypatch, sample_dict):
     assert isinstance(target["label"], torch.Tensor)
     assert data["T1"].shape == torch.Size([3, 4, 5])
     assert target["label"].shape == torch.Size([3, 4, 5])
+
+
+def test_analytics_schema(monkeypatch, sample_dict):
+    """Test analytics_schema method"""
+    from fedbiomed.common.dataset_types import ImageSpec, RowSpec
+
+    class DummyDemographics:
+        columns = type("Columns", (), {"tolist": lambda: ["age", "sex"]})
+
+    class DummyControllerWithDemographics(DummyController):
+        demographics = DummyDemographics()
+
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", DummyControllerWithDemographics(sample_dict)
+        ),
+    )
+
+    ds = MedicalFolderDataset(
+        data_modalities=["T1", "demographics"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+
+    # Init controller
+    ds.complete_initialization({}, DataReturnFormat.SKLEARN)
+
+    schema, _ = ds.analytics_schema()
+
+    assert "T1" in schema
+    assert isinstance(schema["T1"], ImageSpec)
+    assert "demographics" in schema
+    assert isinstance(schema["demographics"], RowSpec)
+    assert schema["demographics"].columns == ["age", "sex"]
+
+
+def test_analytics_schema_error(monkeypatch):
+    """Test analytics_schema raises error if dataset not initialized"""
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+
+    with pytest.raises(
+        FedbiomedError, match="Dataset object has not completed initialization"
+    ):
+        ds.analytics_schema()
+
+
+def test_process_sample_data_default_types_error(monkeypatch, sample_dict):
+    """Test error when default types application fails after transform (dict case)"""
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", DummyController(sample_dict)
+        ),
+    )
+
+    # Transform returns a list, not ndarray. SKLEARN format expects ndarray.
+    def bad_transform(x):
+        return [1, 2, 3]  # Not np.ndarray
+
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=None,
+        transform={"T1": bad_transform},
+        target_transform=None,
+    )
+    ds._to_format = DataReturnFormat.SKLEARN
+    # Because to_format=SKLEARN, _default_types_sklearn is used.
+    # It checks isinstance(x, np.ndarray).
+
+    ds._controller = DummyController(sample_dict)
+
+    sample = sample_dict[0]
+
+    with pytest.raises(
+        FedbiomedError, match="Failed to apply default training plan types"
+    ):
+        ds._process_sample_data(sample, {"T1"}, ds._transform, idx=0)
+
+
+def test_process_sample_data_whole_dict_default_types_error(monkeypatch, sample_dict):
+    """Test error when default types application fails after transform (whole dict case)"""
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", DummyController(sample_dict)
+        ),
+    )
+
+    def bad_whole_transform(data):
+        # Return dict with list
+        return {"T1": [1, 2, 3]}
+
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=None,
+        transform=bad_whole_transform,
+        target_transform=None,
+    )
+    ds._to_format = DataReturnFormat.SKLEARN
+    ds._controller = DummyController(sample_dict)
+
+    sample = sample_dict[0]
+
+    with pytest.raises(
+        FedbiomedError, match="Failed to apply default training plan types"
+    ):
+        ds._process_sample_data(sample, {"T1"}, ds._transform, idx=0)
+
+
+# === Property tests ===
+
+
+def test_data_modalities_property():
+    ds = MedicalFolderDataset(
+        data_modalities=["T1", "T2"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    assert ds.data_modalities == {"T1", "T2"}
+
+
+def test_target_modalities_property():
+    ds_with = MedicalFolderDataset(
+        data_modalities="T1",
+        target_modalities=["label"],
+        transform=None,
+        target_transform=None,
+    )
+    assert ds_with.target_modalities == {"label"}
+
+    ds_without = MedicalFolderDataset(
+        data_modalities="T1",
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    assert ds_without.target_modalities is None
+
+
+# === demographics_columns property tests ===
+
+
+class DummyDemographicsCtrl:
+    """Controller with a demographics attribute that mimics a real one."""
+
+    class _DemoDF:
+        columns = type("Columns", (), {"tolist": lambda: ["age", "sex"]})
+
+    def __init__(self, samples):
+        self.samples = samples
+        self.demographics = DummyDemographicsCtrl._DemoDF()
+
+    def get_sample(self, idx):
+        return self.samples[idx]
+
+    def __len__(self):
+        return len(self.samples)
+
+
+def test_demographics_columns_no_controller():
+    """Returns None when controller is not yet initialized."""
+    ds = MedicalFolderDataset(
+        data_modalities=["demographics"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    assert ds._controller is None
+    assert ds.demographics_columns is None
+
+
+def test_demographics_columns_not_in_any_modality(sample_dict):
+    """Returns None when demographics is absent from both data and target modalities."""
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=["label"],
+        transform=None,
+        target_transform=None,
+    )
+    ds._controller = DummyDemographicsCtrl(sample_dict)
+    assert ds.demographics_columns is None
+
+
+def test_demographics_columns_none_target_modalities_no_demographics(sample_dict):
+    """No TypeError when target_modalities is None and demographics absent from data."""
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    ds._controller = DummyDemographicsCtrl(sample_dict)
+    # Before the fix this raised TypeError; now it must return None cleanly.
+    assert ds.demographics_columns is None
+
+
+def test_demographics_columns_in_data_modalities(sample_dict):
+    """Returns column list when demographics is in data_modalities."""
+    ds = MedicalFolderDataset(
+        data_modalities=["T1", "demographics"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    ds._controller = DummyDemographicsCtrl(sample_dict)
+    assert ds.demographics_columns == ["age", "sex"]
+
+
+def test_demographics_columns_in_target_modalities(sample_dict):
+    """Returns column list when demographics is in target_modalities."""
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=["demographics"],
+        transform=None,
+        target_transform=None,
+    )
+    ds._controller = DummyDemographicsCtrl(sample_dict)
+    assert ds.demographics_columns == ["age", "sex"]
+
+
+def test_demographics_columns_controller_has_no_demographics(sample_dict):
+    """Returns None when controller.demographics is None."""
+    ds = MedicalFolderDataset(
+        data_modalities=["T1", "demographics"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    # DummyController does not have a demographics attribute — accessing it raises
+    # AttributeError; suppress by assigning None explicitly.
+    ctrl = DummyController(sample_dict)
+    ctrl.demographics = None
+    ds._controller = ctrl
+    assert ds.demographics_columns is None
+
+
+# === __len__ and __iter__ tests ===
+
+
+def test_len(sample_dict):
+    """__len__ delegates to the controller."""
+    ds = MedicalFolderDataset(
+        data_modalities="T1",
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    ds._controller = DummyController(sample_dict)
+    assert len(ds) == 3
+
+
+def test_len_uninitialized_controller():
+    """__len__ raises when controller is not set."""
+    ds = MedicalFolderDataset(
+        data_modalities="T1",
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    with pytest.raises(FedbiomedError, match="has not completed initialization"):
+        len(ds)
+
+
+def test_iter(sample_dict):
+    """__iter__ yields (data, target) tuples for all samples."""
+    ds = MedicalFolderDataset(
+        data_modalities="T1",
+        target_modalities="label",
+        transform=None,
+        target_transform=None,
+    )
+    ds._to_format = DataReturnFormat.SKLEARN
+    ds._controller = DummyController(sample_dict)
+
+    results = list(ds)
+    assert len(results) == 3
+    for data, target in results:
+        assert "T1" in data
+        assert isinstance(data["T1"], np.ndarray)
+        assert "label" in target
+
+
+# === complete_initialization edge cases ===
+
+
+def test_complete_initialization_no_target(monkeypatch, sample_dict):
+    """complete_initialization with target_modalities=None sets format and controller."""
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", DummyController(sample_dict)
+        ),
+    )
+    ds = MedicalFolderDataset(
+        data_modalities=["T1"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    ds.complete_initialization(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+
+    assert ds.to_format == DataReturnFormat.TORCH
+    assert ds._controller is not None
+
+
+# === analytics_schema additional cases ===
+
+
+def test_analytics_schema_no_demographics(monkeypatch, sample_dict):
+    """analytics_schema omits demographics key when controller.demographics is None."""
+    from fedbiomed.common.dataset_types import ImageSpec
+
+    class ControllerWithoutDemographics(DummyController):
+        demographics = None
+
+    monkeypatch.setattr(
+        MedicalFolderDataset,
+        "_init_controller",
+        lambda self, controller_kwargs: setattr(
+            self, "_controller", ControllerWithoutDemographics(sample_dict)
+        ),
+    )
+    ds = MedicalFolderDataset(
+        data_modalities=["T1", "T2"],
+        target_modalities=None,
+        transform=None,
+        target_transform=None,
+    )
+    ds.complete_initialization({}, DataReturnFormat.SKLEARN)
+
+    schema, second = ds.analytics_schema()
+
+    assert second is None
+    assert "T1" in schema
+    assert "T2" in schema
+    assert "demographics" not in schema
+    assert isinstance(schema["T1"], ImageSpec)
+    assert isinstance(schema["T2"], ImageSpec)

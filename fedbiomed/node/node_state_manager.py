@@ -31,6 +31,7 @@ class NodeStateFileName(_BaseEnum):
     """
 
     OPTIMIZER: str = "optim_state_%s_%s"
+    MODEL_WEIGHTS: str = "persistent_model_weights_%s_%s"
 
 
 class NodeStateManager:
@@ -111,6 +112,9 @@ class NodeStateManager:
         Raises:
             FedbiomedNodeStateManagerError: no matching state in the database
         """
+        logger.debug(
+            f"Loading node state: experiment_id={experiment_id} state_id={state_id}"
+        )
         state = self._load_state(experiment_id, state_id)
 
         if state is None:
@@ -180,7 +184,14 @@ class NodeStateManager:
             raise FedbiomedNodeStateManagerError(
                 f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase"
             ) from e
-        logger.debug("Successfully loaded previous state!")
+        if res is None:
+            logger.debug(
+                f"Node state not found in database: experiment_id={experiment_id} state_id={state_id}"
+            )
+        else:
+            logger.debug(
+                f"Node state found in database: experiment_id={experiment_id} state_id={state_id}"
+            )
         return res
 
     def _save_state(self, state_id: str, state_entry: Dict[str, Any]) -> None:
@@ -201,6 +212,7 @@ class NodeStateManager:
             raise FedbiomedNodeStateManagerError(
                 f"{ErrorNumbers.FB323.value}: failing to save node state into DataBase"
             ) from e
+        logger.debug(f"Node state saved to database: state_id={state_id}")
 
     def initialize(
         self, previous_state_id: Optional[str] = None, testing: Optional[bool] = False
@@ -213,6 +225,10 @@ class NodeStateManager:
         """
 
         self._previous_state_id = previous_state_id
+        logger.debug(
+            f"Initializing node state manager: node_id={self._node_id} "
+            f"previous_state_id={previous_state_id} testing={testing}"
+        )
         if not testing:
             self._generate_new_state_id()
 
@@ -277,7 +293,12 @@ class NodeStateManager:
             ) from e
         # TODO catch exception here
         file_name = element.value % (round_nb, self._state_id)
-        return os.path.join(base_dir, file_name)
+        path = os.path.join(base_dir, file_name)
+        logger.debug(
+            f"Generated node state file path: experiment_id={experiment_id} "
+            f"round={round_nb} element={getattr(element, 'name', repr(element))} path={path}"
+        )
+        return path
 
     def _generate_new_state_id(self) -> str:
         """Generates randomly a state_id. Should be created at each Round, before saving Node State into Database.
@@ -286,6 +307,7 @@ class NodeStateManager:
             new state_id
         """
         self._state_id = NODE_STATE_PREFIX + str(uuid.uuid4())
+        logger.debug(f"Generated new node state id: state_id={self._state_id}")
         # TODO: would be better to check if state_id doesn't belong to the database
         return self._state_id
 
@@ -295,6 +317,11 @@ class NodeStateManager:
         Args:
             version: version found in the DataBase entries.
         """
+
+        logger.debug(
+            f"Checking node state version compatibility: found={version} "
+            f"current={__node_state_version__}"
+        )
 
         raise_for_version_compatibility(
             version,

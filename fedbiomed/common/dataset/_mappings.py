@@ -6,9 +6,9 @@ Registry for dataset controllers and their parameters
 """
 
 from dataclasses import asdict, dataclass, fields
-from typing import Optional
+from typing import Dict, Optional, Tuple, Type
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset_controller import (
     Controller,
@@ -20,6 +20,25 @@ from fedbiomed.common.dataset_controller import (
     TabularController,
 )
 from fedbiomed.common.exceptions import FedbiomedError
+
+from ._custom_dataset import CustomDataset
+from ._dataset import Dataset
+from ._image_label_dataset import (
+    ImageFolderDataset,
+    MedNistDataset,
+    MnistDataset,
+)
+from ._medical_folder_dataset import MedicalFolderDataset
+from ._tabular_dataset import TabularDataset
+
+DATASET_CLASSES_PER_TYPE: Dict[DatasetTypes, Type[Dataset]] = {
+    DatasetTypes.CUSTOM: CustomDataset,  # type: ignore[type-abstract]
+    DatasetTypes.IMAGES: ImageFolderDataset,
+    DatasetTypes.MEDICAL_FOLDER: MedicalFolderDataset,
+    DatasetTypes.MEDNIST: MedNistDataset,
+    DatasetTypes.DEFAULT: MnistDataset,
+    DatasetTypes.TABULAR: TabularDataset,
+}
 
 
 @dataclass
@@ -45,13 +64,39 @@ class MedicalFolderParameters(ControllerParametersBase):
 
 
 # Registry mapping data types to corresponding controller and expected parameters
-REGISTRY_CONTROLLERS = {
-    "csv": (TabularController, ControllerParametersBase),
-    "medical-folder": (MedicalFolderController, MedicalFolderParameters),
-    "images": (ImageFolderController, ControllerParametersBase),
-    "default": (MnistController, ControllerParametersBase),
-    "mednist": (MedNistController, ControllerParametersBase),
-    "custom": (CustomController, ControllerParametersBase),
+REGISTRY_CONTROLLERS: Dict[
+    DatasetTypes, Tuple[Type[Controller], Type[ControllerParametersBase], Type[Dataset]]
+] = {
+    DatasetTypes.TABULAR: (
+        TabularController,
+        ControllerParametersBase,
+        DATASET_CLASSES_PER_TYPE[DatasetTypes.TABULAR],
+    ),
+    DatasetTypes.MEDICAL_FOLDER: (
+        MedicalFolderController,
+        MedicalFolderParameters,
+        DATASET_CLASSES_PER_TYPE[DatasetTypes.MEDICAL_FOLDER],
+    ),
+    DatasetTypes.IMAGES: (
+        ImageFolderController,
+        ControllerParametersBase,
+        DATASET_CLASSES_PER_TYPE[DatasetTypes.IMAGES],
+    ),
+    DatasetTypes.DEFAULT: (
+        MnistController,
+        ControllerParametersBase,
+        DATASET_CLASSES_PER_TYPE[DatasetTypes.DEFAULT],
+    ),
+    DatasetTypes.MEDNIST: (
+        MedNistController,
+        ControllerParametersBase,
+        DATASET_CLASSES_PER_TYPE[DatasetTypes.MEDNIST],
+    ),
+    DatasetTypes.CUSTOM: (
+        CustomController,
+        ControllerParametersBase,
+        DATASET_CLASSES_PER_TYPE[DatasetTypes.CUSTOM],
+    ),
 }
 
 
@@ -61,12 +106,14 @@ def get_controller(
 ) -> Controller:
     """Get controller instance based on data_type and dataset_parameters"""
     # Validate that data_type is implemented.
-    if data_type not in REGISTRY_CONTROLLERS:
-        raise NotImplementedError(
+    data_type_: Optional[DatasetTypes] = DatasetTypes.get_type_by_value(data_type)
+    if not data_type_ or data_type_ not in REGISTRY_CONTROLLERS:
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB632.value}: "
             f"Unknown 'data_type', implemented are: {list(REGISTRY_CONTROLLERS.keys())}"
         )
 
-    controller_class, parameters_class = REGISTRY_CONTROLLERS[data_type]
+    controller_class, parameters_class, _ = REGISTRY_CONTROLLERS[data_type_]
 
     # Validate and instantiate parameters
     try:

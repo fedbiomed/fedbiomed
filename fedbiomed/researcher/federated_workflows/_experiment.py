@@ -30,10 +30,10 @@ from fedbiomed.common.optimizers import (
 )
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.aggregators import Aggregator, FedAverage
-from fedbiomed.researcher.datasets import FederatedDataSet
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
 from fedbiomed.researcher.filetools import choose_bkpt_file
 from fedbiomed.researcher.monitor import Monitor
+from fedbiomed.researcher.requests import Requests
 from fedbiomed.researcher.strategies.default_strategy import DefaultStrategy
 from fedbiomed.researcher.strategies.strategy import Strategy
 
@@ -116,6 +116,7 @@ class Experiment(TrainingPlanWorkflow):
             retain_full_history: whether to retain in memory the full history
                 of node replies and aggregated params for the experiment. If False, only the
                 last round's replies and aggregated params will be available. Defaults to True.
+
             *args: Extra positional arguments from parent class
                 [`TrainingPlanWorkflow`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow]
             **kwargs: Arguments of parent class
@@ -150,7 +151,9 @@ class Experiment(TrainingPlanWorkflow):
 
         # always create a monitoring process
         self._monitor = Monitor(self.tensorboard_results_path)
-        self._reqs.add_monitor_callback(self._monitor.on_message_handler)
+        self._reqs.add_monitor_callback(
+            self._experiment_id, self._monitor.on_message_handler
+        )
         self.set_tensorboard(tensorboard)
 
         # whether to retain the full experiment history or not
@@ -161,6 +164,8 @@ class Experiment(TrainingPlanWorkflow):
         """Handles destruction of the Monitor when Experiment is destroyed."""
         if isinstance(self._monitor, Monitor):
             self._monitor.close_writer()
+        if isinstance(self._reqs, Requests) and self._experiment_id is not None:
+            self._reqs.remove_monitor_callback(self._experiment_id)
 
     @exp_exceptions
     def aggregator(self) -> Aggregator:
@@ -404,41 +409,11 @@ class Experiment(TrainingPlanWorkflow):
             # at this point, `aggregator` is an instance / inheriting of `Aggregator`
             self._aggregator = aggregator
         self.aggregator_args["aggregator_name"] = self._aggregator.aggregator_name
-        # ensure consistency with federated dataset
+
+        # Set federated dataset
         self._aggregator.set_fds(self._fds)
 
         return self._aggregator
-
-    @exp_exceptions
-    def set_training_data(
-        self,
-        training_data: Union[FederatedDataSet, dict, None],
-        from_tags: bool = False,
-    ) -> Union[FederatedDataSet, None]:
-        """Sets training data for federated training + verification on arguments type
-
-        See
-        [`FederatedWorkflow.set_training_data`][fedbiomed.researcher.federated_workflows.FederatedWorkflow.set_training_data]
-        for more information.
-
-        Ensures consistency also with the Experiment's aggregator and node state agent
-
-        !!! warning "Setting to None forfeits consistency checks"
-            Setting training_data to None does not trigger consistency checks, and may therefore leave the class in an
-            inconsistent state.
-
-        Returns:
-            Dataset metadata
-        """
-        super().set_training_data(training_data, from_tags)
-        # Below: Experiment-specific operations for consistency
-        if self._aggregator is not None and self._fds is not None:
-            # update the aggregator's training data
-            self._aggregator.set_fds(self._fds)
-        if self._node_state_agent is not None and self._fds is not None:
-            # update the node state agent (member of FederatedWorkflow)
-            self._node_state_agent.update_node_states(self.all_federation_nodes())
-        return self._fds
 
     @exp_exceptions
     def set_agg_optimizer(
@@ -464,6 +439,13 @@ class Experiment(TrainingPlanWorkflow):
                 f"Optimizer instance or None, not {type(agg_optimizer)}."
             )
         self._agg_optimizer = agg_optimizer
+        if isinstance(agg_optimizer, Optimizer):
+            tp = self.training_plan()
+            if tp is not None and tp.local_params:
+                logger.warning(
+                    "Using Declearn optimizers for aggregation and parameters tagged "
+                    "as local may lead to unexpected behaviours."
+                )
         return self._agg_optimizer
 
     @exp_exceptions
@@ -491,7 +473,7 @@ class Experiment(TrainingPlanWorkflow):
         elif not isinstance(node_selection_strategy, Strategy):
             msg = (
                 f"{ErrorNumbers.FB410.value}: wrong type for "
-                "node_selection_strategy {type(node_selection_strategy)} "
+                f"node_selection_strategy {type(node_selection_strategy)} "
                 "it should be an instance of Strategy"
             )
             logger.critical(msg)
@@ -775,6 +757,10 @@ class Experiment(TrainingPlanWorkflow):
                 "`search_request` or sampling strategy returned an empty list."
             )
 
+        # Perform federated pre-processing if needed
+        if self._fed_preproc is not None:
+            self._fed_preproc.execute()
+
         # Setup Secure Aggregation (it's a noop if not active)
         secagg_arguments = self.secagg_setup(training_nodes)
 
@@ -793,8 +779,6 @@ class Experiment(TrainingPlanWorkflow):
         # Collect auxiliary variables from the aggregator optimizer, if any.
         optim_aux_var = self._collect_optim_aux_var()
 
-        # update node states when list of nodes has changed from one round to another
-        self._update_nodes_states_agent(before_training=True)
         # TODO check node state agent
         nodes_state_ids = self._node_state_agent.get_last_node_states()
 
@@ -839,9 +823,7 @@ class Experiment(TrainingPlanWorkflow):
         )
 
         # Update node states with node answers + when used node list has changed during the round.
-        self._update_nodes_states_agent(
-            before_training=False, training_replies=training_replies
-        )
+        self._update_nodes_states_agent(training_replies=training_replies)
 
         # (Secure-)Aggregate model parameters and optimizer auxiliary variables.
         if self._secagg.active:
@@ -878,7 +860,10 @@ class Experiment(TrainingPlanWorkflow):
         )
 
         # Update the training plan with the aggregated parameters
-        self.training_plan().set_model_params(aggregated_params)
+        local_params = self.training_plan().local_params
+        self.training_plan().set_model_params(
+            aggregated_params, local_params=local_params
+        )
 
         # Update experiment's in-memory history
         self.commit_experiment_history(training_replies, aggregated_params)
@@ -999,10 +984,11 @@ class Experiment(TrainingPlanWorkflow):
             n_aux_var = encrypted_auxvar.get_num_expected_params()
         # Perform secure aggregation of all encrypted parameters.
         exclude_buffers = not self.training_args()["share_persistent_buffers"]
+        local_params = self.training_plan().local_params
         num_expected_params = len(
             self.training_plan()
             .get_model_wrapper_class()
-            .flatten(exclude_buffers=exclude_buffers)
+            .flatten(exclude_buffers=exclude_buffers, local_params=local_params)
         )
 
         flattened_model_weights = self._secagg.aggregate(
@@ -1035,7 +1021,11 @@ class Experiment(TrainingPlanWorkflow):
         aggregated_params: Dict[str, Union[torch.Tensor, np.ndarray]] = (
             self.training_plan()
             .get_model_wrapper_class()
-            .unflatten(flattened_model_weights, exclude_buffers=exclude_buffers)
+            .unflatten(
+                flattened_model_weights,
+                exclude_buffers=exclude_buffers,
+                local_params=local_params,
+            )
         )
         # Return aggregated model parameters and optimizer auxiliary variables.
         return aggregated_params, aggregated_auxvar
@@ -1070,9 +1060,20 @@ class Experiment(TrainingPlanWorkflow):
         # aggregated_params = agg({w^t - sum_k(eta_{k,i,t} * grad_{k,i,t})}_i)
         # hence aggregated_params = w^t - agg(updates_i)
         # hence agg_gradients = agg_i(updates_i)
-        names = set(training_plan.get_model_params(only_trainable=True))
+        local_params = training_plan.local_params
+        names = set(
+            training_plan.get_model_params(
+                only_trainable=True, local_params=local_params
+            )
+        )
         init_params = Vector.build(
-            {k: v for k, v in training_plan.get_model_params().items() if k in names}
+            {
+                k: v
+                for k, v in training_plan.get_model_params(
+                    local_params=local_params
+                ).items()
+                if k in names
+            }
         )
         agg_gradients = init_params - Vector.build(
             {k: v for k, v in aggregated_params.items() if k in names}
@@ -1301,7 +1302,9 @@ class Experiment(TrainingPlanWorkflow):
             FedbiomedExperimentError: bad argument type, error when reading breakpoint or bad loaded breakpoint
                 content (corrupted)
         """
-        loaded_exp, saved_state = super().load_breakpoint(breakpoint_folder_path)
+        loaded_exp, saved_state, tempo_id = super().load_breakpoint(
+            breakpoint_folder_path
+        )
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args)
@@ -1324,6 +1327,12 @@ class Experiment(TrainingPlanWorkflow):
         loaded_exp.load_training_replies(saved_state.get("training_replies"))
         logger.info(
             f"Experimentation reload from {breakpoint_folder_path if breakpoint_folder_path else 'last save'} successful!"
+        )
+        # fix monitor callback with correct experiment_id
+        loaded_exp.requests.remove_monitor_callback(tempo_id)
+        loaded_exp.requests.add_monitor_callback(
+            loaded_exp.id,
+            loaded_exp.monitor().on_message_handler,
         )
 
         return loaded_exp
@@ -1463,11 +1472,11 @@ class Experiment(TrainingPlanWorkflow):
         return Optimizer.load_state(state)
 
     def _update_nodes_states_agent(
-        self, before_training: bool = True, training_replies: Optional[Dict] = None
+        self, training_replies: Optional[Dict] = None
     ) -> None:
         """Updates [`NodeStateAgent`][fedbiomed.researcher.node_state_agent.NodeStateAgent], with the latest
         state_id coming from `Nodes` contained among all `Nodes` within
-        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataSet].
+        [`FederatedDataset`][fedbiomed.researcher.datasets.FederatedDataset].
 
         Args:
             before_training: whether to update `NodeStateAgent` at the beginning or at the end of a `Round`:
@@ -1479,18 +1488,13 @@ class Experiment(TrainingPlanWorkflow):
         Raises:
             FedBiomedNodeStateAgenError: failing to update `NodeStateAgent`.
         """
-        node_ids = self.all_federation_nodes()
-        if before_training:
-            self._node_state_agent.update_node_states(node_ids)
-            return
-
         # extract last node state
         if training_replies is None:
             raise FedbiomedValueError(
                 f"{ErrorNumbers.FB323.value}: Cannot update NodeStateAgent if No "
                 "replies form Node(s) has(ve) been received!"
             )
-        self._node_state_agent.update_node_states(node_ids, training_replies)
+        self._node_state_agent.update_node_states(training_replies)
 
     @staticmethod
     @exp_exceptions

@@ -64,9 +64,11 @@ class MedicalFolderController(Controller):
             FedbiomedError:
             - if one in `tabular_file` and `index_col` is given and the other is not
         """
-        DataLoadingPlanMixin.__init__(self)
+        super().__init__()  # initialises DataLoadingPlanMixin (self._dlp = None)
         self.root = root
-        self._tabular_file = self._validate_tabular_file(tabular_file)
+        self._tabular_file = (
+            None if tabular_file is None else self._validate_tabular_file(tabular_file)
+        )
         self._index_col = self._validate_index_col(index_col)
 
         # Folder structure <subject>/<modality>/<file> in DataFrame format
@@ -121,16 +123,14 @@ class MedicalFolderController(Controller):
 
     # === Functions ===
     @staticmethod
-    def _validate_tabular_file(filepath: Union[str, Path]) -> Path:
-        """Validates `tabular_file` property
+    def _validate_tabular_file(filepath: Union[str, PathLike, Path]) -> Path:
+        """Validates `tabular_file` property.
 
         Raises:
             FedbiomedError:
             - if filepath is not of type `str` or `Path`
             - if filepath does not match a file or is not csv or tsv
         """
-        if filepath is None:
-            return None
         if not isinstance(filepath, (str, Path)):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Expected a string or Path, got "
@@ -163,7 +163,7 @@ class MedicalFolderController(Controller):
 
     @staticmethod
     def read_demographics(
-        tabular_file: Union[str, Path],
+        tabular_file: Union[str, PathLike, Path],
         index_col: Optional[Union[int, str]] = None,
     ) -> pd.DataFrame:
         """Read demographics tabular file
@@ -181,6 +181,7 @@ class MedicalFolderController(Controller):
         tabular_file = MedicalFolderController._validate_tabular_file(tabular_file)
 
         try:
+            # pandas is used for flexibility in handling delimiters and index columns
             demographics = CsvReader(tabular_file).data.to_pandas()
             if index_col is not None:
                 if isinstance(index_col, int):
@@ -385,7 +386,7 @@ class MedicalFolderController(Controller):
             sample = (
                 {}
                 if demographics is None
-                else {"demographics": demographics.loc[subject].to_dict()}
+                else {"demographics": demographics.loc[subject]}
             )
             for _, row in subject_groups[subject].iterrows():
                 sample[row["modality"]] = row["path"]
@@ -456,7 +457,7 @@ class MedicalFolderController(Controller):
     def available_subjects(
         self,
         subjects_from_index: Union[list, pd.Series],
-        subjects_from_folder: list = None,
+        subjects_from_folder: Optional[list] = None,
     ) -> Dict[str, str]:
         """Checks missing subject folders and missing entries in demographics
 

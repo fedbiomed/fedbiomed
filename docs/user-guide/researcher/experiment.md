@@ -49,7 +49,7 @@ exp = Experiment(tags=tags,
 
 Under the hood, the `Experiment` class takes care of a lot of heavy lifting for you.
 For example, when you initialize an experiment with the `tags` argument, it uses them to automatically create a
-`FederatedDataSet` by querying the federation.
+`FederatedDataset` by querying the federation.
 Afterwards, `Experiment` initializes several internal variables to manage federated training on all participating nodes.
 Finally, it also creates the strategy to select the nodes for each training round.
 When the `node_selection_strategy` is set to `None`, the experiment uses the default strategy which is `DefaultStrategy`.
@@ -87,7 +87,7 @@ print(tags)
 
 !!! warning "Tags matching multiple datasets"
     An `Experiment` object must have **one unique** dataset per node.
-    Object creation fails if this is not the case when trying to instantiate the `FederatedDataSet` object.
+    Object creation fails if this is not the case when trying to instantiate the `FederatedDataset` object.
     This is done to ensure that training for an `Experiment` uses only a single dataset for each node.
 
 As a consequence, `tags` specified for an `Experiment` should not be ambiguous, which means they cannot match multiple datasets on one node.
@@ -96,17 +96,9 @@ For example if you instantiate `Experiment(tags='#dataset')` and a node has regi
 
 #### Setting the training data by providing the metadata directly
 
-The dataset metadata can be provided directly using the `set_training_data` method.
-The metadata can be a `FederatedDataSet` object or a nested `dict` with format `{node_id: {metadata_key: metadata_value}}`.
+The dataset metadata can be provided directly using the `set_training_data` method. The metadata can be nested `dict` with format `{node_id: {metadata_key: metadata_value}}`.
 
 When you provide a metadata object directly, the `Experiment`'s tags attribute is set to `None`.
-
-#### Under-the-hood consistency with all members of `Experiment`
-
-When you change the training data (either through `set_tags` or `set_training_data`), the `Experiment` class
-performs a lot of operations to ensure that consistency is maintained for all of its attributes that use the
-training data.
-In particular, the `aggregator` and `node_state_agent` classes are updated with the new training data.
 
 ### Selecting specific Nodes for the training
 

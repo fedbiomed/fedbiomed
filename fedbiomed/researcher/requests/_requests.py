@@ -10,6 +10,7 @@ import os
 import tempfile
 import threading
 import uuid
+from time import time
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import tabulate
@@ -23,6 +24,7 @@ from fedbiomed.common.message import (
     ListRequest,
     Message,
     PingRequest,
+    RequestReply,
     SearchRequest,
 )
 from fedbiomed.common.singleton import SingletonMeta
@@ -48,7 +50,7 @@ class MessagesByNode(dict):
 class Request:
     def __init__(
         self,
-        message: Message,
+        message: RequestReply,
         node: NodeAgent,
         sem_pending: threading.Semaphore,
         request_id: Optional[str] = None,
@@ -61,15 +63,17 @@ class Request:
             request_id: unique ID of request
             sem_pending: semaphore for signaling new pending reply
         """
+        self._send_time: Optional[float] = None
+        self._reply_time: Optional[float] = None
         self._request_id = request_id if request_id else str(uuid.uuid4())
         self._node = node
         self._message = message
 
         self._sem_pending = sem_pending
 
-        self.reply = None
-        self.error = None
-        self.status = None
+        self.reply: Optional[Message] = None
+        self.error: Optional[ErrorMessage] = None
+        self.status: Optional[RequestStatus] = None
 
     @property
     def node(self) -> NodeAgent:
@@ -84,6 +88,10 @@ class Request:
         Args:
             True if a reply was received from node
         """
+        ### DEBUG REQUEST STATUS
+        # current request status per node
+        # whether node became DISCONNECT
+        # whether request has reply / error / timeout
 
         if self._node.status == NodeActiveStatus.DISCONNECTED:
             self.status = RequestStatus.DISCONNECT
@@ -93,7 +101,18 @@ class Request:
 
     def send(self) -> None:
         """Sends the request"""
+
         self._message.request_id = self._request_id
+        self._send_time = time()  # ← Track send time
+
+        logger.debug(
+            "Sending request req=%s node=%s type=%s experiment=%s researcher_id=%s",
+            self._request_id,
+            self._node.id,
+            self._message.__class__.__name__,
+            getattr(self._message, "experiment_id", None),
+            getattr(self._message, "researcher_id", None),
+        )
         self._node.send(self._message, self.on_reply)
         self.status = RequestStatus.NO_REPLY_YET
 
@@ -103,7 +122,19 @@ class Request:
         Args:
             stopped: True if the request was stopped before completion
         """
+        flush_time = time()
+        elapsed_since_send = flush_time - self._send_time if self._send_time else 0
+
+        logger.debug(
+            "Flushing request req=%s node=%s stopped=%s has_reply=%s elapsed_since_send=%.2fs",
+            self._request_id,
+            self._node.id,
+            stopped,
+            self.reply is not None,
+            elapsed_since_send,
+        )
         self._node.flush(self._request_id, stopped)
+        self._sem_pending.release()
 
     def on_reply(self, reply: Message) -> None:
         """Callback for node agent to execute once it replies.
@@ -111,6 +142,16 @@ class Request:
         Args:
             reply: reply message received from node
         """
+        self._reply_time = time()  # ← Track reply time
+        elapsed = self._reply_time - self._send_time if self._send_time else 0
+
+        logger.debug(
+            "Request: Received reply req=%s node=%s type=%s elapsed=%.2fs",
+            self._request_id,
+            self._node.id,
+            reply.__class__.__name__,
+            elapsed,
+        )
 
         if isinstance(reply, ErrorMessage):
             self.error = reply
@@ -148,15 +189,23 @@ class FederatedRequest:
         self._nodes = nodes
         self._requests = []
         self._request_id = REQUEST_PREFIX + str(uuid.uuid4())
-        self._nodes_status = {}
+        self._nodes_status: Dict[str, Any] = {}
 
         self._pending_replies = threading.Semaphore(value=0)
 
         # Set-up policies
         self._policy = PolicyController(policy)
 
+        logger.debug(
+            "Creating federated request req=%s message=%s nodes=%s policies=%s",
+            self._request_id,
+            message.__class__.__name__,
+            [node.id for node in nodes],
+            [p.__class__.__name__ for p in policy] if policy else [],
+        )
+
         # Set up single requests
-        if isinstance(self._message, Message):
+        if isinstance(self._message, RequestReply):
             for node in self._nodes:
                 self._requests.append(
                     Request(
@@ -209,9 +258,16 @@ class FederatedRequest:
             value: ignored
             traceback: ignored
         """
-
         # Clear the replies that are processed
         has_stopped = self._policy.has_stopped_any()
+        logger.debug(
+            "Exiting federated request context manager for req=%s replies=%d errors=%d disconnects=%d stopped=%s",
+            self._request_id,
+            len(self.replies()),
+            len(self.errors()),
+            len(self.disconnected_requests()),
+            has_stopped,
+        )
         for req in self._requests:
             req.flush(stopped=has_stopped)
 
@@ -222,7 +278,11 @@ class FederatedRequest:
             A dict of replies `Message` received for this request, indexed by node ID
         """
 
-        return {req.node.id: req.reply for req in self._requests if req.reply}
+        return {
+            req.node.id: reply
+            for req in self._requests
+            if (reply := req.reply) is not None
+        }
 
     def errors(self) -> Dict[str, ErrorMessage]:
         """Returns errors of each request
@@ -231,9 +291,13 @@ class FederatedRequest:
             A dict of error `Message` received for this request, indexed by node ID
         """
 
-        return {req.node.id: req.error for req in self._requests if req.error}
+        return {
+            req.node.id: error
+            for req in self._requests
+            if (error := req.error) is not None
+        }
 
-    def disconnected_requests(self) -> List[Message]:
+    def disconnected_requests(self) -> List[Request]:
         """Returns the requests to disconnected nodes
 
         Returns:
@@ -248,9 +312,16 @@ class FederatedRequest:
 
     def wait(self) -> None:
         """Waits for the replies of the messages that are sent"""
+        logger.debug(
+            "Waiting for federated request req=%s replies from %d nodes",
+            self._request_id,
+            len(self._requests),
+        )
 
         while self._policy.continue_all(self._requests) == PolicyStatus.CONTINUE:
             self._pending_replies.acquire(timeout=REQUEST_STATUS_CHECK_TIMEOUT)
+
+        logger.debug("Federated request wait finished req=%s", self._request_id)
 
 
 class Requests(metaclass=SingletonMeta):
@@ -267,7 +338,9 @@ class Requests(metaclass=SingletonMeta):
         Args:
             config: Object for handling the component configuration
         """
-        self._monitor_message_callback = None
+        ### DEBUG GRPC SERVER INFORMATION
+
+        self._monitor_message_callbacks: Dict[str, Callable] = {}
 
         server_host = config.get("server", "host")
         server_port = config.get("server", "port")
@@ -291,11 +364,10 @@ class Requests(metaclass=SingletonMeta):
 
     def start_messaging(self) -> None:
         """Start communications endpoint"""
+        logger.debug("Starting researcher messaging GRPC Server endpoint")
         self._grpc_server.start()
 
-    def on_message(
-        self, msg: Union[Dict[str, Any], Message], type_: MessageType
-    ) -> None:
+    def on_message(self, msg: Message, type_: MessageType) -> None:
         """Handles arbitrary messages received from the remote agents
 
         This callback is only used for feedback messages from nodes (logs, experiment
@@ -311,9 +383,10 @@ class Requests(metaclass=SingletonMeta):
             self.print_node_log_message(msg.get_dict())
 
         elif type_ == MessageType.SCALAR:
-            if self._monitor_message_callback is not None:
+            experiment_id = msg.get_dict().get("experiment_id")
+            if experiment_id in self._monitor_message_callbacks:
                 # Pass message to Monitor's on message handler
-                self._monitor_message_callback(msg.get_dict())
+                self._monitor_message_callbacks[experiment_id](msg.get_dict())
         else:
             logger.error(f"Undefined message type received  {type_} - IGNORING")
 
@@ -365,7 +438,7 @@ class Requests(metaclass=SingletonMeta):
         self,
         message: Union[Message, MessagesByNode],
         nodes: Optional[List[str]] = None,
-        policies: List[RequestPolicy] = None,
+        policies: Optional[List[RequestPolicy]] = None,
     ) -> FederatedRequest:
         """Sends federated request to given nodes with given message
 
@@ -380,11 +453,15 @@ class Requests(metaclass=SingletonMeta):
         """
 
         if nodes is not None:
-            nodes = [self._grpc_server.get_node(node) for node in nodes]
+            node_agents: List[NodeAgent] = [
+                n
+                for node in nodes
+                if (n := self._grpc_server.get_node(node)) is not None
+            ]
         else:
-            nodes = self._grpc_server.get_all_nodes()
+            node_agents = self._grpc_server.get_all_nodes()
 
-        return FederatedRequest(message, nodes, policies)
+        return FederatedRequest(message, node_agents, policies)
 
     def search(self, tags: List[str], nodes: Optional[list] = None) -> dict:
         """Searches available data by tags
@@ -543,16 +620,22 @@ class Requests(metaclass=SingletonMeta):
 
         return {id: rep.get_dict() for id, rep in replies.items()}
 
-    def add_monitor_callback(self, callback: Callable[[Dict], None]):
+    def add_monitor_callback(
+        self, experiment_id: str, callback: Callable[[Dict], None]
+    ) -> None:
         """Adds callback function for monitor messages
 
         Args:
+            experiment_id: ID of the experiment for which to add the callback
             callback: Callback function for handling monitor messages that come due 'general/monitoring' channel
         """
+        self._monitor_message_callbacks[experiment_id] = callback
 
-        self._monitor_message_callback = callback
+    def remove_monitor_callback(self, experiment_id: str) -> None:
+        """Removes callback function for Monitor class.
 
-    def remove_monitor_callback(self):
-        """Removes callback function for Monitor class."""
+        Args:
+            experiment_id: ID of the experiment for which to remove the callback
+        """
 
-        self._monitor_message_callback = None
+        _ = self._monitor_message_callbacks.pop(experiment_id, None)

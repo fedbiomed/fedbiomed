@@ -1,40 +1,38 @@
-import pandas as pd
-import time
-import tqdm
 import os
-import pytest
-import requests
 import shutil
-from sklearn.model_selection import train_test_split
+import time
 from zipfile import ZipFile
 
-
+import pandas as pd
+import pytest
+import requests
+import tqdm
+from experiments.training_plans.ixi_brain_segmentation import UNetTrainingPlan
 from helpers import (
     add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
-    clear_experiment_data,
     clear_component_data,
-    get_data_folder,
-    create_researcher,
+    clear_experiment_data,
     create_multiple_nodes,
+    create_researcher,
+    get_data_folder,
+    kill_subprocesses,
+    start_nodes,
 )
+from sklearn.model_selection import train_test_split
 
-from experiments.training_plans.ixi_brain_segmentation import UNetTrainingPlan
-
-from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.experiment import Experiment
 
 
 def download_file(url, filename):
     """
     Helper method handling downloading large files from `url` to `filename`. Returns a pointer to `filename`.
     """
-    chunkSize = 1024
+    chunk_size = 1024
     r = requests.get(url, stream=True)
     with open(filename, "wb") as f:
         pbar = tqdm.tqdm(unit="B", total=int(r.headers["Content-Length"]))
-        for chunk in r.iter_content(chunk_size=chunkSize):
+        for chunk in r.iter_content(chunk_size=chunk_size):
             if chunk:  # filter out keep-alive new chunks
                 pbar.update(len(chunk))
                 f.write(chunk)
@@ -42,7 +40,7 @@ def download_file(url, filename):
 
 
 def download_and_extract_ixi_sample(root_folder):
-    url = "https://prod-dcd-datasets-cache-zipfiles.s3.eu-west-1.amazonaws.com/7kd5wj7v7p-3.zip"
+    url = "https://data.mendeley.com/public-api/zip/7kd5wj7v7p/download/3"
     zip_filename = os.path.join(root_folder, "7kd5wj7v7p-3.zip")
     data_folder = os.path.join(root_folder)
     extracted_folder = os.path.join(data_folder, "7kd5wj7v7p-3", "IXI_sample")
@@ -109,7 +107,7 @@ def prepare_ixi_dataset(root_folder: str):
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(post_session, port, request):
+def setup(post_session, port):
     """Setup fixture for the module"""
 
     data_folder = get_data_folder("IXI-example")
@@ -137,7 +135,7 @@ def setup(post_session, port, request):
 
         print("Adding first dataset --------------------------------------------")
         add_dataset_to_node(node_1, dataset)
-        print("adding second dataset")
+        print("Adding second dataset -------------------------------------------")
         dataset.update(
             {"path": os.path.join(data_folder, "Hospital-Centers", "HH", "train")}
         )
@@ -151,14 +149,17 @@ def setup(post_session, port, request):
         add_dataset_to_node(node_2, dataset)
 
         # start nodes and give some time to start
-        node_processes, _ = start_nodes([node_1, node_2])
+        node_processes, thread = start_nodes([node_1, node_2])
         print("Waiting for nodes to start")
         time.sleep(15)
 
         yield
 
-        kill_subprocesses(node_processes)
-        clear_component_data(researcher)
+        try:
+            kill_subprocesses(node_processes)
+            thread.join()
+        finally:
+            clear_component_data(researcher)
 
 
 #############################################
@@ -168,7 +169,7 @@ def setup(post_session, port, request):
 
 
 def test_experiment_run_01():
-    """Tests running training mnist with basic configuration"""
+    """Tests running UNet brain segmentation training with basic configuration"""
     model_args = {
         "spatial_dims": 3,
         "in_channels": 1,

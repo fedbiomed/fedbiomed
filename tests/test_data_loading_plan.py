@@ -1,23 +1,25 @@
-import unittest
 import logging
+import unittest
 from unittest.mock import patch
-from fedbiomed.common.dataloadingplan import (
-    DataLoadingPlan,
-    DataLoadingPlanMixin,
-    MapperBlock,
-)
+
 from testsupport.testing_data_loading_block import (
     LoadingBlockForTesting,
     LoadingBlockTypesForTesting,
     TestAbstractsBlock,
 )
+
+from fedbiomed.common.constants import DatasetTypes
+from fedbiomed.common.dataloadingplan import (
+    DataLoadingPlan,
+    DataLoadingPlanMixin,
+    MapperBlock,
+)
 from fedbiomed.common.exceptions import (
+    FedbiomedDataLoadingPlanError,
+    FedbiomedDataLoadingPlanValueError,
     FedbiomedLoadingBlockError,
     FedbiomedLoadingBlockValueError,
-    FedbiomedDataLoadingPlanValueError,
-    FedbiomedDataLoadingPlanError,
 )
-from fedbiomed.common.constants import DatasetTypes
 
 
 class TestDataLoadingBlock(unittest.TestCase):
@@ -258,13 +260,13 @@ class TestDataLoadingPlan(unittest.TestCase):
 
             @staticmethod
             def get_dataset_type():
-                return DatasetTypes.TEST
+                return DatasetTypes.MEDNIST
 
         tp = MyDataset()
         dlp = DataLoadingPlan()
         dlp[LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING] = self.dlb1
         dlp[LoadingBlockTypesForTesting.OTHER_LOADING_BLOCK_FOR_TESTING] = self.dlb2
-        dlp.target_dataset_type = DatasetTypes.TEST
+        dlp.target_dataset_type = DatasetTypes.MEDNIST
 
         # heuristic test that no DLP exist for dataset
         apply_1 = tp.apply_dlb(
@@ -328,7 +330,7 @@ class TestDataLoadingPlan(unittest.TestCase):
 
             @staticmethod
             def get_dataset_type():
-                return DatasetTypes.TEST
+                return DatasetTypes.MEDNIST
 
         dlb = MapperBlock()
         dlb.map = {"orig-key": "new-key"}

@@ -1,5 +1,19 @@
 # Fed-BioMed changelog
 
+## 2026-04-30 version 6.3.0
+
+- Initial implementation of **federated analytics** for tabular datasets.
+- Configuration option to enforce a minimum number of samples required for data operations on the node side.
+- Relaxed the DecLearn version to >=2.0,<2.9 to allow installation of newer compatible releases.
+- Introduction of security logging on the node side, along with the ability to visualize these logs in the Node GUI.
+- Support for **debug mode** on both the node and federated server components.
+- Enhancements to CI/CD pipelines, improving robustness and overall test stability.
+- Optimization of CI workflows to **reduce execution time for pull request validation**, including fixes for end-to-end (E2E) test execution.
+- Refactoring of the codebase to ensure compatibility with static type checking (mypy).
+- Updates to developer documentation, including improved guidance on labels, debug mode, and security logging.
+- Support for local-only and private parameters via tagging. Currently supported tags: local, persistent.
+
+
 ## 2025-11-26 version 6.2.0
 
 - Support Python 3.11 + release requirements on package dependencies

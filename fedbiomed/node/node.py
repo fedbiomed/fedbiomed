@@ -6,21 +6,26 @@ Core code of the node component.
 """
 
 import os
+import time
+import traceback
 from typing import Callable, Optional, Union
 
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
+from fedbiomed import __version__
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     AdditiveSSSetupRequest,
     ApprovalRequest,
     ErrorMessage,
+    FARequest,
     ListReply,
     ListRequest,
     Message,
     OverlayMessage,
     PingReply,
     PingRequest,
+    PreprocRequest,
     SearchReply,
     SearchRequest,
     SecaggDeleteReply,
@@ -35,6 +40,7 @@ from fedbiomed.common.tasks_queue import TasksQueue
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.history_monitor import HistoryMonitor
+from fedbiomed.node.jobs import FAJob, PreprocJob
 from fedbiomed.node.requests import NodeToNodeRouter
 from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
@@ -67,6 +73,10 @@ class Node:
             config: Node configuration
             node_args: Command line arguments for node.
         """
+        self.node_args = node_args or {}
+        self._debug = bool(self.node_args.get("debug", False)) or os.environ.get(
+            "FBM_DEBUG", ""
+        ).lower() in ("1", "true", "yes")
 
         self._config = config
         self._node_id = self._config.get("default", "id")
@@ -106,7 +116,10 @@ class Node:
             self._controller_data,
         )
 
-        self.dataset_manager = DatasetManager(path=self._db_path)
+        self.dataset_manager = DatasetManager(
+            path=self._db_path,
+            min_samples=self._config.getint("security", "minimum_samples"),
+        )
         self.tp_security_manager = TrainingPlanSecurityManager(
             db=self._db_path,
             node_id=self._node_id,
@@ -115,7 +128,23 @@ class Node:
             tp_approval=self._config.getbool("security", "training_plan_approval"),
         )
 
-        self.node_args = node_args
+        # Initialize security audit logging
+        logger.set_security_logs(root_path=self._config.root)
+
+        logger.configure_security(
+            component_id=self._node_id,
+            component_name=ComponentType.NODE,
+            fedbiomed_version=__version__,
+        )
+
+        # Log node creation
+        logger.security_event(
+            operation="node_initialized",
+            status="success",
+            researcher_id=None,
+            node_name=self._node_name,
+            config_path=self._config.root,
+        )
 
     @property
     def node_id(self):
@@ -139,6 +168,15 @@ class Node:
             task: A `Message` object describing a training task
         """
         self._tasks_queue.add(task)
+        # Log task added to queue
+        logger.security_event(
+            operation="task_queued",
+            status="queued",
+            researcher_id=getattr(task, "researcher_id", None),
+            message_type=task.__name__,
+            experiment_id=getattr(task, "experiment_id", None),
+            request_id=getattr(task, "request_id", None),
+        )
 
     def on_message(self, msg: dict):
         """Handler to be used with `Messaging` class (ie the messager).
@@ -165,41 +203,59 @@ class Node:
                 researcher_id=resid,
             )
         else:
-            no_print = [
-                "aggregator_args",
-                "optim_aux_var",
-                "params",
-                "training_plan",
-                "overlay",
-            ]
-            msg_print = {
-                key: value
-                for key, value in message.get_dict().items()
-                if key not in no_print
-            }
-            logger.debug("Message received: " + str(msg_print))
+            logger.debug(
+                "Received researcher message type=%s req=%s researcher=%s experiment=%s dataset=%s round=%s",
+                message.__name__,
+                getattr(message, "request_id", None),
+                getattr(message, "researcher_id", None),
+                getattr(message, "experiment_id", None),
+                getattr(message, "dataset_id", None),
+                getattr(message, "round", None),
+            )
 
-            match message.__name__:
-                case (
-                    TrainRequest.__name__
-                    | SecaggRequest.__name__
-                    | AdditiveSSSetupRequest.__name__
-                ):
-                    self.add_task(message)
-                case SecaggDeleteRequest.__name__:
-                    self._task_secagg_delete(message)
-                case OverlayMessage.__name__:
-                    self._n2n_router.submit(message)
-                case SearchRequest.__name__:
-                    databases = self.dataset_manager.dataset_table.search_by_tags(
-                        message.tags
-                    )
-                    if len(databases) != 0:
-                        databases = self.dataset_manager.obfuscate_private_information(
-                            databases
+            # Set security context for all logs related to this message
+            with logger.security_context(
+                researcher_id=getattr(message, "researcher_id", None),
+                message_type=message.__name__,
+                request_id=getattr(message, "request_id", None),
+                experiment_id=getattr(message, "experiment_id", None),
+            ):
+                # Log incoming message
+                logger.security_event(
+                    operation="message_received_from_researcher",
+                    status="received",
+                )
+
+                match message.__name__:
+                    case (
+                        TrainRequest.__name__
+                        | SecaggRequest.__name__
+                        | AdditiveSSSetupRequest.__name__
+                        | FARequest.__name__
+                        | PreprocRequest.__name__
+                    ):
+                        logger.debug(
+                            "Queueing node task type=%s req=%s experiment=%s",
+                            message.__name__,
+                            getattr(message, "request_id", None),
+                            getattr(message, "experiment_id", None),
                         )
-                    self._grpc_client.send(
-                        SearchReply(
+                        self.add_task(message)
+                    case SecaggDeleteRequest.__name__:
+                        self._task_secagg_delete(message)
+                    case OverlayMessage.__name__:
+                        self._n2n_router.submit(message)
+                    case SearchRequest.__name__:
+                        databases = self.dataset_manager.dataset_table.search_by_tags(
+                            message.tags
+                        )
+                        if len(databases) != 0:
+                            databases = (
+                                self.dataset_manager.obfuscate_private_information(
+                                    databases
+                                )
+                            )
+                        reply = SearchReply(
                             request_id=message.request_id,
                             node_id=self._node_id,
                             node_name=self._node_name,
@@ -207,15 +263,19 @@ class Node:
                             databases=databases,
                             count=len(databases),
                         )
-                    )
-                case ListRequest.__name__:
-                    # Get list of all datasets
-                    databases = self.dataset_manager.list_my_datasets(verbose=False)
-                    databases = self.dataset_manager.obfuscate_private_information(
-                        databases
-                    )
-                    self._grpc_client.send(
-                        ListReply(
+                        self._grpc_client.send(reply)
+                        # Log outgoing reply
+                        logger.security_event(
+                            operation="SearchReply_sent",
+                            status="sent",
+                        )
+                    case ListRequest.__name__:
+                        # Get list of all datasets
+                        databases = self.dataset_manager.list_my_datasets(verbose=False)
+                        databases = self.dataset_manager.obfuscate_private_information(
+                            databases
+                        )
+                        reply = ListReply(
                             success=True,
                             request_id=message.request_id,
                             node_id=self._node_id,
@@ -224,37 +284,56 @@ class Node:
                             databases=databases,
                             count=len(databases),
                         )
-                    )
+                        self._grpc_client.send(reply)
+                        # Log outgoing reply
+                        logger.security_event(
+                            operation="ListReply_sent",
+                            status="sent",
+                        )
 
-                case PingRequest.__name__:
-                    self._grpc_client.send(
-                        PingReply(
+                    case PingRequest.__name__:
+                        reply = PingReply(
                             request_id=message.request_id,
                             researcher_id=message.researcher_id,
                             node_id=self._node_id,
                             node_name=self._node_name,
                         )
-                    )
-                case ApprovalRequest.__name__:
-                    reply = (
-                        self.tp_security_manager.reply_training_plan_approval_request(
+                        self._grpc_client.send(reply)
+                        # Log outgoing reply
+                        logger.security_event(
+                            operation="PingReply_sent",
+                            status="sent",
+                        )
+                    case ApprovalRequest.__name__:
+                        reply = self.tp_security_manager.reply_training_plan_approval_request(
                             message
                         )
-                    )
-                    self._grpc_client.send(reply)
-                case TrainingPlanStatusRequest.__name__:
-                    reply = self.tp_security_manager.reply_training_plan_status_request(
-                        message
-                    )
-                    self._grpc_client.send(reply)
-                case _:
-                    resid = msg.get("researcher_id", "unknown_researcher_id")
-                    self.send_error(
-                        ErrorNumbers.FB301,
-                        extra_msg="This request handler is not implemented "
-                        f"{message.__class__.__name__} is not implemented",
-                        researcher_id=resid,
-                    )
+                        self._grpc_client.send(reply)
+                        # Log outgoing reply
+                        logger.security_event(
+                            operation="ApprovalReply_sent",
+                            status="sent",
+                        )
+                    case TrainingPlanStatusRequest.__name__:
+                        reply = (
+                            self.tp_security_manager.reply_training_plan_status_request(
+                                message
+                            )
+                        )
+                        self._grpc_client.send(reply)
+                        # Log outgoing reply
+                        logger.security_event(
+                            operation="TrainingPlanStatusReply_sent",
+                            status="sent",
+                        )
+                    case _:
+                        resid = msg.get("researcher_id", "unknown_researcher_id")
+                        self.send_error(
+                            ErrorNumbers.FB301,
+                            extra_msg="This request handler is not implemented "
+                            f"{message.__class__.__name__} is not implemented",
+                            researcher_id=resid,
+                        )
 
     def _task_secagg_delete(self, msg: SecaggDeleteRequest) -> None:
         """Parse a given secagg delete task message and execute secagg delete task.
@@ -326,11 +405,22 @@ class Node:
             secagg = SecaggSetup(**setup_arguments)()
             reply: SecaggReply = secagg.setup()
         except Exception as error_message:
-            logger.error(error_message)
+            error_text = repr(error_message)
+            logger.error(
+                "Secure aggregation setup failed on node=%s req=%s researcher=%s error=%s",
+                self._node_id,
+                request.request_id,
+                request.researcher_id,
+                error_text,
+            )
+            logger.debug(
+                "Secure aggregation setup traceback: %s",
+                traceback.format_exc(),
+            )
             return self.send_error(
                 request_id=request.request_id,
                 researcher_id=request.researcher_id,
-                extra_msg=str(error_message),
+                extra_msg=error_text,
             )
 
         reply.request_id = request.request_id
@@ -353,24 +443,38 @@ class Node:
             researcher_id=msg.researcher_id,
             send=self._grpc_client.send,
         )
-
         dataset_id = msg.get_param("dataset_id")
         data = self.dataset_manager.dataset_table.get_by_id(dataset_id)
 
         if data is None:
             return self.send_error(
-                extra_msg="Did not found proper data in local datasets "
-                f"on node={self._node_id}",
+                extra_msg=(
+                    f"{ErrorNumbers.FB313.value}: Did not find proper data in local datasets "
+                    f"on node={self._node_id} for dataset_id={dataset_id}"
+                ),
                 request_id=msg.request_id,
                 researcher_id=msg.researcher_id,
                 errnum=ErrorNumbers.FB313,
             )
+        logger.debug(
+            "Preparing training round req=%s experiment=%s round=%s dataset=%s training_plan=%s training=%s state_id=%s has_aux_var=%s",
+            msg.request_id,
+            msg.experiment_id,
+            msg.round,
+            dataset_id,
+            msg.get_param("training_plan_class"),
+            bool(msg.get_param("training")),
+            msg.get_param("state_id"),
+            msg.get_param("optim_aux_var") is not None,
+        )
 
         dlp_and_loading_block_metadata = None
         if "dlp_id" in data:
             dlp_and_loading_block_metadata = self.dataset_manager.get_dlp_by_id(
                 data["dlp_id"]
             )
+        else:
+            logger.debug("No data loading plan metadata for dataset=%s", dataset_id)
 
         round_ = Round(
             root_dir=self._config.root,
@@ -396,16 +500,30 @@ class Node:
         )
 
         # the round raises an error if it cannot initialize
-        err_msg = round_.initialize_arguments(msg.get_param("state_id"))
-        if err_msg is not None:
-            self._grpc_client.send(
-                ErrorMessage(
-                    node_id=self._node_id,
-                    errnum=ErrorNumbers.FB300,
-                    researcher_id=msg.researcher_id,
-                    extra_msg="Could not initialize arguments",
-                )
+        try:
+            err_msg = round_.initialize_arguments(msg.get_param("state_id"))
+        except Exception:
+            self.send_error(
+                errnum=ErrorNumbers.FB300,
+                extra_msg=f"{ErrorNumbers.FB300.value}: Could not initialize arguments",
+                researcher_id=msg.researcher_id,
+                request_id=msg.request_id,
             )
+            logger.debug(
+                f"Training round initialize arguments error. Details are: {traceback.format_exc()}"
+            )
+            return None
+
+        if err_msg is not None:
+            self.send_error(
+                errnum=ErrorNumbers.FB300,
+                extra_msg=(
+                    f"{ErrorNumbers.FB300.value}: Could not initialize arguments for training round: {err_msg}"
+                ),
+                researcher_id=msg.researcher_id,
+                request_id=msg.request_id,
+            )
+            return None
 
         return round_
 
@@ -413,7 +531,7 @@ class Node:
         """Manages training tasks in the queue."""
 
         while True:
-            item: TrainRequest = self._tasks_queue.get()
+            item: Message = self._tasks_queue.get()
             # don't want to treat again in case of failure
             self._tasks_queue.task_done()
 
@@ -422,47 +540,159 @@ class Node:
                 f"Researcher: {item.researcher_id} "
                 f"Experiment: {item.experiment_id}"
             )
-            try:
-                match item.__name__:
-                    case TrainRequest.__name__:
-                        round_ = self.parser_task_train(item)
-                        # once task is out of queue, initiate training rounds
-                        if round_ is not None:
-                            msg = round_.run_model_training(
-                                tp_approval=self._config.getbool(
-                                    "security", "training_plan_approval"
-                                ),
-                                secagg_insecure_validation=self._config.getbool(
-                                    "security", "secagg_insecure_validation"
-                                ),
-                                secagg_active=self._config.getbool(
-                                    "security", "secure_aggregation"
-                                ),
-                                force_secagg=self._config.getbool(
-                                    "security", "force_secure_aggregation"
-                                ),
-                                secagg_arguments=item.get_param("secagg_arguments"),
+
+            # Set security context for all logs in this task
+            with logger.security_context(
+                researcher_id=item.researcher_id,
+                experiment_id=item.experiment_id,
+                request_id=item.request_id,
+            ):
+                try:
+                    match item.__name__:
+                        case TrainRequest.__name__:
+                            round_ = self.parser_task_train(item)
+                            # once task is out of queue, initiate training rounds
+                            if round_ is not None:
+                                # Capture start time
+                                start_time = time.time()
+
+                                # Log training round start
+                                logger.security_event(
+                                    operation="training_round_start",
+                                    status="initiated",
+                                    dataset_id=round_.dataset.get("dataset_id"),
+                                    training_plan_id=item.get_param(
+                                        "training_plan_class"
+                                    ),
+                                    round_number=item.round,
+                                )
+                                logger.debug(
+                                    "Starting node training req=%s experiment=%s round=%s dataset=%s plan=%s",
+                                    item.request_id,
+                                    item.experiment_id,
+                                    item.round,
+                                    round_.dataset.get("dataset_id"),
+                                    item.get_param("training_plan_class"),
+                                )
+                                msg = round_.run_model_training(
+                                    tp_approval=self._config.getbool(
+                                        "security", "training_plan_approval"
+                                    ),
+                                    secagg_insecure_validation=self._config.getbool(
+                                        "security", "secagg_insecure_validation"
+                                    ),
+                                    secagg_active=self._config.getbool(
+                                        "security", "secure_aggregation"
+                                    ),
+                                    force_secagg=self._config.getbool(
+                                        "security", "force_secure_aggregation"
+                                    ),
+                                    secagg_arguments=item.get_param("secagg_arguments"),
+                                )
+                                msg.request_id = item.request_id
+                                self._grpc_client.send(msg)
+
+                                # Calculate duration
+                                duration_seconds = time.time() - start_time
+
+                                # Log training round completion
+                                logger.security_event(
+                                    operation="training_round_complete",
+                                    status="success",
+                                    dataset_id=round_.dataset.get("dataset_id"),
+                                    training_plan_id=item.get_param(
+                                        "training_plan_class"
+                                    ),
+                                    round_number=item.round,
+                                    duration_seconds=round(duration_seconds, 2),
+                                )
+                                logger.debug(
+                                    "Finished node training req=%s experiment=%s round=%s reply_type=%s success=%s duration_s=%.2f",
+                                    item.request_id,
+                                    item.experiment_id,
+                                    item.round,
+                                    msg.__class__.__name__,
+                                    getattr(msg, "success", None),
+                                    duration_seconds,
+                                )
+                                del round_
+
+                        case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
+                            # Log secagg setup start
+                            logger.security_event(
+                                operation="secagg_setup_start",
+                                status="initiated",
+                                secagg_id=getattr(item, "secagg_id", None),
                             )
-                            msg.request_id = item.request_id
-                            self._grpc_client.send(msg)
-                            del round_
+                            self._task_secagg(item)
+                            # Log secagg setup complete
+                            logger.security_event(
+                                operation="secagg_setup_complete",
+                                status="success",
+                                secagg_id=getattr(item, "secagg_id", None),
+                            )
+                        case FARequest.__name__:
+                            # Log federated analytics start
+                            logger.security_event(
+                                operation="federated_analytics_start",
+                                status="initiated",
+                            )
+                            fa_job = FAJob(
+                                root_dir=self._config.root,
+                                dataset_manager=self.dataset_manager,
+                                node_id=self._node_id,
+                                node_name=self._node_name,
+                                request=item,
+                                allow_fa=self.config.getbool(
+                                    "security", "allow_federated_analytics"
+                                ),
+                            )
+                            response = fa_job.run()
+                            self._grpc_client.send(response)
+                            # Log federated analytics complete
+                            logger.security_event(
+                                operation="federated_analytics_complete",
+                                status="success",
+                            )
+                        case PreprocRequest.__name__:
+                            # Log preprocessing start
+                            logger.security_event(
+                                operation="preprocessing_start",
+                                status="initiated",
+                            )
+                            preproc_job = PreprocJob(
+                                root_dir=self._config.root,
+                                dataset_manager=self.dataset_manager,
+                                node_id=self._node_id,
+                                node_name=self._node_name,
+                                request=item,
+                                allow_preproc=self.config.getbool(
+                                    "security", "allow_preproc"
+                                ),
+                            )
+                            response = preproc_job.run()
+                            self._grpc_client.send(response)
+                            # Log preprocessing complete
+                            logger.security_event(
+                                operation="preprocessing_complete",
+                                status="success",
+                            )
+                        case _:
+                            errmess = (
+                                f"{ErrorNumbers.FB319.value}: Undefined request message"
+                            )
+                            self.send_error(
+                                errnum=ErrorNumbers.FB319, extra_msg=errmess
+                            )
 
-                    case SecaggRequest.__name__ | AdditiveSSSetupRequest.__name__:
-                        self._task_secagg(item)
-                    case _:
-                        errmess = (
-                            f"{ErrorNumbers.FB319.value}: Undefined request message"
-                        )
-                        self.send_error(errnum=ErrorNumbers.FB319, extra_msg=errmess)
-
-            # TODO: Test exception
-            except Exception as e:
-                self.send_error(
-                    request_id=item.request_id,
-                    researcher_id=item.researcher_id,
-                    errnum=ErrorNumbers.FB300,
-                    extra_msg="Round error: " + str(e),
-                )
+                # TODO: Test exception
+                except Exception as e:
+                    self.send_error(
+                        request_id=item.request_id,
+                        researcher_id=item.researcher_id,
+                        errnum=ErrorNumbers.FB300,
+                        extra_msg="Round error: " + str(e),
+                    )
 
     def start_protocol(self) -> None:
         """Start the node to node router thread, for handling node to node message"""
@@ -475,6 +705,13 @@ class Node:
             on_finish: Called when the tasks for handling all known researchers have finished.
                 Callable has no argument.
         """
+        # Log node start
+        logger.security_event(
+            operation="node_started",
+            status="success",
+            researcher_id=None,
+            node_name=self._node_name,
+        )
         self._grpc_client.start(on_finish)
 
     def is_connected(self) -> bool:
@@ -503,8 +740,43 @@ class Node:
                 regardless of specific researcher.
             request_id: Optional request i to reply as error to a request.
         """
+        researcher_host = self._config.get("researcher", "ip")
+        researcher_port = self._config.get("researcher", "port")
         try:
-            logger.error(extra_msg)
+            connected = self.is_connected()
+        except Exception:
+            connected = False
+
+        try:
+            logger.debug(
+                "Preparing error reply errnum=%s req=%s researcher=%s broadcast=%s connected=%s destination=%s:%s msg_len=%d",
+                errnum.name,
+                request_id,
+                researcher_id,
+                broadcast,
+                connected,
+                researcher_host,
+                researcher_port,
+                len(extra_msg),
+                stack_info=True,
+            )
+
+            # Log error to console and security audit log in one call
+            logger.error(
+                extra_msg,
+                extra={
+                    "is_security": True,
+                    "operation": "error_sent",
+                    "status": "error",
+                    "request_id": request_id,
+                    "error_code": errnum.name,
+                    "error_message": extra_msg,
+                    "broadcast": broadcast,
+                },
+                researcher_id=researcher_id if researcher_id != "<unknown>" else None,
+                broadcast=broadcast,
+            )
+
             self._grpc_client.send(
                 ErrorMessage(
                     request_id=request_id,
@@ -516,5 +788,17 @@ class Node:
                 ),
                 broadcast=broadcast,
             )
+
+            logger.debug(
+                "Error reply dispatched errnum=%s req=%s researcher=%s broadcast=%s connected=%s",
+                errnum.name,
+                request_id,
+                researcher_id,
+                broadcast,
+                connected,
+            )
         except Exception as e:
-            logger.error(f"{ErrorNumbers.FB601.value}: Cannot send error message: {e}")
+            logger.error(
+                f"{ErrorNumbers.FB601.value}: Cannot send error message: {e}",
+                exc_info=True,
+            )

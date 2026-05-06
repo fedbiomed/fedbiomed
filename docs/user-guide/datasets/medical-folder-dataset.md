@@ -257,9 +257,9 @@ Accessing `dataset[index]` returns `(data, target)`:
 
 ```python
 data = {
-    'T1': torch.Tensor([256, 256, 180]),      # Brain scan data
-    'T2': torch.Tensor([256, 256, 180]),      # Brain scan data
-    'demographics': {'age': 45, 'gender': 'M'} # Optional patient info
+    'T1': torch.Tensor([256, 256, 180]),           # Brain scan data
+    'T2': torch.Tensor([256, 256, 180]),           # Brain scan data
+    'demographics': torch.Tensor([45.0, 1.0, ...]) # Optional patient info (array)
 }
 target = {'label': torch.Tensor([256, 256, 180])}  # Optional target data
 ```
@@ -314,9 +314,9 @@ Medical datasets support sophisticated transformation systems tailored for medic
     ...
     def training_data(self):
         ...
-        def demographics_transform(demographics: dict):
-        # concatenates values by keys ordered alphabetically
-        return torch.cat([torch.as_tensor(d[k], dtype=torch.float32).flatten() for k in sorted(d)])
+        def demographics_transform(demographics: torch.Tensor):
+        # demographics is already a 1-D tensor; apply any desired processing here
+        return demographics.float()
 
         training_transform = Compose([
             EnsureChannelFirst(channel_dim="no_channel"),

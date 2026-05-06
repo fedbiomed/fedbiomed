@@ -189,7 +189,7 @@ If there is some reason to keep it, it should then be renamed to something start
 
 ## Organization and Scrum
 
-* **The development team** is in charge of implementing Fed-BioMed's project goal and roadmap. It carries the bulk of the development effort, coordinating the work of Reviewers, Team Developers, Core Developers.
+* **The development team** is in charge of implementing Fed-BioMed's product goal, using product backlog and roadmap. It carries the bulk of the development effort, coordinating the work of Reviewers, Team Developers, Core Developers.
 
     It works as an agile team inspiring from [Scrum](https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf) and loosely implementing it. Development team's work is usually organized in sprints.
 
@@ -203,30 +203,48 @@ If there is some reason to keep it, it should then be renamed to something start
 * **External developers** are autonomous developers (Contributors) working at their own pace. This typically fits primarily for punctual contribution, work on some specific function, PoC, etc. External developers are encouraged to interact with the development team to ensure coherence of their planned contributions with the rest of the development activity.
 
 
+### Product goal
+
+
+Fed-BioMed is an open-source software platform for collaborative health data programs. It enables hospitals, biobanks, registries, clinical networks, and any organization holding sensitive health or subject data to collaborate with research teams and industry partners in a privacy-preserving way - without sharing or moving that data.
+
+Fed-BioMed is an ecosystem of partners with diverse objectives - researchers, industry, consortia - united by a shared commitment to collaborative studies in the healthcare domain.
+
+Fed-BioMed offers a modular set of core capabilities that can work together or be adopted selectively to fit the specific needs of each organization:
+
+* Federated framework: Provides the foundation to deploy, connect, and manage distributed data nodes across institutions, supporting long-term, multi-study collaboration within a federation of partners, by joining an existing federation or creating a new one.
+* Federated access control: Enforces fine-grained, role-based, decentralized permissions over who can access data and trigger computations across the federation, translating governance rules and regulatory requirements into consistent, auditable controls
+* Federated discovery: Enables exploration and querying of distributed datasets for cohort definition and feasibility studies through shared metadata, relying on common data models and standards. 
+* Federated preparation: Provides coordinated methods for preprocessing, harmonization, augmentation and presentation of distributed datasets consistently across sites
+* Federated analytics: Performs distributed statistical analysis and exploratory computations to extract global insights across datasets without pooling data
+* Federated learning: Trains and evaluates machine learning models across distributed datasets producing globally informed models while data stays local
+* Federated integration: Interoperates with existing software pipelines at each site by leveraging common data models, standardized data exchange formats and shared metadata schemas
+
+Fed-BioMed is built on key transversal principles:
+
+* Security by design: Raw data never leaves its original location. Access is minimized, local and secured at every layer.
+* Governance: Data owners retain full control, defining study-specific permissions that contribute to compliance with legal and regulatory requirements.
+* Accessible user experience: The platform provides interfaces for users with diverse backgrounds, from clinicians to data scientists.
+* Easy deployment: Organizations can set up their federated node quickly, and operate it with minimal effort
+
+
 ### Product backlog
 
 Product backlog is a [Scrum artifact](https://scrumguides.org/docs/scrumguide/v2020/2020-Scrum-Guide-US.pdf)
 composed of the product goal and product backlog entries. Each product backlog entry can contain a functional requirement, a user story, a task, etc.
-
-The current product goal content is:
-
-1. **priority 1** : translating Collaborative Learning to real world healthcare applications
-2. **priority 2** : as an open source software initiative, developing of the community, welcoming other contributions
-3. **priority 3** : supporting initiatives that use Fed-BioMed
-4. **priority 4** : experimenting new research and technologies
 
 Product backlog entries are:
 
 * all milestones except those with a *[PoC]* mark starting their title
 * issues with a *product backlog* label
 
-Product backlog is modified **by the product owner only or with explicit validation of the product owner**.
+Product backlog is modified **by the product owner or with explicit validation of the product owner**.
 
 Modifications of the product backlog include:
 
 - adding new entries (issues/milestones) to the *product backlog*
-- during sprint planning, moving issues from the *product backlog* to the new sprint's *sprint backlog* (they are selected for next sprint)
-- during sprint planning, moving back incomplete issues from the previous sprint's *sprint backlog* to the *product backlog* (they won't be continued during next sprint)
+- during sprint planning, moving issues from the *product backlog* to the new sprint's backlog (they are selected for next sprint) by placing them in the [Fed-BioMed Dev board](https://github.com/orgs/fedbiomed/projects/2)
+- during sprint planning, moving back incomplete issues from the previous sprint's backlog to the *product backlog* (they won't be continued during next sprint)
 - moving *product backlog* issues to *attic* (they are now considered obsolete)
 - closing product backlog milestones
 
@@ -242,20 +260,20 @@ Sprint backlog is a plan by and for the developers in order to achieve the sprin
 
 Sprint backlog entries are:
 
-* issues with a *sprint backlog* label
+* issues on the *Fed-BioMed Dev* board, except those with a *candidate* label
 
 Sprint backlog is created by the development team during the sprint planning. It can be updated and refined during the sprint (new issues, tasks and functional requirements rewriting) in accordance with the sprint goal.
 
-During the sprint planning, all incomplete entries remaining from the previous sprint's *sprint backlog* can be:
+During the sprint planning, all incomplete entries remaining from the previous sprint's backlog can be:
 
-- kept in the *sprint backlog* (they will be continued during next sprint)
+- kept in the backlog which means they will be continued during next sprint (by keeping them in the *Fed-BioMed Dev* board)
 - moved back to the *product backlog* (they won't be continued during next sprint)
 - moved to the *attic* (they are now considered obsolete) and closed
 
-During the sprint planning, all complete entries from the previous sprint's *sprint backlog*:
+During the sprint planning, all complete entries from the previous sprint's backlog:
 
-- should already be closed (if not, close them) and marked with *done* label
-- are removed from the *sprint backlog*
+- should already be closed (if not, close them)
+- are removed from the *Fed-BioMed Dev* board
 
 
 ### Proof of concepts
@@ -302,7 +320,7 @@ An open issue has exactly one type amongst:
 * *user support*
 * a *candidate*
 * a *product backlog* entry
-* a *sprint backlog* entry
+* no type, but still member of *Fed-BioMed board*, for a sprint backlog entry
 
 An issue:
 
@@ -310,16 +328,16 @@ An issue:
 * can be created by an individual developer. It must then label as a *candidate*.
 * can be moved from *needs-triage* to *user support* or *candidate* by a team developer. The team developer ensures it contains necessary information and is explicit enough. Team developer can also add *misc* labels.
 * can be moved to the *product backlog* by the product owner or with explicit validation of the product owner
-* can be moved to the *sprint backlog* during sprint planning by the team developers
-* is closed and marked *done* when it is completed. If it belongs to the *sprint backlog*, it should keep this label until the end of the current sprint.
+* can be moved to the sprint backlog (by adding in *Fed-BioMed Dev* board) during sprint planning by the team developers
+* is closed and marked as Done in the *Fed-BioMed Dev* board when it is completed.
 
 A closed issue has exactly one type amongst:
 
-* *done* (and not anymore in the sprint backlog)
 * *attic*
+* no type, if it was completed (as part of a sprint backlog or as a *candidate*)
 
 An issue can be labelled as *attic* and closed when it is considered obsolete or not relevant.
-It then loses its open issue type label (*needs-triage*, *candidate*, *product backlog*, *sprint backlog*) except for *user support* issues (make it easy to browse past user support issues).
+It then loses its open issue type label (*needs-triage*, *candidate*, *product backlog*) except for *user support* issues (make it easy to browse past user support issues).
 
 
 ### Labels
@@ -333,25 +351,25 @@ We sort labels in several categories:
   - **user support** : A developer validates a user-submitted issue to be a request for support or for information (if it is a bug report or a work request, then it should rather be a labelled as *candidate*)
   - **candidate** : An individual developer submits a work request to the team (extension proposal, bug, other request) or validates a user-submitted issue
   - **product backlog** : The product owner adds an entry to the product backlog
-  - **sprint backlog** : The development team adds an entry to the sprint backlog
   - **attic** : The entry is not completed, but is now considered obsolete and closed
-  - **done**: The entry is completed, closed, and not anymore in the *sprint backlog*
+  - **(no label)** and part of the *Fed-BioMed Dev* board: The entry is part of the current sprint's backlog
+  - **(no label)** and not in the *Fed-BioMed Dev* board: The entry was completed and closed in a previous sprint
 
 
 #### *status* information:
 
-**IMPORTANT: status information now uses the []`Fed-BioMed Dev`](https://github.com/orgs/fedbiomed/projects/2)**. Labels are not used anymore for status information (*todo*, *doing*, *in review* *done*). **Don't use anymore these labels**.
+**IMPORTANT: status information now uses the [*Fed-BioMed Dev*](https://github.com/orgs/fedbiomed/projects/2)**. Labels are not used anymore for status information (*todo*, *doing*, *in review* *done*). **Don't use anymore these labels**.
 
 All sprint backlog issues have one status information in the board.
 
-Other issues only have a status information in the board when they are active (eg: a developer not participating to a sprint, a developer working during intersprint).
+Issues that are not part of the sprint's backlog only have a status information in the board when they are active (eg: a developer not participating to a sprint, a developer working during intersprint).
 
-  - **todo** : Issue not started yet (but intention to start soon)
-  - **doing** : Issue implementation in progress
-  - **in review** : Issue implementation is finished, a pull request open and is ready for review (or under review)
-  - **done** : Issue is completed, it meets the DoD and **was merged to the next release integration branch**, but it still belongs to the *sprint backlog*
+  - **Todo** : Issue not started yet (but intention to start soon)
+  - **Doing** : Issue implementation in progress
+  - **In review** : Issue implementation is finished, a pull request open and is ready for review (or under review)
+  - **Done** : Issue is completed, it meets the DoD and **was merged to the next release integration branch**, and belongs to the current sprint's backlog
 
-FThe `Fed-BioMed Dev` board can be found in the `Projects` field on the right side of the issue.
+The *Fed-BioMed Dev* board can be found in the *Projects* field on the right side of the issue.
 
 
 #### *misc* labels
@@ -362,6 +380,7 @@ These are optional label that give additional information on an issue.
 - **improvement** : This label indicates that the created issue relates to the improvement of an existing feature.
 - **new feature** : This issue proposes to introduce a new functionality. This probably should not be set in the same issue as a *bug* or *user support*
 - **documentation** : Documentation related issue
+- **ci/cd**: CI/CD related issue  
 - **good first issue** : Nice to pick for a new contributor
 
 Note: some previously existing tags are now removed - *postponed*, *feature*, *improvement*, *intersprint*
@@ -369,7 +388,11 @@ Note: some previously existing tags are now removed - *postponed*, *feature*, *i
 
 #### Example
 
-* an issue with labels *sprint backlog* + *bug* + information *todo* means that this issue is in the current sprint's backlog, that it is not yet started, and that it solves a bug.
+* an issue with label *bug* + membership of *Fed-BioMed Dev* board + information *Todo* means that this issue is in the current sprint's backlog, that it is not yet started, and that it solves a bug.
+
+* an issue with label *user support* + membership of *Fed-BioMed Dev* board + information *Doing* means that someone is working on the issue, helping a user to use Fed-BioMed (not implementing code)
+
+* an issue with label *candidate* + membership of *Fed-BioMed Dev* board + information *Doing* means that someone is working on the issue, but not as part of a sprint.
 
 * summary :
 

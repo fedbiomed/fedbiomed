@@ -10,6 +10,7 @@ from typing import Dict, List
 
 from fedbiomed.common.cli import CLIArgumentParser, CommonCLI, ComponentDirectoryAction
 from fedbiomed.common.constants import NOTEBOOKS_FOLDER_NAME, ComponentType
+from fedbiomed.common.logger import logger
 
 __intro__ = """
    __         _ _     _                          _
@@ -41,6 +42,15 @@ class ResearcherControl(CLIArgumentParser):
             required=False,
             help="The directory where jupyter notebook will be started.",
         )
+
+        start.add_argument(
+            "--debug",
+            "-D",
+            action="store_true",
+            required=False,
+            help="Activate debug mode for the Node. Default is `False`",
+        )
+
         start.set_defaults(func=self.start)
 
     def start(self, args):
@@ -55,9 +65,23 @@ class ResearcherControl(CLIArgumentParser):
         else:
             nb_start_dir = os.path.join(component_path, NOTEBOOKS_FOLDER_NAME)
 
+        debug_enabled = bool(args.debug) or os.environ.get("FBM_DEBUG", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+
+        if debug_enabled:
+            print("Debug mode activated for Researcher CLI")
+            logger.setLevel("DEBUG")
+        else:
+            logger.setLevel("INFO")
+
         options.append(f"--notebook-dir={nb_start_dir}")
 
         current_env = os.environ.copy()
+        if debug_enabled:
+            current_env["FBM_DEBUG"] = "1"
         # comp_root = os.environ.get("FBM_RESEARCHER_COMPONENT_ROOT", None)
         command = ["jupyter", "notebook"]
         command = [*command, *options]

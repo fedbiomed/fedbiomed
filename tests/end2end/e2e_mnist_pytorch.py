@@ -1,9 +1,12 @@
+import json
+import os
 import time
 
 import pytest
 from experiments.training_plans.mnist_pytorch_training_plan import (
     CustomTrainingPlan,
     MnistModelScaffoldDeclearn,
+    MnistModelTaggedParameters,
     MyTrainingPlan,
 )
 from helpers import (
@@ -17,9 +20,11 @@ from helpers import (
     start_nodes,
 )
 
+from fedbiomed.common.constants import DB_PREFIX, VAR_FOLDER_NAME
 from fedbiomed.common.metrics import MetricTypes
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.optimizers.declearn import ScaffoldServerModule
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
 from fedbiomed.researcher.federated_workflows import Experiment
@@ -27,7 +32,7 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(port, post_session):
     """Setup fixture for the module"""
 
     print(f"USING PORT {port} for researcher server")
@@ -48,7 +53,7 @@ def setup(port, post_session, request):
 
     print("Adding first dataset --------------------------------------------")
     add_dataset_to_node(node_1, dataset1)
-    print("adding second dataset")
+    print("Adding second dataset -------------------------------------------")
     add_dataset_to_node(node_2, dataset1)
 
     time.sleep(1)
@@ -63,7 +68,7 @@ def setup(port, post_session, request):
 
     print("Adding first custom dataset -------------------------------------")
     add_dataset_to_node(node_1, dataset2)
-    print("adding second custom dataset")
+    print("Adding second custom dataset ------------------------------------")
     add_dataset_to_node(node_2, dataset2)
 
     time.sleep(1)
@@ -71,21 +76,20 @@ def setup(port, post_session, request):
     # Starts the nodes
     node_processes, thread = start_nodes([node_1, node_2])
 
-    # Clear files and processes created for the tests
-    def clear():
+    # Wait for nodes to finish starting before running tests
+    print("Waiting 10 seconds for nodes to start")
+    time.sleep(10)
+
+    yield node_1, node_2, researcher
+
+    try:
         kill_subprocesses(node_processes)
         thread.join()
-
+    finally:
         print("Clearing component data")
         clear_component_data(node_1)
         clear_component_data(node_2)
         clear_component_data(researcher)
-
-    # Good to wait 3 second to give time to nodes start
-    print("Sleep 5 seconds. Giving some time for nodes to start")
-    time.sleep(10)
-
-    request.addfinalizer(clear)
 
 
 #############################################
@@ -196,6 +200,7 @@ def test_03_mnist_pytorch_experiment_scaffold():
 
 
 def test_04_mnist_pytorch_experiment_declearn_scaffold():
+    """Test with declearn Scaffold optimizer and FedAverage aggregator"""
     model_args = {}
     tags = ["#MNIST", "#dataset"]
     training_args = {
@@ -226,4 +231,88 @@ def test_04_mnist_pytorch_experiment_declearn_scaffold():
     exp.set_test_on_global_updates(True)
     exp.set_test_metric(MetricTypes.ACCURACY)
     exp.run()
+    clear_experiment_data(exp)
+
+
+def test_05_mnist_pytorch_experiment_with_tagged_parameters(setup):
+    """Tests running training mnist with tagged parameters"""
+    node_1, node_2, researcher = setup
+
+    model_args = {}
+    tags = ["#MNIST", "#dataset"]
+    rounds = 1
+    training_args = {
+        "loader_args": {
+            "batch_size": 48,
+        },
+        "optimizer_args": {"lr": 1e-3},
+        "num_updates": 100,
+        "dry_run": False,
+    }
+
+    exp = Experiment(
+        tags=tags,
+        model_args=model_args,
+        training_plan_class=MnistModelTaggedParameters,
+        training_args=training_args,
+        round_limit=rounds,
+        aggregator=FedAverage(),
+        node_selection_strategy=None,
+    )
+
+    exp.run()
+    reply = exp.training_replies()
+
+    # Check keys in aggregated parameters in the last round
+    agg_params = exp.aggregated_params()[rounds - 1]["params"].keys()
+    for local_p in exp.training_plan()._local_params:
+        assert local_p not in agg_params
+
+    # Check parameters saved on the node side
+    node_1_id = node_1.get("default", "id")
+    state_id_node_1 = reply[rounds - 1][node_1_id]["state_id"]
+    experiment_id = reply[rounds - 1][node_1_id]["experiment_id"]
+
+    db_path = os.path.join(node_1.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{node_1_id}.json")
+    try:
+        with open(db_path, "r") as f:
+            db_content = json.load(f)
+    except FileNotFoundError:
+        pytest.fail(f"Node DB file not found at expected path: {db_path}")
+    except json.JSONDecodeError as e:
+        pytest.fail(f"Node DB file is not valid JSON: {e}")
+
+    # Retrieve node state
+    node_1_state = next(
+        (
+            state
+            for state in db_content["Node_states"].values()
+            if state["state_id"] == state_id_node_1
+            and state["experiment_id"] == experiment_id
+        ),
+        None,
+    )
+    assert node_1_state is not None, (
+        f"No matching Node_state found for "
+        f"state_id={state_id_node_1}, "
+        f"experiment_id={experiment_id}"
+    )
+
+    try:
+        model_weights_path = node_1_state["persistent_model_weights"]["state_path"]
+    except KeyError as e:
+        pytest.fail(f"Missing expected key in node DB: {e}")
+
+    assert os.path.exists(model_weights_path), "Model weights file does not exist"
+
+    try:
+        persistent_model_weights = Serializer.load(model_weights_path)
+    except Exception as e:
+        pytest.fail(f"Error loading persistent model weights: {e}")
+
+    # Check persistent parameters saved on node side
+    assert isinstance(persistent_model_weights, dict)
+    assert "conv1.weight" in persistent_model_weights
+    assert "conv2.bias" in persistent_model_weights
+
     clear_experiment_data(exp)

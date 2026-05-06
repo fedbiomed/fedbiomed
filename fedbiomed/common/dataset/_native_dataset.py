@@ -66,13 +66,16 @@ class NativeDataset(Dataset):
             )
 
         # Raise an error if length of target does not match dataset length
-        if hasattr(target, "__len__") and len(target) != len(dataset):
+        if (
+            target is not None
+            and hasattr(target, "__len__")
+            and len(target) != len(dataset)
+        ):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Length of target ({len(target)}) does not match dataset ({len(dataset)})."
             )
 
         self._target = target  # may be None
-        self._to_format: Optional[DataReturnFormat] = None
 
     def complete_initialization(
         self,

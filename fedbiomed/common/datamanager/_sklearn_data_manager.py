@@ -5,7 +5,7 @@
 Data manager for scikit-learn training plan
 """
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -18,7 +18,7 @@ from fedbiomed.common.exceptions import FedbiomedError
 from ._framework_data_manager import FrameworkDataManager, FrameworkSubset
 
 
-class _SkLearnSubset(Dataset, FrameworkSubset):
+class _SkLearnSubset(Dataset, FrameworkSubset[Dataset]):
     """Subset of a dataset at specified indices."""
 
     dataset: Dataset
@@ -62,17 +62,21 @@ class _SkLearnSubset(Dataset, FrameworkSubset):
         actual_idx = self.indices[idx]
         return self.dataset[actual_idx]
 
-    def complete_initialization(self) -> None:
+    def complete_initialization(
+        self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
+    ) -> None:
         """Unused method to comply with Dataset interface."""
-        pass
 
 
-class SkLearnDataManager(FrameworkDataManager):
+class SkLearnDataManager(FrameworkDataManager[Dataset]):
     """Class for creating data loaders from dataset for scikit-learn training plans"""
 
     _loader_class = SkLearnDataLoader
     _subset_class = _SkLearnSubset
-    _dataset_wrapper = lambda cls, x: x  # noqa: E731 - avoid declaring a dummy function
+
+    @staticmethod
+    def _dataset_wrapper(dataset: Dataset) -> Dataset:
+        return dataset
 
     _subset_test: Optional[_SkLearnSubset] = None
     _subset_train: Optional[_SkLearnSubset] = None

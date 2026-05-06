@@ -99,7 +99,10 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             )
 
     def get_weights(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        local_params: Optional[List[str]] = None,
     ) -> Dict[str, np.ndarray]:
         """Return a copy of the model's trainable weights.
 
@@ -108,6 +111,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 non-trainable model parameters.)
             exclude_buffers: Unused for scikit-learn models. (Whether to ignore
                 buffers.)
+            local_params: List of parameter names to exclude from the output.
 
         Raises:
             FedbiomedModelError: If the model parameters are not initialized.
@@ -121,10 +125,23 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 f"{ErrorNumbers.FB622.value}. Attribute `param_list` is empty. You should "
                 f"have initialized the model beforehand (try calling `set_init_params`)"
             )
+
+        local_params_set = set(local_params) if local_params else set()
+
+        unknown = local_params_set - set(self.param_list)
+        if unknown:
+            logger.warning(
+                "'BaseSkLearnModel.get_weights' received unknown local parameters "
+                "that are not part of the model; unknown parameters: %s. ",
+                unknown,
+            )
+
         # Gather copies of the model weights.
         weights = {}  # type: Dict[str, np.ndarray]
         try:
             for key in self.param_list:
+                if key in local_params_set:
+                    continue
                 val = getattr(self.model, key)
                 if not isinstance(val, np.ndarray):
                     raise FedbiomedModelError(
@@ -139,7 +156,10 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         return weights
 
     def flatten(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        local_params: Optional[List[str]] = None,
     ) -> List[float]:
         """Gets weights as flatten vector
 
@@ -148,12 +168,13 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 non-trainable model parameters.)
             exclude_buffers: Unused for scikit-learn models. (Whether to ignore
                 buffers.)
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             to_list: Convert np.ndarray to a list if it is True.
         """
 
-        weights = self.get_weights()
+        weights = self.get_weights(local_params=local_params)
         flatten = []
         for _, w in weights.items():
             w_: List[float] = list(w.flatten().astype(float))
@@ -166,6 +187,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         weights_vector: List[float],
         only_trainable: bool = False,
         exclude_buffers: bool = True,
+        local_params: Optional[List[str]] = None,
     ) -> Dict[str, np.ndarray]:
         """Unflatten vectorized model weights
 
@@ -175,15 +197,16 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
                 non-trainable model parameters.)
             exclude_buffers: Unused for scikit-learn models. (Whether to ignore
                 buffers.)
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             Model dictionary
         """
 
-        super().unflatten(weights_vector, only_trainable, exclude_buffers)
+        super().unflatten(weights_vector, only_trainable, exclude_buffers, local_params)
 
         weights_vector = np.array(weights_vector)
-        weights = self.get_weights()
+        weights = self.get_weights(local_params=local_params)
         pointer = 0
 
         params = {}
@@ -198,12 +221,14 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
     def set_weights(
         self,
         weights: Dict[str, np.ndarray],
+        local_params: Optional[List[str]] = None,
     ) -> None:
         """Assign new values to the model's trainable weights.
 
         Args:
             weights: Model weights, as a dict mapping parameters' names
                 to their numpy array.
+            local_params: List of parameter names tagged as local.
         """
         self._assert_dict_inputs(weights)
         for key, val in weights.items():
@@ -413,11 +438,12 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
         with open(filename, "wb") as file:
             joblib.dump(self.model, file)
 
-    def reload(self, filename: str) -> None:
+    def reload(self, filename: str, local_params: Optional[List[str]] = None) -> None:
         """Import and replace the wrapped model from a dump file.
 
         Args:
             filename: path to the file where the model has been exported.
+            local_params: List of parameter names tagged as local.
 
         !!! info "Notes":
             This method is designed to load the model from a local dump

@@ -388,3 +388,51 @@ class SklearnCSVTrainingPlan(FedSGDClassifier):
     def training_data(self):
         dataset = self.CSVClassificationDataset()
         return DataManager(dataset=dataset, shuffle=True)
+
+
+class SkLearnClassifierTrainingPlanTaggedParameters(FedPerceptron):
+    def init_dependencies(self):
+        """Define additional dependencies."""
+        return [
+            "from sklearn.pipeline import Pipeline",
+            "from sklearn.preprocessing import FunctionTransformer",
+            "from fedbiomed.common.dataset import MnistDataset",
+            "import numpy as np",
+        ]
+
+    def training_data(self):
+        """Prepare data for training.
+
+        This function loads a MNIST dataset from the node's filesystem, applies some
+        preprocessing and converts the full dataset to a numpy array.
+        Finally, it returns a DataManager created with these numpy arrays.
+        """
+
+        pipeline = Pipeline(
+            [
+                (
+                    "norm",
+                    FunctionTransformer(
+                        lambda im: (np.asarray(im, dtype=np.float64) / 255.0 - 0.1307)
+                        / 0.3081,
+                        validate=False,
+                    ),
+                ),
+                (
+                    "flatten",
+                    FunctionTransformer(
+                        lambda x: np.ascontiguousarray(x.reshape(-1), dtype=np.float64),
+                        validate=False,
+                    ),
+                ),
+            ]
+        )
+
+        dataset = MnistDataset(transform=pipeline.transform)
+
+        return DataManager(dataset=dataset, shuffle=True)
+
+    def tag_parameters(self, name):
+        if name == "intercept_":
+            return {"local", "persistent"}
+        return set()

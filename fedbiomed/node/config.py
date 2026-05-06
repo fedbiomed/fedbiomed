@@ -56,6 +56,11 @@ class NodeConfig(Config):
             "secagg_insecure_validation": os.getenv(
                 "FBM_SECURITY_SECAGG_INSECURE_VALIDATION", "True"
             ),
+            "allow_preproc": os.getenv("FBM_SECURITY_ALLOW_PREPROC", "True"),
+            "allow_federated_analytics": os.getenv(
+                "FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS", "True"
+            ),
+            "minimum_samples": os.getenv("FBM_SECURITY_MINIMUM_SAMPLES", "0"),
         }
         # Generate self-signed certificates
         key_file, pem_file = generate_certificate(
@@ -88,6 +93,46 @@ class NodeConfig(Config):
             )
 
             self._cfg["default"].update({"name": "Migrated Node Name"})
+
+        if not self._cfg.has_option("security", "allow_preproc"):
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for the node. "
+                "Please add 'allow_preproc' value in `security` section "
+                "of the node configuration to define whether preprocessing is allowed."
+            )
+
+            self._cfg["security"].update({"allow_preproc": "True"})
+
+        if not self._cfg.has_option("security", "allow_federated_analytics"):
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for the node. "
+                "Please add 'allow_federated_analytics' value in `security` section "
+                "of the node configuration to define whether federated analytics is allowed."
+            )
+
+            self._cfg["security"].update({"allow_federated_analytics": "True"})
+
+        if not self._cfg.has_option("security", "minimum_samples"):
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for the node. "
+                "Please add 'minimum_samples' value in `security` section "
+                "of the node configuration to define the minimum number of samples required for a dataset."
+            )
+            self._cfg["security"].update({"minimum_samples": "0"})
+
+        if not self._cfg.has_section("syslog"):
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for the node. "
+                "Please add 'enable' value in `syslog` section "
+                "of the node configuration to define whether syslog is enabled."
+            )
+            self._cfg.add_section("syslog")
+            self._cfg["syslog"].update({"enable": "False"})
+            self._cfg["syslog"].update({"host": "localhost"})
+            self._cfg["syslog"].update({"port": "514"})
+            self._cfg["syslog"].update({"protocol": "udp"})
+            self._cfg["syslog"].update({"facility": "user"})
+            self._cfg["syslog"].update({"level": "INFO"})
 
 
 component_root = os.environ.get("FBM_NODE_COMPONENT_ROOT", None)

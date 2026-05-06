@@ -1,5 +1,5 @@
-import os
 import copy
+import os
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
@@ -226,7 +226,7 @@ class TestCertificateManager(unittest.TestCase):
         """Tests method to generate self-signed ssl certificate"""
 
         certificate_folder = "test-dir"
-        with patch("builtins.open") as mock_open:
+        with patch("fedbiomed.common.certificate_manager.open") as mock_open:
             self.mock_isdir.return_value = True
             self.cm.generate_self_signed_ssl_certificate(
                 certificate_folder=certificate_folder,

@@ -14,7 +14,11 @@ from fedbiomed.common.dataset_controller import (
     MedNistController,
     MnistController,
 )
-from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
+from fedbiomed.common.dataset_types import (
+    DataReturnFormat,
+    DatasetDataItem,
+    ImageSpec,
+)
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from ._dataset import Dataset
@@ -80,8 +84,11 @@ class _ImageLabelDataset(Dataset):
 
         sample = self._controller.get_sample(idx)
         sample = self.apply_transforms(sample)
-
         return sample["data"], sample["target"]
+
+    def analytics_schema(self):
+        """Return schema associated with federated analytics."""
+        return ImageSpec(), None
 
 
 class ImageFolderDataset(_ImageLabelDataset):

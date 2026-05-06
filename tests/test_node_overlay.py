@@ -1,20 +1,20 @@
-import os
-import unittest
-import tempfile
-from unittest.mock import patch, MagicMock
 import copy
+import os
+import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
 
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
-from fedbiomed.common.message import Message, KeyRequest, InnerMessage, OverlayMessage
+from fedbiomed.common.message import InnerMessage, KeyRequest, Message, OverlayMessage
 from fedbiomed.common.secagg._dh import DHKeyAgreement
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.transport.controller import GrpcController
 from fedbiomed.node.requests._overlay import OverlayChannel, _ChannelKeys
+from fedbiomed.transport.controller import GrpcController
 
 
 class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
@@ -75,27 +75,28 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
         channel_keys2 = self.overlay_channel._channel_keys
 
         # action
-        local_key1a, distant_key1a = await self.channel_keys.get_keys(node1)
-        await self.channel_keys.add_pending_request(node1, request1)
-        set1 = await self.channel_keys.set_distant_key(
-            node1, self.default_private_key.export_public_key(), request1
-        )
-        local_key1b, distant_key1b = await self.channel_keys.get_keys(node1)
-        local_public1 = await self.channel_keys.get_local_public_key(node1)
+        with patch("fedbiomed.node.requests._overlay.logger.debug") as logger_debug:
+            local_key1a, distant_key1a = await self.channel_keys.get_keys(node1)
+            await self.channel_keys.add_pending_request(node1, request1)
+            set1 = await self.channel_keys.set_distant_key(
+                node1, self.default_private_key.export_public_key(), request1
+            )
+            local_key1b, distant_key1b = await self.channel_keys.get_keys(node1)
+            local_public1 = await self.channel_keys.get_local_public_key(node1)
 
-        local_key2a, distant_key2a = await channel_keys2.get_keys(node2)
-        await channel_keys2.add_pending_request(node2, request2)
-        set2 = await self.overlay_channel.set_distant_key(
-            node2, self.default_private_key.export_public_key(), request2
-        )
-        local_key2b, distant_key2b = await channel_keys2.get_keys(node2)
-        local_public2 = await self.overlay_channel.get_local_public_key(node2)
+            local_key2a, distant_key2a = await channel_keys2.get_keys(node2)
+            await channel_keys2.add_pending_request(node2, request2)
+            set2 = await self.overlay_channel.set_distant_key(
+                node2, self.default_private_key.export_public_key(), request2
+            )
+            local_key2b, distant_key2b = await channel_keys2.get_keys(node2)
+            local_public2 = await self.overlay_channel.get_local_public_key(node2)
 
-        set3 = await self.channel_keys.set_distant_key(
-            "non existing node",
-            self.default_private_key.export_public_key(),
-            "any request",
-        )
+            set3 = await self.channel_keys.set_distant_key(
+                "non existing node",
+                self.default_private_key.export_public_key(),
+                "any request",
+            )
 
         # test
         self.assertEqual(local_key1a, local_key1b)
@@ -117,6 +118,20 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
         self.assertEqual(local_public2, local_key2a.export_public_key())
 
         self.assertFalse(set3)
+        debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+        self.assertTrue(
+            any("Creating node-to-node channel state" in msg for msg in debug_messages)
+        )
+        self.assertTrue(
+            any(
+                "Registered pending node-to-node channel request" in msg
+                for msg in debug_messages
+            )
+        )
+        self.assertTrue(any("Stored distant node key" in msg for msg in debug_messages))
+        self.assertTrue(
+            any("Ignoring distant node key update" in msg for msg in debug_messages)
+        )
 
     async def test_channel_keys_02_wait_ready_channel(self):
         """Test channel keys object wait_ready_channel"""
@@ -223,21 +238,22 @@ class TestNodeRequestsOverlayChannel(
         # 1. correct message
 
         # action
-        payload, salt, nonce = await self.overlay_channel.format_outgoing_overlay(
-            src_message, researcher_id, setup=True
-        )
-        overlay_message = OverlayMessage(
-            researcher_id=researcher_id,
-            node_id=node_id,
-            dest_node_id=dest_node_id,
-            overlay=payload,
-            setup=True,
-            salt=salt,
-            nonce=nonce,
-        )
-        dest_message = await self.overlay_channel.format_incoming_overlay(
-            overlay_message
-        )
+        with patch("fedbiomed.node.requests._overlay.logger.debug") as logger_debug:
+            payload, salt, nonce = await self.overlay_channel.format_outgoing_overlay(
+                src_message, researcher_id, setup=True
+            )
+            overlay_message = OverlayMessage(
+                researcher_id=researcher_id,
+                node_id=node_id,
+                dest_node_id=dest_node_id,
+                overlay=payload,
+                setup=True,
+                salt=salt,
+                nonce=nonce,
+            )
+            dest_message = await self.overlay_channel.format_incoming_overlay(
+                overlay_message
+            )
 
         # check
         self.assertIsInstance(dest_message, InnerMessage)
@@ -246,6 +262,19 @@ class TestNodeRequestsOverlayChannel(
         )
         for k in src_message.get_dict().keys():
             self.assertEqual(src_message.get_param(k), dest_message.get_param(k))
+        debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+        self.assertTrue(
+            any("Formatting outgoing overlay message" in msg for msg in debug_messages)
+        )
+        self.assertTrue(
+            any("Formatted outgoing overlay payload" in msg for msg in debug_messages)
+        )
+        self.assertTrue(
+            any("Formatting incoming overlay message" in msg for msg in debug_messages)
+        )
+        self.assertTrue(
+            any("Validated incoming overlay message" in msg for msg in debug_messages)
+        )
 
         # 2. node_id mismatch
         overlay_message.node_id = "another node id"

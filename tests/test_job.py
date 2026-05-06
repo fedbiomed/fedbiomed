@@ -6,15 +6,25 @@ from unittest.mock import MagicMock, call, create_autospec, patch
 
 from testsupport.fake_training_plan import FakeTorchTrainingPlan
 
-from fedbiomed.common.constants import TrainingPlanApprovalStatus
-from fedbiomed.common.message import ErrorMessage, TrainingPlanStatusReply, TrainReply
+from fedbiomed.common.constants import (
+    HarmonizationStep,
+    PreprocType,
+    TrainingPlanApprovalStatus,
+)
+from fedbiomed.common.message import (
+    ErrorMessage,
+    PreprocReply,
+    TrainingPlanStatusReply,
+    TrainReply,
+)
 from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import BaseTrainingPlan
 from fedbiomed.researcher.config import config
-from fedbiomed.researcher.datasets import FederatedDataSet
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import (
     Job,
+    PreprocRequestJob,
     TrainingJob,
     TrainingPlanApproveJob,
     TrainingPlanCheckJob,
@@ -37,7 +47,7 @@ class TestJob(unittest.TestCase):
 
         # Globally create mock for Model and FederatedDataset
         self.model = create_autospec(BaseTrainingPlan, instance=False)
-        self.fds = MagicMock(spec=FederatedDataSet)
+        self.fds = MagicMock(spec=FederatedDataset)
         self.fds.data = MagicMock(return_value={})
         self.model = FakeTorchTrainingPlan
         self.model.save_code = MagicMock()
@@ -58,28 +68,23 @@ class TestJob(unittest.TestCase):
                 pass
 
         nodes = MagicMock(spec=list)
-        files_dir = "/path/to/my/files"
         job = MinimalJob(
             requests=MagicMock(),
             researcher_id="test-id",
             nodes=nodes,
-            keep_files_dir=files_dir,
         )
-        self.assertIsNotNone(job._keep_files_dir)  # must be initialized by Job
         self.assertTrue(
             isinstance(job._nodes, list) and len(job._nodes) == 0
         )  # nodes must be empty list by default
 
-        # Job can take nodes and keep_files_dir as arguments
+        # Job can take nodes as arguments
         mynodes = ["first-node", "second-node"]
         job = MinimalJob(
             requests=MagicMock(),
             researcher_id="test-id",
             nodes=mynodes,
-            keep_files_dir="keep_files_dir",
         )
-        self.assertEqual(job._keep_files_dir, "keep_files_dir")
-        self.assertTrue(all(x == y for x, y in zip(job._nodes, mynodes)))
+        self.assertTrue(all(x == y for x, y in zip(job._nodes, mynodes, strict=True)))
 
         # use and check timer
         with job.RequestTimer(mynodes) as t1:
@@ -111,6 +116,7 @@ class TestJob(unittest.TestCase):
         mock_tp_class.__name__ = "mock_tp_class"
 
         mock_tp = mock_tp_class()
+        mock_tp.local_params = None
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
 
@@ -132,7 +138,7 @@ class TestJob(unittest.TestCase):
                         training_plan=mock_tp,
                         training_args=TrainingArgs({}, only_required=False),
                         model_args=None,
-                        data=self.fds,  # mocked FederatedDataSet class
+                        data=self.fds,  # mocked FederatedDataset class
                         nodes_state_ids=fake_node_state_ids,
                         nodes=["alice", "bob"],
                         aggregator_args={},
@@ -243,6 +249,7 @@ class TestJob(unittest.TestCase):
         mock_tp_class.__name__ = "mock_tp_class"
 
         mock_tp = mock_tp_class()
+        mock_tp.local_params = None
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
 
@@ -297,7 +304,7 @@ class TestJob(unittest.TestCase):
                         training_plan=mock_tp,
                         training_args=TrainingArgs({}, only_required=False),
                         model_args=None,
-                        data=self.fds,  # mocked FederatedDataSet class
+                        data=self.fds,  # mocked FederatedDataset class
                         nodes_state_ids=fake_node_state_ids,
                         nodes=["alice", "bob"],
                         aggregator_args={},
@@ -408,13 +415,14 @@ class TestJob(unittest.TestCase):
         "_training_plan_approval_job.DiscardOnTimeout"
     )
     def test_job_04_training_plan_approve_job(self, mock_policy_dot):
-        mock_policy_dot = MagicMock(spec=DiscardOnTimeout)
+        _ = MagicMock(spec=DiscardOnTimeout)
 
         mock_tp_class = MagicMock()
         mock_tp_class.return_value = MagicMock(spec=BaseTrainingPlan)
         mock_tp_class.__name__ = "mock_tp_class"
 
         mock_tp = mock_tp_class()
+        mock_tp.local_params = None
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
 
@@ -427,14 +435,13 @@ class TestJob(unittest.TestCase):
 
         for success_status in success_status_all:
             # initialize TrainingJob
-            with tempfile.TemporaryDirectory() as fp:
+            with tempfile.TemporaryDirectory() as _fp:
                 job = TrainingPlanApproveJob(
                     researcher_id="test-id",
                     requests=self.request_mock,
                     training_plan=mock_tp,
                     description="my test TP",
                     nodes=["alice", "bob"],
-                    keep_files_dir=fp,
                 )
 
                 # prepare mocked node answers
@@ -461,13 +468,14 @@ class TestJob(unittest.TestCase):
         "jobs._training_plan_approval_job.DiscardOnTimeout"
     )
     def test_job_05_training_plan_check_job(self, mock_policy_dot):
-        mock_policy_dot = MagicMock(spec=DiscardOnTimeout)
+        _ = MagicMock(spec=DiscardOnTimeout)
 
         mock_tp_class = MagicMock()
         mock_tp_class.return_value = MagicMock(spec=BaseTrainingPlan)
         mock_tp_class.__name__ = "mock_tp_class"
 
         mock_tp = mock_tp_class()
+        mock_tp.local_params = None
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
 
@@ -492,14 +500,13 @@ class TestJob(unittest.TestCase):
                     for alice_approval_status in TrainingPlanApprovalStatus:
                         for bob_approval_status in TrainingPlanApprovalStatus:
                             # initialize TrainingJob
-                            with tempfile.TemporaryDirectory() as fp:
+                            with tempfile.TemporaryDirectory() as _fp:
                                 job = TrainingPlanCheckJob(
                                     researcher_id="test-id",
                                     requests=self.request_mock,
                                     experiment_id="any_unused_id",
                                     training_plan=mock_tp,
                                     nodes=["alice", "bob"],
-                                    keep_files_dir=fp,
                                 )
 
                                 err = {}
@@ -582,6 +589,7 @@ class TestJob(unittest.TestCase):
         mock_tp = create_autospec(spec=BaseTrainingPlan, instance=True)
         mock_tp.get_model_params.return_value = MagicMock(spec=dict)
         mock_tp.source.return_value = MagicMock(spec=str)
+        mock_tp.local_params = None
         # Set up stub node state ids.
         fake_node_state_ids = {"node-1": "node-1_nsid", "node-2": "node-2_nsid"}
         # Set up a mock dataset.
@@ -622,7 +630,7 @@ class TestJob(unittest.TestCase):
                 training_plan=mock_tp,
                 training_args=TrainingArgs({}, only_required=False),
                 model_args=None,
-                data=self.fds,  # mocked FederatedDataSet class
+                data=self.fds,  # mocked FederatedDataset class
                 nodes_state_ids=fake_node_state_ids,
                 nodes=["node-1", "node-2"],
                 aggregator_args={},
@@ -645,6 +653,138 @@ class TestJob(unittest.TestCase):
         patch_encrypted_auxvar_from_dict.assert_has_calls(
             [call(reply_1["optim_aux_var"]), call(reply_2["optim_aux_var"])]
         )
+
+    def test_job_07_preproc_request_job_success(self):
+        """PreprocRequestJob execute success case"""
+
+        # 1.prepare
+
+        self.fds.data = MagicMock(
+            return_value={
+                "alice": {"dataset_id": "alice_data"},
+                "bob": {"dataset_id": "bob_data"},
+            }
+        )
+
+        _researcher_id = "researcher_123"
+        _experiment_id = "experiment_123"
+
+        errors = {}
+        self.federated_request_mock.errors.return_value = errors
+        replies = {
+            "alice": PreprocReply(
+                **{
+                    "researcher_id": _researcher_id,
+                    "experiment_id": _experiment_id,
+                    "node_id": "alice",
+                    "node_name": "alice-name",
+                    "msg": "any dummy message from alice",
+                    "preproc_output": {"a": 1},
+                    "state_id": "state_alice_new",
+                }
+            ),
+            "bob": PreprocReply(
+                **{
+                    "researcher_id": _researcher_id,
+                    "experiment_id": _experiment_id,
+                    "node_id": "bob",
+                    "node_name": "bob-name",
+                    "msg": "any dummy message from bob",
+                    "preproc_output": {"b": 2},
+                    "state_id": "state_bob_new",
+                }
+            ),
+        }
+        self.federated_request_mock.replies.return_value = replies
+
+        # 2. test
+
+        preproc_request_job = PreprocRequestJob(
+            researcher_id=_researcher_id,
+            requests=self.request_mock,
+            nodes=["alice", "bob"],
+            experiment_id="experiment_123",
+            preproc_type=PreprocType.FEDCOMBAT,
+            preproc_step=HarmonizationStep.STANDARDIZE,
+            preproc_id="preproc_123",
+            federated_dataset=self.fds,
+            preproc_args={"a": 1},
+            state_id={"alice": "state_alice"},
+        )
+
+        job_replies = preproc_request_job.execute()
+
+        # 3. check
+
+        self.request_mock.send.assert_called_once()
+        self.assertDictEqual(job_replies, replies)
+        self.federated_request_mock.errors.assert_called_once()
+        self.federated_request_mock.errors.assert_return_value = errors
+        self.federated_request_mock.reset_mock()
+
+    def test_job_08_preproc_request_job_failure(self):
+        """PreprocRequestJob execute failure case"""
+
+        # 1.prepare
+
+        self.fds.data = MagicMock(
+            return_value={
+                "alice": {"dataset_id": "alice_data"},
+                "bob": {"dataset_id": "bob_data"},
+            }
+        )
+
+        _researcher_id = "researcher_123"
+        _experiment_id = "experiment_123"
+
+        replies = {}
+        errors = {
+            "alice": ErrorMessage(
+                **{
+                    "researcher_id": _researcher_id,
+                    "node_id": "alice",
+                    "node_name": "alice-name",
+                    "errnum": "dummy error num alice",
+                    "extra_msg": "dummy extra msg alice",
+                }
+            ),
+            "bob": ErrorMessage(
+                **{
+                    "researcher_id": _researcher_id,
+                    "node_id": "bob",
+                    "node_name": "bob-name",
+                    "errnum": "dummy error num bob",
+                    "extra_msg": "dummy extra msg bob",
+                }
+            ),
+        }
+        self.federated_request_mock.errors.return_value = errors
+        self.federated_request_mock.replies.return_value = replies
+
+        # 2. test
+
+        preproc_request_job = PreprocRequestJob(
+            researcher_id=_researcher_id,
+            requests=self.request_mock,
+            nodes=["alice", "bob"],
+            experiment_id="experiment_123",
+            preproc_type=PreprocType.FEDCOMBAT,
+            preproc_step=HarmonizationStep.STANDARDIZE,
+            preproc_id="preproc_123",
+            federated_dataset=self.fds,
+            preproc_args={"a": 1},
+            state_id={"alice": "state_alice"},
+        )
+
+        job_replies = preproc_request_job.execute()
+
+        # 3. check
+
+        self.request_mock.send.assert_called_once()
+        self.assertDictEqual(job_replies, {})
+        self.federated_request_mock.errors.assert_called_once()
+        self.federated_request_mock.errors.assert_return_value = errors
+        self.federated_request_mock.reset_mock()
 
     def _get_train_request(self, mock_tp, secagg_arguments, node_id, state_ids, data):
         return {

@@ -52,28 +52,35 @@ def get_class_source(cls: Callable) -> str:
 
     Raises:
         FedbiomedError: if argument is not a class
+        FedbiomedError: cannot read source file of the class
     """
-
     if not inspect.isclass(cls):
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: The argument `cls` must be a python class"
         )
 
-    # Check ipython status
-    status = is_ipython()
-
-    if status:
-        file = get_ipython_class_file(cls)
-        codes = "".join(inspect.linecache.getlines(file))
-
-        # Import only on IPython interface
-        module = importlib.import_module("IPython.core.magics.code")
-        extract_symbols = module.extract_symbols
-        print(extract_symbols)
-        class_code = extract_symbols(codes, cls.__name__)[0][0]
+    # Can be extracted if training plan is not defined in a notebook cell
+    # This includes python scripts, previously saved notebooks, pre-processing inner training plans
+    try:
+        class_code = inspect.getsource(cls)
         return class_code
+    except OSError:
+        pass
 
-    return inspect.getsource(cls)
+    # At this point, the class is defined in an IPython shell or there was a problem reading the source file
+    if not is_ipython():
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB627.value}: Could not read source file of the class {cls.__name__}"
+        )
+
+    file = get_ipython_class_file(cls)
+    codes = "".join(inspect.linecache.getlines(file))
+
+    # Import only on IPython interface
+    module = importlib.import_module("IPython.core.magics.code")
+    extract_symbols = module.extract_symbols
+    class_code = extract_symbols(codes, cls.__name__)[0][0]
+    return class_code
 
 
 def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:

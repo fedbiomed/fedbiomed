@@ -94,6 +94,9 @@ The configuration file is structured following the sections below:
     - `secure_aggregation`: Boolean parameter (True/False) to activate secure aggregation.
     - `force_secure_aggregation`: Boolean parameter (True/False) to force secure aggregation for every action that uses local dataset.
     - `secagg_insecure_validation`: A boolean parameter to activate insecure validation for secure aggregation rounds to verify the correctness of the aggregation on the researcher side. This option is intended for testing and debugging purposes and must be deactivated in production deployments.
+    - `allow_preproc`: Boolean value to enable applying pre-processing to the datasets before using them. Original dataset is not modified.
+    - `allow_federated_analytics`: Boolean value to enable computing statistics and analytics on the datasets. See [Federated Analytics — Nodes](federated-analytics.md) for details.
+    - `minimum_samples`: Integer value specifying the minimum number of samples required for a dataset to be registered on the node. Default is `0` (no minimum enforced).
 
 An example for a config file is shown below;
 
@@ -111,7 +114,9 @@ training_plan_approval = False
 secure_aggregation = True
 force_secure_aggregation = False
 secagg_insecure_validation = False
-
+allow_preproc = True
+allow_federated_analytics = True
+minimum_samples = 0
 
 [researcher]
 ip = localhost
@@ -156,11 +161,14 @@ Environment variables can be used to parameterize various options for creating t
 
 ```
 [security]:
-- allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, True
-- training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, False
+- allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, False (VPN/container mode) or True (other)
+- training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, True (VPN/container mode) or False (other)
 - secure_aggregation: FBM_SECURITY_SECURE_AGGREGATION, True
 - force_secure_aggregation: FBM_SECURITY_FORCE_SECURE_AGGREGATION, False
-- secagg_insecure_validation: FBM_SECURITY_SECAGG_INSECURE_VALIDATION, True
+- secagg_insecure_validation: FBM_SECURITY_SECAGG_INSECURE_VALIDATION, False (VPN/container mode) or True (other)
+- allow_preproc: FBM_SECURITY_ALLOW_PREPROC, False (VPN/container mode) or True (other)
+- allow_federated_analytics: FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS, False (VPN/container mode) or True (other)
+- minimum_samples: FBM_SECURITY_MINIMUM_SAMPLES, 0
 
 [researcher]:
 - ip: FBM_RESEARCHER_IP, ${IP_ADDRESS}, if not set: localhost

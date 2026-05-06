@@ -127,12 +127,17 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Add dependencies
         self._configure_dependencies()
 
+    def get_dp_controller(self) -> Optional[DPController]:
+        """Getter for dp controller"""
+        return self._dp_controller
+
     def post_init(
         self,
         model_args: Dict[str, Any],
         training_args: TrainingArgs,
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
+        node_id: Optional[str] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -150,7 +155,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
-        super().post_init(model_args, training_args, aggregator_args)
+        super().post_init(model_args, training_args, aggregator_args, node_id=node_id)
         # Assign scalar attributes.
         self._use_gpu = self._training_args.get("use_gpu")
         self._batch_maxnum = self._training_args.get("batch_maxnum")
@@ -174,7 +179,28 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self.set_aggregator_args(aggregator_args or {})
         # Configure the model and optimizer.
 
+        logger.debug(
+            "Torch training plan post_init: model_args=%s epochs=%s num_updates=%s use_gpu=%s dry_run=%s dp_active=%s aggregator=%s initialize_optimizer=%s",
+            sorted((model_args or {}).keys()),
+            self._epochs,
+            self._num_updates,
+            self._use_gpu,
+            self._dry_run,
+            training_args.dp_arguments() is not None,
+            self.aggregator_name,
+            initialize_optimizer,
+        )
+
         self._configure_model_and_optimizer(initialize_optimizer)
+        # Configure the parameters tagged as local
+        self._local_params = list(
+            self.filter_model_params_by_tags(
+                self.get_model_params(
+                    only_trainable=False, exclude_buffers=False, local_params=None
+                ),
+                required_tags={"local"},
+            ).keys()
+        )
 
     @abstractmethod
     def init_model(self):
@@ -263,6 +289,11 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
         # Get model defined by user -----------------------------------------------------------------------------
         init_model_spec = get_method_spec(self.init_model)
+        logger.debug(
+            "Configuring torch model: init_model_args=%s model_arg_keys=%s",
+            list(init_model_spec.keys()) if init_model_spec else [],
+            sorted((self._model_args or {}).keys()),
+        )
         if not init_model_spec:
             model = self.init_model()
         elif len(init_model_spec.keys()) == 1:
@@ -280,6 +311,12 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # Validate and fix model
         model = self._dp_controller.validate_and_fix_model(model)
         self._model = TorchModel(model)
+        logger.debug(
+            "Torch model configured: model_type=%s dp_active=%s initialize_optimizer=%s",
+            type(model).__name__,
+            getattr(self._dp_controller, "_is_active", False),
+            initialize_optimizer,
+        )
 
         # Get optimizer defined by researcher ------------------------
         # FIXME: This is implemented to solve the issue while setting model
@@ -291,6 +328,11 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # on the researcher.
         if initialize_optimizer:
             init_optim_spec = get_method_spec(self.init_optimizer)
+            logger.debug(
+                "Configuring torch optimizer: init_optimizer_args=%s optimizer_arg_keys=%s",
+                list(init_optim_spec.keys()) if init_optim_spec else [],
+                sorted((self._optimizer_args or {}).keys()),
+            )
             if not init_optim_spec:
                 optimizer = self.init_optimizer()
             elif len(init_optim_spec.keys()) == 1:
@@ -309,6 +351,11 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             optim_builder = OptimizerBuilder()
             #  build the optimizer wrapper
             self._optimizer = optim_builder.build(self._type, self._model, optimizer)
+            logger.debug(
+                "Torch optimizer configured: optimizer_type=%s wrapper_type=%s",
+                type(optimizer).__name__,
+                type(self._optimizer).__name__,
+            )
 
     def _set_device(self, use_gpu: Union[bool, None], node_args: dict):
         """Set device (CPU, GPU) that will be used for training, based on `node_args`
@@ -454,12 +501,36 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # set correct type for node args
         node_args = {} if not isinstance(node_args, dict) else node_args
 
+        logger.debug(
+            "Starting torch training routine: loader_type=%s dataset_type=%s dp_active=%s aggregator=%s epochs=%s num_updates=%s batch_maxnum=%s dry_run=%s",
+            type(self.training_data_loader).__name__,
+            type(getattr(self.training_data_loader, "dataset", None)).__name__,
+            getattr(self._dp_controller, "_is_active", False),
+            self.aggregator_name,
+            self._epochs,
+            self._num_updates,
+            self._batch_maxnum,
+            self._dry_run,
+        )
+
         # send all model to device, ensures having all the requested tensors
         self._set_device(self._use_gpu, node_args)
         self._model.send_to_device(self._device)
 
+        logger.debug(
+            "Training model sent to device: device=%s model_type=%s",
+            self._device,
+            type(getattr(self._model, "model", None)).__name__,
+        )
+
         # Run preprocess when everything is ready before the training
         self._preprocess()
+
+        logger.debug(
+            "Training preprocess completed: loader_type=%s dataset_type=%s",
+            type(self.training_data_loader).__name__,
+            type(getattr(self.training_data_loader, "dataset", None)).__name__,
+        )
 
         # # initial aggregated model parameters
         # self._init_params = deepcopy(list(self.model().parameters()))
@@ -469,6 +540,12 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             self._dp_controller.before_training(
                 optimizer=self._optimizer, loader=self.training_data_loader
             )
+        )
+
+        logger.debug(
+            "Training data loader ready after DP setup: loader_type=%s dataset_type=%s",
+            type(self.training_data_loader).__name__,
+            type(getattr(self.training_data_loader, "dataset", None)).__name__,
         )
 
         # set number of training loop iterations
@@ -538,6 +615,12 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
                 # Handle dry run mode
                 if self._dry_run:
+                    logger.debug(
+                        "Dry-run stopping training early: epoch=%s batch_index=%s observed_samples=%s",
+                        _epoch,
+                        _batch_idx,
+                        iterations_accountant.num_samples_observed_in_total,
+                    )
                     self._model.send_to_device(self._device_init)
                     torch.cuda.empty_cache()
                     return iterations_accountant.num_samples_observed_in_total
@@ -566,6 +649,11 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         # for attributes, values in self._model.model.__dict__.items():
         #     print("ATTRIBUTES", values)
         #     assert values == getattr(self._optimizer.model.model, attributes)
+        logger.debug(
+            "Completed torch training routine: observed_samples=%s final_device=%s",
+            iterations_accountant.num_samples_observed_in_total,
+            self._device_init,
+        )
         return iterations_accountant.num_samples_observed_in_total
 
     def _train_over_batch(
@@ -692,32 +780,80 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         training arguments, then we return only the output of
         [Model.get_weights][fedbiomed.common.models.TorchModel.get_weights],
         which considers only the trainable parameters.
+        If the researcher specified some parameters tagged as 'local', then these
+        parameters are not returned
         Otherwise, the default behaviour is to return the complete `state_dict`.
 
         Returns:
             The trained parameters to aggregate.
         """
+        logger.debug(
+            "Preparing after-training parameters: flatten=%s share_persistent_buffers=%s dp_active=%s has_postprocess=%s",
+            flatten,
+            self._share_persistent_buffers,
+            getattr(self._dp_controller, "_is_active", False),
+            hasattr(self, "postprocess"),
+        )
         # Either include non-parameter buffers to the outputs or not.
         # Note: this is mostly about sharing statistics from BatchNorm layers.
-        params = super().after_training_params()
+        exclude_buffers = not self._share_persistent_buffers
+        all_params = self.get_model_params(
+            exclude_buffers=exclude_buffers, local_params=None
+        )
+        logger.debug(
+            "Collected raw training parameters: parameter_count=%s",
+            len(all_params),
+        )
+        # Deal with DP first, that may change names of parameters in case OPACUS is used
+        renamed_all_params, rename_mapping = self._dp_controller.rename_params(
+            all_params
+        )
+
         # Check whether postprocess method exists, and use it.
         if hasattr(self, "postprocess"):
             logger.debug("running model.postprocess() method")
             try:
-                params = self.postprocess(
-                    self._model.model.state_dict()
-                )  # Post process
+                all_params = self.postprocess(renamed_all_params)  # Post process
+                # Retrieve original OPACUS naming to update model
+                all_params = self._dp_controller.revert_rename_params(
+                    all_params, rename_mapping
+                )
             except Exception as e:
                 raise FedbiomedTrainingPlanError(
                     f"{ErrorNumbers.FB605.value}: Error while running post-process {e}"
                 ) from e
 
-        # Run (optional) DP controller adjustments as well.
-        params = self._dp_controller.after_training(params)
+        # Run (optional) central DP controller adjustments as well to all parameters.
+        # Do not rename parameters yet, because the model parameters need to be updated first
+        all_params = self._dp_controller.after_training(all_params, renaming=False)
+        logger.debug(
+            "Applied DP/postprocess adjustments to parameters: parameter_count=%s flatten=%s",
+            len(all_params),
+            flatten,
+        )
+        # Update the model (needed to use flatten)
+        self._model.set_weights(all_params, local_params=None)
+        # Remove local params
+        local_params = (
+            [rename_mapping.get(name, name) for name in self._local_params]
+            if self._local_params is not None
+            else None
+        )
         if flatten:
             params = self._model.flatten(
-                exclude_buffers=not self._share_persistent_buffers
+                exclude_buffers=exclude_buffers, local_params=local_params
             )
+            logger.debug(
+                "Flattened training parameters for aggregation: flattened_count=%s",
+                len(params),
+            )
+        else:
+            params = self.get_model_params(
+                exclude_buffers=exclude_buffers, local_params=local_params
+            )
+            # Final renaming before being sent to the researcher
+            params, _ = self._dp_controller.rename_params(params)
+
         return params
 
     def __norm_l2(self) -> float:

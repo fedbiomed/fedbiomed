@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedDPControllerError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.optimizers.generic_optimizers import NativeTorchOptimizer
 from fedbiomed.common.training_args import DPArgsValidator
 from fedbiomed.common.validator import ValidateError
@@ -31,6 +32,11 @@ class DPController:
         self._privacy_engine = PrivacyEngine()
         self._dp_args = dp_args or {}
         self._is_active = dp_args is not None
+        logger.debug(
+            "Initializing DP controller: active=%s provided_args=%s",
+            self._is_active,
+            sorted(self._dp_args.keys()),
+        )
         # Configure/validate dp arguments
         if self._is_active:
             self._configure_dp_args()
@@ -47,8 +53,22 @@ class DPController:
         Returns:
             Differential privacy applied Optimizer and data loader
         """
+        # Before training is called once per node per round.
+        # The effects remain throughout the batch steps inside that round
+        #
+        # dp_type=local: Per-batch dp, inside the local training loop of a single round
+        # This is done per batch thanks to the Opacus `PrivacyEngine` `make_private` function that is attached to the model, optimizer and data loader.
+        #
+        # dp_type=central: Noise is added once after training, in the `after_training` function.
+        # before_training() still runs once at the start of the round, but with sigma=0.0 after normalization, so the training-time noise path is disabled, and it only does clipping.
 
         if self._is_active:
+            logger.debug(
+                "Applying DP before training: optimizer_type=%s loader_type=%s dp_type=%s",
+                type(optimizer.optimizer).__name__,
+                type(loader).__name__,
+                self._dp_args.get("type"),
+            )
             if not isinstance(optimizer.optimizer, torch.optim.Optimizer):
                 raise FedbiomedDPControllerError(
                     f"{ErrorNumbers.FB616.value}: "
@@ -70,6 +90,11 @@ class DPController:
                         max_grad_norm=float(self._dp_args["clip"]),
                     )
                 )
+                logger.debug(
+                    "DP privacy engine attached successfully: dp_type=%s loader_type=%s",
+                    self._dp_args.get("type"),
+                    type(loader).__name__,
+                )
             except Exception as e:
                 raise FedbiomedDPControllerError(
                     f"{ErrorNumbers.FB616.value}: "
@@ -77,16 +102,22 @@ class DPController:
                 ) from e
         return optimizer, loader
 
-    def after_training(self, params: Dict) -> Dict:
+    def after_training(self, params: Dict, renaming: bool = True) -> Dict:
         """DP actions after the training.
 
         Args:
             params: Contains model parameters after training with DP
+            renaming: whether to modify parameters names
         Returns:
             `params` fixed model parameters after applying differential privacy
         """
         if self._is_active:
-            params = self._postprocess_dp(params)
+            logger.debug(
+                "Applying DP after training: dp_type=%s parameter_count=%d",
+                self._dp_args.get("type"),
+                len(params),
+            )
+            params = self._postprocess_dp(params, renaming)
         return params
 
     def _configure_dp_args(self) -> None:
@@ -100,9 +131,16 @@ class DPController:
             raise FedbiomedDPControllerError(
                 f"{ErrorNumbers.FB616.value}: DP arguments are not valid: {e}"
             ) from e
+        logger.debug(
+            "Validated DP arguments: dp_type=%s clip=%s sigma_set=%s",
+            self._dp_args.get("type"),
+            self._dp_args.get("clip"),
+            "sigma" in self._dp_args,
+        )
         if self._dp_args["type"] == "central":
             self._dp_args["sigma_CDP"] = self._dp_args["sigma"]
             self._dp_args["sigma"] = 0.0
+            logger.debug("Configured central DP arguments: sigma moved to sigma_CDP")
 
     def validate_and_fix_model(self, model: Module) -> Module:
         """Validate and Fix model to be DP-compliant.
@@ -114,6 +152,7 @@ class DPController:
             Fixed or validated model
         """
         if self._is_active and not ModuleValidator.is_valid(model):
+            logger.debug("DP model validation failed, attempting automatic fix")
             try:
                 model = ModuleValidator.fix(model)
             except Exception as e:
@@ -121,6 +160,9 @@ class DPController:
                     f"{ErrorNumbers.FB616.value}: "
                     f"Error while making model DP-compliant: {e}"
                 ) from e
+            logger.debug("DP model automatic fix applied successfully")
+        elif self._is_active:
+            logger.debug("DP model validation passed without modification")
         return model
 
     def _assess_budget_locally(self, loader: DataLoader) -> Tuple[float, float]:
@@ -141,7 +183,7 @@ class DPController:
         )
         return eps, alpha
 
-    def _postprocess_dp(self, params: Dict) -> Dict:
+    def _postprocess_dp(self, params: Dict, renaming: bool = True) -> Dict:
         """Postprocess of model's parameters after training with DP.
 
         **Postprocess of DP parameters implies**
@@ -155,15 +197,60 @@ class DPController:
 
         Args:
             params: Contains model parameters after training with DP
+            renaming: whether to modify parameters names
+
         Returns:
             Contains (post processed) parameters
         """
+        # dp_type=central: Noise is added here once after training.
+        # dp_type=local: Noise is added per batch during training.
+        logger.debug(
+            "Postprocessing DP parameters: dp_type=%s parameter_count=%d",
+            self._dp_args.get("type"),
+            len(params),
+        )
         # Rename parameters when needed.
-        params = {key.replace("_module.", ""): param for key, param in params.items()}
+        if renaming:
+            params, _ = self.rename_params(params)
         # When using central DP, postprocess the parameters.
         if self._dp_args["type"] == "central":
+            logger.debug("Applying central DP noise during postprocessing")
             sigma = self._dp_args["sigma_CDP"]
             for key, param in params.items():
                 noise = sigma * self._dp_args["clip"] * torch.randn_like(param)
                 params[key] = param + noise
         return params
+
+    def rename_params(self, params: Dict) -> Tuple[Dict, Dict[str, str]]:
+        """Rename the model parameters modified by Opacus
+
+        Args:
+            params: Contains model parameters after training with DP
+
+        Returns:
+            renamed_params: parameters with Opacus prefix stripped.
+            rename_mapping: maps new names to original Opacus names,
+                only for parameters whose names were actually modified.
+        """
+        renamed_params = {}
+        rename_mapping = {}
+        for key, param in params.items():
+            new_key = key.replace("_module.", "")
+            renamed_params[new_key] = param
+            if new_key != key:
+                rename_mapping[new_key] = key
+        return renamed_params, rename_mapping
+
+    def revert_rename_params(
+        self, params: Dict, rename_mapping: Dict[str, str]
+    ) -> Dict:
+        """Restore the original Opacus parameter names using a rename mapping.
+
+        Args:
+            params: Contains model parameters with stripped names.
+            rename_mapping: Maps stripped names back to original Opacus names,
+                as returned by rename_params.
+        Returns:
+            Parameters with original Opacus names restored.
+        """
+        return {rename_mapping.get(key, key): param for key, param in params.items()}

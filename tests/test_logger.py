@@ -1,14 +1,21 @@
-import unittest
-
+import json
 import logging
+import os
+import socket
 import tempfile
 import time
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-
-from unittest.mock import MagicMock
-
-from fedbiomed.common.logger import logger
-from fedbiomed.common.logger import DEFAULT_LOG_LEVEL
+from fedbiomed.common.logger import (
+    DEFAULT_LOG_LEVEL,
+    SECURITY_CONTEXT,
+    SYSLOG_FACILITY_MAP,
+    _SecurityFormatter,
+    _SecurityOnlyFilter,
+    logger,
+)
 
 
 class TestLogger(unittest.TestCase):
@@ -16,10 +23,56 @@ class TestLogger(unittest.TestCase):
     Test the Logger class
     """
 
+    def _flush_security_handler(self):
+        """Flush + fsync SECURITY_FILE handler to avoid timing-based test flakiness."""
+        h = logger._handlers.get("SECURITY_FILE")
+        if h is None:
+            return
+        try:
+            h.flush()
+        except Exception:
+            pass
+
+        stream = getattr(h, "stream", None)
+        if stream is not None:
+            try:
+                stream.flush()
+            except Exception:
+                pass
+            # On some platforms/filesystems this can raise; keep it best-effort.
+            try:
+                os.fsync(stream.fileno())
+            except Exception:
+                pass
+
     def setUp(self):
         """
         before all tests: put the loglevel to a known state
         """
+        # The global logger is a singleton. Other test modules may add handlers
+        # (e.g., SECURITY_FILE, GRPC) and forget to remove them. These tests
+        # assume a clean handler set, so enforce that here.
+        handler_keys = list(getattr(logger, "_handlers", {}).keys())
+        for key in handler_keys:
+            if key == "CONSOLE":
+                continue
+            h = logger._handlers.get(key)
+            try:
+                logger._internal_add_handler(key, None)
+            finally:
+                if h is not None:
+                    try:
+                        h.close()
+                    except Exception:
+                        pass
+
+        # Ensure clean prefix/security context between tests
+        try:
+            logger.setPrefix("")
+        except Exception:
+            pass
+        SECURITY_CONTEXT.set(None)
+
         logger.setLevel(DEFAULT_LOG_LEVEL)
         pass
 
@@ -27,7 +80,26 @@ class TestLogger(unittest.TestCase):
         """
         after all test... empty for now
         """
-        pass
+        # Best-effort cleanup in case a test added handlers.
+        handler_keys = list(getattr(logger, "_handlers", {}).keys())
+        for key in handler_keys:
+            if key == "CONSOLE":
+                continue
+            h = logger._handlers.get(key)
+            try:
+                logger._internal_add_handler(key, None)
+            finally:
+                if h is not None:
+                    try:
+                        h.close()
+                    except Exception:
+                        pass
+
+        SECURITY_CONTEXT.set(None)
+        try:
+            logger.setPrefix("")
+        except Exception:
+            pass
 
     def test_logger_00_internal_translator(self):
         """
@@ -263,6 +335,14 @@ class TestLogger(unittest.TestCase):
         logger.setLevel("DEBUG")
         logger.critical("verify that logger still works properly")
 
+        grpc_handler = logger._handlers.get("GRPC")
+        if grpc_handler is not None:
+            logger._internal_add_handler("GRPC", None)
+            try:
+                grpc_handler.close()
+            except Exception:
+                pass
+
         pass
 
     def test_logger_07_filehandler(self):
@@ -289,6 +369,484 @@ class TestLogger(unittest.TestCase):
             self.assertTrue(True, "log message detected")
 
         pass
+
+    def test_logger_08_setprefix(self):
+        """
+        test setPrefix
+        """
+
+        prefix = "[TEST_PREFIX] "
+        message = "TEST_MESSAGE"
+        logger.setPrefix(prefix)
+
+        with self.assertLogs("fedbiomed", logging.INFO) as captured:
+            logger.info(message)
+
+        self.assertEqual(len(captured.records), 1)
+
+        # Handler formatters add the prefix at formatting time; assertLogs gives raw record.
+        formatted = logger._handlers["CONSOLE"].formatter.format(captured.records[0])
+        self.assertTrue(prefix in formatted, "prefix not found in log message")
+
+        # reset prefix
+        logger.setPrefix("")
+
+    def test_logger_09_security_only_filter(self):
+        """Test _SecurityOnlyFilter allows only records with is_security=True"""
+        filter = _SecurityOnlyFilter()
+
+        # Create mock records
+        record_with_flag = MagicMock()
+        record_with_flag.is_security = True
+
+        record_without_flag = MagicMock()
+        delattr(record_without_flag, "is_security")
+
+        record_false_flag = MagicMock()
+        record_false_flag.is_security = False
+
+        # Test filtering
+        self.assertTrue(filter.filter(record_with_flag))
+        self.assertFalse(filter.filter(record_without_flag))
+        self.assertFalse(filter.filter(record_false_flag))
+
+    def test_logger_10_configure_security(self):
+        """Test configure_security() sets security defaults"""
+        logger.configure_security(
+            component_id="test_node_123",
+            component_name="test_node_name",
+            fedbiomed_version="v1.2.3",
+        )
+
+        self.assertEqual(logger._security_defaults["component_id"], "test_node_123")
+        self.assertEqual(logger._security_defaults["component_name"], "test_node_name")
+        self.assertEqual(logger._security_defaults["fedbiomed_version"], "v1.2.3")
+
+        # Test partial updates
+        logger.configure_security(component_id="new_node_456")
+        self.assertEqual(logger._security_defaults["component_id"], "new_node_456")
+        self.assertEqual(logger._security_defaults["component_name"], "test_node_name")
+
+    def test_logger_11_security_context(self):
+        """Test security_context() context manager"""
+        # Ensure clean state
+        SECURITY_CONTEXT.set(None)
+
+        # Test basic context setting
+        with logger.security_context(researcher_id="researcher_1", operation="test_op"):
+            ctx = SECURITY_CONTEXT.get()
+            self.assertEqual(ctx["researcher_id"], "researcher_1")
+            self.assertEqual(ctx["operation"], "test_op")
+
+        # Context should be reset after exiting
+        ctx_after = SECURITY_CONTEXT.get()
+        self.assertIsNone(ctx_after)
+
+        # Test nested contexts
+        with logger.security_context(
+            researcher_id="researcher_1", operation="outer_op"
+        ):
+            ctx_outer = SECURITY_CONTEXT.get()
+            self.assertEqual(ctx_outer["researcher_id"], "researcher_1")
+            self.assertEqual(ctx_outer["operation"], "outer_op")
+
+            # Override researcher_id in nested context
+            with logger.security_context(
+                researcher_id="researcher_2", operation="inner_op"
+            ):
+                ctx_inner = SECURITY_CONTEXT.get()
+                self.assertEqual(ctx_inner["researcher_id"], "researcher_2")
+                self.assertEqual(ctx_inner["operation"], "inner_op")
+
+            # Should revert to outer context values
+            ctx_reverted = SECURITY_CONTEXT.get()
+            self.assertEqual(ctx_reverted["researcher_id"], "researcher_1")
+            self.assertEqual(ctx_reverted["operation"], "outer_op")
+
+    def test_logger_12_security_formatter_json_passthrough(self):
+        """Test _SecurityFormatter only passes through security-shaped JSON"""
+        security_defaults = {
+            "node_id": "node_123",
+            "node_name": "node_test",
+            "fedbiomed_version": "v1.0",
+        }
+        formatter = _SecurityFormatter(security_defaults)
+
+        # Create a mock record with JSON message that already matches the security schema.
+        # Arbitrary JSON should NOT be passed through, to avoid other handlers writing
+        # non-security JSON into the security audit log.
+        record = MagicMock()
+        json_payload = {
+            "timestamp": "2026-02-09T10:33:42Z",
+            "event_type": "security_event",
+            "operation": "test_operation",
+            "status": "success",
+            "node_id": "node_123",
+            "node_name": "node_test",
+            "fedbiomed_version": "v1.0",
+        }
+        json_msg = json.dumps(json_payload)
+        record.getMessage.return_value = json_msg
+
+        # Should return JSON as-is
+        result = formatter.format(record)
+        self.assertEqual(result, json_msg)
+        self.assertEqual(json.loads(result), json_payload)
+
+    def test_logger_13_security_event_with_caller_info(self):
+        """Test security_event() captures caller information"""
+        old_level = logger.getEffectiveLevel()
+        # Ensure INFO security events are not filtered by logger level, and ensure
+        # SECURITY_FILE handler level isn't overwritten to WARNING on add.
+        logger.setLevel("INFO")
+        logger.configure_security(
+            component_id="test_node",
+            component_name="test_name",
+            fedbiomed_version="v1.0",
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = str(Path(tmpdir) / "security_audit.log")
+            try:
+                logger.add_security_file_handler(filename=temp_file)
+                logger.setLevel("INFO", "SECURITY_FILE")
+                logger.security_event(
+                    operation="test_operation",
+                    status="success",
+                    researcher_id="researcher_1",
+                    custom_field="custom_value",
+                )
+                self._flush_security_handler()
+
+                with open(temp_file, "r") as f:
+                    log_entry = json.loads(f.readline())
+
+                self.assertEqual(log_entry["operation"], "test_operation")
+                self.assertEqual(log_entry["status"], "success")
+                self.assertEqual(log_entry["researcher_id"], "researcher_1")
+                self.assertEqual(log_entry["custom_field"], "custom_value")
+                self.assertIn("caller_function", log_entry)
+                self.assertIn("caller_module", log_entry)
+                self.assertIn("caller_file", log_entry)
+                self.assertIn("caller_line", log_entry)
+
+            finally:
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                if security_handler is not None:
+                    logger._internal_add_handler("SECURITY_FILE", None)
+                    security_handler.close()
+
+        logger.setLevel(old_level)
+
+    def test_logger_14_is_security_flag_behavior(self):
+        """Test is_security flag controls writing to security log"""
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel("INFO")
+        logger.configure_security(
+            component_id="test_node",
+            component_name="test_name",
+            fedbiomed_version="v1.0",
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = str(Path(tmpdir) / "security_audit.log")
+            try:
+                logger.add_security_file_handler(filename=temp_file)
+                logger.setLevel("INFO", "SECURITY_FILE")
+
+                # Without flag - should not write
+                logger.info("Regular message")
+                logger.error("Regular error")
+                self._flush_security_handler()
+                with open(temp_file, "r") as f:
+                    self.assertEqual(len(f.readlines()), 0)
+
+                # With False flag - should not write
+                logger.info("False flag", extra={"is_security": False})
+                self._flush_security_handler()
+                with open(temp_file, "r") as f:
+                    self.assertEqual(len(f.readlines()), 0)
+
+                # With True flag - should write
+                logger.info(
+                    "Info msg", extra={"is_security": True, "operation": "test_op"}
+                )
+                logger.error(
+                    "Error msg",
+                    extra={
+                        "is_security": True,
+                        "operation": "error_sent",
+                    },
+                    researcher_id="researcher_1",
+                )
+                self._flush_security_handler()
+
+                with open(temp_file, "r") as f:
+                    lines = f.readlines()
+                self.assertEqual(len(lines), 2)
+
+                info_entry = json.loads(lines[0])
+                print(info_entry.keys())
+                print(info_entry)
+                self.assertEqual(info_entry["message"], "Info msg")
+                self.assertEqual(info_entry["level"], "INFO")
+                self.assertEqual(info_entry["operation"], "test_op")
+                self.assertEqual(
+                    info_entry.get("caller_function"),
+                    "test_logger_14_is_security_flag_behavior",
+                )
+
+                error_entry = json.loads(lines[1])
+                self.assertEqual(error_entry["message"], "Error msg")
+                self.assertEqual(error_entry["level"], "ERROR")
+                self.assertEqual(error_entry["researcher_id"], "researcher_1")
+                self.assertEqual(
+                    error_entry.get("caller_function"),
+                    "test_logger_14_is_security_flag_behavior",
+                )
+
+            finally:
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                if security_handler is not None:
+                    logger._internal_add_handler("SECURITY_FILE", None)
+                    security_handler.close()
+
+        logger.setLevel(old_level)
+
+    def test_logger_15_security_context_merges_with_event(self):
+        """Test security_context merges with security_event fields"""
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel("INFO")
+        logger.configure_security(
+            component_id="test_node",
+            component_name="test_name",
+            fedbiomed_version="v1.0",
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = str(Path(tmpdir) / "security_audit.log")
+            try:
+                logger.add_security_file_handler(filename=temp_file)
+                logger.setLevel("INFO", "SECURITY_FILE")
+                with logger.security_context(
+                    researcher_id="researcher_1", experiment_id="exp_123"
+                ):
+                    logger.security_event(
+                        operation="training_start",
+                        status="initiated",
+                        round_number=1,
+                    )
+
+                self._flush_security_handler()
+                with open(temp_file, "r") as f:
+                    log_entry = json.loads(f.readline())
+
+                self.assertEqual(log_entry["researcher_id"], "researcher_1")
+                self.assertEqual(log_entry["experiment_id"], "exp_123")
+                self.assertEqual(log_entry["operation"], "training_start")
+                self.assertEqual(log_entry["round_number"], 1)
+
+            finally:
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                if security_handler is not None:
+                    logger._internal_add_handler("SECURITY_FILE", None)
+                    security_handler.close()
+
+        logger.setLevel(old_level)
+
+    def test_logger_16_add_security_file_handler_rotation(self):
+        """Test daily rotation creates new file when day passes"""
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel("INFO")
+        logger.configure_security(
+            component_id="test_node",
+            component_name="test_name",
+            fedbiomed_version="v1.0",
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = str(Path(tmpdir) / "security_audit.log")
+            try:
+                # Add security file handler with real TimedRotatingFileHandler
+                logger.add_security_file_handler(filename=temp_file)
+                logger.setLevel("INFO", "SECURITY_FILE")
+
+                # Write first log entry
+                logger.security_event(
+                    operation="test_operation_1",
+                    status="success",
+                    researcher_id="researcher_1",
+                )
+
+                self._flush_security_handler()
+
+                # Verify first entry exists
+                with open(temp_file, "r") as f:
+                    lines_before = f.readlines()
+
+                self.assertEqual(len(lines_before), 1)
+
+                # Get the handler and trigger rollover manually (simulates midnight passing)
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                self.assertIsNotNone(
+                    security_handler, "SECURITY_FILE handler should exist"
+                )
+
+                # Trigger rollover (simulates day change)
+                security_handler.doRollover()
+
+                # Write second log entry after "day change"
+                logger.security_event(
+                    operation="test_operation_2",
+                    status="success",
+                    researcher_id="researcher_2",
+                )
+
+                self._flush_security_handler()
+
+                # Verify current file now has only the new entry
+                with open(temp_file, "r") as f:
+                    lines_after = f.readlines()
+
+                self.assertEqual(
+                    len(lines_after),
+                    1,
+                    "Current log file should have only the new entry after rollover",
+                )
+                log_entry = json.loads(lines_after[0])
+                self.assertEqual(log_entry["operation"], "test_operation_2")
+
+                # Verify backup file was created (with timestamp suffix)
+                # TimedRotatingFileHandler adds suffix like .2026-02-06
+                temp_path = Path(temp_file)
+                backup_files = sorted(
+                    [
+                        p
+                        for p in temp_path.parent.glob(temp_path.name + ".*")
+                        if p != temp_path
+                    ]
+                )
+
+                self.assertGreater(
+                    len(backup_files),
+                    0,
+                    "Backup file should be created after rollover",
+                )
+
+                # Verify old entry is in backup file
+                backup_file = backup_files[0]
+                with backup_file.open("r") as f:
+                    backup_lines = f.readlines()
+
+                self.assertEqual(len(backup_lines), 1)
+                backup_entry = json.loads(backup_lines[0])
+                self.assertEqual(backup_entry["operation"], "test_operation_1")
+
+            finally:
+                security_handler = logger._handlers.get("SECURITY_FILE")
+                if security_handler is not None:
+                    logger._internal_add_handler("SECURITY_FILE", None)
+                    security_handler.close()
+
+        logger.setLevel(old_level)
+
+    @patch("fedbiomed.common.logger.SysLogHandler")
+    def test_logger_17_add_syslog_handler_udp(self, syslog_handler_cls):
+        """Test UDP syslog handler setup and registration."""
+        handler = MagicMock(spec=logging.Handler)
+        handler.level = logging.NOTSET
+        handler.filters = []
+        handler.setLevel = MagicMock(
+            side_effect=lambda level: setattr(handler, "level", level)
+        )
+        handler.addFilter = MagicMock(
+            side_effect=lambda filter_: handler.filters.append(filter_)
+        )
+        handler.setFormatter = MagicMock()
+        handler.close = MagicMock()
+        syslog_handler_cls.return_value = handler
+
+        logger.add_syslog_handler(
+            host="syslog.example",
+            port=1514,
+            protocol="udp",
+            facility=SYSLOG_FACILITY_MAP["local0"],
+            level="ERROR",
+        )
+
+        syslog_handler_cls.assert_called_once_with(
+            address=("syslog.example", 1514),
+            facility=SYSLOG_FACILITY_MAP["local0"],
+            socktype=socket.SOCK_DGRAM,
+        )
+        self.assertIs(logger._handlers.get("SYSLOG"), handler)
+        self.assertEqual(handler.level, logging.ERROR)
+        self.assertEqual(handler.ident, "fedbiomed: ")
+        self.assertFalse(handler.append_nul)
+        self.assertEqual(len(handler.filters), 1)
+        self.assertIsInstance(handler.filters[0], _SecurityOnlyFilter)
+
+        formatter = handler.setFormatter.call_args.args[0]
+        self.assertIsInstance(formatter, _SecurityFormatter)
+
+    @patch("fedbiomed.common.logger.SysLogHandler")
+    def test_logger_18_add_syslog_handler_tcp_and_remove(self, syslog_handler_cls):
+        """Test TCP syslog handler setup and removal."""
+        handler = MagicMock(spec=logging.Handler)
+        handler.level = logging.NOTSET
+        handler.filters = []
+        handler.setLevel = MagicMock(
+            side_effect=lambda level: setattr(handler, "level", level)
+        )
+        handler.addFilter = MagicMock(
+            side_effect=lambda filter_: handler.filters.append(filter_)
+        )
+        handler.setFormatter = MagicMock()
+        handler.close = MagicMock()
+        syslog_handler_cls.return_value = handler
+
+        logger.add_syslog_handler(
+            host="syslog.example",
+            port=6514,
+            protocol="tcp",
+            facility=SYSLOG_FACILITY_MAP["user"],
+            level="INFO",
+        )
+
+        syslog_handler_cls.assert_called_once_with(
+            address=("syslog.example", 6514),
+            facility=SYSLOG_FACILITY_MAP["user"],
+            socktype=socket.SOCK_STREAM,
+        )
+        self.assertIs(logger._handlers.get("SYSLOG"), handler)
+
+        logger.del_syslog_handler()
+        self.assertNotIn("SYSLOG", logger._handlers)
+
+    def test_logger_19_syslog_handler_filters_non_security_records(self):
+        """Test syslog handler only emits records marked as security events."""
+
+        class _CaptureHandler(logging.Handler):
+            def __init__(self):
+                super().__init__(level=logging.INFO)
+                self.records = []
+
+            def emit(self, record):
+                self.records.append(record)
+
+        old_level = logger.getEffectiveLevel()
+        handler = _CaptureHandler()
+
+        logger._internal_add_handler("SYSLOG", handler)
+        security_filter = _SecurityOnlyFilter()
+        handler.addFilter(security_filter)
+        logger.setLevel("INFO")
+        logger.setLevel("INFO", "SYSLOG")
+
+        logger.info("regular syslog candidate")
+        logger.info("security syslog candidate", extra={"is_security": True})
+
+        self.assertEqual(len(handler.records), 1)
+        emitted_record = handler.records[0]
+        self.assertEqual(emitted_record.getMessage(), "security syslog candidate")
+        self.assertTrue(getattr(emitted_record, "is_security", False))
+        logger.setLevel(old_level)
 
 
 if __name__ == "__main__":  # pragma: no cover

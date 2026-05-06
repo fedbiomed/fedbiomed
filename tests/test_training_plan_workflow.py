@@ -1,31 +1,29 @@
 import os
-import unittest
 import tempfile
-
-from unittest.mock import MagicMock, patch
-
+import unittest
+from unittest.mock import ANY, MagicMock, patch
 
 from testsupport.base_mocks import MockRequestModule
+from testsupport.fake_training_plan import (
+    FakeSKLearnTrainingPlan,
+    FakeTorchTrainingPlan,
+)
 
 import fedbiomed
-from fedbiomed.common.exceptions import FedbiomedExperimentError
+from fedbiomed.common.exceptions import (
+    FedbiomedExperimentError,
+    FedbiomedTypeError,
+)
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import (
     BaseTrainingPlan,
 )
+from fedbiomed.researcher.config import config
 from fedbiomed.researcher.federated_workflows import TrainingPlanWorkflow
 from fedbiomed.researcher.federated_workflows.jobs import (
     TrainingPlanApproveJob,
     TrainingPlanCheckJob,
 )
-from testsupport.fake_training_plan import (
-    FakeTorchTrainingPlan,
-    FakeSKLearnTrainingPlan,
-)
-
-from unittest.mock import ANY
-
-from fedbiomed.researcher.config import config
 
 
 class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
@@ -67,13 +65,13 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         def DummyMethod():
             pass
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             TrainingPlanWorkflow(training_plan_class=DummyMethod)
 
         class MyTrainingPlan(dict):
             pass
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedTypeError):
             TrainingPlanWorkflow(training_plan_class=MyTrainingPlan)
 
         exp = TrainingPlanWorkflow()
@@ -83,7 +81,8 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         self.assertIsNotNone(exp.training_args())
 
         # Test all possible combinations of init arguments
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
+        _training_data.data.return_value = {"node1": {"some": "data"}}
         _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
         parameters_and_possible_values = {
             "tags": (None, None, ["one-tag", "another-tag"]),
@@ -119,7 +118,8 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
 
         # Special corner cases that deserve additional testing
         # TrainingPlanWorkflow can also be constructed by providing parameters to the constructor
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
+        _training_data.data.return_value = {"alice": {"some": "data"}}
         _training_data.node_ids.return_value = [
             "alice",
             "bob",
@@ -152,7 +152,9 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         self.mock_tp.get_model_params.return_value = {"model": "params"}
         exp.set_training_plan_class(FakeTorchTrainingPlan)
 
-        self.mock_tp.set_model_params.assert_called_once_with({"model": "params"})
+        self.mock_tp.set_model_params.assert_called_once_with(
+            {"model": "params"}, local_params=self.mock_tp.local_params
+        )
 
         # check that weights are not preserved if we explicitly ask not to
         self.mock_tp.set_model_params.reset_mock()
@@ -168,11 +170,11 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         class DummyInvalidTPClass:
             pass
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.set_training_plan_class(DummyInvalidTPClass)
 
         # Type invalid type of training plan class
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.set_training_plan_class("Invalid")
 
     def test_training_plan_workflow_03_set_model_args(self):
@@ -193,10 +195,12 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         exp.set_model_args({"model": "other-args"})
 
         self.assertDictEqual(exp.model_args(), {"model": "other-args"})
-        self.mock_tp.set_model_params.assert_called_once_with({"model": "new-params"})
+        self.mock_tp.set_model_params.assert_called_once_with(
+            {"model": "new-params"}, local_params=self.mock_tp.local_params
+        )
 
         # Invalid model args type
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.set_model_args("invalid-type")
 
     def test_training_plan_workflow_04_approval(self):
@@ -207,13 +211,13 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         mock_job = patch_job.start()
         mock_approval_job = MagicMock(spec=TrainingPlanApproveJob)
         mock_job.return_value = mock_approval_job
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
-
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
+        _training_data.data.return_value = {"node1": {"some": "data"}}
         exp = TrainingPlanWorkflow(
             training_plan_class=FakeTorchTrainingPlan, training_data=_training_data
         )
 
-        response = exp.training_plan_approve(description="some description")
+        exp.training_plan_approve(description="some description")
         mock_approval_job.execute.assert_called_once_with()
 
     def test_training_plan_workflow_05_status(self):
@@ -224,18 +228,18 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         mock_job = patch_job.start()
         mock_approval_job = MagicMock(spec=TrainingPlanCheckJob)
         mock_job.return_value = mock_approval_job
-        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataSet)
-
+        _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
+        _training_data.data.return_value = {"node1": {"some": "data"}}
         exp = TrainingPlanWorkflow(
             training_plan_class=FakeTorchTrainingPlan, training_data=_training_data
         )
 
-        status = exp.check_training_plan_status()
+        exp.check_training_plan_status()
         mock_approval_job.execute.assert_called_once_with()
 
         # Error cases where training data is no
         exp._fds = None
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.check_training_plan_status()
 
     @patch("fedbiomed.common.serializer.Serializer.dump")
@@ -262,6 +266,12 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
             exp.experimentation_folder(),
             "breakpoint_0000",
             f"model_params_{mock_uuid.return_value}.mpk",
+        )
+        local_params = self.mock_tp.local_params
+        self.mock_tp.get_model_wrapper_class.return_value.get_weights.assert_called_once_with(
+            only_trainable=False,
+            exclude_buffers=False,
+            local_params=local_params,
         )
         mock_serializer_dump.assert_called_once_with(
             self.mock_tp.get_model_wrapper_class.return_value.get_weights.return_value,
@@ -313,9 +323,10 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
                 "training_plan_path": "some-path",
                 "model_weights_path": model_weights_path,
             },
+            "some-exp-tempo-id",
         )
 
-        exp, saved_state = TrainingPlanWorkflow.load_breakpoint()
+        exp, saved_state, exp_tempo_id = TrainingPlanWorkflow.load_breakpoint()
         # Test if Serializer.load is called once with the good arguments
         mock_serializer_load.assert_called_once_with(model_weights_path)
         self.assertEqual(exp.training_plan_class(), FakeTorchTrainingPlan)
@@ -326,9 +337,11 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
             TrainingArgs({"num_updates": 42}, only_required=False).dict(),
         )
         # Test if set_weights is called with the right arguments
+        local_params = self.mock_tp.local_params
         exp.training_plan().get_model_wrapper_class.return_value.set_weights.assert_called_once_with(
-            mock_serializer_load.return_value
+            mock_serializer_load.return_value, local_params=local_params
         )
+        self.assertIsInstance(exp_tempo_id, str)
 
     def test_training_plan_workflow_08_set_training_args(self):
         """Tests setting training arguments"""
@@ -342,7 +355,7 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
 
         # Invalid type of training args argument
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             exp.set_training_args(True)
 
     @patch("builtins.open")
@@ -355,14 +368,14 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         file = exp.training_plan_file()
         self.assertEqual(file, "path/to/training-plan.py")
 
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             file = exp.training_plan_file(display="invalid-type")
 
         file = exp.training_plan_file(display=True)
         mock_open.assert_called()
 
         mock_open.side_effect = OSError
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(FedbiomedExperimentError):
             file = exp.training_plan_file(display=True)
 
     def test_training_plan_workflow_10_info(self):
@@ -401,6 +414,8 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
 
         exp = TrainingPlanWorkflow()
         training_plan = MagicMock(spec=BaseTrainingPlan)
+        training_plan.local_params = ["fc1.bias"]
+        training_plan.get_model_params.return_value = {"fc1.weight": 0.123}
         exp._training_plan = training_plan
 
         def dummy_yield():
@@ -409,7 +424,15 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         # Check correct case
         with exp._keep_weights(True):
             dummy_yield()
-        training_plan.set_model_params.assert_called_once()
+
+        training_plan.get_model_params.assert_called_once_with(
+            exclude_buffers=False,
+            local_params=["fc1.bias"],
+        )
+        training_plan.set_model_params.assert_called_once_with(
+            {"fc1.weight": 0.123},
+            local_params=["fc1.bias"],
+        )
 
         # Check set_model_params raises an exception
 

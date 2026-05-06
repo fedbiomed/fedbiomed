@@ -8,7 +8,7 @@ Definition of messages exchanged by the researcher and the nodes
 import functools
 import inspect
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Union, get_args
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, get_args
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.message import Message as ProtobufMessage
@@ -321,7 +321,7 @@ class InnerMessage(Message):
     Node to node messages are sent as inner message (payload) of an overlay message
 
     Attributes:
-        node_id: Id of the source node sending the mess
+        node_id: Id of the source node sending the message
         dest_node_id: Id of the destination node of the overlay message
     """
 
@@ -367,18 +367,20 @@ class Scalar(ProtoSerializableMessage):
     """Describes a add_scalar message sent by the node.
 
     Attributes:
-        researcher_id: ID of the researcher that receives the reply
+        node_id: ID of the node that sends the message
+        node_name: Name of the node that sends the message
         experiment_id: ID of the experiment that is sent by researcher
         train: Declares whether scalar value is for training
         test: Declares whether scalar value is for validation
         test_on_local_updates: Declares whether validation is performed over locally updated parameters
         test_on_global_updates: Declares whether validation is performed over aggregated parameters
-        metric: Evaluation metroc
+        metric: Evaluation metric
         epoch: Scalar is received at
         total_samples: Number of all samples in dataset
         batch_samples: Number of samples in batch
         num_batches: Number of batches in single epoch
         iteration: Scalar is received at
+        num_samples_trained: Number of samples used for training
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -509,12 +511,31 @@ class KeyReply(InnerRequestReply, RequiresProtocolVersion):
 @catch_dataclass_exception
 @dataclass
 class AdditiveSSharingRequest(InnerRequestReply, RequiresProtocolVersion):
+    """Message sent between nodes to exchange additive secret sharing data.
+
+    Attributes:
+        secagg_id: ID of the secure aggregation context element
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
     secagg_id: str
 
 
 @catch_dataclass_exception
 @dataclass
 class AdditiveSSharingReply(InnerRequestReply, RequiresProtocolVersion):
+    """Reply message for additive secret sharing data exchange between nodes.
+
+    Attributes:
+        secagg_id: ID of the secure aggregation context element
+        share: The secret share value(s) sent to the peer node
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
     secagg_id: str
     share: list | int
 
@@ -701,7 +722,6 @@ class SearchReply(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        success: True if the node process the request as expected, false if any exception occurs
         databases: List of datasets
         node_id: Node id that replies the request
         node_name: Node Name that replies the request
@@ -813,7 +833,6 @@ class SecaggReply(RequestReply, RequiresProtocolVersion):
     node_id: str
     node_name: str
     msg: Optional[str] = None
-    msg: str
 
 
 @catch_dataclass_exception
@@ -837,8 +856,8 @@ class TrainingPlanStatusRequest(RequestReply, RequiresProtocolVersion):
 
     Attributes:
         researcher_id: Id of the researcher that sends the request
-        experiment_id: experiment id related to the experiment.
-        training_plan_url: The training plan that is going to be checked for approval
+        experiment_id: Experiment id related to the experiment.
+        training_plan: The training plan that is going to be checked for approval
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -886,6 +905,60 @@ class TrainingPlanStatusReply(RequestReply, RequiresProtocolVersion):
     training_plan_id: Optional[str]
 
 
+@catch_dataclass_exception
+@dataclass
+class FARequest(RequestReply, RequiresProtocolVersion):
+    """Message for requesting FA job from researcher to node
+
+    Attributes:
+        researcher_id: ID of the researcher that requests FA job
+        experiment_id: Id of the experiment that is sent by researcher
+        dataset_id: id of the dataset that is used for FA job
+        fa_id: ID of the FA job
+        stats: List of statistics to compute
+        stats_args: Arguments for FA job
+        dataset_schema: Optional schema descriptor of the dataset used for validation
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    experiment_id: str
+    dataset_id: str
+    fa_id: str
+    stats: Optional[List] = None
+    stats_args: Optional[Dict] = None
+    dataset_schema: Optional[List | Tuple | Dict] = None
+
+
+@catch_dataclass_exception
+@dataclass
+class FAReply(RequestReply, RequiresProtocolVersion):
+    """Message that instantiated on the node side to reply FA job request from researcher
+
+    Attributes:
+        researcher_id: ID of the researcher that receives the reply
+        experiment_id: Id of the experiment that is sent by researcher
+        fa_id: ID of the FA job
+        node_id: Node id that replies the request
+        node_name: Node Name that replies the request
+        stats: List of statistics that were computed
+        output: Results of the FA job
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    experiment_id: str
+    fa_id: str
+    node_id: str
+    node_name: str
+    stats: Optional[List]
+    output: Dict | Tuple
+
+
 # Train messages
 
 
@@ -897,16 +970,17 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     Attributes:
         researcher_id: ID of the researcher that requests training
         experiment_id: Id of the experiment that is sent by researcher
-        state_id: ID of state associated to this request on node
+        state_id: ID of state to use for this request on node
         training_args: Arguments for training routine
         dataset_id: id of the dataset that is used for training
         training: Declares whether training will be performed
         model_args: Arguments to initialize training plan class
+        params: Parameters to be sent to node
         training_plan: Source code of training plan
         training_plan_class: Class name of the training plan
         round: number of rounds already executed for this experiment
-        aggregator_args: ??
-        aux_var: Optimizer auxiliary variables
+        aggregator_args: Arguments passed to the aggregator on the node side
+        secagg_arguments: Arguments passed to the secure aggregation layer
         optim_aux_var: Optional dict of Optimizer auxiliary variables
 
     Raises:
@@ -941,9 +1015,15 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
         node_id: Node id that replies the request
         node_name: Node Name that replies the request
         dataset_id: id of the dataset that is used for training
-        params_url: URL of parameters uploaded by node
         timing: Timing statistics
         msg: Custom message
+        state_id: ID of state after this request on node
+        sample_size: Number of samples used for training
+        encrypted: Whether the parameters are encrypted
+        params: Parameters trained by node
+        optimizer_args: Optional dict of Optimizer arguments
+        optim_aux_var: Optional dict of Optimizer auxiliary variables
+        encryption_factor: Optional list of encryption factors used for secure aggregation
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -964,3 +1044,65 @@ class TrainReply(RequestReply, RequiresProtocolVersion):
     optimizer_args: Optional[Dict] = None  # None for testing only
     optim_aux_var: Optional[Dict] = None  # None for testing only
     encryption_factor: Optional[List] = None  # None for testing only
+
+
+@catch_dataclass_exception
+@dataclass
+class PreprocRequest(RequestReply, RequiresProtocolVersion):
+    """Message for requesting pre-processing job from researcher to node.
+
+    Attributes:
+        researcher_id: ID of the researcher that requests pre-processing job
+        experiment_id: Id of the experiment that is sent by researcher
+        dataset_id: ID of the dataset to be pre-processed
+        preproc_type: Type of pre-processing
+        preproc_step: Step of the pre-processing corresponding to this request
+        preproc_id: Id of the pre-processing job
+        preproc_args: Arguments for pre-processing job. Should be checked by converting to dataclass.
+        state_id: ID of state to use for this request on node
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    experiment_id: str
+    dataset_id: str
+    preproc_type: int  # Convert to PreprocType later
+    preproc_step: int  # Convert to PreprocStep later
+    preproc_id: str
+    # TODO: Use dataclass per pre-processing and per-step
+    # to define precisely what arguments are expected
+    # - includes dataset_id so we hide the temporary intermediate datasets from the researcher
+    preproc_args: Dict
+    state_id: Optional[str] = None
+
+
+@catch_dataclass_exception
+@dataclass
+class PreprocReply(RequestReply, RequiresProtocolVersion):
+    """Message that instantiated on the node side to reply preproc job request from researcher
+
+    Attributes:
+        researcher_id: Id of the researcher that receives the reply
+        experiment_id: Id of the experiment that is sent by researcher
+        node_id: Node id that replies the request
+        node_name: Node Name that replies the request
+        msg: Custom message
+        preproc_output: Outputs of the pre-processing job. Should be checked by converting to dataclass.
+        state_id: ID of state after this request on node
+
+    Raises:
+        FedbiomedMessageError: triggered if message's fields validation failed
+    """
+
+    researcher_id: str
+    experiment_id: str
+    node_id: str
+    node_name: str
+    msg: str
+    # TODO: Use dataclass per pre-processing and per-step
+    # to define precisely what arguments are expected
+    # - includes dataset_id of final hamonized dataset in last step to handle it to the researcher
+    preproc_output: Dict
+    state_id: Optional[str] = None

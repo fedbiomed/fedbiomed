@@ -44,7 +44,7 @@ class TestSkLearnModelBuilder(unittest.TestCase):
         for sk_model in self.implemented_models:
             model = SkLearnModel(sk_model)
             with self.assertRaises(FedbiomedModelError):
-                val = model.this_method_does_not_exist()
+                _ = model.this_method_does_not_exist()
 
     def test_sklearnbuilder_4_test_sklearn_deepcopy(self):
         for sk_model in self.implemented_models:
@@ -62,7 +62,7 @@ class TestSkLearnModelBuilder(unittest.TestCase):
             # check that all attributes have different references
 
             for attribute, copied_attribute in zip(
-                model._instance.__dict__, copied_model._instance.__dict__
+                model._instance.__dict__, copied_model._instance.__dict__, strict=True
             ):
                 self.assertNotEqual(
                     id(getattr(model._instance, attribute)),
@@ -134,7 +134,7 @@ class TestSkLearnModel(unittest.TestCase):
 
         for invalid_model in invalid_models:
             with self.assertRaises(FedbiomedModelError):
-                model = SkLearnModel(invalid_model)
+                _model = SkLearnModel(invalid_model)
 
     def test_sklearnmodel_02_method_export(self):
         """Test that 'SklearnModel.export' works - in one specific case."""
@@ -171,6 +171,23 @@ class TestSkLearnModel(unittest.TestCase):
         ):
             self.sgdclass_model.reload("filename")
             self.assertDictEqual(self.sgdclass_model.get_weights(), coefs)
+
+    def test_sklearnmodel_03b_method_reload_with_local_params(self):
+        """Test that 'SklearnModel.reload' works with local_params."""
+        self.sgdclass_model.set_init_params({"n_classes": 3, "n_features": 5})
+        _original_intercept = self.sgdclass_model.model.intercept_.copy()
+        new_coefs = {
+            "coef_": np.array([[0.99]]),
+            "intercept_": np.array([0.99]),
+        }
+        self.sgdclass_model.model.coef_ = new_coefs["coef_"]
+        self.sgdclass_model.model.intercept_ = new_coefs["intercept_"]
+        with (
+            patch("joblib.load", return_value=self.sgdclass_model.model),
+            patch("builtins.open", mock_open()),
+        ):
+            # Reload accepting local_params kwarg without error.
+            self.sgdclass_model.reload("filename", local_params=["intercept_"])
 
     def test_sklearnmodel_04_set_init_params(self):
         # self.assertEqual(training_plan._model.n_iter_, 1)
@@ -379,6 +396,32 @@ class TestSkLearnModel(unittest.TestCase):
                 # should raise exception complaining about non reachable model layer
                 model.get_weights()
 
+    def test_sklearnmodel_09b_get_weights_unknown_local_params(self):
+        """Test that get_weights logs a warning for unknown local_params entries."""
+        for skmodel in self.models:
+            model = SkLearnModel(skmodel)
+            model.set_init_params(model_args={"n_classes": 2, "n_features": 3})
+            with patch("fedbiomed.common.models._sklearn.logger.warning") as mock_warn:
+                model.get_weights(local_params=["nonexistent_param"])
+            mock_warn.assert_called()
+
+    def test_sklearnmodel_09c_get_weights_with_local_params(self):
+        """Test that get_weights correctly excludes local_params from the output."""
+        for skmodel in self.models:
+            model = SkLearnModel(skmodel)
+            model.set_init_params(model_args={"n_classes": 2, "n_features": 3})
+            # With no local_params, both coef_ and intercept_ should be present.
+            full_weights = model.get_weights()
+            self.assertIn("coef_", full_weights)
+            self.assertIn("intercept_", full_weights)
+            # Excluding one param should remove it from the result.
+            weights_excl_coef = model.get_weights(local_params=["coef_"])
+            self.assertNotIn("coef_", weights_excl_coef)
+            self.assertIn("intercept_", weights_excl_coef)
+            weights_excl_intercept = model.get_weights(local_params=["intercept_"])
+            self.assertIn("coef_", weights_excl_intercept)
+            self.assertNotIn("intercept_", weights_excl_intercept)
+
     def test_sklearn_model_10_flatten_and_unflatten(self):
         """Tests flatten and unflatten methods of Sklearn methods"""
 
@@ -408,6 +451,23 @@ class TestSkLearnModel(unittest.TestCase):
             with self.assertRaises(FedbiomedModelError):
                 model.unflatten(["not-float-list"])
 
+    def test_sklearn_model_10b_flatten_and_unflatten_with_local_params(self):
+        """Test that flatten/unflatten respect local_params exclusion for SkLearnModel."""
+        inputs = np.array([[1, 2], [1, 1], [0, 1]])
+        target = np.array([0, 2, 1])
+        for skmodel in self.models:
+            model = SkLearnModel(skmodel)
+            model.set_init_params(model_args={"n_classes": 3, "n_features": 2})
+            model.model.partial_fit(inputs, target)
+            # Flatten excluding coef_.
+            flat_excl = model.flatten(local_params=["coef_"])
+            flat_full = model.flatten()
+            self.assertLess(len(flat_excl), len(flat_full))
+            # Unflatten should return only non-excluded params.
+            unflat = model.unflatten(flat_excl, local_params=["coef_"])
+            self.assertIn("intercept_", unflat)
+            self.assertNotIn("coef_", unflat)
+
     def test_sklearnmodel_11_set_weights(self):
         """Test that 'SkLearnModel.set_weights' works properly."""
         for skmodel in self.models:
@@ -425,6 +485,20 @@ class TestSkLearnModel(unittest.TestCase):
             self.assertTrue(
                 all(np.all(weights[key] == current[key]) for key in weights)
             )
+
+    def test_sklearnmodel_11b_set_weights_with_local_params(self):
+        """Test that 'SkLearnModel.set_weights' with local_params does not raise."""
+        for skmodel in self.models:
+            model = SkLearnModel(skmodel)
+            model.set_init_params(model_args={"n_classes": 3, "n_features": 2})
+            weights = {
+                key: np.random.normal(size=wgt.shape).astype(wgt.dtype)
+                for key, wgt in model.get_weights().items()
+            }
+            # Passing local_params should not raise and should still set the provided weights.
+            model.set_weights(weights, local_params=["coef_"])
+            current = model.get_weights()
+            self.assertEqual(current.keys(), weights.keys())
 
 
 class TestSklearnClassification(unittest.TestCase):
@@ -604,7 +678,7 @@ class TestTorchModel(unittest.TestCase):
         self.torch_optim.step()
 
         grads = self.model.get_weights()
-        for layer_name, values in grads.items():
+        for _layer_name, values in grads.items():
             self.assertTrue(torch.all(values))
 
     def test_torchmodel_02_get_weights(self):
@@ -619,6 +693,46 @@ class TestTorchModel(unittest.TestCase):
                 )
             )
 
+    def test_torchmodel_02b_get_weights_local_params_excluded(self):
+        """Test that local_params are excluded from get_weights output."""
+        all_weights = self.model.get_weights()
+        param_names = list(all_weights.keys())
+        self.assertGreaterEqual(len(param_names), 1)
+        # Exclude the first parameter via local_params.
+        excluded = param_names[:1]
+        weights = self.model.get_weights(local_params=excluded)
+        for name in excluded:
+            self.assertNotIn(name, weights)
+        for name in param_names[1:]:
+            self.assertIn(name, weights)
+
+    def test_torchmodel_02c_get_weights_unknown_local_params(self):
+        """Test that unknown local_params entries logs a warning."""
+        with patch("fedbiomed.common.models._sklearn.logger.warning") as mock_warn:
+            self.model.get_weights(local_params=["nonexistent_layer"])
+        mock_warn.assert_called()
+
+    def test_torchmodel_02d_get_weights_exclude_buffers_false(self):
+        """Test that exclude_buffers=False includes buffers from state_dict."""
+
+        # Build a model that has a registered buffer.
+        class ModelWithBuffer(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = torch.nn.Linear(4, 1)
+                self.register_buffer("running_mean", torch.zeros(1))
+
+            def forward(self, x):
+                return self.linear(x)
+
+        buffered_model = TorchModel(ModelWithBuffer())
+        # exclude_buffers=True (default): buffer should not appear.
+        weights_no_buffers = buffered_model.get_weights(exclude_buffers=True)
+        self.assertNotIn("running_mean", weights_no_buffers)
+        # exclude_buffers=False: buffer should appear.
+        weights_with_buffers = buffered_model.get_weights(exclude_buffers=False)
+        self.assertIn("running_mean", weights_with_buffers)
+
     def test_torchmodel_03_set_weights(self):
         """Test that 'TorchModel.set_weights' works properly."""
         # Create random weights that are suitable for the model.
@@ -632,6 +746,32 @@ class TestTorchModel(unittest.TestCase):
         self.assertEqual(current.keys(), weights.keys())
         self.assertTrue(all(torch.all(weights[key] == current[key]) for key in weights))
 
+    def test_torchmodel_03b_set_weights_warn_missing_params(self):
+        """Test warning when missing trainable parameters."""
+        weights = self.model.get_weights()
+        # remove one parameter to simulate missing weight
+        missing_param = list(weights.keys())[0]
+        partial_weights = dict(weights)
+        partial_weights.pop(missing_param)
+
+        with patch("fedbiomed.common.models._torch.logger.warning") as mock_warn:
+            self.model.set_weights(partial_weights)
+
+        mock_warn.assert_called()
+
+    def test_torchmodel_03b_set_weights_ignore_local_params_warning(self):
+        """Test that missing local parameters do not trigger warnings."""
+        weights = self.model.get_weights()
+        # remove one parameter to simulate missing weight
+        missing_param = list(weights.keys())[0]
+        partial_weights = dict(weights)
+        partial_weights.pop(missing_param)
+
+        with patch("fedbiomed.common.models._torch.logger.warning") as mock_warn:
+            self.model.set_weights(partial_weights, local_params=[missing_param])
+
+        mock_warn.assert_not_called()
+
     def test_torchmodel_04_apply_updates_1(self):
         init_weights = copy.deepcopy(self.model.get_weights())
 
@@ -642,7 +782,7 @@ class TestTorchModel(unittest.TestCase):
 
         # checks
         for (layer, w), (_, updated_w) in zip(
-            init_weights.items(), updated_weights.items()
+            init_weights.items(), updated_weights.items(), strict=True
         ):
             self.assertFalse(torch.all(torch.isclose(w, updated_w)))
             self.assertTrue(
@@ -683,7 +823,7 @@ class TestTorchModel(unittest.TestCase):
         corrections = {
             layer_name: val
             for (layer_name, _), val in zip(
-                self.model.model.named_parameters(), correction_values
+                self.model.model.named_parameters(), correction_values, strict=True
             )
         }
 
@@ -692,8 +832,8 @@ class TestTorchModel(unittest.TestCase):
         # action
         self.model.add_corrections_to_gradients(corrections)
         # checks
-        for (layer_name, param), val in zip(
-            self.model.model.named_parameters(), correction_values
+        for (_layer_name, param), val in zip(
+            self.model.model.named_parameters(), correction_values, strict=True
         ):
             self.assertTrue(torch.all(torch.isclose(param.grad, val)))
 
@@ -764,6 +904,22 @@ class TestTorchModel(unittest.TestCase):
         with self.assertRaises(FedbiomedModelError):
             self.model.unflatten(["not-float-list"])
 
+    def test_torch_model_9b_flatten_and_unflatten_with_local_params(self):
+        """Test that flatten/unflatten respect local_params exclusion."""
+        all_weights = self.model.get_weights()
+        param_names = list(all_weights.keys())
+        # Exclude the bias (last param) via local_params.
+        excluded = [param_names[-1]]
+        flat_excl = self.model.flatten(local_params=excluded)
+        flat_full = self.model.flatten()
+        # Excluded flatten should be shorter than the full one.
+        self.assertLess(len(flat_excl), len(flat_full))
+        # Unflatten with the same exclusion should return all params except excluded.
+        unflat = self.model.unflatten(flat_excl, local_params=excluded)
+        for name in param_names[:-1]:
+            self.assertIn(name, unflat)
+        self.assertNotIn(excluded[0], unflat)
+
     def test_torchmodel_09_export(self):
         """Test that 'TorchModel.export' works properly."""
         with patch("torch.save") as save_patch:
@@ -797,6 +953,22 @@ class TestTorchModel(unittest.TestCase):
                 ]
             )
         )
+
+    def test_torchmodel_10b_reload_with_local_params(self):
+        """Test that 'TorchModel.reload' respects local_params (excluded weights kept)."""
+        d1 = self.model.model.state_dict()
+        # Record original value of the first parameter.
+        first_key = list(d1.keys())[0]
+        original_value = self.model.model.state_dict()[first_key].clone()
+        # Provide new weights that differ from original.
+        new_weights = {key: torch.randn_like(val) for key, val in d1.items()}
+        new_weights.pop(first_key)
+        with patch("torch.load", return_value=new_weights):
+            # Reload but treat the first key as local (should not be overwritten).
+            self.model.reload("filename", local_params=[first_key])
+        reloaded = self.model.model.state_dict()
+        # The local parameter should not have been changed.
+        self.assertTrue(torch.all(torch.eq(reloaded[first_key], original_value)))
 
     def test_torchmodel_11_reload_fails(self):
         """Test that 'TorchModel.reload' fails with a non-torch dump object."""

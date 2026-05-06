@@ -3,9 +3,10 @@ name: Fed-BioMed VPN Docker Image and Container Test
 run-name: fedbiomed-docker-container-test
 
 on:
+  schedule:
+    - cron: '0 1 * * *'  # Run every day at 1 am on default branch: develop
   push:
     branches:
-      - "develop"
       - "master"
   workflow_dispatch:
 
@@ -24,7 +25,7 @@ jobs:
     steps:
       - name: Checkout to repository
         uses: actions/checkout@v4
-      - name: Install docker if it is not exsiting
+      - name: Install docker if it is not existing
         if: runner.os == 'macOS'
         run: |
           if ! command -v docker &>/dev/null; then

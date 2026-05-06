@@ -1,36 +1,42 @@
-import time
-import pytest
 import copy
+import time
 
+import pytest
+from experiments.training_plans.mnist_pytorch_training_plan import (
+    MnistModelScaffoldDeclearn,
+    MyTrainingPlan,
+)
 from helpers import (
     add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
     clear_component_data,
     clear_experiment_data,
     create_multiple_nodes,
     create_node,
     create_researcher,
     get_data_folder,
+    kill_subprocesses,
+    start_nodes,
 )
 
-from experiments.training_plans.mnist_pytorch_training_plan import (
-    MnistModelScaffoldDeclearn,
-    MyTrainingPlan,
+from fedbiomed.common.exceptions import (
+    FedbiomedSecureAggregationError,
+    FedbiomedStrategyError,
 )
 from fedbiomed.common.optimizers import Optimizer
 from fedbiomed.common.optimizers.declearn import ScaffoldServerModule
-from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.secagg import (
     SecureAggregation,
+)
+from fedbiomed.researcher.secagg import (
     SecureAggregationSchemes as SecAggSchemes,
 )
 
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(port, post_session):
     """Setup fixture for the module"""
     dataset = {
         "name": "MNIST",
@@ -62,7 +68,7 @@ def setup(port, post_session, request):
 
         print("Adding first dataset --------------------------------------------")
         add_dataset_to_node(node_1, dataset)
-        print("adding second dataset")
+        print("Adding second dataset -------------------------------------------")
         add_dataset_to_node(node_2, dataset)
 
         # Starts the nodes
@@ -71,12 +77,12 @@ def setup(port, post_session, request):
 
         yield node_1, node_2, researcher
 
-        # Clear files and processes created for the tests
-        kill_subprocesses(node_processes)
-        thread.join()
-
-        print("Clearing researcher data")
-        clear_component_data(researcher)
+        try:
+            kill_subprocesses(node_processes)
+            thread.join()
+        finally:
+            print("Clearing researcher data")
+            clear_component_data(researcher)
 
 
 @pytest.fixture
@@ -302,7 +308,7 @@ def test_03_secagg_pytorch_force_secagg(extra_node_force_secagg):
     )
 
     # This should raise exception with default strategy
-    with pytest.raises(SystemExit):
+    with pytest.raises(FedbiomedStrategyError):
         exp.run()
 
     # Cleaning!
@@ -325,7 +331,7 @@ def test_04_secagg_pytorch_no_validation(extra_node_no_validation):
     )
 
     # This should raise exception with default strategy
-    with pytest.raises(SystemExit):
+    with pytest.raises(FedbiomedSecureAggregationError):
         exp.run()
 
     # Cleaning!
@@ -414,6 +420,7 @@ def test_07_secagg_pytorch_lom_8_nodes(extra_nodes_for_lom_8_nodes):
 
 
 def test_08_mnist_pytorch_experiment_declearn_scaffold_jls():
+    """Test declearn Scaffold optimizer with Joye-Libert secure aggregation"""
     model_args = {}
     tags = ["#MNIST", "#dataset"]
     training_args = {
@@ -446,6 +453,7 @@ def test_08_mnist_pytorch_experiment_declearn_scaffold_jls():
 
 
 def test_09_mnist_pytorch_experiment_declearn_scaffold_lom():
+    """Test declearn Scaffold optimizer with LOM secure aggregation"""
     model_args = {}
     tags = ["#MNIST", "#dataset"]
     training_args = {

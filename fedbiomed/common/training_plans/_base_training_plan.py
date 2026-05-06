@@ -6,7 +6,17 @@
 import random
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    TypedDict,
+    Union,
+)
 
 import numpy as np
 import torch
@@ -65,6 +75,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     # Training plan type needs to be defined for every framework
     _type = TrainingPlans.NoneTrainingPlan
 
+    # Allowed tags for parameter behavior customization
+    _allowed_tags: Set[str] = {"local", "persistent"}
+
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
@@ -79,6 +92,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._optimizer_args: Dict[str, Any] = None
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
+        self._node_id: Optional[str] = None
+        self._local_params: Optional[List[str]] = None
 
         self._error_msg_import_model: str = (
             f"{ErrorNumbers.FB605.value}: Training Plan's Model is not initialized.\n"
@@ -101,6 +116,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             if model is not instantiated.
         """
         return self._model
+
+    def get_dp_controller(self) -> Optional[Any]:
+        """Getter for dp controller"""
+        return None
 
     def type(self) -> TrainingPlans:
         """Getter for training plan type"""
@@ -132,6 +151,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         training_args: Dict[str, Any],
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
+        node_id: Optional[str] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -152,12 +172,24 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._optimizer_args = training_args.optimizer_arguments() or {}
         self._loader_args = training_args.loader_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
+        self._node_id = node_id
 
         # Set random seed: the seed can be either None or an int provided by the researcher.
         # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
         rseed = training_args.get("random_seed")
         random.seed(rseed)
         np.random.seed(rseed)
+        logger.debug(
+            "Base Training plan post_init completed: "
+            f"class={self.__class__.__name__} "
+            f"node_id={self._node_id} "
+            f"initialize_optimizer={initialize_optimizer} "
+            f"training_args_keys={sorted(self._training_args.keys()) if isinstance(self._training_args, dict) else None} "
+            f"loader_args_keys={sorted(self._loader_args.keys()) if isinstance(self._loader_args, dict) else None} "
+            f"optimizer_args_keys={sorted(self._optimizer_args.keys()) if isinstance(self._optimizer_args, dict) else None} "
+            f"aggregator_args_keys={sorted(self._aggregator_args.keys()) if isinstance(self._aggregator_args, dict) else None} "
+            f"random_seed_set={rseed is not None}"
+        )
 
     def _add_dependency(self, dep: List[str]) -> None:
         """Add new dependencies to the TrainingPlan.
@@ -195,6 +227,13 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         self.training_data_loader = train_data_loader
         self.testing_data_loader = test_data_loader
+        logger.debug(
+            "Training plan data loaders configured: "
+            f"train_loader_type={type(train_data_loader).__name__ if train_data_loader is not None else None} "
+            f"train_dataset_size={len(train_data_loader.dataset) if train_data_loader is not None and hasattr(train_data_loader, 'dataset') else None} "
+            f"test_loader_type={type(test_data_loader).__name__ if test_data_loader is not None else None} "
+            f"test_dataset_size={len(test_data_loader.dataset) if test_data_loader is not None and hasattr(test_data_loader, 'dataset') else None}"
+        )
 
     def init_dependencies(self) -> List[str]:
         """Default method where dependencies are returned
@@ -295,7 +334,10 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         raise FedbiomedTrainingPlanError(msg)
 
     def get_model_params(
-        self, only_trainable: bool = False, exclude_buffers: bool = True
+        self,
+        only_trainable: bool = False,
+        exclude_buffers: bool = True,
+        local_params: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Return a copy of the model's trainable weights.
 
@@ -308,15 +350,20 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 or include all model parameters (the default).
             exclude_buffers: Whether to ignore buffers (the default), or
                 include them.
+            local_params: List of parameter names to exclude from the output.
 
         Returns:
             Model weights, as a dictionary mapping parameters' names to their value.
         """
         return self._model.get_weights(
-            only_trainable=only_trainable, exclude_buffers=exclude_buffers
+            only_trainable=only_trainable,
+            exclude_buffers=exclude_buffers,
+            local_params=local_params,
         )
 
-    def set_model_params(self, params: Dict[str, Any]) -> None:
+    def set_model_params(
+        self, params: Dict[str, Any], local_params: Optional[List[str]] = None
+    ) -> None:
         """Assign new values to the model's trainable parameters.
 
         The type of data structure used to store weights depends on the actual
@@ -325,8 +372,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         Args:
             params: model weights, as a dictionary mapping parameters' names
                 to their value.
+            local_params: List of parameter names tagged as local.
         """
-        self._model.set_weights(params)
+        self._model.set_weights(params, local_params=local_params)
 
     def set_aggregator_args(self, aggregator_args: Dict[str, Any]):
         raise FedbiomedTrainingPlanError("method not implemented and needed")
@@ -381,6 +429,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
     def _preprocess(self) -> None:
         """Executes registered data pre-processors."""
+        logger.debug(
+            "Training plan preprocess start: "
+            f"count={len(self.pre_processes)} "
+            f"names={list(self.pre_processes.keys())}"
+        )
         for name, process in self.pre_processes.items():
             method = process["method"]
             process_type = process["process_type"]
@@ -391,6 +444,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                     f"Process type `{process_type}` is not implemented."
                     f"Preprocessor '{name}' will therefore be ignored."
                 )
+        logger.debug("Training plan preprocess completed")
 
     def _process_data_loader(self, method: Callable[..., Any]) -> None:
         """Handle a data-loader pre-processing action.
@@ -416,6 +470,11 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             logger.critical(msg)
             raise FedbiomedTrainingPlanError(msg)
         # Try running the preprocessor.
+        logger.debug(
+            "Executing training data loader preprocess: "
+            f"method={method.__name__} "
+            f"loader_type={type(self.training_data_loader).__name__ if self.training_data_loader is not None else None}"
+        )
         try:
             data_loader = method(self.training_data_loader)
         except Exception as exc:
@@ -560,6 +619,13 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         n_samples = len(self.testing_data_loader.dataset)
         n_batches = max(len(self.testing_data_loader), 1)
+        logger.debug(
+            "Training plan validation start: "
+            f"before_train={before_train} "
+            f"metric={metric.name if metric is not None else None} "
+            f"batches={n_batches} "
+            f"samples={n_samples}"
+        )
 
         # Set up a batch-wise metrics-computation function.
         # Either use an optionally-implemented custom training routine.
@@ -601,7 +667,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             # Log the computed value.
             # Reporting
 
-            if (
+            if self.training_args()["log_interval"] > 0 and (
                 idx % self.training_args()["log_interval"] == 0
                 or idx == 1
                 or idx == n_batches
@@ -625,6 +691,123 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                         batch_samples=num_samples_observed_till_now,
                         num_batches=n_batches,
                     )
+        logger.debug(
+            "Training plan validation completed: "
+            f"before_train={before_train} "
+            f"batches={n_batches} "
+            f"samples={n_samples}"
+        )
+
+    def tag_parameters(self, name: str) -> Set[str]:
+        """Assign tags to a model parameter.
+
+        This method allows researchers to override the default federated
+        behavior of specific parameters by assigning them one or more tags.
+        Parameters that are not tagged follow the default behavior
+        (i.e., globally shared, aggregated, and trainable).
+
+        Tags define how the federated engine should treat the parameter
+        during training, aggregation, and persistence. A parameter may
+        have multiple tags.
+
+        Valid Tags:
+        local:
+            The parameter is never shared nor aggregated.
+        persistent:
+            The parameter is saved on the client and is persisted locally
+            across federated rounds.
+
+        Args:
+            name: The name of the parameter to tag (e.g. `"encoder.layer3.1.conv2.weight"`
+            for a PyTorch model, or `"intercept_"` for a sklearn model).
+
+        Returns:
+            A set of tags associated with the parameter. Must be a subset of
+            `self._allowed_tags`. Return an empty set for default federated behavior
+        """
+        return set()
+
+    def _validate_parameter_tags(self, name: str, tags: Set[str]) -> Set[str]:
+        """Validate that a set of parameter tags is correct.
+
+        Checks that the `tags` argument is a set and contains only allowed tags.
+        Raises an error if the input is invalid.
+
+        Args:
+            name: The name of the parameter whose tags are being validated.
+            tags: The set of tags returned by `tag_parameters`.
+
+        Returns:
+            The validated set of tags.
+
+        Raises:
+            FedbiomedTrainingPlanError if `tags` is not a set or contains invalid tags.
+        """
+        if not isinstance(tags, set):
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: tag_parameters must return a set, "
+                f"got: {type(tags)} for parameter '{name}'"
+            )
+
+        invalid_tags = tags - self._allowed_tags
+        if invalid_tags:
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: Invalid tags {invalid_tags} for parameter '{name}'. "
+                f"Allowed tags are {self._allowed_tags}"
+            )
+
+        return tags
+
+    def get_parameter_tags(self, name: str) -> Set[str]:
+        """Retrieve and validate the tags for a given parameter.
+
+        Args:
+            name: The name of the parameter whose tags are being retrieved.
+
+        Returns:
+            The validated set of tags associated with the parameter.
+        """
+        tags = self.tag_parameters(name)
+        return self._validate_parameter_tags(name, tags)
+
+    def filter_model_params_by_tags(
+        self,
+        params: Dict[str, Any],
+        required_tags: Optional[Set[str]] = None,
+        forbidden_tags: Optional[Set[str]] = None,
+    ) -> Dict[str, Any]:
+        """Filters a given parameter dict based on required or forbidden tags.
+
+        Args:
+            params: Dictionary of model parameters (e.g. output of get_model_params)
+            required_tags: Set of tags that parameters must include (AND logic)
+            forbidden_tags: Set of tags that parameters must NOT include
+
+        Returns:
+            Filtered dictionary of parameters
+        """
+        filtered_params = {}
+
+        required_tags = required_tags or set()
+        forbidden_tags = forbidden_tags or set()
+
+        if not isinstance(required_tags, set) or not isinstance(forbidden_tags, set):
+            raise FedbiomedTrainingPlanError(
+                f"{ErrorNumbers.FB605}: required_tags and forbidden_tags must be sets"
+            )
+
+        for name, value in params.items():
+            tags = self.get_parameter_tags(name)
+
+            if required_tags and not required_tags.issubset(tags):
+                continue
+
+            if forbidden_tags and not tags.isdisjoint(forbidden_tags):
+                continue
+
+            filtered_params[name] = value
+
+        return filtered_params
 
     @staticmethod
     def _infer_batch_size(
@@ -669,9 +852,18 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             The trained parameters to aggregate.
         """
         exclude_buffers = not self._training_args["share_persistent_buffers"]
+        logger.debug(
+            "Collecting training plan parameters after training: "
+            f"flatten={flatten} "
+            f"exclude_buffers={exclude_buffers}"
+        )
         if flatten:
-            return self._model.flatten(exclude_buffers=exclude_buffers)
-        return self.get_model_params(exclude_buffers=exclude_buffers)
+            return self._model.flatten(
+                exclude_buffers=exclude_buffers, local_params=self._local_params
+            )
+        return self.get_model_params(
+            exclude_buffers=exclude_buffers, local_params=self._local_params
+        )
 
     def export_model(self, filename: str) -> None:
         """Export the wrapped model to a dump file.
@@ -726,7 +918,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         if self._model is None:
             raise FedbiomedTrainingPlanError(self._error_msg_import_model % "import")
         try:
-            self._model.reload(filename)
+            self._model.reload(filename, self._local_params)
         except FedbiomedModelError as exc:
             msg = (
                 f"{ErrorNumbers.FB304.value}: failed to import a model from "
@@ -766,3 +958,28 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             Optimizer arguments
         """
         return self._optimizer_args
+
+    def node_id(self) -> Optional[str]:
+        """Retrieve node id
+
+        Node id is the unique identifier of the node that executes the training plan. It is set by the node when calling `post_init` method.
+        It looks something like "NODE_1234abcd-5678-efgh-9012-ijklmnopqrst".
+        It is not the human-readable name of the node, which is set by the node creator.
+
+        The returned node id can be `None` in the following cases:
+        1. The 'post_init' method has not been called yet, which means the training plan has not yet been fully initialized by the node.
+        2. The training plan is being initialized by the researcher.
+
+        Returns:
+            Node id
+        """
+        return self._node_id
+
+    @property
+    def local_params(self) -> Optional[List[str]]:
+        """Retrieves local parameters
+
+        Returns:
+            Parameters tagged as local in the training plan
+        """
+        return self._local_params

@@ -1,9 +1,10 @@
 import re
-from hashlib import sha512
 from functools import wraps
+from hashlib import sha512
+
 from flask_jwt_extended import (
-    verify_jwt_in_request,
     get_jwt,
+    verify_jwt_in_request,
 )
 
 from fedbiomed.common.constants import UserRoleType
@@ -83,6 +84,7 @@ def admin_required(func):
         if not user_from_db:
             return error("Can not check user role. Please contact system provider"), 400
 
+        # FIXME: alitolga: Shouldn't this be if user_role != ADMIN?
         if (
             claims["role"] != UserRoleType.ADMIN
             and user_from_db["user_role"] == UserRoleType.ADMIN
