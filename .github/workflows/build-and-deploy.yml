@@ -3,7 +3,7 @@ name: Build and deploy docs to fedbiomed-docs-public
 on:
   push:
     branches:
-      - feature/new-docs-template-and-build-process
+      - develop
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
