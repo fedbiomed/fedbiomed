@@ -64,7 +64,7 @@ jobs:
             ALIAS="latest"
           else
             # Push to develop: re-deploy the current latest version
-            VERSION=$(cat .docs-version | tr -d '[:space:]')
+            VERSION=${GITHUB_REF#refs/*/}
             ALIAS="latest"
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
