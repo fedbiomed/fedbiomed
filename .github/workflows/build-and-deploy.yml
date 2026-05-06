@@ -2,10 +2,8 @@ name: Build and deploy docs to fedbiomed-docs-public
 
 on:
   push:
-    branches:
-      - develop
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "*"
   workflow_dispatch:
     inputs:
       version:
@@ -34,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: fedbiomed/fedbiomed-docs-public
-          ssh-key: ${{ secrets.DOCS_PUBLIC_DEPLOY_KEY }}
+          ssh-key: ${{ secrets.DOCS_DEPLOY_KEY }}
           path: output-repo
 
       - name: Add fedbiomed to PYTHONPATH
