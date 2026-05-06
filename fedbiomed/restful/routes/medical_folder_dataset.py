@@ -9,8 +9,6 @@ from fedbiomed.node.dataset_manager import DatasetManager
 
 from ..cache import cached
 from ..config import config
-
-# from ..db import node_database
 from ..middlewares import common, medical_folder_dataset, middleware
 from ..schemas import (
     PreviewDatasetRequest,

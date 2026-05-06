@@ -95,3 +95,39 @@ class DlbEntry(TableEntry):
     loading_block_class: str
     loading_block_module: str
     map: Dict[str, List[str]]
+
+
+@dataclass
+class UserEntry(TableEntry):
+    """GUI user entry."""
+
+    user_email: str
+    password_hash: str
+    user_name: str
+    user_surname: str
+    user_role: Any
+    creation_date: str
+    user_id: Optional[str] = None
+    last_login: Optional[str] = None
+
+    def __post_init__(self):
+        if self.user_id is None:
+            self.user_id = f"user_{uuid.uuid4()}"
+
+
+@dataclass
+class UserRequestEntry(TableEntry):
+    """GUI user registration request entry."""
+
+    user_name: str
+    user_surname: str
+    user_email: str
+    password_hash: str
+    user_role: Any
+    creation_date: str
+    request_status: Any
+    request_id: Optional[str] = None
+
+    def __post_init__(self):
+        if self.request_id is None:
+            self.request_id = f"request_{uuid.uuid4()}"

@@ -8,7 +8,14 @@ from fedbiomed.common.db import TinyTableConnector
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
-from ._db_dataclasses import DatasetEntry, DlbEntry, DlpEntry, DynamicDatasetEntry
+from ._db_dataclasses import (
+    DatasetEntry,
+    DlbEntry,
+    DlpEntry,
+    DynamicDatasetEntry,
+    UserEntry,
+    UserRequestEntry,
+)
 
 
 class BaseTable(TinyTableConnector):
@@ -229,6 +236,58 @@ class DlbTable(BaseTable):
     _table_name = "Dlbs"
     _id_name = "dlb_id"
     _dataclass = DlbEntry
+
+
+class UserTable(BaseTable):
+    """Database table for GUI users."""
+
+    _table_name = "Users"
+    _id_name = "user_id"
+    _dataclass = UserEntry
+
+    def get_by_email(self, email: str) -> Optional[dict]:
+        """Get a user by email."""
+        return self._table.get(self._query.user_email == email, stacklevel=4)
+
+    def get_by_role(self, role: str) -> Optional[dict]:
+        """Get a user by role."""
+        return self._table.get(self._query.user_role == role, stacklevel=4)
+
+    def update_password_by_email(self, email: str, password_hash: str) -> list:
+        """Update a user's password by email."""
+        return self._table.update(
+            {"password_hash": password_hash},
+            self._query.user_email == email,
+            stacklevel=4,
+        )
+
+    def update_password_by_id(self, user_id: str, password_hash: str) -> dict:
+        """Update a user's password by user ID."""
+        return self.update_by_id(user_id, {"password_hash": password_hash})
+
+    def update_last_login_by_id(self, user_id: str, last_login: str) -> dict:
+        """Update a user's last login timestamp by user ID."""
+        return self.update_by_id(user_id, {"last_login": last_login})
+
+    def update_role_by_id(self, user_id: str, role: int) -> dict:
+        """Update a user's role by user ID."""
+        return self.update_by_id(user_id, {"user_role": role})
+
+
+class UserRequestTable(BaseTable):
+    """Database table for GUI user registration requests."""
+
+    _table_name = "Requests"
+    _id_name = "request_id"
+    _dataclass = UserRequestEntry
+
+    def get_by_email(self, email: str) -> Optional[dict]:
+        """Get a user registration request by email."""
+        return self._table.get(self._query.user_email == email, stacklevel=4)
+
+    def update_status_by_id(self, request_id: str, status: int) -> dict:
+        """Update a user registration request status by request ID."""
+        return self.update_by_id(request_id, {"request_status": status})
 
 
 class NodeProcessStateTable(TinyTableConnector):

@@ -91,16 +91,12 @@ class Config(dict):
         self.configuration["ID"] = node_id
 
         # Set DB_PATH based on given node id
-        self.configuration["NODE_DB_PATH"] = os.path.join(
-            self.configuration["NODE_FEDBIOMED_ROOT"],
-            "etc",
-            self.node_config.get("default", "db"),
-        )
-        # Set GUI_PATH based on given node id
-        self.configuration["GUI_DB_PATH"] = os.path.join(
-            self.configuration["NODE_FEDBIOMED_ROOT"],
-            "var",
-            "gui_db_" + self.configuration["ID"] + ".json",
+        self.configuration["NODE_DB_PATH"] = os.path.abspath(
+            os.path.join(
+                self.configuration["NODE_FEDBIOMED_ROOT"],
+                "etc",
+                self.node_config.get("default", "db"),
+            )
         )
 
         # Enable debug mode

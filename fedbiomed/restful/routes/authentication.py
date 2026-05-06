@@ -12,7 +12,7 @@ from flask_jwt_extended import (
 
 from fedbiomed.common.constants import UserRequestStatus, UserRoleType
 
-from ..db import user_database
+from ..db import user_requests_table, user_table
 from ..helpers.auth_helpers import (
     check_password_hash,
     get_user_by_email,
@@ -23,10 +23,6 @@ from ..middlewares.auth_validation import validate_email_register, validate_pass
 from ..schemas import ValidateLoginRequest, ValidateUserFormRequest
 from ..utils import error, response, validate_request_data
 from .api import api, auth
-
-user_table = user_database.table("Users")
-user_requests_table = user_database.table("Requests")
-query = user_database.query()
 
 
 @api.route("/update-password", methods=["POST"])
@@ -66,15 +62,14 @@ def update_password():
         return error("Invalid operation: User does not belong to database"), 400
 
     try:
-        res = user_table.get(query.user_email == email)
+        res = user_table.get_by_email(email)
         if not check_password_hash(old_password, res["password_hash"]):
             # check that old password provided is correct
             return error("Incorrect old password"), 400
-        user_table.update(
-            {"password_hash": set_password_hash(password)},
-            query.user_email == decoded_json["email"],
+        user_table.update_password_by_email(
+            decoded_json["email"], set_password_hash(password)
         )
-        res = user_table.get(query.user_email == email)
+        res = user_table.get_by_email(email)
 
         return response(
             {"user_id": res["user_id"], "user_email": email},
@@ -141,7 +136,7 @@ def register():
     except Exception as e:
         return error(str(e)), 400
 
-    res = user_requests_table.get(query.request_id == request_id)
+    res = user_requests_table.get_by_id(request_id)
 
     return response(
         {
@@ -212,9 +207,7 @@ def login():
         )
 
         # Update last login
-        user_table.update(
-            {"last_login": datetime.now().isoformat()}, query.user_id == user["user_id"]
-        )
+        user_table.update_last_login_by_id(user["user_id"], datetime.now().isoformat())
 
         resp = response(
             data={

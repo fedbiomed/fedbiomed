@@ -5,11 +5,10 @@ from datetime import datetime
 
 from flask import request
 from flask_jwt_extended import get_jwt
-from tinydb import where
 
 from fedbiomed.common.constants import UserRequestStatus, UserRoleType
 
-from ..db import user_database
+from ..db import user_requests_table, user_table
 from ..helpers.auth_helpers import admin_required, set_password_hash
 from ..middlewares import middleware
 from ..middlewares.auth_validation import validate_email_register, validate_password
@@ -21,10 +20,6 @@ from ..schemas import (
 )
 from ..utils import error, response, validate_request_data
 from .api import api
-
-user_table = user_database.table("Users")
-user_requests_table = user_database.table("Requests")
-query = user_database.query()
 
 
 @api.route("/admin/users/list", methods=["GET"])
@@ -114,7 +109,7 @@ def create_user():
         return error(str(e)), 400
 
     try:
-        res = user_table.get(query.user_id == user_id)
+        res = user_table.get_by_id(user_id)
     except Exception as e:
         return error(
             f"Error while validating user removal status. User might be removed but this "
@@ -160,12 +155,12 @@ def remove_user():
         return error("Cannot remove your own account."), 400
 
     try:
-        user_table.remove(where("user_id") == user_id)
+        user_table.delete_by_id(user_id)
     except Exception as e:
         return error(str(e)), 400
 
     try:
-        res = user_table.get(query.user_id == user_id)
+        res = user_table.get_by_id(user_id)
     except Exception as e:
         return error(
             f"Error while validating user removal status. User might be removed but this "
@@ -220,14 +215,12 @@ def reset_user_password():
     password_hash = set_password_hash(password)
 
     try:
-        res = user_table.update(
-            {"password_hash": password_hash}, query.user_id == user_id
-        )
+        res = user_table.update_password_by_id(user_id, password_hash)
     except Exception as e:
         return error(str(e)), 400
 
     if res:
-        user = user_table.get(query.user_id == user_id)
+        user = user_table.get_by_id(user_id)
         return response(
             {"password": password, "email": user["user_email"]},
             "User password has been successfully updated.",
@@ -268,12 +261,12 @@ def change_user_role():
         return error("You can not change your own role"), 400
 
     try:
-        res = user_table.update({"user_role": role}, query.user_id == user_id)
+        res = user_table.update_role_by_id(user_id, role)
     except Exception as e:
         return error(str(e)), 400
 
     if res:
-        user = user_table.get(query.user_id == user_id)
+        user = user_table.get_by_id(user_id)
         return response(
             {"role": role, "email": user["user_email"]},
             "User role has been successfully changed",
@@ -342,7 +335,7 @@ def approve_user_request():
 
     try:
         request_id = request.json["request_id"]
-        user_request = user_requests_table.get(query.request_id == request_id)
+        user_request = user_requests_table.get_by_id(request_id)
         if not user_request:
             return error(f"Request with id {request_id} not found"), 400
         user_id = "user_" + str(uuid.uuid4())
@@ -357,8 +350,8 @@ def approve_user_request():
                 "user_id": user_id,
             }
         )
-        res = user_table.get(query.user_id == user_id)
-        user_requests_table.remove(query.request_id == request_id)
+        res = user_table.get_by_id(user_id)
+        user_requests_table.delete_by_id(request_id)
         return response(
             {"user_id": res["user_id"], "user_email": res["user_email"]},
             "Request successfully approved",
@@ -389,14 +382,11 @@ def reject_user_request():
     """
     try:
         request_id = request.json["request_id"]
-        user_request = user_requests_table.get(query.request_id == request_id)
+        user_request = user_requests_table.get_by_id(request_id)
         if not user_request:
             return error(f"Request with id {request_id} not found"), 400
-        user_requests_table.update(
-            {"request_status": UserRequestStatus.REJECTED},
-            query.request_id == request_id,
-        )
-        res = user_requests_table.get(query.request_id == request_id)
+        user_requests_table.update_status_by_id(request_id, UserRequestStatus.REJECTED)
+        res = user_requests_table.get_by_id(request_id)
         return response(res), 200
     except Exception as e:
         return error(str(e)), 400

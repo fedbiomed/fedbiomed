@@ -1,11 +1,20 @@
+import importlib
+import sys
 import tempfile
+import types
 import unittest
 
+from tinydb import Query, TinyDB
+
 from fedbiomed.common.constants import DatasetTypes
+from fedbiomed.common.db import TinyDBConnector
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.dataset_manager._db_dataclasses import (
     DatasetEntry,
     DynamicDatasetEntry,
+    UserEntry,
+    UserRequestEntry,
 )
 from fedbiomed.node.dataset_manager._db_tables import (
     DatasetTable,
@@ -13,7 +22,51 @@ from fedbiomed.node.dataset_manager._db_tables import (
     DynamicDatasetTable,
     NodeProcessStateHistoryTable,
     NodeProcessStateTable,
+    UserRequestTable,
+    UserTable,
 )
+
+
+def test_gui_tables_use_node_db_with_dataset_manager(tmp_path, monkeypatch):
+    """GUI user tables are stored in the same node DB used by DatasetManager."""
+    db_path = tmp_path / "node_db.json"
+    fake_config_module = types.ModuleType("fedbiomed.restful.config")
+    fake_config_module.config = {
+        "NODE_DB_PATH": str(db_path),
+        "DEFAULT_ADMIN_CREDENTIAL": {
+            "email": "admin@example.test",
+            "password": "admin-password",
+        },
+    }
+
+    monkeypatch.setitem(sys.modules, "fedbiomed.restful.config", fake_config_module)
+    sys.modules.pop("fedbiomed.restful.db", None)
+    monkeypatch.setattr(TinyDBConnector, "_instance", None)
+
+    db_module = importlib.import_module("fedbiomed.restful.db")
+    monkeypatch.delitem(sys.modules, "fedbiomed.restful.db", raising=False)
+
+    DatasetManager(str(db_path)).dataset_table.insert(
+        {
+            "dataset_id": "dataset-test",
+            "name": "dataset",
+            "data_type": "tabular",
+            "tags": ["dataset-test"],
+            "description": "dataset",
+            "path": str(tmp_path),
+            "shape": [1, 1],
+            "dtypes": {"col": "int"},
+        }
+    )
+    users = db_module.user_table.all()
+
+    tinydb = TinyDB(str(db_path))
+    query = Query()
+    assert tinydb.table("Datasets").get(query.dataset_id == "dataset-test") is not None
+    assert (
+        tinydb.table("Users").get(query.user_email == "admin@example.test") is not None
+    )
+    assert len(users) == 1
 
 
 class TestDatasetEntry(unittest.TestCase):
@@ -101,6 +154,33 @@ class TestDynamicDatasetEntry(unittest.TestCase):
         self.assertEqual(entry.researcher_id, "res_123")
         self.assertEqual(entry.experiment_id, "exp_456")
         self.assertEqual(entry.name, "Dynamic Dataset")
+
+
+class TestUserEntry(unittest.TestCase):
+    def test_default_user_id(self):
+        entry = UserEntry(
+            user_email="user@example.test",
+            password_hash="hash",
+            user_name="User",
+            user_surname="Example",
+            user_role=1,
+            creation_date="now",
+        )
+        self.assertTrue(entry.user_id.startswith("user_"))
+
+
+class TestUserRequestEntry(unittest.TestCase):
+    def test_default_request_id(self):
+        entry = UserRequestEntry(
+            user_name="User",
+            user_surname="Example",
+            user_email="user@example.test",
+            password_hash="hash",
+            user_role=1,
+            creation_date="now",
+            request_status=0,
+        )
+        self.assertTrue(entry.request_id.startswith("request_"))
 
 
 class TestDatasetTable(unittest.TestCase):
@@ -243,6 +323,65 @@ class TestDynamicDatasetTable(unittest.TestCase):
         )
         subtree_inexistent = self.table.collect_subtree("unknown_id")
         self.assertEqual(subtree_inexistent, [])
+
+
+class TestUserTable(unittest.TestCase):
+    def setUp(self):
+        self.dbfile = tempfile.NamedTemporaryFile(delete=True)
+        self.table = UserTable(self.dbfile.name)
+
+    def tearDown(self):
+        self.dbfile.close()
+
+    def test_insert_and_explicit_methods(self):
+        user_id = self.table.insert(
+            {
+                "user_email": "user@example.test",
+                "password_hash": "hash",
+                "user_name": "User",
+                "user_surname": "Example",
+                "user_role": 1,
+                "creation_date": "now",
+            }
+        )
+        self.assertEqual(
+            self.table.get_by_email("user@example.test")["user_id"],
+            user_id,
+        )
+        updated = self.table.update_last_login_by_id(user_id, "later")
+        self.assertEqual(updated["user_id"], user_id)
+        self.assertEqual(updated["last_login"], "later")
+        self.assertTrue(self.table.delete_by_id(user_id))
+
+
+class TestUserRequestTable(unittest.TestCase):
+    def setUp(self):
+        self.dbfile = tempfile.NamedTemporaryFile(delete=True)
+        self.table = UserRequestTable(self.dbfile.name)
+
+    def tearDown(self):
+        self.dbfile.close()
+
+    def test_insert_and_explicit_methods(self):
+        request_id = self.table.insert(
+            {
+                "user_name": "User",
+                "user_surname": "Example",
+                "user_email": "user@example.test",
+                "password_hash": "hash",
+                "user_role": 1,
+                "creation_date": "now",
+                "request_status": 0,
+            }
+        )
+        self.assertEqual(
+            self.table.get_by_email("user@example.test")["request_id"],
+            request_id,
+        )
+        updated = self.table.update_status_by_id(request_id, 1)
+        self.assertEqual(updated["request_id"], request_id)
+        self.assertEqual(updated["request_status"], 1)
+        self.assertTrue(self.table.delete_by_id(request_id))
 
 
 class TestDlpTable(unittest.TestCase):

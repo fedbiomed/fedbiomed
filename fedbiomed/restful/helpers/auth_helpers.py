@@ -9,11 +9,8 @@ from flask_jwt_extended import (
 
 from fedbiomed.common.constants import UserRoleType
 
-from ..db import user_database
+from ..db import user_table
 from ..utils import error
-
-user_table = user_database.table("Users")
-query = user_database.query()
 
 
 def set_password_hash(password: str) -> str:
@@ -46,7 +43,7 @@ def get_user_by_email(user_email: str) -> str:
 
         user_email (str): The mail of the user to retrieve from the database
     """
-    return user_table.get(query.user_email == user_email)
+    return user_table.get_by_email(user_email)
 
 
 def check_mail_format(user_mail: str) -> bool:
@@ -79,7 +76,7 @@ def admin_required(func):
         verify_jwt_in_request()
         claims = get_jwt()
 
-        user_from_db = user_table.get(query.user_id == claims["sub"])
+        user_from_db = user_table.get_by_id(claims["sub"])
 
         if not user_from_db:
             return error("Can not check user role. Please contact system provider"), 400
