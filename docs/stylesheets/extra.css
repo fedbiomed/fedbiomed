@@ -41,11 +41,31 @@ body,
 
 
 
-/* ── Hide Material's own header / tabs / footer ───────────── */
-.md-header,
+/* ── Hide Material's own tabs / footer ───────────────────── */
 .md-tabs,
 .md-footer {
   display: none !important;
+}
+
+/* ── Hide Material header visually but keep search functional ── */
+/* display:none would hide children too; use height:0 instead.  */
+/* z-index must be higher than .fbm-topbar (1050) so the search  */
+/* overlay (a child fixed element) stacks above our navbar.      */
+.md-header {
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  z-index: 10002 !important;
+}
+
+/* height:0 + overflow:hidden hides static header content (logo, nav items)
+   WITHOUT affecting position:fixed descendants like .md-search__inner.
+   Elements inside remain focusable programmatically (unlike display/visibility). */
+.md-header__inner {
+  height: 0 !important;
+  overflow: hidden !important;
 }
 
 /* ── Keep content flush under our sticky navbar ───────────── */
@@ -54,10 +74,11 @@ body,
   margin-top: 0 !important;
 }
 
-/* ── Fix sidebar positioning (Material uses --md-header-height
-      which is 0 since we hid .md-header; override to our 64px navbar) */
+/* ── Fix sidebar positioning (Material uses --md-header-height)       */
+/* Match actual .fbm-topbar-container min-height (92px desktop)       */
 :root {
-  --md-header-height: 64px;
+  --md-header-height:  92px;
+  --fbm-navbar-height: 92px;   /* used for search positioning */
 }
 
 /* sidebar sinistra */
@@ -135,7 +156,7 @@ body,
   width: 100%;
   background: linear-gradient( #edf2fc, #fff);
   padding: 3.5rem 1.5rem;
-  margin: 0 0 2.5rem 0;
+  margin: 0 ;
 }
 
 .fbm-doc-hero-container {
@@ -169,6 +190,12 @@ body,
   text-align: left;
   flex: 1;
   min-width: 0;
+}
+
+.fbm-doc-hero-logo {
+  max-width: 420px;
+  width: 100%;
+  height: auto;
 }
 
 .fbm-doc-hero-subtitle {
@@ -1776,4 +1803,221 @@ body.fbm-nav-lock {
 
 .fbm-footer-nav-next {
   margin-left: auto;
+}
+
+/* ── Search button – stile coerente con la navbar ── */
+.fbm-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 1.9rem;
+  padding: 0 0.85rem;
+  min-width: 140px;
+  border: 1px solid rgba(20, 30, 70, 0.18);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.75);
+  color: #9ca3af;
+  cursor: text;
+  font-size: 0.72rem;
+  font-family: "Nunito Sans", sans-serif;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s;
+  margin-right: 1rem;
+}
+
+.fbm-search-btn:hover {
+  border-color: rgba(20, 30, 70, 0.35);
+  background: #fff;
+}
+
+
+.fbm-search-icon {
+  width: 1rem;
+  height: 1rem;
+  display: inline-block;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+@media screen and (max-width: 1199.98px) {
+  .fbm-nav-search {
+    display: none;
+  }
+}
+
+
+/* ============================================================
+   MATERIAL SEARCH OVERLAY — FBM style overrides
+   Triggered only by .fbm-search-btn; panel is a centered card.
+   ============================================================ */
+
+/* ── Hide "Search docs…" button while search is open ──────── */
+body.fbm-search-active .fbm-nav-search {
+  visibility: hidden !important;
+}
+
+/* ── Backdrop ──────────────────────────────────────────────── */
+.md-search__overlay {
+  background: rgba(3, 4, 94, 0.22) !important;
+  z-index: 10000 !important;
+}
+
+/* ── Main panel — hidden by default, shown only when active ── */
+/* opacity:0 + pointer-events:none hides the panel but still   */
+/* allows programmatic focus() on the input inside.            */
+.md-search__inner {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  /* Material defaults: height:0 — override so panel sizes to content */
+  height: auto !important;
+  /* NO overflow:hidden here — it clips the results area.
+     Border-radius is applied to children instead (see below).      */
+  position: fixed !important;
+  top: calc(var(--fbm-navbar-height) + 10px) !important;
+  left: max(1rem, calc(50% - 415px)) !important;
+  right: max(1rem, calc(50% - 415px)) !important;
+  width: auto !important;
+  max-width: none !important;
+  border-radius: 0.875rem !important;
+  background: transparent !important;
+  border-top: 2px solid var(--fbm-tertiary) !important;
+  box-shadow: 0 16px 48px rgba(3, 4, 94, 0.16) !important;
+  z-index: 10001 !important;
+  transition: opacity 0.15s ease !important;
+}
+
+/* Show panel when search is active */
+body.fbm-search-active .md-search__inner {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* ── Input row — rounded top corners ───────────────────────── */
+.md-search__form {
+  background: #fff !important;
+  border-radius: 0.875rem 0.875rem 0 0 !important;
+  overflow: hidden !important;
+  height: 3.25rem !important;
+  padding: 0 1.25rem !important;
+  border-bottom: 1px solid rgba(3, 4, 94, 0.08) !important;
+  box-shadow: none !important;
+}
+
+.md-search__input {
+  font-family: "Nunito Sans", sans-serif !important;
+  font-size: 0.95rem !important;
+  font-weight: 500 !important;
+  color: var(--fbm-primary) !important;
+  background: transparent !important;
+}
+
+.md-search__input::placeholder {
+  color: #9ca3af !important;
+  font-weight: 400 !important;
+}
+
+/* search & reset icons */
+.md-search__icon.md-icon {
+  color: var(--fbm-secondary) !important;
+}
+
+/* ── Results area — rounded bottom corners ──────────────────── */
+/* Material defaults: opacity:0 on desktop — override to 1.        */
+.md-search__output {
+  background: #fff !important;
+  opacity: 1 !important;
+  border-radius: 0 0 0.875rem 0.875rem !important;
+  overflow: hidden !important;
+}
+
+/* Material defaults: max-height:0 — override so results scroll area
+   is properly sized regardless of toggle-checkbox state.           */
+.md-search__scrollwrap {
+  background: #fff !important;
+  max-height: min(440px, calc(100vh - var(--fbm-navbar-height) - 3.25rem - 1.5rem)) !important;
+  overflow-y: auto !important;
+}
+
+/* "N results for …" meta bar */
+.md-search-result__meta {
+  background: rgba(202, 240, 246, 0.3) !important;
+  color: var(--fbm-body) !important;
+  font-family: "Nunito Sans", sans-serif !important;
+  font-size: 0.7rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em !important;
+}
+
+/* single result row */
+.md-search-result__item {
+  border-bottom: 1px solid rgba(3, 4, 94, 0.05) !important;
+}
+
+.md-search-result__link {
+  border-radius: 0 !important;
+}
+
+.md-search-result__link:focus,
+.md-search-result__link:hover {
+  background: rgba(202, 240, 246, 0.22) !important;
+}
+
+/* result title */
+.md-search-result__article--document .md-search-result__title,
+.md-search-result__title {
+  font-family: "Nunito Sans", sans-serif !important;
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  color: var(--fbm-primary) !important;
+}
+
+/* excerpt */
+.md-search-result__teaser {
+  font-family: "Nunito Sans", sans-serif !important;
+  font-size: 0.78rem !important;
+  color: var(--fbm-body) !important;
+}
+
+/* highlighted terms */
+.md-search-result mark {
+  color: var(--fbm-secondary) !important;
+  background: rgba(0, 180, 216, 0.13) !important;
+  border-radius: 2px !important;
+}
+
+/* page/section icon */
+.md-search-result__icon.md-icon {
+  color: var(--fbm-tertiary) !important;
+}
+
+/* "More results" */
+.md-search-result__more > summary {
+  color: var(--fbm-secondary) !important;
+  font-family: "Nunito Sans", sans-serif !important;
+  font-size: 0.78rem !important;
+}
+
+/* ── Mobile (below 1200px): navbar is 68px ─────────────────── */
+@media screen and (max-width: 1199.98px) {
+  :root {
+    --fbm-navbar-height: 68px;
+  }
+
+  .md-search__inner {
+    top: calc(var(--fbm-navbar-height) + 6px) !important;
+    left: 0.75rem !important;
+    right: 0.75rem !important;
+  }
+
+  .md-search__form {
+    padding: 0 1rem !important;
+    height: 3rem !important;
+  }
+
+}
+
+@media screen and (min-width: 60em) {
+  .md-search__output {
+    top: auto !important;
+  }
 }

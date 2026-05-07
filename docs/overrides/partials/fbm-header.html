@@ -1,7 +1,11 @@
  <section class="fbm-doc-hero">
     <div class="fbm-doc-hero-container">
         <div class="fbm-doc-hero-inner">
+            {% if page.title == "Docs" %}
+            <img class="fbm-doc-hero-logo" src="{{ 'assets/img/documentation-logo.png' | url }}" alt="Fed-BioMed Documentation">
+            {% else %}
             <h1 class="fbm-doc-hero-title">{{ page.title }}</h1>
+            {% endif %}
             {% if page.meta and page.meta.route %}
             <p class="fbm-doc-hero-subtitle">{{ page.meta.route }}</p>
             {% endif %}
