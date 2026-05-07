@@ -153,7 +153,7 @@ class _SkLearnBatchIterator:
         """
         self._loader = loader
         self._is_initialized = False
-        self._is_simple_sample = True
+        self._is_simple_sample = {"data": True, "target": True}
         self._has_target = True
         self._data_keys = None
         self._target_keys = None
@@ -192,10 +192,8 @@ class _SkLearnBatchIterator:
             FedbiomedError: sample is different from possible formats
         """
         self._is_initialized = True
-        if target is None:
-            self._has_target = False
         if not isinstance(data, np.ndarray):
-            self._is_simple_sample = False
+            self._is_simple_sample["data"] = False
             if isinstance(data, dict):
                 self._data_keys = list(data.keys())
                 if len(self._data_keys) != 1:
@@ -204,6 +202,10 @@ class _SkLearnBatchIterator:
                         f"(index=0). Expected `np.ndarray` or `Dict[str, np.ndarray]` "
                         f"of 1 modality, got Dict of {len(self._data_keys)} modalities"
                     )
+        if target is None:
+            self._has_target = False
+        if self._has_target and not isinstance(target, np.ndarray):
+            self._is_simple_sample["target"] = False
             if isinstance(target, dict):
                 self._target_keys = list(target.keys())
                 if len(self._target_keys) != 1:
@@ -213,20 +215,23 @@ class _SkLearnBatchIterator:
                         f"of 1 modality, got Dict of {len(self._target_keys)} modalities"
                     )
 
-    def _more_info_bad_data_type(self, data: DatasetDataItem, data_keys: List) -> str:
+    def _more_info_bad_data_type(
+        self, data: DatasetDataItem, data_keys: List, is_simple_sample: bool
+    ) -> str:
         """Returns a string with more information about a bad data sample type.
 
         Args:
             data: a data sample read from the dataset
             data_keys: expected data keys if data is a dict
+            is_simple_sample: whether the sample is expected to be a simple sample or a dict of 1 modality
 
         Returns:
             A string with more information about the bad data sample type.
         """
         data_type = type(data).__name__
-        if self._is_simple_sample and isinstance(data, np.ndarray):
+        if is_simple_sample and isinstance(data, np.ndarray):
             data_type = f"`np.ndarray` with {data.ndim} dimensions"
-        elif not self._is_simple_sample and isinstance(data, dict):
+        elif not is_simple_sample and isinstance(data, dict):
             if len(data) != 1:
                 data_type = f"`Dict` with {len(data)} modalities"
             elif list(data.keys()) != data_keys:
@@ -255,10 +260,14 @@ class _SkLearnBatchIterator:
         Raises:
             FedbiomedError: sample is different from expected format
         """
-        if self._is_simple_sample and isinstance(data, np.ndarray) and data.ndim <= 1:
+        if (
+            self._is_simple_sample["data"]
+            and isinstance(data, np.ndarray)
+            and data.ndim <= 1
+        ):
             pass
         elif (
-            not self._is_simple_sample
+            not self._is_simple_sample["data"]
             and isinstance(data, dict)
             and len(data) == 1
             and list(data.keys()) == self._data_keys
@@ -267,7 +276,9 @@ class _SkLearnBatchIterator:
         ):
             pass
         else:
-            data_type = self._more_info_bad_data_type(data, self._data_keys)
+            data_type = self._more_info_bad_data_type(
+                data, self._data_keys, self._is_simple_sample["data"]
+            )
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Bad data sample type for dataset "
                 f"{self._loader.dataset.__class__.__name__} (index={sample_index}). "
@@ -275,15 +286,15 @@ class _SkLearnBatchIterator:
                 f"Got {data_type}"
             )
 
-        if self._has_target is not None:
+        if self._has_target:
             if (
-                self._is_simple_sample
+                self._is_simple_sample["target"]
                 and isinstance(target, np.ndarray)
                 and (target.ndim <= 1)
             ):
                 pass
             elif (
-                not self._is_simple_sample
+                not self._is_simple_sample["target"]
                 and isinstance(target, dict)
                 and len(target) == 1
                 and list(target.keys()) == self._target_keys
@@ -292,11 +303,13 @@ class _SkLearnBatchIterator:
             ):
                 pass
             else:
-                data_type = self._more_info_bad_data_type(target, self._target_keys)
+                data_type = self._more_info_bad_data_type(
+                    target, self._target_keys, self._is_simple_sample["target"]
+                )
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Bad target sample type for "
                     f"dataset {self._loader.dataset.__class__.__name__} (index={sample_index}). "
-                    f"Expected `np.ndarray` or `Dict[str, np.ndarray]` of 1 modality and 1 dimension. "
+                    f"Expected `np.ndarray` or `Dict[str, np.ndarray]` of 1 modality and 1 dimension, "
                     f"got {data_type}"
                 )
         elif target is not None:
@@ -327,14 +340,20 @@ class _SkLearnBatchIterator:
             sample_index: index of the sample in the dataset
         """
 
-        def _extract_array(sample: DatasetDataItem, keys: Optional[List]) -> np.ndarray:
+        def _extract_array(
+            sample: DatasetDataItem, keys: Optional[List], is_simple_sample: bool
+        ) -> np.ndarray:
             """Extract numpy array from sample and ensure at least 1D shape."""
-            return np.atleast_1d(sample if self._is_simple_sample else sample[keys[0]])
+            return np.atleast_1d(sample if is_simple_sample else sample[keys[0]])
 
         # Extract arrays from samples
-        data_array = _extract_array(data, self._data_keys)
+        data_array = _extract_array(
+            data, self._data_keys, self._is_simple_sample["data"]
+        )
         target_array = (
-            _extract_array(target, self._target_keys) if self._has_target else None
+            _extract_array(target, self._target_keys, self._is_simple_sample["target"])
+            if self._has_target
+            else None
         )
 
         # Handle first sample in batch

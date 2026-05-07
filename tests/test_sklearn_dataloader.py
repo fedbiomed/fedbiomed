@@ -143,6 +143,94 @@ class FailingGetItemDataset(Dataset):
         raise RuntimeError("Synthetic failure in __getitem__")
 
 
+class NoTargetDataset(Dataset):
+    """Dataset returning None targets."""
+
+    def __init__(self):
+        self._length = 1
+
+    def complete_initialization(self):
+        pass
+
+    def _apply_transforms(self, sample):
+        pass
+
+    def __len__(self):
+        return self._length
+
+    def __getitem__(self, idx):
+        return np.array([idx, idx + 1], dtype=float), None
+
+
+class BadTargetModalityDataset(Dataset):
+    """Dataset with invalid target dict containing multiple modalities."""
+
+    def __init__(self):
+        self._length = 1
+
+    def complete_initialization(self):
+        pass
+
+    def _apply_transforms(self, sample):
+        pass
+
+    def __len__(self):
+        return self._length
+
+    def __getitem__(self, idx):
+        data = np.array([0.0, 1.0], dtype=float)
+        target = {"a": np.array([0.0]), "b": np.array([1.0])}
+        return data, target
+
+
+class BadDataGeometryDataset(Dataset):
+    """Dataset whose second sample has a 2D data array."""
+
+    def __init__(self):
+        self._length = 2
+
+    def complete_initialization(self):
+        pass
+
+    def _apply_transforms(self, sample):
+        pass
+
+    def __len__(self):
+        return self._length
+
+    def __getitem__(self, idx):
+        if idx == 0:
+            data = np.array([0.0, 1.0], dtype=float)
+        else:
+            data = np.array([[0.0, 1.0]], dtype=float)
+        target = np.array([idx], dtype=float)
+        return data, target
+
+
+class InconsistentTargetShapeDataset(Dataset):
+    """Dataset with target shapes that cannot be vstack-ed in the same batch."""
+
+    def __init__(self):
+        self._length = 2
+
+    def complete_initialization(self):
+        pass
+
+    def _apply_transforms(self, sample):
+        pass
+
+    def __len__(self):
+        return self._length
+
+    def __getitem__(self, idx):
+        data = np.array([0.0, 1.0], dtype=float)
+        if idx == 0:
+            target = np.array([0.0, 1.0], dtype=float)
+        else:
+            target = np.array([1.0, 2.0, 3.0], dtype=float)
+        return data, target
+
+
 def test_init_invalid_arguments():
     # bad batch_size type
     with pytest.raises(FedbiomedError):
@@ -263,3 +351,74 @@ def test_dataset_getitem_exception():
     it = iter(loader)
     with pytest.raises(FedbiomedError):
         next(it)
+
+
+def test_drop_last_resets_index_array():
+    loader = SkLearnDataLoader(SimpleDataset(), batch_size=2, drop_last=True)
+    it = iter(loader)
+    assert np.array_equal(it._index, np.array([0, 1, 2, 3]))
+
+
+def test_none_target_sample():
+    loader = SkLearnDataLoader(NoTargetDataset(), batch_size=1)
+    data, target = next(iter(loader))
+    assert isinstance(data, np.ndarray)
+    assert target is None
+
+
+def test_initialize_raises_on_multiple_target_modalities():
+    loader = SkLearnDataLoader(BadTargetModalityDataset(), batch_size=1)
+    with pytest.raises(FedbiomedError):
+        next(iter(loader))
+
+
+def test_bad_data_geometry_error_message_path():
+    loader = SkLearnDataLoader(BadDataGeometryDataset(), batch_size=1)
+    it = iter(loader)
+
+    # first sample initializes expected format
+    _ = next(it)
+    with pytest.raises(FedbiomedError):
+        next(it)
+
+
+def test_inconsistent_target_shapes():
+    loader = SkLearnDataLoader(InconsistentTargetShapeDataset(), batch_size=2)
+    with pytest.raises(FedbiomedError):
+        next(iter(loader))
+
+
+def test_more_info_bad_data_type_variants():
+    iterator = iter(SkLearnDataLoader(SimpleDataset(), batch_size=1))
+
+    assert (
+        iterator._more_info_bad_data_type(  # pylint: disable=protected-access
+            {"a": np.array([0.0]), "b": np.array([1.0])}, ["a"], False
+        )
+        == "`Dict` with 2 modalities"
+    )
+    assert iterator._more_info_bad_data_type(  # pylint: disable=protected-access
+        {"b": np.array([0.0])}, ["a"], False
+    ).startswith("`Dict` with non-matching keys")
+    assert (
+        iterator._more_info_bad_data_type(  # pylint: disable=protected-access
+            {"a": [0.0]}, ["a"], False
+        )
+        == "`Dict[str, list]`"
+    )
+    assert (
+        iterator._more_info_bad_data_type(  # pylint: disable=protected-access
+            {"a": np.array([[0.0, 1.0]])}, ["a"], False
+        )
+        == "`Dict[str, np.ndarray]` with 2 dimensions"
+    )
+
+
+def test_check_sample_format_with_has_target_none():
+    iterator = iter(SkLearnDataLoader(SimpleDataset(), batch_size=1))
+    iterator._has_target = None  # pylint: disable=protected-access
+
+    with pytest.raises(FedbiomedError):
+        iterator._check_sample_format(  # pylint: disable=protected-access
+            np.array([1.0]), np.array([1.0]), 0
+        )
