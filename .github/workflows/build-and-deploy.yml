@@ -60,7 +60,8 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
             ALIAS="${{ github.event.inputs.alias }}"
           elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/v}"
+            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION="${VERSION#v}"
             ALIAS="latest"
           else
             # Push to develop: re-deploy the current latest version
