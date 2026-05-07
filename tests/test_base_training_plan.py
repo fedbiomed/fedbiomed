@@ -244,7 +244,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
             result, {"Custom_1": 14.5, "Custom_2": 14.5, "Custom_3": 14.5}
         )
 
-        metric = np.array([14.5, 14.5, 14.5], dtype=np.floating)
+        metric = np.array([14.5, 14.5, 14.5], dtype=np.float64)
         result = BaseTrainingPlan._create_metric_result_dict(
             metric=metric, metric_name="Custom"
         )

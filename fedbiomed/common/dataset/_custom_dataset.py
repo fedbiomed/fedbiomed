@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import abstractmethod
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
@@ -120,17 +120,45 @@ class CustomDataset(Dataset):
             )
 
         data, target = sample
+        self._composed: dict[str, Union[bool, None]] = {
+            "data": None,
+            "target": None,
+        }
         self._check_type(data, "data")
         self._check_type(target, "target")
 
     def _check_type(self, sample: Any, type_: str) -> None:
         """Check if sample is of expected type"""
-        if not isinstance(sample, self._to_format.value):
+        # First time we see a sample of this type, determine if it is composed or not
+        if self._composed[type_] is None:
+            self._composed[type_] = not isinstance(sample, self._to_format.value)
+
+        # Check non-composed sample
+        if self._composed[type_] is False and not isinstance(
+            sample, self._to_format.value
+        ):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: "
                 f"Expected return type for the {type_} is {self._to_format.value}, "
                 f"but got {type(sample).__name__} "
             )
+
+        # Check composed sample
+        if self._composed[type_] is True:
+            if not isinstance(sample, dict):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: "
+                    f"Expected return type for the {type_} is dict of {self._to_format.value}, "
+                    f"but got {type(sample).__name__} "
+                )
+            if not all(
+                isinstance(elem, self._to_format.value) for elem in sample.values()
+            ):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: "
+                    f"Expected return type for the {type_} is dict of {self._to_format.value}, "
+                    f"but got elements of type {list(map(type, sample.values()))} "
+                )
 
     def _apply_default_types(self, data: Any, _type: str) -> Any:
         """Applies default types for training plan framework to data
@@ -144,7 +172,13 @@ class CustomDataset(Dataset):
             Converted data
         """
         try:
-            data = self._get_default_types_callable()(data)
+            if not self._composed[_type]:
+                data = self._get_default_types_callable()(data)
+            else:
+                data = {
+                    key: self._get_default_types_callable()(value)
+                    for key, value in data.items()
+                }
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to apply default training plan types "
