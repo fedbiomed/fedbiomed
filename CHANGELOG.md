@@ -1,5 +1,13 @@
 # Fed-BioMed changelog
 
+## 2026-05-11 version 6.3.1
+
+- Improve CustomDataset with multi-modal data or target support
+- Improve scikit-learn DataLoader with support of mixed dict and `ndarray`
+- Fix issue in TabularDataset validation of target transformation
+- Fix misc issue in documenting GPU usage with containers
+
+
 ## 2026-04-30 version 6.3.0
 
 - Initial implementation of **federated analytics** for tabular datasets.
