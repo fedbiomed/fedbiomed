@@ -228,6 +228,7 @@ def test_getitem_transform_error_on_target(mocker):
 def test_validate_transform_accepts_none_identity():
     ds = TabularDataset(input_columns=[0], target_columns=[1], transform=None)
     assert ds._transform("x") == "x"
+    assert ds._target_transform("x") == "x"
 
 
 def test_validate_transform_accepts_callable():
@@ -235,12 +236,28 @@ def test_validate_transform_accepts_callable():
         input_columns=[0], target_columns=[1], transform=lambda z: z + 1
     )
     assert ds._transform(41) == 42
+    assert ds._target_transform(41) == 41
+
+
+def test_validate_target_transform_accepts_callable():
+    ds = TabularDataset(
+        input_columns=[0], target_columns=[1], target_transform=lambda z: z + 1
+    )
+    assert ds._transform(41) == 41
+    assert ds._target_transform(41) == 42
 
 
 def test_validate_transform_rejects_other_types():
     with pytest.raises(FedbiomedValueError):
         _ = TabularDataset(
             input_columns=[0], target_columns=[1], transform="not callable"
+        )
+
+
+def test_validate_target_transform_rejects_other_types():
+    with pytest.raises(FedbiomedValueError):
+        _ = TabularDataset(
+            input_columns=[0], target_columns=[1], target_transform="not callable"
         )
 
 

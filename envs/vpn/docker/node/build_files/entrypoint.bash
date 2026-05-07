@@ -39,7 +39,7 @@ su -l -c "export FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS=\"${FBM_SECURITY_ALLOW_F
       fedbiomed component create --component NODE --path /fbm-node --exist-ok" $CONTAINER_USER
 
 # Overwrite node options file if re-launching container
-#   eg FBM_NODE_START_OPTIONS="--gpu-only" can be used for starting node forcing GPU usage
+#   eg FBM_NODE_START_OPTIONS=--gpu-only can be used for starting node forcing GPU usage
 su -l -c "echo \"$FBM_NODE_START_OPTIONS\" >/fbm-node/FBM_NODE_START_OPTIONS" $CONTAINER_USER
 
 # Launch node using node options
