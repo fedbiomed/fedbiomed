@@ -10,8 +10,8 @@ site_description: >-
 theme:
   name: material
   custom_dir: docs/overrides
-  logo: assets/img/logo_icon.png
-  favicon: assets/img/favicon.png
+  logo: assets/img/fedbiomed-logo.png
+  favicon: assets/favicon.png
   features:
     - navigation.top
     - search.suggest
@@ -240,7 +240,7 @@ extra:
       placeholder: Enter your email
 
     brand:
-      logo: assets/img/logo_icon.png
+      logo: assets/img/fedbiomed-logo.png
       name: Fed-BioMed
       copyright: Copyright ©2026
 
