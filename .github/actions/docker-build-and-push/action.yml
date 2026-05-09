@@ -1,0 +1,86 @@
+name: Build and Push a Docker Image
+description: Publish docker images
+
+inputs: 
+  image-names:
+    description: List of tags to push
+    required: true
+  
+  file:
+    description: Path to the docker file
+    required: true
+  
+  test:
+    description: Only builds images without pushing
+    required: false
+    default: 'false'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        # list of Docker images to use as base name for tags
+        images: ${{ inputs.image-names }}
+        # generate Docker tags based on the following events/attributes
+        tags: |
+          type=schedule
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=sha
+        flavor: |
+          latest=false
+    
+    - name: Info
+      run: |
+        echo "${{ steps.meta.outputs.tags }}"
+        echo "${{ steps.meta.outputs.labels }}"
+      shell: bash -l {0}
+    
+#    - name: Build an push image 
+#      uses: docker/build-push-action@v6
+#      with:
+#        push: true
+#        pull: true
+#        context: .
+#        file: ${{ inputs.file }} 
+#        tags: ${{ steps.meta.outputs.tags }}
+#        labels: ${{ steps.meta.outputs.labels }}
+#        build-args: FBM_IMAGE_VERSION=${{ steps.meta.outputs.version }} 
+
+
+#    Following actions are kept in case of disk space issue.
+    - name: Tag used for images
+      id: tag-export
+      run: |
+        TAG=$(echo "$FIRST_LINE" | cut -d ':' -f2) 
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      shell: bash -l {0}
+
+    - name: Generate docker tag args (no jq)
+      id: tag-args
+      run: |
+        TAG_ARGS=""
+        while IFS= read -r tag; do
+          [ -n "$tag" ] && TAG_ARGS="$TAG_ARGS -t $tag"
+        done <<< "${{ steps.meta.outputs.tags }}"
+        echo "TAG_ARGS=$TAG_ARGS" >> $GITHUB_OUTPUT
+      shell: bash -l {0}
+
+    - name: Build the image
+      run: |
+        docker build ${{ steps.tag-args.outputs.TAG_ARGS }} \
+          --build-arg FBM_IMAGE_VERSION=${{ steps.meta.outputs.version }} \
+          -f ${{ inputs.file }} . 
+      shell: bash -l {0}
+    
+    - name: Push the image
+      if: ${{ inputs.test == false || inputs.test == 'false' }}
+      run: | 
+        docker push --all-tags ${{ inputs.image-names }}
+      shell: bash -l {0}

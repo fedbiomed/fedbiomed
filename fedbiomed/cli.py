@@ -121,6 +121,7 @@ class ComponentParser(CLIArgumentParser):
                 DEFAULT_RESEARCHER_NAME in component_path
                 and os.path.isdir(component_path)
                 and not docker_special_case(component_path)
+                and os.listdir(component_path)
             ):
                 if not args.exist_ok:
                     CommonCLI.error(
