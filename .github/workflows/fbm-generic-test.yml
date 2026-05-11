@@ -49,7 +49,7 @@ jobs:
 
       - name: Build docs with mike
         run: |
-          mike deploy test
+          pdm run mike deploy test
 
   unit-test:
     name: Unit Tests
