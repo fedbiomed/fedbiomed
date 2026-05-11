@@ -47,14 +47,14 @@ jobs:
         if: steps.filter.outputs.docs == 'true'
         run: pdm install --no-default -G docs -G dev
 
-      - name: Build documentation
-        if: steps.filter.outputs.docs == 'true'
-        # Version number for testing purposes should
-        # respect to standard which is vMajor.Minor.Patch
+      - name: Build docs with mike
         run: |
-          source .venv/bin/activate
-          scripts/docs/fedbiomed_doc.sh --build-dir build-repo \
-            --build-main --build-current-as v1.0.1
+          mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} --update-aliases
+          if [ -n "${{ steps.version.outputs.ALIAS }}" ]; then
+            mike set-default ${{ steps.version.outputs.ALIAS }}
+          else
+            mike set-default ${{ steps.version.outputs.VERSION }}
+          fi
 
   unit-test:
     name: Unit Tests
