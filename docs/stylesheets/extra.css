@@ -1158,6 +1158,29 @@ body.fbm-nav-lock {
   }
 }
 
+/* Bridge the ~20px gap between the toolbar (hidden above 1199.98px) and the
+   Material sidebar (visible only from 76.25em = 1220px). Without this, both
+   elements are invisible between 1200px and 1219px, leaving no navigation. */
+@media (min-width: 1200px) and (max-width: 76.24875em) {
+  .fbm-mobile-doc-toolbar {
+    display: block;
+    position: sticky;
+    top: 90px;
+    z-index: 1035;
+    margin: -1.35rem 0 0.35rem;
+    padding: 0.15rem 0.75rem 0.35rem;
+    background: transparent;
+  }
+
+  .fbm-mobile-doc-toolbar-inner {
+    max-width: 1320px;
+    margin: 0 auto;
+    justify-content: center;
+    overflow: visible;
+    padding: 0;
+  }
+}
+
 /* ============================================================
    FOOTER — replica layout sito
    ============================================================ */
