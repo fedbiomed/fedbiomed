@@ -49,12 +49,7 @@ jobs:
 
       - name: Build docs with mike
         run: |
-          mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} --update-aliases
-          if [ -n "${{ steps.version.outputs.ALIAS }}" ]; then
-            mike set-default ${{ steps.version.outputs.ALIAS }}
-          else
-            mike set-default ${{ steps.version.outputs.VERSION }}
-          fi
+          mike deploy test
 
   unit-test:
     name: Unit Tests
