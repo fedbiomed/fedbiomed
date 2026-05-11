@@ -19,7 +19,7 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 @pytest.fixture
 def mock_registry(monkeypatch):
-    """Mocks AnalyticsRegistry.get_accumulator_class to return a controllable class.
+    """Mocks AnalyticsRegistry.get_accumulators to return a list with one controllable class.
 
     Returns:
         (mock_class, mock_instance): The mock accumulator class and the instance
@@ -32,8 +32,8 @@ def mock_registry(monkeypatch):
     mock_class = MagicMock(return_value=mock_instance)
 
     monkeypatch.setattr(
-        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
-        MagicMock(return_value=mock_class),
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
+        MagicMock(return_value=[mock_class]),
     )
 
     return mock_class, mock_instance
@@ -41,10 +41,17 @@ def mock_registry(monkeypatch):
 
 @pytest.fixture
 def mock_registry_none(monkeypatch):
-    """Mocks AnalyticsRegistry.get_accumulator_class to return None (no class registered)."""
+    """Mocks AnalyticsRegistry.get_accumulators to raise FedbiomedError (no class registered)."""
+
+    def _raise(stats, element_type):
+        stat_names = [stats] if isinstance(stats, str) else stats
+        raise FedbiomedError(
+            f"Statistics '{', '.join(stat_names)}' not valid for type {element_type.name}"
+        )
+
     monkeypatch.setattr(
-        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
-        MagicMock(return_value=None),
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
+        _raise,
     )
 
 
@@ -62,14 +69,14 @@ def test_init_empty_stats():
     """No stats in config → no accumulators instantiated, no error."""
     acc = ImageAccumulator({"type": DatasetElementType.IMAGE, "stats": {}})
     assert acc.stats_config == {}
-    assert acc.accumulators == {}
+    assert acc.accumulators == []
 
 
 def test_init_missing_stats_key():
     """Missing 'stats' key is treated as empty stats (defaults to {})."""
     acc = ImageAccumulator({"type": DatasetElementType.IMAGE})
     assert acc.stats_config == {}
-    assert acc.accumulators == {}
+    assert acc.accumulators == []
 
 
 def test_init_single_stat_no_args(mock_registry):
@@ -78,9 +85,8 @@ def test_init_single_stat_no_args(mock_registry):
 
     acc = ImageAccumulator({"stats": {"mean": {}}})
 
-    assert "mean" in acc.accumulators
     mock_class.assert_called_once_with()
-    assert acc.accumulators["mean"] is mock_instance
+    assert acc.accumulators == [mock_instance]
 
 
 def test_init_single_stat_with_args(mock_registry):
@@ -89,48 +95,85 @@ def test_init_single_stat_with_args(mock_registry):
 
     acc = ImageAccumulator({"stats": {"histogram": {"bin_edges": [0, 1, 2]}}})
 
-    assert "histogram" in acc.accumulators
     mock_class.assert_called_once_with(bin_edges=[0, 1, 2])
-    assert acc.accumulators["histogram"] is mock_instance
+    assert acc.accumulators == [mock_instance]
 
 
 def test_init_multiple_stats(monkeypatch):
-    """Multiple stats each produce a distinct accumulator instance."""
+    """Stats with different args each land in a separate group, producing one instance each."""
     instances = [MagicMock(), MagicMock()]
     mock_class = MagicMock(side_effect=instances)
 
     monkeypatch.setattr(
-        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
-        MagicMock(return_value=mock_class),
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
+        MagicMock(return_value=[mock_class]),
+    )
+
+    # mean ({}) and histogram ({"bin_edges": ...}) have different args → two groups
+    acc = ImageAccumulator({"stats": {"mean": {}, "histogram": {"bin_edges": [0, 1]}}})
+
+    assert len(acc.accumulators) == 2
+    assert instances[0] in acc.accumulators
+    assert instances[1] in acc.accumulators
+    assert mock_class.call_count == 2
+
+
+def test_init_same_args_grouped_into_one_registry_call(monkeypatch):
+    """Stats sharing identical args are batched into a single get_accumulators call."""
+    mock_get = MagicMock(return_value=[MagicMock()])
+    monkeypatch.setattr(
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
+        mock_get,
+    )
+
+    ImageAccumulator({"stats": {"mean": {}, "variance": {}}})
+
+    assert mock_get.call_count == 1
+    call_stats = mock_get.call_args[0][0]
+    assert set(call_stats) == {"mean", "variance"}
+    assert mock_get.call_args[0][1] == DatasetElementType.IMAGE
+
+
+def test_init_shared_accumulator_class_instantiated_once_per_group(monkeypatch):
+    """When registry returns one class for a grouped batch, that class is instantiated once."""
+    mock_instance = MagicMock()
+    mock_class = MagicMock(return_value=mock_instance)
+    monkeypatch.setattr(
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
+        MagicMock(return_value=[mock_class]),
     )
 
     acc = ImageAccumulator({"stats": {"mean": {}, "variance": {}}})
 
-    assert set(acc.accumulators.keys()) == {"mean", "variance"}
-    assert acc.accumulators["mean"] is instances[0]
-    assert acc.accumulators["variance"] is instances[1]
-    assert mock_class.call_count == 2
+    assert mock_class.call_count == 1
+    assert len(acc.accumulators) == 1
+    assert acc.accumulators[0] is mock_instance
 
 
 def test_init_unregistered_stat_raises(mock_registry_none):
     """Stat with no registered accumulator class raises FedbiomedError."""
     with pytest.raises(
         FedbiomedError,
-        match=r"No accumulator registered for stat 'unknown' of type IMAGE\.",
+        match=r"Statistics 'unknown' not valid for type IMAGE",
     ):
         ImageAccumulator({"stats": {"unknown": {}}})
 
 
 def test_init_registry_queried_with_image_type(monkeypatch):
-    """Registry is always queried for DatasetElementType.IMAGE, never ROW."""
-    mock_get = MagicMock(return_value=MagicMock())
+    """Registry is always queried with DatasetElementType.IMAGE, never ROW.
+
+    mean and histogram have different args, so they form two groups — two
+    separate registry calls, both with IMAGE as the element type.
+    """
+    mock_get = MagicMock(return_value=[MagicMock()])
     monkeypatch.setattr(
-        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
         mock_get,
     )
 
-    ImageAccumulator({"stats": {"mean": {}, "count": {}}})
+    ImageAccumulator({"stats": {"mean": {}, "histogram": {"bin_edges": [0, 1]}}})
 
+    assert mock_get.call_count == 2
     for c in mock_get.call_args_list:
         assert c.args[1] == DatasetElementType.IMAGE
 
@@ -178,17 +221,20 @@ def test_update_converts_list_to_ndarray(mock_registry):
 
 
 def test_update_dispatches_to_all_stats(monkeypatch):
-    """update() calls update on every registered stat accumulator."""
+    """update() calls update on every registered stat accumulator.
+
+    Different args force two separate groups, giving two distinct instances.
+    """
     instances = [MagicMock(), MagicMock()]
     mock_class = MagicMock(side_effect=instances)
 
     monkeypatch.setattr(
-        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
-        MagicMock(return_value=mock_class),
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
+        MagicMock(return_value=[mock_class]),
     )
 
     image = np.ones((3, 8, 8))
-    acc = ImageAccumulator({"stats": {"mean": {}, "count": {}}})
+    acc = ImageAccumulator({"stats": {"mean": {}, "histogram": {"bin_edges": [0, 1]}}})
     acc.update(image)
 
     for inst in instances:
@@ -198,10 +244,16 @@ def test_update_dispatches_to_all_stats(monkeypatch):
 
 
 def test_update_same_array_passed_to_all_stats(monkeypatch):
-    """All stat accumulators receive the exact same ndarray object on update."""
+    """All stat accumulators receive the exact same ndarray object on update.
+
+    Different args force two groups, each instantiating CapturingAcc once.
+    """
     received = []
 
     class CapturingAcc:
+        def __init__(self, **kwargs):
+            pass
+
         def update(self, v):
             received.append(v)
 
@@ -209,12 +261,12 @@ def test_update_same_array_passed_to_all_stats(monkeypatch):
             return None
 
     monkeypatch.setattr(
-        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
-        MagicMock(return_value=CapturingAcc),
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
+        MagicMock(return_value=[CapturingAcc]),
     )
 
     image = np.arange(12, dtype=np.float32).reshape(3, 4)
-    acc = ImageAccumulator({"stats": {"mean": {}, "variance": {}}})
+    acc = ImageAccumulator({"stats": {"mean": {}, "histogram": {"bin_edges": [0, 1]}}})
     acc.update(image)
 
     assert len(received) == 2
@@ -277,25 +329,29 @@ def test_finalize_single_stat(mock_registry):
 
 
 def test_finalize_multiple_stats(monkeypatch):
-    """finalize() collects results from all stats into a single dict."""
+    """finalize() merges results from all sub-accumulators into a single dict.
+
+    mean and histogram have different args (two groups). Each group produces
+    one accumulator instance; finalize() unions their outputs.
+    """
     instances = [
         MagicMock(**{"finalize.return_value": {"mean": 7.5}}),
-        MagicMock(**{"finalize.return_value": {"count": 100}}),
+        MagicMock(**{"finalize.return_value": {"histogram": [3, 5]}}),
     ]
 
     mock_class = MagicMock(side_effect=instances)
 
     monkeypatch.setattr(
-        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
-        MagicMock(return_value=mock_class),
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
+        MagicMock(return_value=[mock_class]),
     )
 
-    acc = ImageAccumulator({"stats": {"mean": {}, "count": {}}})
+    acc = ImageAccumulator({"stats": {"mean": {}, "histogram": {"bin_edges": [0, 1]}}})
     result = acc.finalize()
 
-    assert set(result.keys()) == {"mean", "count"}
+    assert set(result.keys()) == {"mean", "histogram"}
     assert result["mean"] == 7.5
-    assert result["count"] == 100
+    assert result["histogram"] == [3, 5]
 
 
 def test_finalize_returns_whatever_sub_accumulator_returns(mock_registry):
@@ -313,18 +369,21 @@ def test_finalize_returns_whatever_sub_accumulator_returns(mock_registry):
 
 
 def test_finalize_calls_each_sub_finalize_once(monkeypatch):
-    """finalize() calls finalize() exactly once on each sub-accumulator."""
+    """finalize() calls finalize() exactly once on each sub-accumulator.
+
+    Different args force two groups, each instantiating the mock class once.
+    """
     instances = [MagicMock(), MagicMock()]
     for inst in instances:
         inst.finalize.return_value = {}
     mock_class = MagicMock(side_effect=instances)
 
     monkeypatch.setattr(
-        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulator_class",
-        MagicMock(return_value=mock_class),
+        "fedbiomed.common.analytics.accumulators._registry.AnalyticsRegistry.get_accumulators",
+        MagicMock(return_value=[mock_class]),
     )
 
-    acc = ImageAccumulator({"stats": {"mean": {}, "variance": {}}})
+    acc = ImageAccumulator({"stats": {"mean": {}, "histogram": {"bin_edges": [0, 1]}}})
     acc.finalize()
 
     for inst in instances:
