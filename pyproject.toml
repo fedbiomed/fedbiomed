@@ -185,11 +185,14 @@ dev = [
 	"pre-commit>=4.2.0",
 ]
 docs = [
-	"mkdocs-material==9.5.18",
-	"mkdocs-jupyter==0.24.1",
-	"mkdocs-minify-plugin==0.6.4",
-	"mkdocstrings-python==1.10.8",
-	"mkdocs-redirects==1.2.2",
+	"mkdocs>=1.5",
+	"mkdocs-material>=9.5",
+	"pymdown-extensions>=10.0",
+	"mkdocs-jupyter>=0.24",
+	"mkdocstrings[python]>=0.24",
+	"mkdocs-minify-plugin",
+	"mkdocs-redirects",
+	"mike"
 ]
 
 [tool.pdm.scripts]
