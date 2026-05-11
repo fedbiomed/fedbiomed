@@ -98,7 +98,7 @@ class TabularDataset(Dataset):
         if self._target_columns is not None:
             self._validate_format_and_transformations(
                 self._get_item_from_sample(sample, self._target_columns),
-                transform=self._transform,
+                transform=self._target_transform,
             )
 
     def _get_item_from_sample(
