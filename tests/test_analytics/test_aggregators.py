@@ -12,6 +12,7 @@ from fedbiomed.common.analytics._aggregators import (
     aggregate_quantile,
     aggregate_std,
     aggregate_sum,
+    aggregate_sum_sq,
     aggregate_variance,
     aggregator,
 )
@@ -115,84 +116,86 @@ def test_aggregate_count_dicts():
 
 
 def test_aggregate_sum():
-    """Test aggregate_sum function."""
+    """Test aggregate_sum function (per-node sums wire primitive)."""
     # Normal case
-    means = [2.0, 4.0, 6.0]
-    counts = [1, 1, 1]
-    assert aggregate_sum(means, counts) == 12.0
+    assert aggregate_sum([2.0, 4.0, 6.0]) == 12.0
+    assert aggregate_sum([1.5, 2.5]) == 4.0
 
-    # Floats
-    means = [1.5, 2.5]
-    counts = [1, 1]
-    assert aggregate_sum(means, counts) == 4.0
+    # Single node
+    assert aggregate_sum([7.0]) == 7.0
 
-    # Empty
+    # Empty list raises FedbiomedError
     with pytest.raises(FedbiomedError):
-        aggregate_sum([], [])
+        aggregate_sum([])
 
-    # Mismatched lengths
+    # Non-numeric values raise FedbiomedError
     with pytest.raises(FedbiomedError):
-        aggregate_sum([1.0, 2.0], [1])
+        aggregate_sum([1.0, "bad"])
+
+
+def test_aggregate_sum_sq():
+    """Test aggregate_sum_sq function (per-node Σ x² wire primitive)."""
+    assert aggregate_sum_sq([10.0, 74.0]) == pytest.approx(84.0)
+    assert aggregate_sum_sq([4.0]) == pytest.approx(4.0)
+
+    # Empty list raises FedbiomedError
+    with pytest.raises(FedbiomedError):
+        aggregate_sum_sq([])
+
+    # Non-numeric values raise FedbiomedError
+    with pytest.raises(FedbiomedError):
+        aggregate_sum_sq([1.0, "bad"])
 
 
 def test_aggregate_mean():
-    """Test aggregate_mean function."""
-    # Normal case
-    means = [10.0, 20.0]
+    """Test aggregate_mean function (uses per-node sums, not means)."""
+    # Normal case: two nodes, each with count=2, local sums 20 and 40 → global mean 15
+    sums = [20.0, 40.0]
     counts = [2, 2]
-    # (20 + 40) / 4 = 15.0
-    assert aggregate_mean(means, counts) == 15.0
+    assert aggregate_mean(sums, counts) == 15.0
 
-    # Weighted case
-    means = [10.0, 20.0]
-    counts = [1, 3]  # Total count 4. Sum = 10*1 + 20*3 = 70. Mean = 70/4 = 17.5
-    assert aggregate_mean(means, counts) == 17.5
+    # Weighted case: sums=[10, 60], counts=[1, 3] → (10+60)/4 = 17.5
+    sums = [10.0, 60.0]
+    counts = [1, 3]
+    assert aggregate_mean(sums, counts) == 17.5
 
-    # Edge cases
+    # Empty lists raise FedbiomedError
     with pytest.raises(FedbiomedError):
         aggregate_mean([], [])
-    # Zero total count
-    assert np.isnan(aggregate_mean([10.0], [0]))
 
-    # Mismatched lengths
-    with pytest.raises(FedbiomedError):
-        aggregate_mean([1.0, 2.0], [1])
+    # Zero total count returns NaN
+    assert np.isnan(aggregate_mean([10.0], [0]))
 
 
 def test_aggregate_variance():
-    """Test aggregate_variance function."""
-
-    means = [2.0, 6.0]
-    variances = [2.0, 2.0]
+    """Test aggregate_variance function (uses sum_sq, sum, count sufficient stats)."""
+    # node1 (mean=2, var=2, n=2) → sum=4, sum_sq=10
+    # node2 (mean=6, var=2, n=2) → sum=12, sum_sq=74
+    sum_sq = [10.0, 74.0]
+    sums = [4.0, 12.0]
     counts = [2, 2]
 
-    res = aggregate_variance(means, variances, counts)
+    res = aggregate_variance(sum_sq, sums, counts)
     assert np.isclose(res, 20.0 / 3.0)
 
-    # Single element total (variance undefined for N=1 if using sample variance)
-    # If count=1, func returns nan
-    assert np.isnan(aggregate_variance([1.0], [0.0], [1]))
+    # N=1 → variance undefined, returns nan
+    assert np.isnan(aggregate_variance([1.0], [1.0], [1]))
 
-    # Error cases
+    # Empty count list raises FedbiomedError
     with pytest.raises(FedbiomedError) as excinfo:
         aggregate_variance([1.0], [1.0], [])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
-    # Mismatch mean/variance length
-    with pytest.raises(FedbiomedError) as excinfo:
-        aggregate_variance([1.0, 2.0], [1.0], [1, 2])
-    assert ErrorNumbers.FB633.value in str(excinfo.value)
-
 
 def test_aggregate_std():
-    """Test aggregate_std function."""
-    # Same logic as variance
-    means = [2.0, 6.0]
-    variances = [2.0, 2.0]
+    """Test aggregate_std function (uses same sufficient stats as variance)."""
+    # Same sufficient stats as test_aggregate_variance.
+    sum_sq = [10.0, 74.0]
+    sums = [4.0, 12.0]
     counts = [2, 2]
 
     expected_std = np.sqrt(20.0 / 3.0)
-    res = aggregate_std(means, variances, counts)
+    res = aggregate_std(sum_sq, sums, counts)
     assert np.isclose(res, expected_std)
 
 
