@@ -46,6 +46,12 @@ jobs:
       - name: Install Dependencies
         if: steps.filter.outputs.docs == 'true'
         run: pdm install --no-default -G docs -G dev
+      
+      - name: Configure git
+        if: steps.filter.outputs.docs == 'true'
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "fedbiomed-bot@users.noreply.github.com"
 
       - name: Build docs with mike
         run: |
