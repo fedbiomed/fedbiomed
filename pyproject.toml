@@ -189,7 +189,7 @@ docs = [
 	"mkdocs-material>=9.5",
 	"pymdown-extensions>=10.0",
 	"mkdocs-jupyter>=0.24",
-	"mkdocstrings[python]>=0.24",
+	"mkdocstrings-python>=1.10.8",
 	"mkdocs-minify-plugin",
 	"mkdocs-redirects",
 	"mike"
