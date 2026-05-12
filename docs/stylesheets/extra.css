@@ -2044,3 +2044,12 @@ body.fbm-search-active .md-search__inner {
     top: auto !important;
   }
 }
+
+@media screen and (max-width: 700px) {
+  .gh-repo-card{
+    visibility: hidden !important;
+  }
+  .fbm-brand img {
+    height: 58px !important;
+  }
+}
