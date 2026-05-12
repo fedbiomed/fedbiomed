@@ -159,41 +159,39 @@ To verify your installation please run `pytest tests` and `tox -r` to make sure 
 
 ## Development/Debugging for GUI
 
-If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
-after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
-easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug`
-flag to the start command.
+If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI after every update will take a lot of time. To launch user interface in development mode first you need to start the REST backend. To enable debug mode you should add `--debug` flag to the start command.
 
 ```shell
 # data folder defaults to `/path/to/my-node/data`
-fedbiomed node -p /path/to/my-node gui start --debug
+fedbiomed node -p /path/to/my-node start --debug --development
 
-# Or use an alternate data path 
-# fedbiomed node -p /path/to/my-node gui start --data-folder /alternate/data-path --debug
+# Or use the explicit GUI command
+fedbiomed node -p /path/to/my-node gui start --debug --development
+
+# Or use an alternate data path
+fedbiomed node -p /path/to/my-node start --data-folder /alternate/data-path --debug --development
 ```
-
-**Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
-``localhost:8484/api`` endpoint in development mode.
 
 The command above will serve the web application and the API services. It means that on the URL `localhost:8484` you will be able to see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``yarn start``.
 
+The React development server proxies API calls to the REST backend. You can configure the proxy with the environment variables `FBM_RESTFUL_HOST` and `FBM_RESTFUL_PORT` to use a custom host or port.
+
 ```shell
 # use the python environment for [development](../docs/developer/development-environment.md)
-cd ${FEDBIOMED_DIR}/gui/ui
+cd fedbiomed_gui/ui
 yarn start
 ```
 
-After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
-in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
+After that if you go to ``localhost:3000`` you will see the same user interface is up and running for development. When you change the source codes in ``fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
-Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
+Since the REST backend is already started in debug mode, you can do your development/update/changes for server side in `fedbiomed/restful`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start the REST backend first.
 
 After development/debugging is done. To update changes in built GUI, you need rebuild the React app. Afterwards,
 you will be able to see changes on the ``localhost:8484`` URL which serve built UI files.
 
 ```shell
 yarn build
-fedbiomed node gui start
+fedbiomed node start
 ```
 
 ## Troubleshooting

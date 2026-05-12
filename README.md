@@ -71,6 +71,12 @@ To start a basic Fed-BioMed node, open a new terminal and execute the following 
 $ fedbiomed node start
 ```
 
+If GUI/REST dependencies are installed, `fedbiomed node start` starts the REST backend, which manages the federation node. To bypass the REST backend and start only the federation node, use:
+
+```bash
+$ fedbiomed node start --no-gui
+```
+
 #### Uploading New Data to the Node
 To upload new data to this node, run:
 
@@ -145,33 +151,34 @@ Where `COMPONENT_DIR` is:
 
 ## Fed-BioMed Node GUI
 
-Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI consists of two components, Server and UI. Server is developed on Flask framework and UI is developed using ReactJS. Flask provides API services that use Fed-BioMed's DataManager for deploying and managing dataset. All the source files for GUI has been located on the `${FEDBIOMED_DIR}/gui` directory.
+Node GUI provides an interface for Node to manage datasets and deploy new ones. GUI consists of two components, Server and UI. Server is developed on Flask framework and UI is developed using ReactJS. Flask works as a REST backend that provides API services that use Fed-BioMed's DataManager for deploying and managing dataset. The REST backend lives in `fedbiomed/restful`, and the React user interface lives in `fedbiomed_gui/ui`.
 
 ### Starting GUI
 
 Node GUI can be started using Fed-BioMed CLI.
 
 ```shell
-fedbiomed node [--path [COMPONENT_DIRECTORY]] gui start --data-folder <path-for-data-folder>
+fedbiomed node [--path [COMPONENT_DIRECTORY]] start --data-folder <path-for-data-folder>
 ```
 
-Please see possible argument using `fedbiomed node gui start --help`.
+Please see possible arguments using `fedbiomed node start --help` or `fedbiomed node gui start --help`.
 
+The explicit `fedbiomed node gui start` command is still supported, but the `gui` keyword is optional for the common startup workflow. When GUI/REST dependencies are installed, `fedbiomed node start` starts the REST backend and GUI management layer.
 
 It is also possible to start the GUI on a specific host and port. By default, it starts on `localhost` as the host and `8484` as the port. If the requested port is already in use, Fed-BioMed uses the next available port. To change these settings, you can modify the following command. The GUI is based on HTTPS and will, by default, generate a self-signed certificate. However, you can also start the GUI by specifying the certificate and private key names you want to use for HTTPS support.
 
 ```shell
-fedbiomed node --path <path/to/component/directory> gui start --data-folder <path-for-data-folder> --cert-file <path-to-certificate> --key-file <path-to-private-key>
+fedbiomed node --path <path/to/component/directory> start --data-folder <path-for-data-folder> --cert-file <path-to-certificate> --key-file <path-to-private-key>
 ```
 
 ```shell
-fedbiomed node -p </path/to/my-node> gui --port 80 --host 0.0.0.0
+fedbiomed node -p </path/to/my-node> start --port 80 --host 0.0.0.0
 ```
 
 **IMPORTANT:** Provide `data-folder` argument while starting the GUI if not using the default `/path/to/my-node/data`
 
 ```shell
-fedbiomed node -p </path/to/my-node> gui --data-folder /another/data-dir --port 80 --host 0.0.0.0
+fedbiomed node -p </path/to/my-node> start --data-folder /another/data-dir --port 80 --host 0.0.0.0
 ```
 
 ### Launching Multiple Node GUI

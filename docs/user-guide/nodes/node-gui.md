@@ -10,19 +10,58 @@ Node GUI dependencies are not installed by default with the standard Fed-BioMed 
 pip install fedbiomed[gui]
 ```
 
+### Installation Profiles
+
+The node can be installed with different optional dependency sets depending on the runtime behavior you need.
+
+```bash
+pip install fedbiomed[node]
+```
+
+Installs the federation node runtime. `fedbiomed node start --no-gui` starts only the federation node.
+
+```bash
+pip install fedbiomed[node,restful]
+```
+
+Installs the node and REST backend dependencies. `fedbiomed node start` can start the REST backend, which manages the node process.
+
+```bash
+pip install fedbiomed[node,gui]
+```
+
+Installs the Python-side GUI dependencies. For development from source, the React UI still requires Node.js and Yarn.
 
 ## Starting Node GUI
 
-The option `gui` of `fedbiomed` command is configured for starting Node GUI.
+The recommended startup command is:
+
+```bash
+fedbiomed node start
+```
+
+When REST/GUI dependencies are available, this starts the REST backend and makes the Node GUI available. The REST backend starts and manages the federation node process.
+
+The `gui` command is still available for explicit GUI startup, but it is now optional for the common workflow:
+
+```bash
+fedbiomed node gui start
+```
+
+To start only the federation node without REST backend or GUI management, use:
+
+```bash
+fedbiomed node start --no-gui
+```
+
+If REST/GUI dependencies are missing, Fed-BioMed prints a warning and falls back to starting only the federation node.
 
 !!! info "Attention!"
-    By default `fedbiomed node gui start [OPTIONS]` starts Flask server accepting access only from
+    By default `fedbiomed node start [OPTIONS]` starts the REST backend accepting access only from
     `localhost`. It is not safe to open access from remote host machine since it is not a secured
     web server yet. We highly recommend to use `localhost` through SSH Tunnel for remote access.
 
-
 ### Options to Start The GUI
-
 
 The Node GUI in Fed-BioMed can be launched using the `fedbiomed` command with various customizable settings, such as the IP address, port, folder for storing data files, and the configuration specifying the Node the GUI will manage.
 
@@ -31,7 +70,7 @@ The following command demonstrates how to start the Node GUI with its default se
 By default, the Node GUI assumes that data files are stored in the `data` directory within the Node component folder. For example, if the command is executed in `/path/to/workdir`, the Node component will be instantiated in `/path/to/workdir/fbm-node/`, with the default data directory located at `/path/to/workdir/fbm-node/data`.
 
 ```
-fedbiomed node gui start
+fedbiomed node start
 ```
 
 After running this command the GUI will start listening on `localhost` on port `8484`, or the next available port if `8484` is already in use. You can access the GUI through browser `http://localhost:8484` when the default port is available. This page will redirect you to the login page. The credentials and possible configurations for log-in are explained in the [default admin configuration](#default-admin-configuration).
@@ -41,49 +80,57 @@ After running this command the GUI will start listening on `localhost` on port `
 Custom ports and host IP address can be specified. If the requested port is already in use on the specified host, Fed-BioMed uses the next available port.
 
 ```shell
-$ fedbiomed node gui start --port <port> --host <ip-address|localhost>
+$ fedbiomed node start --port <port> --host <ip-address|localhost>
 ```
 
+Host and port can also be modified through the environment variables `FBM_RESTFUL_HOST` and `FBM_RESTFUL_PORT`.
+
+If the requested port is already occupied, Fed-BioMed automatically selects the next available port on the same host and prints the selected port. For example, if `8484` is occupied, it may start on `8485`.
 
 #### Specifying data folder
 
-You might want to store your data files in a different folder. In such cases you can use the option `--data-folder` to specify which folder is used that includes data files.
+You might want to store your data files in a different folder. In such cases you can use the option `--data-folder` to specify which folder is used that includes data files. The data folder can also be selected through the environment variable `DATA_PATH`.
 
 ````
-$ fedbiomed node gui start --data-folder <path/to/data/folder>
+$ fedbiomed node start --data-folder <path/to/data/folder>
 ````
 
 !!! info "Uploading data files through Fed-BioMed is not allowed."
     Fed-BioMed assumes that the datasets or the datafiles that will be deployed in the node are already present in the data folder that is specified. Fed-BioMed Node GUI will help you to use these stored datasets in node.
+
+The GUI can only browse files under the configured data folder. If files are not visible in the GUI, verify the `--data-folder` option or the `DATA_PATH` value in `config_gui.ini`.
 
 #### Specifying specific node component whose GUI will be launched
 
 It is possible to specify the node that the user interface will be used for through the option `--path` or `-p`.
 
 ```
-$ fedbiomed node --path <path/to/component/directory> gui start
-````
+$ fedbiomed node --path <path/to/component/directory> start
+```
 
 Thanks to this option it is possible to start multiple GUI for multiple nodes on the same machine. If multiple GUIs request the same port, later instances use the next available port.
 
-
 ```shell
-$ fedbiomed node --path ./my-first-node gui start --port 5001
-$ fedbiomed node --path ./my-second-node gui start --port 5002
-$ fedbiomed node --path ./my-third-node gui start --port 5003
+$ fedbiomed node --path ./my-first-node start --port 5001
+$ fedbiomed node --path ./my-second-node start --port 5002
+$ fedbiomed node --path ./my-third-node start --port 5003
 ```
 
 If it is desired they can share the same data folder.
 
+For explicit GUI startup, users can still write:
+
+```shell
+$ fedbiomed node gui start --port <port> --host <ip-address|localhost>
+```
 
 ## Configuration file
 
 Apart from `fedbiomed` command, some options can be configured through GUI configuration file and used without specifying each time the node is started. This file is located in node component directory, `/path/to/node-component/etc/config_gui.ini`.
 
-
 ### Server Configuration
 
-You can modify `HOST`, `IP` and `DATA_PATH` (equivalent of `--data-folder`) in the server section of the configuration.
+You can modify `HOST`, `PORT` and `DATA_PATH` (equivalent of `--data-folder`) in the server section of the configuration.
 
 ```ini
 ; --------------------------------------------------------------------------------------------
@@ -95,6 +142,27 @@ HOST = localhost
 PORT = 8484
 DATA_PATH = data
 ```
+
+### Runtime Environment Variables
+
+Fed-BioMed sets several environment variables when starting the REST backend and GUI. Advanced users can also set these variables to customize startup behavior.
+
+- `FBM_RESTFUL_HOST`: host used by the REST backend. Use this to bind the REST backend to a specific interface, for example `localhost` or `0.0.0.0`.
+- `FBM_RESTFUL_PORT`: port used by the REST backend. Use this to configure a custom REST/GUI port.
+- `FBM_START_NODE_WITH_RESTFUL`: controls whether the REST backend starts and manages the federation node process.
+- `FBM_NODE_START_ARGS`: JSON-encoded node startup arguments forwarded to the node process. This can be used to customize runtime options such as GPU usage, selected GPU number, GPU-only mode, and debug mode.
+- `FBM_DEBUG`: enables debug mode for REST/GUI startup.
+- `DATA_PATH`: path to the folder where datasets are stored. The node can only access this folder and its subfolders for the data.
+
+For normal usage, prefer CLI options such as `--host`, `--port`, `--gpu`, `--gpu-num`, `--gpu-only`, and `--debug`. Environment variables are useful for scripted deployments or when another process launches the REST backend.
+
+Older `FBM_GUI_*` environment variable names should not be used.
+
+### GUI Database Storage
+
+GUI user accounts and registration requests are stored in the node database.
+
+On first GUI startup, if no admin user exists, Fed-BioMed creates the default admin account from the `[init_admin]` section of `config_gui.ini`.
 
 ### Default Admin Configuration
 
@@ -130,7 +198,6 @@ By default, `fedbiomed node gui` launches the Node GUI in production mode, utili
 ```shell
 $ fedbiomed node gui start --development
 ```
-
 
 !!! note "Please use a web server"
     [Gunicorn](https://gunicorn.org/) is an application server, and it is strongly recommended by [Gunicorn](https://gunicorn.org/)

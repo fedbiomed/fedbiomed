@@ -85,3 +85,47 @@ $ fedbiomed node start
 ```
 
 The debug mode includes more detailed information in component initializations, training round starts and finishes, database operations (such as for datasets, training plans...) and the connection information between nodes-researcher and node-to-node.
+
+## Node GUI / REST Backend
+
+### GUI dependencies are missing
+
+If `fedbiomed node start` reports missing REST backend or GUI dependencies, install the GUI extra:
+
+```bash
+pip install fedbiomed[node,gui]
+```
+
+Fed-BioMed falls back to starting only the federation node when these dependencies are missing.
+
+### Port 8484 is already in use
+
+If the requested GUI/REST port is occupied, Fed-BioMed automatically uses the next available port. Check the startup output for the selected port.
+
+You can configure a custom port with:
+
+```bash
+fedbiomed node start --port 8585
+```
+
+or by setting `FBM_RESTFUL_PORT` in scripted deployments.
+
+### Files are not visible in the GUI
+
+The GUI only lists files under the configured data folder. Start with:
+
+```bash
+fedbiomed node start --data-folder /path/to/data
+```
+
+or update `DATA_PATH` in the node GUI configuration file.
+
+### Custom node startup arguments
+
+For normal usage, pass node runtime options through the CLI:
+
+```bash
+fedbiomed node start --gpu --gpu-num 1 --debug
+```
+
+For scripted REST backend deployments, startup arguments can be passed through `FBM_NODE_START_ARGS` as a JSON object.
