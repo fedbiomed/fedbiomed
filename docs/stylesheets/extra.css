@@ -875,6 +875,7 @@ body.fbm-nav-lock {
   display: flex;
   align-items: center;
   min-width: 0;
+  gap: 0.5rem
 }
 
 .fbm-brand-wrap {
@@ -1832,20 +1833,19 @@ body.fbm-nav-lock {
 .fbm-search-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.2rem;
   height: 1.9rem;
-  padding: 0 0.85rem;
-  min-width: 140px;
+  padding: 0 0.5rem;
+  min-width: 100px;
   border: 1px solid rgba(20, 30, 70, 0.18);
   border-radius: 0.5rem;
   background: rgba(255, 255, 255, 0.75);
   color: #9ca3af;
   cursor: text;
-  font-size: 0.72rem;
+  font-size: 0.6rem;
   font-family: "Nunito Sans", sans-serif;
   white-space: nowrap;
   transition: border-color 0.15s, background 0.15s;
-  margin-right: 1rem;
 }
 
 .fbm-search-btn:hover {
