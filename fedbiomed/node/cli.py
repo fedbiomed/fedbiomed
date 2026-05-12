@@ -9,20 +9,17 @@ import argparse
 import importlib
 import json
 import os
-import signal
 import subprocess
 import sys
-import time
 from pathlib import Path
-from types import FrameType
-from typing import Dict, List, Union
+from typing import Dict, List
 
 from fedbiomed.common.cli import (
     CLIArgumentParser,
     CommonCLI,
     ComponentDirectoryAction,
 )
-from fedbiomed.common.constants import NODE_DATA_FOLDER, ComponentType, ErrorNumbers
+from fedbiomed.common.constants import NODE_DATA_FOLDER, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.node.cli_utils import (
@@ -38,6 +35,7 @@ from fedbiomed.node.cli_utils import (
 )
 from fedbiomed.node.config import node_component
 from fedbiomed.node.node import Node
+from fedbiomed.node.node_pm import node_process_manager
 
 # Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -60,223 +58,6 @@ def intro():
 
     print(__intro__)
     print("\t- 🆔 Your node ID:", os.environ["FEDBIOMED_ACTIVE_NODE_ID"], "\n")
-
-
-def _node_signal_trigger_term() -> None:
-    """Triggers a TERM signal to the current process"""
-    os.kill(os.getpid(), signal.SIGTERM)
-
-
-def start_node(config, node_args):
-    """Starts the node
-
-    Args:
-        name: Config name for the node
-        node_args: Arguments for the node
-    """
-
-    _node = Node(config, node_args)
-
-    print(_node)
-
-    ### TODO <alitolga>: Remove this if it is not needed
-    print("\t- Node name: ", _node.config.get("default", "name"), "\n")
-
-    def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
-        """Signal handler that terminates the process.
-
-        Args:
-            signum: Signal number received.
-            frame: Frame object received. Currently unused
-
-        Raises:
-           SystemExit: Always raised.
-        """
-
-        # get the (running) Node object
-
-        try:
-            if _node and _node.is_connected():
-                # Log node stop event
-                logger.security_event(
-                    operation="node_stopped",
-                    status="success",
-                    researcher_id=None,
-                    node_name=_node.node_name,
-                    reason="signal_received",
-                    signal_number=signum,
-                )
-
-                _node.send_error(
-                    ErrorNumbers.FB312, extra_msg="Node is stopped", broadcast=True
-                )
-                time.sleep(2)
-                logger.critical(
-                    "Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)"
-                )
-            else:
-                # take care of logger level used because message cannot be sent to node
-                logger.info(
-                    "Cannot send error message to researcher (node not initialized yet)"
-                )
-                logger.info(
-                    "Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)"
-                )
-        finally:
-            # give some time to send messages to the researcher
-            time.sleep(0.5)
-            sys.exit(signum)
-
-    if getattr(_node, "_debug", False):
-        logger.setLevel("DEBUG")
-    else:
-        logger.setLevel("INFO")
-
-    try:
-        signal.signal(signal.SIGTERM, _node_signal_handler)
-        signal.signal(signal.SIGINT, _node_signal_handler)
-        logger.info("Launching node...")
-
-        # Register default training plans and update hashes
-        if _node.config.getbool("security", "training_plan_approval"):
-            # This methods updates hashes if hashing algorithm has changed
-            _node.tp_security_manager.check_hashes_for_registered_training_plans()
-            if _node.config.getbool("security", "allow_default_training_plans"):
-                logger.info("Loading default training plans")
-                _node.tp_security_manager.register_update_default_training_plans()
-        else:
-            logger.warning(
-                "Training plan approval for train request is not activated. "
-                + "This might cause security problems. Please, consider to enable training plan approval."
-            )
-
-        logger.info("Starting communication channel with network")
-
-        _node.start_messaging(_node_signal_trigger_term)
-        logger.info("Starting node to node router")
-        _node.start_protocol()
-        logger.info("Starting task manager")
-        _node.task_manager()  # handling training tasks in queue
-
-    except FedbiomedError as exp:
-        # Log node stop due to error
-        logger.security_event(
-            operation="node_stopped",
-            status="error",
-            researcher_id=None,
-            node_name=_node.node_name if _node else None,
-            reason="fedbiomed_error",
-            error_message=str(exp),
-        )
-        logger.critical(f"Node stopped. {exp}")
-        # we may add extra information for the user depending on the error
-
-    except Exception as exp:
-        # Log node stop due to unexpected error
-        logger.security_event(
-            operation="node_stopped",
-            status="error",
-            researcher_id=None,
-            node_name=_node.node_name if _node else None,
-            reason="unexpected_exception",
-            error_message=str(exp),
-            exception_type=type(exp).__name__,
-        )
-        # must send info to the researcher (no mqqt should be handled
-        # by the previous FedbiomedError)
-        _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
-        logger.critical(f"Node stopped. {exp}")
-
-
-def _default_node_args() -> Dict[str, Union[bool, int, None]]:
-    """Return the default node startup arguments."""
-    return {
-        "gpu": False,
-        "gpu_num": None,
-        "gpu_only": False,
-        "debug": False,
-    }
-
-
-def _build_node_args(args: argparse.Namespace) -> Dict[str, Union[bool, int, None]]:
-    """Build node startup arguments from CLI options."""
-    return {
-        "gpu": (args.gpu is True) or (args.gpu_only is True),
-        "gpu_num": args.gpu_num,
-        "gpu_only": True if args.gpu_only else False,
-        "debug": True if args.debug else False,
-    }
-
-
-def _start_gui(
-    *,
-    fedbiomed_root: str,
-    node_root: str,
-    data_folder: str,
-    host: str,
-    port: str,
-    development: bool,
-    key_file: str | None,
-    cert_file: str | None,
-    gui_debug: bool,
-    node_args: Dict[str, Union[bool, int, None]] | None = None,
-) -> None:
-    """Launch the GUI server and pass node startup settings through the environment."""
-    if data_folder == "":
-        data_path = os.path.join(node_root, NODE_DATA_FOLDER)
-    else:
-        data_path = os.path.abspath(data_folder)
-    if not os.path.isdir(data_path):
-        raise FedbiomedError(f"path {data_path} is not a folder. Aborting")
-
-    current_env = os.environ.copy()
-    current_env.update(
-        {
-            "DATA_PATH": data_path,
-            "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
-            "FBM_START_NODE_WITH_GUI": "true",
-            "FBM_NODE_START_ARGS": json.dumps(node_args or _default_node_args()),
-            "FBM_DEBUG": str(gui_debug).lower(),
-        }
-    )
-
-    if key_file and cert_file:
-        certificate = ["--keyfile", key_file, "--certfile", cert_file]
-    else:
-        certificate = []
-
-    fedbiomed_gui = importlib.import_module("fedbiomed_gui")
-    server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
-    print("path to server", server_app)
-
-    host_port = ["--host", host, "--port", port]
-    if development:
-        command = [
-            "FLASK_ENV=development",
-            f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
-            "flask",
-            "run",
-            *host_port,
-            *certificate,
-        ]
-    else:
-        command = [
-            "gunicorn",
-            "--workers",
-            "1",
-            *certificate,
-            "-b",
-            f"{host}:{port}",
-            "--access-logfile",
-            "-",
-            "fedbiomed_gui.server.wsgi:app",
-        ]
-
-    try:
-        with subprocess.Popen(" ".join(command), env=current_env, shell=True) as proc:
-            proc.wait()
-    except Exception as e:
-        print(e)
 
 
 class DatasetArgumentParser(CLIArgumentParser):
@@ -588,18 +369,26 @@ class NodeControl(CLIArgumentParser):
     def start(self, args):
         """Starts the node"""
         intro()
-        _start_gui(
-            fedbiomed_root=self._node.config.root,
-            node_root=self._node.config.root,
-            data_folder="",
-            host="localhost",
-            port="8484",
-            development=False,
-            key_file=None,
-            cert_file=None,
-            gui_debug=False,
-            node_args=_build_node_args(args),
-        )
+
+        node_args = {
+            "gpu": (args.gpu is True) or (args.gpu_only is True),
+            "gpu_num": args.gpu_num,
+            "gpu_only": True if args.gpu_only else False,
+            "debug": True if args.debug else False,
+        }
+
+        node_process_manager.start(self._node.config, node_args)
+        process = node_process_manager.process
+        if process is None:
+            return
+
+        logger.info("Node started as process with pid = " + str(process.pid))
+        try:
+            print("To stop press Ctrl + C.")
+            process.join()
+        except KeyboardInterrupt:
+            node_process_manager.stop(reason="keyboard_interrupt")
+            sys.exit(0)
 
 
 class GUIControl(CLIArgumentParser):
@@ -698,17 +487,63 @@ class GUIControl(CLIArgumentParser):
         Args:
             args: parser argument's namespace
         """
-        _start_gui(
-            fedbiomed_root=os.path.abspath(args.path),
-            node_root=self._node.config.root,
-            data_folder=args.data_folder,
-            host=args.host,
-            port=args.port,
-            development=args.development,
-            key_file=args.key_file,
-            cert_file=args.cert_file,
-            gui_debug=args.debug,
+
+        fedbiomed_root = os.path.abspath(args.path)
+
+        if args.data_folder == "":
+            data_folder = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
+        else:
+            data_folder = os.path.abspath(args.data_folder)
+        if not os.path.isdir(data_folder):
+            raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
+        os.environ.update(
+            {
+                "DATA_PATH": data_folder,
+                "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
+            }
         )
+        current_env = os.environ.copy()
+
+        if args.key_file and args.cert_file:
+            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file]
+        else:
+            certificate = []
+
+        fedbiomed_gui = importlib.import_module("fedbiomed_gui")
+        server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
+        print("path to server", server_app)
+
+        host_port = ["--host", args.host, "--port", args.port]
+        if args.development:
+            command = [
+                "FLASK_ENV=development",
+                f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
+                "flask",
+                "run",
+                *host_port,
+                *certificate,
+            ]
+        else:
+            command = [
+                "gunicorn",
+                "--workers",
+                "1",
+                # str(os.cpu_count()),
+                *certificate,
+                "-b",
+                f"{args.host}:{args.port}",
+                "--access-logfile",
+                "-",
+                "fedbiomed_gui.server.wsgi:app",
+            ]
+
+        try:
+            with subprocess.Popen(
+                " ".join(command), env=current_env, shell=True
+            ) as proc:
+                proc.wait()
+        except Exception as e:
+            print(e)
 
 
 class NodeCLI(CommonCLI):

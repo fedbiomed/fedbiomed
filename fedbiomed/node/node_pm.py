@@ -7,16 +7,21 @@ import enum
 import getpass
 import multiprocessing
 import os
+import signal
+import sys
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from types import FrameType
+from typing import Any, Dict, Optional, Union
 
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.node.dataset_manager._db_tables import (
     NodeProcessStateHistoryTable,
     NodeProcessStateTable,
 )
+from fedbiomed.node.node import Node
 
 
 class NodeState(enum.Enum):
@@ -35,6 +40,116 @@ def _utc_now() -> str:
         .isoformat()
         .replace("+00:00", "Z")
     )
+
+
+def _node_signal_trigger_term() -> None:
+    """Triggers a TERM signal to the current process."""
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
+def _start_node_process(config, node_args):
+    """Start the node runtime inside the managed subprocess.
+
+    Args:
+        config: Node configuration.
+        node_args: Arguments for the node.
+    """
+    _node = Node(config, node_args)
+
+    print(_node)
+    print("\t- Node name: ", _node.config.get("default", "name"), "\n")
+
+    def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
+        """Signal handler that terminates the process.
+
+        Args:
+            signum: Signal number received.
+            frame: Frame object received. Currently unused
+
+        Raises:
+           SystemExit: Always raised.
+        """
+        try:
+            if _node and _node.is_connected():
+                logger.security_event(
+                    operation="node_stopped",
+                    status="success",
+                    researcher_id=None,
+                    node_name=_node.node_name,
+                    reason="signal_received",
+                    signal_number=signum,
+                )
+
+                _node.send_error(
+                    ErrorNumbers.FB312, extra_msg="Node is stopped", broadcast=True
+                )
+                time.sleep(2)
+                logger.critical(
+                    "Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)"
+                )
+            else:
+                logger.info(
+                    "Cannot send error message to researcher (node not initialized yet)"
+                )
+                logger.info(
+                    "Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)"
+                )
+        finally:
+            time.sleep(0.5)
+            sys.exit(signum)
+
+    if getattr(_node, "_debug", False):
+        logger.setLevel("DEBUG")
+    else:
+        logger.setLevel("INFO")
+
+    try:
+        signal.signal(signal.SIGTERM, _node_signal_handler)
+        signal.signal(signal.SIGINT, _node_signal_handler)
+        logger.info("Launching node...")
+
+        if _node.config.getbool("security", "training_plan_approval"):
+            _node.tp_security_manager.check_hashes_for_registered_training_plans()
+            if _node.config.getbool("security", "allow_default_training_plans"):
+                logger.info("Loading default training plans")
+                _node.tp_security_manager.register_update_default_training_plans()
+        else:
+            logger.warning(
+                "Training plan approval for train request is not activated. "
+                + "This might cause security problems. Please, consider to enable training plan approval."
+            )
+
+        logger.info("Starting communication channel with network")
+
+        _node.start_messaging(_node_signal_trigger_term)
+        logger.info("Starting node to node router")
+        _node.start_protocol()
+        logger.info("Starting task manager")
+        _node.task_manager()
+
+    except FedbiomedError as exp:
+        logger.security_event(
+            operation="node_stopped",
+            status="error",
+            researcher_id=None,
+            node_name=_node.node_name if _node else None,
+            reason="fedbiomed_error",
+            error_message=str(exp),
+        )
+        logger.critical(f"Node stopped. {exp}")
+
+    except Exception as exp:
+        logger.security_event(
+            operation="node_stopped",
+            status="error",
+            researcher_id=None,
+            node_name=_node.node_name if _node else None,
+            reason="unexpected_exception",
+            error_message=str(exp),
+            exception_type=type(exp).__name__,
+        )
+        _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
+        logger.critical(f"Node stopped. {exp}")
 
 
 class NodeProcessManager:
@@ -162,13 +277,9 @@ class NodeProcessManager:
 
         Args:
             config: NodeConfig object (must already be initialised on disk).
-            node_args: Dict of arguments forwarded to ``start_node``.
+            node_args: Dict of arguments forwarded to the node subprocess.
             actor: Optional user/source metadata for process state attribution.
         """
-        # Lazy import to avoid a circular dependency at module load time:
-        # cli imports this module to access the singleton.
-        from fedbiomed.node.cli import start_node  # noqa: PLC0415
-
         node_id = config.get("default", "id")
         node_name = config.get("default", "name")
 
@@ -199,7 +310,7 @@ class NodeProcessManager:
         )
 
         self._process = multiprocessing.Process(
-            target=start_node,
+            target=_start_node_process,
             name=f"node-{node_id}",
             args=(config, node_args),
         )
