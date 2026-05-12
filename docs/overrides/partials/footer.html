@@ -1,0 +1,81 @@
+<footer class="fbm-footer">
+  <div class="fbm-footer-nav">
+    {% if page.previous_page %}
+    <a href="{{ page.previous_page.url | url }}" class="fbm-footer-nav-prev">
+      <span>← {{ page.previous_page.title }}</span>
+    </a>
+    {% endif %}
+    {% if page.next_page %}
+    <a href="{{ page.next_page.url | url }}" class="fbm-footer-nav-next">
+      <span>{{ page.next_page.title }} →</span>
+    </a>
+    {% endif %}
+  </div>
+  <div class="fbm-footer-container">
+    <div class="fbm-footer-grid">
+
+      <!-- LEFT -->
+      <div class="fbm-footer-col fbm-footer-left">
+        <div class="fbm-footer-block">
+          <h4>{{ config.extra.fbm_footer.left_top.title }}</h4>
+          <div class="fbm-footer-links-grid">
+            {% for link in config.extra.fbm_footer.left_top.links %}
+              <a href="{{ link.url }}">{{ link.title }}</a>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="fbm-footer-block fbm-footer-block-spaced">
+          <h4>{{ config.extra.fbm_footer.left_bottom.title }}</h4>
+          <div class="fbm-footer-links-grid">
+            {% for link in config.extra.fbm_footer.left_bottom.links %}
+              <a href="{{ link.url }}" data-fbm-versioned>{{ link.title }}</a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- CENTER -->
+      <div class="fbm-footer-col fbm-footer-center">
+        <div class="fbm-footer-brand">
+          <img
+            src="{{ config.extra.fbm_footer.brand.logo | url }}"
+            alt="{{ config.extra.fbm_footer.brand.name }}"
+            class="fbm-footer-logo"
+          >
+          <h3>{{ config.extra.fbm_footer.brand.name }}</h3>
+          <p>{{ config.extra.fbm_footer.brand.copyright }}</p>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="fbm-footer-col fbm-footer-right">
+        <div class="fbm-footer-block">
+          <h4>{{ config.extra.fbm_footer.right_top.title }}</h4>
+          <div class="fbm-footer-links-grid fbm-footer-links-grid-right">
+            {% for link in config.extra.fbm_footer.right_top.links %}
+              <a href="{{ link.url }}">{{ link.title }}</a>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="fbm-footer-meta">
+          <nav class="fbm-footer-social" aria-label="Social media">
+            {% for link in config.extra.fbm_footer.social.links %}
+              <a
+                href="{{ link.url }}"
+                aria-label="{{ link.title }}"
+                {% if link.url.startswith('http') %}target="_blank" rel="noopener noreferrer"{% endif %}
+              >
+                <i class="{{ link.icon }}" aria-hidden="true"></i>
+              </a>
+            {% endfor %}
+          </nav>
+
+          <address>{{ config.extra.fbm_footer.right_bottom.address }}</address>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</footer>

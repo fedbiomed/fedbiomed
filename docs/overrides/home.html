@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block tabs %}
+  {% include "partials/fbm-navbar.html" %}
+  {% include "partials/fbm-header.html" %}
+{% endblock %}
+
+{% block site_nav %}{% endblock %}
+
+{% block content %}
+<div class="fbm-home-grid">
+
+  {% for card in page.meta.cards %}
+  <div class="fbm-home-card fbm-home-card--{{ card.id }}">
+    <div class="fbm-home-card-header">
+      <div class="fbm-home-card-icon">
+        {% if card.id == "getting-started" %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        {% elif card.id == "user-guide" %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        {% elif card.id == "tutorials" %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        {% elif card.id == "developer" %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        {% elif card.id == "support" %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        {% endif %}
+      </div>
+      <h3><a href="{{ card.url }}">{{ card.title }}</a></h3>
+    </div>
+    <p>{{ card.description }}</p>
+    <ul>
+      {% for link in card.links %}
+      <li>
+        <a href="{{ link.url }}"{% if link.external %} target="_blank" rel="noopener"{% endif %}>{{ link.title }}</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+
+</div>
+
+<div class="fbm-home-footer-note">
+  Fed-BioMed is released under the <strong>{{ page.meta.footer_license }}</strong>.
+  Source code available on <a href="{{ page.meta.footer_github }}" target="_blank" rel="noopener">GitHub</a>.
+  Contact us at <a href="mailto:{{ page.meta.footer_email }}">{{ page.meta.footer_email }}</a>.
+</div>
+{% endblock %}
