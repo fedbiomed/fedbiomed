@@ -1,7 +1,4 @@
-import sys
-import types
-
-from fedbiomed.node.node_pm import NodeProcessManager, NodeState
+from fedbiomed.node.node_pm import NodeProcessManager, NodeState, _start_node_process
 
 
 def _config(mocker, node_id="node-1", node_name="Node 1", db_name="node_db.json"):
@@ -83,13 +80,9 @@ def test_node_pm_03_start_spawns_process_and_sets_state_transitions(mocker):
     manager._set_process_state = mocker.MagicMock()
     config = _config(mocker)
 
-    fake_cli = types.ModuleType("fedbiomed.node.cli")
-    fake_cli.start_node = mocker.MagicMock()
-
     process = mocker.MagicMock()
     process.pid = 321
 
-    mocker.patch.dict(sys.modules, {"fedbiomed.node.cli": fake_cli})
     mock_process = mocker.patch(
         "fedbiomed.node.node_pm.multiprocessing.Process", return_value=process
     )
@@ -111,7 +104,7 @@ def test_node_pm_03_start_spawns_process_and_sets_state_transitions(mocker):
     }
 
     mock_process.assert_called_once_with(
-        target=fake_cli.start_node,
+        target=_start_node_process,
         name="node-node-1",
         args=(config, {"gpu": False}),
     )
