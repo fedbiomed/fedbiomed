@@ -11,6 +11,7 @@ from fedbiomed.common.analytics.accumulators import (
     RowAccumulator,
     SequenceAccumulator,
 )
+from fedbiomed.common.constants import Stats
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
     DatasetElementSpec,
@@ -25,6 +26,9 @@ if TYPE_CHECKING:
 
 class AnalyticsOrchestrator:
     """Orchestrates the computation of analytics over a dataset."""
+
+    _UNSUPPORTED_STATS = {Stats.HISTOGRAM.value}
+    _SUPPORTED_STATS = {s.value for s in Stats} - _UNSUPPORTED_STATS
 
     def compute_stats(
         self,
@@ -62,12 +66,9 @@ class AnalyticsOrchestrator:
         # Get Schema
         schema = dataset.analytics_schema()
 
-        # Get dataset size (needed by buffer-backed accumulators like quantile)
-        n_samples = len(dataset)
-
         # Build & Validate Configuration
         config = self._build_and_validate_config(
-            schema, dataset_schema, stats, stats_args, n_samples
+            schema, dataset_schema, stats, stats_args
         )
 
         # Build Accumulator Tree
@@ -113,28 +114,25 @@ class AnalyticsOrchestrator:
         subschema: Optional[Any],
         stats: Optional[List[str]],
         stats_args: Optional[Dict[str, Any]],
-        n_samples: int,
     ) -> Dict[str, Any]:
         """Validates inputs and builds the configuration tree in a single pass."""
         # Dispatch based on schema type
         if isinstance(schema, dict):
-            return self._handle_dict(schema, subschema, stats, stats_args, n_samples)
+            return self._handle_dict(schema, subschema, stats, stats_args)
         if isinstance(schema, (list, tuple)):
-            return self._handle_sequence(
-                schema, subschema, stats, stats_args, n_samples
-            )
+            return self._handle_sequence(schema, subschema, stats, stats_args)
 
         # Leaf Handling
         element_type = schema.type if isinstance(schema, DatasetElementSpec) else None
         if element_type == DatasetElementType.ROW:
-            return self._handle_row(schema, subschema, stats, stats_args, n_samples)
+            return self._handle_row(schema, subschema, stats, stats_args)
         if element_type == DatasetElementType.IMAGE:
             # Image does not support subschema selection
             if subschema is not None:
                 raise FedbiomedError(
                     "Subschema selection is not applicable for IMAGE type."
                 )
-            return self._handle_image(stats, stats_args, n_samples)
+            return self._handle_image(stats, stats_args)
 
         raise FedbiomedError(f"Unsupported schema type or element type: {type(schema)}")
 
@@ -144,8 +142,8 @@ class AnalyticsOrchestrator:
         subschema: Optional[Union[List[Union[str, Dict[str, Any]]], Dict[str, Any]]],
         stats: Optional[List[str]],
         stats_args: Optional[Dict[str, Any]],
-        n_samples: int,
     ) -> Dict[str, Any]:
+        """Validates and builds config for a dict schema node."""
         # Validate Args
         if stats_args is not None:
             if not isinstance(stats_args, dict):
@@ -202,7 +200,7 @@ class AnalyticsOrchestrator:
         for k, child_sub in keys_map.items():
             child_args = stats_args.get(k) if stats_args else None
             children[k] = self._build_and_validate_config(
-                schema[k], child_sub, stats, child_args, n_samples
+                schema[k], child_sub, stats, child_args
             )
 
         return {"type": "dict", "children": children}
@@ -213,8 +211,8 @@ class AnalyticsOrchestrator:
         subschema: Optional[Union[List, Tuple]],
         stats: Optional[List[str]],
         stats_args: Optional[Union[List, Tuple]],
-        n_samples: int,
     ) -> Dict[str, Any]:
+        """Validates and builds config for a sequence (list/tuple) schema node."""
         # Schema positions set to None are skipped (e.g. the label in (data, label)).
         # subschema and stats_args must align with the schema's active positions.
         active = [(orig_idx, s) for orig_idx, s in enumerate(schema) if s is not None]
@@ -271,7 +269,7 @@ class AnalyticsOrchestrator:
                 continue  # None in subschema means the user explicitly excluded this element
             children.append(
                 self._build_and_validate_config(
-                    item_schema, child_sub, stats, child_args, n_samples
+                    item_schema, child_sub, stats, child_args
                 )
             )
             # Track original index so SequenceAccumulator can index into the raw sample.
@@ -294,8 +292,8 @@ class AnalyticsOrchestrator:
         subschema: Optional[List[str]],
         stats: Optional[List[str]],
         stats_args: Optional[Dict[str, Any]],
-        n_samples: int,
     ) -> Dict[str, Any]:
+        """Validates and builds config for a ROW type leaf node."""
         # Validate Subschema
         if subschema is not None:
             if not isinstance(subschema, (list, tuple)):
@@ -318,7 +316,7 @@ class AnalyticsOrchestrator:
         for col in selected_cols:
             col_args = stats_args.get(col) if stats_args else None
             col_configs[col] = self._compile_leaf_stats(
-                DatasetElementType.ROW, stats, col_args, n_samples
+                DatasetElementType.ROW, stats, col_args
             )
 
         return {
@@ -331,14 +329,13 @@ class AnalyticsOrchestrator:
         self,
         stats: Optional[List[str]],
         stats_args: Optional[Dict[str, Any]],
-        n_samples: int,
     ) -> Dict[str, Any]:
         """Validates and builds config for IMAGE type."""
         if stats_args is not None and not isinstance(stats_args, dict):
             raise FedbiomedError("Args for IMAGE must be a dict.")
 
         stats_config = self._compile_leaf_stats(
-            DatasetElementType.IMAGE, stats, stats_args, n_samples
+            DatasetElementType.IMAGE, stats, stats_args
         )
         return {"type": DatasetElementType.IMAGE, "stats": stats_config}
 
@@ -347,7 +344,6 @@ class AnalyticsOrchestrator:
         element_type: DatasetElementType,
         stats: Optional[List[str]],
         stats_args: Optional[Dict[str, Any]],
-        n_samples: int,
     ) -> Dict[str, Dict[str, Any]]:
         """Compiles valid statistics configuration for a leaf node.
 
@@ -360,14 +356,17 @@ class AnalyticsOrchestrator:
 
         candidates = set(stats).union(stats_args.keys())
 
+        if not candidates:
+            raise FedbiomedError(
+                "No statistics requested. Provide at least one stat via 'stats' or 'stats_args'."
+            )
+
         # Validate and filter candidates
         for stat in candidates:
-            # TODO: Temporal safeguard — only stats with full end-to-end support are
-            # allowed until the remaining ones are validated and enabled.
-            if stat not in ["count", "mean", "variance"]:
+            if stat not in self._SUPPORTED_STATS:
                 raise FedbiomedError(
-                    f"Statistic '{stat}' is not yet supported. Only 'count', 'mean', "
-                    f"and 'variance' are currently enabled."
+                    f"Statistic '{stat}' is not valid. "
+                    f"Supported values are: {sorted(self._SUPPORTED_STATS)}."
                 )
 
             is_explicit = stat in stats_args
@@ -375,18 +374,7 @@ class AnalyticsOrchestrator:
             if self._validate_leaf_stat(element_type, stat, current_args, is_explicit):
                 requested_config[stat] = current_args
 
-        # Inject 'buffer_size' for stats with 'uses_buffer' flag in the registry
-        for stat_name in list(requested_config):
-            type_map = AnalyticsRegistry.get(stat_name)
-            stat_cfg = type_map.get(element_type) if type_map else None
-            if stat_cfg and stat_cfg.uses_buffer:
-                requested_config[stat_name] = {
-                    **requested_config[stat_name],
-                    "buffer_size": n_samples,
-                }
-
-        # Resolve roots and ensure consistency for requested stats
-        return self._resolve_and_validate_roots(element_type, requested_config)
+        return requested_config
 
     def _validate_leaf_stat(
         self,
@@ -397,15 +385,15 @@ class AnalyticsOrchestrator:
     ) -> bool:
         """Validates a single statistic and its arguments for a given type."""
 
-        # 1. Type Compatibility
-        if not AnalyticsRegistry.check_stat_compatibility(stat, element_type):
+        accumulators = AnalyticsRegistry.get_accumulators(stat, element_type)
+
+        if not accumulators:
             if is_explicit:
                 raise FedbiomedError(
                     f"Statistic '{stat}' is not valid for type {element_type.value}"
                 )
-            return False  # Skip invalid default
+            return False
 
-        # 2. Argument Validation
         try:
             AnalyticsRegistry.validate_args(stat, element_type, args)
         except FedbiomedError as e:
@@ -414,71 +402,3 @@ class AnalyticsOrchestrator:
             ) from e
 
         return True
-
-    def _resolve_and_validate_roots(
-        self,
-        element_type: DatasetElementType,
-        requested_config: Dict[str, Dict[str, Any]],
-    ) -> Dict[str, Dict[str, Any]]:
-        """Resolves root statistics and validates argument consistency.
-
-        Returns a flat config containing only root statistics (no expansion), ensuring
-        that arguments between roots and their implied dependencies are consistent.
-
-        Args:
-            element_type: The type of dataset element (ROW or IMAGE).
-            requested_config: Map of requested statistics to their arguments.
-
-        Returns:
-            Flat dict with root stats and their args.
-        """
-        # Map to track arguments for every stat (explicit or implied)
-        # stat_name -> (stat_args, source_stat_name)
-        stat_arg_map: Dict[str, Tuple[Dict[str, Any], str]] = {}
-
-        for stat, stat_args in requested_config.items():
-            # Check if this stat was already implied by a previous stat in the loop
-            if stat in stat_arg_map:
-                existing_args, source = stat_arg_map[stat]
-                if existing_args != stat_args:
-                    raise FedbiomedError(
-                        f"Conflicting arguments for statistic '{stat}': "
-                        f"implied by '{source}' with {existing_args}, "
-                        f"but explicitly requested with {stat_args}"
-                    )
-
-            # Record it (overwrite is fine as we checked equality or it's new)
-            stat_arg_map[stat] = (stat_args, stat)
-
-            # Check dependencies
-            # get_dependencies returns all recursive dependencies
-            dependencies = AnalyticsRegistry.get_dependencies(stat, element_type)
-
-            for dep in dependencies:
-                # Validate that dependency accepts these arguments
-                try:
-                    AnalyticsRegistry.validate_args(dep, element_type, stat_args)
-                except FedbiomedError as e:
-                    raise FedbiomedError(
-                        f"Statistic '{stat}' implies dependency '{dep}', but arguments are invalid for '{dep}': {e}"
-                    ) from e
-
-                if dep in stat_arg_map:
-                    existing_args, source = stat_arg_map[dep]
-                    if existing_args != stat_args:
-                        raise FedbiomedError(
-                            f"Conflicting arguments for dependency '{dep}': "
-                            f"required by '{source}' with {existing_args}, "
-                            f"but required by '{stat}' with {stat_args}"
-                        )
-                else:
-                    stat_arg_map[dep] = (stat_args, stat)
-
-        # Get roots
-        # Roots are stats in specific requested list that are not implied by others in the list
-        roots = AnalyticsRegistry.get_roots(requested_config.keys(), element_type)
-
-        # Construct final config from roots
-        final_config = {root: requested_config[root] for root in roots}
-
-        return final_config
