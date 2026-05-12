@@ -219,9 +219,10 @@ class TestFAResult:
 
     def test_global_stats_mean_row(self):
         # ROW: {col: {stat: val}} — result is {col: aggregated_value}
+        # Nodes return summable primitives: sum + count
         replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
-            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
+            "n1": _make_reply({"age": {"sum": 4500.0, "count": 100}}),
+            "n2": _make_reply({"age": {"sum": 4000.0, "count": 80}}),
         }
         result = FAResult(replies)
         global_mean = result.global_stats("mean")
@@ -231,9 +232,10 @@ class TestFAResult:
 
     def test_global_stats_mean_image_flat(self):
         # IMAGE: {stat: val} — result is a scalar directly
+        # Nodes return summable primitives: sum + count
         replies = {
-            "n1": _make_reply({"mean": 128.0, "count": 100}),
-            "n2": _make_reply({"mean": 130.0, "count": 80}),
+            "n1": _make_reply({"sum": 12800.0, "count": 100}),
+            "n2": _make_reply({"sum": 10400.0, "count": 80}),
         }
         result = FAResult(replies)
         global_mean = result.global_stats("mean")
@@ -241,20 +243,28 @@ class TestFAResult:
         assert abs(global_mean - expected) < 1e-9
 
     def test_global_stats_sum_row(self):
+        # Nodes return summable primitives: sum + count
         replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
-            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
+            "n1": _make_reply({"age": {"sum": 4500.0, "count": 100}}),
+            "n2": _make_reply({"age": {"sum": 4000.0, "count": 80}}),
         }
         result = FAResult(replies)
         global_sum = result.global_stats("sum")
-        expected_sum = 45.0 * 100 + 50.0 * 80
+        expected_sum = 4500.0 + 4000.0
         assert isinstance(global_sum, dict)
         assert abs(global_sum["age"] - expected_sum) < 1e-9
 
     def test_global_stats_variance_row(self):
+        # Nodes return summable primitives: sum_sq + sum + count
+        # mean=45, var=4, N=100 → sum=4500, sum_sq=var*(N-1)+sum^2/N=396+202500=202896
+        # mean=50, var=9, N=80  → sum=4000, sum_sq=9*79+4000^2/80=711+200000=200711
         replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "variance": 4.0, "count": 100}}),
-            "n2": _make_reply({"age": {"mean": 50.0, "variance": 9.0, "count": 80}}),
+            "n1": _make_reply(
+                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
+            ),
+            "n2": _make_reply(
+                {"age": {"sum_sq": 200711.0, "sum": 4000.0, "count": 80}}
+            ),
         }
         result = FAResult(replies)
         global_variance = result.global_stats("variance")
@@ -272,9 +282,10 @@ class TestFAResult:
 
     def test_global_stats_nested_dict_schema(self):
         # Nested: {key: {col: {stat: val}}} — result is {key: {col: val}}
+        # Nodes return summable primitives: sum + count
         replies = {
-            "n1": _make_reply({"tabular": {"age": {"mean": 45.0, "count": 100}}}),
-            "n2": _make_reply({"tabular": {"age": {"mean": 50.0, "count": 80}}}),
+            "n1": _make_reply({"tabular": {"age": {"sum": 4500.0, "count": 100}}}),
+            "n2": _make_reply({"tabular": {"age": {"sum": 4000.0, "count": 80}}}),
         }
         result = FAResult(replies)
         global_mean = result.global_stats("mean")
@@ -437,7 +448,7 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_mean_returns_fa_result(self, mock_fa_job_cls, base_fa):
-        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
+        replies = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = replies
 
         result = base_fa.mean()
@@ -449,12 +460,16 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_same_stat_same_args_uses_cache(self, mock_fa_job_cls, base_fa):
-        """Second call with same stat and args must not trigger a new FARequestJob."""
-        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
+        """Second call for the same primitive stat must be served from cache.
+
+        Primitive stats (count, sum, sum_sq) are stored as-is in the result, so
+        the cache hit check ``s in available_stats()`` succeeds on the second call.
+        """
+        replies = {"node-1": _make_reply({"age": {"count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = replies
 
-        result1 = base_fa.mean()
-        result2 = base_fa.mean()
+        result1 = base_fa.count()
+        result2 = base_fa.count()
 
         assert mock_fa_job_cls.call_count == 1
         assert result1 == result2
@@ -483,20 +498,17 @@ class TestFederatedAnalytics:
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_cached_dependency_avoids_request(self, mock_fa_job_cls, base_fa):
         """
-        After requesting variance (which includes mean+count as dependencies),
-        a subsequent mean() with the same args must be served from cache.
+        After requesting mean (which returns sum+count primitives),
+        a subsequent count() with the same args must be served from cache
+        because 'count' is already present in the cached primitives.
         """
-        variance_replies = {
-            "node-1": _make_reply(
-                {"age": {"variance": 4.0, "mean": 45.0, "count": 100}}
-            )
-        }
-        mock_fa_job_cls.return_value.execute.return_value = variance_replies
+        mean_replies = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
+        mock_fa_job_cls.return_value.execute.return_value = mean_replies
 
-        base_fa.variance()
+        base_fa.mean()
         assert mock_fa_job_cls.call_count == 1
 
-        result = base_fa.mean()
+        result = base_fa.count()
         assert mock_fa_job_cls.call_count == 1  # no new network call
 
         assert isinstance(result, dict)
@@ -505,13 +517,13 @@ class TestFederatedAnalytics:
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_only_missing_stats_requested(self, mock_fa_job_cls, base_fa):
         """When some stats are cached, only the missing ones are sent to nodes."""
-        mean_replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
+        mean_replies = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = mean_replies
         base_fa.mean()
 
         variance_replies = {
             "node-1": _make_reply(
-                {"age": {"mean": 45.0, "count": 100, "variance": 4.0}}
+                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
             )
         }
         mock_fa_job_cls.return_value.execute.return_value = variance_replies
@@ -522,7 +534,7 @@ class TestFederatedAnalytics:
         assert second_call_kwargs["stats"] == ["variance"]
 
         assert isinstance(result, FAResult)
-        assert "variance" in result.available_stats()
+        assert "variance" in result.computable_stats()
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_compute_multiple_stats_at_once(self, mock_fa_job_cls, base_fa):
@@ -542,7 +554,7 @@ class TestFederatedAnalytics:
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_node_change_invalidates_cache(self, mock_fa_job_cls, base_fa, mock_fds):
         """Adding or removing a node creates a new cache entry."""
-        replies = {"node-1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
+        replies = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = replies
 
         base_fa.mean()
@@ -551,8 +563,8 @@ class TestFederatedAnalytics:
         # Simulate a node being added to the federation
         mock_fds.node_ids.return_value = ["node-1", "node-2", "node-3"]
         replies_3 = {
-            "node-1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
-            "node-3": _make_reply({"age": {"mean": 48.0, "count": 60}}),
+            "node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}}),
+            "node-3": _make_reply({"age": {"sum": 2880.0, "count": 60}}),
         }
         mock_fa_job_cls.return_value.execute.return_value = replies_3
 
@@ -617,17 +629,17 @@ class TestFederatedAnalytics:
             base_fa.fetch_stats("skewness")
 
     def test_fetch_stats_computed_only_stat_raises(self, base_fa):
-        """Requesting a derived stat (e.g. 'std') that cannot be requested from nodes raises."""
+        """Requesting a derived stat (e.g. 'quantile') that cannot be requested from nodes raises."""
         with pytest.raises(FedbiomedError, match="derived"):
-            base_fa.fetch_stats("std")
+            base_fa.fetch_stats("quantile")
 
     def test_fetch_stats_mixed_invalid_stats_raises(self, base_fa):
         """Unknown and derived stats in the same call both appear in the error."""
         with pytest.raises(FedbiomedError) as exc_info:
-            base_fa.fetch_stats(["skewness", "std"])
+            base_fa.fetch_stats(["skewness", "quantile"])
         msg = str(exc_info.value)
         assert "skewness" in msg
-        assert "std" in msg
+        assert "quantile" in msg
 
     def test_fetch_stats_with_args_empty_raises(self, base_fa):
         """Calling fetch_stats_with_args with empty dict must raise FedbiomedError."""
@@ -719,10 +731,10 @@ class TestFederatedAnalytics:
         """std() requests variance primitives and returns the global standard deviation."""
         replies = {
             "node-1": _make_reply(
-                {"age": {"mean": 45.0, "variance": 4.0, "count": 100}}
+                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
             ),
             "node-2": _make_reply(
-                {"age": {"mean": 50.0, "variance": 9.0, "count": 80}}
+                {"age": {"sum_sq": 200711.0, "sum": 4000.0, "count": 80}}
             ),
         }
         mock_fa_job_cls.return_value.execute.return_value = replies
@@ -843,8 +855,8 @@ class TestComputableStats:
         assert FAResult({}).computable_stats() == []
 
     def test_mean_count_computable(self):
-        # mean+count in data → mean, count, sum are computable; variance/std/min/max are not
-        replies = {"n1": _make_reply({"age": {"mean": 45.0, "count": 100}})}
+        # sum+count primitives → mean, count, sum computable; variance/std require sum_sq
+        replies = {"n1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
         result = FAResult(replies)
         cs = result.computable_stats()
         assert "mean" in cs
@@ -855,8 +867,11 @@ class TestComputableStats:
         assert "histogram" not in cs
 
     def test_with_variance_enables_std_and_variance(self):
+        # sum_sq+sum+count primitives → all of mean, variance, std, count, sum computable
         replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "count": 100, "variance": 4.0}})
+            "n1": _make_reply(
+                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
+            )
         }
         result = FAResult(replies)
         cs = result.computable_stats()
@@ -902,9 +917,11 @@ class TestComputableStats:
         assert "quantile" in cs
 
     def test_result_is_sorted(self):
-        # Use mean+count+variance so multiple stats are computable, verifying sort order
+        # sum_sq+sum+count gives multiple computable stats, verifying sort order
         replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "count": 100, "variance": 4.0}})
+            "n1": _make_reply(
+                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
+            )
         }
         result = FAResult(replies)
         cs = result.computable_stats()
@@ -913,7 +930,7 @@ class TestComputableStats:
 
     def test_nested_dict_schema(self):
         replies = {
-            "n1": _make_reply({"tabular": {"age": {"mean": 45.0, "count": 100}}})
+            "n1": _make_reply({"tabular": {"age": {"sum": 4500.0, "count": 100}}})
         }
         result = FAResult(replies)
         cs = result.computable_stats()
@@ -929,9 +946,10 @@ class TestComputableStats:
 
 class TestGlobalStats:
     def test_no_stat_name_returns_dict_of_all_computable(self):
+        # Nodes return sum+count primitives; global_stats() aggregates all computable stats
         replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
-            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
+            "n1": _make_reply({"age": {"sum": 4500.0, "count": 100}}),
+            "n2": _make_reply({"age": {"sum": 4000.0, "count": 80}}),
         }
         result = FAResult(replies)
         all_stats = result.global_stats()
@@ -945,11 +963,15 @@ class TestGlobalStats:
     def test_no_stat_name_empty_result_returns_empty_dict(self):
         assert FAResult({}).global_stats() == {}
 
-    def test_derived_std_from_mean_variance_count(self):
-        # std is not a stored key but is computable from mean+variance+count
+    def test_derived_std_from_primitives(self):
+        # std is computable from sum_sq+sum+count primitives
         replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "variance": 4.0, "count": 100}}),
-            "n2": _make_reply({"age": {"mean": 50.0, "variance": 9.0, "count": 80}}),
+            "n1": _make_reply(
+                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
+            ),
+            "n2": _make_reply(
+                {"age": {"sum_sq": 200711.0, "sum": 4000.0, "count": 80}}
+            ),
         }
         result = FAResult(replies)
         assert "std" in result.computable_stats()
@@ -996,12 +1018,13 @@ class TestGlobalStats:
     def test_global_stat_sequence_output(self):
         # List-typed node outputs exercise _aggregate_tree's sequence branch
         # (covers lines 286-290: list/tuple path in _aggregate_tree)
+        # Nodes return summable primitives: sum+count
         replies = {
             "n1": _make_reply(
-                [{"age": {"mean": 45.0, "count": 100}}, {"mean": 128.0, "count": 50}]
+                [{"age": {"sum": 4500.0, "count": 100}}, {"sum": 6400.0, "count": 50}]
             ),
             "n2": _make_reply(
-                [{"age": {"mean": 50.0, "count": 80}}, {"mean": 130.0, "count": 40}]
+                [{"age": {"sum": 4000.0, "count": 80}}, {"sum": 5200.0, "count": 40}]
             ),
         }
         result = FAResult(replies)
