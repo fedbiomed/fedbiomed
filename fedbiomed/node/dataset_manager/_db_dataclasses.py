@@ -95,3 +95,27 @@ class DlbEntry(TableEntry):
     loading_block_class: str
     loading_block_module: str
     map: Dict[str, List[str]]
+
+
+@dataclass
+class NodeProcessStateEntry(TableEntry):
+    """Current node process state entry."""
+
+    node_id: str
+    node_name: str
+    state: str
+    action: str
+    pid: Optional[int] = None
+    reason: Optional[str] = None
+    actor: Optional[Dict[str, Any]] = None
+    updated_at: Optional[str] = None
+    started_at: Optional[str] = None
+    stopped_at: Optional[str] = None
+    exit_code: Optional[int] = None
+
+
+@dataclass
+class NodeProcessStateHistoryEntry(NodeProcessStateEntry):
+    """Historical node process state entry."""
+
+    pid: int
