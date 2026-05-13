@@ -250,15 +250,15 @@ extra:
         - title: Fed-BioMed
           url: https://fedbiomed.org/
         - title: Federated Learning
-          url: https://fedbiomed.org/federated_learning/
+          url: https://fedbiomed.org/federated-learning/
         - title: Architecture
-          url: https://fedbiomed.org/federated_network/#architecture
+          url: https://fedbiomed.org/federated-network/#architecture
         - title: Workflow
-          url: https://fedbiomed.org/federated_network/#workflow
+          url: https://fedbiomed.org/federated-network/#workflow
         - title: Security in Practice
-          url: https://fedbiomed.org/federated_learning/#security-in-practice
+          url: https://fedbiomed.org/federated-learning/#security-in-practice
         - title: Use Cases
-          url: https://fedbiomed.org/use_cases
+          url: https://fedbiomed.org/use-cases
 
     left_bottom:
       title: Documentation
