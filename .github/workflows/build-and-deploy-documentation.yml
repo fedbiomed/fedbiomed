@@ -84,7 +84,7 @@ jobs:
           # Prevent output-repo (a nested git repo) from being added as a submodule.
           echo "output-repo" >> .gitignore
           git add -A
-          git commit -m "Restore deployed state" --allow-empty
+          git commit -m "Restore deployed state" --allow-empty --no-verify
           git checkout "$HEAD_REF"
 
       - name: Build docs with mike
