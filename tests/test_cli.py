@@ -361,18 +361,19 @@ class TestNodeControl(unittest.TestCase):
             "--gpu" in self.subparsers.choices["start"]._option_string_actions
         )  # noqa
 
-    @patch("fedbiomed.node.cli.node_process_manager")
-    def test_02_node_control_start(self, mock_node_process_manager):
+    @patch("fedbiomed.node.cli.NodeProcessManager")
+    def test_02_node_control_start(self, mock_node_process_manager_cls):
         self.control.initialize()
         process = MagicMock(pid=1234)
+        mock_node_process_manager = mock_node_process_manager_cls.return_value
         mock_node_process_manager.process = process
 
         args = self.parser.parse_args(["start"])
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
 
         self.control.start(args)
+        mock_node_process_manager_cls.assert_called_once_with(self.node.config)
         mock_node_process_manager.start.assert_called_once_with(
-            self.node.config,
             {
                 "gpu": False,
                 "gpu_num": 1,
@@ -382,10 +383,13 @@ class TestNodeControl(unittest.TestCase):
         )
         process.join.assert_called_once_with()
 
-    @patch("fedbiomed.node.cli.node_process_manager")
-    def test_04_node_control_start_gpu_and_debug_flags(self, mock_node_process_manager):
+    @patch("fedbiomed.node.cli.NodeProcessManager")
+    def test_04_node_control_start_gpu_and_debug_flags(
+        self, mock_node_process_manager_cls
+    ):
         """Tests GPU and debug flags are correctly forwarded in node startup args."""
         self.control.initialize()
+        mock_node_process_manager = mock_node_process_manager_cls.return_value
         mock_node_process_manager.process = MagicMock(pid=1234)
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
 
@@ -394,8 +398,8 @@ class TestNodeControl(unittest.TestCase):
         )
         self.control.start(args)
 
+        mock_node_process_manager_cls.assert_called_once_with(self.node.config)
         mock_node_process_manager.start.assert_called_once_with(
-            self.node.config,
             {
                 "gpu": True,
                 "gpu_num": 2,

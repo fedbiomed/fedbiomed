@@ -155,14 +155,14 @@ def _start_node_process(config, node_args):
 class NodeProcessManager:
     """Manages a single node subprocess.
 
-    One process at a time. Intended to be used as a module-level singleton
-    so that both the CLI and the API server share the same instance.
+    One process at a time for the node configuration passed at construction.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, config) -> None:
+        self._config = config
         self._process: multiprocessing.Process | None = None
-        self._node_id: str | None = None
-        self._node_name: str | None = None
+        self._node_id: str | None = config.get("default", "id")
+        self._node_name: str | None = config.get("default", "name")
         self._state_table: NodeProcessStateTable | None = None
         self._history_table: NodeProcessStateHistoryTable | None = None
 
@@ -171,12 +171,8 @@ class NodeProcessManager:
     # ------------------------------------------------------------------
 
     def _cleanup_process(self) -> None:
-        """Clear process and metadata references."""
+        """Clear process references."""
         self._process = None
-        self._node_id = None
-        self._node_name = None
-        self._state_table = None
-        self._history_table = None
 
     @staticmethod
     def _build_actor(actor: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -200,13 +196,13 @@ class NodeProcessManager:
         base.update({key: value for key, value in actor.items() if key in allowed})
         return base
 
-    def _init_state_tables(self, config) -> None:
+    def _init_state_tables(self) -> None:
         """Initialize the node process state tables from config."""
         db_path = os.path.abspath(
             os.path.join(
-                config.root,
+                self._config.root,
                 CONFIG_FOLDER_NAME,
-                config.get("default", "db"),
+                self._config.get("default", "db"),
             )
         )
         self._state_table = NodeProcessStateTable(db_path)
@@ -269,39 +265,31 @@ class NodeProcessManager:
 
     def start(
         self,
-        config,
         node_args: dict,
         actor: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Spawn a node subprocess.
 
         Args:
-            config: NodeConfig object (must already be initialised on disk).
             node_args: Dict of arguments forwarded to the node subprocess.
             actor: Optional user/source metadata for process state attribution.
         """
-        node_id = config.get("default", "id")
-        node_name = config.get("default", "name")
-
         if self._process is not None:
             if self._process.is_alive():
-                if node_id == self._node_id:
-                    self._set_process_state(
-                        state=NodeState.RUNNING,
-                        action="start",
-                        actor=actor,
-                        reason="already_running",
-                    )
-                    logger.warning(
-                        f"Node '{node_id}' is already running (pid={self._process.pid}). "
-                        "Ignoring start request."
-                    )
+                self._set_process_state(
+                    state=NodeState.RUNNING,
+                    action="start",
+                    actor=actor,
+                    reason="already_running",
+                )
+                logger.warning(
+                    f"Node '{self._node_id}' is already running (pid={self._process.pid}). "
+                    "Ignoring start request."
+                )
                 return
             self._cleanup_process()
 
-        self._node_id = node_id
-        self._node_name = node_name
-        self._init_state_tables(config)
+        self._init_state_tables()
         self._set_process_state(
             state=NodeState.STARTING,
             action="start",
@@ -311,8 +299,8 @@ class NodeProcessManager:
 
         self._process = multiprocessing.Process(
             target=_start_node_process,
-            name=f"node-{node_id}",
-            args=(config, node_args),
+            name=f"node-{self._node_id}",
+            args=(self._config, node_args),
         )
         self._process.daemon = True
         self._process.start()
@@ -322,7 +310,7 @@ class NodeProcessManager:
             actor=actor,
             reason="process_started",
         )
-        logger.info(f"Node '{node_id}' started (pid={self._process.pid}).")
+        logger.info(f"Node '{self._node_id}' started (pid={self._process.pid}).")
 
     def stop(
         self,
@@ -372,13 +360,12 @@ class NodeProcessManager:
 
     def restart(
         self,
-        config,
         node_args: dict,
         actor: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Stop then start the node subprocess."""
         self.stop(actor=actor, reason="restart_requested")
-        self.start(config, node_args, actor=actor)
+        self.start(node_args, actor=actor)
 
     def get_status(self) -> NodeState:
         if self._process is not None and self._process.is_alive():
@@ -389,7 +376,3 @@ class NodeProcessManager:
     def process(self) -> multiprocessing.Process | None:
         """The underlying process object, or None if not running."""
         return self._process
-
-
-# Module-level singleton — safe with a single Gunicorn worker.
-node_process_manager = NodeProcessManager()

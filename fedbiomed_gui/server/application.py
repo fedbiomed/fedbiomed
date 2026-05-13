@@ -1,4 +1,3 @@
-import atexit
 import os
 import secrets
 from datetime import timedelta
@@ -8,7 +7,6 @@ from flask import Flask, send_from_directory
 from flask_jwt_extended import JWTManager
 
 from .config import config
-from .node_bootstrap import start_node_for_gui, stop_node_for_gui
 
 # Import api route blueprint before importing routes and register as blueprint
 from .routes import api, auth
@@ -51,8 +49,6 @@ assert (
 jwt = JWTManager(app)
 app.register_blueprint(api)
 app.register_blueprint(auth)
-start_node_for_gui(config.node_config)
-atexit.register(stop_node_for_gui)
 
 
 # Routes for react build directory
