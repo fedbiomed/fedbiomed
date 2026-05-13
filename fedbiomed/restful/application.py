@@ -1,5 +1,6 @@
 import atexit
 import importlib
+import json
 import os
 import secrets
 from datetime import timedelta
@@ -7,6 +8,9 @@ from pathlib import Path
 
 from flask import Flask, send_from_directory
 from flask_jwt_extended import JWTManager
+
+from fedbiomed.common.logger import logger
+from fedbiomed.node.node_pm import NodeProcessManager
 
 from .config import config
 
@@ -18,6 +22,42 @@ fedbiomed_gui = importlib.import_module("fedbiomed_gui")
 build_dir = (
     Path(fedbiomed_gui.__file__).parent / "ui" / "build"  # type: ignore[arg-type]
 )
+
+
+def _default_node_args() -> dict:
+    """Return default node startup arguments."""
+    return {
+        "gpu": False,
+        "gpu_num": None,
+        "gpu_only": False,
+        "debug": False,
+    }
+
+
+def load_node_args_from_env() -> dict:
+    """Load node startup arguments from the environment."""
+    raw_node_args = os.getenv("FBM_NODE_START_ARGS")
+    if not raw_node_args:
+        return _default_node_args()
+
+    try:
+        node_args = json.loads(raw_node_args)
+    except json.JSONDecodeError:
+        logger.warning("Could not decode FBM_NODE_START_ARGS. Using default node args.")
+        return _default_node_args()
+
+    if not isinstance(node_args, dict):
+        logger.warning(
+            "FBM_NODE_START_ARGS must decode to a dict. Using default node args."
+        )
+        return _default_node_args()
+
+    default_args = _default_node_args()
+    default_args.update(
+        {key: value for key, value in node_args.items() if key in default_args}
+    )
+    return default_args
+
 
 # Create Flask Application
 app = Flask(__name__, static_folder=str(build_dir))
@@ -52,6 +92,13 @@ assert (
 jwt = JWTManager(app)
 app.register_blueprint(api)
 app.register_blueprint(auth)
+node_process_manager = NodeProcessManager(config.node_config)
+node_process_manager.start(load_node_args_from_env(), actor={"source": "gui"})
+atexit.register(
+    node_process_manager.stop,
+    actor={"source": "gui"},
+    reason="gui_stopped",
+)
 
 
 # Routes for react build directory

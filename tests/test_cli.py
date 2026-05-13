@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import fedbiomed
-import fedbiomed.node.cli_utils
 from fedbiomed.common.constants import NODE_DATA_FOLDER
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.cli import (
@@ -25,7 +24,6 @@ from fedbiomed.node.cli import (
     NodeControl,
     TrainingPlanArgumentParser,
     _find_available_port,
-    _node_signal_trigger_term,
     intro,
 )
 from fedbiomed.node.cli_utils._medical_folder_dataset import (
@@ -400,9 +398,10 @@ class TestNodeControl(unittest.TestCase):
         mock_subprocess,
     ):
         self.control.initialize()
-        process = MagicMock(pid=1234)
-        mock_node_process_manager = mock_node_process_manager_cls.return_value
-        mock_node_process_manager.process = process
+        self.node.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed/restful/__init__.py"
+        )
 
         args = self.parser.parse_args(["start"])
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
@@ -438,7 +437,7 @@ class TestNodeControl(unittest.TestCase):
         self.control.initialize()
         self.node.config.root = "/node/root"
         mock_importlib.import_module.return_value.__file__ = (
-            "/path/to/fedbiomed_gui/__init__.py"
+            "/path/to/fedbiomed/restful/__init__.py"
         )
         os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
 
@@ -549,13 +548,11 @@ class TestGUIControl(unittest.TestCase):
         command = mock_subprocess.Popen.call_args[0][0]
         env = mock_subprocess.Popen.call_args[1]["env"]
         self.assertIn("gunicorn", command)
-        self.assertEqual(env["FBM_START_NODE_WITH_RESTFUL"], "true")
-        self.assertEqual(
-            env["FBM_NODE_START_ARGS"],
-            json.dumps({"gpu": False, "gpu_num": 1, "gpu_only": False, "debug": False}),
-        )
-        self.assertEqual(env["FBM_RESTFUL_HOST"], "localhost")
-        self.assertEqual(env["FBM_RESTFUL_PORT"], "8484")
+        self.assertIn("fedbiomed_gui.server.wsgi:app", command)
+        self.assertEqual(env["DATA_PATH"], "/test/data")
+        self.assertEqual(env["FBM_NODE_COMPONENT_ROOT"], "/some/fedbiomed/path")
+        self.assertNotIn("FBM_START_NODE_WITH_RESTFUL", env)
+        self.assertNotIn("FBM_NODE_START_ARGS", env)
 
     @patch("fedbiomed.node.cli.subprocess")
     @patch("fedbiomed.node.cli.importlib")
@@ -585,6 +582,8 @@ class TestGUIControl(unittest.TestCase):
 
         command = mock_subprocess.Popen.call_args[0][0]
         self.assertIn("flask", command)
+        self.assertIn("server", command)
+        self.assertIn("wsgi.py", command)
 
     @patch("fedbiomed.node.cli.subprocess")
     @patch("fedbiomed.node.cli.importlib")
@@ -665,6 +664,41 @@ class TestStartNodeProcess(unittest.TestCase):
         mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_not_called()
 
 
+def test_start_managed_node_starts_manager_and_waits(mocker):
+    """Tests _start_managed_node creates a manager from config and joins its process."""
+    config = mocker.MagicMock()
+    process = mocker.MagicMock()
+    mock_manager_cls = mocker.patch("fedbiomed.node.cli.NodeProcessManager")
+    mock_manager = mock_manager_cls.return_value
+    mock_manager.process = process
+    node_args = {"gpu": False, "gpu_num": 1, "gpu_only": False, "debug": False}
+
+    fedbiomed.node.cli._start_managed_node(config, node_args)
+
+    mock_manager_cls.assert_called_once_with(config)
+    mock_manager.start.assert_called_once_with(node_args, actor={"source": "cli"})
+    process.join.assert_called_once_with()
+    mock_manager.stop.assert_not_called()
+
+
+def test_start_managed_node_stops_on_keyboard_interrupt(mocker):
+    """Tests _start_managed_node stops the managed node on KeyboardInterrupt."""
+    config = mocker.MagicMock()
+    process = mocker.MagicMock()
+    process.join.side_effect = KeyboardInterrupt
+    mock_manager_cls = mocker.patch("fedbiomed.node.cli.NodeProcessManager")
+    mock_manager = mock_manager_cls.return_value
+    mock_manager.process = process
+    node_args = {"gpu": False, "gpu_num": 1, "gpu_only": False, "debug": False}
+
+    fedbiomed.node.cli._start_managed_node(config, node_args)
+
+    mock_manager.stop.assert_called_once_with(
+        actor={"source": "cli"},
+        reason="keyboard_interrupt",
+    )
+
+
 def test_node_control_start_falls_back_when_restful_gui_deps_missing(
     node_control_parser, mocker, monkeypatch
 ):
@@ -707,11 +741,8 @@ def test_node_control_start_no_gui_starts_managed_node_only(
     )
 
 
-def test_gui_control_forward_uses_next_available_port(gui_control_parser, mocker):
-    """Tests forward() uses the selected available port for command and env."""
-    _, _, control, node = gui_control_parser
-    control.initialize()
-    node.config.root = "/node/root"
+def test_start_gui_uses_next_available_port(mocker):
+    """Tests _start_gui uses the selected available port for command and env."""
     mocker.patch("os.path.isdir", return_value=True)
     mock_find_available_port = mocker.patch(
         "fedbiomed.node.cli._find_available_port", return_value="8485"
@@ -719,21 +750,21 @@ def test_gui_control_forward_uses_next_available_port(gui_control_parser, mocker
     mock_importlib = mocker.patch("fedbiomed.node.cli.importlib")
     mock_subprocess = mocker.patch("fedbiomed.node.cli.subprocess")
     mock_importlib.import_module.return_value.__file__ = (
-        "/path/to/fedbiomed_gui/__init__.py"
+        "/path/to/fedbiomed/restful/__init__.py"
     )
 
-    args = argparse.Namespace(
-        path="/some/fedbiomed/path",
+    fedbiomed.node.cli._start_gui(
+        fedbiomed_root="/some/fedbiomed/path",
+        node_root="/node/root",
         data_folder="/test/data",
-        key_file=None,
-        cert_file=None,
-        development=False,
         host="localhost",
         port="8484",
-        debug=False,
-        recreate=False,
+        development=False,
+        key_file=None,
+        cert_file=None,
+        gui_debug=False,
+        node_args={"gpu": False, "gpu_num": 1, "gpu_only": False, "debug": False},
     )
-    control.forward(args, [])
 
     command = mock_subprocess.Popen.call_args[0][0]
     env = mock_subprocess.Popen.call_args[1]["env"]

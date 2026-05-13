@@ -61,6 +61,7 @@ def intro():
     print(__intro__)
     print("\t- 🆔 Your node ID:", os.environ["FEDBIOMED_ACTIVE_NODE_ID"], "\n")
 
+
 def _default_node_args() -> Dict[str, Union[bool, int, None]]:
     """Return the default node startup arguments."""
     return {
@@ -231,8 +232,8 @@ def _missing_restful_gui_dependencies(development: bool) -> List[str]:
 def _start_managed_node(config, node_args: Dict[str, Union[bool, int, None]]) -> None:
     """Start the federation node through NodeProcessManager and wait for it."""
     actor = {"source": "cli"}
+    node_process_manager = NodeProcessManager(config)
     node_process_manager.start(
-        config,
         node_args,
         actor=actor,
     )
