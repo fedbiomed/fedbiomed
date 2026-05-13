@@ -35,7 +35,7 @@ from fedbiomed.node.cli_utils import (
 )
 from fedbiomed.node.config import node_component
 from fedbiomed.node.node import Node
-from fedbiomed.node.node_pm import node_process_manager
+from fedbiomed.node.node_pm import NodeProcessManager
 
 # Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -330,7 +330,7 @@ class NodeControl(CLIArgumentParser):
     _node: Node
 
     def initialize(self):
-        """Initializes missinon control argument parser"""
+        """Initializes missing control argument parser"""
         start = self._subparser.add_parser("start", help="Starts the node")
         start.set_defaults(func=self.start)
 
@@ -377,7 +377,8 @@ class NodeControl(CLIArgumentParser):
             "debug": True if args.debug else False,
         }
 
-        node_process_manager.start(self._node.config, node_args)
+        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager.start(node_args)
         process = node_process_manager.process
         if process is None:
             return
