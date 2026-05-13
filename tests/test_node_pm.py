@@ -37,7 +37,7 @@ def test_node_pm_01_build_actor_filters_unknown_fields(mocker):
 
 
 def test_node_pm_02_set_process_state_writes_current_and_history_entries(mocker):
-    manager = NodeProcessManager()
+    manager = NodeProcessManager(_config(mocker))
     manager._node_id = "node-1"
     manager._node_name = "Node 1"
     manager._process = mocker.MagicMock(pid=4321)
@@ -75,10 +75,10 @@ def test_node_pm_02_set_process_state_writes_current_and_history_entries(mocker)
 
 
 def test_node_pm_03_start_spawns_process_and_sets_state_transitions(mocker):
-    manager = NodeProcessManager()
+    config = _config(mocker)
+    manager = NodeProcessManager(config)
     manager._init_state_tables = mocker.MagicMock()
     manager._set_process_state = mocker.MagicMock()
-    config = _config(mocker)
 
     process = mocker.MagicMock()
     process.pid = 321
@@ -86,9 +86,9 @@ def test_node_pm_03_start_spawns_process_and_sets_state_transitions(mocker):
     mock_process = mocker.patch(
         "fedbiomed.node.node_pm.multiprocessing.Process", return_value=process
     )
-    manager.start(config, {"gpu": False}, actor={"source": "gui"})
+    manager.start({"gpu": False}, actor={"source": "gui"})
 
-    manager._init_state_tables.assert_called_once_with(config)
+    manager._init_state_tables.assert_called_once_with()
 
     assert manager._set_process_state.call_args_list[0].kwargs == {
         "state": NodeState.STARTING,
@@ -114,16 +114,15 @@ def test_node_pm_03_start_spawns_process_and_sets_state_transitions(mocker):
 
 
 def test_node_pm_04_start_ignores_duplicate_running_process_for_same_node(mocker):
-    manager = NodeProcessManager()
+    manager = NodeProcessManager(_config(mocker))
     manager._process = mocker.MagicMock()
     manager._process.is_alive.return_value = True
     manager._process.pid = 654
     manager._node_id = "node-1"
     manager._set_process_state = mocker.MagicMock()
-    config = _config(mocker)
 
     mock_logger = mocker.patch("fedbiomed.node.node_pm.logger")
-    manager.start(config, {"gpu": False}, actor={"source": "gui"})
+    manager.start({"gpu": False}, actor={"source": "gui"})
 
     manager._set_process_state.assert_called_once_with(
         state=NodeState.RUNNING,
@@ -137,7 +136,7 @@ def test_node_pm_04_start_ignores_duplicate_running_process_for_same_node(mocker
 
 
 def test_node_pm_05_stop_warns_when_no_process_is_running(mocker):
-    manager = NodeProcessManager()
+    manager = NodeProcessManager(_config(mocker))
 
     mock_logger = mocker.patch("fedbiomed.node.node_pm.logger")
     manager.stop()
@@ -147,7 +146,7 @@ def test_node_pm_05_stop_warns_when_no_process_is_running(mocker):
 
 def test_node_pm_06_stop_terminates_process_and_cleans_up(mocker):
     mock_sleep = mocker.patch("fedbiomed.node.node_pm.time.sleep")
-    manager = NodeProcessManager()
+    manager = NodeProcessManager(_config(mocker))
     process = mocker.MagicMock()
     process.pid = 777
     process.exitcode = 15
@@ -182,7 +181,7 @@ def test_node_pm_06_stop_terminates_process_and_cleans_up(mocker):
 
 def test_node_pm_07_stop_logs_error_when_process_survives_kill(mocker):
     mock_sleep = mocker.patch("fedbiomed.node.node_pm.time.sleep")
-    manager = NodeProcessManager()
+    manager = NodeProcessManager(_config(mocker))
     process = mocker.MagicMock()
     process.pid = 888
     process.exitcode = -9
@@ -207,21 +206,20 @@ def test_node_pm_07_stop_logs_error_when_process_survives_kill(mocker):
 
 
 def test_node_pm_08_restart_calls_stop_then_start(mocker):
-    manager = NodeProcessManager()
+    manager = NodeProcessManager(_config(mocker))
     manager.stop = mocker.MagicMock()
     manager.start = mocker.MagicMock()
-    config = _config(mocker)
     node_args = {"gpu": True}
     actor = {"source": "gui"}
 
-    manager.restart(config, node_args, actor=actor)
+    manager.restart(node_args, actor=actor)
 
     manager.stop.assert_called_once_with(actor=actor, reason="restart_requested")
-    manager.start.assert_called_once_with(config, node_args, actor=actor)
+    manager.start.assert_called_once_with(node_args, actor=actor)
 
 
 def test_node_pm_09_get_status_reflects_process_liveness(mocker):
-    manager = NodeProcessManager()
+    manager = NodeProcessManager(_config(mocker))
     assert manager.get_status() == NodeState.STOPPED
 
     manager._process = mocker.MagicMock()
