@@ -153,12 +153,14 @@ def _start_node_process(config, node_args):
 
 
 class NodeProcessManager:
-    """Manages a single node subprocess.
-
-    One process at a time for the node configuration passed at construction.
-    """
+    """Manages a single node subprocess. This node subprocess is the one where it's config is passed during initialization."""
 
     def __init__(self, config) -> None:
+        """Initialize the NodeProcessManager with the given configuration.
+
+        Args:
+            config: Node configuration object that the manager will use to spawn the node subprocess and manage its state.
+        """
         self._config = config
         self._process: multiprocessing.Process | None = None
         self._node_id: str | None = config.get("default", "id")
@@ -176,7 +178,13 @@ class NodeProcessManager:
 
     @staticmethod
     def _build_actor(actor: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Build a sanitized actor dictionary for process state attribution."""
+        """Build a sanitized actor dictionary for process state attribution.
+
+        Args:
+            actor: Dictionary containing actor information. If None, it will generate a default actor with local source and username.
+        Returns:
+            A sanitized dictionary with allowed actor fields and defaults.
+        """
         base = {
             "source": "local",
             "local_username": getpass.getuser(),
@@ -197,7 +205,10 @@ class NodeProcessManager:
         return base
 
     def _init_state_tables(self) -> None:
-        """Initialize the node process state tables from config."""
+        """Initialize the node process state tables from config.
+
+        This method should be called before any state persistence operations to ensure the tables are ready.
+        """
         db_path = os.path.abspath(
             os.path.join(
                 self._config.root,
@@ -217,7 +228,15 @@ class NodeProcessManager:
         reason: Optional[str] = None,
         exit_code: Optional[int] = None,
     ) -> None:
-        """Persist the current process state if the node DB is available."""
+        """Persist the current process state if the node DB is available.
+
+        Args:
+            state: The new state of the node.
+            action: The action that triggered the state change.
+            actor: Optional user/source metadata for process state attribution.
+            reason: Optional reason for the state change.
+            exit_code: Optional exit code for the process.
+        """
         if (
             not self._state_table
             or not self._history_table
@@ -317,7 +336,12 @@ class NodeProcessManager:
         actor: Optional[Dict[str, Any]] = None,
         reason: str = "stop_requested",
     ) -> None:
-        """Terminate the running node subprocess."""
+        """Terminate the running node subprocess.
+
+        Args:
+            actor: Optional user/source metadata for process state attribution.
+            reason: Optional reason for stopping the process, default is "stop_requested".
+        """
         if self._process is None or not self._process.is_alive():
             logger.warning("No node process is running.")
             return
@@ -363,11 +387,17 @@ class NodeProcessManager:
         node_args: dict,
         actor: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Stop then start the node subprocess."""
+        """Stop then start the node subprocess.
+
+        Args:
+            node_args: Dict of arguments forwarded to the node subprocess on start.
+            actor: Optional user/source metadata for process state attribution.
+        """
         self.stop(actor=actor, reason="restart_requested")
         self.start(node_args, actor=actor)
 
     def get_status(self) -> NodeState:
+        """Get the current status of the node subprocess."""
         if self._process is not None and self._process.is_alive():
             return NodeState.RUNNING
         return NodeState.STOPPED
