@@ -31,6 +31,7 @@ import UserManagement from "./pages/admin/UserManagement";
 import AccountRequestManagement from "./pages/admin/AccountRequestManagement";
 import SecurityLogs from "./pages/admin/SecurityLogs";
 import UserAccount from './pages/authentication/UserAccount';
+import NodeLifecycle from './pages/NodeLifecycle';
 
 
 function App(props) {
@@ -49,6 +50,7 @@ function App(props) {
                 <Route path="/" element ={<LoginProtected/>} >
                   <Route path="/" element={<Home/>} />
                   <Route path="/configuration/" element={<Configuration/>} />
+                  <Route path="/node-lifecycle/" element={<AdminProtected redirect_to={'/'}><NodeLifecycle/></AdminProtected>} />
                   <Route path="/user-account/" element={<UserAccount/>}>
                       <Route index element={<UserInfo/>} />
                       <Route path={"info"} element={<UserInfo/>} />

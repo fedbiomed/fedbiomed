@@ -55,6 +55,12 @@ export const EP_CHANGE_USER_ROLE        = '/api/admin/users/change-role'
 // Security logs (admin)
 export const EP_SECURITY_LOGS          = '/api/admin/security/logs'
 
+// Node lifecycle (admin)
+export const EP_NODE_LIFECYCLE_STATUS  = '/api/node/lifecycle/status'
+export const EP_NODE_LIFECYCLE_START   = '/api/node/lifecycle/start'
+export const EP_NODE_LIFECYCLE_STOP    = '/api/node/lifecycle/stop'
+export const EP_NODE_LIFECYCLE_RESTART = '/api/node/lifecycle/restart'
+
 
 //Models
 export const EP_LIST_TRAINING_PLANS     = '/api/training-plan/list'

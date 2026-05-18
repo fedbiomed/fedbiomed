@@ -209,6 +209,9 @@ class NodeProcessManager:
 
         This method should be called before any state persistence operations to ensure the tables are ready.
         """
+        if self._state_table is not None and self._history_table is not None:
+            return
+
         db_path = os.path.abspath(
             os.path.join(
                 self._config.root,
@@ -295,6 +298,7 @@ class NodeProcessManager:
         """
         if self._process is not None:
             if self._process.is_alive():
+                self._init_state_tables()
                 self._set_process_state(
                     state=NodeState.RUNNING,
                     action="start",
@@ -342,10 +346,31 @@ class NodeProcessManager:
             actor: Optional user/source metadata for process state attribution.
             reason: Optional reason for stopping the process, default is "stop_requested".
         """
-        if self._process is None or not self._process.is_alive():
+        if self._process is None:
+            self._init_state_tables()
+            self._set_process_state(
+                state=NodeState.STOPPED,
+                action="stop",
+                actor=actor,
+                reason="no_process_running",
+            )
             logger.warning("No node process is running.")
             return
 
+        if not self._process.is_alive():
+            self._init_state_tables()
+            self._set_process_state(
+                state=NodeState.STOPPED,
+                action="stop",
+                actor=actor,
+                reason="process_exited",
+                exit_code=self._process.exitcode,
+            )
+            self._cleanup_process()
+            logger.warning("No node process is running.")
+            return
+
+        self._init_state_tables()
         self._set_process_state(
             state=NodeState.STOPPING,
             action="stop",
@@ -397,10 +422,63 @@ class NodeProcessManager:
         self.start(node_args, actor=actor)
 
     def get_status(self) -> NodeState:
-        """Get the current status of the node subprocess."""
+        """Get the current status of the node subprocess.
+
+        Returns:
+            Current live process state if this manager owns a running process,
+            otherwise the latest state persisted in the node process state table.
+            Defaults to ``STOPPED`` if no persisted state exists or it cannot be
+            read.
+        """
         if self._process is not None and self._process.is_alive():
             return NodeState.RUNNING
+
+        try:
+            self._init_state_tables()
+            if self._state_table and self._node_id:
+                state = self._state_table.get_by_id(self._node_id)
+                if state and state.get("state"):
+                    return NodeState(state["state"])
+        except Exception as e:
+            logger.warning(f"Could not read node process status: {e}")
+
         return NodeState.STOPPED
+
+    def get_process_state(self) -> Dict[str, Any]:
+        """Get the current node process state.
+
+        Returns:
+            Dictionary containing the latest persisted process-state metadata,
+            with ``state`` resolved through :meth:`get_status`.
+        """
+        self._init_state_tables()
+
+        state_entry = {
+            "node_id": self._node_id,
+            "node_name": self._node_name,
+            "state": self.get_status().value,
+            "pid": None,
+            "action": None,
+            "reason": None,
+            "actor": None,
+            "updated_at": None,
+            "started_at": None,
+            "stopped_at": None,
+            "exit_code": None,
+            "managed_by_current_process": False,
+        }
+
+        if self._state_table and self._node_id:
+            stored_state = dict(self._state_table.get_by_id(self._node_id) or {})
+            state_entry.update(stored_state)
+            state_entry["state"] = self.get_status().value
+
+        if self._process is not None and self._process.is_alive():
+            state_entry["managed_by_current_process"] = (
+                state_entry.get("pid") == self._process.pid
+            )
+
+        return state_entry
 
     @property
     def process(self) -> multiprocessing.Process | None:

@@ -137,10 +137,19 @@ def test_node_pm_04_start_ignores_duplicate_running_process_for_same_node(mocker
 
 def test_node_pm_05_stop_warns_when_no_process_is_running(mocker):
     manager = NodeProcessManager(_config(mocker))
+    manager._init_state_tables = mocker.MagicMock()
+    manager._set_process_state = mocker.MagicMock()
 
     mock_logger = mocker.patch("fedbiomed.node.node_pm.logger")
-    manager.stop()
+    manager.stop(actor={"source": "gui"})
 
+    manager._init_state_tables.assert_called_once_with()
+    manager._set_process_state.assert_called_once_with(
+        state=NodeState.STOPPED,
+        action="stop",
+        actor={"source": "gui"},
+        reason="no_process_running",
+    )
     mock_logger.warning.assert_called_once_with("No node process is running.")
 
 
@@ -220,6 +229,9 @@ def test_node_pm_08_restart_calls_stop_then_start(mocker):
 
 def test_node_pm_09_get_status_reflects_process_liveness(mocker):
     manager = NodeProcessManager(_config(mocker))
+    manager._state_table = mocker.MagicMock()
+    manager._history_table = mocker.MagicMock()
+    manager._state_table.get_by_id.return_value = None
     assert manager.get_status() == NodeState.STOPPED
 
     manager._process = mocker.MagicMock()
@@ -227,4 +239,79 @@ def test_node_pm_09_get_status_reflects_process_liveness(mocker):
     assert manager.get_status() == NodeState.RUNNING
 
     manager._process.is_alive.return_value = False
+    manager._state_table.get_by_id.return_value = None
     assert manager.get_status() == NodeState.STOPPED
+
+
+def test_node_pm_10_get_status_reads_persisted_state(mocker):
+    manager = NodeProcessManager(_config(mocker))
+    manager._state_table = mocker.MagicMock()
+    manager._history_table = mocker.MagicMock()
+    manager._state_table.get_by_id.return_value = {
+        "node_id": "node-1",
+        "state": NodeState.RUNNING.value,
+    }
+
+    assert manager.get_status() == NodeState.RUNNING
+
+
+def test_node_pm_11_get_process_state_returns_persisted_metadata(mocker):
+    manager = NodeProcessManager(_config(mocker))
+    manager._state_table = mocker.MagicMock()
+    manager._history_table = mocker.MagicMock()
+    manager._state_table.get_by_id.return_value = {
+        "node_id": "node-1",
+        "node_name": "Node 1",
+        "state": NodeState.RUNNING.value,
+        "pid": 1234,
+        "action": "start",
+        "reason": "process_started",
+    }
+    manager._process = mocker.MagicMock(pid=1234)
+    manager._process.is_alive.return_value = True
+
+    state = manager.get_process_state()
+
+    assert state["node_id"] == "node-1"
+    assert state["state"] == NodeState.RUNNING.value
+    assert state["pid"] == 1234
+    assert state["action"] == "start"
+    assert state["managed_by_current_process"] is True
+
+
+def test_node_pm_12_get_process_state_returns_default_when_no_db_entry(mocker):
+    manager = NodeProcessManager(_config(mocker))
+    manager._state_table = mocker.MagicMock()
+    manager._history_table = mocker.MagicMock()
+    manager._state_table.get_by_id.return_value = None
+
+    state = manager.get_process_state()
+
+    assert state["node_id"] == "node-1"
+    assert state["node_name"] == "Node 1"
+    assert state["state"] == NodeState.STOPPED.value
+    assert state["pid"] is None
+    assert state["managed_by_current_process"] is False
+
+
+def test_node_pm_13_stop_persists_dead_managed_process(mocker):
+    manager = NodeProcessManager(_config(mocker))
+    manager._process = mocker.MagicMock(pid=1234, exitcode=7)
+    manager._process.is_alive.return_value = False
+    manager._init_state_tables = mocker.MagicMock()
+    manager._set_process_state = mocker.MagicMock()
+    manager._cleanup_process = mocker.MagicMock()
+    mock_logger = mocker.patch("fedbiomed.node.node_pm.logger")
+
+    manager.stop(actor={"source": "gui"})
+
+    manager._init_state_tables.assert_called_once_with()
+    manager._set_process_state.assert_called_once_with(
+        state=NodeState.STOPPED,
+        action="stop",
+        actor={"source": "gui"},
+        reason="process_exited",
+        exit_code=7,
+    )
+    manager._cleanup_process.assert_called_once_with()
+    mock_logger.warning.assert_called_once_with("No node process is running.")

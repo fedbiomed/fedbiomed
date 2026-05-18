@@ -84,10 +84,9 @@ def admin_required(func):
         if not user_from_db:
             return error("Can not check user role. Please contact system provider"), 400
 
-        # FIXME: alitolga: Shouldn't this be if user_role != ADMIN?
         if (
             claims["role"] != UserRoleType.ADMIN
-            and user_from_db["user_role"] == UserRoleType.ADMIN
+            or user_from_db["user_role"] != UserRoleType.ADMIN
         ):
             return error(
                 "You don't have permission to perform this action! Please contact your "
