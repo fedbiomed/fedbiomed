@@ -134,6 +134,7 @@ Reviewers, Team Developers and Core Developers receive:
 Current list of Core Developers listed by alphabetical order:
 
 - Sergen Cansiz
+- Lucie Chambon
 - Francesco Cremonesi
 - Ali Tolga Dinçer
 - Marco Lorenzi
