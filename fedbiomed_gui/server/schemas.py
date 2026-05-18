@@ -715,3 +715,21 @@ class ValidateAdminRequestAction(Validator):
         },
         message=None,
     )
+
+
+class NodeLifecycleRequest(Validator):
+    """JSON schema for starting or restarting the managed node process."""
+
+    type = "json"
+    schema = JsonSchema(
+        {
+            "type": "object",
+            "properties": {
+                "gpu": {"type": "boolean", "default": False},
+                "gpu_num": {"type": "integer", "minimum": 1, "default": 1},
+                "gpu_only": {"type": "boolean", "default": False},
+                "debug": {"type": "boolean", "default": False},
+            },
+            "required": [],
+        }
+    )

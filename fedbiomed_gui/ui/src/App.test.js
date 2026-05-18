@@ -1,8 +1,12 @@
 import { render, screen } from '@testing-library/react';
-import App from './App';
+import { MemoryRouter } from 'react-router-dom';
+import SideNav from './components/layout/SideNav';
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+test('renders node lifecycle navigation item', () => {
+  render(
+    <MemoryRouter>
+      <SideNav />
+    </MemoryRouter>
+  );
+  expect(screen.getByText(/Node Lifecycle/i)).toBeInTheDocument();
 });
