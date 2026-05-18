@@ -1,0 +1,97 @@
+<link rel="stylesheet" href="https://unicons.iconscout.com/release/v4.0.8/css/line.css">
+<div class="gh-repo-card">
+  <a href="https://github.com/fedbiomed/fedbiomed"
+     target="_blank"
+     rel="noopener noreferrer"
+     class="gh-repo-card__top"
+     aria-label="fedbiomed on GitHub">
+    <i class="uil uil-github gh-repo-card__icon"></i>
+    <span class="gh-repo-card__name">fedbiomed</span>
+  </a>
+  <span class="gh-repo-card__divider"></span>
+  <span class="gh-repo-card__bottom">
+    <a href="https://github.com/fedbiomed/fedbiomed/stargazers"
+       target="_blank"
+       rel="noopener noreferrer"
+       class="gh-repo-card__stat"
+       aria-label="Stargazers">
+      <i class="uil uil-star"></i>
+      <span class="gh-stars">—</span>
+    </a>
+    <a href="https://github.com/fedbiomed/fedbiomed/network/members"
+       target="_blank"
+       rel="noopener noreferrer"
+       class="gh-repo-card__stat"
+       aria-label="Forks">
+      <i class="uil uil-code-branch"></i>
+      <span class="gh-forks">—</span>
+    </a>
+  </span>
+</div>
+<style>
+.gh-repo-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  color: #03045e;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1;
+}
+.gh-repo-card__top {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: inherit;
+  text-decoration: none !important;
+  transition: opacity .15s;
+}
+.gh-repo-card__top:hover { opacity: .65; color: inherit; }
+.gh-repo-card__icon { font-size: 15px; }
+.gh-repo-card__name { opacity: .75; letter-spacing: .01em; }
+.gh-repo-card__divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(0, 180, 216, .25);
+}
+.gh-repo-card__bottom {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.gh-repo-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: inherit;
+  text-decoration: none !important;
+  transition: opacity .15s;
+}
+.gh-repo-card__stat:hover { opacity: .65; color: inherit; }
+.gh-repo-card__stat i { font-size: 12px; opacity: .65; }
+</style>
+<script>
+(function () {
+  if (window.__ghRepoCardLoaded) return;
+  window.__ghRepoCardLoaded = true;
+
+  function fmt(n) { return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n); }
+
+  function applyStats(stars, forks) {
+    document.querySelectorAll('.gh-stars').forEach(function(el) { el.textContent = stars; });
+    document.querySelectorAll('.gh-forks').forEach(function(el) { el.textContent = forks; });
+  }
+
+  fetch('https://api.github.com/repos/fedbiomed/fedbiomed')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (typeof d.stargazers_count !== 'number') return;
+      applyStats(fmt(d.stargazers_count), fmt(d.forks_count));
+    })
+    .catch(function(e) { console.warn('[gh-repo-card] fetch failed:', e); });
+}());
+</script>

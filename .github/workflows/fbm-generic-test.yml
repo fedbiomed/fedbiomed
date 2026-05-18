@@ -20,22 +20,7 @@ jobs:
       - name: Checkout to repository
         uses: actions/checkout@v4
 
-      - name: Detect documentation changes
-        uses: dorny/paths-filter@master
-        id: filter
-        with:
-          filters: |
-            docs:
-              - 'fedbiomed/**'
-              - 'scripts/docs/**'
-              - 'docs/**'
-              - 'envs/development/**'
-              - 'envs/build/**'
-              - 'mkdocs.yml'
-              - 'README.md'
-
       - name: Setup python
-        if: steps.filter.outputs.docs == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -44,17 +29,16 @@ jobs:
         uses: pdm-project/setup-pdm@v4
 
       - name: Install Dependencies
-        if: steps.filter.outputs.docs == 'true'
         run: pdm install --no-default -G docs -G dev
-
-      - name: Build documentation
-        if: steps.filter.outputs.docs == 'true'
-        # Version number for testing purposes should
-        # respect to standard which is vMajor.Minor.Patch
+      
+      - name: Configure git
         run: |
-          source .venv/bin/activate
-          scripts/docs/fedbiomed_doc.sh --build-dir build-repo \
-            --build-main --build-current-as v1.0.1
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "fedbiomed-bot@users.noreply.github.com"
+
+      - name: Build docs with mike
+        run: |
+          pdm run mike deploy test
 
   unit-test:
     name: Unit Tests
