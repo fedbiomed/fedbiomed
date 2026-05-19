@@ -9,21 +9,17 @@ import argparse
 import importlib
 import json
 import os
-import signal
 import subprocess
 import sys
-import time
-from multiprocessing import Process
 from pathlib import Path
-from types import FrameType
-from typing import Dict, List, Union
+from typing import Dict, List
 
 from fedbiomed.common.cli import (
     CLIArgumentParser,
     CommonCLI,
     ComponentDirectoryAction,
 )
-from fedbiomed.common.constants import NODE_DATA_FOLDER, ComponentType, ErrorNumbers
+from fedbiomed.common.constants import NODE_DATA_FOLDER, ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.node.cli_utils import (
@@ -39,6 +35,7 @@ from fedbiomed.node.cli_utils import (
 )
 from fedbiomed.node.config import node_component
 from fedbiomed.node.node import Node
+from fedbiomed.node.node_pm import NodeProcessManager
 
 # Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -61,132 +58,6 @@ def intro():
 
     print(__intro__)
     print("\t- 🆔 Your node ID:", os.environ["FEDBIOMED_ACTIVE_NODE_ID"], "\n")
-
-
-def _node_signal_trigger_term() -> None:
-    """Triggers a TERM signal to the current process"""
-    os.kill(os.getpid(), signal.SIGTERM)
-
-
-def start_node(config, node_args):
-    """Starts the node
-
-    Args:
-        name: Config name for the node
-        node_args: Arguments for the node
-    """
-
-    _node = Node(config, node_args)
-
-    print(_node)
-
-    ### TODO <alitolga>: Remove this if it is not needed
-    print("\t- Node name: ", _node.config.get("default", "name"), "\n")
-
-    def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
-        """Signal handler that terminates the process.
-
-        Args:
-            signum: Signal number received.
-            frame: Frame object received. Currently unused
-
-        Raises:
-           SystemExit: Always raised.
-        """
-
-        # get the (running) Node object
-
-        try:
-            if _node and _node.is_connected():
-                # Log node stop event
-                logger.security_event(
-                    operation="node_stopped",
-                    status="success",
-                    researcher_id=None,
-                    node_name=_node.node_name,
-                    reason="signal_received",
-                    signal_number=signum,
-                )
-
-                _node.send_error(
-                    ErrorNumbers.FB312, extra_msg="Node is stopped", broadcast=True
-                )
-                time.sleep(2)
-                logger.critical(
-                    "Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)"
-                )
-            else:
-                # take care of logger level used because message cannot be sent to node
-                logger.info(
-                    "Cannot send error message to researcher (node not initialized yet)"
-                )
-                logger.info(
-                    "Node stopped in signal_handler, probably node exit on error or user decision (Ctrl C)"
-                )
-        finally:
-            # give some time to send messages to the researcher
-            time.sleep(0.5)
-            sys.exit(signum)
-
-    if getattr(_node, "_debug", False):
-        logger.setLevel("DEBUG")
-    else:
-        logger.setLevel("INFO")
-
-    try:
-        signal.signal(signal.SIGTERM, _node_signal_handler)
-        signal.signal(signal.SIGINT, _node_signal_handler)
-        logger.info("Launching node...")
-
-        # Register default training plans and update hashes
-        if _node.config.getbool("security", "training_plan_approval"):
-            # This methods updates hashes if hashing algorithm has changed
-            _node.tp_security_manager.check_hashes_for_registered_training_plans()
-            if _node.config.getbool("security", "allow_default_training_plans"):
-                logger.info("Loading default training plans")
-                _node.tp_security_manager.register_update_default_training_plans()
-        else:
-            logger.warning(
-                "Training plan approval for train request is not activated. "
-                + "This might cause security problems. Please, consider to enable training plan approval."
-            )
-
-        logger.info("Starting communication channel with network")
-
-        _node.start_messaging(_node_signal_trigger_term)
-        logger.info("Starting node to node router")
-        _node.start_protocol()
-        logger.info("Starting task manager")
-        _node.task_manager()  # handling training tasks in queue
-
-    except FedbiomedError as exp:
-        # Log node stop due to error
-        logger.security_event(
-            operation="node_stopped",
-            status="error",
-            researcher_id=None,
-            node_name=_node.node_name if _node else None,
-            reason="fedbiomed_error",
-            error_message=str(exp),
-        )
-        logger.critical(f"Node stopped. {exp}")
-        # we may add extra information for the user depending on the error
-
-    except Exception as exp:
-        # Log node stop due to unexpected error
-        logger.security_event(
-            operation="node_stopped",
-            status="error",
-            researcher_id=None,
-            node_name=_node.node_name if _node else None,
-            reason="unexpected_exception",
-            error_message=str(exp),
-            exception_type=type(exp).__name__,
-        )
-        # must send info to the researcher (no mqqt should be handled
-        # by the previous FedbiomedError)
-        _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
-        logger.critical(f"Node stopped. {exp}")
 
 
 class DatasetArgumentParser(CLIArgumentParser):
@@ -459,7 +330,7 @@ class NodeControl(CLIArgumentParser):
     _node: Node
 
     def initialize(self):
-        """Initializes missinon control argument parser"""
+        """Initializes missing control argument parser"""
         start = self._subparser.add_parser("start", help="Starts the node")
         start.set_defaults(func=self.start)
 
@@ -499,7 +370,6 @@ class NodeControl(CLIArgumentParser):
         """Starts the node"""
         intro()
 
-        # Define arguments
         node_args = {
             "gpu": (args.gpu is True) or (args.gpu_only is True),
             "gpu_num": args.gpu_num,
@@ -507,35 +377,18 @@ class NodeControl(CLIArgumentParser):
             "debug": True if args.debug else False,
         }
 
-        # Node instance has to be re-instantiated in start_node
-        # It is because Process can only pickle pure python objects
-        p = Process(
-            target=start_node,
-            name=f"node-{self._node.config.get('default', 'id')}",
-            args=(self._node.config, node_args),
-        )
-        p.daemon = True
-        p.start()
+        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager.start(node_args)
+        process = node_process_manager.process
+        if process is None:
+            return
 
-        logger.info("Node started as process with pid = " + str(p.pid))
+        logger.info("Node started as process with pid = " + str(process.pid))
         try:
             print("To stop press Ctrl + C.")
-            p.join()
+            process.join()
         except KeyboardInterrupt:
-            p.terminate()
-            for _ in range(3):
-                if not p.is_alive():
-                    break
-                logger.info("Terminating process id = " + str(p.pid))
-                time.sleep(0.5)
-            if p.is_alive():
-                logger.info("Killing process id = " + str(p.pid))
-                p.kill()
-                start_time = time.time()
-                while p.is_alive() and (time.time() - start_time < 0.5):
-                    time.sleep(0.1)
-            p.join(timeout=0.1)
-            logger.info("Exited with code " + str(p.exitcode))
+            node_process_manager.stop(reason="keyboard_interrupt")
             sys.exit(0)
 
 

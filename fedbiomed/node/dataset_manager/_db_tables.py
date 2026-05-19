@@ -8,7 +8,14 @@ from fedbiomed.common.db import TinyTableConnector
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
-from ._db_dataclasses import DatasetEntry, DlbEntry, DlpEntry, DynamicDatasetEntry
+from ._db_dataclasses import (
+    DatasetEntry,
+    DlbEntry,
+    DlpEntry,
+    DynamicDatasetEntry,
+    NodeProcessStateEntry,
+    NodeProcessStateHistoryEntry,
+)
 
 
 class BaseTable(TinyTableConnector):
@@ -229,3 +236,36 @@ class DlbTable(BaseTable):
     _table_name = "Dlbs"
     _id_name = "dlb_id"
     _dataclass = DlbEntry
+
+
+class NodeProcessStateTable(BaseTable):
+    """Database table for the current managed node process state."""
+
+    _table_name = "NodeProcessState"
+    _id_name = "node_id"
+    _dataclass = NodeProcessStateEntry
+
+    def update_or_insert_by_id(self, node_id: str, entry: dict):
+        """Update the process state for a node, or insert it if absent."""
+        if self._id_name in entry and entry[self._id_name] != node_id:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Cannot change the field '{self._id_name}'"
+            )
+
+        entry[self._id_name] = node_id
+        if self.get_by_id(node_id) is None:
+            return super().insert(entry)
+        return super().update_by_id(node_id, entry)
+
+
+class NodeProcessStateHistoryTable(BaseTable):
+    """Append-only database table for node process state history."""
+
+    _table_name = "NodeProcessStateHistory"
+    _id_name = "pid"
+    _dataclass = NodeProcessStateHistoryEntry
+
+    def insert(self, entry: dict) -> int:
+        """Insert a history entry, allowing multiple entries for the same pid."""
+        validated_entry = super()._validate_and_convert_to_dict(entry)
+        return self._table.insert(validated_entry, stacklevel=4)
