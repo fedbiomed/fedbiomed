@@ -93,6 +93,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
         self._node_id: Optional[str] = None
+        self._round: Optional[int] = None
         self._local_params: Optional[List[str]] = None
 
         self._error_msg_import_model: str = (
@@ -974,6 +975,23 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             Node id
         """
         return self._node_id
+
+    @property
+    def round(self) -> Optional[int]:
+        """Retrieve the current federated training round.
+
+        Returns:
+            Current round number, or None if not running on a node.
+        """
+        return self._round
+
+    def set_round(self, round_: int) -> None:
+        """Set the current federated training round.
+
+        Args:
+            round_: Current round number.
+        """
+        self._round = round_
 
     @property
     def local_params(self) -> Optional[List[str]]:

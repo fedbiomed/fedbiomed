@@ -272,6 +272,7 @@ class TestRound(unittest.TestCase):
         # `run_model_training`
         with (
             patch.object(FakeModel, "set_dataset_path"),
+            patch.object(FakeModel, "set_round") as mock_set_round,
             patch.object(FakeModel, "training_routine") as mock_training_routine,
             patch.object(
                 self.r1, "_split_train_and_test_data"
@@ -294,6 +295,7 @@ class TestRound(unittest.TestCase):
             # Set dataset is called in set_train_and_test_data
             # mock_set_dataset.assert_called_once_with(self.r1.dataset.get('path'))
             mock_split_train_and_test_data.assert_called_once()
+            mock_set_round.assert_called_once_with(self.r1._round)
 
             # Since set training data return None, training_routine should be called as None
             mock_training_routine.assert_called_once_with(
