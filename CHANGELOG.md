@@ -1,5 +1,9 @@
 # Fed-BioMed changelog
 
+## 2026-05-18 version 6.3.2
+
+- New documentation template and deployment workflow integrated. 
+
 ## 2026-05-11 version 6.3.1
 
 - Improve CustomDataset with multi-modal data or target support
