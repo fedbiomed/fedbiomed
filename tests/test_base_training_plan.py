@@ -148,9 +148,9 @@ class TestBaseTrainingPlan(unittest.TestCase):
     def test_base_training_plan_06_round(self):
         """Test setting and retrieving the current training round."""
 
-        self.assertIsNone(self.tp.round)
+        self.assertIsNone(self.tp.round())
         self.tp.set_round(3)
-        self.assertEqual(self.tp.round, 3)
+        self.assertEqual(self.tp.round(), 3)
 
     def test_base_training_plan_07__create_metric_result(self):
         """

@@ -109,7 +109,7 @@ Fed-BioMed provides the following getter functions to access Training Plan attri
 | model arguments     | `model_args()`     | :heavy_check_mark: | :heavy_check_mark:  | |
 | training arguments  | `training_args()`  | :heavy_check_mark: | :heavy_check_mark:  | |
 | optimizer arguments | `optimizer_args()` | :heavy_check_mark: | :heavy_check_mark:  | |
-| current round | `round` | :heavy_check_mark: | :heavy_check_mark:  | current federated training round on the node, or `None` before node-side execution starts. |
+| current round | `round()` | :heavy_check_mark: | :heavy_check_mark:  | current federated training round on the node, or `None` before node-side execution starts. |
 | node is | `node_id()` | :heavy_check_mark: | :heavy_check_mark:  | |
 
 ####

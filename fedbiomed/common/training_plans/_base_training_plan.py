@@ -976,7 +976,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return self._node_id
 
-    @property
     def round(self) -> Optional[int]:
         """Retrieve the current federated training round.
 
