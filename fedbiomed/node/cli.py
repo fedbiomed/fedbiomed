@@ -378,17 +378,27 @@ class NodeControl(CLIArgumentParser):
         }
 
         node_process_manager = NodeProcessManager(self._node.config)
-        node_process_manager.start(node_args)
-        process = node_process_manager.process
-        if process is None:
-            return
 
-        logger.info("Node started as process with pid = " + str(process.pid))
+        pid = node_process_manager.start(
+            node_args=node_args,
+            actor={"source": "cli"},
+        )
+
+        logger.info("Node started as process with pid = " + str(pid))
+
         try:
             print("To stop press Ctrl + C.")
-            process.join()
+            node_process_manager.wait(
+                pid=pid,
+                actor={"source": "cli"},
+            )
+
         except KeyboardInterrupt:
-            node_process_manager.stop(reason="keyboard_interrupt")
+            node_process_manager.stop(
+                pid=pid,
+                actor={"source": "cli"},
+                reason="keyboard_interrupt",
+            )
             sys.exit(0)
 
 

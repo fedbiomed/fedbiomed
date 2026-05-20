@@ -242,20 +242,20 @@ class NodeProcessStateTable(BaseTable):
     """Database table for the current managed node process state."""
 
     _table_name = "NodeProcessState"
-    _id_name = "node_id"
+    _id_name = "pid"
     _dataclass = NodeProcessStateEntry
 
-    def update_or_insert_by_id(self, node_id: str, entry: dict):
+    def update_or_insert_by_id(self, pid: int, entry: dict):
         """Update the process state for a node, or insert it if absent."""
-        if self._id_name in entry and entry[self._id_name] != node_id:
+        if self._id_name in entry and entry[self._id_name] != pid:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Cannot change the field '{self._id_name}'"
             )
 
-        entry[self._id_name] = node_id
-        if self.get_by_id(node_id) is None:
+        entry[self._id_name] = pid
+        if self.get_by_id(pid) is None:
             return super().insert(entry)
-        return super().update_by_id(node_id, entry)
+        return super().update_by_id(pid, entry)
 
 
 class NodeProcessStateHistoryTable(BaseTable):

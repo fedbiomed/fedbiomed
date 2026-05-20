@@ -5,18 +5,22 @@
 
 import enum
 import getpass
-import multiprocessing
+import json
 import os
 import signal
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
 from types import FrameType
 from typing import Any, Dict, Optional, Union
 
+import psutil
+
 from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
+from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.dataset_manager._db_tables import (
     NodeProcessStateHistoryTable,
     NodeProcessStateTable,
@@ -47,13 +51,16 @@ def _node_signal_trigger_term() -> None:
     os.kill(os.getpid(), signal.SIGTERM)
 
 
-def _start_node_process(config, node_args):
+def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
     """Start the node runtime inside the managed subprocess.
 
     Args:
-        config: Node configuration.
+        config_path: Path to the node configuration directory.
         node_args: Arguments for the node.
     """
+    config = NodeConfig(root=config_path)
+    node_args = json.loads(node_args) if isinstance(node_args, str) else node_args
+
     _node = Node(config, node_args)
 
     print(_node)
@@ -162,7 +169,6 @@ class NodeProcessManager:
             config: Node configuration object that the manager will use to spawn the node subprocess and manage its state.
         """
         self._config = config
-        self._process: multiprocessing.Process | None = None
         self._node_id: str | None = config.get("default", "id")
         self._node_name: str | None = config.get("default", "name")
         self._state_table: NodeProcessStateTable | None = None
@@ -171,10 +177,6 @@ class NodeProcessManager:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-
-    def _cleanup_process(self) -> None:
-        """Clear process references."""
-        self._process = None
 
     @staticmethod
     def _build_actor(actor: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -222,6 +224,7 @@ class NodeProcessManager:
     def _set_process_state(
         self,
         *,
+        pid: int,
         state: NodeState,
         action: str,
         actor: Optional[Dict[str, Any]] = None,
@@ -249,10 +252,10 @@ class NodeProcessManager:
             now = _utc_now()
             existing = self._state_table.get_by_id(self._node_id) or {}
             entry = {
+                "pid": pid,
+                "state": state.value,
                 "node_id": self._node_id,
                 "node_name": self._node_name,
-                "state": state.value,
-                "pid": self._process.pid if self._process else None,
                 "action": action,
                 "reason": reason,
                 "actor": self._build_actor(actor),
@@ -273,7 +276,7 @@ class NodeProcessManager:
                 entry["stopped_at"] = None
                 entry["exit_code"] = None
 
-            self._state_table.update_or_insert_by_id(self._node_id, entry)
+            self._state_table.update_or_insert_by_id(pid, entry)
             self._history_table.insert(entry.copy())
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
@@ -285,54 +288,97 @@ class NodeProcessManager:
     def start(
         self,
         node_args: dict,
+        pid: Optional[int] = None,
         actor: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    ) -> int:
         """Spawn a node subprocess.
 
         Args:
             node_args: Dict of arguments forwarded to the node subprocess.
             actor: Optional user/source metadata for process state attribution.
         """
-        if self._process is not None:
-            if self._process.is_alive():
-                self._set_process_state(
-                    state=NodeState.RUNNING,
-                    action="start",
-                    actor=actor,
-                    reason="already_running",
-                )
-                logger.warning(
-                    f"Node '{self._node_id}' is already running (pid={self._process.pid}). "
-                    "Ignoring start request."
-                )
-                return
-            self._cleanup_process()
+        # In case we try to start/restart an existing node process.
+        if pid and (
+            self.get_status(pid) == NodeState.RUNNING.value
+            or self.get_status(pid) == NodeState.STARTING.value
+        ):
+            logger.warning(
+                f"Node process 'pid={pid}' is already running. Ignoring start request."
+            )
+            return
 
+        # We are starting a new node process. We generate a new pid after starting the process.
         self._init_state_tables()
-        self._set_process_state(
-            state=NodeState.STARTING,
-            action="start",
-            actor=actor,
-            reason="start_requested",
+        _process = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "fedbiomed.node.node_pm",
+                "--config",
+                self._config.root,
+                "--node-args",
+                json.dumps(
+                    node_args
+                ),  # Convert to string to pass using subprocess (will be parsed back to dict in the subprocess)
+            ]
         )
 
-        self._process = multiprocessing.Process(
-            target=_start_node_process,
-            name=f"node-{self._node_id}",
-            args=(self._config, node_args),
-        )
-        self._process.daemon = True
-        self._process.start()
+        new_pid = _process.pid
+
+        if not new_pid:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB327.value}: Error in starting node process, could not get the PID."
+            )
+
         self._set_process_state(
+            pid=new_pid,
             state=NodeState.RUNNING,
             action="start",
             actor=actor,
             reason="process_started",
         )
-        logger.info(f"Node '{self._node_id}' started (pid={self._process.pid}).")
+
+        logger.info(f"Node '{self._node_id}' started (pid={new_pid}).")
+        return new_pid
+
+    def wait(
+        self,
+        pid: int,
+        actor: Optional[Dict[str, Any]] = None,
+    ) -> Optional[int]:
+        """Wait until the managed node process exits."""
+
+        try:
+            process = psutil.Process(pid)
+        except psutil.NoSuchProcess:
+            logger.warning(f"Node process pid={pid} does not exist.")
+            return None
+
+        try:
+            exit_code = process.wait()
+        except psutil.NoSuchProcess:
+            exit_code = None
+
+        # In case process exits abruptly, meaning:
+        # 1- It was not killed from the GUI
+        # 2- It was not killed from the CLI (using Ctrl+C)
+        if self.get_status(pid) != NodeState.STOPPED.value:
+            self._set_process_state(
+                pid=pid,
+                state=NodeState.STOPPED,
+                action="wait",
+                actor=actor,
+                reason="process_exited_abruptly",
+                exit_code=exit_code,
+            )
+
+        logger.info(f"Node process pid={pid} exited with code {exit_code}.")
+
+        return exit_code
 
     def stop(
         self,
+        pid: int,
         actor: Optional[Dict[str, Any]] = None,
         reason: str = "stop_requested",
     ) -> None:
@@ -342,48 +388,54 @@ class NodeProcessManager:
             actor: Optional user/source metadata for process state attribution.
             reason: Optional reason for stopping the process, default is "stop_requested".
         """
-        if self._process is None or not self._process.is_alive():
-            logger.warning("No node process is running.")
+        # In case we try to start/restart an existing node process.
+        if (
+            self.get_status(pid) == NodeState.STOPPING.value
+            or self.get_status(pid) == NodeState.STOPPED.value
+        ):
+            logger.warning(
+                f"Node process 'pid={pid}' is already stopped. Ignoring stop request."
+            )
             return
 
         self._set_process_state(
+            pid=pid,
             state=NodeState.STOPPING,
             action="stop",
             actor=actor,
             reason=reason,
         )
-        self._process.terminate()
-        logger.info(
-            f"Sent termination signal to node process (pid={self._process.pid})."
-        )
-        time.sleep(0.5)
-        if self._process.is_alive():
-            logger.warning(
-                f"Federated Node Process did not terminate; sending SIGKILL to (pid={self._process.pid})."
-            )
-            self._process.kill()
-            time.sleep(0.5)
 
-        exit_code = self._process.exitcode
-        if self._process.is_alive():
-            logger.error(
-                f"Failed to kill node process (pid={self._process.pid}). "
-                "Process leak - manual intervention required."
+        _process = psutil.Process(pid)
+        _process.terminate()
+        logger.info(f"Sent termination signal to node process (pid={_process.pid}).")
+        exit_code = _process.wait(timeout=5)
+        if _process.is_running():
+            logger.warning(
+                f"Federated Node Process did not terminate; sending SIGKILL to (pid={_process.pid})."
             )
-            return
+            _process.kill()
+            exit_code = _process.wait(timeout=5)
+
+        if _process.is_running():
+            logger.error(
+                f"Node process (pid={_process.pid}) seems to be alive after the SIGKILL signal. "
+                "Potential process leak - manual intervention required."
+            )
 
         self._set_process_state(
+            pid=pid,
             state=NodeState.STOPPED,
             action="stop",
             actor=actor,
             reason=reason,
             exit_code=exit_code,
         )
-        self._cleanup_process()
         logger.info("Node process stopped.")
 
     def restart(
         self,
+        pid: int,
         node_args: dict,
         actor: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -393,16 +445,70 @@ class NodeProcessManager:
             node_args: Dict of arguments forwarded to the node subprocess on start.
             actor: Optional user/source metadata for process state attribution.
         """
-        self.stop(actor=actor, reason="restart_requested")
-        self.start(node_args, actor=actor)
+        self.stop(pid=pid, actor=actor, reason="restart_requested")
+        self.start(pid=pid, node_args=node_args, actor=actor)
 
-    def get_status(self) -> NodeState:
+    def get_status(self, pid: int) -> NodeState:
         """Get the current status of the node subprocess."""
-        if self._process is not None and self._process.is_alive():
-            return NodeState.RUNNING
-        return NodeState.STOPPED
+        self._init_state_tables()
+        state = self._state_table.get_by_id(pid)
+        if state is not None:
+            return state.get("state", NodeState.UNKNOWN.value)
+        return NodeState.UNKNOWN.value
 
-    @property
-    def process(self) -> multiprocessing.Process | None:
-        """The underlying process object, or None if not running."""
-        return self._process
+    def get_process_state(self, pid: int) -> Dict[str, Any]:
+        """Get the current node process state.
+
+        Returns:
+            Dictionary containing the latest persisted process-state metadata,
+            with ``state`` resolved through :meth:`get_status`.
+        """
+        self._init_state_tables()
+
+        state_entry = {
+            "pid": pid,
+            "state": self.get_status(pid),
+            "node_id": self._node_id,
+            "node_name": self._node_name,
+            "action": None,
+            "reason": None,
+            "actor": None,
+            "updated_at": None,
+            "started_at": None,
+            "stopped_at": None,
+            "exit_code": None,
+            "managed_by_current_process": False,
+        }
+
+        if not self._state_table or not self._node_id:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB327.value}: Node process state table is not initialized or node_id is missing."
+            )
+
+        stored_state = dict(self._state_table.get_by_id(pid))
+        if not stored_state:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB327.value}: No process state found for pid {pid}."
+            )
+
+        state_entry.update(stored_state)
+        return state_entry
+
+
+if __name__ == "__main__":
+    """Entry point for the node subprocess when started by the NodeProcessManager.
+
+    This function is called with the node configuration and arguments, and it starts the node runtime.
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Fed-BioMed Node Process Manager")
+    parser.add_argument(
+        "--config", type=str, required=True, help="Path to node configuration directory"
+    )
+    parser.add_argument(
+        "--node-args", type=str, required=False, help="JSON string of node arguments"
+    )
+
+    args = parser.parse_args()
+    _start_node_process(args.config, args.node_args)
