@@ -361,60 +361,13 @@ class TestNodeControl(unittest.TestCase):
             "--gpu" in self.subparsers.choices["start"]._option_string_actions
         )  # noqa
 
-    @patch("fedbiomed.node.cli.NodeProcessManager")
-    def test_02_node_control_start(self, mock_node_process_manager_cls):
-        self.control.initialize()
-        process = MagicMock(pid=1234)
-        mock_node_process_manager = mock_node_process_manager_cls.return_value
-        mock_node_process_manager.process = process
-
-        args = self.parser.parse_args(["start"])
-        os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
-
-        self.control.start(args)
-        mock_node_process_manager_cls.assert_called_once_with(self.node.config)
-        mock_node_process_manager.start.assert_called_once_with(
-            {
-                "gpu": False,
-                "gpu_num": 1,
-                "gpu_only": False,
-                "debug": False,
-            },
-        )
-        process.join.assert_called_once_with()
-
-    @patch("fedbiomed.node.cli.NodeProcessManager")
-    def test_04_node_control_start_gpu_and_debug_flags(
-        self, mock_node_process_manager_cls
-    ):
-        """Tests GPU and debug flags are correctly forwarded in node startup args."""
-        self.control.initialize()
-        mock_node_process_manager = mock_node_process_manager_cls.return_value
-        mock_node_process_manager.process = MagicMock(pid=1234)
-        os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
-
-        args = self.parser.parse_args(
-            ["start", "--gpu", "--gpu-num", "2", "--gpu-only", "--debug"]
-        )
-        self.control.start(args)
-
-        mock_node_process_manager_cls.assert_called_once_with(self.node.config)
-        mock_node_process_manager.start.assert_called_once_with(
-            {
-                "gpu": True,
-                "gpu_num": 2,
-                "gpu_only": True,
-                "debug": True,
-            },
-        )
-
     @patch("fedbiomed.node.node_pm.Node", autospec=True)
     def test_03_node_control__start(self, mock_node):
         """Tests node start"""
 
         cfg = configparser.ConfigParser()
         cfg["security"] = {
-            "training_plan_apprival": "true",
+            "training_plan_approval": "true",
             "allow_default_training_plan": "true",
         }
         cfg["default"] = {"id": "test-id"}
@@ -878,6 +831,11 @@ def test_get_map_modalities2folders_from_cli_scenarios(
     assert dlb.map == expected_map
 
 
+# ============================================================================
+# END --- PYTEST TESTS FOR MEDICAL FOLDER DATASET CLI UTILITIES
+# ============================================================================
+
+
 def test_intro():
     """Tests intro() prints the active node ID from the environment."""
     os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
@@ -894,6 +852,140 @@ def test_node_signal_trigger_term():
     with patch("os.kill") as mock_kill:
         _node_signal_trigger_term()
     mock_kill.assert_called_once_with(os.getpid(), signal.SIGTERM)
+
+
+@pytest.mark.parametrize(
+    "argv, expected_node_args",
+    [
+        (
+            ["start"],
+            {
+                "gpu": False,
+                "gpu_num": 1,
+                "gpu_only": False,
+                "debug": False,
+            },
+        ),
+        (
+            ["start", "--gpu", "--gpu-num", "2", "--debug"],
+            {
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": False,
+                "debug": True,
+            },
+        ),
+        (
+            ["start", "--gpu-only"],
+            {
+                "gpu": True,
+                "gpu_num": 1,
+                "gpu_only": True,
+                "debug": False,
+            },
+        ),
+        (
+            ["start", "--gpu", "--gpu-num", "2", "--gpu-only", "--debug"],
+            {
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": True,
+                "debug": True,
+            },
+        ),
+    ],
+)
+def test_node_control_start_builds_node_args_and_waits(
+    mocker,
+    argv,
+    expected_node_args,
+):
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    control = NodeControl(subparsers)
+    control.initialize()
+
+    node = MagicMock()
+    control._node = node
+
+    mock_intro = mocker.patch("fedbiomed.node.cli.intro")
+
+    mock_node_process_manager_cls = mocker.patch(
+        "fedbiomed.node.cli.NodeProcessManager"
+    )
+    mock_node_process_manager = mock_node_process_manager_cls.return_value
+    mock_node_process_manager.start.return_value = 1234
+
+    args = parser.parse_args(argv)
+
+    control.start(args)
+
+    mock_intro.assert_called_once_with()
+    mock_node_process_manager_cls.assert_called_once_with(node.config)
+
+    mock_node_process_manager.start.assert_called_once_with(
+        node_args=expected_node_args,
+        actor={"source": "cli"},
+    )
+
+    mock_node_process_manager.wait.assert_called_once_with(
+        pid=1234,
+        actor={"source": "cli"},
+    )
+
+    mock_node_process_manager.stop.assert_not_called()
+
+
+def test_node_control_start_keyboard_interrupt_stops_node(mocker):
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    control = NodeControl(subparsers)
+    control.initialize()
+
+    node = MagicMock()
+    control._node = node
+
+    mock_intro = mocker.patch("fedbiomed.node.cli.intro")
+
+    mock_node_process_manager_cls = mocker.patch(
+        "fedbiomed.node.cli.NodeProcessManager"
+    )
+    mock_node_process_manager = mock_node_process_manager_cls.return_value
+    mock_node_process_manager.start.return_value = 1234
+    mock_node_process_manager.wait.side_effect = KeyboardInterrupt
+
+    args = parser.parse_args(["start"])
+
+    with pytest.raises(SystemExit) as exc:
+        control.start(args)
+
+    assert exc.value.code == 0
+
+    mock_intro.assert_called_once_with()
+    mock_node_process_manager_cls.assert_called_once_with(node.config)
+
+    mock_node_process_manager.start.assert_called_once_with(
+        node_args={
+            "gpu": False,
+            "gpu_num": 1,
+            "gpu_only": False,
+            "debug": False,
+        },
+        actor={"source": "cli"},
+    )
+
+    mock_node_process_manager.wait.assert_called_once_with(
+        pid=1234,
+        actor={"source": "cli"},
+    )
+
+    mock_node_process_manager.stop.assert_called_once_with(
+        pid=1234,
+        actor={"source": "cli"},
+        reason="keyboard_interrupt",
+    )
 
 
 if __name__ == "__main__":
