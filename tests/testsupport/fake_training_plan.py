@@ -50,9 +50,12 @@ class FakeModel(BaseTrainingPlan):
         training_args: Dict[str, Any],
         aggregator_args: Optional[Dict[str, Any]] = None,
         node_id: Optional[str] = None,
+        round: Optional[int] = None,
     ) -> None:
         """Fake 'post_init', that does not make use of input arguments."""
-        super().post_init(model_args, training_args, aggregator_args, node_id=node_id)
+        super().post_init(
+            model_args, training_args, aggregator_args, node_id=node_id, round=round
+        )
 
     def model(self):
         return self._model

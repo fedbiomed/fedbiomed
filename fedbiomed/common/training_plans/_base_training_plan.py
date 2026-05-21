@@ -153,6 +153,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
         node_id: Optional[str] = None,
+        round: Optional[int] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -165,6 +166,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 researcher-side aggregator.
             initialize_optimizer: whether to initialize the optimizer or not. Defaults
                 to True.
+            node_id: the ID of the node executing the training plan, if applicable.
+            round: the current round of training, if applicable.
         """
 
         # Store various arguments provided by the researcher
@@ -174,7 +177,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._loader_args = training_args.loader_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._node_id = node_id
-
+        self._set_round(round)
         # Set random seed: the seed can be either None or an int provided by the researcher.
         # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
         rseed = training_args.get("random_seed")
@@ -984,7 +987,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         return self._round
 
-    def set_round(self, round_: int) -> None:
+    def _set_round(self, round_: int) -> None:
         """Set the current federated training round.
 
         Args:

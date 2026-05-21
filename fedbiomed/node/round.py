@@ -325,8 +325,8 @@ class Round:
                 training_args=self.training_arguments,
                 aggregator_args=self.aggregator_args,
                 node_id=self._node_id,
+                round=self._round,
             )
-            self.training_plan.set_round(self._round)
             logger.debug(
                 f"Training plan initialized for round: experiment={self.experiment_id} "
                 f"round={self._round} plan={self.training_plan.__class__.__name__} "
