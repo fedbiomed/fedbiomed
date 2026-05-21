@@ -250,7 +250,7 @@ class NodeProcessManager:
 
         try:
             now = _utc_now()
-            existing = self._state_table.get_by_id(self._node_id) or {}
+            existing = self._state_table.get_by_id(pid) or {}
             entry = {
                 "pid": pid,
                 "state": state.value,
@@ -305,7 +305,7 @@ class NodeProcessManager:
             logger.warning(
                 f"Node process 'pid={pid}' is already running. Ignoring start request."
             )
-            return
+            return pid
 
         # We are starting a new node process. We generate a new pid after starting the process.
         self._init_state_tables()
@@ -406,11 +406,28 @@ class NodeProcessManager:
             reason=reason,
         )
 
-        _process = psutil.Process(pid)
+        try:
+            _process = psutil.Process(pid)
+        except psutil.NoSuchProcess:
+            logger.warning(
+                f"Node process pid={pid} does not exist. Updating the database accurately."
+            )
+            self._set_process_state(
+                pid=pid,
+                state=NodeState.STOPPED,
+                action="stop",
+                actor=actor,
+                reason="process_not_found",
+                exit_code=None,
+            )
+            return
+
         _process.terminate()
         logger.info(f"Sent termination signal to node process (pid={_process.pid}).")
-        exit_code = _process.wait(timeout=5)
-        if _process.is_running():
+
+        try:
+            exit_code = _process.wait(timeout=5)
+        except psutil.TimeoutExpired:
             logger.warning(
                 f"Federated Node Process did not terminate; sending SIGKILL to (pid={_process.pid})."
             )
@@ -438,7 +455,7 @@ class NodeProcessManager:
         pid: int,
         node_args: dict,
         actor: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    ) -> int:
         """Stop then start the node subprocess.
 
         Args:
@@ -446,9 +463,9 @@ class NodeProcessManager:
             actor: Optional user/source metadata for process state attribution.
         """
         self.stop(pid=pid, actor=actor, reason="restart_requested")
-        self.start(pid=pid, node_args=node_args, actor=actor)
+        return self.start(pid=pid, node_args=node_args, actor=actor)
 
-    def get_status(self, pid: int) -> NodeState:
+    def get_status(self, pid: int) -> str:
         """Get the current status of the node subprocess."""
         self._init_state_tables()
         state = self._state_table.get_by_id(pid)
