@@ -864,6 +864,7 @@ def test_node_signal_trigger_term():
                 "gpu_num": 1,
                 "gpu_only": False,
                 "debug": False,
+                "background": False,
             },
         ),
         (
@@ -873,6 +874,7 @@ def test_node_signal_trigger_term():
                 "gpu_num": 2,
                 "gpu_only": False,
                 "debug": True,
+                "background": False,
             },
         ),
         (
@@ -882,15 +884,25 @@ def test_node_signal_trigger_term():
                 "gpu_num": 1,
                 "gpu_only": True,
                 "debug": False,
+                "background": False,
             },
         ),
         (
-            ["start", "--gpu", "--gpu-num", "2", "--gpu-only", "--debug"],
+            [
+                "start",
+                "--gpu",
+                "--gpu-num",
+                "2",
+                "--gpu-only",
+                "--debug",
+                "--background",
+            ],
             {
                 "gpu": True,
                 "gpu_num": 2,
                 "gpu_only": True,
                 "debug": True,
+                "background": True,
             },
         ),
     ],
@@ -915,7 +927,6 @@ def test_node_control_start_builds_node_args_and_waits(
         "fedbiomed.node.cli.NodeProcessManager"
     )
     mock_node_process_manager = mock_node_process_manager_cls.return_value
-    mock_node_process_manager.start.return_value = 1234
 
     args = parser.parse_args(argv)
 
@@ -926,11 +937,7 @@ def test_node_control_start_builds_node_args_and_waits(
 
     mock_node_process_manager.start.assert_called_once_with(
         node_args=expected_node_args,
-        actor={"source": "cli"},
-    )
-
-    mock_node_process_manager.wait.assert_called_once_with(
-        pid=1234,
+        background=expected_node_args["background"],
         actor={"source": "cli"},
     )
 
@@ -953,8 +960,7 @@ def test_node_control_start_keyboard_interrupt_stops_node(mocker):
         "fedbiomed.node.cli.NodeProcessManager"
     )
     mock_node_process_manager = mock_node_process_manager_cls.return_value
-    mock_node_process_manager.start.return_value = 1234
-    mock_node_process_manager.wait.side_effect = KeyboardInterrupt
+    mock_node_process_manager.start.side_effect = KeyboardInterrupt
 
     args = parser.parse_args(["start"])
 
@@ -972,17 +978,13 @@ def test_node_control_start_keyboard_interrupt_stops_node(mocker):
             "gpu_num": 1,
             "gpu_only": False,
             "debug": False,
+            "background": False,
         },
-        actor={"source": "cli"},
-    )
-
-    mock_node_process_manager.wait.assert_called_once_with(
-        pid=1234,
+        background=False,
         actor={"source": "cli"},
     )
 
     mock_node_process_manager.stop.assert_called_once_with(
-        pid=1234,
         actor={"source": "cli"},
         reason="keyboard_interrupt",
     )
