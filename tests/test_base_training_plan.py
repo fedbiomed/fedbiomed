@@ -145,7 +145,14 @@ class TestBaseTrainingPlan(unittest.TestCase):
         self.assertListEqual(self.tp.training_data_loader, train_data_loader)
         self.assertListEqual(self.tp.testing_data_loader, test_data_loader)
 
-    def test_base_training_plan_06__create_metric_result(self):
+    def test_base_training_plan_06_round(self):
+        """Test setting and retrieving the current training round."""
+
+        self.assertIsNone(self.tp.round())
+        self.tp.set_round(3)
+        self.assertEqual(self.tp.round(), 3)
+
+    def test_base_training_plan_07__create_metric_result(self):
         """
         Testing private method create metric result dict
 
