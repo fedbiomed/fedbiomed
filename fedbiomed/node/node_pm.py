@@ -502,13 +502,13 @@ class NodeProcessManager:
                 f"{ErrorNumbers.FB327.value}: Node process state table is not initialized or node_id is missing."
             )
 
-        stored_state = dict(self._state_table.get_by_id(pid))
+        stored_state = self._state_table.get_by_id(pid)
         if not stored_state:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB327.value}: No process state found for pid {pid}."
             )
 
-        state_entry.update(stored_state)
+        state_entry.update(dict(stored_state))
         return state_entry
 
 
