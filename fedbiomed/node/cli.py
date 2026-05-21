@@ -366,6 +366,14 @@ class NodeControl(CLIArgumentParser):
             help="Activate debug mode for the Node. Default is `False`",
         )
 
+        start.add_argument(
+            "--background",
+            "-b",
+            action="store_true",
+            required=False,
+            help="Start the node in the background. Default is `False`",
+        )
+
     def start(self, args):
         """Starts the node"""
         intro()
@@ -375,27 +383,20 @@ class NodeControl(CLIArgumentParser):
             "gpu_num": args.gpu_num,
             "gpu_only": True if args.gpu_only else False,
             "debug": True if args.debug else False,
+            "background": True if args.background else False,
         }
 
         node_process_manager = NodeProcessManager(self._node.config)
 
-        pid = node_process_manager.start(
-            node_args=node_args,
-            actor={"source": "cli"},
-        )
-
-        logger.info("Node started as process with pid = " + str(pid))
-
         try:
             print("To stop press Ctrl + C.")
-            node_process_manager.wait(
-                pid=pid,
+            node_process_manager.start(
+                node_args=node_args,
+                background=node_args.get("background", False),
                 actor={"source": "cli"},
             )
-
         except KeyboardInterrupt:
             node_process_manager.stop(
-                pid=pid,
                 actor={"source": "cli"},
                 reason="keyboard_interrupt",
             )
