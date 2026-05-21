@@ -24,13 +24,34 @@ def _config(mocker, node_id="node-1", node_name="Node 1", db_name="node_db.json"
     return config
 
 
-def test_node_pm_01_start(mocker):
-    config = _config(mocker)
-    node_args = {"gpu": False, "debug": True}
+@pytest.fixture
+def _manager(mocker):
+    state_table = mocker.MagicMock()
+    history_table = mocker.MagicMock()
 
-    manager = NodeProcessManager(config)
-    manager._init_state_tables = mocker.MagicMock()
+    mocker.patch(
+        "fedbiomed.node.node_pm.NodeProcessStateTable",
+        return_value=state_table,
+    )
+    mocker.patch(
+        "fedbiomed.node.node_pm.NodeProcessStateHistoryTable",
+        return_value=history_table,
+    )
+
+    manager = NodeProcessManager(_config(mocker))
+
+    return manager
+
+
+@pytest.mark.parametrize("background", [True, False])
+def test_node_pm_01_start(mocker, _manager, background):
+    config = _config(mocker)
+    node_args = {"gpu": False, "debug": True, "background": background}
+    manager = _manager
+
+    manager.get_status = mocker.MagicMock(return_value=NodeState.UNKNOWN)
     manager._set_process_state = mocker.MagicMock()
+    manager._wait = mocker.MagicMock()
 
     process = mocker.MagicMock()
     process.pid = 12345
@@ -40,14 +61,11 @@ def test_node_pm_01_start(mocker):
         return_value=process,
     )
 
-    pid = manager.start(
+    manager.start(
         node_args=node_args,
+        background=background,
         actor={"source": "gui"},
     )
-
-    assert pid == 12345
-
-    manager._init_state_tables.assert_called_once_with()
 
     mock_popen.assert_called_once_with(
         [
@@ -58,35 +76,43 @@ def test_node_pm_01_start(mocker):
             config.root,
             "--node-args",
             json.dumps(node_args),
-        ]
+        ],
+        stdout=mocker.ANY,
+        stderr=mocker.ANY,
     )
 
-    manager._set_process_state.assert_called_once_with(
-        pid=12345,
-        state=NodeState.RUNNING,
-        action="start",
-        actor={"source": "gui"},
-        reason="process_started",
-    )
+    mock_popen.assert_called_once()
+    if background:
+        manager._set_process_state.assert_called_once_with(
+            pid=12345,
+            state=NodeState.RUNNING,
+            action="start",
+            actor={"source": "gui"},
+            reason="process_started",
+        )
+    else:
+        manager._wait.assert_called_once_with(process, actor={"source": "gui"})
 
 
 @pytest.mark.parametrize(
     "status, should_set_stopped",
     [
-        (NodeState.RUNNING.value, True),
-        (NodeState.STOPPED.value, False),
+        (NodeState.RUNNING, True),
+        (NodeState.STOPPED, False),
     ],
 )
 def test_node_pm_02_wait(
     mocker,
+    _manager,
     status,
     should_set_stopped,
 ):
-    manager = NodeProcessManager(_config(mocker))
+    manager = _manager
     manager._set_process_state = mocker.MagicMock()
     manager.get_status = mocker.MagicMock(return_value=status)
 
     process = mocker.MagicMock()
+    process.pid = 12345
     process.wait.return_value = 0
 
     mocker.patch(
@@ -94,8 +120,8 @@ def test_node_pm_02_wait(
         return_value=process,
     )
 
-    exit_code = manager.wait(
-        pid=12345,
+    exit_code = manager._wait(
+        process=process,
         actor={"source": "cli"},
     )
 
@@ -124,17 +150,20 @@ def test_node_pm_02_wait(
 )
 def test_node_pm_03_stop(
     mocker,
+    _manager,
     wait_side_effect,
     expected_exit_code,
     should_kill,
 ):
-    manager = NodeProcessManager(_config(mocker))
+    manager = _manager
     manager._set_process_state = mocker.MagicMock()
-    manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING.value)
+    manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING)
+    manager._get_pid = mocker.MagicMock(return_value=12345)
 
     process = mocker.MagicMock()
     process.pid = 12345
     process.wait.side_effect = wait_side_effect
+    process.is_running.return_value = False
 
     mocker.patch(
         "fedbiomed.node.node_pm.psutil.Process",
@@ -142,7 +171,6 @@ def test_node_pm_03_stop(
     )
 
     manager.stop(
-        pid=12345,
         actor={"source": "gui"},
         reason="test_stop",
     )
@@ -174,35 +202,33 @@ def test_node_pm_03_stop(
     )
 
 
-def test_node_pm_04_restart(mocker):
-    manager = NodeProcessManager(_config(mocker))
+def test_node_pm_04_restart(mocker, _manager):
+    manager = _manager
+
     manager.stop = mocker.MagicMock()
     manager.start = mocker.MagicMock(return_value=67890)
 
-    new_pid = manager.restart(
-        pid=12345,
-        node_args={"gpu": False},
+    manager.restart(
+        node_args={"gpu": False, "background": True},
+        background=False,
         actor={"source": "gui"},
     )
 
-    assert new_pid == 67890
-
     manager.stop.assert_called_once_with(
-        pid=12345,
         actor={"source": "gui"},
         reason="restart_requested",
     )
 
     manager.start.assert_called_once_with(
-        pid=12345,
-        node_args={"gpu": False},
+        node_args={"gpu": False, "background": True},
+        background=True,
         actor={"source": "gui"},
     )
 
 
-def test_node_pm_05_set_process_state(mocker):
-    manager = NodeProcessManager(_config(mocker))
-    manager._node_id = "node-1"
+def test_node_pm_05_set_process_state(mocker, _manager):
+    manager = _manager
+    manager._node_id = "node_id1"
     manager._state_table = mocker.MagicMock()
     manager._history_table = mocker.MagicMock()
     manager._state_table.get_by_id.return_value = {
@@ -223,96 +249,99 @@ def test_node_pm_05_set_process_state(mocker):
     )
 
     manager._state_table.update_or_insert_by_id.assert_called_once()
-    assert manager._state_table.update_or_insert_by_id.call_args.args[0] == 1234
+    assert manager._state_table.update_or_insert_by_id.call_args.args[0] == "node_id1"
 
     manager._history_table.insert.assert_called_once()
 
     state_entry = manager._state_table.update_or_insert_by_id.call_args.args[1]
     history_entry = manager._history_table.insert.call_args.args[0]
 
-    assert state_entry["node_id"] == "node-1"
+    assert state_entry["node_id"] == "node_id1"
     assert state_entry["pid"] == 1234
-    assert state_entry["state"] == NodeState.RUNNING.value
+    assert NodeState(state_entry["state"]) == NodeState.RUNNING
     assert state_entry["started_at"] == "utc-now"
     assert state_entry["stopped_at"] is None
     assert state_entry["actor"] == {"source": "local"}
     assert history_entry == state_entry
 
 
-@pytest.mark.parametrize(
-    "status",
-    [
-        (NodeState.STARTING.value),
-        (NodeState.RUNNING.value),
-    ],
-)
-def test_node_pm_06_start_process_already_started(mocker, status):
-    manager = NodeProcessManager(_config(mocker))
-    manager.get_status = mocker.MagicMock(return_value=status)
-    manager._init_state_tables = mocker.MagicMock()
+def test_node_pm_06_start_process_already_started(mocker, _manager):
+    manager = _manager
+    manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING)
+
     mock_popen = mocker.patch("fedbiomed.node.node_pm.subprocess.Popen")
     mock_logger = mocker.patch("fedbiomed.node.node_pm.logger")
 
-    pid = manager.start(node_args={"gpu": False}, pid=123, actor={"source": "gui"})
-    assert pid == 123
+    manager.start(node_args={"gpu": False}, actor={"source": "gui"})
 
     mock_logger.warning.assert_called_once_with(
-        "Node process 'pid=123' is already running. Ignoring start request."
+        "Node process is already running. Ignoring start request."
     )
     mock_popen.assert_not_called()
-    manager._init_state_tables.assert_not_called()
 
 
 @pytest.mark.parametrize(
     "status",
     [
-        (NodeState.STOPPING.value),
-        (NodeState.STOPPED.value),
+        (NodeState.STOPPING),
+        (NodeState.STOPPED),
     ],
 )
-def test_node_pm_07_stop_process_already_stopped(mocker, status):
-    manager = NodeProcessManager(_config(mocker))
+def test_node_pm_07_stop_process_already_stopped(mocker, _manager, status):
+    manager = _manager
+
     manager.get_status = mocker.MagicMock(return_value=status)
     mock_logger = mocker.patch("fedbiomed.node.node_pm.logger")
 
-    manager.stop(pid=123)
+    manager.stop()
 
     mock_logger.warning.assert_called_once_with(
-        "Node process 'pid=123' is already stopped. Ignoring stop request."
+        "Node process is already stopped. Ignoring stop request."
     )
 
 
 @pytest.mark.parametrize(
-    "state",
+    "stored_state, pid_exists, expected_status",
     [
-        (NodeState.RUNNING.value),
-        None,
+        (NodeState.RUNNING, True, NodeState.RUNNING),
+        (NodeState.STOPPED, False, NodeState.STOPPED),
+        (None, False, NodeState.UNKNOWN),
     ],
 )
-def test_node_pm_08_get_status(mocker, state):
-    manager = NodeProcessManager(_config(mocker))
-    manager._init_state_tables = mocker.MagicMock()
-    manager._state_table = mocker.MagicMock()
-    manager._state_table.get_by_id.return_value = {"state": state}
+def test_node_pm_08_get_status(
+    mocker, _manager, stored_state, pid_exists, expected_status
+):
+    manager = _manager
+    state_table = manager._state_table
 
-    status = manager.get_status(12345)
-
-    if state is not None:
-        assert status == state
+    if stored_state is None:
+        state_table.get_by_id.return_value = None
     else:
-        assert status == NodeState.UNKNOWN.value
-    manager._init_state_tables.assert_called_once_with()
-    manager._state_table.get_by_id.assert_called_once_with(12345)
+        state_table.get_by_id.return_value = {
+            "pid": 12345,
+            "state": stored_state,
+        }
+
+    mocker.patch(
+        "fedbiomed.node.node_pm.psutil.pid_exists",
+        return_value=pid_exists,
+    )
+
+    status = manager.get_status()
+
+    assert status == expected_status
+    state_table.get_by_id.assert_called_with("node-1")
 
 
-def test_node_pm_09_get_process_state_returns_stored_entry(mocker):
-    manager = NodeProcessManager(_config(mocker))
-    manager._init_state_tables = mocker.MagicMock()
-    manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING.value)
+def test_node_pm_09_get_process_state_returns_stored_entry(mocker, _manager):
+    manager = _manager
+
+    manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING)
+    manager._get_pid = mocker.MagicMock(return_value=12345)
 
     stored = {
         "pid": 12345,
-        "state": NodeState.RUNNING.value,
+        "state": NodeState.RUNNING,
         "node_id": "node-1",
         "node_name": "Node 1",
         "action": "start",
@@ -327,14 +356,14 @@ def test_node_pm_09_get_process_state_returns_stored_entry(mocker):
     manager._state_table = mocker.MagicMock()
     manager._state_table.get_by_id.return_value = stored
 
-    state = manager.get_process_state(12345)
+    state = manager._get_process_state()
 
-    manager._init_state_tables.assert_called_once_with()
-    manager.get_status.assert_called_once_with(12345)
-    manager._state_table.get_by_id.assert_called_once_with(12345)
+    manager._get_pid.assert_called_once()
+    manager.get_status.assert_called_once()
+    manager._state_table.get_by_id.assert_called_with("node-1")
 
     assert state["pid"] == 12345
-    assert state["state"] == NodeState.RUNNING.value
+    assert state["state"] == NodeState.RUNNING
     assert state["node_id"] == "node-1"
     assert state["node_name"] == "Node 1"
     assert state["actor"] == {"source": "gui"}
