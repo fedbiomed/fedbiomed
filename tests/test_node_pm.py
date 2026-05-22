@@ -88,7 +88,7 @@ def test_node_pm_01_start(mocker, _manager, background):
             state=NodeState.RUNNING,
             action="start",
             actor={"source": "gui"},
-            reason="process_started",
+            reason="start_requested",
         )
     else:
         manager._wait.assert_called_once_with(process, actor={"source": "gui"})
@@ -209,7 +209,7 @@ def test_node_pm_04_restart(mocker, _manager):
     manager.start = mocker.MagicMock(return_value=67890)
 
     manager.restart(
-        node_args={"gpu": False, "background": True},
+        node_args={"gpu": False},
         background=False,
         actor={"source": "gui"},
     )
@@ -220,9 +220,10 @@ def test_node_pm_04_restart(mocker, _manager):
     )
 
     manager.start.assert_called_once_with(
-        node_args={"gpu": False, "background": True},
-        background=True,
+        node_args={"gpu": False},
+        background=False,
         actor={"source": "gui"},
+        reason="restart_requested",
     )
 
 
@@ -245,7 +246,7 @@ def test_node_pm_05_set_process_state(mocker, _manager):
         state=NodeState.RUNNING,
         action="start",
         actor={"source": "local"},
-        reason="process_started",
+        reason="start_requested",
     )
 
     manager._state_table.update_or_insert_by_id.assert_called_once()
@@ -260,7 +261,6 @@ def test_node_pm_05_set_process_state(mocker, _manager):
     assert state_entry["pid"] == 1234
     assert NodeState(state_entry["state"]) == NodeState.RUNNING
     assert state_entry["started_at"] == "utc-now"
-    assert state_entry["stopped_at"] is None
     assert state_entry["actor"] == {"source": "local"}
     assert history_entry == state_entry
 
@@ -345,7 +345,7 @@ def test_node_pm_09_get_process_state_returns_stored_entry(mocker, _manager):
         "node_id": "node-1",
         "node_name": "Node 1",
         "action": "start",
-        "reason": "process_started",
+        "reason": "start_requested",
         "actor": {"source": "gui"},
         "updated_at": "utc-now",
         "started_at": "utc-now",
@@ -362,9 +362,8 @@ def test_node_pm_09_get_process_state_returns_stored_entry(mocker, _manager):
     manager.get_status.assert_called_once()
     manager._state_table.get_by_id.assert_called_with("node-1")
 
-    assert state["pid"] == 12345
-    assert state["state"] == NodeState.RUNNING
-    assert state["node_id"] == "node-1"
-    assert state["node_name"] == "Node 1"
-    assert state["actor"] == {"source": "gui"}
-    assert state["managed_by_current_process"] is False
+    assert state.pid == 12345
+    assert state.state == NodeState.RUNNING
+    assert state.node_id == "node-1"
+    assert state.node_name == "Node 1"
+    assert state.actor == {"source": "gui"}

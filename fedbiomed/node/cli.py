@@ -438,7 +438,7 @@ class NodeControl(CLIArgumentParser):
         }
 
         node_process_manager = NodeProcessManager(self._node.config)
-        background = (True if args.background else False,)
+        background = True if args.background else False
         try:
             if background:
                 logger.info("Starting the node in the background...")
@@ -486,7 +486,7 @@ class NodeControl(CLIArgumentParser):
         node_process_manager = NodeProcessManager(self._node.config)
         node_process_manager.restart(
             node_args=node_args,
-            background=True if args.background else False,
+            background=(True if args.background else False),
             actor={"source": "cli"},
             reason="cli_restart_command",
         )

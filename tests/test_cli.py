@@ -864,7 +864,6 @@ def test_node_signal_trigger_term():
                 "gpu_num": 1,
                 "gpu_only": False,
                 "debug": False,
-                "background": False,
             },
         ),
         (
@@ -874,7 +873,6 @@ def test_node_signal_trigger_term():
                 "gpu_num": 2,
                 "gpu_only": False,
                 "debug": True,
-                "background": False,
             },
         ),
         (
@@ -884,7 +882,6 @@ def test_node_signal_trigger_term():
                 "gpu_num": 1,
                 "gpu_only": True,
                 "debug": False,
-                "background": False,
             },
         ),
         (
@@ -902,7 +899,6 @@ def test_node_signal_trigger_term():
                 "gpu_num": 2,
                 "gpu_only": True,
                 "debug": True,
-                "background": True,
             },
         ),
     ],
@@ -937,7 +933,7 @@ def test_node_control_start_builds_node_args_and_waits(
 
     mock_node_process_manager.start.assert_called_once_with(
         node_args=expected_node_args,
-        background=expected_node_args["background"],
+        background=args.background,
         actor={"source": "cli"},
     )
 
@@ -978,7 +974,6 @@ def test_node_control_start_keyboard_interrupt_stops_node(mocker):
             "gpu_num": 1,
             "gpu_only": False,
             "debug": False,
-            "background": False,
         },
         background=False,
         actor={"source": "cli"},

@@ -270,7 +270,7 @@ class NodeProcessManager:
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
 
-    def _get_process_state(self) -> Dict[str, Any]:
+    def _get_process_state(self) -> NodeProcessStateEntry:
         """Get the current node process state.
 
         Returns:
@@ -356,7 +356,6 @@ class NodeProcessManager:
             ],
             stdout=output_target,
             stderr=output_target,
-            start_new_session=True,
         )
         if output_target is not None:
             output_target.close()
