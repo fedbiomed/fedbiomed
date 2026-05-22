@@ -272,7 +272,7 @@ class TestRound(unittest.TestCase):
         # `run_model_training`
         with (
             patch.object(FakeModel, "set_dataset_path"),
-            patch.object(FakeModel, "set_round") as mock_set_round,
+            patch.object(FakeModel, "_set_round") as mock_set_round,
             patch.object(FakeModel, "training_routine") as mock_training_routine,
             patch.object(
                 self.r1, "_split_train_and_test_data"
