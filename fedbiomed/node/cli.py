@@ -374,6 +374,58 @@ class NodeControl(CLIArgumentParser):
             help="Start the node in the background. Default is `False`",
         )
 
+        stop = self._subparser.add_parser("stop", help="Stops the node")
+        stop.set_defaults(func=self.stop)
+
+        restart = self._subparser.add_parser(
+            "restart",
+            help="Restarts the node. Takes the same arguments as `start` command for restarting the node.",
+        )
+        restart.set_defaults(func=self.restart)
+
+        restart.add_argument(
+            "--gpu",
+            action="store_true",
+            help="Activate GPU usage if the flag is present",
+        )
+
+        restart.add_argument(
+            "--gpu-num",
+            "-gn",
+            type=int,
+            nargs="?",
+            required=False,
+            default=1,
+            help="Number of GPU that is going to be used",
+        )
+
+        restart.add_argument(
+            "--gpu-only",
+            "-go",
+            action="store_true",
+            help="Node performs training only using GPU resources."
+            "This flag automatically activate GPU.",
+        )
+
+        restart.add_argument(
+            "--debug",
+            "-D",
+            action="store_true",
+            required=False,
+            help="Activate debug mode for the Node. Default is `False`",
+        )
+
+        restart.add_argument(
+            "--background",
+            "-b",
+            action="store_true",
+            required=False,
+            help="Start the node in the background. Default is `False`",
+        )
+
+        status = self._subparser.add_parser("status", help="Shows the node status")
+        status.set_defaults(func=self.status)
+
     def start(self, args):
         """Starts the node"""
         intro()
@@ -383,16 +435,28 @@ class NodeControl(CLIArgumentParser):
             "gpu_num": args.gpu_num,
             "gpu_only": True if args.gpu_only else False,
             "debug": True if args.debug else False,
-            "background": True if args.background else False,
         }
 
         node_process_manager = NodeProcessManager(self._node.config)
-
+        background = (True if args.background else False,)
         try:
-            print("To stop press Ctrl + C.")
+            if background:
+                logger.info("Starting the node in the background...")
+                logger.info(
+                    "Use `fedbiomed node status` command to check the node status."
+                )
+                logger.info(
+                    "You can use the `fedbiomed node stop` command to stop the node."
+                )
+                logger.info(
+                    "Or you can use the `fedbiomed node restart` command to directly restart the node with new parameters."
+                )
+            else:
+                logger.info("Starting the node in the foreground...")
+                logger.info("Use Ctrl+C to stop the node.")
             node_process_manager.start(
                 node_args=node_args,
-                background=node_args.get("background", False),
+                background=background,
                 actor={"source": "cli"},
             )
         except KeyboardInterrupt:
@@ -401,6 +465,37 @@ class NodeControl(CLIArgumentParser):
                 reason="keyboard_interrupt",
             )
             sys.exit(0)
+
+    def stop(self):
+        """Stops the node"""
+        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager.stop(
+            actor={"source": "cli"},
+            reason="cli_stop_command",
+        )
+
+    def restart(self, args):
+        """Restarts the node"""
+        node_args = {
+            "gpu": (args.gpu is True) or (args.gpu_only is True),
+            "gpu_num": args.gpu_num,
+            "gpu_only": True if args.gpu_only else False,
+            "debug": True if args.debug else False,
+        }
+
+        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager.restart(
+            node_args=node_args,
+            background=True if args.background else False,
+            actor={"source": "cli"},
+            reason="cli_restart_command",
+        )
+
+    def status(self):
+        """Shows the node status"""
+        node_process_manager = NodeProcessManager(self._node.config)
+        status = node_process_manager.get_status()
+        print(f"Node status: {status}")
 
 
 class GUIControl(CLIArgumentParser):
@@ -474,7 +569,7 @@ class GUIControl(CLIArgumentParser):
             "-dbg",
             action="store_true",
             required=False,
-            help="HTTP port that GUI will be served. Default is `8484`",
+            help="Debug mode for the GUI. Default is `False`",
         )
 
         start.add_argument(

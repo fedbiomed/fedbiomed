@@ -265,8 +265,8 @@ class NodeProcessManager:
                 case NodeState.STOPPED:
                     entry.stopped_at = now
 
-            self._state_table.update_or_insert_by_id(self._node_id, entry)
-            self._history_table.insert(entry)
+            self._state_table.update_or_insert_by_id(self._node_id, entry.to_dict())
+            self._history_table.insert(entry.to_dict())
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
 
@@ -315,6 +315,7 @@ class NodeProcessManager:
         node_args: dict,
         background: bool = False,
         actor: Optional[Dict[str, Any]] = None,
+        reason: Optional[str] = "start_requested",
     ) -> None:
         """Spawn a node subprocess.
 
@@ -322,6 +323,7 @@ class NodeProcessManager:
             node_args: Dict of arguments forwarded to the node subprocess.
             background: If True, the node will be started in the background.
             actor: Optional user/source metadata for process state attribution.
+            reason: Optional reason for starting the process, default is "start_requested".
         """
 
         # Start should raise an error if the user is trying to start/restart an existing node process.
@@ -337,6 +339,8 @@ class NodeProcessManager:
         else:
             output_target = None
 
+        logger.info(f"Starting node subprocess with python={sys.executable}")
+        logger.info(f"Node subprocess config root={self._config.root}")
         # We are starting a new node process. We generate a new pid after starting the process.
         _process = subprocess.Popen(
             [
@@ -352,6 +356,7 @@ class NodeProcessManager:
             ],
             stdout=output_target,
             stderr=output_target,
+            start_new_session=True,
         )
         if output_target is not None:
             output_target.close()
@@ -361,7 +366,7 @@ class NodeProcessManager:
             state=NodeState.RUNNING,
             action="start",
             actor=actor,
-            reason="process_started",
+            reason=reason,
         )
         logger.info(f"Node '{self._node_id}' started (pid={_process.pid}).")
 
@@ -405,7 +410,7 @@ class NodeProcessManager:
     def stop(
         self,
         actor: Optional[Dict[str, Any]] = None,
-        reason: str = "stop_requested",
+        reason: Optional[str] = "stop_requested",
     ) -> None:
         """Terminate the running node subprocess.
 
@@ -451,6 +456,7 @@ class NodeProcessManager:
         _process.terminate()
         logger.info(f"Sent termination signal to node process (pid={_process.pid}).")
 
+        exit_code = None
         try:
             exit_code = _process.wait(timeout=5)
         except psutil.TimeoutExpired:
@@ -458,13 +464,13 @@ class NodeProcessManager:
                 f"Federated Node Process did not terminate; sending SIGKILL to (pid={_process.pid})."
             )
             _process.kill()
-            exit_code = _process.wait(timeout=5)
-
-        if _process.is_running():
-            logger.error(
-                f"Node process (pid={_process.pid}) seems to be alive after the SIGKILL signal. "
-                "Potential process leak - manual intervention required."
-            )
+            try:
+                exit_code = _process.wait(timeout=5)
+            except psutil.TimeoutExpired:
+                logger.error(
+                    f"Node process (pid={_process.pid}) did not terminate after SIGKILL. "
+                    "Potential process leak - manual intervention required."
+                )
 
         self._set_process_state(
             pid=pid,
@@ -481,6 +487,7 @@ class NodeProcessManager:
         node_args: dict,
         background: bool = False,
         actor: Optional[Dict[str, Any]] = None,
+        reason: Optional[str] = "restart_requested",
     ) -> None:
         """Stop then start the node subprocess.
 
@@ -488,10 +495,24 @@ class NodeProcessManager:
             node_args: Dict of arguments forwarded to the node subprocess on start.
             background: Whether to start the node in the background.
             actor: Optional user/source metadata for process state attribution.
+            reason: Optional reason for restarting the process, default is "restart_requested".
         """
-        background = background or node_args.get("background", False)
-        self.stop(actor=actor, reason="restart_requested")
-        self.start(node_args=node_args, background=background, actor=actor)
+        self.stop(actor=actor, reason=reason)
+        self.start(
+            node_args=node_args, background=background, actor=actor, reason=reason
+        )
+
+    def _is_process_active(self, pid: Optional[int]) -> bool:
+        """Check if a process with the given PID is active and running."""
+        if not pid:
+            return False
+        try:
+            process = psutil.Process(pid)
+            if process.status() == psutil.STATUS_ZOMBIE:
+                return False
+            return process.is_running()
+        except psutil.NoSuchProcess:
+            return False
 
     def get_status(self) -> NodeState:
         """Get the current status of the node subprocess."""
@@ -502,7 +523,7 @@ class NodeProcessManager:
         pid = state.get("pid")
         db_status = NodeState(state.get("state", NodeState.UNKNOWN))
 
-        if psutil.pid_exists(pid) and db_status != NodeState.RUNNING:
+        if self._is_process_active(pid) and db_status != NodeState.RUNNING:
             logger.warning(
                 f"Node process status mismatch for pid={pid}: database status is '{db_status}', but process is actually RUNNING. Updating database."
             )
@@ -513,9 +534,9 @@ class NodeProcessManager:
                 actor=None,
                 reason="status_mismatch_detected",
             )
-        if not psutil.pid_exists(pid) and db_status == NodeState.RUNNING:
+        if not self._is_process_active(pid) and db_status == NodeState.RUNNING:
             logger.warning(
-                f"Node process status mismatch for pid={pid}: database status is 'RUNNING', but process does not exist. Updating database to STOPPED."
+                f"Node process status mismatch for pid={pid}: database status is '{db_status}', but process does not exist. Updating database to STOPPED."
             )
             self._set_process_state(
                 pid=pid,
