@@ -21,6 +21,7 @@ from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.dataset_manager._db_dataclasses import NodeProcessStateEntry
 from fedbiomed.node.dataset_manager._db_tables import (
     NodeProcessStateHistoryTable,
     NodeProcessStateTable,
@@ -242,30 +243,30 @@ class NodeProcessManager:
         try:
             now = _utc_now()
             existing = self._state_table.get_by_id(self._node_id) or {}
-            entry = {
-                "pid": pid,
-                "state": state.value,
-                "node_id": self._node_id,
-                "node_name": self._node_name,
-                "action": action,
-                "reason": reason,
-                "actor": self._build_actor(actor),
-                "updated_at": now,
-                "started_at": existing.get("started_at"),
-                "stopped_at": existing.get("stopped_at"),
-                "exit_code": exit_code,
-            }
+            entry = NodeProcessStateEntry(
+                pid=pid,
+                state=state.value,
+                node_id=self._node_id,
+                node_name=self._node_name,
+                action=action,
+                reason=reason,
+                actor=self._build_actor(actor),
+                updated_at=now,
+                started_at=existing.get("started_at"),
+                stopped_at=existing.get("stopped_at"),
+                exit_code=exit_code,
+            )
 
             match state:
                 case NodeState.RUNNING:
-                    entry["started_at"] = existing.get("started_at") or now
-                    entry["stopped_at"] = None
-                    entry["exit_code"] = None
+                    entry.started_at = existing.get("started_at") or now
+                    entry.stopped_at = None
+                    entry.exit_code = None
                 case NodeState.STOPPED:
-                    entry["stopped_at"] = now
+                    entry.stopped_at = now
 
             self._state_table.update_or_insert_by_id(self._node_id, entry)
-            self._history_table.insert(entry.copy())
+            self._history_table.insert(entry)
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
 
@@ -277,20 +278,19 @@ class NodeProcessManager:
             with `state` resolved through `get_status`.
         """
 
-        state_entry = {
-            "pid": self._get_pid(),
-            "state": self.get_status(),
-            "node_id": self._node_id,
-            "node_name": self._node_name,
-            "action": None,
-            "reason": None,
-            "actor": None,
-            "updated_at": None,
-            "started_at": None,
-            "stopped_at": None,
-            "exit_code": None,
-            "managed_by_current_process": False,
-        }
+        state_entry = NodeProcessStateEntry(
+            pid=self._get_pid(),
+            state=self.get_status().value,
+            node_id=self._node_id,
+            node_name=self._node_name,
+            action=None,
+            reason=None,
+            actor=None,
+            updated_at=None,
+            started_at=None,
+            stopped_at=None,
+            exit_code=None,
+        )
 
         if not self._state_table or not self._node_id:
             raise FedbiomedError(
@@ -303,7 +303,7 @@ class NodeProcessManager:
                 f"{ErrorNumbers.FB327.value}: No process state found for node_id: {self._node_id}."
             )
 
-        state_entry.update(dict(stored_state))
+        state_entry = state_entry.from_dict(dict(stored_state))
         return state_entry
 
     # ------------------------------------------------------------------

@@ -105,7 +105,7 @@ class NodeProcessStateEntry(TableEntry):
     node_name: str
     state: str
     action: str
-    pid: Optional[int] = None
+    pid: int
     reason: Optional[str] = None
     actor: Optional[Dict[str, Any]] = None
     updated_at: Optional[str] = None
@@ -117,5 +117,3 @@ class NodeProcessStateEntry(TableEntry):
 @dataclass
 class NodeProcessStateHistoryEntry(NodeProcessStateEntry):
     """Historical node process state entry."""
-
-    pid: int
