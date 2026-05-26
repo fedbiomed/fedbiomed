@@ -16,9 +16,11 @@ from fedbiomed.common.constants import Stats
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FAReply
+from fedbiomed.common.utils import unflatten_fa_output
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
 from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.secagg import SecureAggregation
 
 
 class FAResult:
@@ -169,6 +171,20 @@ class FAResult:
     # ------------------------------------------------------------------
     # Mutation
     # ------------------------------------------------------------------
+
+    def _merge_aggregate(self, output: dict) -> None:
+        """Merge a pre-built aggregate output into the secagg virtual node.
+
+        Used by the encrypted reply path where all node contributions have been
+        decrypted and unflattened into a single aggregate dict by the researcher.
+        """
+        if "__secagg__" not in self._data:
+            self._data["__secagg__"] = output
+        else:
+            self._data["__secagg__"] = FAResult._deep_merge(
+                self._data["__secagg__"], output
+            )
+        self._computable_stats_cache = None
 
     def merge(self, replies: dict[str, FAReply]) -> None:
         """Add stats from a new request into the existing output tree,
@@ -436,6 +452,7 @@ class FederatedAnalytics:
         researcher_id: str,
         reqs: Requests,
         experimentation_folder: str,
+        secagg: Optional[SecureAggregation] = None,
         **kwargs,
     ) -> None:
         """Initialise a federated analytics session.
@@ -446,6 +463,8 @@ class FederatedAnalytics:
             researcher_id: Identifier of the researcher.
             reqs: Request handler used to communicate with nodes.
             experimentation_folder: Local folder for storing experiment artefacts.
+            secagg: Optional ``SecureAggregation`` instance.  When ``None`` or
+                inactive, FA runs in plaintext.
             **kwargs: Additional keyword arguments (reserved for future use).
         """
         self._fa_id: str = "FA_" + str(uuid.uuid4())
@@ -454,6 +473,10 @@ class FederatedAnalytics:
         self._researcher_id = researcher_id
         self._reqs = reqs
         self._experimentation_folder = experimentation_folder
+        self._secagg: SecureAggregation = (
+            secagg if secagg is not None else SecureAggregation(active=False)
+        )
+        self._fa_round_counter: int = 0
         # Maps hash(node_ids, dataset_schema, stats_args) → FAResult.
         self._results_store: OrderedDict[str, FAResult] = OrderedDict()
 
@@ -536,6 +559,25 @@ class FederatedAnalytics:
         if len(self._results_store) > self._MAX_CACHE_SIZE:
             self._results_store.popitem(last=False)
 
+    def _secagg_setup(self, node_ids: list[str]) -> dict:
+        """Set up secure aggregation for the given nodes and return secagg arguments.
+
+        Args:
+            node_ids: Node IDs that will participate in the FA round.
+
+        Returns:
+            Secagg arguments dict (suitable for inclusion in FARequest), or an empty
+            dict when secure aggregation is not active.
+        """
+        if not self._secagg.active:
+            return {}
+        self._secagg.setup(
+            parties=node_ids,
+            experiment_id=self._experiment_id,
+            researcher_id=self._researcher_id,
+        )
+        return dict(self._secagg.train_arguments())
+
     def _execute_and_update_cache(
         self,
         cache_key: str,
@@ -562,6 +604,11 @@ class FederatedAnalytics:
         Raises:
             FedbiomedError: If no replies are received or if any node returns an error.
         """
+        secagg_arguments = self._secagg_setup(node_ids)
+        self._fa_round_counter += 1
+        if secagg_arguments:
+            secagg_arguments["fa_round"] = self._fa_round_counter
+
         fa_job = FARequestJob(
             fa_id=self._fa_id,
             stats=stats,
@@ -572,15 +619,39 @@ class FederatedAnalytics:
             researcher_id=self._researcher_id,
             requests=self._reqs,
             nodes=node_ids,
+            secagg_arguments=secagg_arguments or None,
         )
 
         # Node-level errors and empty replies are handled by FARequestJob.execute()
         analytics_replies = fa_job.execute()
 
-        if cached is None:
-            cached = FAResult(analytics_replies)
+        first_reply = next(iter(analytics_replies.values()))
+        if first_reply.encrypted:
+            model_params = {
+                nid: r.params_encrypted for nid, r in analytics_replies.items()
+            }
+            encryption_factors = {
+                nid: r.encryption_factor for nid, r in analytics_replies.items()
+            }
+            num_expected_params = len(first_reply.params_encrypted)
+            aggregated_flat = self._secagg.aggregate(
+                round_=self._fa_round_counter,
+                total_sample_size=len(analytics_replies),
+                model_params=model_params,
+                encryption_factors=encryption_factors,
+                num_expected_params=num_expected_params,
+            )
+            output_schema = first_reply.output_schema
+            aggregated_output = unflatten_fa_output(aggregated_flat, output_schema)
+            if cached is None:
+                cached = FAResult(None)
+            cached._merge_aggregate(aggregated_output)
         else:
-            cached.merge(analytics_replies)
+            if cached is None:
+                cached = FAResult(analytics_replies)
+            else:
+                cached.merge(analytics_replies)
+
         self._cache_store(cache_key, cached)
         return cached
 

@@ -50,9 +50,10 @@ def base_fa(mock_fds, mock_requests):
 
 
 def _make_reply(output: dict) -> MagicMock:
-    """Create a MagicMock FAReply with the given output dict."""
+    """Create a MagicMock FAReply with the given output dict (plaintext path)."""
     r = MagicMock(spec=FAReply)
     r.output = output
+    r.encrypted = False
     return r
 
 
@@ -1420,3 +1421,171 @@ class TestCacheFallback:
             "mean", dataset_schema=["age"]
         )  # filtered_copy fails → new request
         assert mock_fa_job_cls.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# TestSecaggIntegration — encrypted-path tests for FederatedAnalytics
+# ---------------------------------------------------------------------------
+
+
+def _make_encrypted_reply(
+    params_encrypted, encryption_factor, output_schema
+) -> MagicMock:
+    """Create a MagicMock FAReply representing the encrypted path."""
+    r = MagicMock(spec=FAReply)
+    r.encrypted = True
+    r.params_encrypted = params_encrypted
+    r.encryption_factor = encryption_factor
+    r.output_schema = output_schema
+    r.output = None
+    return r
+
+
+class TestSecaggIntegration:
+    @pytest.fixture
+    def mock_secagg(self):
+        secagg = MagicMock()
+        secagg.active = True
+        secagg.train_arguments.return_value = {
+            "secagg_scheme": "LOM",
+            "secagg_random": 0.5,
+            "secagg_clipping_range": 3,
+            "parties": ["node-1", "node-2"],
+        }
+        return secagg
+
+    @pytest.fixture
+    def secagg_fa(self, mock_fds, mock_requests, mock_secagg):
+        return FederatedAnalytics(
+            fds=mock_fds,
+            experiment_id="exp-secagg",
+            researcher_id="res-456",
+            reqs=mock_requests,
+            experimentation_folder="/tmp/fedbiomed",
+            secagg=mock_secagg,
+        )
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_encrypted_replies_are_decrypted(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """Encrypted replies trigger secagg.aggregate(); result is unflattened into FAResult."""
+        # output_schema encodes {"age": {"sum": _, "count": _}}
+        schema = [["age", "sum"], ["age", "count"]]
+        reply_n1 = _make_encrypted_reply([100, 200], [1.0, 1.0], schema)
+        reply_n2 = _make_encrypted_reply([150, 300], [1.0, 1.0], schema)
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": reply_n1,
+            "node-2": reply_n2,
+        }
+
+        # aggregate() returns the decrypted flat list (sum of all nodes)
+        mock_secagg.aggregate.return_value = [45.0, 180]
+
+        result = secagg_fa.fetch_stats("mean")
+
+        mock_secagg.aggregate.assert_called_once()
+        assert isinstance(result, FAResult)
+        # The aggregated output is stored under "__secagg__"
+        assert "__secagg__" in result.node_ids
+        node_output = result.node_stats("__secagg__")
+        assert node_output == {"age": {"sum": 45.0, "count": 180}}
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_secagg_setup_called_with_node_ids(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg, mock_fds
+    ):
+        """_secagg_setup calls secagg.setup() with the node IDs from the federated dataset."""
+        schema = [["x"]]
+        reply = _make_encrypted_reply([1], [1.0], schema)
+        mock_fa_job_cls.return_value.execute.return_value = {"node-1": reply}
+        mock_fds.node_ids.return_value = ["node-1"]
+        mock_secagg.aggregate.return_value = [5.0]
+
+        secagg_fa.fetch_stats("mean")
+
+        mock_secagg.setup.assert_called_once_with(
+            parties=["node-1"],
+            experiment_id="exp-secagg",
+            researcher_id="res-456",
+        )
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fa_round_counter_increments(self, mock_fa_job_cls, secagg_fa, mock_secagg):
+        """fa_round injected into secagg_arguments increments with each FA request."""
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], [1.0], schema)
+        }
+        mock_secagg.aggregate.return_value = [1.0]
+
+        secagg_fa.fetch_stats("count")
+        secagg_fa.fetch_stats("mean")  # triggers second request (mean is missing)
+
+        assert secagg_fa._fa_round_counter == 2
+        calls = mock_fa_job_cls.call_args_list
+        assert calls[0].kwargs["secagg_arguments"]["fa_round"] == 1
+        assert calls[1].kwargs["secagg_arguments"]["fa_round"] == 2
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_secagg_arguments_forwarded_to_fa_job(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """train_arguments() dict (plus fa_round) is passed verbatim to FARequestJob."""
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], [1.0], schema)
+        }
+        mock_secagg.aggregate.return_value = [1.0]
+
+        secagg_fa.fetch_stats("count")
+
+        kwargs = mock_fa_job_cls.call_args.kwargs
+        sa = kwargs["secagg_arguments"]
+        assert sa["secagg_scheme"] == "LOM"
+        assert sa["fa_round"] == 1
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_inactive_secagg_sends_no_secagg_arguments(
+        self, mock_fa_job_cls, mock_fds, mock_requests
+    ):
+        """When secagg is inactive, secagg_arguments=None is forwarded to FARequestJob."""
+        from fedbiomed.researcher.secagg import SecureAggregation
+
+        fa = FederatedAnalytics(
+            fds=mock_fds,
+            experiment_id="exp",
+            researcher_id="res",
+            reqs=mock_requests,
+            experimentation_folder="/tmp",
+            secagg=SecureAggregation(active=False),
+        )
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_reply({"x": {"count": 10}})
+        }
+
+        fa.fetch_stats("count")
+
+        kwargs = mock_fa_job_cls.call_args.kwargs
+        assert kwargs["secagg_arguments"] is None
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_encrypted_merge_accumulates_stats(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """Two sequential encrypted requests merge their aggregate outputs in FAResult."""
+        schema_count = [["x", "count"]]
+        schema_sum = [["x", "sum"]]
+        replies_count = {"node-1": _make_encrypted_reply([100], [1.0], schema_count)}
+        replies_sum = {"node-1": _make_encrypted_reply([500], [1.0], schema_sum)}
+        mock_fa_job_cls.return_value.execute.side_effect = [replies_count, replies_sum]
+        mock_secagg.aggregate.side_effect = [[100.0], [500.0]]
+
+        secagg_fa.fetch_stats("count")
+        secagg_fa.fetch_stats("mean")  # mean requires sum + count
+
+        output = secagg_fa._results_store[
+            list(secagg_fa._results_store.keys())[-1]
+        ].node_stats("__secagg__")
+        assert output["x"]["count"] == 100.0
+        assert output["x"]["sum"] == 500.0
