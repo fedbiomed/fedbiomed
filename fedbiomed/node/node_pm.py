@@ -11,7 +11,7 @@ import signal
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import FrameType
 from typing import Any, Dict, Optional, Union
 
@@ -171,6 +171,9 @@ class NodeProcessManager:
         self._config = config
         self._node_id: str | None = config.get("default", "id")
         self._node_name: str | None = config.get("default", "name")
+        self._cleanup_process_state_history(
+            days=30
+        )  # Clean up old history entries on initialization
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -197,6 +200,39 @@ class NodeProcessManager:
             )
         )
         return NodeProcessStateHistoryTable(db_path)
+
+    def _cleanup_process_state_history(self, days: int = 30) -> None:
+        """Remove process-state history entries older than the given number of days.
+
+        Args:
+            days: Number of days to retain. Defaults to 30.
+        """
+        cutoff = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(
+            days=days
+        )
+
+        try:
+            entries = self._get_history_table().all()
+            for entry in entries:
+                updated_at = entry.get("updated_at")
+                if not updated_at:
+                    continue
+
+                try:
+                    entry_date = datetime.fromisoformat(
+                        updated_at.replace("Z", "+00:00")
+                    )
+                except ValueError:
+                    logger.warning(
+                        f"Could not parse process-state history timestamp: {updated_at}"
+                    )
+                    continue
+
+                if entry_date < cutoff:
+                    self._get_history_table().remove(doc_ids=[entry.doc_id])
+
+        except Exception as e:
+            logger.warning(f"Could not clean up old node process history entries: {e}")
 
     @staticmethod
     def _build_actor(actor: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

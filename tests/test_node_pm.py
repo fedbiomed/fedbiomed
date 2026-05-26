@@ -1,10 +1,17 @@
 import json
 import sys
+from datetime import datetime, timedelta, timezone
 
 import psutil
 import pytest
 
 from fedbiomed.node.node_pm import NodeProcessManager, NodeState
+
+
+class FakeDoc(dict):
+    def __init__(self, *args, doc_id=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.doc_id = doc_id
 
 
 def _config(mocker, node_id="node-1", node_name="Node 1", db_name="node_db.json"):
@@ -26,21 +33,49 @@ def _config(mocker, node_id="node-1", node_name="Node 1", db_name="node_db.json"
 
 @pytest.fixture
 def _manager(mocker):
+    """Create a manager with safe mocked DB tables.
+
+    Do not patch _cleanup_process_state_history here: some tests need the real
+    implementation. Instead, make the history table empty so init cleanup has no
+    DB side effects.
+    """
     state_table = mocker.MagicMock()
     history_table = mocker.MagicMock()
 
-    mocker.patch(
-        "fedbiomed.node.node_pm.NodeProcessStateTable",
+    state_table.get_by_id.return_value = None
+    history_table.all.return_value = []
+
+    mocker.patch.object(
+        NodeProcessManager,
+        "_get_state_table",
         return_value=state_table,
     )
-    mocker.patch(
-        "fedbiomed.node.node_pm.NodeProcessStateHistoryTable",
+    mocker.patch.object(
+        NodeProcessManager,
+        "_get_history_table",
         return_value=history_table,
     )
 
     manager = NodeProcessManager(_config(mocker))
 
+    # Test-only handles so tests can configure/assert the shared table mocks.
+    # Direct access to manager._state_table and manager._history_table does not exist
+    # in the current implementation.
+    manager._state_table = state_table
+    manager._history_table = history_table
+
     return manager
+
+
+def test_node_pm_00_init_calls_cleanup(mocker):
+    mock_cleanup = mocker.patch.object(
+        NodeProcessManager,
+        "_cleanup_process_state_history",
+    )
+
+    NodeProcessManager(_config(mocker))
+
+    mock_cleanup.assert_called_once_with(days=30)
 
 
 @pytest.mark.parametrize("background", [True, False])
@@ -230,9 +265,11 @@ def test_node_pm_04_restart(mocker, _manager):
 def test_node_pm_05_set_process_state(mocker, _manager):
     manager = _manager
     manager._node_id = "node_id1"
-    manager._state_table = mocker.MagicMock()
-    manager._history_table = mocker.MagicMock()
-    manager._state_table.get_by_id.return_value = {
+
+    state_table = manager._state_table
+    history_table = manager._history_table
+
+    state_table.get_by_id.return_value = {
         "started_at": None,
         "stopped_at": None,
     }
@@ -249,13 +286,13 @@ def test_node_pm_05_set_process_state(mocker, _manager):
         reason="start_requested",
     )
 
-    manager._state_table.update_or_insert_by_id.assert_called_once()
-    assert manager._state_table.update_or_insert_by_id.call_args.args[0] == "node_id1"
+    state_table.update_or_insert_by_id.assert_called_once()
+    assert state_table.update_or_insert_by_id.call_args.args[0] == "node_id1"
 
-    manager._history_table.insert.assert_called_once()
+    history_table.insert.assert_called_once()
 
-    state_entry = manager._state_table.update_or_insert_by_id.call_args.args[1]
-    history_entry = manager._history_table.insert.call_args.args[0]
+    state_entry = state_table.update_or_insert_by_id.call_args.args[1]
+    history_entry = history_table.insert.call_args.args[0]
 
     assert state_entry["node_id"] == "node_id1"
     assert state_entry["pid"] == 1234
@@ -301,7 +338,7 @@ def test_node_pm_07_stop_process_already_stopped(mocker, _manager, status):
 
 
 @pytest.mark.parametrize(
-    "stored_state, pid_exists, expected_status",
+    "stored_state, _is_process_active, expected_status",
     [
         (NodeState.RUNNING, True, NodeState.RUNNING),
         (NodeState.STOPPED, False, NodeState.STOPPED),
@@ -309,10 +346,11 @@ def test_node_pm_07_stop_process_already_stopped(mocker, _manager, status):
     ],
 )
 def test_node_pm_08_get_status(
-    mocker, _manager, stored_state, pid_exists, expected_status
+    mocker, _manager, stored_state, _is_process_active, expected_status
 ):
     manager = _manager
     state_table = manager._state_table
+    manager._is_process_active = mocker.MagicMock(return_value=_is_process_active)
 
     if stored_state is None:
         state_table.get_by_id.return_value = None
@@ -321,11 +359,6 @@ def test_node_pm_08_get_status(
             "pid": 12345,
             "state": stored_state,
         }
-
-    mocker.patch(
-        "fedbiomed.node.node_pm.psutil.pid_exists",
-        return_value=pid_exists,
-    )
 
     status = manager.get_status()
 
@@ -338,6 +371,8 @@ def test_node_pm_09_get_process_state_returns_stored_entry(mocker, _manager):
 
     manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING)
     manager._get_pid = mocker.MagicMock(return_value=12345)
+
+    state_table = manager._state_table
 
     stored = {
         "pid": 12345,
@@ -353,17 +388,70 @@ def test_node_pm_09_get_process_state_returns_stored_entry(mocker, _manager):
         "exit_code": None,
     }
 
-    manager._state_table = mocker.MagicMock()
-    manager._state_table.get_by_id.return_value = stored
+    state_table.get_by_id.return_value = stored
 
     state = manager._get_process_state()
 
     manager._get_pid.assert_called_once()
     manager.get_status.assert_called_once()
-    manager._state_table.get_by_id.assert_called_with("node-1")
+    state_table.get_by_id.assert_called_with("node-1")
 
     assert state.pid == 12345
     assert state.state == NodeState.RUNNING
     assert state.node_id == "node-1"
     assert state.node_name == "Node 1"
     assert state.actor == {"source": "gui"}
+
+
+def test_10_cleanup_process_state_history_removes_entries_older_than_30_days(
+    mocker, _manager
+):
+    old_entry = FakeDoc(
+        {
+            "updated_at": (datetime.now(timezone.utc) - timedelta(days=31))
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z"),
+        },
+        doc_id=1,
+    )
+
+    recent_entry = FakeDoc(
+        {
+            "updated_at": (datetime.now(timezone.utc) - timedelta(days=10))
+            .replace(microsecond=0)
+            .isoformat()
+            .replace("+00:00", "Z")
+        },
+        doc_id=2,
+    )
+
+    manager = _manager
+    history_table = manager._history_table
+    history_table.reset_mock()
+    history_table.all.return_value = [old_entry, recent_entry]
+
+    manager._cleanup_process_state_history()
+
+    history_table.remove.assert_called_once_with(doc_ids=[1])
+
+
+def test_11_get_table_reinitializes_state_and_history_tables(mocker):
+    state_table_constructor = mocker.patch(
+        "fedbiomed.node.node_pm.NodeProcessStateTable"
+    )
+    history_table_constructor = mocker.patch(
+        "fedbiomed.node.node_pm.NodeProcessStateHistoryTable"
+    )
+
+    mocker.patch.object(NodeProcessManager, "_cleanup_process_state_history")
+
+    manager = NodeProcessManager(_config(mocker))
+
+    manager._get_state_table()
+    manager._get_state_table()
+    manager._get_history_table()
+    manager._get_history_table()
+
+    assert state_table_constructor.call_count == 2
+    assert history_table_constructor.call_count == 2
