@@ -2,9 +2,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, Stats
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, SAParameters, Stats
 from fedbiomed.common.dataset_types import DataReturnFormat
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecureAggregationError
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.node.jobs._fa_job import FAJob, _InternalJobError
 
@@ -453,3 +453,180 @@ def test_run_multiple_stats(fa_job_args, request_args):
     assert isinstance(reply, FAReply)
     assert reply.stats == stats_list
     assert mock_dataset.compute_stats.call_args[1]["stats"] == stats_list
+
+
+# ----------------------------- run() — secagg paths -----------------
+
+
+@pytest.fixture
+def secagg_args():
+    """Minimal secagg_arguments dict for a JLS FA round."""
+    from fedbiomed.common.constants import SecureAggregationSchemes
+
+    return {
+        "secagg_scheme": SecureAggregationSchemes.JOYE_LIBERT,
+        "secagg_servkey_id": "serv-id",
+        "secagg_clipping_range": 3,
+        "secagg_random": 0.5,
+        "parties": ["researcher-1", "node-1", "node-2"],
+        "fa_round": 2,
+    }
+
+
+def _make_fa_job(
+    fa_job_args,
+    fa_request,
+    secagg_active=False,
+    force_secagg=False,
+    secagg_arguments=None,
+):
+    """Helper: build FAJob with secagg parameters."""
+    return FAJob(
+        **{
+            **fa_job_args,
+            "request": fa_request,
+            "db": "/tmp/test.json",
+            "secagg_active": secagg_active,
+            "force_secagg": force_secagg,
+            "secagg_arguments": secagg_arguments,
+        }
+    )
+
+
+def test_run_secagg_force_without_args_returns_error(fa_job_args, fa_request):
+    """force_secagg=True + no secagg_arguments → ErrorMessage (node policy violated)."""
+    job = _make_fa_job(
+        fa_job_args,
+        fa_request,
+        secagg_active=True,
+        force_secagg=True,
+        secagg_arguments=None,
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"col1": 1.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+
+
+def test_run_secagg_not_active_returns_error(fa_job_args, fa_request, secagg_args):
+    """secagg_arguments provided + secagg_active=False → ErrorMessage."""
+    job = _make_fa_job(
+        fa_job_args,
+        fa_request,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_arguments=secagg_args,
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"col1": 1.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
+def test_run_encrypted_path_returns_fa_reply(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """When use_secagg is True, run() returns encrypted FAReply with all required fields."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg.encrypt.return_value = [100, 200, 300]
+    mock_secagg_cls.return_value = mock_secagg
+
+    job = _make_fa_job(
+        fa_job_args,
+        fa_request,
+        secagg_active=True,
+        force_secagg=False,
+        secagg_arguments=secagg_args,
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"a": 1.0, "b": 2.0, "c": 3.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, FAReply)
+    assert reply.encrypted is True
+    assert reply.params_encrypted == [100, 200, 300]
+    assert reply.output is None
+    assert reply.output_schema is not None
+    assert reply.encryption_factor is not None
+    assert len(reply.encryption_factor) == 3
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
+def test_run_encrypted_path_uses_fa_round_from_args(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """encrypt() is called with the fa_round from secagg_arguments."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg.encrypt.return_value = [1]
+    mock_secagg_cls.return_value = mock_secagg
+
+    secagg_args["fa_round"] = 7
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"x": 5.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        job.run()
+
+    call_args = mock_secagg.encrypt.call_args
+    assert call_args[0][1] == 7  # fa_round positional arg
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
+def test_run_encrypted_encryption_factor_uses_clipping_range(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """encryption_factor = TARGET_RANGE / (2 * clipping_range) for each element."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg.encrypt.return_value = [0, 0]
+    mock_secagg_cls.return_value = mock_secagg
+
+    secagg_args["secagg_clipping_range"] = 5
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"a": 1.0, "b": 2.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    expected_factor = SAParameters.TARGET_RANGE / (2 * 5)
+    assert all(f == expected_factor for f in reply.encryption_factor)
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
+def test_run_secagg_round_error_returns_error_message(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """FedbiomedSecureAggregationError from SecaggFARound → ErrorMessage."""
+    mock_secagg_cls.side_effect = FedbiomedSecureAggregationError("context missing")
+
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"a": 1.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    assert "context missing" in reply.extra_msg
