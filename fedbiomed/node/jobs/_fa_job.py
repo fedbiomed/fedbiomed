@@ -5,17 +5,27 @@
 Implementation of Federated Analytics Job class of the node component
 """
 
-from typing import Dict
+from typing import Dict, Optional
 
 import polars as pl
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, FedbiomedError, Stats
+from fedbiomed.common.constants import (
+    DatasetTypes,
+    ErrorNumbers,
+    FedbiomedError,
+    SAParameters,
+    Stats,
+)
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import REGISTRY_CONTROLLERS, Dataset
 from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
+from fedbiomed.common.utils import flatten_fa_output
 from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.secagg import SecaggFARound
 
 from ._base_job import _BaseJob, _InternalJobError
 
@@ -33,6 +43,10 @@ class FAJob(_BaseJob):
         node_name: str,
         request: FARequest,
         allow_fa: bool,
+        db: str = "",
+        secagg_active: bool = False,
+        force_secagg: bool = False,
+        secagg_arguments: Optional[Dict] = None,
     ) -> None:
         """Constructor of the class
 
@@ -43,6 +57,12 @@ class FAJob(_BaseJob):
             node_name: Node name (Hospital name)
             request: FARequest message object containing all information about the FA task
             allow_fa: True if federated analytics is allowed on this node, False otherwise
+            db: Path to the node database file; required when secagg is active.
+            secagg_active: True if secure aggregation is enabled in node config.
+            force_secagg: True if the node mandates secure aggregation; an FA request
+                without secagg_arguments is then rejected.
+            secagg_arguments: Secure aggregation arguments forwarded from the FARequest;
+                None means the researcher did not request encryption.
         """
         super().__init__(root_dir, dataset_manager, node_id, node_name, request)
 
@@ -53,6 +73,10 @@ class FAJob(_BaseJob):
         self._stats_args = request.stats_args
         self._dataset_schema = request.dataset_schema
         self._allow_fa = allow_fa
+        self._db = db
+        self._secagg_active = secagg_active
+        self._force_secagg = force_secagg
+        self._secagg_arguments = secagg_arguments
 
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
         """Extract dataset constructor arguments from a dataset registry entry.
@@ -223,6 +247,45 @@ class FAJob(_BaseJob):
                     f"on node='{self._node_id}': {repr(e)}"
                 ),
                 errnum=ErrorNumbers.FB325.value,
+            )
+
+        try:
+            secagg_round = SecaggFARound(
+                db=self._db,
+                node_id=self._node_id,
+                secagg_arguments=self._secagg_arguments,
+                secagg_active=self._secagg_active,
+                force_secagg=self._force_secagg,
+                experiment_id=self._experiment_id,
+            )
+        except FedbiomedSecureAggregationError as e:
+            return self._build_error_msg(msg=repr(e), errnum=ErrorNumbers.FB325.value)
+
+        if secagg_round.use_secagg:
+            flat, schema = flatten_fa_output(output)
+            fa_round = self._secagg_arguments.get("fa_round", 1)
+            encrypted_params = secagg_round.encrypt(flat, fa_round, weight=1)
+
+            clipping_range = (
+                self._secagg_arguments.get("secagg_clipping_range")
+                or SAParameters.CLIPPING_RANGE
+            )
+            encryption_factor = [
+                SAParameters.TARGET_RANGE / (2 * clipping_range)
+            ] * len(flat)
+
+            return FAReply(
+                request_id=self._request_id,
+                researcher_id=self._researcher_id,
+                experiment_id=self._experiment_id,
+                fa_id=self._fa_id,
+                stats=self._stats,
+                node_id=self._node_id,
+                node_name=self._node_name,
+                encrypted=True,
+                params_encrypted=encrypted_params,
+                encryption_factor=encryption_factor,
+                output_schema=schema,
             )
 
         return FAReply(
