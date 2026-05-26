@@ -171,6 +171,13 @@ class NodeProcessManager:
         self._config = config
         self._node_id: str | None = config.get("default", "id")
         self._node_name: str | None = config.get("default", "name")
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _get_state_table(self) -> NodeProcessStateTable:
+        """Get the state table instance."""
         db_path = os.path.abspath(
             os.path.join(
                 self._config.root,
@@ -178,12 +185,18 @@ class NodeProcessManager:
                 self._config.get("default", "db"),
             )
         )
-        self._state_table = NodeProcessStateTable(db_path)
-        self._history_table = NodeProcessStateHistoryTable(db_path)
+        return NodeProcessStateTable(db_path)
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
+    def _get_history_table(self) -> NodeProcessStateHistoryTable:
+        """Get the history table instance."""
+        db_path = os.path.abspath(
+            os.path.join(
+                self._config.root,
+                CONFIG_FOLDER_NAME,
+                self._config.get("default", "db"),
+            )
+        )
+        return NodeProcessStateHistoryTable(db_path)
 
     @staticmethod
     def _build_actor(actor: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -233,8 +246,8 @@ class NodeProcessManager:
             exit_code: Optional exit code for the process.
         """
         if (
-            not self._state_table
-            or not self._history_table
+            not self._get_state_table()
+            or not self._get_history_table()
             or not self._node_id
             or not self._node_name
         ):
@@ -242,7 +255,7 @@ class NodeProcessManager:
 
         try:
             now = _utc_now()
-            existing = self._state_table.get_by_id(self._node_id) or {}
+            existing = self._get_state_table().get_by_id(self._node_id) or {}
             entry = NodeProcessStateEntry(
                 pid=pid,
                 state=state.value,
@@ -265,8 +278,10 @@ class NodeProcessManager:
                 case NodeState.STOPPED:
                     entry.stopped_at = now
 
-            self._state_table.update_or_insert_by_id(self._node_id, entry.to_dict())
-            self._history_table.insert(entry.to_dict())
+            self._get_state_table().update_or_insert_by_id(
+                self._node_id, entry.to_dict()
+            )
+            self._get_history_table().insert(entry.to_dict())
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
 
@@ -292,12 +307,12 @@ class NodeProcessManager:
             exit_code=None,
         )
 
-        if not self._state_table or not self._node_id:
+        if not self._get_state_table() or not self._node_id:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB327.value}: Node process state table is not initialized or node_id is missing."
             )
 
-        stored_state = self._state_table.get_by_id(self._node_id)
+        stored_state = self._get_state_table().get_by_id(self._node_id)
         if not stored_state:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB327.value}: No process state found for node_id: {self._node_id}."
@@ -398,13 +413,6 @@ class NodeProcessManager:
 
         logger.info(f"Node process pid={process.pid} exited with code {exit_code}.")
         return exit_code
-
-    def _get_pid(self) -> Optional[int]:
-        """Get the PID of the currently running node process, if any."""
-        state = self._state_table.get_by_id(self._node_id)
-        if state and state.get("state") == NodeState.RUNNING.value:
-            return state.get("pid")
-        return None
 
     def stop(
         self,
@@ -515,7 +523,7 @@ class NodeProcessManager:
 
     def get_status(self) -> NodeState:
         """Get the current status of the node subprocess."""
-        state = self._state_table.get_by_id(self._node_id)
+        state = self._get_state_table().get_by_id(self._node_id)
         if state is None:
             return NodeState.UNKNOWN
 
@@ -546,9 +554,16 @@ class NodeProcessManager:
                 exit_code=None,
             )
 
-        final_state = self._state_table.get_by_id(self._node_id)
+        final_state = self._get_state_table().get_by_id(self._node_id)
         final_db_status = NodeState(final_state.get("state", NodeState.UNKNOWN))
         return final_db_status
+
+    def _get_pid(self) -> Optional[int]:
+        """Get the PID of the currently running node process, if any."""
+        state = self._get_state_table().get_by_id(self._node_id)
+        if state and state.get("state") == NodeState.RUNNING.value:
+            return state.get("pid")
+        return None
 
 
 if __name__ == "__main__":
