@@ -67,18 +67,19 @@ class RowAccumulator(Accumulator):
     ) -> Tuple[
         Dict[str, List[int]],
         Dict[str, Dict[Type[Accumulator], None]],
-        Dict[int, List[Tuple[str, Accumulator]]],
+        Dict[int, List[Accumulator]],
     ]:
         """Classify each stat as vectorized (no args) or independent (has args).
 
         Returns:
-            As col_indices, per-stat list of column indices for vectorized stats.
-            As seen_classes, per-stat insertion-ordered set of accumulator classes.
-            As independent_accumulators, per-column list of (stat_name, accumulator) pairs.
+            col_indices: per-stat column indices for vectorized stats.
+            seen_classes: per-stat accumulator classes (insertion-ordered).
+            independent_accumulators: per-column accumulator list; each
+                finalize() must return ``{stat_name: value}``.
         """
         col_indices: Dict[str, List[int]] = {}
         seen_classes: Dict[str, Dict[Type[Accumulator], None]] = {}
-        independent: Dict[int, List[Tuple[str, Accumulator]]] = {}
+        independent: Dict[int, List[Accumulator]] = {}
 
         for col_name, stats in self.column_configs.items():
             idx = self.col_map[col_name]
@@ -94,7 +95,7 @@ class RowAccumulator(Accumulator):
                         stat, DatasetElementType.ROW
                     ):
                         acc = acc_cls(**args)
-                        independent.setdefault(idx, []).append((stat, acc))
+                        independent.setdefault(idx, []).append(acc)
 
         return col_indices, seen_classes, independent
 
@@ -153,7 +154,7 @@ class RowAccumulator(Accumulator):
                 acc.update(value[indices])
 
         for col_idx, acc_list in self.independent_accumulators.items():
-            for _, acc in acc_list:
+            for acc in acc_list:
                 acc.update(value[col_idx])
 
     def finalize(self) -> Dict[str, Dict[str, Any]]:
@@ -178,8 +179,9 @@ class RowAccumulator(Accumulator):
                     for output_key, packed_array in arrays_per_stat[stat_name].items():
                         col_results[output_key] = packed_array[col_pos]
 
-            for stat_name, acc in self.independent_accumulators.get(col_idx, []):
-                col_results[stat_name] = acc.finalize()
+            # Independent accumulators return {stat_name: value}; update mirrors the vectorized path.
+            for acc in self.independent_accumulators.get(col_idx, []):
+                col_results.update(acc.finalize())
 
             results[col_name] = col_results
 
