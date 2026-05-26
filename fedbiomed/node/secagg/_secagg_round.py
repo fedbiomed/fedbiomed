@@ -207,13 +207,19 @@ class _LomRound(_SecaggSchemeRound):
         )
 
 
-class SecaggRound:  # pylint: disable=too-few-public-methods
-    """This class wraps secure aggregation schemes
+class _SecaggRoundBase:  # pylint: disable=too-few-public-methods
+    """Common base for secure aggregation round wrappers.
+
+    Subclasses set ``_request_label`` to a human-readable name for the request
+    type (e.g. ``"training request"``, ``"FA request"``), which appears in
+    error messages.
 
     Attributes:
-        scheme: Secure aggregation scheme
-        use_secagg: True if secure aggregation is activated for round
+        use_secagg: True when secure aggregation is active for this round.
+        scheme: The concrete scheme object, or None when ``use_secagg`` is False.
     """
+
+    _request_label: str = "request"
 
     element2class = {
         SecureAggregationSchemes.JOYE_LIBERT.value: _JLSRound,
@@ -224,72 +230,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
         self,
         db: str,
         node_id: str,
-        secagg_arguments: Dict[str, Any] | None,
-        secagg_active: bool,
-        force_secagg: bool,
-        experiment_id: str,
-    ) -> None:
-        """Constructor of the class"""
-
-        self._node_id = node_id
-        self._secagg_active = secagg_active
-        self._force_secagg = force_secagg
-
-        self.use_secagg: bool = False
-        self.scheme: _SecaggSchemeRound | None = None
-
-        if not secagg_arguments and self._force_secagg:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB318.value}: Node requires to apply secure aggregation but "
-                f"training request does not define it."
-            )
-
-        if secagg_arguments:
-            if not self._secagg_active:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value} Requesting secure aggregation while "
-                    "it's not activated on the node."
-                )
-
-            sn = secagg_arguments.get("secagg_scheme")
-
-            if sn is None:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value}: Secagg scheme value missing in "
-                    "the argument `secagg_arguments`"
-                )
-            try:
-                _scheme = SecureAggregationSchemes(sn)
-            except ValueError as e:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in train request: {sn}"
-                ) from e
-
-            self.scheme = SecaggRound.element2class[_scheme.value](
-                db, node_id, secagg_arguments, experiment_id
-            )
-            self.use_secagg = True
-
-
-class SecaggFARound:  # pylint: disable=too-few-public-methods
-    """Secure aggregation wrapper for a federated analytics round.
-
-    Mirrors ``SecaggRound`` exactly: policy guards (``force_secagg``,
-    ``secagg_active``) live here, not in the caller.  The caller creates this
-    object, catches ``FedbiomedSecureAggregationError``, and checks
-    ``use_secagg`` before calling ``encrypt``.
-    """
-
-    element2class = {
-        SecureAggregationSchemes.JOYE_LIBERT.value: _JLSRound,
-        SecureAggregationSchemes.LOM.value: _LomRound,
-    }
-
-    def __init__(
-        self,
-        db: str,
-        node_id: str,
-        secagg_arguments: Optional[Dict],
+        secagg_arguments: Optional[Dict[str, Any]],
         secagg_active: bool,
         force_secagg: bool,
         experiment_id: str,
@@ -299,13 +240,13 @@ class SecaggFARound:  # pylint: disable=too-few-public-methods
         Args:
             db: Path to the node database file.
             node_id: ID of the active node.
-            secagg_arguments: Secure aggregation arguments from the FA request,
+            secagg_arguments: Secure aggregation arguments from the request,
                 or None when the researcher did not request encryption.
             secagg_active: True if secure aggregation is enabled in node config.
-            force_secagg: True if the node mandates secure aggregation; an FA
+            force_secagg: True if the node mandates secure aggregation; a
                 request without ``secagg_arguments`` is then rejected.
             experiment_id: Experiment identifier used to validate the stored
-                secagg context against the current FA session.
+                secagg context against the current session.
 
         Raises:
             FedbiomedSecureAggregationError: ``force_secagg`` is True but no
@@ -321,7 +262,7 @@ class SecaggFARound:  # pylint: disable=too-few-public-methods
         if not secagg_arguments and force_secagg:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Node requires secure aggregation but "
-                "FA request does not define it."
+                f"{self._request_label} does not define it."
             )
 
         if secagg_arguments:
@@ -340,13 +281,32 @@ class SecaggFARound:  # pylint: disable=too-few-public-methods
                 _scheme = SecureAggregationSchemes(sn)
             except ValueError as e:
                 raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in FA request: {sn}"
+                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in "
+                    f"{self._request_label}: {sn}"
                 ) from e
 
-            self.scheme = SecaggFARound.element2class[_scheme.value](
+            self.scheme = self.element2class[_scheme.value](
                 db, node_id, secagg_arguments, experiment_id
             )
             self.use_secagg = True
+
+
+class SecaggRound(_SecaggRoundBase):  # pylint: disable=too-few-public-methods
+    """Secure aggregation wrapper for a federated training round."""
+
+    _request_label = "training request"
+
+
+class SecaggFARound(_SecaggRoundBase):  # pylint: disable=too-few-public-methods
+    """Secure aggregation wrapper for a federated analytics round.
+
+    Policy guards (``force_secagg``, ``secagg_active``) live here, not in the
+    caller.  The caller creates this object, catches
+    ``FedbiomedSecureAggregationError``, and checks ``use_secagg`` before
+    calling ``encrypt``.
+    """
+
+    _request_label = "FA request"
 
     def encrypt(
         self, flat_params: List[float], fa_round: int, weight: int = 1
