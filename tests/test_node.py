@@ -208,6 +208,8 @@ class TestNode(unittest.TestCase):
             "allow_preproc": "True",
             "allow_federated_analytics": "True",
             "minimum_samples": "0",
+            "secure_aggregation": "False",
+            "force_secure_aggregation": "False",
         }
 
         self.node_config._cfg = self.config
