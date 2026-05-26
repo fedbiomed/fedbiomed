@@ -918,6 +918,8 @@ class FARequest(RequestReply, RequiresProtocolVersion):
         stats: List of statistics to compute
         stats_args: Arguments for FA job
         dataset_schema: Optional schema descriptor of the dataset used for validation
+        secagg_arguments: Optional secure aggregation arguments (scheme, key IDs, clipping
+            range, parties, round number). None means plaintext — no encryption requested.
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -930,6 +932,7 @@ class FARequest(RequestReply, RequiresProtocolVersion):
     stats: Optional[List] = None
     stats_args: Optional[Dict] = None
     dataset_schema: Optional[List | Tuple | Dict] = None
+    secagg_arguments: Optional[Dict] = None
 
 
 @catch_dataclass_exception
@@ -944,7 +947,15 @@ class FAReply(RequestReply, RequiresProtocolVersion):
         node_id: Node id that replies the request
         node_name: Node Name that replies the request
         stats: List of statistics that were computed
-        output: Results of the FA job
+        output: Plaintext results of the FA job; None when the reply is encrypted
+        encrypted: True when the node encrypted the output with secure aggregation
+        params_encrypted: Flat list of integer-encoded encrypted stats; set when
+            encrypted is True, None otherwise
+        encryption_factor: Per-element float-to-integer scale factors used during
+            quantisation; set when encrypted is True, None otherwise
+        output_schema: Ordered list of key-paths produced by flatten_fa_output; the
+            researcher uses this with unflatten_fa_output to reconstruct the stats dict
+            after decryption; set when encrypted is True, None otherwise
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -956,7 +967,44 @@ class FAReply(RequestReply, RequiresProtocolVersion):
     node_id: str
     node_name: str
     stats: Optional[List]
-    output: Dict | Tuple
+    output: Optional[Dict | Tuple] = None
+    encrypted: bool = False
+    params_encrypted: Optional[List] = None
+    encryption_factor: Optional[List] = None
+    output_schema: Optional[List] = None
+
+    def __post_init__(self):
+        super().__post_init__()
+        encrypted_fields = {
+            "params_encrypted": self.params_encrypted,
+            "encryption_factor": self.encryption_factor,
+            "output_schema": self.output_schema,
+        }
+        errors = []
+        if self.encrypted:
+            if self.output is not None:
+                errors.append("output must be None when encrypted is True")
+            missing = [k for k, v in encrypted_fields.items() if v is None]
+            if missing:
+                errors.append(
+                    f"must be provided when encrypted is True: {', '.join(missing)}"
+                )
+        else:
+            if self.output is None:
+                errors.append("output must be provided when encrypted is False")
+            present = [k for k, v in encrypted_fields.items() if v is not None]
+            if present:
+                errors.append(
+                    f"must be None when encrypted is False: {', '.join(present)}"
+                )
+        if errors:
+            _msg = (
+                ErrorNumbers.FB601.value
+                + ": bad input value for message: FAReply: "
+                + "; ".join(errors)
+            )
+            logger.critical(_msg)
+            raise FedbiomedMessageError(_msg)
 
 
 # Train messages
