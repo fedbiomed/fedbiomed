@@ -110,16 +110,16 @@ class _FedCombatParameters:
         result = analytics.fetch_stats(["mean", "variance"])
 
         global_mean_covariates = [
-            v for k, v in result.global_stat("mean").items() if k in covariates
+            v for k, v in result.global_stats("mean").items() if k in covariates
         ]
         global_mean_phenotypes = [
-            v for k, v in result.global_stat("mean").items() if k in phenotypes
+            v for k, v in result.global_stats("mean").items() if k in phenotypes
         ]
         global_std_covariates = [
-            v for k, v in result.global_stat("std").items() if k in covariates
+            v for k, v in result.global_stats("std").items() if k in covariates
         ]
         global_std_phenotypes = [
-            v for k, v in result.global_stat("std").items() if k in phenotypes
+            v for k, v in result.global_stats("std").items() if k in phenotypes
         ]
 
         # Clean up

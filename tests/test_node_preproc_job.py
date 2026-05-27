@@ -78,17 +78,31 @@ def preproc_type(monkeypatch):
     return preproc_type
 
 
+@pytest.fixture(autouse=True)
+def preproc_type_to_steps(monkeypatch):
+    """Ensure tests see a mutable _preproc_step_to_jobs mapping they can populate."""
+
+    class DummyStepJob:
+        def __init__(self, v, *args, **kwargs):
+            self.name = v
+
+        def __call__(self, *args, **kwargs):
+            return {"result": "success"}
+
+    preproc_type = PreprocType.FEDCOMBAT
+    monkeypatch.setattr(
+        _preproc_job, "_preproc_type_to_steps", {preproc_type: DummyStepJob}
+    )
+    return {preproc_type: DummyStepJob}
+
+
 @pytest.fixture
 def preproc_step(monkeypatch):
     """Ensure HarmonizationStep is constructible in tests."""
 
-    class Dummy:
-        def __init__(self, v):
-            self.name = v
+    monkeypatch.setattr(_preproc_job, "HarmonizationStep", "DummyStepJob")
 
-    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
-
-    return preproc_step
+    return "DummyStepJob"
 
 
 def test_preproc_job_init(preproc_request, preproc_job_args):
@@ -188,16 +202,15 @@ def test_run_invalid_preproc_type(monkeypatch, preproc_job_args, preproc_step):
 def test_run_invalid_preproc_step(monkeypatch, preproc_job_args, preproc_type):
     """Test run of PreprocJob with invalid preproc_step."""
 
-    # PreprocType ok, HarmonizationStep bad
-    class DummyType:
-        def __init__(self, v):
-            self.name = v
+    # Keep a supported PreprocType, but make step constructor fail
 
     def bad_step(x):
         raise ValueError("bad step")
 
-    monkeypatch.setattr(_preproc_job, "PreprocType", DummyType)
-    monkeypatch.setattr(_preproc_job, "HarmonizationStep", bad_step)
+    monkeypatch.setattr(_preproc_job, "PreprocType", lambda x: preproc_type)
+    monkeypatch.setattr(
+        _preproc_job, "_preproc_type_to_steps", {preproc_type: bad_step}
+    )
 
     job = PreprocJob(**preproc_job_args)
     result = job.run()

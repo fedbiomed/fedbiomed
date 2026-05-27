@@ -46,7 +46,7 @@ def mock_analytics():
         def __init__(self, stats_dict):
             self._stats_dict = stats_dict
 
-        def global_stat(self, stat_name):
+        def global_stats(self, stat_name):
             # This mimics the aggregation logic used in _FedCombatParameters._compute_global_mean_std
             if stat_name not in self._stats_dict:
                 raise KeyError(f"Unknown stat name: {stat_name}")

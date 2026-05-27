@@ -7,7 +7,11 @@ Implementation of Preprocess Job class of the node component
 
 from typing import Callable, Dict
 
-from fedbiomed.common.constants import ErrorNumbers, HarmonizationStep, PreprocType
+from fedbiomed.common.constants import (
+    ErrorNumbers,
+    HarmonizationStep,
+    PreprocType,
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
 from fedbiomed.node.dataset_manager import DatasetManager
@@ -19,6 +23,11 @@ _preproc_type_to_jobs: Dict[PreprocType, Callable] = {
     # PreprocType.NONE is not valid here
     PreprocType.FEDCOMBAT: _FedCombatJobs,
     # To be added in the future: other preprocessing types and their corresponding job classes
+}
+_preproc_type_to_steps: Dict[PreprocType, Callable] = {
+    # PreprocType.NONE is not valid here
+    PreprocType.FEDCOMBAT: HarmonizationStep,
+    # To be added in the future: other preprocessing types and their corresponding steps
 }
 
 
@@ -77,24 +86,25 @@ class PreprocJob(_BaseJob):
                 errnum=ErrorNumbers.FB326.value,
             )
         try:
-            self._preproc_step = HarmonizationStep(self._preproc_step_raw)
-        except ValueError:
-            return self._build_error_msg(
-                f"Received invalid preproc_step: {self._preproc_step_raw}",
-                errnum=ErrorNumbers.FB326.value,
-            )
-        # Here we can check content of some preproc_args
-        # Only checks common to all preproc types and steps can be implemented here,
-        # otherwise the check should be done in the specific preproc implementation
-        self._preproc_args = self._preproc_args_raw
-
-        try:
             preproc_type_jobs = _preproc_type_to_jobs[self._preproc_type]
+            preproc_type_steps = _preproc_type_to_steps[self._preproc_type]
         except KeyError:
             return self._build_error_msg(
                 f"Unsupported preprocessing type: {self._preproc_type.name}",
                 errnum=ErrorNumbers.FB326.value,
             )
+        try:
+            self._preproc_step = preproc_type_steps(self._preproc_step_raw)
+        except ValueError:
+            return self._build_error_msg(
+                f"Received invalid preproc_step: {self._preproc_step_raw}",
+                errnum=ErrorNumbers.FB326.value,
+            )
+
+        # Here we can check content of some preproc_args
+        # Only checks common to all preproc types and steps can be implemented here,
+        # otherwise the check should be done in the specific preproc implementation
+        self._preproc_args = self._preproc_args_raw
 
         # Check that dataset exists in local dataset registry and get its type
         dataset_entry = self._dataset_manager.dataset_table.get_by_id(self._dataset_id)
