@@ -142,7 +142,8 @@ class TabularDataset(Dataset):
         if non_numeric:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Column(s) {non_numeric} have non-numeric "
-                "dtype and cannot be converted. Cast to numeric types or drop them."
+                "dtype and cannot be converted for training. Encode or drop them before "
+                "creating the dataset."
             )
         return data
 
