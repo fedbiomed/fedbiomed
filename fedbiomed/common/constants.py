@@ -463,11 +463,17 @@ class Stats(_BaseEnum):
     Attributes:
         COUNT: Count of values
         MEAN: Mean value
+        SUM: Sum of values
+        SUM_SQ: Sum of squared values
+        STD: Standard deviation of values
         VARIANCE: Variance of values
         HISTOGRAM: histogram of values
     """
 
     COUNT = "count"
     MEAN = "mean"
+    SUM = "sum"
+    SUM_SQ = "sum_sq"
+    STD = "std"
     VARIANCE = "variance"
     HISTOGRAM = "histogram"

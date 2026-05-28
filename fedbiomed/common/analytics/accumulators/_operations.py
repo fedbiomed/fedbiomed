@@ -3,7 +3,8 @@
 
 """Statistic accumulators for federated analytics."""
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from abc import abstractmethod
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -11,19 +12,38 @@ from fedbiomed.common.constants import FedbiomedError
 
 from ._base import Accumulator
 
-# =============================================================================
-# BASE CLASS
-# =============================================================================
+
+class ScalarAccumulator(Accumulator):
+    """Base marker for accumulators that consume scalar values."""
+
+    @abstractmethod
+    def finalize(self) -> Dict[str, Any]:
+        pass
 
 
-class BaseStatAccumulator(Accumulator):
-    """Base for element-wise accumulators with shape validation."""
+class ArrayAccumulator(Accumulator):
+    """Base for element-wise array accumulators with shape validation.
+
+    Subclasses must define:
+        _key: output key name in finalize()
+        _transform(): maps input array to the value to accumulate
+    """
+
+    _key: str
+    _default: Any = np.nan
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        # Ensure subclasses define required class attribute
+        if not hasattr(cls, "_key"):
+            raise TypeError(f"{cls.__name__} must define class attribute '_key'")
 
     def __init__(self):
         self._shape: Optional[tuple] = None
+        self._value: Optional[np.ndarray] = None
 
     def _validate_shape(self, val: np.ndarray) -> None:
-        """Validate shape consistency."""
+        """Validate that incoming array has consistent shape across updates."""
         if self._shape is None:
             self._shape = val.shape
         elif val.shape != self._shape:
@@ -31,108 +51,51 @@ class BaseStatAccumulator(Accumulator):
                 f"Shape mismatch: expected {self._shape}, got {val.shape}"
             )
 
+    @abstractmethod
+    def _transform(self, val: np.ndarray) -> np.ndarray:
+        """Transform input array to the value to accumulate."""
+        pass
 
-# =============================================================================
-# BASIC STATS
-# =============================================================================
+    def update(self, val: np.ndarray) -> None:
+        self._validate_shape(val)
+        t = self._transform(val)
+        self._value = t if self._value is None else self._value + t
+
+    def finalize(self) -> Dict[str, Any]:
+        return {self._key: self._value if self._value is not None else self._default}
 
 
-class CountAccumulator(BaseStatAccumulator):
+class CountAccumulator(ArrayAccumulator):
     """Count non-NaN values element-wise."""
 
-    def __init__(self):
-        super().__init__()
-        self.counts: Optional[np.ndarray] = None
+    _key = "count"
+    _default = 0
 
-    def update(self, val: np.ndarray) -> None:
-        self._validate_shape(val)
-        increment = np.isfinite(val).astype(np.int32)
-        self.counts = increment if self.counts is None else self.counts + increment
-
-    def finalize(self) -> Dict[str, Any]:
-        return {"count": self.counts if self.counts is not None else 0}
+    def _transform(self, val: np.ndarray) -> np.ndarray:
+        return np.isfinite(val).astype(np.int32)
 
 
-class MeanAccumulator(BaseStatAccumulator):
-    """Compute mean element-wise. Returns mean and count."""
+class SumAccumulator(ArrayAccumulator):
+    """Accumulate sum element-wise."""
 
-    def __init__(self):
-        super().__init__()
-        self.sum_val: Optional[np.ndarray] = None
-        self.counts: Optional[np.ndarray] = None
+    _key = "sum"
 
-    def update(self, val: np.ndarray) -> None:
-        self._validate_shape(val)
+    def _transform(self, val: np.ndarray) -> np.ndarray:
+        return np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
 
-        # Sum (replace non-finite with 0, initialize as float32)
-        zeroed = np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
-        self.sum_val = zeroed if self.sum_val is None else self.sum_val + zeroed
 
-        # Count (finite values only)
-        increment = np.isfinite(val).astype(np.int32)
-        self.counts = increment if self.counts is None else self.counts + increment
+class SumSqAccumulator(ArrayAccumulator):
+    """Accumulate sum of squares element-wise."""
 
-    def finalize(self) -> Dict[str, Any]:
-        if self.sum_val is None or self.counts is None:
-            return {"mean": np.nan, "count": 0}
-        mean = np.divide(
-            self.sum_val,
-            self.counts,
-            out=np.full_like(self.sum_val, np.nan, dtype=np.float32),
-            where=self.counts > 0,
+    _key = "sum_sq"
+
+    def _transform(self, val: np.ndarray) -> np.ndarray:
+        return (
+            np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32) ** 2
         )
-        return {"mean": mean, "count": self.counts}
 
 
-class VarianceAccumulator(BaseStatAccumulator):
-    """Compute variance element-wise using Welford's algorithm. Returns variance, mean, count."""
-
-    def __init__(self):
-        super().__init__()
-        self.mean_val: Optional[np.ndarray] = None
-        self.m2_val: Optional[np.ndarray] = None
-        self.counts: Optional[np.ndarray] = None
-
-    def update(self, val: np.ndarray) -> None:
-        self._validate_shape(val)
-        mask = np.isfinite(val)
-
-        if self.counts is None or self.mean_val is None or self.m2_val is None:
-            self.counts = mask.astype(np.int32)
-            self.mean_val = np.where(mask, val, 0.0).astype(np.float32)
-            self.m2_val = np.zeros(val.shape, dtype=np.float32)
-        else:
-            delta = np.where(mask, val - self.mean_val, 0.0)
-            self.counts += mask.astype(np.int32)
-            mean_update = np.divide(
-                delta,
-                self.counts,
-                out=np.zeros_like(delta),
-                where=self.counts > 0,
-            )
-            self.mean_val = np.where(mask, self.mean_val + mean_update, self.mean_val)
-            delta2 = np.where(mask, val - self.mean_val, 0.0)
-            self.m2_val = np.where(mask, self.m2_val + delta * delta2, self.m2_val)
-
-    def finalize(self) -> Dict[str, Any]:
-        if self.counts is None or self.mean_val is None or self.m2_val is None:
-            return {"variance": np.nan, "mean": np.nan, "count": 0}
-        mean = np.where(self.counts > 0, self.mean_val, np.nan)
-        variance = np.divide(
-            self.m2_val,
-            self.counts - 1,
-            out=np.full_like(self.m2_val, np.nan, dtype=np.float32),
-            where=self.counts > 1,
-        )
-        return {"variance": variance, "mean": mean, "count": self.counts}
-
-
-# =============================================================================
-# NOT VECTOR-AGGREGATED STATS
-# =============================================================================
-
-
-class HistogramAccumulator(Accumulator):
+class HistogramAccumulator(ScalarAccumulator):
     """Streaming histogram accumulator for scalar values.
 
     Accumulates counts per bin given pre-specified bin edges. Using explicit
@@ -149,7 +112,6 @@ class HistogramAccumulator(Accumulator):
     def __init__(self, bin_edges: List[float]):
         edges = np.asarray(bin_edges, dtype=np.float32)
 
-        # Validate bin edges: must be 1D, have at least _MIN_BINS bins, and be strictly increasing
         if edges.ndim != 1 or len(edges) <= self._MIN_BINS:
             raise FedbiomedError(
                 f"'bin_edges' must define at least {self._MIN_BINS} bins"
@@ -162,74 +124,19 @@ class HistogramAccumulator(Accumulator):
 
     def update(self, value: Union[float, int]) -> None:
         v = float(value)
-
-        # Validate value: must be finite and within bin edges
         if not np.isfinite(v):
             return
         if v < self._bin_edges[0] or v > self._bin_edges[-1]:
             return
-
-        # Indexing: find the right bin for v and increment count
         idx = np.searchsorted(self._bin_edges, v, side="right") - 1
-        if idx == len(self._counts):  # Handle rightmost edge explicitly
+        if idx == len(self._counts):
             idx -= 1
         self._counts[idx] += 1
 
     def finalize(self) -> Dict[str, Any]:
-        # Return key ``histogram`` for consistent output format with other accumulators
         return {
             "histogram": {
                 "bin_edges": self._bin_edges.tolist(),
                 "counts": self._counts.tolist(),
             },
         }
-
-
-# =============================================================================
-# BUFFER ACCUMULATOR
-# =============================================================================
-
-
-class ScalarBuffer(Accumulator):
-    """Buffer-based accumulator with configurable statistics."""
-
-    def __init__(
-        self, length: int, stat_functions: Optional[Dict[str, Callable]] = None
-    ):
-        if not isinstance(length, (int, np.integer)) or length <= 0:
-            raise FedbiomedError(f"'length' must be positive integer, got {length}")
-        self.buffer = np.full(length, np.nan, dtype=np.float32)
-        self.stat_functions = stat_functions or {}
-        self._next_index = 0
-
-    def __len__(self):
-        return len(self.buffer)
-
-    def update(self, val: Union[float, int]) -> None:
-        if self._next_index >= len(self):
-            raise FedbiomedError(f"Buffer full (size {len(self)})")
-        self.buffer[self._next_index] = float(val)
-        self._next_index += 1
-
-    def set_stat_functions(self, stat_functions: Dict[str, Callable]) -> None:
-        if not isinstance(stat_functions, dict):
-            raise FedbiomedError(
-                f"'stat_functions' must be dict, got {type(stat_functions)}"
-            )
-        for name, func in stat_functions.items():
-            if not callable(func):
-                raise FedbiomedError(f"Stat '{name}' is not callable: {type(func)}")
-        self.stat_functions.update(stat_functions)
-
-    def finalize(self) -> Dict[str, Any]:
-        data = self.buffer[np.isfinite(self.buffer)]
-        if len(data) == 0:
-            return {name: np.nan for name in self.stat_functions}
-
-        results = {}
-        for name, func in self.stat_functions.items():
-            try:
-                results[name] = func(data)
-            except Exception as e:
-                raise FedbiomedError(f"Error computing stat '{name}': {e}") from e
-        return results

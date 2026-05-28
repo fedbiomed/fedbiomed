@@ -3,7 +3,7 @@
 
 import functools
 import inspect
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List, Union, cast
 
 import numpy as np
 
@@ -69,15 +69,16 @@ def aggregate_count(
         The total count as an int, or a dict of summed counts.
     """
     if all(isinstance(c, (int, np.integer)) for c in count):
-        if not all(c >= 0 for c in count):
+        int_counts = cast(List[int], count)
+        if not all(c >= 0 for c in int_counts):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB633.value}: All count values must be non-negative integers."
             )
-        return int(np.sum(count))
+        return int(np.sum(int_counts))
 
     if all(isinstance(c, dict) for c in count):
         result: Dict[str, int] = {}
-        for c in count:
+        for c in cast(List[Dict[str, int]], count):
             for k, v in c.items():
                 if not isinstance(v, (int, np.integer)) or v < 0:
                     raise FedbiomedError(
@@ -92,99 +93,94 @@ def aggregate_count(
 
 
 @aggregator("sum")
-def aggregate_sum(mean: List[float], count: List[Union[int, np.integer]]) -> float:
-    """Aggregates sum values using means and counts.
+def aggregate_sum(sum: List[float]) -> float:
+    """Aggregates the summable ``sum`` wire primitive across nodes.
 
     Args:
-        mean: List of means from nodes.
-        count: List of counts from nodes.
+        sum: List of per-node sums (Σ x per node).
 
     Returns:
-        The total sum.
+        The global sum.
     """
-    try:
-        total_sum = sum(m * c for m, c in zip(mean, count, strict=True))
-    except ValueError as e:
+    if not all(isinstance(s, (int, float, np.number)) for s in sum):
         raise FedbiomedError(
-            f"{ErrorNumbers.FB633.value}: mean and count lists must have the same length."
-        ) from e
-    return total_sum
+            f"{ErrorNumbers.FB633.value}: sum must be a list of numeric values."
+        )
+    return float(np.sum(sum))
+
+
+@aggregator("sum_sq")
+def aggregate_sum_sq(sum_sq: List[float]) -> float:
+    """Aggregates the summable ``sum_sq`` wire primitive (Σ x²) across nodes.
+
+    Args:
+        sum_sq: List of per-node sums of squares.
+
+    Returns:
+        The global sum of squares.
+    """
+    if not all(isinstance(s, (int, float, np.number)) for s in sum_sq):
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB633.value}: sum_sq must be a list of numeric values."
+        )
+    return float(np.sum(sum_sq))
 
 
 @aggregator("mean")
-def aggregate_mean(mean: List[float], count: List[Union[int, np.integer]]) -> float:
-    """Aggregates mean values using counts as weights.
+def aggregate_mean(sum: List[float], count: List[Union[int, np.integer]]) -> float:
+    """Aggregates global mean from sufficient statistics.
 
     Args:
-        mean: List of means from nodes.
-        count: List of counts from nodes.
+        sum: List of per-node sums (Σ x per node).
+        count: List of per-node counts.
 
     Returns:
         The global mean.
     """
-    total_count = aggregate_count(count)
-    if total_count == 0:
+    if (total_count := aggregate_count(count)) == 0:
         return np.nan
-    try:
-        total_sum = sum(m * c for m, c in zip(mean, count, strict=True))
-    except ValueError as e:
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB633.value}: mean and count lists must have the same length."
-        ) from e
+    total_sum = aggregate_sum(sum)
     return total_sum / total_count
 
 
 @aggregator("variance")
 def aggregate_variance(
-    mean: List[float], variance: List[float], count: List[int]
+    sum_sq: List[float], sum: List[float], count: List[int]
 ) -> float:
-    """Aggregates variance using means, variances, and counts.
-    Assumes variance are sample variances (ddof=1).
-    Returns sample variance.
+    """Aggregates global sample variance from sufficient statistics.
+
+    Uses the computational formula:
+        variance = (Σ x² − (Σ x)² / N) / (N − 1)
 
     Args:
-        mean: List of means from nodes.
-        variance: List of variances from nodes.
-        count: List of counts from nodes.
+        sum_sq: List of per-node sums of squares (Σ x² per node).
+        sum: List of per-node sums (Σ x per node).
+        count: List of per-node counts.
 
     Returns:
-        The global sample variance.
+        The global sample variance (ddof=1), or ``nan`` when N ≤ 1.
     """
-    if len(mean) != len(variance) or len(mean) != len(count):
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB633.value}: Mean, variance, and count lists must have the same length."
-        )
 
-    total_count = aggregate_count(count)
-    if total_count <= 1:
+    if (total_count := aggregate_count(count)) <= 1:
         return np.nan
-
-    # Calculate combined variance (sum( SS_within + SS_between ) / (N-1))
-    # SS_within = sum( (n_i - 1) * s_i^2 )
-    # SS_between = sum( n_i * (mean_i - global_mean)^2 )
-    global_mean = aggregate_mean(mean, count)
-    ss_within = sum((c - 1) * v for c, v in zip(count, variance, strict=True))
-    ss_between = sum(
-        c * ((m - global_mean) ** 2) for m, c in zip(mean, count, strict=True)
-    )
-
-    return (ss_within + ss_between) / (total_count - 1)
+    total_sum = aggregate_sum(sum)
+    total_sum_sq = aggregate_sum_sq(sum_sq)
+    return (total_sum_sq - total_sum**2 / total_count) / (total_count - 1)
 
 
 @aggregator("std")
-def aggregate_std(mean: List[float], variance: List[float], count: List[int]) -> float:
-    """Aggregates standard deviation using means, variances, and counts.
+def aggregate_std(sum_sq: List[float], sum: List[float], count: List[int]) -> float:
+    """Aggregates global sample standard deviation from sufficient statistics.
 
     Args:
-        mean: List of means from nodes.
-        variance: List of variances from nodes.
-        count: List of counts from nodes.
+        sum_sq: List of per-node sums of squares (Σ x² per node).
+        sum: List of per-node sums (Σ x per node).
+        count: List of per-node counts.
 
     Returns:
         The global sample standard deviation.
     """
-    var = aggregate_variance(mean, variance, count)
-    return np.sqrt(var)
+    return float(np.sqrt(aggregate_variance(sum_sq, sum, count)))
 
 
 @aggregator("histogram")
