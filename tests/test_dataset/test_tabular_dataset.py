@@ -464,6 +464,89 @@ def test_apply_transforms_error_cases(mocker):
     assert "Failed to apply default training plan types to `target`" in str(exc4.value)
 
 
+# ---------- _get_item_from_sample: numeric validation ----------
+
+
+def test_get_item_from_sample_numeric_passes_non_numeric_raises():
+    ds = TabularDataset(input_columns=["a"])
+    df = pl.DataFrame({"a": [1], "b": [2.5], "name": ["Alice"], "city": ["NYC"]})
+
+    # None → None
+    assert ds._get_item_from_sample(df, None) is None
+
+    # All-numeric selection passes and returns the right columns
+    result = ds._get_item_from_sample(df, ["a", "b"])
+    assert isinstance(result, pl.DataFrame) and result.columns == ["a", "b"]
+
+    # Single string column → raises with that column name
+    with pytest.raises(FedbiomedError, match="name"):
+        ds._get_item_from_sample(df, ["a", "name"])
+
+    # Multiple non-numeric → all listed, numeric columns not mentioned
+    with pytest.raises(FedbiomedError) as exc:
+        ds._get_item_from_sample(df, ["name", "city", "a"])
+    msg = str(exc.value)
+    assert "name" in msg and "city" in msg and "age" not in msg
+
+
+@pytest.mark.parametrize("fmt", [DataReturnFormat.SKLEARN, DataReturnFormat.TORCH])
+@pytest.mark.parametrize(
+    "input_cols, target_cols, df_data, bad_col",
+    [
+        (["feature"], ["target"], {"feature": ["txt"], "target": [1]}, "feature"),
+        (["feature"], ["label"], {"feature": [1.0], "label": ["cat"]}, "label"),
+    ],
+)
+def test_complete_initialization_raises_for_non_numeric_column(
+    mocker, fmt, input_cols, target_cols, df_data, bad_col
+):
+    df = pl.DataFrame(df_data)
+
+    class StubController:
+        def get_sample(self, idx):
+            return df
+
+        def normalize_columns(self, cols):
+            return cols
+
+    ds = TabularDataset(input_columns=input_cols, target_columns=target_cols)
+    mocker.patch.object(
+        ds,
+        "_init_controller",
+        side_effect=lambda controller_kwargs: setattr(
+            ds, "_controller", StubController()
+        ),
+    )
+    with pytest.raises(FedbiomedError, match=bad_col):
+        ds.complete_initialization(controller_kwargs={}, to_format=fmt)
+
+
+@pytest.mark.parametrize(
+    "input_cols, target_cols, df_data, bad_col",
+    [
+        (["feature"], ["label"], {"feature": ["txt"], "label": [1]}, "feature"),
+        (["feature"], ["label"], {"feature": [1.0], "label": ["cat"]}, "label"),
+    ],
+)
+def test_getitem_raises_for_non_numeric_column(
+    input_cols, target_cols, df_data, bad_col
+):
+    ds = TabularDataset(input_columns=input_cols, target_columns=target_cols)
+    df = pl.DataFrame(df_data)
+
+    class StubController:
+        def get_sample(self, idx):
+            return df
+
+    ds._controller = StubController()
+    ds._input_columns = input_cols
+    ds._target_columns = target_cols
+    ds._to_format = DataReturnFormat.SKLEARN
+
+    with pytest.raises(FedbiomedError, match=bad_col):
+        _ = ds[0]
+
+
 # ---------- analytics ----------
 
 

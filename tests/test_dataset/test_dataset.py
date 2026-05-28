@@ -144,10 +144,10 @@ def test_14_default_types_sklearn():
     y_int = ds._default_types_sklearn(x_int)
     assert y_int.dtype == np.int64
 
-    # non-numeric dtype left untouched
-    x_str = np.array(["a", "b"], dtype=object)
-    y_str = ds._default_types_sklearn(x_str)
-    assert y_str is x_str
+    # non-numeric dtypes raise: object (strings) and bool
+    for bad in (np.array(["a", "b"], dtype=object), np.array([True, False])):
+        with pytest.raises(FedbiomedError):
+            ds._default_types_sklearn(bad)
 
     with pytest.raises(FedbiomedError):
         ds._default_types_sklearn([1, 2, 3])

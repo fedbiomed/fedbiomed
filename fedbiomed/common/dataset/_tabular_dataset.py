@@ -112,10 +112,22 @@ class TabularDataset(Dataset):
 
         Returns:
             Selected columns or None if columns is None
+
+        Raises:
+            FedbiomedError: if any selected column has a non-numeric dtype
         """
         if columns is None:
             return None
-        return sample.select(columns)
+        data = sample.select(columns)
+        non_numeric = [
+            name for name, dtype in data.schema.items() if not dtype.is_numeric()
+        ]
+        if non_numeric:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Column(s) {non_numeric} have non-numeric "
+                "dtype and cannot be converted. Cast to numeric types or drop them."
+            )
+        return data
 
     def __getitem__(
         self, idx: int
