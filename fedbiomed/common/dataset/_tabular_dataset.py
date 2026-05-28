@@ -15,13 +15,30 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
 
+def _polars_to_torch(x: pl.DataFrame) -> "torch.Tensor":
+    try:
+        return x.to_torch().reshape(-1)
+    except TypeError as e:
+        non_numeric = [
+            name for name, dtype in x.schema.items() if not dtype.is_numeric()
+        ]
+        if non_numeric:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Column(s) {non_numeric} have non-numeric "
+                "dtype and cannot be converted to a torch Tensor. Encode or drop them "
+                "before creating the dataset."
+            ) from e
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB632.value}: Failed to convert data to a torch Tensor: {e}"
+        ) from e
+
+
 class TabularDataset(Dataset):
     _controller_cls: type = TabularController
 
-    # Input from controller is Polars Series
     _native_to_framework = {
         DataReturnFormat.SKLEARN: lambda x: x.to_numpy().reshape(-1),
-        DataReturnFormat.TORCH: lambda x: x.to_torch().reshape(-1),
+        DataReturnFormat.TORCH: _polars_to_torch,
     }
 
     def __init__(

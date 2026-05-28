@@ -3,7 +3,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from fedbiomed.common.dataset._tabular_dataset import TabularDataset
+from fedbiomed.common.dataset._tabular_dataset import TabularDataset, _polars_to_torch
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
@@ -122,6 +122,29 @@ def test_get_format_conversion_callable_returns_torch_callable():
     ds.to_format = DataReturnFormat.TORCH
     fn = ds._get_format_conversion_callable()
     assert fn is TabularDataset._native_to_framework[DataReturnFormat.TORCH]
+
+
+def test_polars_to_torch_numeric_passes():
+    import torch
+
+    result = _polars_to_torch(pl.DataFrame({"a": [1], "b": [2.5]}))
+    assert isinstance(result, torch.Tensor) and result.shape == (2,)
+
+
+def test_polars_to_torch_string_column_raises_naming_the_column():
+    with pytest.raises(FedbiomedError, match="name"):
+        _polars_to_torch(pl.DataFrame({"a": [1], "name": ["Alice"]}))
+
+
+def test_polars_to_torch_unused_string_columns_do_not_raise():
+    """Only selected (already-filtered) columns are checked; unselected strings are irrelevant."""
+    import torch
+
+    full_df = pl.DataFrame({"age": [30], "name": ["Alice"], "score": [0.95]})
+    ds = TabularDataset(input_columns=["age", "score"])
+    selected = ds._get_item_from_sample(full_df, ["age", "score"])
+    result = _polars_to_torch(selected)
+    assert isinstance(result, torch.Tensor)
 
 
 def test_get_format_conversion_callable_raises_for_unknown_format():
