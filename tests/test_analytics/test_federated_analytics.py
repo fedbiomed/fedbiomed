@@ -773,6 +773,60 @@ class TestFederatedAnalytics:
         call_kwargs = mock_fa_job_cls.call_args.kwargs
         assert call_kwargs["dataset_schema"] == ["age"]
 
+    def test_clipping_range_default(self, mock_fds, mock_requests):
+        """clipping_range defaults to 1000.0 when not provided."""
+        fa = FederatedAnalytics(
+            fds=mock_fds,
+            experiment_id="exp",
+            researcher_id="res",
+            reqs=mock_requests,
+            experimentation_folder="/tmp",
+        )
+        assert fa._clipping_range == 1000.0
+
+    @pytest.mark.parametrize("value", [500, 500.0, 1.5, 200_000.0])
+    def test_clipping_range_int_and_float_accepted(
+        self, mock_fds, mock_requests, value
+    ):
+        """Both int and float clipping_range values are accepted."""
+        fa = FederatedAnalytics(
+            fds=mock_fds,
+            experiment_id="exp",
+            researcher_id="res",
+            reqs=mock_requests,
+            experimentation_folder="/tmp",
+            clipping_range=value,
+        )
+        assert fa._clipping_range == value
+
+    @pytest.mark.parametrize("bad_value", ["1000", None, [1000]])
+    def test_clipping_range_wrong_type_raises(self, mock_fds, mock_requests, bad_value):
+        """Non-numeric clipping_range raises FedbiomedError at construction."""
+        with pytest.raises(FedbiomedError):
+            FederatedAnalytics(
+                fds=mock_fds,
+                experiment_id="exp",
+                researcher_id="res",
+                reqs=mock_requests,
+                experimentation_folder="/tmp",
+                clipping_range=bad_value,
+            )
+
+    @pytest.mark.parametrize("bad_value", [0, -1, -500.0])
+    def test_clipping_range_non_positive_raises(
+        self, mock_fds, mock_requests, bad_value
+    ):
+        """Zero or negative clipping_range raises FedbiomedError at construction."""
+        with pytest.raises(FedbiomedError):
+            FederatedAnalytics(
+                fds=mock_fds,
+                experiment_id="exp",
+                researcher_id="res",
+                reqs=mock_requests,
+                experimentation_folder="/tmp",
+                clipping_range=bad_value,
+            )
+
 
 # ---------------------------------------------------------------------------
 # TestMakeCacheKey / TestSortSchema
@@ -1479,12 +1533,12 @@ class TestSecaggIntegration:
             "node-2": reply_n2,
         }
 
-        # aggregate() returns the decrypted flat list (sum of all nodes)
-        mock_secagg.aggregate.return_value = [45.0, 180]
+        # aggregate_fa() returns the decrypted flat list (sum of all nodes)
+        mock_secagg.aggregate_fa.return_value = [45.0, 180]
 
         result = secagg_fa.fetch_stats("mean")
 
-        mock_secagg.aggregate.assert_called_once()
+        mock_secagg.aggregate_fa.assert_called_once()
         assert isinstance(result, FAResult)
         # The aggregated output is stored under "__secagg__"
         assert "__secagg__" in result.node_ids
@@ -1500,7 +1554,7 @@ class TestSecaggIntegration:
         reply = _make_encrypted_reply([1], [1.0], schema)
         mock_fa_job_cls.return_value.execute.return_value = {"node-1": reply}
         mock_fds.node_ids.return_value = ["node-1"]
-        mock_secagg.aggregate.return_value = [5.0]
+        mock_secagg.aggregate_fa.return_value = [5.0]
 
         secagg_fa.fetch_stats("mean")
 
@@ -1517,7 +1571,7 @@ class TestSecaggIntegration:
         mock_fa_job_cls.return_value.execute.return_value = {
             "node-1": _make_encrypted_reply([1], [1.0], schema)
         }
-        mock_secagg.aggregate.return_value = [1.0]
+        mock_secagg.aggregate_fa.return_value = [1.0]
 
         secagg_fa.fetch_stats("count")
         secagg_fa.fetch_stats("mean")  # triggers second request (mean is missing)
@@ -1536,7 +1590,7 @@ class TestSecaggIntegration:
         mock_fa_job_cls.return_value.execute.return_value = {
             "node-1": _make_encrypted_reply([1], [1.0], schema)
         }
-        mock_secagg.aggregate.return_value = [1.0]
+        mock_secagg.aggregate_fa.return_value = [1.0]
 
         secagg_fa.fetch_stats("count")
 
@@ -1570,6 +1624,54 @@ class TestSecaggIntegration:
         assert kwargs["secagg_arguments"] is None
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fa_clipping_range_does_not_override_secagg_arguments(
+        self, mock_fa_job_cls, mock_fds, mock_requests, mock_secagg
+    ):
+        """FederatedAnalytics.clipping_range is not injected into secagg_arguments (int64 FA path).
+
+        The value in secagg_arguments comes only from train_arguments(), not from the FA
+        clipping_range constructor argument.
+        """
+        fa = FederatedAnalytics(
+            fds=mock_fds,
+            experiment_id="exp-secagg",
+            researcher_id="res-456",
+            reqs=mock_requests,
+            experimentation_folder="/tmp/fedbiomed",
+            secagg=mock_secagg,
+            clipping_range=250.0,
+        )
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], [1.0], schema)
+        }
+        mock_secagg.aggregate_fa.return_value = [1.0]
+
+        fa.fetch_stats("count")
+
+        sa = mock_fa_job_cls.call_args.kwargs["secagg_arguments"]
+        # train_arguments() returns secagg_clipping_range=3 (from the fixture mock);
+        # the FA clipping_range=250.0 must NOT have overridden it.
+        assert sa.get("secagg_clipping_range") == 3
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_secagg_clipping_range_comes_from_train_arguments_only(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """secagg_clipping_range in secagg_arguments comes from train_arguments(), not FA."""
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], [1.0], schema)
+        }
+        mock_secagg.aggregate_fa.return_value = [1.0]
+
+        secagg_fa.fetch_stats("count")
+
+        sa = mock_fa_job_cls.call_args.kwargs["secagg_arguments"]
+        # The fixture mock train_arguments() returns secagg_clipping_range=3.
+        assert sa.get("secagg_clipping_range") == 3
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_encrypted_merge_accumulates_stats(
         self, mock_fa_job_cls, secagg_fa, mock_secagg
     ):
@@ -1579,7 +1681,7 @@ class TestSecaggIntegration:
         replies_count = {"node-1": _make_encrypted_reply([100], [1.0], schema_count)}
         replies_sum = {"node-1": _make_encrypted_reply([500], [1.0], schema_sum)}
         mock_fa_job_cls.return_value.execute.side_effect = [replies_count, replies_sum]
-        mock_secagg.aggregate.side_effect = [[100.0], [500.0]]
+        mock_secagg.aggregate_fa.side_effect = [[100.0], [500.0]]
 
         secagg_fa.fetch_stats("count")
         secagg_fa.fetch_stats("mean")  # mean requires sum + count

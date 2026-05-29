@@ -32,11 +32,11 @@ class _SecaggSchemeRound(ABC):
 
         secagg_clipping_range = secagg_arguments.get("secagg_clipping_range")
         if secagg_clipping_range is not None and not isinstance(
-            secagg_clipping_range, int
+            secagg_clipping_range, (int, float)
         ):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB318.value}: Bad secagg clipping range type in train "
-                f"request: {type(secagg_clipping_range)}"
+                f"{ErrorNumbers.FB318.value}: secagg_clipping_range must be a positive number, "
+                f"got {type(secagg_clipping_range).__name__} ({secagg_clipping_range!r})."
             )
 
         self._node_id = node_id
@@ -206,6 +206,24 @@ class _LomRound(_SecaggSchemeRound):
             weight=weight,
         )
 
+    def encrypt_fa(self, params: List[float], current_round: int) -> List[int]:
+        """Encrypt FA statistics using the int64 path (no quantisation).
+
+        Args:
+            params: Flat list of FA statistics (floats).
+            current_round: FA round counter.
+
+        Returns:
+            List of int64-encoded encrypted integers.
+        """
+        return self.crypter.encrypt_fa(
+            current_round=current_round,
+            node_id=self._node_id,
+            params=params,
+            pairwise_secrets=self._secagg_dh["context"],
+            node_ids=self._secagg_dh["parties"],
+        )
+
 
 class _SecaggRoundBase:  # pylint: disable=too-few-public-methods
     """Common base for secure aggregation round wrappers.
@@ -325,3 +343,17 @@ class SecaggFARound(_SecaggRoundBase):  # pylint: disable=too-few-public-methods
             List of encrypted integers ready to include in ``FAReply``.
         """
         return self.scheme.encrypt(flat_params, fa_round, weight)
+
+    def encrypt_fa(self, flat_params: List[float], fa_round: int) -> List[int]:
+        """Encrypt FA statistics using the int64 path (no quantisation).
+
+        Must only be called when ``use_secagg`` is True.
+
+        Args:
+            flat_params: Flat float list produced by ``flatten_fa_output``.
+            fa_round: FA round counter incremented by the researcher per call.
+
+        Returns:
+            List of int64-encoded encrypted integers ready to include in ``FAReply``.
+        """
+        return self.scheme.encrypt_fa(flat_params, fa_round)

@@ -8,10 +8,14 @@ import random
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union, cast
 
-from fedbiomed.common.constants import ErrorNumbers, SecureAggregationSchemes
+from fedbiomed.common.constants import (
+    ErrorNumbers,
+    SAParameters,
+    SecureAggregationSchemes,
+)
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.secagg import SecaggCrypter, SecaggLomCrypter
+from fedbiomed.common.secagg import FA_RANDOM_PRECISION, SecaggCrypter, SecaggLomCrypter
 
 from ._secagg_context import SecaggDHContext, SecaggServkeyContext
 
@@ -359,8 +363,13 @@ class _SecureAggregation(ABC):
             validation = aggregate(params=encryption_factors, num_expected_params=1)
         else:
             validation = aggregate(params=encryption_factors)
+        # The tolerance must span at least one quantization step: with a large FA
+        # clipping range the step size grows proportionally, so a fixed 0.03 tolerance
+        # is exceeded by the quantization error for secagg_random values in (0, 1).
+        cr = aggregate.keywords.get("clipping_range") or SAParameters.CLIPPING_RANGE
+        abs_tol = max(0.03, cr / SAParameters.TARGET_RANGE)
         if len(validation) != 1 or not math.isclose(
-            validation[0], self._secagg_random, abs_tol=0.03
+            validation[0], self._secagg_random, abs_tol=abs_tol
         ):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Aggregation has failed due to incorrect decryption."
@@ -583,6 +592,7 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         model_params: Dict[str, List[int]],
         encryption_factors: Dict[str, Union[List[int], None]] = None,
         num_expected_params: int = 1,
+        clipping_range: Union[int, float, None] = None,
         **kwargs,
     ) -> List[float]:
         """Aggregates given model parameters
@@ -593,6 +603,9 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             model_params: model parameters from the participating nodes
             encryption_factors: encryption factors from the participating nodes
             num_expected_params: number of decrypted parameters to decode from the model parameters
+            clipping_range: clipping range override; when provided it takes precedence over
+                ``self.clipping_range``.  FA callers pass their own clipping range here so
+                that decryption uses the same scale that was applied during encryption.
 
         Returns:
             Aggregated parameters
@@ -619,6 +632,9 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         key = self._servkey.context["server_key"]
         biprime = self._servkey.context["biprime"]
         num_nodes = len(model_params)
+        effective_clipping_range = (
+            clipping_range if clipping_range is not None else self.clipping_range
+        )
 
         aggregate = functools.partial(
             self._secagg_crypter.aggregate,
@@ -627,7 +643,7 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             key=key,
             total_sample_size=total_sample_size,
             biprime=biprime,
-            clipping_range=self.clipping_range,
+            clipping_range=effective_clipping_range,
         )
 
         return self._aggregate(
@@ -803,6 +819,7 @@ class LomSecureAggregation(_SecureAggregation):
         model_params: Dict[str, List[int]],
         total_sample_size: int,
         encryption_factors: Dict[str, Union[List[int], None]] = None,
+        clipping_range: Union[int, float, None] = None,
         **kwargs,
     ) -> List[float]:
         """Aggregates given model parameters
@@ -811,6 +828,9 @@ class LomSecureAggregation(_SecureAggregation):
             total_sample_size: sum of number of samples used by all nodes
             model_params: model parameters from the participating nodes
             encryption_factors: encryption factors from the participating nodes
+            clipping_range: clipping range override; when provided it takes precedence over
+                ``self.clipping_range``.  FA callers pass their own clipping range here so
+                that decryption uses the same scale that was applied during encryption.
 
         Returns:
             Aggregated parameters
@@ -835,10 +855,13 @@ class LomSecureAggregation(_SecureAggregation):
                 "Hellman context is not set properly"
             )
 
+        effective_clipping_range = (
+            clipping_range if clipping_range is not None else self.clipping_range
+        )
         aggregate = functools.partial(
             self._secagg_crypter.aggregate,
             total_sample_size=total_sample_size,
-            clipping_range=self.clipping_range,
+            clipping_range=effective_clipping_range,
         )
 
         return self._aggregate(
@@ -846,6 +869,65 @@ class LomSecureAggregation(_SecureAggregation):
             encryption_factors,
             aggregate,
         )
+
+    def aggregate_fa(
+        self,
+        model_params: Dict[str, List[int]],
+        encryption_factors: Dict[str, List[int]],
+        n_nodes: int,
+    ) -> List[float]:
+        """Aggregate int64-encrypted FA statistics from nodes.
+
+        Validates the secagg_random check (if active) using integer comparison,
+        then returns the element-wise sum of the FA statistics as floats.  No
+        averaging or reverse-quantisation is applied — the caller receives raw sums
+        which the FA aggregators use directly.
+
+        Args:
+            model_params: Encrypted FA parameter lists keyed by node ID.
+            encryption_factors: Encrypted secagg_random values keyed by node ID;
+                empty lists are accepted when validation was not requested.
+            n_nodes: Number of participating nodes (used in validation).
+
+        Returns:
+            Element-wise sum of the FA statistics as floats.
+
+        Raises:
+            FedbiomedSecureAggregationError: Diffie-Hellman context not set up.
+            FedbiomedSecureAggregationError: Decryption validation failed.
+        """
+        if self._dh is None:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Cannot aggregate FA parameters: Diffie-"
+                "Hellman context is not configured. Please set up secure aggregation "
+                "before aggregating."
+            )
+
+        if not self._dh.status:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Cannot aggregate FA parameters: Diffie-"
+                "Hellman context is not set properly."
+            )
+
+        if self._secagg_random is not None:
+            logger.info("Validating secure aggregation results...")
+            ef_list = list(encryption_factors.values())
+            if any(not ef for ef in ef_list):
+                raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB417.value}: Secure aggregation validation requested "
+                    "but some nodes returned empty encryption factors."
+                )
+            random_sum = SecaggLomCrypter.aggregate_fa(ef_list)[0]
+            expected = n_nodes * round(self._secagg_random * FA_RANDOM_PRECISION)
+            if abs(random_sum - expected) > 0.5:
+                raise FedbiomedSecureAggregationError(
+                    f"{ErrorNumbers.FB417.value}: Aggregation has failed due to incorrect decryption."
+                )
+            logger.info("Validation is completed.")
+
+        logger.info("Aggregating encrypted FA parameters.")
+        params_list = list(model_params.values())
+        return SecaggLomCrypter.aggregate_fa(params_list)
 
     def save_state_breakpoint(self) -> Dict[str, Any]:
         """Saves state of the secagg

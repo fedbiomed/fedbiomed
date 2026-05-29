@@ -453,6 +453,7 @@ class FederatedAnalytics:
         reqs: Requests,
         experimentation_folder: str,
         secagg: Optional[SecureAggregation] = None,
+        clipping_range: float = 1000.0,
         **kwargs,
     ) -> None:
         """Initialise a federated analytics session.
@@ -465,6 +466,12 @@ class FederatedAnalytics:
             experimentation_folder: Local folder for storing experiment artefacts.
             secagg: Optional ``SecureAggregation`` instance.  When ``None`` or
                 inactive, FA runs in plaintext.
+            clipping_range: Maximum absolute value expected in any FA stat.  Must
+                be a positive number (int or float).  Used only when *secagg* is
+                active to scale floating-point values into the integer range before
+                encryption.  Stats outside ``[-clipping_range, clipping_range]``
+                will overflow and produce incorrect aggregates.  Defaults to
+                ``1000.0``.
             **kwargs: Additional keyword arguments (reserved for future use).
         """
         self._fa_id: str = "FA_" + str(uuid.uuid4())
@@ -476,6 +483,16 @@ class FederatedAnalytics:
         self._secagg: SecureAggregation = (
             secagg if secagg is not None else SecureAggregation(active=False)
         )
+        if not isinstance(clipping_range, (int, float)):
+            raise FedbiomedError(
+                f"clipping_range must be a positive number, got {type(clipping_range).__name__} "
+                f"({clipping_range!r})."
+            )
+        if clipping_range <= 0:
+            raise FedbiomedError(
+                f"clipping_range must be positive, got {clipping_range}."
+            )
+        self._clipping_range: float = clipping_range
         self._fa_round_counter: int = 0
         # Maps hash(node_ids, dataset_schema, stats_args) → FAResult.
         self._results_store: OrderedDict[str, FAResult] = OrderedDict()
@@ -633,13 +650,10 @@ class FederatedAnalytics:
             encryption_factors = {
                 nid: r.encryption_factor for nid, r in analytics_replies.items()
             }
-            num_expected_params = len(first_reply.params_encrypted)
-            aggregated_flat = self._secagg.aggregate(
-                round_=self._fa_round_counter,
-                total_sample_size=len(analytics_replies),
+            aggregated_flat = self._secagg.aggregate_fa(
                 model_params=model_params,
                 encryption_factors=encryption_factors,
-                num_expected_params=num_expected_params,
+                n_nodes=len(analytics_replies),
             )
             output_schema = first_reply.output_schema
             aggregated_output = unflatten_fa_output(aggregated_flat, output_schema)

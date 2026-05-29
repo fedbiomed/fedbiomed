@@ -131,6 +131,10 @@ class LOM:
         """
 
         num_nodes = len(node_ids)
+
+        if not x_u_tau:
+            return []
+
         _max_param_bits = max(val.bit_length() for val in x_u_tau)
         _node_bits = math.ceil(math.log2(num_nodes))
 

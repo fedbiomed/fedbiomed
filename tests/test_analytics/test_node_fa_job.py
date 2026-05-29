@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, SAParameters, Stats
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, Stats
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecureAggregationError
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
@@ -538,7 +538,7 @@ def test_run_encrypted_path_returns_fa_reply(
     """When use_secagg is True, run() returns encrypted FAReply with all required fields."""
     mock_secagg = MagicMock()
     mock_secagg.use_secagg = True
-    mock_secagg.encrypt.return_value = [100, 200, 300]
+    mock_secagg.encrypt_fa.return_value = [100, 200, 300]
     mock_secagg_cls.return_value = mock_secagg
 
     job = _make_fa_job(
@@ -567,10 +567,10 @@ def test_run_encrypted_path_returns_fa_reply(
 def test_run_encrypted_path_uses_fa_round_from_args(
     mock_secagg_cls, fa_job_args, fa_request, secagg_args
 ):
-    """encrypt() is called with the fa_round from secagg_arguments."""
+    """encrypt_fa() is called with the fa_round from secagg_arguments."""
     mock_secagg = MagicMock()
     mock_secagg.use_secagg = True
-    mock_secagg.encrypt.return_value = [1]
+    mock_secagg.encrypt_fa.return_value = [1]
     mock_secagg_cls.return_value = mock_secagg
 
     secagg_args["fa_round"] = 7
@@ -583,21 +583,22 @@ def test_run_encrypted_path_uses_fa_round_from_args(
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         job.run()
 
-    call_args = mock_secagg.encrypt.call_args
+    call_args = mock_secagg.encrypt_fa.call_args
     assert call_args[0][1] == 7  # fa_round positional arg
 
 
 @patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
-def test_run_encrypted_encryption_factor_uses_clipping_range(
+def test_run_encrypted_encryption_factor_is_encrypted_random(
     mock_secagg_cls, fa_job_args, fa_request, secagg_args
 ):
-    """encryption_factor = TARGET_RANGE / (2 * clipping_range) for each element."""
+    """encryption_factor is the encrypted secagg_random value (for researcher validation)."""
     mock_secagg = MagicMock()
     mock_secagg.use_secagg = True
-    mock_secagg.encrypt.return_value = [0, 0]
+    encrypted_rng = [111, 222]
+    mock_secagg.encrypt_fa.side_effect = [[0, 0], encrypted_rng]
     mock_secagg_cls.return_value = mock_secagg
 
-    secagg_args["secagg_clipping_range"] = 5
+    secagg_args["secagg_random"] = 0.42
     job = _make_fa_job(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
@@ -607,8 +608,37 @@ def test_run_encrypted_encryption_factor_uses_clipping_range(
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()
 
-    expected_factor = SAParameters.TARGET_RANGE / (2 * 5)
-    assert all(f == expected_factor for f in reply.encryption_factor)
+    # Second encrypt_fa call must pass secagg_random scaled by FA_RANDOM_PRECISION
+    from fedbiomed.common.secagg import FA_RANDOM_PRECISION
+
+    second_call = mock_secagg.encrypt_fa.call_args_list[1]
+    assert second_call[0][0] == [0.42 * FA_RANDOM_PRECISION]
+    assert reply.encryption_factor == encrypted_rng
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
+def test_run_encrypted_encryption_factor_empty_when_no_random(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """encryption_factor is [] when secagg_random is absent (no validation)."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg.encrypt_fa.return_value = [0, 0]
+    mock_secagg_cls.return_value = mock_secagg
+
+    secagg_args["secagg_random"] = None
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"a": 1.0, "b": 2.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert reply.encryption_factor == []
+    # encrypt_fa called only once (for stats, not for random)
+    assert mock_secagg.encrypt_fa.call_count == 1
 
 
 @patch("fedbiomed.node.jobs._fa_job.SecaggFARound")

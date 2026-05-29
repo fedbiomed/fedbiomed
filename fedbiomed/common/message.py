@@ -951,8 +951,9 @@ class FAReply(RequestReply, RequiresProtocolVersion):
         encrypted: True when the node encrypted the output with secure aggregation
         params_encrypted: Flat list of integer-encoded encrypted stats; set when
             encrypted is True, None otherwise
-        encryption_factor: Per-element float-to-integer scale factors used during
-            quantisation; set when encrypted is True, None otherwise
+        encryption_factor: Encrypted secagg_random validation value (list of ints),
+            used by the researcher to verify correct decryption; empty list when the
+            researcher did not request validation (secagg_random was None)
         output_schema: Ordered list of key-paths produced by flatten_fa_output; the
             researcher uses this with unflatten_fa_output to reconstruct the stats dict
             after decryption; set when encrypted is True, None otherwise

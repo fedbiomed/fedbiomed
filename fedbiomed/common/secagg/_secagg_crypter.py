@@ -286,6 +286,10 @@ class SecaggCrypter:
         return encrypted_number
 
 
+FA_RANDOM_PRECISION = 1_000_000
+"""Scale factor used to encode secagg_random (a float in (0,1)) as an integer for the FA path."""
+
+
 class SecaggLomCrypter(SecaggCrypter):
     """Low-Overhead Masking secure aggregation controller"""
 
@@ -435,3 +439,71 @@ class SecaggLomCrypter(SecaggCrypter):
         )
 
         return aggregated_params
+
+    def encrypt_fa(
+        self,
+        current_round: int,
+        node_id: str,
+        params: List[float],
+        pairwise_secrets: Dict[str, bytes],
+        node_ids: List[str],
+    ) -> List[int]:
+        """Encrypt FA statistics using int64 arithmetic without quantisation.
+
+        Rounds each value to the nearest integer, then applies LOM pairwise masks
+        generated in int64 space.  Masks cancel exactly when summed across nodes,
+        leaving the raw int64 sum of the original (rounded) values.
+
+        Args:
+            current_round: FA round counter (same role as ``current_round`` in training).
+            node_id: ID of the node applying encryption.
+            params: Flat list of FA statistics to encrypt.
+            pairwise_secrets: DH-agreed secrets keyed by peer node ID.
+            node_ids: All node IDs participating in this FA round.
+
+        Returns:
+            List of int64-encoded encrypted integers.
+        """
+        import numpy as np
+
+        if not params:
+            return []
+
+        x = np.array([round(p) for p in params], dtype=np.int64)
+        mask = np.zeros(len(x), dtype=np.int64)
+
+        for pair_id in node_ids:
+            if pair_id == node_id:
+                continue
+            secret = pairwise_secrets[pair_id]
+            seed = self._lom._prf.eval_key(pairwise_secret=secret, tau=current_round)
+            # Request 2× input_size so eval_vector returns 8 bytes per element (int64 width).
+            raw = self._lom._prf.eval_vector(
+                seed=seed, tau=current_round, input_size=len(x) * 2
+            )
+            pv = np.frombuffer(raw, dtype=np.int64).copy()
+            if pair_id < node_id:
+                mask += pv
+            else:
+                mask -= pv
+
+        return (mask + x).tolist()
+
+    @staticmethod
+    def aggregate_fa(params: List[List[int]]) -> List[float]:
+        """Sum int64-encrypted FA vectors from all nodes.
+
+        LOM masks cancel in int64 modular arithmetic, so the sum is the plain
+        sum of the (rounded) original values.
+
+        Args:
+            params: One inner list of encrypted integers per node.
+
+        Returns:
+            Element-wise sum as a list of floats.
+        """
+        import numpy as np
+
+        arr = np.array(params, dtype=np.int64)
+        total = np.sum(arr, axis=0)
+        return [float(v) for v in total]

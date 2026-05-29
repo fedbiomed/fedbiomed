@@ -10,19 +10,13 @@ from typing import Dict, Optional
 import polars as pl
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, FedbiomedError, Stats
-from fedbiomed.common.constants import (
-    DatasetTypes,
-    ErrorNumbers,
-    FedbiomedError,
-    SAParameters,
-    Stats,
-)
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import REGISTRY_CONTROLLERS, Dataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
+from fedbiomed.common.secagg import FA_RANDOM_PRECISION
 from fedbiomed.common.utils import flatten_fa_output
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.secagg import SecaggFARound
@@ -264,15 +258,15 @@ class FAJob(_BaseJob):
         if secagg_round.use_secagg:
             flat, schema = flatten_fa_output(output)
             fa_round = self._secagg_arguments.get("fa_round", 1)
-            encrypted_params = secagg_round.encrypt(flat, fa_round, weight=1)
+            encrypted_params = secagg_round.encrypt_fa(flat, fa_round)
 
-            clipping_range = (
-                self._secagg_arguments.get("secagg_clipping_range")
-                or SAParameters.CLIPPING_RANGE
-            )
-            encryption_factor = [
-                SAParameters.TARGET_RANGE / (2 * clipping_range)
-            ] * len(flat)
+            secagg_random = self._secagg_arguments.get("secagg_random")
+            if secagg_random is not None:
+                encrypted_rng = secagg_round.encrypt_fa(
+                    [float(secagg_random) * FA_RANDOM_PRECISION], fa_round
+                )
+            else:
+                encrypted_rng = []
 
             return FAReply(
                 request_id=self._request_id,
@@ -284,7 +278,7 @@ class FAJob(_BaseJob):
                 node_name=self._node_name,
                 encrypted=True,
                 params_encrypted=encrypted_params,
-                encryption_factor=encryption_factor,
+                encryption_factor=encrypted_rng,
                 output_schema=schema,
             )
 

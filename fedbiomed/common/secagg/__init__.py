@@ -6,7 +6,12 @@ from ._additive_ss import AdditiveSecret, AdditiveShare, AdditiveShares
 from ._dh import DHKey, DHKeyAgreement
 from ._jls import JoyeLibert
 from ._lom import LOM, PRF
-from ._secagg_crypter import EncryptedNumber, SecaggCrypter, SecaggLomCrypter
+from ._secagg_crypter import (
+    FA_RANDOM_PRECISION,
+    EncryptedNumber,
+    SecaggCrypter,
+    SecaggLomCrypter,
+)
 
 __all__ = [
     "DHKey",
@@ -15,6 +20,7 @@ __all__ = [
     "LOM",
     "PRF",
     "EncryptedNumber",
+    "FA_RANDOM_PRECISION",
     "SecaggCrypter",
     "SecaggLomCrypter",
     "AdditiveSecret",
