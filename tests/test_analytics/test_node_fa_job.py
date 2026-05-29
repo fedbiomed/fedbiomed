@@ -117,7 +117,7 @@ def test_build_error_msg_default_errnum(fa_job):
     [
         (
             DatasetTypes.TABULAR,
-            {"dtypes": {"col1": "int", "col2": "float"}},
+            {"dtypes": {"col1": "Int64", "col2": "Float64"}},
             {"input_columns": ["col1", "col2"]},
         ),
         (
@@ -137,6 +137,41 @@ def test_build_args_for_dataset(fa_job, dtype_enum, entry_extra, expected):
         return_value=dtype_enum,
     ):
         assert fa_job._build_args_for_dataset(entry) == expected
+
+
+@pytest.mark.parametrize(
+    "dtypes,expected_columns",
+    [
+        # All numerical
+        (
+            {"a": "Int8", "b": "Int16", "c": "Int32", "d": "Int64", "e": "Int128"},
+            ["a", "b", "c", "d", "e"],
+        ),
+        (
+            {"a": "UInt8", "b": "UInt16", "c": "UInt32", "d": "UInt64"},
+            ["a", "b", "c", "d"],
+        ),
+        ({"a": "Float32", "b": "Float64"}, ["a", "b"]),
+        # Mixed: only numerical columns returned
+        ({"num": "Int64", "text": "String", "flag": "Boolean", "dt": "Date"}, ["num"]),
+        ({"x": "Float32", "label": "String"}, ["x"]),
+        # All non-numerical: empty list
+        ({"a": "String", "b": "Boolean", "c": "Date"}, []),
+        # Empty dtypes: empty list
+        ({}, []),
+    ],
+)
+def test_build_args_for_dataset_tabular_numerical_filter(
+    fa_job, dtypes, expected_columns
+):
+    """Only columns with numerical polars dtypes are included in input_columns."""
+    entry = {"data_type": DatasetTypes.TABULAR.value, "dtypes": dtypes}
+    with patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
+        return_value=DatasetTypes.TABULAR,
+    ):
+        result = fa_job._build_args_for_dataset(entry)
+    assert result["input_columns"] == expected_columns
 
 
 def test_build_args_for_dataset_custom_raises(fa_job):

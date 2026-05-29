@@ -7,6 +7,8 @@ Implementation of Federated Analytics Job class of the node component
 
 from typing import Dict
 
+import polars as pl
+
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, FedbiomedError, Stats
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import REGISTRY_CONTROLLERS, Dataset
@@ -79,8 +81,15 @@ class FAJob(_BaseJob):
                     f"Dataset entry contains unsupported dataset type '{data_type}'."
                 )
             case DatasetTypes.TABULAR:
-                # Take keys in 'dtypes' and pass them as ``input_columns`` to the dataset constructor
-                return {"input_columns": list(dataset_entry.get("dtypes", {}))}
+                # Keep only columns whose dtype produces a numerical numpy array via to_numpy()
+                return {
+                    "input_columns": [
+                        col
+                        for col, dtype_name in dataset_entry.get("dtypes", {}).items()
+                        if (cls := getattr(pl, dtype_name, None)) is not None
+                        and cls().is_numeric()
+                    ]
+                }
             case DatasetTypes.IMAGES | DatasetTypes.DEFAULT | DatasetTypes.MEDNIST:
                 # For image datasets, no dataset arguments are passed by default
                 return {}

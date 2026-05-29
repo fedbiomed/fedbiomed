@@ -125,7 +125,11 @@ class Dataset(ABC):
         elif np.issubdtype(x.dtype, np.integer):
             return x.astype(np.int64, copy=False)
         else:
-            return x
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Expected numeric dtype (floating or integer) "
+                f"for sklearn format, got '{x.dtype}'. Ensure all selected columns "
+                "contain numeric data."
+            )
 
     def _get_default_types_callable(self) -> Callable:
         """Gets function to set default types according to expected format
