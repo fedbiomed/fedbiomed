@@ -103,7 +103,7 @@ class RowAccumulator(Accumulator):
         col_indices: Dict[str, List[int]],
         seen_classes: Dict[str, Dict[Type[Accumulator], None]],
     ) -> Tuple[
-        Dict[str, np.ndarray],
+        Dict[str, List[int]],
         Dict[str, Dict[int, int]],
         Dict[str, List[Accumulator]],
     ]:
@@ -114,17 +114,17 @@ class RowAccumulator(Accumulator):
             seen_classes: Per-stat insertion-ordered set of accumulator classes.
 
         Returns:
-            As vectorized_indices, per-stat sorted ndarray of column indices.
+            As vectorized_indices, per-stat sorted list of column indices.
             As vectorized_output_map, per-stat mapping from column index to position in packed output.
             As vectorized_accumulators, per-stat list of instantiated accumulators (deterministic order).
         """
-        v_indices: Dict[str, np.ndarray] = {}
+        v_indices: Dict[str, List[int]] = {}
         v_output_map: Dict[str, Dict[int, int]] = {}
         v_accumulators: Dict[str, List[Accumulator]] = {}
 
         for stat, indices in col_indices.items():
             sorted_idx = sorted(set(indices))
-            v_indices[stat] = np.array(sorted_idx)
+            v_indices[stat] = sorted_idx
             v_output_map[stat] = {
                 col_idx: pos for pos, col_idx in enumerate(sorted_idx)
             }

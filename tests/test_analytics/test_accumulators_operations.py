@@ -7,12 +7,26 @@ import numpy as np
 import pytest
 
 from fedbiomed.common.analytics.accumulators._operations import (
+    ArrayAccumulator,
     CountAccumulator,
     HistogramAccumulator,
     SumAccumulator,
     SumSqAccumulator,
 )
 from fedbiomed.common.constants import FedbiomedError
+
+# =============================================================================
+# ArrayAccumulator
+# =============================================================================
+
+
+def test_array_accumulator_subclass_requires_key():
+    with pytest.raises(TypeError, match="_key"):
+
+        class _Bad(ArrayAccumulator):
+            def _transform(self, val):
+                return val
+
 
 # =============================================================================
 # BaseStatAccumulator
@@ -83,11 +97,15 @@ def test_count_accumulator_finalize():
     acc.update(np.array([1.0, 2.0]))
     result = acc.finalize()
     assert isinstance(result, dict)
-    np.testing.assert_array_equal(result["count"], np.array([1, 1], dtype=np.int32))
+    assert result["count"] == [1, 1]
+    assert isinstance(result["count"], list)
+    assert all(isinstance(v, int) for v in result["count"])
 
 
 def test_count_accumulator_finalize_no_data():
-    assert CountAccumulator().finalize()["count"] == 0
+    result = CountAccumulator().finalize()
+    assert result["count"] == 0
+    assert isinstance(result["count"], int)
 
 
 # =============================================================================
@@ -133,11 +151,14 @@ def test_sum_accumulator_finalize_basic():
     acc.update(np.array([4.0, 2.0, 0.0]))
     result = acc.finalize()
     assert set(result.keys()) == {"sum"}
-    np.testing.assert_array_almost_equal(result["sum"], [6.0, 6.0, 6.0])
+    assert result["sum"] == pytest.approx([6.0, 6.0, 6.0])
+    assert isinstance(result["sum"], list)
+    assert all(isinstance(v, float) for v in result["sum"])
 
 
 def test_sum_accumulator_finalize_no_data():
     result = SumAccumulator().finalize()
+    assert isinstance(result["sum"], float)
     assert np.isnan(result["sum"])
 
 
@@ -187,6 +208,8 @@ def test_sum_sq_accumulator_finalize_basic():
     result = acc.finalize()
     assert set(result.keys()) == {"sum_sq"}
     assert result["sum_sq"][0] == pytest.approx(float(np.sum(values**2)))
+    assert isinstance(result["sum_sq"], list)
+    assert all(isinstance(v, float) for v in result["sum_sq"])
 
 
 def test_sum_sq_accumulator_finalize_vector():
@@ -195,11 +218,14 @@ def test_sum_sq_accumulator_finalize_vector():
     acc.update(np.array([2.0, 20.0, 200.0]))
     acc.update(np.array([3.0, 30.0, 300.0]))
     result = acc.finalize()
-    np.testing.assert_array_almost_equal(result["sum_sq"], [14.0, 1400.0, 140000.0])
+    assert result["sum_sq"] == pytest.approx([14.0, 1400.0, 140000.0])
+    assert isinstance(result["sum_sq"], list)
+    assert all(isinstance(v, float) for v in result["sum_sq"])
 
 
 def test_sum_sq_accumulator_finalize_no_data():
     result = SumSqAccumulator().finalize()
+    assert isinstance(result["sum_sq"], float)
     assert np.isnan(result["sum_sq"])
 
 
@@ -311,3 +337,7 @@ def test_histogram_accumulator_finalize():
     result = acc.finalize()
     assert result["histogram"]["bin_edges"] == edges
     assert result["histogram"]["counts"] == [1, 1]
+    assert isinstance(result["histogram"]["bin_edges"], list)
+    assert all(isinstance(v, float) for v in result["histogram"]["bin_edges"])
+    assert isinstance(result["histogram"]["counts"], list)
+    assert all(isinstance(v, int) for v in result["histogram"]["counts"])

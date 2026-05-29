@@ -12,8 +12,8 @@ def mock_registry(monkeypatch):
     mock_acc_class = MagicMock()
     mock_instance = MagicMock()
     mock_instance.finalize.return_value = {
-        "sum": np.array([10.0, 20.0]),
-        "count": np.array([2.0, 2.0]),
+        "sum": [10.0, 20.0],
+        "count": [2.0, 2.0],
     }
     mock_acc_class.return_value = mock_instance
 
@@ -99,8 +99,8 @@ def test_row_accumulator_update_too_many_elements(mock_registry, basic_row_confi
 def test_row_accumulator_finalize_mapping(mock_registry, basic_row_config):
     _, mock_instance = mock_registry
     mock_instance.finalize.return_value = {
-        "sum": np.array([42.0, 999.0]),
-        "count": np.array([1.0, 1.0]),
+        "sum": [42.0, 999.0],
+        "count": [1.0, 1.0],
     }
 
     results = RowAccumulator(basic_row_config).finalize()
@@ -113,8 +113,8 @@ def test_row_accumulator_finalize_multi_key_output(mock_registry, basic_row_conf
     """All keys from a multi-output accumulator (mean → sum+count) are extracted per column."""
     _, mock_instance = mock_registry
     mock_instance.finalize.return_value = {
-        "sum": np.array([100.0, 500.0]),
-        "count": np.array([2.0, 5.0]),
+        "sum": [100.0, 500.0],
+        "count": [2.0, 5.0],
     }
 
     results = RowAccumulator(basic_row_config).finalize()
@@ -186,8 +186,8 @@ def test_row_accumulator_mixed_vectorized_and_independent(mock_registry):
     ind_instance.update.assert_called_once_with(60000.0)
 
     vec_instance.finalize.return_value = {
-        "sum": np.array([30.5]),
-        "count": np.array([1.0]),
+        "sum": [30.5],
+        "count": [1.0],
     }
     ind_instance.finalize.return_value = 60000.0
     results = row_acc.finalize()

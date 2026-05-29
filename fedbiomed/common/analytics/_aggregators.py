@@ -3,7 +3,8 @@
 
 import functools
 import inspect
-from typing import Callable, Dict, List, Union, cast
+import math
+from typing import Callable, Dict, List, Union
 
 import numpy as np
 
@@ -57,38 +58,52 @@ def aggregator(stat: str):
 
 @aggregator("count")
 def aggregate_count(
-    count: List[Union[int, Dict[str, int]]],
+    count: List[Union[int, float, Dict[str, Union[int, float]]]],
 ) -> Union[int, Dict[str, int]]:
     """Aggregates count values.
 
     Args:
         count: List of counts from nodes. Each element is either a non-negative
-            integer or a dict mapping category labels to non-negative integer counts.
+            number (int or float — floats arise from SecAgg decryption and are
+            truncated to int) or a dict mapping category labels to such values.
 
     Returns:
         The total count as an int, or a dict of summed counts.
     """
-    if all(isinstance(c, (int, np.integer)) for c in count):
-        int_counts = cast(List[int], count)
-        if not all(c >= 0 for c in int_counts):
+    if all(isinstance(c, (int, float)) for c in count):
+        for c in count:
+            if not math.isfinite(c):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB633.value}: count contains a non-finite value: {c}."
+                )
+        int_counts = [int(c) for c in count]
+        if any(c < 0 for c in int_counts):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB633.value}: All count values must be non-negative integers."
+                f"{ErrorNumbers.FB633.value}: All count values must be non-negative."
             )
         return int(np.sum(int_counts))
 
     if all(isinstance(c, dict) for c in count):
         result: Dict[str, int] = {}
-        for c in cast(List[Dict[str, int]], count):
+        for c in count:
             for k, v in c.items():
-                if not isinstance(v, (int, np.integer)) or v < 0:
+                if not isinstance(v, (int, float)):
                     raise FedbiomedError(
-                        f"{ErrorNumbers.FB633.value}: All count dict values must be non-negative integers."
+                        f"{ErrorNumbers.FB633.value}: All count dict values must be non-negative."
+                    )
+                if not math.isfinite(v):
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB633.value}: count dict contains a non-finite value: {v}."
+                    )
+                if v < 0:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB633.value}: All count dict values must be non-negative."
                     )
                 result[k] = result.get(k, 0) + int(v)
         return result
 
     raise FedbiomedError(
-        f"{ErrorNumbers.FB633.value}: count must be a list of ints or a list of dicts."
+        f"{ErrorNumbers.FB633.value}: count must be a list of numbers or a list of dicts."
     )
 
 
@@ -102,7 +117,7 @@ def aggregate_sum(sum: List[float]) -> float:
     Returns:
         The global sum.
     """
-    if not all(isinstance(s, (int, float, np.number)) for s in sum):
+    if not all(isinstance(s, (int, float)) for s in sum):
         raise FedbiomedError(
             f"{ErrorNumbers.FB633.value}: sum must be a list of numeric values."
         )
@@ -119,7 +134,7 @@ def aggregate_sum_sq(sum_sq: List[float]) -> float:
     Returns:
         The global sum of squares.
     """
-    if not all(isinstance(s, (int, float, np.number)) for s in sum_sq):
+    if not all(isinstance(s, (int, float)) for s in sum_sq):
         raise FedbiomedError(
             f"{ErrorNumbers.FB633.value}: sum_sq must be a list of numeric values."
         )
@@ -127,7 +142,7 @@ def aggregate_sum_sq(sum_sq: List[float]) -> float:
 
 
 @aggregator("mean")
-def aggregate_mean(sum: List[float], count: List[Union[int, np.integer]]) -> float:
+def aggregate_mean(sum: List[float], count: List[int]) -> float:
     """Aggregates global mean from sufficient statistics.
 
     Args:

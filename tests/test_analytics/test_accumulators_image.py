@@ -393,11 +393,11 @@ def test_finalize_calls_each_sub_finalize_once(monkeypatch):
 def test_finalize_after_multiple_updates(mock_registry):
     """finalize() still delegates to sub-accumulators after repeated updates."""
     _, mock_instance = mock_registry
-    mock_instance.finalize.return_value = {"mean": np.array([1.0, 2.0, 3.0])}
+    mock_instance.finalize.return_value = {"mean": [1.0, 2.0, 3.0]}
 
     acc = ImageAccumulator({"stats": {"mean": {}}})
     for _ in range(3):
         acc.update(np.zeros((3, 8, 8)))
 
     result = acc.finalize()
-    np.testing.assert_array_equal(result["mean"], np.array([1.0, 2.0, 3.0]))
+    assert result["mean"] == [1.0, 2.0, 3.0]

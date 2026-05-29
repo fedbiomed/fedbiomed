@@ -1,7 +1,11 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Statistic accumulators for federated analytics."""
+"""Statistic accumulators for federated analytics.
+
+All ``finalize()`` implementations must return plain Python native types
+(``list``, ``int``, ``float``) — no numpy scalars or arrays.
+"""
 
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Union
@@ -62,7 +66,11 @@ class ArrayAccumulator(Accumulator):
         self._value = t if self._value is None else self._value + t
 
     def finalize(self) -> Dict[str, Any]:
-        return {self._key: self._value if self._value is not None else self._default}
+        return {
+            self._key: np.asarray(
+                self._value if self._value is not None else self._default
+            ).tolist()
+        }
 
 
 class CountAccumulator(ArrayAccumulator):

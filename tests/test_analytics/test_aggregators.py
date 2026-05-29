@@ -66,14 +66,25 @@ def test_aggregate_count():
         aggregate_count([10, -5])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
-    # non-integer
+    # Float values are accepted and cast to int (SecAgg decryption returns floats)
+    assert aggregate_count([10, 20.0]) == 30
+    assert aggregate_count([10, 1.5]) == 11  # 1.5 → int(1.5) == 1
+
+    # non-numeric type raises
     with pytest.raises(FedbiomedError) as excinfo:
         aggregate_count([10, "5"])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
+    # NaN and inf raise FedbiomedError (not ValueError/OverflowError)
     with pytest.raises(FedbiomedError) as excinfo:
-        aggregate_count([10, 1.5])
+        aggregate_count([10, float("nan")])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
+    assert "non-finite" in str(excinfo.value)
+
+    with pytest.raises(FedbiomedError) as excinfo:
+        aggregate_count([10, float("inf")])
+    assert ErrorNumbers.FB633.value in str(excinfo.value)
+    assert "non-finite" in str(excinfo.value)
 
 
 def test_aggregate_count_dicts():
@@ -90,11 +101,6 @@ def test_aggregate_count_dicts():
     # Zero counts are valid
     assert aggregate_count([{"x": 0}, {"x": 0}]) == {"x": 0}
 
-    # numpy integers are accepted as values
-    node_np = {"a": np.int64(4), "b": np.int32(6)}
-    result_np = aggregate_count([node_np, {"a": 1, "b": 2}])
-    assert result_np == {"a": 5, "b": 8}
-
     # Different keys across nodes: missing keys default to 0 (union)
     result_union = aggregate_count([{"cat": 3, "dog": 5}, {"cat": 2, "bird": 1}])
     assert result_union == {"cat": 5, "dog": 5, "bird": 1}
@@ -104,10 +110,19 @@ def test_aggregate_count_dicts():
         aggregate_count([{"a": 3}, {"a": -1}])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
-    # Non-integer dict value raises FedbiomedError
+    # Float dict values are accepted and cast to int (SecAgg decryption returns floats)
+    assert aggregate_count([{"a": 1.5}, {"a": 2}]) == {"a": 3}  # 1.5 → int(1.5) == 1
+
+    # NaN and inf in dict values raise FedbiomedError
     with pytest.raises(FedbiomedError) as excinfo:
-        aggregate_count([{"a": 1.5}, {"a": 2}])
+        aggregate_count([{"a": float("nan")}])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
+    assert "non-finite" in str(excinfo.value)
+
+    with pytest.raises(FedbiomedError) as excinfo:
+        aggregate_count([{"a": float("inf")}])
+    assert ErrorNumbers.FB633.value in str(excinfo.value)
+    assert "non-finite" in str(excinfo.value)
 
     # Mixed list (int and dict) raises FedbiomedError
     with pytest.raises(FedbiomedError) as excinfo:
