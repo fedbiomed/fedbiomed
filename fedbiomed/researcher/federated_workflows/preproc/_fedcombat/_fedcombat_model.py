@@ -4,7 +4,7 @@
 """FedCombat class for harmonizing data within an Experiment using Fed-ComBat algorithm."""
 
 import copy
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -15,10 +15,18 @@ from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import TabularDataset
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.preproc import FedCombatBiologicalModel, FedCombatModelWrapper
+from fedbiomed.common.preproc import (
+    FedCombatBiasModel,
+    FedCombatBiologicalModel,
+    FedCombatModelWrapper,
+)
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
+
+# some typing of Experiment class argument without importing the whole Experiment class
+# to avoid circular imports
+ExperimentFactory = Callable[..., Any]
 
 
 # Use a PyTorch linear model without bias as the biological model for Fed-ComBat,
@@ -32,8 +40,9 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
                 n_covariates=len(model_args.get("covariates")),
                 n_phenotypes=len(model_args.get("phenotypes")),
             ),
-            n_covariates=len(model_args.get("covariates")),
-            n_phenotypes=len(model_args.get("phenotypes")),
+            bias_model=FedCombatBiasModel(
+                n_phenotypes=len(model_args.get("phenotypes")),
+            ),
         )
 
     def init_optimizer(self, optimizer_args):
@@ -43,7 +52,7 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
         return [
             "from torch.optim import Adam",
             "from fedbiomed.common.dataset import TabularDataset",
-            "from fedbiomed.common.preproc import FedCombatBiologicalModel, FedCombatModelWrapper",
+            "from fedbiomed.common.preproc import FedCombatBiasModel, FedCombatBiologicalModel, FedCombatModelWrapper",
         ]
 
     def training_data(self):
@@ -67,6 +76,7 @@ class _FedCombatTrainModel:
 
     def __init__(
         self,
+        experiment_class: ExperimentFactory,
         fds: FederatedDataSet,
         nodes: list[str],
         experimentation_folder: str,
@@ -79,6 +89,7 @@ class _FedCombatTrainModel:
         """Constructor of the class.
 
         Args:
+            experiment_class: Experiment class factory to be used for the harmonization model training.
             fds: FederatedDataSet instance containing the federated dataset to be harmonized.
             nodes: List of node IDs participating in the harmonization.
             experimentation_folder: Name of the *main* experimentation folder
@@ -94,6 +105,7 @@ class _FedCombatTrainModel:
             FedbiomedExperimentError: if covariates or phenotypes are not provided and correct.
         """
 
+        self._experiment_class = experiment_class
         self._fds = fds
         self._nodes = nodes
         # Caveat : do not use a `experimentation_folder` name finishing
@@ -181,10 +193,7 @@ class _FedCombatTrainModel:
 
         logger.setPrefix(" \033[1m[Fed-ComBat]\033[0m")
         try:
-            # TODO: IMPLEMENT AS FACTORY PATTERN TO AVOID CIRCULAR IMPORT AND LOCAL IMPORT
-            from fedbiomed.researcher.federated_workflows import Experiment
-
-            experiment = Experiment(
+            experiment = self._experiment_class(
                 # aggregator=None,  # Use default aggregator
                 # agg_optimizer=None,  # Use default aggregator optimizer
                 # node_selection_strategy=None,  # Use default strategy
@@ -225,32 +234,34 @@ class _FedCombatTrainModel:
                 "Fed-ComBat harmonization model training failed."
             ) from e
 
-        # Caveat: works because we use a simple linear model. For a general implementation
-        # we need to extract the model parameters and instantiate a similar model on each
-        # node, load the model parameters and infer the model outputs
+        # Caveat: only tested with simple liear model but
+        # should work with any model as long as the parameter naming
+        # convention is respected (i.e. `biological_model.` and `bias_model.` prefixes).
         final_round = experiment.round_current() - 1
-        # biological_model = experiment.aggregated_params()[final_round]["params"][
-        #    "biological_model.linear.weight"
-        # ]
-        global_bias_model = experiment.aggregated_params()[final_round]["params"][
-            "local_bias.weight"
-        ]
-
         all_model_params = experiment.training_plan().get_model_params()
         biological_model = {
             k.replace("biological_model.", "", 1): v
             for k, v in all_model_params.items()
             if k.startswith("biological_model.")
         }
-        # global_bias_model = {
-        #    k: v for k, v in all_params.items() if k.startswith("local_bias.")
-        # }
+        global_bias_model = {
+            k.replace("bias_model.", "", 1): v
+            for k, v in all_model_params.items()
+            if k.startswith("bias_model.")
+        }
 
         # Caveat: sending local biases from researcher is not optimal
         # as it may leave room for malicious researcher manipulation.
-        # Tweak as there is currently no simple way to access them directly from the nodes.
+        # Optimal implementation would save and access local bias models directly on the nodes,
+        # but this is not easily doable currently.
         local_bias_models = {
-            k: {"local_bias_model": v["params"]["local_bias.weight"]}
+            k: {
+                "local_bias_model": {
+                    pk.replace("bias_model.", "", 1): pv
+                    for pk, pv in v["params"].items()
+                    if pk.startswith("bias_model.")
+                }
+            }
             for k, v in experiment.training_replies()[final_round].items()
         }
 

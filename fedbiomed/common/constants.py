@@ -39,6 +39,9 @@ TENSORBOARD_FOLDER_NAME = "runs"
 VAR_FOLDER_NAME = "var"
 """Directory/folder name where variable files are saved"""
 
+NODE_DYNAMIC_DATA_FOLDER = os.path.join(VAR_FOLDER_NAME, "data")
+"""Directory/folder name used by Nodes to save their dynamic datasets"""
+
 DB_FOLDER_NAME = VAR_FOLDER_NAME
 """Directory/folder name where DB files are saved"""
 
@@ -56,6 +59,9 @@ EXPERIMENT_PREFIX = "exper_"
 
 REQUEST_PREFIX = "request_"
 """Prefix for request ID"""
+
+HARMONIZED_PREFIX = "harmonized_"
+"""Prefix for harmonized dataset ID"""
 
 DEFAULT_NODE_NAME = "fbm-node"
 """Default node component folder name"""

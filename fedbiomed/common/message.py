@@ -1117,7 +1117,6 @@ class PreprocRequest(RequestReply, RequiresProtocolVersion):
     preproc_id: str
     # TODO: Use dataclass per pre-processing and per-step
     # to define precisely what arguments are expected
-    # - includes dataset_id so we hide the temporary intermediate datasets from the researcher
     preproc_args: Dict
     state_id: Optional[str] = None
 

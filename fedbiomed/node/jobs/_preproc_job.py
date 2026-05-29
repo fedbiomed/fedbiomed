@@ -75,6 +75,16 @@ class PreprocJob(_BaseJob):
         Returns:
             PreprocReply message if successful, ErrorMessage otherwise.
         """
+        logger.security_event(
+            operation="preprocessing_job_received",
+            status="received",
+            researcher_id=self._researcher_id,
+            experiment_id=self._experiment_id,
+            dataset_id=self._dataset_id,
+            preproc_id=self._preproc_id,
+            request_id=self._request_id,
+        )
+
         if not self._allow_preproc:
             return self._build_error_msg(
                 "Preprocessing is not allowed on this node by node configuration for "
@@ -85,27 +95,39 @@ class PreprocJob(_BaseJob):
         # Further check message parameters if needed
         try:
             self._preproc_type = PreprocType(self._preproc_type_raw)
-        except ValueError:
-            return self._build_error_msg(
+        except ValueError as e:
+            msg = (
                 f"Received invalid preproc_type: {self._preproc_type_raw} for"
-                f"experiment {self._experiment_id} with preproc_id {self._preproc_id}",
+                f"experiment={self._experiment_id} with preproc_id={self._preproc_id}"
+            )
+            logger.debug(f"{msg}: {e}")
+            return self._build_error_msg(
+                msg,
                 errnum=ErrorNumbers.FB326.value,
             )
         try:
             preproc_type_jobs = _preproc_type_to_jobs[self._preproc_type]
             preproc_type_steps = _preproc_type_to_steps[self._preproc_type]
-        except KeyError:
-            return self._build_error_msg(
+        except KeyError as e:
+            msg = (
                 f"Unsupported preprocessing type: {self._preproc_type.name} for "
-                f"experiment {self._experiment_id} with preproc_id {self._preproc_id}",
+                f"experiment={self._experiment_id} with preproc_id={self._preproc_id}"
+            )
+            logger.debug(f"{msg}: {e}")
+            return self._build_error_msg(
+                msg,
                 errnum=ErrorNumbers.FB326.value,
             )
         try:
             self._preproc_step = preproc_type_steps(self._preproc_step_raw)
-        except ValueError:
-            return self._build_error_msg(
+        except ValueError as e:
+            msg = (
                 f"Received invalid preproc_step: {self._preproc_step_raw} for "
-                f"experiment {self._experiment_id} with preproc_id {self._preproc_id}",
+                f"experiment={self._experiment_id} with preproc_id={self._preproc_id}"
+            )
+            logger.debug(f"{msg}: {e}")
+            return self._build_error_msg(
+                msg,
                 errnum=ErrorNumbers.FB326.value,
             )
 
@@ -115,11 +137,13 @@ class PreprocJob(_BaseJob):
         self._preproc_args = self._preproc_args_raw
 
         # Check that dataset exists in local dataset registry and get its type
-        dataset_entry = self._dataset_manager.dataset_table.get_by_id(self._dataset_id)
+        dataset_entry, _ = self._dataset_manager.get_dataset_entry_by_id(
+            self._dataset_id
+        )
         if not isinstance(dataset_entry, dict):
             return self._build_error_msg(
-                f"Dataset with id {self._dataset_id} not found in local database for "
-                f"experiment {self._experiment_id} with preproc_id {self._preproc_id}",
+                f"Dataset with id={self._dataset_id} not found in local database for "
+                f"experiment={self._experiment_id} with preproc_id={self._preproc_id}",
                 errnum=ErrorNumbers.FB326.value,
             )
         dataset_type = dataset_entry.get("data_type")
@@ -133,39 +157,83 @@ class PreprocJob(_BaseJob):
             node_state_manager.initialize(
                 previous_state_id=self._state_id, testing=False
             )
-        except Exception:
-            return self._build_error_msg(
+        except Exception as e:
+            msg = (
                 f"Preprocessing job failed for {self._preproc_type.name} "
-                f"step {self._preproc_step_raw} / {self._preproc_step.name} "
-                f" for experiment {self._experiment_id} with preproc_id {self._preproc_id}: "
-                f"failed to initialize node state manager",
+                f"step={self._preproc_step_raw}/{self._preproc_step.name} "
+                f"for experiment={self._experiment_id} with preproc_id={self._preproc_id}: "
+                f"failed to initialize node state manager"
+            )
+            logger.debug(f"{msg}: {e}")
+            return self._build_error_msg(
+                msg,
                 errnum=ErrorNumbers.FB326.value,
             )
 
-        try:
-            preproc_job_class = preproc_type_jobs(
-                experiment_id=self._experiment_id,
-                node_state_manager=node_state_manager,
-            )
-            preproc_output = preproc_job_class(
-                self._preproc_step, dataset_type, self._preproc_args
-            )
-        except Exception:
-            return self._build_error_msg(
-                f"Preprocessing job failed for {self._preproc_type.name} "
-                f"step {self._preproc_step_raw} / {self._preproc_step.name} "
-                f" for experiment {self._experiment_id} with preproc_id {self._preproc_id}: cannot execute preprocessing",
-                errnum=ErrorNumbers.FB326.value,
-            )
-
-        msg = (
-            f"Preprocessing type {self._preproc_type.name} step {self._preproc_step_raw} / {self._preproc_step.name} "
-            f"for preproc_id {self._preproc_id}"
-        )
         exclude_args = ["biological_model", "global_bias_model"]
         filtered_args = {
             k: v for k, v in self._preproc_args.items() if k not in exclude_args
         }
+        logger.debug(
+            f"Preprocessing starting for {self._preproc_type.name} "
+            f"step={self._preproc_step_raw}/{self._preproc_step.name} "
+            f"with request id={self._request_id} preproc_id={self._preproc_id} dataset_id={self._dataset_id} "
+            f"preproc_args={filtered_args} except {exclude_args} and dataset_type={dataset_type}"
+        )
+        logger.security_event(
+            operation="preprocessing_job_starting",
+            status="start",
+            researcher_id=self._researcher_id,
+            experiment_id=self._experiment_id,
+            dataset_id=self._dataset_id,
+            preproc_id=self._preproc_id,
+            request_id=self._request_id,
+            preproc_type=self._preproc_type.name,
+            preproc_step=self._preproc_step.name,
+        )
+        try:
+            preproc_job_class = preproc_type_jobs(
+                root_dir=self._dir,
+                experiment_id=self._experiment_id,
+                preproc_id=self._preproc_id,
+                researcher_id=self._researcher_id,
+                node_state_manager=node_state_manager,
+                dataset_manager=self._dataset_manager,
+                dataset_entry=dataset_entry,
+            )
+            preproc_output = preproc_job_class(
+                harmonization_step=self._preproc_step,
+                dataset_type=dataset_type,
+                params=self._preproc_args,
+            )
+        except Exception as e:
+            msg = (
+                f"Preprocessing job failed for {self._preproc_type.name} "
+                f"step={self._preproc_step_raw}/{self._preproc_step.name} "
+                f"for experiment={self._experiment_id} with preproc_id={self._preproc_id}: cannot execute preprocessing"
+            )
+            logger.debug(f"{msg}: {e}")
+            return self._build_error_msg(
+                msg,
+                errnum=ErrorNumbers.FB326.value,
+            )
+
+        logger.security_event(
+            operation="preprocessing_job_finished",
+            status="finished",
+            researcher_id=self._researcher_id,
+            experiment_id=self._experiment_id,
+            dataset_id=self._dataset_id,
+            preproc_id=self._preproc_id,
+            request_id=self._request_id,
+            preproc_type=self._preproc_type.name,
+            preproc_step=self._preproc_step.name,
+        )
+
+        msg = (
+            f"Preprocessing type={self._preproc_type.name} step={self._preproc_step_raw}/{self._preproc_step.name} "
+            f"for preproc_id={self._preproc_id}"
+        )
 
         preproc_output_summary = {
             "type": type(preproc_output).__name__,
@@ -174,9 +242,9 @@ class PreprocJob(_BaseJob):
 
         logger.info(
             f"Preprocessing executed successfully for {self._preproc_type.name} "
-            f"step {self._preproc_step_raw} / {self._preproc_step.name} "
-            f"with request id {self._request_id} preproc_id {self._preproc_id} dataset_id {self._dataset_id} "
-            f"preproc_args {filtered_args} except {exclude_args} and output_summary {preproc_output_summary}"
+            f"step={self._preproc_step_raw}/{self._preproc_step.name} "
+            f"with request id={self._request_id} preproc_id={self._preproc_id} dataset_id={self._dataset_id} "
+            f"preproc_args={filtered_args} except {exclude_args} and output_summary={preproc_output_summary}"
         )
         try:
             return PreprocReply(
@@ -189,10 +257,14 @@ class PreprocJob(_BaseJob):
                 preproc_output=preproc_output,
                 state_id=node_state_manager.state_id,
             )
-        except Exception:
-            return self._build_error_msg(
+        except Exception as e:
+            msg = (
                 f"Preprocessing job failed for {self._preproc_type.name} "
-                f"step {self._preproc_step_raw} / {self._preproc_step.name} "
-                f" for experiment {self._experiment_id} with preproc_id {self._preproc_id}: cannot reply to researcher",
+                f"step={self._preproc_step_raw}/{self._preproc_step.name} "
+                f"for experiment={self._experiment_id} with preproc_id={self._preproc_id}: cannot build reply message"
+            )
+            logger.debug(f"{msg}: {e}")
+            return self._build_error_msg(
+                msg,
                 errnum=ErrorNumbers.FB326.value,
             )

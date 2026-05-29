@@ -444,7 +444,7 @@ class Node:
             send=self._grpc_client.send,
         )
         dataset_id = msg.get_param("dataset_id")
-        data = self.dataset_manager.dataset_table.get_by_id(dataset_id)
+        data, _ = self.dataset_manager.get_dataset_entry_by_id(dataset_id)
 
         if data is None:
             return self.send_error(

@@ -6,12 +6,13 @@ from typing import List, Optional, Tuple
 import torch
 
 from fedbiomed.common.constants import HarmonizationStep
+from fedbiomed.common.logger import logger
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows._federated_workflow import (
     FederatedAnalytics,
 )
 
-from ._fedcombat_model import _FedCombatTrainModel
+from ._fedcombat_model import ExperimentFactory, _FedCombatTrainModel
 
 
 class _FedCombatParameters:
@@ -23,9 +24,19 @@ class _FedCombatParameters:
         reqs,
         experimentation_folder: str,
         nodes: List[str],
+        experiment_class: ExperimentFactory,
     ):
         """
         Class computing the Fed-ComBat steps on the server side
+
+        Args:
+            experiment_id: ID of the experiment
+            researcher_id: ID of the researcher
+            fds: FederatedDataset instance containing the federated dataset to be harmonized.
+            reqs: Requests instance to communicate with the nodes
+            experimentation_folder: Name of the *main* experimentation folder
+            nodes: List of node IDs participating in the harmonization.
+            experiment_class: Experiment class factory to be used for the harmonization model training.
         """
         self._experiment_id = experiment_id
         self._researcher_id = researcher_id
@@ -33,6 +44,7 @@ class _FedCombatParameters:
         self._reqs = reqs
         self._experimentation_folder = experimentation_folder
         self._nodes = nodes
+        self._experiment_class = experiment_class
 
         self.step_functions = {
             HarmonizationStep.STANDARDIZE: self._compute_global_mean_std,
@@ -111,7 +123,8 @@ class _FedCombatParameters:
         )
 
         # FA glitch: currently need to request `variance` to retrieve `std`
-        result = analytics.fetch_stats(["mean", "variance"])
+        result = analytics.fetch_stats(["mean", "variance"], _emit_log=False)
+        logger.debug(f"Global mean and std computed:\n {result.global_stats()}")
 
         global_mean_covariates = [
             v for k, v in result.global_stats("mean").items() if k in covariates
@@ -130,6 +143,8 @@ class _FedCombatParameters:
         del analytics
 
         return {
+            "covariates": covariates,
+            "phenotypes": phenotypes,
             "global_mean_covariates": torch.tensor(
                 global_mean_covariates, dtype=torch.float32
             ),
@@ -163,14 +178,15 @@ class _FedCombatParameters:
         rounds = kwargs.get("rounds")
 
         fc_model_training = _FedCombatTrainModel(
-            self._fds,
-            self._nodes,
-            self._experimentation_folder,
-            covariates,
-            phenotypes,
-            training_args,
-            model_args,
-            rounds,
+            experiment_class=self._experiment_class,
+            fds=self._fds,
+            nodes=self._nodes,
+            experimentation_folder=self._experimentation_folder,
+            covariates=covariates,
+            phenotypes=phenotypes,
+            training_args=training_args,
+            model_args=model_args,
+            rounds=rounds,
         )
         biological_model, global_bias_model, local_bias_models = (
             fc_model_training.execute()
@@ -280,17 +296,3 @@ class _FedCombatParameters:
             for param_key in param_keys
         }
         return stacked_params
-
-    ###### DUMMY DATA ######
-    shape_phenotypes = torch.rand((100, 2))
-    ########################
-
-    #####################################
-    ########## DUMMY FUNCTIONS ##########
-    #####################################
-
-    def read_biological_model_values(self):
-        return self.shape_phenotypes
-
-    def read_bias_model_values(self):
-        return torch.zeros_like(self.shape_phenotypes)

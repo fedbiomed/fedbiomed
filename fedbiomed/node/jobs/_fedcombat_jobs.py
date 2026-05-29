@@ -1,13 +1,24 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Dict
+import os
+from pathlib import Path
+from typing import Any, Dict, Tuple
 
+import polars as pl
 import torch
 
-from fedbiomed.common.constants import HarmonizationStep
-from fedbiomed.common.preproc import FedCombatBiologicalModel
+from fedbiomed.common.constants import (
+    HARMONIZED_PREFIX,
+    NODE_DYNAMIC_DATA_FOLDER,
+    HarmonizationStep,
+)
+from fedbiomed.common.dataset import TabularDataset
+from fedbiomed.common.dataset_controller import TabularController
+from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.preproc import FedCombatBiasModel, FedCombatBiologicalModel
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.node_state_manager import NodeStateFileName, NodeStateManager
 
 
@@ -21,27 +32,33 @@ class _FedCombatJobs:
     # TODO: use the right arguments to use non-dummy data (DatasetManager, NodeState, ...)
     def __init__(
         self,
+        root_dir: str,
         experiment_id: str,
+        preproc_id: str,
+        researcher_id: str,
         node_state_manager: NodeStateManager,
         # root_dir: str,
-        # dataset_manager: DatasetManager,
+        dataset_manager: DatasetManager,
+        dataset_entry: dict,
     ):
         """Constructor of the class
 
         Args:
+            root_dir: Root fedbiomed directory where node instance files will be stored.
             experiment_id: id of the experiment to which the preprocessing belongs
+            preproc_id: id of the preprocessing to which the preprocessing belongs
+            researcher_id: id of the researcher who launched the preprocessing
             node_state_manager: initialized NodeStateManager instance to save and retrieve data during the preprocessing steps
+            dataset_manager: DatasetManager instance to retrieve datasets
+            dataset_entry: dict containing the dataset entry information from the dataset registry for the dataset to preprocess
         """
-        # TODO: remove
-        ###### DUMMY DATA ######
-        torch.manual_seed(42)
-        self.covariates = torch.rand((100, 3))
-        self.phenotypes = torch.rand((100, 2))
-        ########################
-        self.n_samples = torch.tensor(self.covariates.shape[0])
-
+        self._root_dir = root_dir
         self._experiment_id = experiment_id
+        self._preproc_id = preproc_id
+        self._researcher_id = researcher_id
         self._node_state_manager = node_state_manager
+        self._dataset_manager = dataset_manager
+        self._dataset_entry = dataset_entry
 
         self.step_functions = {
             HarmonizationStep.STANDARDIZE: self._standardize_data,
@@ -71,6 +88,8 @@ class _FedCombatJobs:
         Raises:
             ValueError: if the dataset type is not supported
         """
+        self._harmonization_step = harmonization_step
+
         if dataset_type != "csv":
             # In this case we don't need to raise a FedbiomedError as it is caught in calling function
             raise ValueError(
@@ -100,22 +119,32 @@ class _FedCombatJobs:
             Dict: empty Dict
         """
         # Parameters received from the researcher
+        covariates_name = params["covariates"]
+        phenotypes_name = params["phenotypes"]
         global_mean_covariates = params["global_mean_covariates"]
         global_mean_phenotypes = params["global_mean_phenotypes"]
         global_std_covariates = params["global_std_covariates"]
         global_std_phenotypes = params["global_std_phenotypes"]
 
-        # TODO: read real covariates and phenotypes here from dataset
+        # Read covariates and phenotypes from dataset
+        covariates, phenotypes = self._read_initial_dataset_values(
+            covariates_name, phenotypes_name
+        )
+        n_samples = covariates.shape[0]
 
+        # Compute standardized covariates and phenotypes
         standardized_covariates = (
-            self.covariates - global_mean_covariates
+            covariates - global_mean_covariates
         ) / global_std_covariates
         standardized_phenotypes = (
-            self.phenotypes - global_mean_phenotypes
+            phenotypes - global_mean_phenotypes
         ) / global_std_phenotypes
 
         # Save results locally
         state = {
+            "covariates_name": covariates_name,
+            "phenotypes_name": phenotypes_name,
+            "n_samples": n_samples,
             "standardized_covariates": standardized_covariates,
             "standardized_phenotypes": standardized_phenotypes,
         }
@@ -141,36 +170,27 @@ class _FedCombatJobs:
         global_bias_model_params = params["global_bias_model"]
         local_bias_model_params = params["local_bias_model"]
 
-        ########## TODO Replace by proper functions to retrieve data from the researcher ##########
-        # local_bias = self._read_bias_model(1234)
-        #####################################################################################
-
         # Parameters read locally
         state = self._read_state_values()
-        standardized_covariates = state["standardized_covariates"]
-        standardized_phenotypes = state["standardized_phenotypes"]
-        bias_param = torch.ones((len(standardized_covariates), 1))
+        covariates_name = state["covariates_name"]
+        phenotypes_name = state["phenotypes_name"]
+        n_samples = int(state["n_samples"])
+        standardized_covariates = torch.as_tensor(state["standardized_covariates"])
+        standardized_phenotypes = torch.as_tensor(state["standardized_phenotypes"])
+        bias_param = torch.ones((n_samples, 1))
 
-        import remote_pdb
+        n_covariates = len(covariates_name)
+        n_phenotypes = len(phenotypes_name)
 
-        remote_pdb.RemotePdb("localhost", 4444).set_trace()
-
-        # Caveat : hardcoded biological and global bias models
-        # need to match the ones used for training
-
-        # biological_model = torch.nn.Linear(
-        #    self.covariates.shape[1], self.phenotypes.shape[1], bias=False
-        # )
-        # biological_model.weight = torch.nn.Parameter(biological_model_params)
+        # Instantiate models and load parameters
         biological_model = FedCombatBiologicalModel(
-            n_covariates=self.covariates.shape[1], n_phenotypes=self.phenotypes.shape[1]
+            n_covariates=n_covariates, n_phenotypes=n_phenotypes
         )
         biological_model.load_state_dict(biological_model_params)
-
-        global_bias_model = torch.nn.Linear(1, self.phenotypes.shape[1], bias=False)
-        global_bias_model.weight = torch.nn.Parameter(global_bias_model_params)
-        local_bias_model = torch.nn.Linear(1, self.phenotypes.shape[1], bias=False)
-        local_bias_model.weight = torch.nn.Parameter(local_bias_model_params)
+        global_bias_model = FedCombatBiasModel(n_phenotypes=n_phenotypes)
+        global_bias_model.load_state_dict(global_bias_model_params)
+        local_bias_model = FedCombatBiasModel(n_phenotypes=n_phenotypes)
+        local_bias_model.load_state_dict(local_bias_model_params)
 
         with torch.no_grad():
             # Infer models on local data
@@ -186,6 +206,8 @@ class _FedCombatJobs:
 
         # Save results locally
         state = {
+            "phenotypes_name": phenotypes_name,
+            "n_samples": n_samples,
             "standardized_phenotypes": standardized_phenotypes,
             "biological_model_values": biological_model_values,
             "global_bias_values": global_bias_values,
@@ -193,7 +215,10 @@ class _FedCombatJobs:
         self._save_state_values(state)
 
         # Return results to researcher
-        return {"residual_variance": residual_variance, "n_samples": self.n_samples}
+        return {
+            "residual_variance": residual_variance,
+            "n_samples": torch.tensor(n_samples),
+        }
 
     def _compute_standardized_residuals_params(self, params) -> dict:
         """
@@ -212,9 +237,11 @@ class _FedCombatJobs:
 
         # Parameters read locally
         state = self._read_state_values()
-        standardized_phenotypes = state["standardized_phenotypes"]
-        biological_model_values = state["biological_model_values"]
-        global_bias_values = state["global_bias_values"]
+        phenotypes_name = list(state["phenotypes_name"])
+        n_samples = int(state["n_samples"])
+        standardized_phenotypes = torch.as_tensor(state["standardized_phenotypes"])
+        biological_model_values = torch.as_tensor(state["biological_model_values"])
+        global_bias_values = torch.as_tensor(state["global_bias_values"])
 
         # Compute standardized residuals parameters
 
@@ -226,6 +253,8 @@ class _FedCombatJobs:
 
         # Save results locally
         state = {
+            "phenotypes_name": phenotypes_name,
+            "n_samples": n_samples,
             "sigma_hat_g": sigma_hat_g,
             "standardized_residuals": z,
             "biological_model_values": biological_model_values,
@@ -244,8 +273,8 @@ class _FedCombatJobs:
                     Keys: ["gamma_bar", "tau_2", "lambda_bar_i", "theta_bar_i", "sigma_hat_g"]
 
         Returns:
-            Dict: Dict containing the id of the harmonized version of the local data
-                  Keys: ["harmonized_dataset_id"]
+            Dict: Dict containing the description of the local harmonized dataset
+                  Keys: ["harmonized_dataset"]
         """
         # Parameters received from the researcher
         gamma_bar = params["gamma_bar"]
@@ -255,10 +284,12 @@ class _FedCombatJobs:
 
         # Parameters read locally
         state = self._read_state_values()
-        sigma_hat_g = state["sigma_hat_g"]
-        z = state["standardized_residuals"]
-        biological_model_values = state["biological_model_values"]
-        global_bias_values = state["global_bias_values"]
+        phenotypes_name = list(state["phenotypes_name"])
+        n_samples = int(state["n_samples"])
+        sigma_hat_g = torch.as_tensor(state["sigma_hat_g"])
+        z = torch.as_tensor(state["standardized_residuals"])
+        biological_model_values = torch.as_tensor(state["biological_model_values"])
+        global_bias_values = torch.as_tensor(state["global_bias_values"])
 
         gamma_hat_ig = z.mean(0)
         delta_hat_ig = z.var(0)
@@ -272,23 +303,120 @@ class _FedCombatJobs:
 
         for _ in range(30):
             gamma_star_ig = (
-                self.n_samples * tau_2 * gamma_hat_ig + delta2_star_ig * gamma_bar
+                n_samples * tau_2 * gamma_hat_ig + delta2_star_ig * gamma_bar
             )
-            gamma_star_ig /= self.n_samples * tau_2 + delta2_star_ig
+            gamma_star_ig /= n_samples * tau_2 + delta2_star_ig
 
             # `dim` is the native PyTorch name for `axis`
             delta2_star_ig = theta_bar_i + 0.5 * torch.sum(
                 (z - gamma_star_ig) ** 2, dim=0
             )
-            delta2_star_ig /= 0.5 * self.n_samples + lambda_bar_i - 1
+            delta2_star_ig /= 0.5 * n_samples + lambda_bar_i - 1
 
         harmonized_data = (
             sigma_hat_g / delta2_star_ig.sqrt() * (z - gamma_star_ig)
         ) + pred
 
         # Save results locally in new dataset and return new dataset id to researcher
-        harmonized_dataset_id = self._save_dataset(harmonized_data)
-        return {"harmonized_dataset_id": harmonized_dataset_id}
+        harmonized_dataset = self._save_harmonized_dataset_values(
+            phenotypes_name, harmonized_data
+        )
+
+        return {"harmonized_dataset": harmonized_dataset}
+
+    # Functions for reading and saving dataset
+    def _read_initial_dataset_values(
+        self,
+        covariates_name: list[str],
+        phenotypes_name: list[str],
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Reads covariates and phenotypes from the original dataset
+
+        Args:
+            covariates_name: the names of the covariates columns
+            phenotypes_name: the names of the phenotypes columns
+
+        Returns:
+            a tuple containing the covariates and phenotypes tensors
+        """
+        dataset = TabularDataset(
+            input_columns=covariates_name,
+            target_columns=phenotypes_name,
+        )
+        dataset.complete_initialization(
+            controller_kwargs={"root": self._dataset_entry["path"]},
+            to_format=DataReturnFormat.TORCH,
+        )
+
+        covariates = torch.stack([dataset[i][0] for i in range(len(dataset))])
+        phenotypes = torch.stack([dataset[i][1] for i in range(len(dataset))])
+
+        return covariates, phenotypes
+
+    def _save_harmonized_dataset_values(
+        self, phenotypes_name: list[str], harmonized_data: torch.Tensor
+    ) -> dict:
+        """
+        Saves the harmonized dataset locally and returns its description.
+
+        Harmonized dataset has same structure as the original dataset but replaces the phenotypes with the harmonized phenotypes.
+        It is saved as a new dynamic dataset linked to the original dataset in the dataset registry.
+
+        Args:
+            phenotypes_name: the names of the phenotypes columns
+            harmonized_data: the harmonized phenotypes data to save
+
+        Returns:
+            dict: the description of the saved harmonized dataset
+        """
+
+        # Build full new harmonized dataset by replacing phenotypes columns with harmonized phenotypes in original dataset
+        controller = TabularController(root=self._dataset_entry["path"])
+        source_df = pl.concat(
+            [controller.get_sample(i) for i in range(len(controller))]
+        )
+
+        harmonized_array = harmonized_data.numpy()
+        for col_idx, phenotype_col in enumerate(phenotypes_name):
+            source_df = source_df.with_columns(
+                pl.Series(
+                    name=phenotype_col,
+                    values=harmonized_array[:, col_idx],
+                )
+            )
+
+        # Save harmonized dataset as new CSV file
+        # Possible improvement: use a dedicated class that can be reused in other module
+        source_path = Path(self._dataset_entry["path"])
+        base_name = source_path.stem.split(f"_{HARMONIZED_PREFIX}")[0]
+        harmonized_path = os.path.join(
+            self._root_dir,
+            NODE_DYNAMIC_DATA_FOLDER,
+            f"{base_name}_{HARMONIZED_PREFIX}{self._preproc_id}.csv",
+        )
+        source_df.write_csv(harmonized_path)
+
+        # Save dataset entry in database and return new dataset id
+        dynamic_dataset_id = self._dataset_manager.add_dynamic_dataset(
+            path=str(harmonized_path),
+            researcher_id=self._researcher_id,
+            experiment_id=self._experiment_id,
+            processing_id=self._preproc_id,
+            parent_dataset_id=self._dataset_entry["dataset_id"],
+            name=f"FedCombat from {self._dataset_entry['name']}",
+            tags=None,
+            description=f"Harmonized with FedCombat from {self._dataset_entry['description']}",
+            dataset_id=None,
+            dataset_parameters=self._dataset_entry.get("dataset_parameters", {}),
+        )
+
+        # Retrieve the dataset entry and remove sensitive information before returning it
+        dynamic_dataset_entry, _ = self._dataset_manager.get_dataset_entry_by_id(
+            dynamic_dataset_id
+        )
+        self._dataset_manager.obfuscate_private_information([dynamic_dataset_entry])
+        return dynamic_dataset_entry
 
     # Functions for reading and saving state values during the Fed-ComBat steps, using the NodeStateManager
 
@@ -302,7 +430,7 @@ class _FedCombatJobs:
 
         preproc_path = self._node_state_manager.generate_folder_and_create_file_name(
             self._experiment_id,
-            0,  # not used
+            self._harmonization_step.value,
             NodeStateFileName.PREPROC,
         )
         Serializer.dump(values, preproc_path)
@@ -314,7 +442,7 @@ class _FedCombatJobs:
         }
         self._node_state_manager.add(self._experiment_id, state)
 
-    def _read_state_values(self) -> dict[str, torch.Tensor]:
+    def _read_state_values(self) -> dict[str, Any]:
         """
         Reads the state values from the node state manager.
 
@@ -329,14 +457,3 @@ class _FedCombatJobs:
         state_values = Serializer.load(preproc_path)
 
         return state_values
-
-    #####################################
-    ########## DUMMY FUNCTIONS ##########
-    #####################################
-
-    def _read_bias_model(self, model_id):
-        return lambda x: torch.zeros_like(self.phenotypes)
-
-    def _save_dataset(self, dataset):
-        new_dataset_id = 12345
-        return new_dataset_id
