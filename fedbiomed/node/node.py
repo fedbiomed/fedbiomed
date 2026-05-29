@@ -674,6 +674,7 @@ class Node:
                                 node_id=self._node_id,
                                 node_name=self._node_name,
                                 request=item,
+                                db=self._db_path,
                                 allow_preproc=self.config.getbool(
                                     "security", "allow_preproc"
                                 ),

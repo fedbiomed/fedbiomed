@@ -333,10 +333,9 @@ class HarmonizationStep(PreprocStep):
     """Enumeration class for dataset preprocessing steps"""
 
     STANDARDIZE: int = 1
-    TRAIN: int = 2
-    RESID_VAR: int = 3
-    RESID_PARAMS: int = 4
-    FC_PARAMS: int = 5
+    TRAIN_RESID_VAR: int = 2
+    RESID_PARAMS: int = 3
+    FC_PARAMS: int = 4
 
 
 class SAParameters:

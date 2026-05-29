@@ -17,8 +17,8 @@ from ._fedcombat_parameters import _FedCombatParameters
 
 _fedcombat_steps = {
     HarmonizationStep.STANDARDIZE: "Compute global mean and std then standardize the data on each node",
-    HarmonizationStep.TRAIN: "Train the model on the standardized data",
-    HarmonizationStep.RESID_VAR: "Computes the variance of the residuals from the biological model on each node",
+    HarmonizationStep.TRAIN_RESID_VAR: "Trains the model on the standardized data, "
+    "computes the variance of the residuals from the biological model on each node",
     HarmonizationStep.RESID_PARAMS: "Computes the standardized residuals means and variance on each node",
     HarmonizationStep.FC_PARAMS: "Estimates the ComBat parameters and creates the harmonized datasets on each node",
 }
@@ -195,9 +195,8 @@ class FedCombatPreproc:
             nodes=self._nodes,
         )
 
-        # Stores all the parameters from all steps in order to carry them from one step to the other
-        # TODO: when implementing node state and final version, keep only necessary parameters for each step
-        all_parameters = {}
+        fedcombat_replies = {}
+        step_args = {}
 
         for preproc_step in HarmonizationStep:
             logger.info(
@@ -205,42 +204,35 @@ class FedCombatPreproc:
                 f"{_fedcombat_steps[preproc_step]}"
             )
 
-            # These steps use arguments provided by researcher side
+            # These steps use arguments provided by researcher side, not by node side
             if preproc_step == HarmonizationStep.STANDARDIZE:
                 # Nota: don't assign default values are _preproc_args are later checked by _FedCombatParameters
-                step_args = [
-                    {
-                        "covariates": self._preproc_args.get("covariates"),
-                        "phenotypes": self._preproc_args.get("phenotypes"),
-                    }
-                ]
-            if preproc_step == HarmonizationStep.TRAIN:
-                # Nota: don't assign default values are _preproc_args are later checked by _FedCombatTrainModel
-                step_args = [
-                    {
-                        "covariates": self._preproc_args.get("covariates"),
-                        "phenotypes": self._preproc_args.get("phenotypes"),
-                        "training_args": self._preproc_args.get("training_args"),
-                        "model_args": self._preproc_args.get("model_args"),
-                        "rounds": self._preproc_args.get("rounds"),
-                    }
-                ]
+                step_args_local = {
+                    "covariates": self._preproc_args.get("covariates"),
+                    "phenotypes": self._preproc_args.get("phenotypes"),
+                }
+            elif preproc_step == HarmonizationStep.TRAIN_RESID_VAR:
+                # Nota: don't assign default values as _preproc_args are later checked by _FedCombatTrainModel
+                step_args_local = {
+                    "covariates": self._preproc_args.get("covariates"),
+                    "phenotypes": self._preproc_args.get("phenotypes"),
+                    "training_args": self._preproc_args.get("training_args"),
+                    "model_args": self._preproc_args.get("model_args"),
+                    "rounds": self._preproc_args.get("rounds"),
+                }
+            else:
+                step_args_local = None
 
             # Local computation of the parameters or use of external facility (FA, FL)
             try:
-                step_params = fedcombat_parameters(preproc_step, step_args)
+                step_params, step_params_nodes = fedcombat_parameters(
+                    preproc_step, step_args, step_args_local
+                )
             except Exception as e:
                 raise FedbiomedExperimentError(
                     f"{ErrorNumbers.FB420.value}: Error during Fed-ComBat preprocessing "
                     f"step {preproc_step.value} / {preproc_step.name}: {str(e)}"
                 ) from e
-
-            all_parameters.update(step_params)
-
-            # Training does not involve a PreprocRequestJob
-            if preproc_step == HarmonizationStep.TRAIN:
-                step_args = []
-                continue
 
             # Node side computation of the parameters
             preproc_job = PreprocRequestJob(
@@ -249,8 +241,9 @@ class FedCombatPreproc:
                 preproc_step=preproc_step,
                 preproc_id=self._preproc_id,
                 federated_dataset=self._fds,
-                preproc_args=all_parameters,
-                state_id=None,  # dont have state_id for now
+                preproc_args=step_params,
+                preproc_args_nodes=step_params_nodes,
+                state_id={k: v.state_id for k, v in fedcombat_replies.items()},
                 researcher_id=self._researcher_id,
                 requests=self._reqs,
                 nodes=self._nodes,

@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List
+from typing import List, Optional, Tuple
 
 import torch
 
@@ -36,13 +36,17 @@ class _FedCombatParameters:
 
         self.step_functions = {
             HarmonizationStep.STANDARDIZE: self._compute_global_mean_std,
-            HarmonizationStep.TRAIN: self._train_harmonization_model,
-            HarmonizationStep.RESID_VAR: lambda: {},
+            HarmonizationStep.TRAIN_RESID_VAR: self._train_harmonization_model,
             HarmonizationStep.RESID_PARAMS: self._compute_pooled_variance,
             HarmonizationStep.FC_PARAMS: self._compute_residual_parameters,
         }
 
-    def __call__(self, harmonization_step: HarmonizationStep, list_dict_params: List):
+    def __call__(
+        self,
+        harmonization_step: HarmonizationStep,
+        list_dict_params: List,
+        dict_params_local: Optional[dict],
+    ):
         """
         Generic call of the class to automatically compute the right function
         for the specified harmonization_step
@@ -50,15 +54,14 @@ class _FedCombatParameters:
         Args:
             harmonization_step: Harmonization step Enum allowing to select the right function
             list_dict_params: list of dictionary returned by the nodes
+            dict_params_local: dictionary of parameters computed locally. Take precedence
+                over the parameters returned by the nodes.
 
         Returns;
             Dict: parameters resulting from the harmonization_step computation from the researcher
         """
-        if harmonization_step in [
-            HarmonizationStep.STANDARDIZE,
-            HarmonizationStep.TRAIN,
-        ]:
-            kwargs = list_dict_params[0] if len(list_dict_params) > 0 else {}
+        if dict_params_local is not None:
+            kwargs = dict_params_local
         else:
             kwargs = self._stack_dict_params(list_dict_params=list_dict_params)
         return self.step_functions[harmonization_step](**kwargs)
@@ -69,7 +72,7 @@ class _FedCombatParameters:
         #   not function names, etc.
         # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
 
-    def _compute_global_mean_std(self, **kwargs) -> dict:
+    def _compute_global_mean_std(self, **kwargs) -> Tuple[dict, dict]:
         """
         Computes the global means and stds from the nodes' ones
 
@@ -79,9 +82,10 @@ class _FedCombatParameters:
                     Keys: ["mean_covariates", "mean_phenotypes", "std_covariates", "std_phenotypes"]
 
         Returns:
-            Dict: Dict containing the global means and stds of the covariates and phenotypes;
+            Tuple of Dict containing the global means and stds of the covariates and phenotypes;
                   Keys: ["global_mean_covariates", "global_mean_phenotypes",
                          "global_std_covariates", "global_std_phenotypes"]
+            and empty Dict (normally for per node values)
         """
         covariates = kwargs.get("covariates", [])
         phenotypes = kwargs.get("phenotypes", [])
@@ -138,9 +142,9 @@ class _FedCombatParameters:
             "global_std_phenotypes": torch.tensor(
                 global_std_phenotypes, dtype=torch.float32
             ),
-        }
+        }, {}
 
-    def _train_harmonization_model(self, **kwargs) -> dict:
+    def _train_harmonization_model(self, **kwargs) -> Tuple[dict, dict]:
         """Train the harmonization model using the provided arguments.
 
         Args:
@@ -148,7 +152,9 @@ class _FedCombatParameters:
                     Keys: ["covariates", "phenotypes", "training_args", "model_args", "rounds"]
 
         Returns:
-            Dict: TODO COMPLETE DOCSTRING
+            Tuple of Dict containing the trained biological model parameters, global bias model parameters, and local bias model parameters by node.
+                  Keys: ["biological_model", "global_bias_model"]
+                  and Dict containing the local bias model parameters by node.
         """
         covariates = kwargs.get("covariates")
         phenotypes = kwargs.get("phenotypes")
@@ -166,22 +172,16 @@ class _FedCombatParameters:
             model_args,
             rounds,
         )
-        fc_model_training.execute()
-
-        # TODO: These are dummy arguments. This is where the training plan should hand
-        # a way for the nodes to access the models
-        # NB: local bias is a local model and the global bias is an average of all local biases
-        ######################## DUMMY ARGS ###############################################
-        biological_model = self.read_biological_model_values()
-        global_bias_model = self.read_bias_model_values()
-        ####################################################################################
+        biological_model, global_bias_model, local_bias_models = (
+            fc_model_training.execute()
+        )
 
         return {
             "biological_model": biological_model,
             "global_bias_model": global_bias_model,
-        }
+        }, local_bias_models
 
-    def _compute_pooled_variance(self, **kwargs) -> dict:
+    def _compute_pooled_variance(self, **kwargs) -> Tuple[dict, dict]:
         """
         Computes the global residual pooled variance from the nodes' ones
 
@@ -190,8 +190,9 @@ class _FedCombatParameters:
                     Keys: ["residual_variance", "n_samples"]
 
         Returns:
-            Dict: Dict containing the pooled residual variance (weighted residual variance)
+            Tuple of Dict: Dict containing the pooled residual variance (weighted residual variance)
                   Keys: ["sigma_hat_g"]
+                and empty Dict (normally for per node values)
         """
         stacked_residual_variances = kwargs["residual_variance"]
         stacked_n_samples = kwargs["n_samples"]
@@ -200,9 +201,9 @@ class _FedCombatParameters:
             stacked_residual_variances, stacked_n_samples, ddof=1
         )  # pooled variance
         sigma_hat_g[sigma_hat_g == 0] = 1e-8
-        return {"sigma_hat_g": sigma_hat_g}
+        return {"sigma_hat_g": sigma_hat_g}, {}
 
-    def _compute_residual_parameters(self, **kwargs) -> dict:
+    def _compute_residual_parameters(self, **kwargs) -> Tuple[dict, dict]:
         """
         Computes the global bayesian priors from the nodes' local residual statistics
 
@@ -213,6 +214,7 @@ class _FedCombatParameters:
         Returns:
             Dict: Dict containing the computed bayesian priors
                   Keys: ["gamma_bar", "tau_2", "lambda_bar_i", "theta_bar_i"]
+                  and empty Dict (normally for per node values)
         """
         stacked_gamma_hat_ig = kwargs["gamma_hat_ig"]
         stacked_delta_hat_ig = kwargs["delta_hat_ig"]
@@ -233,7 +235,7 @@ class _FedCombatParameters:
             "tau_2": tau_2,
             "lambda_bar_i": lambda_bar_i,
             "theta_bar_i": theta_bar_i,
-        }
+        }, {}
 
     def _weighted_mean(
         self, values: torch.Tensor, weights: torch.Tensor, ddof: int = 0

@@ -4,7 +4,7 @@
 """FedCombat class for harmonizing data within an Experiment using Fed-ComBat algorithm."""
 
 import copy
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -15,7 +15,7 @@ from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import TabularDataset
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
-from fedbiomed.common.preproc import FedCombatModelWrapper
+from fedbiomed.common.preproc import FedCombatBiologicalModel, FedCombatModelWrapper
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.researcher.datasets import FederatedDataSet
@@ -26,21 +26,9 @@ from fedbiomed.researcher.datasets import FederatedDataSet
 class _FedCombatTrainingPlan(TorchTrainingPlan):
     """Training plan for Fed-ComBat harmonization model."""
 
-    class Net(nn.Module):
-        def __init__(
-            self,
-            n_covariates: int,
-            n_phenotypes: int,
-        ):
-            super().__init__()
-            self.linear = nn.Linear(n_covariates, n_phenotypes, bias=False)
-
-        def forward(self, x):
-            return self.linear(x)
-
     def init_model(self, model_args: dict) -> nn.Module:
         return FedCombatModelWrapper(
-            self.Net(
+            biological_model=FedCombatBiologicalModel(
                 n_covariates=len(model_args.get("covariates")),
                 n_phenotypes=len(model_args.get("phenotypes")),
             ),
@@ -55,7 +43,7 @@ class _FedCombatTrainingPlan(TorchTrainingPlan):
         return [
             "from torch.optim import Adam",
             "from fedbiomed.common.dataset import TabularDataset",
-            "from fedbiomed.common.preproc import FedCombatModelWrapper",
+            "from fedbiomed.common.preproc import FedCombatBiologicalModel, FedCombatModelWrapper",
         ]
 
     def training_data(self):
@@ -181,11 +169,15 @@ class _FedCombatTrainModel:
 
         self._training_plan_class = _FedCombatTrainingPlan
 
-    def execute(self) -> None:
+    def execute(self) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
         """Execute harmonization model training.
 
         Raises:
-            FedbiomedExperimentError: if harmonization model initialization or training fails."""
+            FedbiomedExperimentError: if harmonization model initialization or training fails.
+
+        Returns:
+            A tuple containing the trained biological model parameters, global bias model parameters, and local bias model parameters by node.
+        """
 
         logger.setPrefix(" \033[1m[Fed-ComBat]\033[0m")
         try:
@@ -232,5 +224,37 @@ class _FedCombatTrainModel:
                 f"{ErrorNumbers.FB420.value}: "
                 "Fed-ComBat harmonization model training failed."
             ) from e
+
+        # Caveat: works because we use a simple linear model. For a general implementation
+        # we need to extract the model parameters and instantiate a similar model on each
+        # node, load the model parameters and infer the model outputs
+        final_round = experiment.round_current() - 1
+        # biological_model = experiment.aggregated_params()[final_round]["params"][
+        #    "biological_model.linear.weight"
+        # ]
+        global_bias_model = experiment.aggregated_params()[final_round]["params"][
+            "local_bias.weight"
+        ]
+
+        all_model_params = experiment.training_plan().get_model_params()
+        biological_model = {
+            k.replace("biological_model.", "", 1): v
+            for k, v in all_model_params.items()
+            if k.startswith("biological_model.")
+        }
+        # global_bias_model = {
+        #    k: v for k, v in all_params.items() if k.startswith("local_bias.")
+        # }
+
+        # Caveat: sending local biases from researcher is not optimal
+        # as it may leave room for malicious researcher manipulation.
+        # Tweak as there is currently no simple way to access them directly from the nodes.
+        local_bias_models = {
+            k: {"local_bias_model": v["params"]["local_bias.weight"]}
+            for k, v in experiment.training_replies()[final_round].items()
+        }
+
         del experiment
         logger.setPrefix("")
+
+        return (biological_model, global_bias_model, local_bias_models)

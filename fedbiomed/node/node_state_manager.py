@@ -32,14 +32,12 @@ class NodeStateFileName(_BaseEnum):
 
     OPTIMIZER: str = "optim_state_%s_%s"
     MODEL_WEIGHTS: str = "persistent_model_weights_%s_%s"
+    PREPROC: str = "preproc_%s_%s"
 
 
 class NodeStateManager:
     """Node state saving facility: Handles saving and loading Node states from previous `Rounds`,
     given a `state_id`. `NodeStateManager` ensures that states are not reset from one `Round` to another.
-    Currently a state is composed of the Optimizer state - only for
-    [`DeclearnOptimizer`][fedbiomed.common.optimizers.DeclearnOptimizer],
-    but it will be extended in the future with other components - such as model layers, validation dataset, ...
 
     Interfaces with database use to save and load Node State entries.
 
@@ -222,6 +220,9 @@ class NodeStateManager:
         Args:
             previous_state_id: state_id from previous Round, from which to reload a Node state
             testing: only doing testing, not training
+
+        Raises:
+            FedbiomedNodeStateManagerError: raised if needed directories cannot be created
         """
 
         self._previous_state_id = previous_state_id
