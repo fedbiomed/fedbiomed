@@ -160,7 +160,7 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
 
 
 class NodeProcessManager:
-    """Manages a single node subprocess. This node subprocess is the one where it's config is passed during initialization."""
+    """Manages a single node subprocess. This node subprocess is the one where whose config is passed during initialization."""
 
     def __init__(self, config: NodeConfig) -> None:
         """Initialize the NodeProcessManager with the given configuration.
