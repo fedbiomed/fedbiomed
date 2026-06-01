@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs", "gui", "node", "researcher", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:d9730276fba352af9d7548d403259007f68c287486050df4ecfe16373b889a2a"
+content_hash = "sha256:cd49ec76d0bf301614b6069d4da79f44c9508a3cc3df3cfe0c10908aaf36c620"
 
 [[metadata.targets]]
 requires_python = ">=3.10,<3.12"
@@ -1850,6 +1850,26 @@ files = [
 ]
 
 [[package]]
+name = "mike"
+version = "2.2.0"
+summary = "Manage multiple versions of your MkDocs-powered documentation"
+groups = ["docs"]
+dependencies = [
+    "importlib-metadata; python_version < \"3.10\"",
+    "importlib-resources; python_version < \"3.10\"",
+    "jinja2>=2.7",
+    "mkdocs~=1.0",
+    "pyparsing>=3.0",
+    "pyyaml-env-tag",
+    "pyyaml>=5.1",
+    "verspec",
+]
+files = [
+    {file = "mike-2.2.0-py3-none-any.whl", hash = "sha256:e1f4981c1152eec7c2490a3401142292cc47d686194188416db2648fdfe1d040"},
+    {file = "mike-2.2.0.tar.gz", hash = "sha256:1e3858e32c0f125aac14432fc7848434358f9ae0962c5c5cde387ad47f6ad25e"},
+]
+
+[[package]]
 name = "mistune"
 version = "3.1.4"
 requires_python = ">=3.8"
@@ -2903,7 +2923,7 @@ name = "pyparsing"
 version = "3.2.5"
 requires_python = ">=3.9"
 summary = "pyparsing - Classes and methods to define and execute parsing grammars"
-groups = ["researcher"]
+groups = ["docs", "researcher"]
 files = [
     {file = "pyparsing-3.2.5-py3-none-any.whl", hash = "sha256:e38a4f02064cf41fe6593d328d0512495ad1f3d8a91c4f73fc401b3079a59a5e"},
     {file = "pyparsing-3.2.5.tar.gz", hash = "sha256:2df8d5b7b2802ef88e8d016a2eb9c7aeaa923529cd251ed0fe4608275d4105b6"},
@@ -3789,6 +3809,16 @@ dependencies = [
 ]
 files = [
     {file = "validators-0.20.0.tar.gz", hash = "sha256:24148ce4e64100a2d5e267233e23e7afeb55316b47d30faae7eb6e7292bc226a"},
+]
+
+[[package]]
+name = "verspec"
+version = "0.1.0"
+summary = "Flexible version handling"
+groups = ["docs"]
+files = [
+    {file = "verspec-0.1.0-py3-none-any.whl", hash = "sha256:741877d5633cc9464c45a469ae2a31e801e6dbbaa85b9675d481cda100f11c31"},
+    {file = "verspec-0.1.0.tar.gz", hash = "sha256:c4504ca697b2056cdb4bfa7121461f5a0e81809255b41c03dda4ba823637c01e"},
 ]
 
 [[package]]
