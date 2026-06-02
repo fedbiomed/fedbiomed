@@ -13,7 +13,6 @@ from fedbiomed.common.constants import (
     DatasetTypes,
     ErrorNumbers,
     FedbiomedError,
-    SAParameters,
     Stats,
 )
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
@@ -265,14 +264,6 @@ class FAJob(_BaseJob):
             fa_round = self._secagg_arguments.get("fa_round", 1)
             encrypted_params = secagg_round.scheme.encrypt(flat, fa_round, weight=1)
 
-            clipping_range = (
-                self._secagg_arguments.get("secagg_clipping_range")
-                or SAParameters.CLIPPING_RANGE
-            )
-            encryption_factor = [
-                SAParameters.TARGET_RANGE / (2 * clipping_range)
-            ] * len(flat)
-
             return FAReply(
                 request_id=self._request_id,
                 researcher_id=self._researcher_id,
@@ -283,7 +274,6 @@ class FAJob(_BaseJob):
                 node_name=self._node_name,
                 encrypted=True,
                 params_encrypted=encrypted_params,
-                encryption_factor=encryption_factor,
                 output_schema=schema,
             )
 

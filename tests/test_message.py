@@ -79,7 +79,6 @@ def test_fa_reply_message_creation():
     )
     assert reply.encrypted is False
     assert reply.params_encrypted is None
-    assert reply.encryption_factor is None
     assert reply.output_schema is None
 
 
@@ -130,13 +129,12 @@ def test_fa_reply_encrypted_rejects_output():
             encrypted=True,
             output={"mean": 1.0},
             params_encrypted=[100],
-            encryption_factor=[1e6],
             output_schema=[["mean"]],
         )
 
 
-def test_fa_reply_encrypted_requires_all_encrypted_fields():
-    """Test FAReply raises when encrypted=True but one of the encrypted fields is missing"""
+def test_fa_reply_encrypted_requires_params_and_schema():
+    """FAReply raises when encrypted=True but params_encrypted or output_schema is missing."""
     import pytest
 
     with pytest.raises(FedbiomedMessageError):
@@ -149,13 +147,12 @@ def test_fa_reply_encrypted_requires_all_encrypted_fields():
             stats=[Stats.MEAN.value],
             encrypted=True,
             params_encrypted=[100],
-            encryption_factor=[1e6],
-            # output_schema intentionally omitted
+            # output_schema intentionally omitted — should raise
         )
 
 
 def test_fa_reply_message_creation_encrypted():
-    """Test FAReply encrypted path — params_encrypted, encryption_factor, output_schema set"""
+    """Test FAReply encrypted path — params_encrypted and output_schema set."""
     reply = message.FAReply(
         researcher_id="researcher_1234",
         experiment_id="experiment_1234",
@@ -165,7 +162,6 @@ def test_fa_reply_message_creation_encrypted():
         stats=[Stats.MEAN.value],
         encrypted=True,
         params_encrypted=[100, 200, 300, 400],
-        encryption_factor=[1e6, 1e6, 1e6, 1e6],
         output_schema=[
             ["mean", "age"],
             ["mean", "bmi"],
@@ -176,7 +172,6 @@ def test_fa_reply_message_creation_encrypted():
     assert reply.encrypted is True
     assert reply.output is None
     assert reply.params_encrypted == [100, 200, 300, 400]
-    assert len(reply.encryption_factor) == 4
     assert len(reply.output_schema) == 4
 
 

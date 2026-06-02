@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, SAParameters, Stats
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, Stats
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecureAggregationError
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
@@ -535,18 +535,14 @@ def test_run_secagg_not_active_returns_error(fa_job_args, fa_request, secagg_arg
 def test_run_encrypted_path_returns_fa_reply(
     mock_secagg_cls, fa_job_args, fa_request, secagg_args
 ):
-    """When use_secagg is True, run() returns encrypted FAReply with all required fields."""
+    """When use_secagg is True, run() returns encrypted FAReply."""
     mock_secagg = MagicMock()
     mock_secagg.use_secagg = True
     mock_secagg.scheme.encrypt.return_value = [100, 200, 300]
     mock_secagg_cls.return_value = mock_secagg
 
     job = _make_fa_job(
-        fa_job_args,
-        fa_request,
-        secagg_active=True,
-        force_secagg=False,
-        secagg_arguments=secagg_args,
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
     mock_dataset = MagicMock()
     mock_dataset.compute_stats.return_value = {"a": 1.0, "b": 2.0, "c": 3.0}
@@ -559,8 +555,7 @@ def test_run_encrypted_path_returns_fa_reply(
     assert reply.params_encrypted == [100, 200, 300]
     assert reply.output is None
     assert reply.output_schema is not None
-    assert reply.encryption_factor is not None
-    assert len(reply.encryption_factor) == 3
+    assert mock_secagg.scheme.encrypt.call_count == 1
 
 
 @patch("fedbiomed.node.jobs._fa_job.SecaggRound")
@@ -585,30 +580,6 @@ def test_run_encrypted_path_uses_fa_round_from_args(
 
     call_args = mock_secagg.scheme.encrypt.call_args
     assert call_args[0][1] == 7  # fa_round positional arg
-
-
-@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
-def test_run_encrypted_encryption_factor_uses_clipping_range(
-    mock_secagg_cls, fa_job_args, fa_request, secagg_args
-):
-    """encryption_factor = TARGET_RANGE / (2 * clipping_range) for each element."""
-    mock_secagg = MagicMock()
-    mock_secagg.use_secagg = True
-    mock_secagg.scheme.encrypt.return_value = [0, 0]
-    mock_secagg_cls.return_value = mock_secagg
-
-    secagg_args["secagg_clipping_range"] = 5
-    job = _make_fa_job(
-        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
-    )
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"a": 1.0, "b": 2.0}
-
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
-
-    expected_factor = SAParameters.TARGET_RANGE / (2 * 5)
-    assert all(f == expected_factor for f in reply.encryption_factor)
 
 
 @patch("fedbiomed.node.jobs._fa_job.SecaggRound")

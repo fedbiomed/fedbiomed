@@ -575,6 +575,7 @@ class FederatedAnalytics:
             parties=node_ids,
             experiment_id=self._experiment_id,
             researcher_id=self._researcher_id,
+            insecure_validation=False,
         )
         return dict(self._secagg.train_arguments())
 
@@ -630,15 +631,11 @@ class FederatedAnalytics:
             model_params = {
                 nid: r.params_encrypted for nid, r in analytics_replies.items()
             }
-            encryption_factors = {
-                nid: r.encryption_factor for nid, r in analytics_replies.items()
-            }
             num_expected_params = len(first_reply.params_encrypted)
             aggregated_flat = self._secagg.aggregate(
                 round_=self._fa_round_counter,
                 total_sample_size=len(analytics_replies),
                 model_params=model_params,
-                encryption_factors=encryption_factors,
                 num_expected_params=num_expected_params,
             )
             output_schema = first_reply.output_schema

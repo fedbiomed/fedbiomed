@@ -951,8 +951,6 @@ class FAReply(RequestReply, RequiresProtocolVersion):
         encrypted: True when the node encrypted the output with secure aggregation
         params_encrypted: Flat list of integer-encoded encrypted stats; set when
             encrypted is True, None otherwise
-        encryption_factor: Per-element float-to-integer scale factors used during
-            quantisation; set when encrypted is True, None otherwise
         output_schema: Ordered list of key-paths produced by flatten_fa_output; the
             researcher uses this with unflatten_fa_output to reconstruct the stats dict
             after decryption; set when encrypted is True, None otherwise
@@ -970,14 +968,12 @@ class FAReply(RequestReply, RequiresProtocolVersion):
     output: Optional[Dict | Tuple] = None
     encrypted: bool = False
     params_encrypted: Optional[List] = None
-    encryption_factor: Optional[List] = None
     output_schema: Optional[List] = None
 
     def __post_init__(self):
         super().__post_init__()
         encrypted_fields = {
             "params_encrypted": self.params_encrypted,
-            "encryption_factor": self.encryption_factor,
             "output_schema": self.output_schema,
         }
         errors = []

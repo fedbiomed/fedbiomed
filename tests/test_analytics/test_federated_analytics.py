@@ -1428,14 +1428,11 @@ class TestCacheFallback:
 # ---------------------------------------------------------------------------
 
 
-def _make_encrypted_reply(
-    params_encrypted, encryption_factor, output_schema
-) -> MagicMock:
+def _make_encrypted_reply(params_encrypted, output_schema) -> MagicMock:
     """Create a MagicMock FAReply representing the encrypted path."""
     r = MagicMock(spec=FAReply)
     r.encrypted = True
     r.params_encrypted = params_encrypted
-    r.encryption_factor = encryption_factor
     r.output_schema = output_schema
     r.output = None
     return r
@@ -1472,8 +1469,8 @@ class TestSecaggIntegration:
         """Encrypted replies trigger secagg.aggregate(); result is unflattened into FAResult."""
         # output_schema encodes {"age": {"sum": _, "count": _}}
         schema = [["age", "sum"], ["age", "count"]]
-        reply_n1 = _make_encrypted_reply([100, 200], [1.0, 1.0], schema)
-        reply_n2 = _make_encrypted_reply([150, 300], [1.0, 1.0], schema)
+        reply_n1 = _make_encrypted_reply([100, 200], schema)
+        reply_n2 = _make_encrypted_reply([150, 300], schema)
         mock_fa_job_cls.return_value.execute.return_value = {
             "node-1": reply_n1,
             "node-2": reply_n2,
@@ -1497,7 +1494,7 @@ class TestSecaggIntegration:
     ):
         """_secagg_setup calls secagg.setup() with the node IDs from the federated dataset."""
         schema = [["x"]]
-        reply = _make_encrypted_reply([1], [1.0], schema)
+        reply = _make_encrypted_reply([1], schema)
         mock_fa_job_cls.return_value.execute.return_value = {"node-1": reply}
         mock_fds.node_ids.return_value = ["node-1"]
         mock_secagg.aggregate.return_value = [5.0]
@@ -1508,6 +1505,7 @@ class TestSecaggIntegration:
             parties=["node-1"],
             experiment_id="exp-secagg",
             researcher_id="res-456",
+            insecure_validation=False,
         )
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
@@ -1515,7 +1513,7 @@ class TestSecaggIntegration:
         """fa_round injected into secagg_arguments increments with each FA request."""
         schema = [["x"]]
         mock_fa_job_cls.return_value.execute.return_value = {
-            "node-1": _make_encrypted_reply([1], [1.0], schema)
+            "node-1": _make_encrypted_reply([1], schema)
         }
         mock_secagg.aggregate.return_value = [1.0]
 
@@ -1534,7 +1532,7 @@ class TestSecaggIntegration:
         """train_arguments() dict (plus fa_round) is passed verbatim to FARequestJob."""
         schema = [["x"]]
         mock_fa_job_cls.return_value.execute.return_value = {
-            "node-1": _make_encrypted_reply([1], [1.0], schema)
+            "node-1": _make_encrypted_reply([1], schema)
         }
         mock_secagg.aggregate.return_value = [1.0]
 
@@ -1576,8 +1574,8 @@ class TestSecaggIntegration:
         """Two sequential encrypted requests merge their aggregate outputs in FAResult."""
         schema_count = [["x", "count"]]
         schema_sum = [["x", "sum"]]
-        replies_count = {"node-1": _make_encrypted_reply([100], [1.0], schema_count)}
-        replies_sum = {"node-1": _make_encrypted_reply([500], [1.0], schema_sum)}
+        replies_count = {"node-1": _make_encrypted_reply([100], schema_count)}
+        replies_sum = {"node-1": _make_encrypted_reply([500], schema_sum)}
         mock_fa_job_cls.return_value.execute.side_effect = [replies_count, replies_sum]
         mock_secagg.aggregate.side_effect = [[100.0], [500.0]]
 
