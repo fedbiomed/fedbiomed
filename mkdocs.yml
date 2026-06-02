@@ -13,6 +13,7 @@ theme:
   logo: assets/img/fedbiomed-logo.png
   favicon: assets/favicon.png
   features:
+    - content.code.copy
     - navigation.top
     - search.suggest
     - search.highlight
@@ -379,7 +380,7 @@ extra_javascript:
   - https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
   - assets/javascript/lunr.js
-  - assets/javascript/theme.js
+  - assets/javascript/theme.js   
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 extra_css:
