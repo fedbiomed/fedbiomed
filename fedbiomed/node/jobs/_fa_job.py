@@ -9,7 +9,6 @@ from typing import Dict, Optional
 
 import polars as pl
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, FedbiomedError, Stats
 from fedbiomed.common.constants import (
     DatasetTypes,
     ErrorNumbers,
@@ -25,7 +24,7 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.common.utils import flatten_fa_output
 from fedbiomed.node.dataset_manager import DatasetManager
-from fedbiomed.node.secagg import SecaggFARound
+from fedbiomed.node.secagg import SecaggRound
 
 from ._base_job import _BaseJob, _InternalJobError
 
@@ -250,7 +249,7 @@ class FAJob(_BaseJob):
             )
 
         try:
-            secagg_round = SecaggFARound(
+            secagg_round = SecaggRound(
                 db=self._db,
                 node_id=self._node_id,
                 secagg_arguments=self._secagg_arguments,
@@ -264,7 +263,7 @@ class FAJob(_BaseJob):
         if secagg_round.use_secagg:
             flat, schema = flatten_fa_output(output)
             fa_round = self._secagg_arguments.get("fa_round", 1)
-            encrypted_params = secagg_round.encrypt(flat, fa_round, weight=1)
+            encrypted_params = secagg_round.scheme.encrypt(flat, fa_round, weight=1)
 
             clipping_range = (
                 self._secagg_arguments.get("secagg_clipping_range")

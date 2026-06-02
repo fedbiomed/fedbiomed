@@ -25,7 +25,7 @@ class _SecaggSchemeRound(ABC):
 
         Args:
             node_id: Id of the active node.
-            secagg_arguments:  secure aggregation arguments from train request
+            secagg_arguments:  secure aggregation arguments from the request
             experiment_id: Experiment identifier that secure aggregation round
                 will be performed for.
         """
@@ -35,7 +35,7 @@ class _SecaggSchemeRound(ABC):
             secagg_clipping_range, int
         ):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB318.value}: Bad secagg clipping range type in train "
+                f"{ErrorNumbers.FB318.value}: Bad secagg clipping range type in "
                 f"request: {type(secagg_clipping_range)}"
             )
 
@@ -48,7 +48,7 @@ class _SecaggSchemeRound(ABC):
 
         if len(self._parties) < self._min_num_parties:
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB318.value}: Bad parties list in train request: {self._parties}"
+                f"{ErrorNumbers.FB318.value}: Bad parties list in request: {self._parties}"
             )
 
     @property
@@ -89,7 +89,7 @@ class _JLSRound(_SecaggSchemeRound):
         Args:
             db: Path to database file.
             node_id: ID of the active node.
-            secagg_arguments:  secure aggregation arguments from train request
+            secagg_arguments:  secure aggregation arguments from the request
             experiment_id: unique ID of experiment
 
         Raises:
@@ -107,7 +107,7 @@ class _JLSRound(_SecaggSchemeRound):
         if self._secagg_servkey is None:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Server-key/user-key share for "
-                f"secagg: {secagg_servkey_id} is not existing. Aborting train request."
+                f"secagg: {secagg_servkey_id} is not existing. Aborting request."
             )
 
         if not matching_parties_servkey(self._secagg_servkey, self._parties):
@@ -153,7 +153,7 @@ class _LomRound(_SecaggSchemeRound):
         Args:
             db: Path to database file.
             node_id: ID of the active node.
-            secagg_arguments:  secure aggregation arguments from train request
+            secagg_arguments:  secure aggregation arguments from the request
             experiment_id: unique ID of experiment
 
         Raises:
@@ -172,7 +172,7 @@ class _LomRound(_SecaggSchemeRound):
         if self._secagg_dh is None:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Diffie Hellman context for "
-                f"secagg: {secagg_dh_id} is not existing. Aborting train request."
+                f"secagg: {secagg_dh_id} is not existing. Aborting request."
             )
 
         if not matching_parties_dh(self._secagg_dh, self._parties):
@@ -241,7 +241,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
         if not secagg_arguments and self._force_secagg:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Node requires to apply secure aggregation but "
-                f"training request does not define it."
+                f"request does not define it."
             )
 
         if secagg_arguments:
@@ -262,106 +262,10 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
                 _scheme = SecureAggregationSchemes(sn)
             except ValueError as e:
                 raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in train request: {sn}"
+                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in request: {sn}"
                 ) from e
 
             self.scheme = SecaggRound.element2class[_scheme.value](
                 db, node_id, secagg_arguments, experiment_id
             )
             self.use_secagg = True
-
-
-class SecaggFARound:  # pylint: disable=too-few-public-methods
-    """Secure aggregation wrapper for a federated analytics round.
-
-    Mirrors ``SecaggRound`` exactly: policy guards (``force_secagg``,
-    ``secagg_active``) live here, not in the caller.  The caller creates this
-    object, catches ``FedbiomedSecureAggregationError``, and checks
-    ``use_secagg`` before calling ``encrypt``.
-    """
-
-    element2class = {
-        SecureAggregationSchemes.JOYE_LIBERT.value: _JLSRound,
-        SecureAggregationSchemes.LOM.value: _LomRound,
-    }
-
-    def __init__(
-        self,
-        db: str,
-        node_id: str,
-        secagg_arguments: Optional[Dict],
-        secagg_active: bool,
-        force_secagg: bool,
-        experiment_id: str,
-    ) -> None:
-        """Constructor of the class.
-
-        Args:
-            db: Path to the node database file.
-            node_id: ID of the active node.
-            secagg_arguments: Secure aggregation arguments from the FA request,
-                or None when the researcher did not request encryption.
-            secagg_active: True if secure aggregation is enabled in node config.
-            force_secagg: True if the node mandates secure aggregation; an FA
-                request without ``secagg_arguments`` is then rejected.
-            experiment_id: Experiment identifier used to validate the stored
-                secagg context against the current FA session.
-
-        Raises:
-            FedbiomedSecureAggregationError: ``force_secagg`` is True but no
-                ``secagg_arguments`` were provided.
-            FedbiomedSecureAggregationError: ``secagg_arguments`` provided but
-                secure aggregation is not active on the node.
-            FedbiomedSecureAggregationError: Missing or unknown ``secagg_scheme``,
-                or key context not found / parties mismatch in DB.
-        """
-        self.use_secagg: bool = False
-        self.scheme: Optional[_SecaggSchemeRound] = None
-
-        if not secagg_arguments and force_secagg:
-            raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB318.value}: Node requires secure aggregation but "
-                "FA request does not define it."
-            )
-
-        if secagg_arguments:
-            if not secagg_active:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value}: Secure aggregation requested while "
-                    "it's not activated on the node."
-                )
-
-            sn = secagg_arguments.get("secagg_scheme")
-            if sn is None:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value}: secagg_scheme is missing in secagg_arguments"
-                )
-            try:
-                _scheme = SecureAggregationSchemes(sn)
-            except ValueError as e:
-                raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in FA request: {sn}"
-                ) from e
-
-            self.scheme = SecaggFARound.element2class[_scheme.value](
-                db, node_id, secagg_arguments, experiment_id
-            )
-            self.use_secagg = True
-
-    def encrypt(
-        self, flat_params: List[float], fa_round: int, weight: int = 1
-    ) -> List[int]:
-        """Encrypt a flat list of FA statistics.
-
-        Must only be called when ``use_secagg`` is True.
-
-        Args:
-            flat_params: Flat float list produced by ``flatten_fa_output``.
-            fa_round: FA round counter (incremented by the researcher per call);
-                plays the same role as ``current_round`` in training.
-            weight: Multiplicative weight applied before quantisation (default 1).
-
-        Returns:
-            List of encrypted integers ready to include in ``FAReply``.
-        """
-        return self.scheme.encrypt(flat_params, fa_round, weight)

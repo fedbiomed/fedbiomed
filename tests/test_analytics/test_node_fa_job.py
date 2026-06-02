@@ -531,14 +531,14 @@ def test_run_secagg_not_active_returns_error(fa_job_args, fa_request, secagg_arg
     assert reply.errnum == ErrorNumbers.FB325.value
 
 
-@patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
 def test_run_encrypted_path_returns_fa_reply(
     mock_secagg_cls, fa_job_args, fa_request, secagg_args
 ):
     """When use_secagg is True, run() returns encrypted FAReply with all required fields."""
     mock_secagg = MagicMock()
     mock_secagg.use_secagg = True
-    mock_secagg.encrypt.return_value = [100, 200, 300]
+    mock_secagg.scheme.encrypt.return_value = [100, 200, 300]
     mock_secagg_cls.return_value = mock_secagg
 
     job = _make_fa_job(
@@ -563,14 +563,14 @@ def test_run_encrypted_path_returns_fa_reply(
     assert len(reply.encryption_factor) == 3
 
 
-@patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
 def test_run_encrypted_path_uses_fa_round_from_args(
     mock_secagg_cls, fa_job_args, fa_request, secagg_args
 ):
     """encrypt() is called with the fa_round from secagg_arguments."""
     mock_secagg = MagicMock()
     mock_secagg.use_secagg = True
-    mock_secagg.encrypt.return_value = [1]
+    mock_secagg.scheme.encrypt.return_value = [1]
     mock_secagg_cls.return_value = mock_secagg
 
     secagg_args["fa_round"] = 7
@@ -583,18 +583,18 @@ def test_run_encrypted_path_uses_fa_round_from_args(
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         job.run()
 
-    call_args = mock_secagg.encrypt.call_args
+    call_args = mock_secagg.scheme.encrypt.call_args
     assert call_args[0][1] == 7  # fa_round positional arg
 
 
-@patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
 def test_run_encrypted_encryption_factor_uses_clipping_range(
     mock_secagg_cls, fa_job_args, fa_request, secagg_args
 ):
     """encryption_factor = TARGET_RANGE / (2 * clipping_range) for each element."""
     mock_secagg = MagicMock()
     mock_secagg.use_secagg = True
-    mock_secagg.encrypt.return_value = [0, 0]
+    mock_secagg.scheme.encrypt.return_value = [0, 0]
     mock_secagg_cls.return_value = mock_secagg
 
     secagg_args["secagg_clipping_range"] = 5
@@ -611,11 +611,11 @@ def test_run_encrypted_encryption_factor_uses_clipping_range(
     assert all(f == expected_factor for f in reply.encryption_factor)
 
 
-@patch("fedbiomed.node.jobs._fa_job.SecaggFARound")
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
 def test_run_secagg_round_error_returns_error_message(
     mock_secagg_cls, fa_job_args, fa_request, secagg_args
 ):
-    """FedbiomedSecureAggregationError from SecaggFARound → ErrorMessage."""
+    """FedbiomedSecureAggregationError from SecaggRound → ErrorMessage."""
     mock_secagg_cls.side_effect = FedbiomedSecureAggregationError("context missing")
 
     job = _make_fa_job(
