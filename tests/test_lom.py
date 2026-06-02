@@ -41,13 +41,13 @@ def test_01_lom_module_prf():
     input_size = 10
 
     buffer = prf.eval_vector(seed, round, input_size)
-    vector = np.frombuffer(buffer, dtype="uint32")
+    vector = np.frombuffer(buffer, dtype="uint64")
     assert len(vector) == input_size
 
     # Test with larger input size
     input_size = 10000
     buffer = prf.eval_vector(seed, round, input_size)
-    vector = np.frombuffer(buffer, dtype="uint32")
+    vector = np.frombuffer(buffer, dtype="uint64")
     assert len(vector) == input_size
 
 
@@ -109,10 +109,10 @@ def test_03_lom_protect_big_int(pairwise_keys):
     assert aggregated_vector == sum_x.tolist()
 
     with pytest.raises(FedbiomedSecaggError) as _:
-        r_int = random.getrandbits(32)
-        while r_int.bit_length() < 32:
-            # make sure `r_int` is of size 32 bit (can be shorter, making test failing)
-            r_int = random.getrandbits(32)
+        r_int = random.getrandbits(62)
+        while r_int.bit_length() < 62:
+            # make sure `r_int` is of size 62 bit (can be shorter, making test failing)
+            r_int = random.getrandbits(62)
         params = [r_int, r_int]
         protected_vector_1 = lom_1.protect(
             node_ids[0], pwkeys[0], tau, params, node_ids
