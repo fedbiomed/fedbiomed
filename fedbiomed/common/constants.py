@@ -341,6 +341,7 @@ class HarmonizationStep(PreprocStep):
 
 class SAParameters:
     CLIPPING_RANGE: int = 3
+    FA_CLIPPING_RANGE: int = 1_000_000
     TARGET_RANGE: int = 2**13
     WEIGHT_RANGE: int = (
         2**17

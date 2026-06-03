@@ -12,7 +12,7 @@ from collections import OrderedDict
 from typing import Any, Callable, Iterator, Optional
 
 from fedbiomed.common.analytics import AGGREGATORS_MAP
-from fedbiomed.common.constants import Stats
+from fedbiomed.common.constants import SAParameters, Stats
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FAReply
@@ -577,6 +577,9 @@ class FederatedAnalytics:
             researcher_id=self._researcher_id,
             insecure_validation=False,
         )
+        self._secagg.clipping_range = SAParameters.FA_CLIPPING_RANGE
+        # train_arguments() packages secagg_random, secagg_clipping_range, scheme, and parties
+        # into the flat dict expected by FARequest — reusing the same serialisation path as FL.
         return dict(self._secagg.train_arguments())
 
     def _execute_and_update_cache(
