@@ -69,33 +69,45 @@ def setup(port, post_session):
             clear_component_data(researcher)
 
 
-def test_01_analytics_mean():
+@pytest.fixture
+def exp_adni():
+    exp = Experiment(tags=["#adni-analytics"])
+    yield exp
+    clear_experiment_data(exp)
+
+
+@pytest.fixture
+def exp_cls():
+    exp = Experiment(tags=["#csv-analytics-classification"])
+    yield exp
+    clear_experiment_data(exp)
+
+
+def test_01_analytics_mean(exp_adni):
     """Global mean across 2 nodes for the ADNI tabular dataset."""
 
-    exp = Experiment(tags=["#adni-analytics"])
-
-    result = exp.analytics.mean()
+    result = exp_adni.analytics.mean()
 
     assert isinstance(result, dict), "mean() should return a dict keyed by column name"
     assert len(result) > 0, "Result should contain at least one column"
     assert "AGE" in result, "ADNI dataset should have an 'AGE' column"
     assert isinstance(result["AGE"], float), "Mean of 'AGE' should be a float"
 
-    clear_experiment_data(exp)
 
-
-def test_02_analytics_variance_available_computable_and_mean():
+def test_02_analytics_variance_available_computable_and_mean(exp_adni):
     """Request variance, inspect available/computable stats, then derive mean
     directly from the same FAResult — no new network request required."""
 
-    exp = Experiment(tags=["#adni-analytics"])
-
     # Step 1: fetch variance (sends messages to nodes)
-    fa_result = exp.analytics.fetch_stats("variance")
+    fa_result = exp_adni.analytics.fetch_stats("variance")
 
-    # Step 2: available_stats lists the raw numeric keys present in the result
+    # Step 2: available_stats lists the raw numeric keys present in the result;
+    #         fetching "variance" stores the primitives count, sum, sum_sq — not
+    #         a pre-computed "variance" key.
     avail = fa_result.available_stats()
-    assert "variance" in avail, f"'variance' not in available_stats(): {avail}"
+    assert all(k in avail for k in ("count", "sum", "sum_sq")), (
+        f"Expected variance primitives (count, sum, sum_sq) in available_stats(): {avail}"
+    )
 
     # Step 3: computable_stats derives which higher-level stats can be calculated;
     #         variance data includes sum + count + sum_of_squares, so mean is computable
@@ -117,46 +129,34 @@ def test_02_analytics_variance_available_computable_and_mean():
     assert "AGE" in mean_result, "ADNI dataset should have an 'AGE' column"
     assert isinstance(mean_result["AGE"], float), "Mean of 'AGE' should be a float"
 
-    clear_experiment_data(exp)
 
-
-def test_03_analytics_count():
+def test_03_analytics_count(exp_adni):
     """Row count is positive for every ADNI column."""
 
-    exp = Experiment(tags=["#adni-analytics"])
-
-    count_vals = exp.analytics.count()
+    count_vals = exp_adni.analytics.count()
 
     assert isinstance(count_vals, dict)
     assert len(count_vals) > 0
     for col, cnt in count_vals.items():
         assert cnt > 0, f"Count for column '{col}' should be positive"
 
-    clear_experiment_data(exp)
 
-
-def test_04_analytics_schema_filter():
+def test_04_analytics_schema_filter(exp_adni):
     """Analytics respects a column-level schema filter (subset of columns)."""
 
-    exp = Experiment(tags=["#adni-analytics"])
-
     selected_cols = ["AGE", "MMSE.bl"]
-    fa_result = exp.analytics.fetch_stats("mean", dataset_schema=selected_cols)
+    fa_result = exp_adni.analytics.fetch_stats("mean", dataset_schema=selected_cols)
     global_mean = fa_result.global_stats("mean")
 
     assert set(selected_cols).issubset(set(global_mean.keys())), (
         f"Expected columns {selected_cols} to be present in {set(global_mean.keys())}"
     )
 
-    clear_experiment_data(exp)
 
-
-def test_05_analytics_no_header_csv():
+def test_05_analytics_no_header_csv(exp_cls):
     """Analytics on a no-header CSV uses numeric column indices (0..20)."""
 
-    exp = Experiment(tags=["#csv-analytics-classification"])
-
-    fa_result = exp.analytics.fetch_stats(["mean", "count"])
+    fa_result = exp_cls.analytics.fetch_stats(["mean", "count"])
     global_stats = fa_result.global_stats()
 
     # 20 features + 1 label column
@@ -167,20 +167,14 @@ def test_05_analytics_no_header_csv():
         assert "mean" in col_stats
         assert col_stats["count"] > 0, "Row count per column must be positive"
 
-    clear_experiment_data(exp)
 
-
-def test_06_analytics_caching():
+def test_06_analytics_caching(exp_adni):
     """Repeated identical requests return the same cached FAResult object."""
 
-    exp = Experiment(tags=["#adni-analytics"])
-
-    result1 = exp.analytics.fetch_stats("mean")
-    result2 = exp.analytics.fetch_stats("mean")
+    result1 = exp_adni.analytics.fetch_stats("mean")
+    result2 = exp_adni.analytics.fetch_stats("mean")
 
     assert result1 is result2, (
         "A repeated fetch_stats call with identical arguments should return "
         "the cached FAResult (same object identity)"
     )
-
-    clear_experiment_data(exp)
