@@ -146,3 +146,13 @@ def node_status():
 
     except FedbiomedError as e:
         return error(f"Could not get node process status: {e}"), 500
+
+
+@api.route("/v1/node/process-state", methods=["GET"])
+def node_process_state():
+    """Return current persisted node process state."""
+    try:
+        return response(node_process_manager._get_process_state().to_dict()), 200
+
+    except FedbiomedError as e:
+        return error(f"Could not get node process state: {e}"), 500
