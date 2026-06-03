@@ -2,6 +2,7 @@
 End-to-end tests for federated analytics using tabular (CSV) datasets.
 """
 
+import math
 import os
 import time
 
@@ -12,6 +13,7 @@ from helpers import (
     clear_experiment_data,
     create_multiple_nodes,
     create_researcher,
+    generate_controlled_analytics_dataset,
     generate_sklearn_classification_dataset,
     kill_subprocesses,
     start_nodes,
@@ -54,6 +56,17 @@ def setup(port, post_session):
         }
         add_dataset_to_node(node_1, {**cls_dataset, "path": p1})
         add_dataset_to_node(node_2, {**cls_dataset, "path": p2})
+
+        # Controlled CSV — named columns A and B, known ground-truth statistics
+        cp1, cp2 = generate_controlled_analytics_dataset()
+        ctrl_dataset = {
+            "name": "Controlled analytics CSV",
+            "description": "Synthetic dataset with analytically-known statistics",
+            "tags": "#csv-analytics-controlled",
+            "data_type": "csv",
+        }
+        add_dataset_to_node(node_1, {**ctrl_dataset, "path": cp1})
+        add_dataset_to_node(node_2, {**ctrl_dataset, "path": cp2})
 
         node_processes, thread = start_nodes([node_1, node_2])
         print("Sleep 10 seconds to give time for nodes to start")
@@ -178,3 +191,35 @@ def test_06_analytics_caching(exp_adni):
         "A repeated fetch_stats call with identical arguments should return "
         "the cached FAResult (same object identity)"
     )
+
+
+# Controlled dataset: N=200, A=[1..200], B=2A=[2..400]
+# variance([1..N], ddof=1) = N(N+1)/12; for N=200 → 200·201/12 = 3350 exactly
+_A_MEAN, _A_VAR = 100.5, 3350.0
+_B_MEAN, _B_VAR = 201.0, 13400.0  # mean=2·_A_MEAN, variance=4·_A_VAR
+
+
+@pytest.fixture
+def exp_controlled():
+    exp = Experiment(tags=["#csv-analytics-controlled"])
+    yield exp
+    clear_experiment_data(exp)
+
+
+def test_07_controlled_full_stats(exp_controlled):
+    """count, mean, variance, std, and per-node primitives all match analytical values."""
+    fa = exp_controlled.analytics.fetch_stats("variance")
+
+    assert exp_controlled.analytics.count() == {"A": 200, "B": 200}
+
+    mean = fa.global_stats("mean")
+    assert mean["A"] == pytest.approx(_A_MEAN, rel=1e-4)
+    assert mean["B"] == pytest.approx(_B_MEAN, rel=1e-4)
+
+    var = fa.global_stats("variance")
+    assert var["A"] == pytest.approx(_A_VAR, rel=1e-4)
+    assert var["B"] == pytest.approx(_B_VAR, rel=1e-4)
+
+    std = fa.global_stats("std")
+    assert std["A"] == pytest.approx(math.sqrt(_A_VAR), rel=1e-4)
+    assert std["B"] == pytest.approx(math.sqrt(_B_VAR), rel=1e-4)
