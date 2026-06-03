@@ -74,7 +74,7 @@ When the user wants to check the node status using the command `fedbiomed node s
 
 This check ensures that the CLI and GUI status calls are meaningful; in case of a crash, manual process kill, or stale database entry.
 
-The functions `start()` and `stop()`, call the internal helpers `_set_process_state()` and `_get_process_state()` to update the process state in the database. `_set_process_state()` takes the arguments:
+The functions `start()` and `stop()`, update the process state in the database. The updated fields can be seen in the table below:
 
 | Argument   | Description |
 | ---        | --- |
@@ -86,10 +86,6 @@ The functions `start()` and `stop()`, call the internal helpers `_set_process_st
 | exit_code: `Optional[int]` | Optional exit code for the process.
 
 Normally the pid and state information shouldn't be given by the user or developer, unless specifically for debugging purposes.
-
-For the `actor` parameter, if the parameter is not set by the user or contains partial empty values, the function `_build_actor()` is used to automatically set up actor information. The CLI currently passes `{"source": "cli"}`.
-
-To retrieve the process state, similarly the helper function `_get_process_state` can be used. It retrieves all the aforementioned information of the node process from the node database, plus the additional datetime information which is set automatically by `_set_process_state` when writing an entry to the database. It raises a `FedbiomedError` if the table, or the state for that node in the table, does not exist. Full list of the dataclass `NodeProcessStateEntry` can be seen in the next section.
 
 ## Database Format
 
@@ -132,7 +128,7 @@ The node subprocess also installs `SIGTERM` and `SIGINT` handlers. When the node
 
 ## Foreground Exit Handling
 
-When the node is run in the foreground, the node process is a child of the foreground process. The foreground process calls `NodeProcessManager._wait()`, which essentially waits until the node process terminates gracefully. After the node terminates, the `_wait()` function will verify the database status to ensure that the node process was killed properly (using `fedbiomed node stop`). To ensure this it will check the database status, and if the database doesn't have a 'STOPPED' status, it will update it as:
+When the node is run in the foreground, the node process is a child of the foreground process, which essentially waits until the node process terminates gracefully. After the node terminates, the foreground process will check the database status, and if the database doesn't have a 'STOPPED' status, it will update it as:
 
 ```text
 action = "wait"
