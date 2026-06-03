@@ -379,6 +379,8 @@ class ErrorNumbers(_BaseEnum):
     FB324 = "FB324: Node to node overlay communication error"
     FB325 = "FB325: Node federated analytics error"
     FB326 = "FB326: Node Preprocessing error"
+    FB327 = "FB327: Node Process Manager error"
+
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"

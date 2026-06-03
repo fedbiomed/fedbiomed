@@ -177,6 +177,7 @@ nav:
       - "Testing in Fed-BioMed": "./developer/testing-in-fedbiomed.md"
       - "RPC Protocol and Messages": "./developer/messaging.md"
       - "Federated Analytics": "./developer/federated-analytics.md"
+      - "Managing Nodes": "./developer/managing_nodes.md"
   - "FAQ & Troubleshooting": "./support/troubleshooting.md"
 
 extra:
