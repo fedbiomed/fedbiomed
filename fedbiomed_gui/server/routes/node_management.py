@@ -1,4 +1,5 @@
 from flask import request
+from flask_jwt_extended import get_jwt
 
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.node_pm import NodeProcessManager
@@ -8,6 +9,20 @@ from ..utils import error, response
 from .api import api
 
 node_process_manager = NodeProcessManager(config.node_config)
+
+
+def _actor_from_request() -> dict:
+    """Build GUI actor metadata without enforcing role authorization."""
+    claims = get_jwt()
+
+    return {
+        "source": "gui",
+        "user_id": claims.get("sub"),
+        "email": claims.get("email"),
+        "role": claims.get("role"),
+        "name": claims.get("name"),
+        "surname": claims.get("surname"),
+    }
 
 
 def _node_args_from_request() -> tuple[dict, bool]:
@@ -55,7 +70,7 @@ def start_node():
         node_process_manager.start(
             node_args=node_args,
             background=background,
-            actor={"source": "gui"},
+            actor=_actor_from_request(),
             reason="start_requested_from_gui",
         )
 
@@ -79,7 +94,7 @@ def stop_node():
         node_process_manager.stop(
             node_args=node_args,
             background=background,
-            actor={"source": "gui"},
+            actor=_actor_from_request(),
             reason="stop_requested_from_gui",
         )
 
@@ -102,7 +117,7 @@ def restart_node():
         node_process_manager.restart(
             node_args=node_args,
             background=background,
-            actor={"source": "gui"},
+            actor=_actor_from_request(),
             reason="restart_requested_from_gui",
         )
 
