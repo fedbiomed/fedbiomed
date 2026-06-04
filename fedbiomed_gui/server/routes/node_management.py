@@ -147,7 +147,7 @@ def node_status():
 def node_process_state():
     """Return current persisted node process state."""
     try:
-        return response(node_process_manager._get_process_state().to_dict()), 200
+        return response(node_process_manager.get_process_state().to_dict()), 200
 
     except FedbiomedError as e:
         return error(f"Could not get node process state: {e}"), 500

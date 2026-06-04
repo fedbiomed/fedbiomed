@@ -357,6 +357,13 @@ class NodeProcessManager:
         state_entry = state_entry.from_dict(dict(stored_state))
         return state_entry
 
+    def _get_pid(self) -> Optional[int]:
+        """Get the PID of the currently running node process, if any."""
+        state = self._get_state_table().get_by_id(self._node_id)
+        if state and state.get("state") == NodeState.RUNNING.value:
+            return state.get("pid")
+        return None
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
@@ -594,12 +601,13 @@ class NodeProcessManager:
         final_db_status = NodeState(final_state.get("state", NodeState.UNKNOWN))
         return final_db_status
 
-    def _get_pid(self) -> Optional[int]:
-        """Get the PID of the currently running node process, if any."""
-        state = self._get_state_table().get_by_id(self._node_id)
-        if state and state.get("state") == NodeState.RUNNING.value:
-            return state.get("pid")
-        return None
+    def get_process_state(self) -> NodeProcessStateEntry:
+        """Get the current persisted node process state.
+
+        Returns:
+            Current node process state entry.
+        """
+        return self._get_process_state()
 
 
 if __name__ == "__main__":
