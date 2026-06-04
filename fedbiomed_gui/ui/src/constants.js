@@ -63,11 +63,11 @@ export const EP_DELETE_TRAINING_PLAN    = '/api/training-plan/delete'
 export const EP_PREVIEW_TRAINING_PLAN   = '/api/training-plan/preview'
 
 // Node Management
-export const EP_NODE_STATUS = "/api/v1/node/status";
-export const EP_NODE_PROCESS_STATE = "/api/v1/node/process-state";
-export const EP_NODE_START = "/api/v1/node/start";
-export const EP_NODE_STOP = "/api/v1/node/stop";
-export const EP_NODE_RESTART = "/api/v1/node/restart";
+export const EP_NODE_STATUS = "/api/node/status";
+export const EP_NODE_PROCESS_STATE = "/api/node/process-state";
+export const EP_NODE_START = "/api/node/start";
+export const EP_NODE_STOP = "/api/node/stop";
+export const EP_NODE_RESTART = "/api/node/restart";
 
 // Messages
 export const DATA_NOTFOUND = 'There is no data found for the dataset. It might be deleted'

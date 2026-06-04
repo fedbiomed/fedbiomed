@@ -62,7 +62,7 @@ def _node_args_from_request() -> tuple[dict, bool]:
     return node_args, background
 
 
-@api.route("/v1/node/start", methods=["POST"])
+@api.route("/node/start", methods=["POST"])
 def start_node():
     try:
         node_args, background = _node_args_from_request()
@@ -85,15 +85,11 @@ def start_node():
         return error(f"Could not start node process: {e}"), 500
 
 
-@api.route("/v1/node/stop", methods=["POST"])
+@api.route("/node/stop", methods=["POST"])
 def stop_node():
     """Stop the node process from GUI."""
     try:
-        node_args, background = _node_args_from_request()
-
         node_process_manager.stop(
-            node_args=node_args,
-            background=background,
             actor=_actor_from_request(),
             reason="stop_requested_from_gui",
         )
@@ -101,7 +97,6 @@ def stop_node():
         return response(
             {
                 "state": node_process_manager.get_status().value,
-                "node_args": node_args,
             }
         ), 200
 
@@ -109,7 +104,7 @@ def stop_node():
         return error(f"Could not stop node process: {e}"), 500
 
 
-@api.route("/v1/node/restart", methods=["POST"])
+@api.route("/node/restart", methods=["POST"])
 def restart_node():
     try:
         node_args, background = _node_args_from_request()
@@ -132,7 +127,7 @@ def restart_node():
         return error(f"Could not restart node process: {e}"), 500
 
 
-@api.route("/v1/node/status", methods=["GET"])
+@api.route("/node/status", methods=["GET"])
 def node_status():
     """Return current node process status."""
     try:
@@ -148,7 +143,7 @@ def node_status():
         return error(f"Could not get node process status: {e}"), 500
 
 
-@api.route("/v1/node/process-state", methods=["GET"])
+@api.route("/node/process-state", methods=["GET"])
 def node_process_state():
     """Return current persisted node process state."""
     try:
