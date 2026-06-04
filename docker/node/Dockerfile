@@ -17,7 +17,7 @@ ENV FEDBIOMED_GID=${FEDBIOMED_GID}
 
 # Copy node entry point file
 COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP docker/node/entrypoint.sh /entrypoint.sh
-COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP docker/node/supervisord-node.conf.template /etc/supervisor/supervisord.conf.template
+COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP docker/node/supervisord-node-api.conf.template /etc/supervisor/supervisord.conf.template
 
 # Make entrypoint executable
 RUN chmod +x /entrypoint.sh

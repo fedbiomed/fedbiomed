@@ -19,7 +19,7 @@ cat > /home/${FEDBIOMED_USER}/start-fbm-node.sh <<'WRAPPER'
 set -a  # auto-export all variables
 source /home/${FEDBIOMED_USER}/fbm.env
 set +a
-exec /home/${FEDBIOMED_USER}/.local/bin/fedbiomed node -p /fbm-node start ${FBM_NODE_START_OPTIONS}
+exec /home/${FEDBIOMED_USER}/.local/bin/fedbiomed node -p /fbm-node start --background ${FBM_NODE_START_OPTIONS}
 WRAPPER
 chmod +x /home/${FEDBIOMED_USER}/start-fbm-node.sh
 
@@ -50,6 +50,9 @@ echo "[ENTRYPOINT] Starting container as user: $CONTAINER_USER"
 #   eg FBM_NODE_START_OPTIONS="--gpu-only" can be used for starting node forcing GPU usage
 echo "$FBM_NODE_START_OPTIONS" >/fbm-node/FBM_NODE_START_OPTIONS
 
+mkdir -p /home/${FEDBIOMED_USER}/log
+
+/home/${FEDBIOMED_USER}/start-fbm-node.sh
+
 # Launch supervisord in foreground to keep container running
 exec supervisord -n -c /etc/supervisor/supervisord.conf
-

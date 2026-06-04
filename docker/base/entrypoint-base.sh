@@ -79,7 +79,9 @@ if [ "$(id -u)" = "0" ]; then
 
         # Delete and recreate user with correct UID/GID (fast - no filesystem scan)
         userdel "${FEDBIOMED_USER}"
-        groupadd -g "${CONTAINER_GID}" "${FEDBIOMED_USER}" 2>/dev/null || true
+        groupmod -g "${CONTAINER_GID}" "${FEDBIOMED_USER}" 2>/dev/null || \
+            groupadd -g "${CONTAINER_GID}" "${FEDBIOMED_USER}" 2>/dev/null || \
+            log "WARNING: GID ${CONTAINER_GID} already in use by another group — proceeding anyway"
         useradd --no-log-init --home "/home/${FEDBIOMED_USER}" --uid "${CONTAINER_UID}" --gid "${CONTAINER_GID}" "${FEDBIOMED_USER}"
         
         # Fix ownership of home directory
@@ -107,20 +109,32 @@ if [ "$(id -u)" = "0" ]; then
 
         # Fix ownership of /fbm-node if it exists
         if [ -d "/fbm-node" ]; then
-            chown -R "$CONTAINER_UID:$CONTAINER_GID" "/fbm-node" 2>/dev/null &
-            spinner $! "Fixing ownership of /fbm-node"
-            wait $! || {
-                log "WARNING: Failed to fix ownership of /fbm-node"
-            }
+            existing_uid=$(stat -c '%u' /fbm-node 2>/dev/null || echo "")
+            existing_gid=$(stat -c '%g' /fbm-node 2>/dev/null || echo "")
+            if [ "$existing_uid" = "$CONTAINER_UID" ] && [ "$existing_gid" = "$CONTAINER_GID" ]; then
+                log "Skipping chown of /fbm-node — already owned by $CONTAINER_UID:$CONTAINER_GID"
+            else
+                chown -R "$CONTAINER_UID:$CONTAINER_GID" "/fbm-node" 2>/dev/null &
+                spinner $! "Fixing ownership of /fbm-node"
+                wait $! || {
+                    log "WARNING: Failed to fix ownership of /fbm-node"
+                }
+            fi
         fi
-        
+
         # Fix ownership of /fbm-researcher if it exists
         if [ -d "/fbm-researcher" ]; then
-            chown -R "$CONTAINER_UID:$CONTAINER_GID" "/fbm-researcher" 2>/dev/null &
-            spinner $! "Fixing ownership of /fbm-researcher"
-            wait $! || {
-                log "WARNING: Failed to fix ownership of /fbm-researcher"
-            }
+            existing_uid=$(stat -c '%u' /fbm-researcher 2>/dev/null || echo "")
+            existing_gid=$(stat -c '%g' /fbm-researcher 2>/dev/null || echo "")
+            if [ "$existing_uid" = "$CONTAINER_UID" ] && [ "$existing_gid" = "$CONTAINER_GID" ]; then
+                log "Skipping chown of /fbm-researcher — already owned by $CONTAINER_UID:$CONTAINER_GID"
+            else
+                chown -R "$CONTAINER_UID:$CONTAINER_GID" "/fbm-researcher" 2>/dev/null &
+                spinner $! "Fixing ownership of /fbm-researcher"
+                wait $! || {
+                    log "WARNING: Failed to fix ownership of /fbm-researcher"
+                }
+            fi
         fi
     else
         log "User $FEDBIOMED_USER already has correct UID:GID ($CONTAINER_UID:$CONTAINER_GID)"
