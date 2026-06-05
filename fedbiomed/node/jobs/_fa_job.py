@@ -262,6 +262,20 @@ class FAJob(_BaseJob):
 
         if secagg_round.use_secagg:
             flat, schema = flatten_fa_output(output)
+            # Oversized statistics would corrupt the aggregate if encrypted
+            clip = (
+                self._secagg_arguments.get("secagg_clipping_range")
+                or SAParameters.FA_CLIPPING_RANGE
+            )
+            # any() short-circuits; no values are echoed back (privacy).
+            if any(v > clip or v < -clip for v in flat):
+                return self._build_error_msg(
+                    msg=(
+                        "Some computed analytics values exceed the secure aggregation "
+                        "clipping range. Encrypting would corrupt the result."
+                    ),
+                    errnum=ErrorNumbers.FB325.value,
+                )
             fa_round = self._secagg_arguments.get("fa_round", 1)
             # FA uses a wider quantization range than training (node-local constant)
             encrypted_params = secagg_round.scheme.encrypt(

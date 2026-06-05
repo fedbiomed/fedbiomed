@@ -559,6 +559,30 @@ def test_run_encrypted_path_returns_fa_reply(
 
 
 @patch("fedbiomed.node.jobs._fa_job.SecaggRound")
+def test_run_encrypted_path_rejects_out_of_clipping_range(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """A statistic beyond the clipping range yields an ErrorMessage, not encryption."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg_cls.return_value = mock_secagg
+
+    secagg_args["secagg_clipping_range"] = 3  # value 99 exceeds it
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"a": 99.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    mock_secagg.scheme.encrypt.assert_not_called()
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
 def test_run_encrypted_path_uses_fa_round_from_args(
     mock_secagg_cls, fa_job_args, fa_request, secagg_args
 ):
@@ -573,7 +597,7 @@ def test_run_encrypted_path_uses_fa_round_from_args(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
     mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"x": 5.0}
+    mock_dataset.compute_stats.return_value = {"x": 1.0}  # within clipping range (3)
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         job.run()
