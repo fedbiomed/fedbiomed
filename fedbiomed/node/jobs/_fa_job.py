@@ -13,6 +13,7 @@ from fedbiomed.common.constants import (
     DatasetTypes,
     ErrorNumbers,
     FedbiomedError,
+    SAParameters,
     Stats,
 )
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
@@ -262,7 +263,10 @@ class FAJob(_BaseJob):
         if secagg_round.use_secagg:
             flat, schema = flatten_fa_output(output)
             fa_round = self._secagg_arguments.get("fa_round", 1)
-            encrypted_params = secagg_round.scheme.encrypt(flat, fa_round, weight=1)
+            # FA uses a wider quantization range than training (node-local constant)
+            encrypted_params = secagg_round.scheme.encrypt(
+                flat, fa_round, weight=1, target_range=SAParameters.FA_TARGET_RANGE
+            )
 
             return FAReply(
                 request_id=self._request_id,

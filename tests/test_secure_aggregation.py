@@ -1,7 +1,6 @@
 import re
-import unittest
 import tempfile
-
+import unittest
 from secrets import token_bytes
 from unittest.mock import MagicMock, patch
 
@@ -9,21 +8,20 @@ import numpy as np
 from requests import Request
 from testsupport.base_mocks import MockRequestModule
 
-from fedbiomed.common.constants import SecureAggregationSchemes
+from fedbiomed.common.constants import SAParameters, SecureAggregationSchemes
 from fedbiomed.common.exceptions import (
     FedbiomedSecaggCrypterError,
-    FedbiomedSecureAggregationError,
     FedbiomedSecaggError,
+    FedbiomedSecureAggregationError,
 )
 from fedbiomed.common.secagg import LOM
 from fedbiomed.common.utils import multiply, quantize
+from fedbiomed.researcher.config import config
 from fedbiomed.researcher.secagg import (
     JoyeLibertSecureAggregation,
     LomSecureAggregation,
     SecureAggregation,
 )
-
-from fedbiomed.researcher.config import config
 
 test_id = "researcher-test-id"
 
@@ -234,6 +232,29 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
                 encryption_factors={"node-1": [1], "node-2": [1]},
             )
 
+    def test_jl_secure_aggregation_08b_aggregate_forwards_target_range(self):
+        """aggregate() forwards target_range to the crypter."""
+        self.secagg.setup(
+            researcher_id=test_id,
+            parties=[test_id, "node-1", "node-2"],
+            experiment_id="exp-id-1",
+        )
+        self.secagg._servkey._status = True
+        self.secagg._servkey._context = {"server_key": 1234, "biprime": 1234}
+        self.secagg._secagg_random = None
+        self.secagg._secagg_crypter = MagicMock(**{"aggregate.return_value": [1.0]})
+
+        self.secagg.aggregate(
+            round_=1,
+            total_sample_size=2,
+            model_params={"node-1": [1], "node-2": [1]},
+            target_range=SAParameters.FA_TARGET_RANGE,
+        )
+        self.assertEqual(
+            self.secagg._secagg_crypter.aggregate.call_args.kwargs["target_range"],
+            SAParameters.FA_TARGET_RANGE,
+        )
+
     def test_jl_secure_aggregation_09_save_state_breakpoint(self):
         # Configure for round
         self.secagg.setup(
@@ -306,6 +327,7 @@ class TestSecureAggregationWrapper(unittest.TestCase):
         for scheme, cl in zip(
             SecureAggregationSchemes,
             (LomSecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation),
+            strict=True,
         ):
             sa = SecureAggregation(scheme=scheme)
             state = sa.__getattr__("save_state_breakpoint")()
@@ -361,7 +383,7 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
             multiply(params_3, weight),
         )
         pv = []
-        for n, l, s, p in zip(
+        for n, lom, s, p in zip(
             self.parties[1:],
             (
                 lom_1,
@@ -378,8 +400,9 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
                 params_2,
                 params_3,
             ),
+            strict=True,
         ):
-            pv.append(l.protect(n, s, round, p, self.parties[1:]))
+            pv.append(lom.protect(n, s, round, p, self.parties[1:]))
         return pv
 
     def test_lom_secagg_01_train_arg(self):
@@ -432,7 +455,7 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
             status = self.lom.setup(self.parties, self.experiment_id, test_id)
 
         state = self.lom.save_state_breakpoint()
-        lom = LomSecureAggregation.load_state_breakpoint(state)
+        LomSecureAggregation.load_state_breakpoint(state)
 
     def test_lom_secagg_03_aggregate(self):
         fake_replies = MagicMock(
@@ -463,7 +486,9 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
             np.sum([[1, 2, 3, 4, 5], [1, 2, 3, 4, 5], [1, 2, 3, 4, 5]], axis=0)
             + 2 * self.clipping_range
         )
-        for ouput_val, expected_val in zip(agg_params, expected_agg_params):
+        for ouput_val, expected_val in zip(
+            agg_params, expected_agg_params, strict=True
+        ):
             self.assertTrue(np.isclose(np.round(ouput_val), expected_val))
 
     def test_lom_secagg_04_aggregate_errors(self):

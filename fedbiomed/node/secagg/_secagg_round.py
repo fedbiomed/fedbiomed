@@ -62,7 +62,11 @@ class _SecaggSchemeRound(ABC):
 
     @abstractmethod
     def encrypt(
-        self, params: List[float], current_round: int, weight: Optional[int] = None
+        self,
+        params: List[float],
+        current_round: int,
+        weight: Optional[int] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
     ) -> List[int]:
         """Encrypts model parameters after local training.
 
@@ -117,7 +121,11 @@ class _JLSRound(_SecaggSchemeRound):
             )
 
     def encrypt(
-        self, params: List[float], current_round: int, weight: Optional[int] = None
+        self,
+        params: List[float],
+        current_round: int,
+        weight: Optional[int] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
     ) -> List[int]:
         """Encrypts model parameters with Joye-Libert after local training.
 
@@ -139,6 +147,7 @@ class _JLSRound(_SecaggSchemeRound):
             biprime=self._secagg_servkey["context"]["biprime"],
             clipping_range=self._secagg_clipping_range,
             weight=weight,
+            target_range=target_range,
         )
 
 
@@ -184,7 +193,11 @@ class _LomRound(_SecaggSchemeRound):
         self.crypter = SecaggLomCrypter(nonce=self._secagg_id)
 
     def encrypt(
-        self, params: List[float], current_round: int, weight: Optional[int] = None
+        self,
+        params: List[float],
+        current_round: int,
+        weight: Optional[int] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
     ) -> List[int]:
         """Encrypts model parameters with LOM after local training.
 
@@ -204,6 +217,7 @@ class _LomRound(_SecaggSchemeRound):
             pairwise_secrets=self._secagg_dh["context"],
             clipping_range=self._secagg_clipping_range,
             weight=weight,
+            target_range=target_range,
         )
 
 

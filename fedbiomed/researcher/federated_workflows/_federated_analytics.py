@@ -649,6 +649,7 @@ class FederatedAnalytics:
                 total_sample_size=num_nodes,
                 model_params=model_params,
                 num_expected_params=num_expected_params,
+                target_range=SAParameters.FA_TARGET_RANGE,  # match node-side FA range
             )
             # Crypter returns cross-node mean (÷num_nodes cancels quantization
             # offset); ×num_nodes restores the additive sum FA aggregators expect.

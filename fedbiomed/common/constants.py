@@ -341,13 +341,14 @@ class HarmonizationStep(PreprocStep):
 
 class SAParameters:
     CLIPPING_RANGE: int = 3
-    FA_CLIPPING_RANGE: int = 1_000_000
     TARGET_RANGE: int = 2**13
     WEIGHT_RANGE: int = (
         2**17
     )  # TODO: this has to be provided by the researcher, find the max range among all the nodes' weights
     # TODO: to separate from SAParameters
     KEY_SIZE: int = 2048
+    FA_CLIPPING_RANGE: int = 1_000_000
+    FA_TARGET_RANGE: int = 2**45
 
 
 class ErrorNumbers(_BaseEnum):

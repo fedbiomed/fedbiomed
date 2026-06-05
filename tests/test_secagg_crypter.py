@@ -1,14 +1,13 @@
 import unittest
-
 from math import ceil, log2
 from unittest.mock import patch
 
 from gmpy2 import mpz
 
 from fedbiomed.common.constants import SAParameters
-from fedbiomed.common.secagg import SecaggCrypter, EncryptedNumber
-from fedbiomed.common.secagg._jls import PublicParam
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
+from fedbiomed.common.secagg import EncryptedNumber, SecaggCrypter
+from fedbiomed.common.secagg._jls import PublicParam
 
 
 class TestSecaggCrypter(unittest.TestCase):
@@ -95,6 +94,77 @@ class TestSecaggCrypter(unittest.TestCase):
             with self.assertRaises(FedbiomedSecaggCrypterError):
                 self.secagg_crypter._apply_weighting(vector, 2)
 
+    def test_secagg_crypter_04b_apply_weighting_target_range_bound(self):
+        """_apply_weighting bound scales with target_range (FA uses a wider range)."""
+        # One past the default max -> rejected with the default range...
+        val = SAParameters.TARGET_RANGE
+        with self.assertRaises(FedbiomedSecaggCrypterError):
+            self.secagg_crypter._apply_weighting([val], 2)
+        # ...but in-bounds when the wider FA range is used.
+        self.assertListEqual(
+            self.secagg_crypter._apply_weighting(
+                [val], 2, target_range=SAParameters.FA_TARGET_RANGE
+            ),
+            [val * 2],
+        )
+        # A value at the FA bound is still rejected.
+        with self.assertRaises(FedbiomedSecaggCrypterError):
+            self.secagg_crypter._apply_weighting(
+                [SAParameters.FA_TARGET_RANGE],
+                2,
+                target_range=SAParameters.FA_TARGET_RANGE,
+            )
+
+    def test_secagg_crypter_04c_encrypt_forwards_target_range(self):
+        """encrypt() forwards target_range to quantize (None -> TARGET_RANGE)."""
+        for given, expected in [
+            (SAParameters.FA_TARGET_RANGE, SAParameters.FA_TARGET_RANGE),
+            (None, SAParameters.TARGET_RANGE),  # backward-compatible default
+        ]:
+            with patch(
+                "fedbiomed.common.secagg._secagg_crypter.quantize",
+                return_value=[1, 2, 3, 4],
+            ) as mock_q:
+                self.secagg_crypter.encrypt(
+                    num_nodes=2,
+                    current_round=1,
+                    params=[1.0, 2.0, 3.0, 4.0],
+                    biprime=TestSecaggCrypter.biprime,
+                    key=10,
+                    target_range=given,
+                )
+            self.assertEqual(mock_q.call_args.kwargs["target_range"], expected)
+
+    def test_secagg_crypter_04d_aggregate_forwards_target_range(self):
+        """aggregate() forwards target_range to reverse_quantize."""
+
+        def enc():
+            return self.secagg_crypter.encrypt(
+                num_nodes=2,
+                current_round=2,
+                params=[0.5, 0.8],
+                biprime=TestSecaggCrypter.biprime,
+                key=10,
+            )
+
+        with patch(
+            "fedbiomed.common.secagg._secagg_crypter.reverse_quantize",
+            return_value=[0.5, 0.8],
+        ) as mock_rq:
+            self.secagg_crypter.aggregate(
+                current_round=2,
+                num_nodes=2,
+                params=[enc(), enc()],
+                biprime=TestSecaggCrypter.biprime,
+                key=-20,
+                total_sample_size=2,
+                num_expected_params=2,
+                target_range=SAParameters.FA_TARGET_RANGE,
+            )
+        self.assertEqual(
+            mock_rq.call_args.kwargs["target_range"], SAParameters.FA_TARGET_RANGE
+        )
+
     def test_secagg_crypter_05_encrypt(self):
         """Tests encryption"""
 
@@ -146,7 +216,7 @@ class TestSecaggCrypter(unittest.TestCase):
             )
 
         # If JLS.aggregate raises
-        with patch("fedbiomed.common.secagg._jls.UserKey") as mock_user_key:
+        with patch("fedbiomed.common.secagg._jls.UserKey"):
             # Invalid type of UserKey
             with self.assertRaises(FedbiomedSecaggCrypterError):
                 result = self.secagg_crypter.encrypt(

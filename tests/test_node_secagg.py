@@ -282,6 +282,52 @@ def test_secagg_round_lom_encrypt(db, mock_skmanager, mock_dhmanager, lom_args):
     assert len(result) == 2
 
 
+def test_secagg_round_lom_encrypt_forwards_target_range(
+    db, mock_skmanager, mock_dhmanager, lom_args
+):
+    """_LomRound.encrypt forwards target_range to the crypter."""
+    mock_dhmanager.return_value.get.return_value = {
+        "parties": ["node-1", "node-2"],
+        "context": {"node-2": random.randbytes(32)},
+    }
+    with patch("fedbiomed.node.secagg._secagg_round.SecaggLomCrypter") as mock_crypter:
+        secagg_round = SecaggRound(
+            db=db,
+            node_id="node-1",
+            secagg_active=True,
+            force_secagg=True,
+            secagg_arguments=lom_args,
+            experiment_id="test-exp-id",
+        )
+        secagg_round.scheme.encrypt(
+            params=[1.0, 1.0], current_round=1, weight=20, target_range=999
+        )
+    assert mock_crypter.return_value.encrypt.call_args.kwargs["target_range"] == 999
+
+
+def test_secagg_round_jls_encrypt_forwards_target_range(
+    db, mock_skmanager, mock_dhmanager, jls_args
+):
+    """_JLSRound.encrypt forwards target_range to the crypter."""
+    mock_skmanager.return_value.get.return_value = {
+        "parties": ["researcher-1", "node-1", "node-2"],
+        "context": {"server_key": 12345, "biprime": 1156},
+    }
+    with patch("fedbiomed.node.secagg._secagg_round.SecaggCrypter") as mock_crypter:
+        secagg_round = SecaggRound(
+            db=db,
+            node_id="test-node-id",
+            secagg_active=True,
+            force_secagg=True,
+            secagg_arguments=jls_args,
+            experiment_id="test-id",
+        )
+        secagg_round.scheme.encrypt(
+            params=[1.0, 1.0], current_round=1, weight=20, target_range=777
+        )
+    assert mock_crypter.return_value.encrypt.call_args.kwargs["target_range"] == 777
+
+
 def test_secagg_round_no_secagg_plaintext_path(db, mock_skmanager, mock_dhmanager):
     """No secagg_arguments and force_secagg=False → plaintext path, use_secagg=False."""
     secagg_round = SecaggRound(
