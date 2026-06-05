@@ -1485,7 +1485,8 @@ class TestSecaggIntegration:
             "node-2": reply_n2,
         }
 
-        # aggregate() returns the decrypted flat list (sum of all nodes)
+        # aggregate() returns the per-node average; _execute_and_update_cache
+        # rescales by num_nodes (2 here) to recover the additive sum.
         mock_secagg.aggregate.return_value = [45.0, 180]
 
         result = secagg_fa.fetch_stats("mean")
@@ -1495,7 +1496,7 @@ class TestSecaggIntegration:
         # The aggregated output is stored under "__secagg__"
         assert "__secagg__" in result.node_ids
         node_output = result.node_stats("__secagg__")
-        assert node_output == {"age": {"sum": 45.0, "count": 180}}
+        assert node_output == {"age": {"sum": 90.0, "count": 360}}
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_secagg_setup_called_with_node_ids(

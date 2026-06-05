@@ -643,12 +643,16 @@ class FederatedAnalytics:
                 nid: r.params_encrypted for nid, r in analytics_replies.items()
             }
             num_expected_params = len(first_reply.params_encrypted)
+            num_nodes = len(analytics_replies)
             aggregated_flat = self._secagg.aggregate(
                 round_=self._fa_round_counter,
-                total_sample_size=len(analytics_replies),
+                total_sample_size=num_nodes,
                 model_params=model_params,
                 num_expected_params=num_expected_params,
             )
+            # Crypter returns cross-node mean (÷num_nodes cancels quantization
+            # offset); ×num_nodes restores the additive sum FA aggregators expect.
+            aggregated_flat = [v * num_nodes for v in aggregated_flat]
             output_schema = first_reply.output_schema
             aggregated_output = unflatten_fa_output(aggregated_flat, output_schema)
             if cached is None:
