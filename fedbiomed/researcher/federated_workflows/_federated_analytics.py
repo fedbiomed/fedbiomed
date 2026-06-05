@@ -571,6 +571,14 @@ class FederatedAnalytics:
         """
         if not self._secagg.active:
             return {}
+        # Masking schemes need >= 2 nodes to mask each other; fail clearly here
+        # rather than with a cryptic node-side error.
+        if len(node_ids) < 2:
+            raise FedbiomedError(
+                f"Secure aggregation requires at least 2 nodes, but only "
+                f"{len(node_ids)} participate in this FA round: {node_ids}. "
+                "Disable secure aggregation or add more nodes."
+            )
         self._secagg.setup(
             parties=node_ids,
             experiment_id=self._experiment_id,

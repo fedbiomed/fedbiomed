@@ -1462,6 +1462,15 @@ class TestSecaggIntegration:
             secagg=mock_secagg,
         )
 
+    def test_secagg_with_fewer_than_two_nodes_raises(
+        self, secagg_fa, mock_fds, mock_secagg
+    ):
+        """Active secagg + <2 nodes raises a clear error before contacting nodes."""
+        mock_fds.node_ids.return_value = ["node-1"]
+        with pytest.raises(FedbiomedError, match="at least 2 nodes"):
+            secagg_fa.fetch_stats("mean")
+        mock_secagg.setup.assert_not_called()
+
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_encrypted_replies_are_decrypted(
         self, mock_fa_job_cls, secagg_fa, mock_secagg
@@ -1496,13 +1505,13 @@ class TestSecaggIntegration:
         schema = [["x"]]
         reply = _make_encrypted_reply([1], schema)
         mock_fa_job_cls.return_value.execute.return_value = {"node-1": reply}
-        mock_fds.node_ids.return_value = ["node-1"]
+        mock_fds.node_ids.return_value = ["node-1", "node-2"]
         mock_secagg.aggregate.return_value = [5.0]
 
         secagg_fa.fetch_stats("mean")
 
         mock_secagg.setup.assert_called_once_with(
-            parties=["node-1"],
+            parties=["node-1", "node-2"],
             experiment_id="exp-secagg",
             researcher_id="res-456",
             insecure_validation=False,
