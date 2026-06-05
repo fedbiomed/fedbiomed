@@ -302,6 +302,35 @@ def test_node_pm_05_set_process_state(mocker, _manager):
     assert history_entry == state_entry
 
 
+def test_node_pm_05_set_process_state_resets_started_at_after_stop(mocker, _manager):
+    manager = _manager
+    manager._node_id = "node_id1"
+
+    state_table = manager._state_table
+    state_table.get_by_id.return_value = {
+        "state": NodeState.STOPPED.value,
+        "started_at": "previous-start",
+        "stopped_at": "previous-stop",
+    }
+
+    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value="new-start")
+    mocker.patch.object(
+        NodeProcessManager, "_build_actor", return_value={"source": "local"}
+    )
+    manager._set_process_state(
+        pid=1234,
+        state=NodeState.RUNNING,
+        action="start",
+        actor={"source": "local"},
+        reason="start_requested",
+    )
+
+    state_entry = state_table.update_or_insert_by_id.call_args.args[1]
+
+    assert state_entry["started_at"] == "new-start"
+    assert "stopped_at" not in state_entry
+
+
 def test_node_pm_06_start_process_already_started(mocker, _manager):
     manager = _manager
     manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING)

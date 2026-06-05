@@ -308,7 +308,16 @@ class NodeProcessManager:
 
             match state:
                 case NodeState.RUNNING:
-                    entry.started_at = existing.get("started_at") or now
+                    existing_state = existing.get("state")
+                    is_existing_process_active = existing_state in {
+                        NodeState.RUNNING.value,
+                        NodeState.STOPPING.value,
+                    }
+                    entry.started_at = (
+                        existing.get("started_at")
+                        if is_existing_process_active and existing.get("started_at")
+                        else now
+                    )
                     entry.stopped_at = None
                     entry.exit_code = None
                 case NodeState.STOPPED:

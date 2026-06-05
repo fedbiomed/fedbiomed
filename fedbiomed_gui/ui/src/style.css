@@ -891,4 +891,24 @@ a.fed-box-link{
   }
 }
 
+/* --- NODE MANAGEMENT ------------------------------------------------*/
 
+.node-management-status-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: larger;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 0.4em 0.9em;
+  text-transform: capitalize;
+}
+
+.node-management-table-field {
+  word-break: break-word;
+  font-weight: 700;
+}
+
+.node-management-table-value {
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
