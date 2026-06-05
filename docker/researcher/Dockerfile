@@ -31,15 +31,16 @@ RUN apt-get update && apt-get install -y socat
 RUN mkdir -p /fbm-researcher && \
     chown -R ${FEDBIOMED_USER}:${FEDBIOMED_GROUP} /fbm-researcher
 
-USER ${FEDBIOMED_USER}:${FEDBIOMED_GROUP}
+USER root:root
 
-# Change working directory to fedbiomed
-WORKDIR /home/${FEDBIOMED_USER}/fedbiomed
-
-# Install only researcher dependencies 
-RUN pip install --user --no-cache-dir --no-index \
+# Install researcher-specific dependencies system-wide
+RUN pip install --no-cache-dir --no-index \
     --find-links=/tmp/wheels \
-    'fedbiomed[researcher]'
+    'fedbiomed[researcher]' && \
+    rm -rf /tmp/wheels /root/.cache/pip
+
+# Default to non-root user
+USER ${FEDBIOMED_USER}:${FEDBIOMED_GROUP}
 
 WORKDIR /home/${FEDBIOMED_USER}/
 

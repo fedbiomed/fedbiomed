@@ -19,7 +19,7 @@ cat > /home/${FEDBIOMED_USER}/start-fbm-node.sh <<'WRAPPER'
 set -a  # auto-export all variables
 source /home/${FEDBIOMED_USER}/fbm.env
 set +a
-exec /home/${FEDBIOMED_USER}/.local/bin/fedbiomed node -p /fbm-node start --background ${FBM_NODE_START_OPTIONS}
+exec fedbiomed node -p /fbm-node start --background ${FBM_NODE_START_OPTIONS}
 WRAPPER
 chmod +x /home/${FEDBIOMED_USER}/start-fbm-node.sh
 

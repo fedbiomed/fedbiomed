@@ -69,7 +69,6 @@ ENV FEDBIOMED_GID=${FEDBIOMED_GID} \
     FEDBIOMED_UID=${FEDBIOMED_UID} \
     FEDBIOMED_GROUP=${FEDBIOMED_GROUP} \
     FEDBIOMED_USER=${FEDBIOMED_USER} \
-    PATH="/home/${FEDBIOMED_USER}/.local/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
@@ -114,21 +113,14 @@ WORKDIR /home/${FEDBIOMED_USER}/fedbiomed
 # Copy application files with correct ownership
 COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP README.md ./README.md
 
-USER $FEDBIOMED_USER
-
-# Install fedbiomed from pre-built wheel
-COPY --from=python-build --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP /wheels /tmp/wheels
-RUN pip install --user --no-cache-dir --no-index --find-links=/tmp/wheels \
+# Install fedbiomed system-wide from pre-built wheel
+COPY --from=python-build /wheels /tmp/wheels
+RUN pip install --no-cache-dir --no-index --find-links=/tmp/wheels \
     fedbiomed && \
-    rm -rf ~/.cache/pip
+    rm -rf /root/.cache/pip
 
-# Remove fedbiomed packages thaey are no more needd
-RUN rm -rf /home/${FEDBIOMED_USER}/fedbiomed_gui/ \ 
-    /home/${FEDBIOMED_USER}/fedbiomed \
-    /home/${FEDBIOMED_USER}/envs \
-    /home/${FEDBIOMED_USER}/notebooks \ 
-    /home/${FEDBIOMED_USER}/docs/tutorials 
+# Default to non-root user
+USER $FEDBIOMED_USER:$FEDBIOMED_GROUP
 
-    
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/entrypoint-base.sh"]

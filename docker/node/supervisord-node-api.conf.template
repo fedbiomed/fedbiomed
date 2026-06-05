@@ -14,7 +14,7 @@ serverurl=unix:///tmp/supervisor.sock
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 [program:fedbiomed-api]
-command=/home/${FEDBIOMED_USER}/.local/bin/fedbiomed node -p /fbm-node gui start
+command=/usr/local/bin/fedbiomed node -p /fbm-node gui start
 user=${FEDBIOMED_USER}
 autostart=true
 autorestart=unexpected

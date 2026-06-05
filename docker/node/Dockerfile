@@ -37,15 +37,16 @@ RUN touch /etc/supervisor/supervisord.conf && \
 RUN mkdir -p /fbm-node && \
     chown -R ${FEDBIOMED_USER}:${FEDBIOMED_GROUP} /fbm-node
 
-USER ${FEDBIOMED_USER}:${FEDBIOMED_GROUP}
+USER root:root
 
-# Change working directory to fedbiomed
-WORKDIR /home/${FEDBIOMED_USER}/fedbiomed
-
-# Install only node dependencies
-RUN pip install --user --no-cache-dir --no-index \
+# Install node-specific dependencies system-wide
+RUN pip install --no-cache-dir --no-index \
     --find-links=/tmp/wheels \
-    'fedbiomed[node]'
+    'fedbiomed[node]' && \
+    rm -rf /tmp/wheels /root/.cache/pip
+
+# Default to non-root user
+USER ${FEDBIOMED_USER}:${FEDBIOMED_GROUP}
 
 WORKDIR /home/${FEDBIOMED_USER}/
 
