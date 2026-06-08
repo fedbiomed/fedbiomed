@@ -18,14 +18,13 @@ You can visit [Docker Hub](https://hub.docker.com/u/fedbiomed) to see the availa
 
 ---
 
-Fed-BioMed provides two main images as `fedbiomed/node` and `fedbiomed/researcher` to run minimal federated learning infrastructure. Later, FL nodes can install `fedbiomed/node-gui` for a dashboard to manage federated nodes.
+Fed-BioMed provides two main images as `fedbiomed/node` and `fedbiomed/researcher` to run minimal federated learning infrastructure.
 
 Here is the list of docker images:
 
 - **fedbiomed/base**: Base Fed-BioMed image that comes with vanilla Fed-BioMed installation that can be extended later.
 - **fedbiomed/node**: Image that comes with Fed-BioMed node dependencies installed.
 - **fedbiomed/researcher**: Image that comes with Fed-BioMed researcher utilities and dependencies installed.
-- **fedbiomed/node-gui**: Preconfigured Fed-BioMed node GUI image for launching GUI along with Fed-BioMed node instance.
 
 ### Basic commands to quickly launch Fed-BioMed instances 
 
@@ -190,6 +189,41 @@ For testing purposes, it's fine to use the default configuration. However, for d
 
 It is recommended to update the configuration directly in the file located at `<absolute-path-to-mounted-fbm-node>/etc/config.ini`. This approach provides a more stable and persistent setup. Please see the section [Configuration](#configuration) for more details.
 
+### Managing the Node Process
+
+The Fed-BioMed node runs as a background process inside the container, managed by Fed-BioMed node process manager.
+
+To interact with the node process, open a shell inside the running container:
+
+```bash
+docker exec -it -u fedbiomed <my-node-name> bash
+```
+
+Once inside, use the Fed-BioMed CLI to inspect and control the node:
+
+```bash
+# Check whether the node process is running
+fedbiomed node status
+
+# Stop the node process
+fedbiomed node stop
+
+# Restart the node process
+fedbiomed node restart
+
+# Start the node if it has been stopped
+fedbiomed node start
+```
+
+!!! note "Restart after configuration changes"
+    After modifying the node configuration — whether via environment variables or directly in `config.ini` — run `fedbiomed node restart` inside the container for the changes to take effect. There is no need to restart the Docker container itself.
+
+!!! tip "Node restart vs. container restart"
+    - `fedbiomed node restart` — restarts only the **node process** inside the running container. The container and supervisord keep running.
+    - `docker restart my-node` — restarts the **entire container**, which re-runs the entrypoint script, re-applies environment variables, and reinitializes the node from scratch.
+
+---
+
 
 #### Adding Datasets to Nodes Launched in Containers
 
@@ -254,49 +288,51 @@ For more details, see the full guide on [deploying datasets](../nodes/deploying-
 ---
 
 !!! note "GPU Support"
-    Docker containers can utilize GPUs as long as the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) is properly installed and configured. Once the toolkit is set up, you can enable GPU support by using the `--gpus all` flag with the `docker run` command, or by using the `device_requests` section in a Docker [Compose](https://docs.docker.com/compose/how-tos/gpu-support/) file. 
+    Docker containers can utilize GPUs as long as the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) is properly installed and configured. Once the toolkit is set up, you can enable GPU support by using the `--gpus all` flag with the `docker run` command, or by using the `device_requests` section in a Docker [Compose](https://docs.docker.com/compose/how-tos/gpu-support/) file.
 
-    For systems running older versions of Docker (prior to 19.03), where the `--gpus` flag is not supported, we provide a dedicated image, `fedbiomed/node-gpu`, which is pre-configured to work with NVIDIA GPU support using the legacy `nvidia` runtime. This allows GPU usage without requiring the `--gpus` flag, ensuring compatibility with legacy setups.
+    The `fedbiomed/node` image installs PyTorch on Linux with CUDA support bundled — no NVIDIA base image is required. The NVIDIA Container Toolkit exposes the GPU device to the container, and PyTorch uses its bundled CUDA runtime to communicate with it.
 
+!!! warning "CUDA Version Compatibility"
+    PyTorch bundles a specific CUDA version in its wheel (e.g. `cu126`). The NVIDIA driver on your **host machine** must support that CUDA version or newer. If the driver is too old, PyTorch will not detect the GPU even when `--gpus all` is set.
+
+    To check the maximum CUDA version your driver supports, run on the host:
+
+    ```bash
+    nvidia-smi
+    ```
+
+    The output shows the **CUDA Version** in the top-right corner. This must be greater than or equal to the CUDA version bundled with the installed PyTorch wheel. If it is not, update your NVIDIA driver before launching the container.
+
+---
 
 ### Node GUI
 
-Node GUI can be launched separated from node as long as the mounted Fed-BioMed Node directory are the same. Node GUI assumes that the Node container has aldeay lancuhed and component is initialized in the directory that is going to be mounted. Therefore, please make sure that the first launch Fed-BioMed docker conitaner in order to initialize Node component with desired configuration. 
+The Node GUI is bundled directly into the `fedbiomed/node` image — no separate image is required. When the node container starts, the GUI server is launched automatically alongside the node process and is accessible on port **8484**.
 
-```bash
-docker run -it --name my-node-gui \
-    -v <path-to-host-fbm-node>:/fbm-node \
-    -p 8484:8484
-    fedbiomed/node-gui:latest
-```
-
-!!! important "Volumes are mandatory"
-    You must provide the `fbm-node` volume from the host where the Fed-BioMed node is instantiated.
-
-Node GUI allows to activate SSL. If you want to activate SSL, please pass the following environment variable. You can setup a custom SSL certificate fby copying your certificates into `<path-to-host-fbm-node>/gui/certs` 
+To expose the GUI to your host machine, forward port `8484` when starting the container:
 
 ```bash
 docker run -it \
-    -v <path-to-local-fbm-node>:/fbm-node \
-    -e SSL_ON=True \
-    fedbiomed/node-gui:<version-tag>
+    --name my-node \
+    -v <path-to-host-fbm-node>:/fbm-node \
+    -p 8484:8484 \
+    fedbiomed/node:latest
 ```
 
-If SSL is activated, the Node GUI will use port `8443`; otherwise, it will use port `8484`.
+Once running, open your browser and navigate to `http://localhost:8484`.
 
-You can choose the host port for this application. The following command will make the Fed-BioMed Node GUI accessible on port `8812`:
+If you are running multiple node containers, map each container's port `8484` to a different host port:
 
 ```bash
-docker run -it \
-    -v <path-to-host-fbm-node>:/fbm-node \
-    -v <path-to-host-data>:/data \
-    -e SSL_ON=True \
-    -p 8812:8443
-    fedbiomed/node-gui:latest
+# Node 1 GUI on host port 8484
+docker run -it --name node1 -v ./node1:/fbm-node -p 8484:8484 fedbiomed/node:latest
+
+# Node 2 GUI on host port 8485
+docker run -it --name node2 -v ./node2:/fbm-node -p 8485:8484 fedbiomed/node:latest
 ```
 
-!!! note "Node GUI Ports"
-    The Node GUI image exposes ports `8484` (non-SSL) and `8443` (SSL). If you launch multiple Node GUI instances, please use `-p <port>:8484` or `-p <port-ssl>:8443` to forward the container port to an available port on the host machine.
+!!! note "GUI starts with the node"
+    The GUI server is managed by supervisord inside the container and starts automatically with the node. There is no separate start command needed.
 
 ---
 
@@ -373,144 +409,282 @@ It is up to the user to configure Docker networking according to their deploymen
 
 ## Use Docker Compose to Run and Manage Multiple Fed-BioMed Instances
 
+Docker Compose lets you define and start all Fed-BioMed components with a single command, rather than running each container manually. This is the recommended approach for running a full federated learning setup locally.
 
-One of the advantages of Docker is that it allows you to define and manage multiple containers using a single **Docker Compose** file. This makes it easy to orchestrate several services at once, rather than launching each container manually.
+The example below launches **one researcher** and **two nodes**, each with its own Node GUI.
 
-This is particularly useful for **Fed-BioMed**, where you may want to test or run multiple nodes, Node GUIs, and a Researcher container simultaneously. We highly recommend using Docker Compose to simplify the setup and management of your Fed-BioMed containers.
+### Step 1 — Create the project directory structure
 
-Below is an example of a Docker Compose file that launches **two nodes**, **two Node GUI instances**, and **one Researcher**, ready to run a federated learning experiment.
+Create a working directory and the per-component data folders:
 
+```bash
+mkdir -p fbm-setup/{researcher,node1,node2}
+cd fbm-setup
+```
+
+Each subfolder will be mounted into the corresponding container so that configuration and data persist across restarts.
+
+### Step 2 — Create the `docker-compose.yml`
+
+Create a file named `docker-compose.yml` inside `fbm-setup/` with the following content:
 
 ```yaml
-version: "3.9"
-
 services:
   researcher:
     image: fedbiomed/researcher:latest
-    container_name: researcher
+    container_name: fbm-researcher
     environment:
       - FBM_SERVER_HOST=0.0.0.0
       - FBM_SERVER_PORT=50051
     volumes:
-      - ./my-researcher:/fbm-researcher
+      - ./researcher:/fbm-researcher
     ports:
-      - "50051:50051"
+      - "50051:50051"   # gRPC server (nodes connect here)
+      - "8888:8888"     # Jupyter notebook
+      - "6007:6007"     # TensorBoard proxy
     networks:
       - fedbiomed-net
 
   node1:
     image: fedbiomed/node:latest
-    container_name: node1
+    container_name: fbm-node1
     environment:
-      - RESEARCHER_HOST=researcher
-      - NODE_ID=node1
+      - FBM_RESEARCHER_IP=researcher
+      - FBM_RESEARCHER_PORT=50051
     volumes:
       - ./node1:/fbm-node
+    ports:
+      - "8484:8484"     # Node GUI
     networks:
       - fedbiomed-net
     depends_on:
       - researcher
-# GPU Support
-#    devices:
-#      - driver: nvidia
-#        count: 1
-#        capabilities: [gpu]
-
-  node1-gui:
-    image: fedbiomed/node-gui:latest
-    container_name: node1-gui
-    volumes:
-      - 
-    environment:
-      - SSL_ON=True
-    ports:
-      - "8441:8443"    # SSL GUI
-    depends_on:
-      - node1
 
   node2:
     image: fedbiomed/node:latest
-    container_name: node2
+    container_name: fbm-node2
     environment:
-      - RESEARCHER_HOST=researcher
+      - FBM_RESEARCHER_IP=researcher
+      - FBM_RESEARCHER_PORT=50051
     volumes:
       - ./node2:/fbm-node
+    ports:
+      - "8485:8484"     # Node GUI (mapped to 8485 to avoid conflict with node1)
     networks:
       - fedbiomed-net
     depends_on:
       - researcher
-# GPU Support
-#    devices:
-#      - driver: nvidia
-#        count: 1
-#        capabilities: [gpu]
-
-
-  node2-gui:
-    image: fedbiomed/node-gui:latest
-    container_name: node2-gui
-    volumes:
-        - ./node2:/fbm-node
-    environment:
-      - SSL_ON=True 
-    ports:
-      - "8482:8484"
-      - "8442:8443"
-    depends_on:
-      - node2
 
 networks:
   fedbiomed-net:
     driver: bridge
-
 ```
 
+!!! note "Node GUI is built into the node image"
+    Each node exposes its GUI directly on port `8484`. No separate GUI container is needed. Node 1 GUI is accessible at `http://localhost:8484` and Node 2 at `http://localhost:8485`.
 
-After creating the `docker-compose.yml` file, navigate to the directory where the file is located and run:
+!!! note "GPU Support"
+    To enable GPU access for a node, add the following block under the node service. This requires the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) to be installed on the host. See the [GPU compatibility warning](#) above for driver requirements.
+
+    ```yaml
+    node1:
+      ...
+      deploy:
+        resources:
+          reservations:
+            devices:
+              - driver: nvidia
+                count: 1
+                capabilities: [gpu]
+    ```
+
+### Step 3 — Start the services
+
+From the `fbm-setup/` directory, run:
 
 ```bash
 docker compose up -d
 ```
 
-This command will start all defined services in detached mode and mount the directories relative to the current working directory (where the command is executed).
+This starts all containers in detached mode. Host data folders (`researcher/`, `node1/`, `node2/`) will be populated with the initial Fed-BioMed configuration on first run.
 
-You can check status of all lancuehd services using the following command. It will list all active containers, including their names, ports, and uptime.
+### Step 4 — Verify the setup
+
+Check that all containers are running:
+
+```bash
+docker compose ps
+```
+
+You should see `fbm-researcher`, `fbm-node1`, and `fbm-node2` listed with status `Up`.
+
+Open the Jupyter notebook to run experiments:
 
 ```
-docker ps
+http://localhost:8888
+```
+
+Open the Node GUI to manage datasets:
+
+```
+http://localhost:8484   ← Node 1
+http://localhost:8485   ← Node 2
+```
+
+### Managing the services
+
+```bash
+# View logs for all services
+docker compose logs -f
+
+# View logs for a specific service
+docker compose logs -f node1
+
+# Stop all services (data is preserved in the mounted folders)
+docker compose down
+
+# Restart a single service
+docker compose restart node1
 ```
 
 ## Building Docker Images from Source
 
 If desired, it is possible to build Fed-BioMed Docker images from source with custom modifications, such as changing the default user. This process is described in the [building Fed-BioMed Docker image documentation](../../developer/docker-images.md) for developers.
 
-## Extending Docker Images 
+## Extending Docker Images
 
-As is the nature of Docker, you can always use the **Fed-BioMed Docker images as a base** to extend their capabilities or customize them for specific use cases or deployment scenarios. You can explore the image definitions located in the `docker/` directory of the Fed-BioMed source repository to see what has been installed and configured in the base images.
+Fed-BioMed images are designed to be extended. Before customizing, it is important to understand how the default entrypoint chain works so you can choose the right approach for your use case.
 
-This makes it easy to tailor the Fed-BioMed setup — for example, by adding additional packages, integrating custom extensions, or embedding Fed-BioMed within a larger framework.
+### Understanding the Entrypoint Chain
 
-Here is an example of a custom `Dockerfile` that extends the Node image:
+Fed-BioMed images use a two-level entrypoint chain:
+
+```
+tini → /entrypoint-base.sh → /entrypoint.sh
+```
+
+- **`/entrypoint-base.sh`** (from `fedbiomed/base`) — runs when the container starts. If the container is launched as root, it handles UID/GID remapping (matching the internal `fedbiomed` user to `CONTAINER_UID`/`CONTAINER_GID`), fixes ownership of mounted directories, and drops privileges before handing off. It always calls `/entrypoint.sh` at the end.
+- **`/entrypoint.sh`** (from each component image, e.g. `fedbiomed/node`) — runs as the `fedbiomed` user. It initializes the Fed-BioMed component, writes configuration, deploys default datasets, and starts the node or researcher process.
+
+Depending on your needs, there are three ways to extend this chain.
+
+---
+
+### Scenario 1 — Custom process, UID/GID remapping preserved
+
+**Use case:** You want the Fed-BioMed software available but you manage the process yourself (custom process manager, different startup logic). UID/GID remapping still works so mounted volumes are handled correctly.
+
+**How:** Copy your own `/entrypoint.sh` into the image. Do **not** override `CMD`. `entrypoint-base.sh` remains the default entry point and will call your `/entrypoint.sh` after handling permissions.
 
 ```Dockerfile
 FROM fedbiomed/node:<version-tag>
 
-# Install additional Python packages
-RUN pip install <a-package-required-for-your-setup>
+USER root
+RUN pip install <your-package>
 
-# Add your custom Docker instructions here, this will overwrite default entrypoint
+COPY my-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-ENTRYPOINT ["/entrypoint.bash"] # Optional
+USER fedbiomed
 ```
 
-Replace `<version-tag>` with the desired image tag (e.g., `latest`) and `<a-package-required-for-your-setup>` with the package(s) you need.
+`my-entrypoint.sh`:
+
+```bash
+#!/bin/bash
+
+# Your custom startup logic — the node does NOT start automatically here.
+# You have access to the full fedbiomed CLI and all installed packages.
+echo "Starting custom process..."
+exec my-custom-process
+```
+
+The chain becomes:
+
+```
+tini → /entrypoint-base.sh (UID/GID remapping, privilege drop)
+                          → /entrypoint.sh  ← your script
+```
+
+---
+
+### Scenario 2 — Full override, software only
+
+**Use case:** You only need Fed-BioMed installed as a library. You manage everything yourself and do not need UID/GID remapping or automatic component startup.
+
+**How:** Override `CMD` with your own script. `entrypoint-base.sh` is bypassed entirely.
+
+```Dockerfile
+FROM fedbiomed/node:<version-tag>
+
+USER root
+RUN pip install <your-package>
+
+COPY my-entrypoint.sh /my-entrypoint.sh
+RUN chmod +x /my-entrypoint.sh
+
+USER fedbiomed
+
+CMD ["/my-entrypoint.sh"]
+```
+
+!!! warning
+    This bypasses `entrypoint-base.sh` completely. UID/GID remapping (`CONTAINER_UID`/`CONTAINER_GID`) will not work and the node will not start automatically.
+
+---
+
+### Scenario 3 — Keep default behavior and add custom operations
+
+**Use case:** You want the node to start exactly as it normally would, but you need to run additional operations before it starts (e.g. pre-loading a dataset, writing extra configuration, registering an external service).
+
+**How:** Override `CMD` with a custom wrapper that does its work first, then calls `exec /entrypoint-base.sh` to hand off to the full chain.
+
+```Dockerfile
+FROM fedbiomed/node:<version-tag>
+
+USER root
+RUN pip install <your-package>
+
+COPY my-entrypoint.sh /my-entrypoint.sh
+RUN chmod +x /my-entrypoint.sh
+
+USER fedbiomed
+
+CMD ["/my-entrypoint.sh"]
+```
+
+`my-entrypoint.sh`:
+
+```bash
+#!/bin/bash
+
+# --- Your custom logic runs here, before the node starts ---
+
+# Example: register an environment-specific CA certificate
+echo "Installing custom CA certificate..."
+cp /run/secrets/org-ca.crt /usr/local/share/ca-certificates/org-ca.crt
+update-ca-certificates
+
+# Hand off to the full Fed-BioMed chain:
+#   entrypoint-base.sh  →  entrypoint.sh  →  node starts
+exec /entrypoint-base.sh "$@"
+```
+
+The chain becomes:
+
+```
+tini → /my-entrypoint.sh  (your custom logic)
+                         → /entrypoint-base.sh  (UID/GID remapping, privilege drop)
+                                               → /entrypoint.sh  (node init + start)
+```
+
+Replace `<version-tag>` with the desired image tag (e.g. `latest`) and `<your-package>` with the package(s) you need.
 
 ## Torubleshooting
 
 **Fed-BioMed Docker images automatically generate configuration files and continue using them across container restarts.** These configuration files are stored in the mounted host directory corresponding to the container's `/fbm-node` path.
 
 If the node component fails to connect to the researcher, it may be due to issues such as incorrect network configuration. In such cases, please ensure that any changes you make are applied directly to the configuration files located in the mounted directory on the host. Otherwise, the changes will not persist or be reflected inside the container.
-
 
 
 

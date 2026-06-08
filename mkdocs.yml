@@ -78,8 +78,10 @@ nav:
           - "Adding a Native Dataset": "./user-guide/datasets/native-dataset.md"
           - "Applying Transformations": "./user-guide/datasets/applying-transformations.md"
           - "Federated Analytics": "./user-guide/datasets/federated-analytics.md"
+          
       - Deployment:
           - "Introduction": "./user-guide/deployment/deployment.md"
+          - "Docker Image & Containers": "./user-guide/deployment/docker.md"
           - "VPN Deployment": "./user-guide/deployment/deployment-vpn.md"
           - "Network matrix": "./user-guide/deployment/matrix.md"
           - "Security model": "./user-guide/deployment/security-model.md"
