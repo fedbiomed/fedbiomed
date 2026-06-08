@@ -58,20 +58,6 @@ jobs:
           file: docker/node/Dockerfile
           test: ${{ steps.test.outputs.TEST_BUILD }}
       
-      - name: Build and Publish/Test Node GUI Image
-        uses: ./.github/actions/docker-build-and-push
-        with:
-          image-names: fedbiomed/node-gui
-          file: docker/node-gui/Dockerfile
-          test: ${{ steps.test.outputs.TEST_BUILD }}
-
-      # - name: Build and Publish/Test Node GPU Image
-      #   uses: ./.github/actions/docker-build-and-push
-      #   with:
-      #     image-names: fedbiomed/node-gpu
-      #     file: docker/node-gpu/Dockerfile
-      #     test: ${{ steps.test.outputs.TEST_BUILD }}
-
       - name: Build and Publish/Test Researcher Image
         uses: ./.github/actions/docker-build-and-push
         with:
