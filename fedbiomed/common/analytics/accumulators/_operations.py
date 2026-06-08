@@ -81,7 +81,7 @@ class SumAccumulator(ArrayAccumulator):
     _key = "sum"
 
     def _transform(self, val: np.ndarray) -> np.ndarray:
-        return np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+        return np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float64)
 
 
 class SumSqAccumulator(ArrayAccumulator):
@@ -91,7 +91,7 @@ class SumSqAccumulator(ArrayAccumulator):
 
     def _transform(self, val: np.ndarray) -> np.ndarray:
         return (
-            np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32) ** 2
+            np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float64) ** 2
         )
 
 
