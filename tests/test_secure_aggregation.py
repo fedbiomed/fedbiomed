@@ -308,6 +308,9 @@ class TestSecureAggregationWrapper(unittest.TestCase):
 
         for method in methods_names:
             if not re.compile("^_").match(method):
+                # only methods are delegated here; skip data attributes
+                if not callable(getattr(original_obj, method)):
+                    continue
                 if not hasattr(obj, method):
                     self.fail(f"method {method} doesn't belong to object {obj}")
 
@@ -343,6 +346,13 @@ class TestSecureAggregationWrapper(unittest.TestCase):
             eval(f'exec("from {state["module"]} import {state["class"]}")')
             loaded_sa = SecureAggregation.load_state_breakpoint(state)
             self.check_specific_method_belongs_to_class(loaded_sa, cl)
+
+    def test_secure_aggregation_03_clipping_range_setter_delegates(self):
+        """Writing clipping_range on the wrapper reaches the inner scheme and train args."""
+        sa = SecureAggregation(active=True)
+        sa.clipping_range = 4242
+        self.assertEqual(sa.clipping_range, 4242)
+        self.assertEqual(sa.train_arguments()["secagg_clipping_range"], 4242)
 
 
 class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):

@@ -585,9 +585,8 @@ class FederatedAnalytics:
             researcher_id=self._researcher_id,
             insecure_validation=False,
         )
+        # FA clipping range is fixed so the researcher can set it directly
         self._secagg.clipping_range = SAParameters.FA_CLIPPING_RANGE
-        # train_arguments() packages secagg_random, secagg_clipping_range, scheme, and parties
-        # into the flat dict expected by FARequest — reusing the same serialisation path as FL.
         return dict(self._secagg.train_arguments())
 
     def _execute_and_update_cache(
@@ -649,7 +648,7 @@ class FederatedAnalytics:
                 total_sample_size=num_nodes,
                 model_params=model_params,
                 num_expected_params=num_expected_params,
-                target_range=SAParameters.FA_TARGET_RANGE,  # match node-side FA range
+                target_range=SAParameters.FA_TARGET_RANGE,
             )
             # Crypter returns cross-node mean (÷num_nodes cancels quantization
             # offset); ×num_nodes restores the additive sum FA aggregators expect.

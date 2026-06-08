@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from fedbiomed.common.constants import SAParameters
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.message import FAReply
 from fedbiomed.researcher.datasets import FederatedDataset
@@ -1470,6 +1471,29 @@ class TestSecaggIntegration:
         with pytest.raises(FedbiomedError, match="at least 2 nodes"):
             secagg_fa.fetch_stats("mean")
         mock_secagg.setup.assert_not_called()
+
+    def test_secagg_setup_sets_fa_clipping_range_on_scheme(
+        self, secagg_fa, mock_secagg
+    ):
+        """FA configures the scheme with FA_CLIPPING_RANGE (flows to nodes + aggregate)."""
+        secagg_fa._secagg_setup(["node-1", "node-2"])
+        assert mock_secagg.clipping_range == SAParameters.FA_CLIPPING_RANGE
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_aggregate_uses_fa_ranges(self, mock_fa_job_cls, secagg_fa, mock_secagg):
+        """FA sets the clipping range on the scheme and passes the target range to aggregate()."""
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], schema),
+            "node-2": _make_encrypted_reply([1], schema),
+        }
+        mock_secagg.aggregate.return_value = [1.0]
+        secagg_fa.fetch_stats("mean")
+        assert mock_secagg.clipping_range == SAParameters.FA_CLIPPING_RANGE
+        assert (
+            mock_secagg.aggregate.call_args.kwargs["target_range"]
+            == SAParameters.FA_TARGET_RANGE
+        )
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_encrypted_replies_are_decrypted(

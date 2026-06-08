@@ -44,6 +44,16 @@ class SecureAggregation:
             case _:
                 self.__secagg = LomSecureAggregation(*args, **kwargs)
 
+    @property
+    def clipping_range(self) -> Optional[int]:
+        """Clipping range of the wrapped scheme."""
+        return self.__secagg.clipping_range
+
+    @clipping_range.setter
+    def clipping_range(self, value: Optional[int]) -> None:
+        # Expose a writable clipping_range (e.g. FA sets its own).
+        self.__secagg.clipping_range = value
+
     def __getattr__(self, item: str):
         """Wraps all functions/attributes of class members.
 
