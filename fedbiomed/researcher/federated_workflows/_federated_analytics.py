@@ -667,6 +667,32 @@ class FederatedAnalytics:
         self._cache_store(cache_key, cached)
         return cached
 
+    def _recover_from_cache(
+        self,
+        cache_key: Any,
+        missing: list[str],
+        dataset_schema: list[str | dict],
+    ) -> Optional[FAResult]:
+        """Recover missing stats from a cached superset-schema result, or None.
+
+        Scans stored results for an entry containing all ``missing`` stats whose
+        schema is a superset of ``dataset_schema``. ``_filtered_copy`` returns None
+        on any missing key, so a non-None result implies a superset. On success the
+        filtered copy is stored under ``cache_key`` and returned.
+        """
+        for other in self._results_store.values():
+            if not all(s in other.available_stats() for s in missing):
+                continue
+            filtered = other._filtered_copy(dataset_schema)
+            if filtered is not None:
+                self._cache_store(cache_key, filtered)
+                logger.info(
+                    f"Statistics {missing} recovered from cached result "
+                    "— skipping node requests."
+                )
+                return filtered
+        return None
+
     def fetch_stats(
         self,
         stats: Optional[str | list[str]] = None,
@@ -728,28 +754,24 @@ class FederatedAnalytics:
             s for s in stats if cached is None or s not in cached.available_stats()
         ]
         if missing:
-            # Scan cache for a superset-schema entry before contacting nodes.
-            # _filtered_copy returns None on any missing key, so success implies superset.
-            if dataset_schema is not None and cached is None:
-                for other in self._results_store.values():
-                    if not all(s in other.available_stats() for s in missing):
-                        continue
-                    filtered = other._filtered_copy(dataset_schema)
-                    if filtered is not None:
-                        self._cache_store(cache_key, filtered)
-                        logger.info(
-                            f"Statistics {missing} recovered from cached result "
-                            "— skipping node requests."
-                        )
-                        return filtered
-            cached = self._execute_and_update_cache(
-                cache_key, missing, None, dataset_schema, node_ids, cached
+            recovered = (
+                self._recover_from_cache(cache_key, missing, dataset_schema)
+                if dataset_schema is not None and cached is None
+                else None
             )
+            if recovered is not None:
+                cached = recovered
+            else:
+                cached = self._execute_and_update_cache(
+                    cache_key, missing, None, dataset_schema, node_ids, cached
+                )
         else:
             logger.info(
                 f"All requested statistics {stats} are already cached — "
                 "skipping node requests."
             )
+
+        logger.info("global_stats: %s", cached.global_stats())
 
         return cached
 
