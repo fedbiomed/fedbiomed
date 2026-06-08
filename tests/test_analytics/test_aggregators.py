@@ -66,13 +66,41 @@ def test_aggregate_count():
         aggregate_count([10, -5])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
-    # non-integer
+    # non-numeric value still raises
     with pytest.raises(FedbiomedError) as excinfo:
         aggregate_count([10, "5"])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
+
+def test_aggregate_count_floats_from_secagg():
+    """Secure aggregation encodes counts as floats: they are rounded then summed."""
+    # Plain floats are accepted and rounded to nearest int before summing
+    assert aggregate_count([10.0, 20.0, 30.0]) == 60
+
+    # Secagg introduces tiny numerical noise around the true integer counts
+    assert aggregate_count([9.999999, 20.000001, 30.0]) == 60
+
+    # numpy floats are accepted too
+    assert aggregate_count([np.float64(10.0), np.float32(20.0)]) == 30
+
+    # Mixed ints and floats
+    assert aggregate_count([10, 20.0001, 29.9999]) == 60
+
+    # Result is a plain Python int
+    assert isinstance(aggregate_count([10.0, 20.0]), int)
+
+    # A true count of 0 may come back slightly negative from secagg noise:
+    # it clamps to 0 instead of raising
+    assert aggregate_count([10.0, -0.0001]) == 10
+    assert aggregate_count([-0.49, 0.49]) == 0
+
+    # Genuinely negative counts (rounding to a negative int) still raise
     with pytest.raises(FedbiomedError) as excinfo:
-        aggregate_count([10, 1.5])
+        aggregate_count([10.0, -0.6])
+    assert ErrorNumbers.FB633.value in str(excinfo.value)
+
+    with pytest.raises(FedbiomedError) as excinfo:
+        aggregate_count([10, -5])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
 
@@ -104,9 +132,24 @@ def test_aggregate_count_dicts():
         aggregate_count([{"a": 3}, {"a": -1}])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
-    # Non-integer dict value raises FedbiomedError
+    # Float dict values (e.g. from secagg) are rounded then summed
+    assert aggregate_count([{"a": 1.0001}, {"a": 1.9999}]) == {"a": 3}
+    assert aggregate_count([{"cat": 9.999999}, {"cat": 0.0}]) == {"cat": 10}
+
+    # numpy float dict values are accepted
+    assert aggregate_count([{"a": np.float64(2.0)}, {"a": 3}]) == {"a": 5}
+
+    # Secagg noise: a true 0 count arriving slightly negative clamps to 0
+    assert aggregate_count([{"a": -0.0001}, {"a": 5.0}]) == {"a": 5}
+
+    # Genuinely negative dict value still raises
     with pytest.raises(FedbiomedError) as excinfo:
-        aggregate_count([{"a": 1.5}, {"a": 2}])
+        aggregate_count([{"a": -0.6}, {"a": 2}])
+    assert ErrorNumbers.FB633.value in str(excinfo.value)
+
+    # Non-numeric dict value raises FedbiomedError
+    with pytest.raises(FedbiomedError) as excinfo:
+        aggregate_count([{"a": "1"}, {"a": 2}])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
     # Mixed list (int and dict) raises FedbiomedError

@@ -57,38 +57,49 @@ def aggregator(stat: str):
 
 @aggregator("count")
 def aggregate_count(
-    count: List[Union[int, Dict[str, int]]],
+    count: List[Union[int, float, Dict[str, Union[int, float]]]],
 ) -> Union[int, Dict[str, int]]:
     """Aggregates count values.
 
+    Counts are conceptually non-negative integers, but secure aggregation
+    encodes them as floats. Such values are rounded to the nearest integer
+    before the non-negativity check, so values within ±0.5 clamp to zero.
+
     Args:
         count: List of counts from nodes. Each element is either a non-negative
-            integer or a dict mapping category labels to non-negative integer counts.
+            number or a dict mapping category labels to non-negative counts.
+            Values may be ints or floats (the latter coming from secagg).
 
     Returns:
         The total count as an int, or a dict of summed counts.
     """
-    if all(isinstance(c, (int, np.integer)) for c in count):
-        int_counts = cast(List[int], count)
-        if not all(c >= 0 for c in int_counts):
+    if all(isinstance(c, (int, float, np.number)) for c in count):
+        num_counts = cast(List[Union[int, float]], count)
+        rounded_counts = [int(round(c)) for c in num_counts]
+        if not all(c >= 0 for c in rounded_counts):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB633.value}: All count values must be non-negative integers."
+                f"{ErrorNumbers.FB633.value}: All count values must be non-negative."
             )
-        return int(np.sum(int_counts))
+        return int(np.sum(rounded_counts))
 
     if all(isinstance(c, dict) for c in count):
         result: Dict[str, int] = {}
-        for c in cast(List[Dict[str, int]], count):
+        for c in cast(List[Dict[str, Union[int, float]]], count):
             for k, v in c.items():
-                if not isinstance(v, (int, np.integer)) or v < 0:
+                if not isinstance(v, (int, float, np.number)):
                     raise FedbiomedError(
-                        f"{ErrorNumbers.FB633.value}: All count dict values must be non-negative integers."
+                        f"{ErrorNumbers.FB633.value}: All count dict values must be numeric."
                     )
-                result[k] = result.get(k, 0) + int(v)
+                rounded_v = int(round(v))
+                if rounded_v < 0:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB633.value}: All count dict values must be non-negative."
+                    )
+                result[k] = result.get(k, 0) + rounded_v
         return result
 
     raise FedbiomedError(
-        f"{ErrorNumbers.FB633.value}: count must be a list of ints or a list of dicts."
+        f"{ErrorNumbers.FB633.value}: count must be a list of numbers or a list of dicts."
     )
 
 
