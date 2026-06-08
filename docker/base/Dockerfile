@@ -14,7 +14,7 @@ COPY fedbiomed_gui/ui/ ./
 RUN yarn build
 
 # Stage 2: Build Python package without hatch hook
-FROM python:3.10-slim-bullseye AS python-build
+FROM python:3.11-slim-bullseye AS python-build
 
 ARG FEDBIOMED_GID=1001
 ARG FEDBIOMED_UID=1001
@@ -94,7 +94,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Python from official image
-COPY --from=python:3.10-slim-bullseye /usr/local/ /usr/local/
+COPY --from=python:3.11-slim-bullseye /usr/local/ /usr/local/
 
 # Create user and directories
 RUN groupadd --gid $FEDBIOMED_GID $FEDBIOMED_GROUP && \

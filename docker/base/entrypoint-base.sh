@@ -45,9 +45,9 @@ validate_ids() {
         return 1
     fi
     
-    # Validate upper bounds
-    if [ "$uid" -gt 65535 ] || [ "$gid" -gt 65535 ]; then
-        log "ERROR: UID/GID must be <= 65535 (got UID=$uid, GID=$gid)"
+    # Validate upper bounds (Linux supports 32-bit UIDs: max 4294967294)
+    if [ "$uid" -gt 4294967294 ] || [ "$gid" -gt 4294967294 ]; then
+        log "ERROR: UID/GID must be <= 4294967294 (got UID=$uid, GID=$gid)"
         return 1
     fi
     
