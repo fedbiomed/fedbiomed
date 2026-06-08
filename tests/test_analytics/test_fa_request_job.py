@@ -55,6 +55,43 @@ def fa_job_setup():
     }
 
 
+def test_two_pass_round_arg_shapes_are_valid(fa_job_setup):
+    """Regression: the request shapes the variance/std two-pass produces must
+    satisfy FARequestJob's mutual-exclusivity rules (stats XOR stats_args, and
+    stats_args not combined with dataset_schema).
+    """
+    common = {
+        "experiment_id": fa_job_setup["experiment_id"],
+        "fa_id": fa_job_setup["fa_id"],
+        "federated_dataset": fa_job_setup["federated_dataset"],
+        "nodes": fa_job_setup["nodes"],
+        "requests": fa_job_setup["reqs"],
+        "researcher_id": fa_job_setup["researcher_id"],
+    }
+
+    # Round 1: direct primitives via a flat stats list (+ optional schema).
+    FARequestJob(
+        stats=["count", "sum"], stats_args=None, dataset_schema=["age"], **common
+    )
+
+    # Round 2: centered moment via stats_args only — stats and dataset_schema None.
+    FARequestJob(
+        stats=None,
+        stats_args={"age": {"sum_sq_centered": {"mean": 45.0}}},
+        dataset_schema=None,
+        **common,
+    )
+
+    # Guard: combining the two would raise (the bug this regression covers).
+    with pytest.raises(FedbiomedError, match="mutually exclusive"):
+        FARequestJob(
+            stats=["count"],
+            stats_args={"age": {"sum_sq_centered": {"mean": 45.0}}},
+            dataset_schema=None,
+            **common,
+        )
+
+
 def test_init(fa_job_setup):
     """Test that all constructor arguments are stored correctly."""
     job = fa_job_setup["job"]

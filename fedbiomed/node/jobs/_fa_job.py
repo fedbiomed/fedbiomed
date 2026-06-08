@@ -267,12 +267,23 @@ class FAJob(_BaseJob):
                 self._secagg_arguments.get("secagg_clipping_range")
                 or SAParameters.FA_CLIPPING_RANGE
             )
-            # any() short-circuits; no values are echoed back (privacy).
-            if any(v > clip or v < -clip for v in flat):
+            # Report *where* the overflow is (column/stat key-path) to help pinpoint it
+            n_over = 0
+            named = []
+            for i, v in enumerate(flat):
+                if v > clip or v < -clip:
+                    n_over += 1
+                    path = ".".join(str(k) for k in schema[i])
+                    if path:  # a leaf may have no key-path (bare scalar) → no name
+                        named.append(path)
+            if n_over:
+                # Name the offenders when available; otherwise just signal the error.
+                where = f" Offending statistic(s): {', '.join(named)}." if named else ""
                 return self._build_error_msg(
                     msg=(
-                        "Some computed analytics values exceed the secure aggregation "
-                        "clipping range. Encrypting would corrupt the result."
+                        f"{n_over} computed analytics value(s) exceed the secure "
+                        f"aggregation clipping range; encrypting would "
+                        f"corrupt the result.{where} Restrict the request."
                     ),
                     errnum=ErrorNumbers.FB325.value,
                 )

@@ -120,21 +120,24 @@ def aggregate_sum(sum: List[float]) -> float:
     return float(np.sum(sum))
 
 
-@aggregator("sum_sq")
-def aggregate_sum_sq(sum_sq: List[float]) -> float:
-    """Aggregates the summable ``sum_sq`` wire primitive (Σ x²) across nodes.
+@aggregator("sum_sq_centered")
+def aggregate_sum_sq_centered(sum_sq_centered: List[float]) -> float:
+    """Aggregates the summable ``sum_sq_centered`` wire primitive across nodes.
+
+    Each node contributes Σ (x - μ)² where μ is the *global* mean. Summing these per-node
+    centered second moments yields the total M2 from which variance and std are derived.
 
     Args:
-        sum_sq: List of per-node sums of squares.
+        sum_sq_centered: List of per-node centered sums of squares (Σ (x - μ)²).
 
     Returns:
-        The global sum of squares.
+        The global centered sum of squares (total M2 about the global mean).
     """
-    if not all(isinstance(s, (int, float, np.number)) for s in sum_sq):
+    if not all(isinstance(s, (int, float, np.number)) for s in sum_sq_centered):
         raise FedbiomedError(
-            f"{ErrorNumbers.FB633.value}: sum_sq must be a list of numeric values."
+            f"{ErrorNumbers.FB633.value}: sum_sq_centered must be a list of numeric values."
         )
-    return float(np.sum(sum_sq))
+    return float(np.sum(sum_sq_centered))
 
 
 @aggregator("mean")
@@ -155,43 +158,35 @@ def aggregate_mean(sum: List[float], count: List[Union[int, np.integer]]) -> flo
 
 
 @aggregator("variance")
-def aggregate_variance(
-    sum_sq: List[float], sum: List[float], count: List[int]
-) -> float:
-    """Aggregates global sample variance from sufficient statistics.
+def aggregate_variance(sum_sq_centered: List[float], count: List[int]) -> float:
+    """Aggregates global sample variance from centered sufficient statistics.
 
-    Uses the computational formula:
-        variance = (Σ x² − (Σ x)² / N) / (N − 1)
+    Uses the numerically stable centered form: variance = Σ (x - μ)² / (N - 1)
 
     Args:
-        sum_sq: List of per-node sums of squares (Σ x² per node).
-        sum: List of per-node sums (Σ x per node).
+        sum_sq_centered: List of per-node centered sums of squares (Σ (x - μ)²).
         count: List of per-node counts.
 
     Returns:
         The global sample variance (ddof=1), or ``nan`` when N ≤ 1.
     """
-
     if (total_count := aggregate_count(count)) <= 1:
         return np.nan
-    total_sum = aggregate_sum(sum)
-    total_sum_sq = aggregate_sum_sq(sum_sq)
-    return (total_sum_sq - total_sum**2 / total_count) / (total_count - 1)
+    return aggregate_sum_sq_centered(sum_sq_centered) / (total_count - 1)
 
 
 @aggregator("std")
-def aggregate_std(sum_sq: List[float], sum: List[float], count: List[int]) -> float:
-    """Aggregates global sample standard deviation from sufficient statistics.
+def aggregate_std(sum_sq_centered: List[float], count: List[int]) -> float:
+    """Aggregates global sample standard deviation from centered statistics.
 
     Args:
-        sum_sq: List of per-node sums of squares (Σ x² per node).
-        sum: List of per-node sums (Σ x per node).
+        sum_sq_centered: List of per-node centered sums of squares (Σ (x - μ)²).
         count: List of per-node counts.
 
     Returns:
         The global sample standard deviation.
     """
-    return float(np.sqrt(aggregate_variance(sum_sq, sum, count)))
+    return float(np.sqrt(aggregate_variance(sum_sq_centered, count)))
 
 
 @aggregator("histogram")

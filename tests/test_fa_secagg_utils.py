@@ -51,11 +51,11 @@ def test_flatten_none_skipped():
 
 
 def test_flatten_stat_leaf():
-    """Typical per-feature stat leaf: {sum, count, sum_sq}."""
-    output = {"age": {"sum": 450.0, "count": 10, "sum_sq": 20450.0}}
+    """Typical per-feature stat leaf: {sum, count, sum_sq_centered}."""
+    output = {"age": {"sum": 450.0, "count": 10, "sum_sq_centered": 20450.0}}
     flat, schema = flatten_fa_output(output)
     assert flat == [450.0, 10.0, 20450.0]
-    assert schema == [["age", "sum"], ["age", "count"], ["age", "sum_sq"]]
+    assert schema == [["age", "sum"], ["age", "count"], ["age", "sum_sq_centered"]]
 
 
 def test_flatten_multiple_features():
@@ -141,9 +141,9 @@ def test_unflatten_single_scalar():
 
 def test_unflatten_stat_leaf():
     flat = [450.0, 10.0, 20450.0]
-    schema = [["age", "sum"], ["age", "count"], ["age", "sum_sq"]]
+    schema = [["age", "sum"], ["age", "count"], ["age", "sum_sq_centered"]]
     result = unflatten_fa_output(flat, schema)
-    assert result == {"age": {"sum": 450.0, "count": 10.0, "sum_sq": 20450.0}}
+    assert result == {"age": {"sum": 450.0, "count": 10.0, "sum_sq_centered": 20450.0}}
 
 
 def test_unflatten_multiple_features():
@@ -185,7 +185,7 @@ def test_unflatten_list_values():
     "output",
     [
         {"sum": 1.0},
-        {"age": {"sum": 450.0, "count": 10, "sum_sq": 20450.0}},
+        {"age": {"sum": 450.0, "count": 10, "sum_sq_centered": 20450.0}},
         {
             "age": {"sum": 450.0, "count": 10},
             "bmi": {"sum": 220.0, "count": 10},
@@ -201,7 +201,7 @@ def test_unflatten_list_values():
             "age": {
                 "sum": np.float32(450.0),
                 "count": np.int32(10),
-                "sum_sq": np.float32(20450.0),
+                "sum_sq_centered": np.float32(20450.0),
             },
         },
     ],

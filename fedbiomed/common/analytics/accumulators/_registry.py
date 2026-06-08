@@ -9,10 +9,10 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 from ._base import Accumulator
 from ._operations import (
+    CenteredSumSqAccumulator,
     CountAccumulator,
     HistogramAccumulator,
     SumAccumulator,
-    SumSqAccumulator,
 )
 
 
@@ -23,10 +23,8 @@ class AnalyticsRegistry:
         DatasetElementType.ROW: {
             "count": [CountAccumulator],
             "sum": [SumAccumulator],
-            "sum_sq": [SumSqAccumulator],
+            "sum_sq_centered": [CenteredSumSqAccumulator],
             "mean": [CountAccumulator, SumAccumulator],
-            "variance": [CountAccumulator, SumAccumulator, SumSqAccumulator],
-            "std": [CountAccumulator, SumAccumulator, SumSqAccumulator],
             "histogram": [HistogramAccumulator],
         },
     }

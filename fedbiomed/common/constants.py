@@ -347,8 +347,11 @@ class SAParameters:
     )  # TODO: this has to be provided by the researcher, find the max range among all the nodes' weights
     # TODO: to separate from SAParameters
     KEY_SIZE: int = 2048
-    FA_CLIPPING_RANGE: int = 1_000_000
-    FA_TARGET_RANGE: int = 2**45
+    # Federated-analytics secure-aggregation quantization window.
+    # Resolution = 2·FA_CLIPPING_RANGE / FA_TARGET_RANGE, so stats
+    # keep full precision. Raise both together if values exceed 1e14.
+    FA_CLIPPING_RANGE: int = 100_000_000_000_000  # 1e14
+    FA_TARGET_RANGE: int = 2**55
 
 
 class ErrorNumbers(_BaseEnum):
@@ -464,20 +467,20 @@ class UserRequestStatus(str, _BaseEnum):
 class Stats(_BaseEnum):
     """Enumeration class for Federated Analytics types
 
+    These are the primitives a node can compute directly in a single round.
+    Derived statistics (``variance``, ``std``) are not listed here: they are
+    computed from ``sum_sq_centered`` via the two-pass scheme.
+
     Attributes:
         COUNT: Count of values
         MEAN: Mean value
         SUM: Sum of values
-        SUM_SQ: Sum of squared values
-        STD: Standard deviation of values
-        VARIANCE: Variance of values
+        SUM_SQ_CENTERED: Centered sum of squares Σ (x − mean)². Feeds variance/std.
         HISTOGRAM: histogram of values
     """
 
     COUNT = "count"
     MEAN = "mean"
     SUM = "sum"
-    SUM_SQ = "sum_sq"
-    STD = "std"
-    VARIANCE = "variance"
+    SUM_SQ_CENTERED = "sum_sq_centered"
     HISTOGRAM = "histogram"

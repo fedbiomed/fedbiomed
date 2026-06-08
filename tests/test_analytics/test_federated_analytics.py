@@ -257,22 +257,17 @@ class TestFAResult:
         assert abs(global_sum["age"] - expected_sum) < 1e-9
 
     def test_global_stats_variance_row(self):
-        # Nodes return summable primitives: sum_sq + sum + count
-        # mean=45, var=4, N=100 → sum=4500, sum_sq=var*(N-1)+sum^2/N=396+202500=202896
-        # mean=50, var=9, N=80  → sum=4000, sum_sq=9*79+4000^2/80=711+200000=200711
+        # Two-pass centered primitives: count + Σ(x − μ_global)².
+        # Global ages [40,50,60], μ=50, N=3 → var(ddof=1) = (100+0+100)/2 = 100.
+        # node1 = [40,50] → Σ(x−50)² = 100 ; node2 = [60] → Σ(x−50)² = 100.
         replies = {
-            "n1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
-            ),
-            "n2": _make_reply(
-                {"age": {"sum_sq": 200711.0, "sum": 4000.0, "count": 80}}
-            ),
+            "n1": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 2}}),
+            "n2": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 1}}),
         }
         result = FAResult(replies)
         global_variance = result.global_stats("variance")
         assert isinstance(global_variance, dict)
-        assert "age" in global_variance
-        assert global_variance["age"] > 0
+        assert global_variance["age"] == pytest.approx(100.0)
 
     def test_global_stats_count_row(self):
         replies = {
@@ -464,7 +459,7 @@ class TestFederatedAnalytics:
     def test_same_stat_same_args_uses_cache(self, mock_fa_job_cls, base_fa):
         """Second call for the same primitive stat must be served from cache.
 
-        Primitive stats (count, sum, sum_sq) are stored as-is in the result, so
+        Primitive stats (count, sum, sum_sq_centered) are stored as-is in the result, so
         the cache hit check ``s in available_stats()`` succeeds on the second call.
         """
         replies = {"node-1": _make_reply({"age": {"count": 100}})}
@@ -518,40 +513,46 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_only_missing_stats_requested(self, mock_fa_job_cls, base_fa):
-        """When some stats are cached, only the missing ones are sent to nodes."""
+        """With the mean cached, variance only triggers the centered (round-2) request."""
         mean_replies = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = mean_replies
         base_fa.mean()
+        assert mock_fa_job_cls.call_count == 1
 
-        variance_replies = {
-            "node-1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
-            )
+        # Round 2 reply: count + centered second moment Σ(x − μ)².
+        centered_replies = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 396.0, "count": 100}})
         }
-        mock_fa_job_cls.return_value.execute.return_value = variance_replies
+        mock_fa_job_cls.return_value.execute.return_value = centered_replies
         result = base_fa.fetch_stats("variance")
 
+        # Round 1 (mean) is served from cache → only the round-2 request hits nodes.
         assert mock_fa_job_cls.call_count == 2
         second_call_kwargs = mock_fa_job_cls.call_args_list[1].kwargs
-        assert second_call_kwargs["stats"] == ["variance"]
+        # Round 2 is a stats_args-only request (stats / dataset_schema must be None,
+        # as FARequestJob forbids combining them with stats_args).
+        assert second_call_kwargs["stats"] is None
+        assert second_call_kwargs["dataset_schema"] is None
+        age_args = second_call_kwargs["stats_args"]["age"]
+        assert age_args["sum_sq_centered"]["mean"] == pytest.approx(45.0)
 
         assert isinstance(result, FAResult)
         assert "variance" in result.computable_stats()
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_compute_multiple_stats_at_once(self, mock_fa_job_cls, base_fa):
-        replies = {
-            "node-1": _make_reply(
-                {"age": {"mean": 45.0, "count": 100, "variance": 4.0}}
-            )
+        # Two-pass: round 1 fetches the mean primitives, round 2 the centered moment.
+        round1 = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
+        round2 = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 396.0, "count": 100}})
         }
-        mock_fa_job_cls.return_value.execute.return_value = replies
+        mock_fa_job_cls.return_value.execute.side_effect = [round1, round2]
 
         result = base_fa.fetch_stats(stats=["mean", "variance"])
 
-        assert "mean" in result.available_stats()
-        assert "variance" in result.available_stats()
-        assert mock_fa_job_cls.call_count == 1
+        assert "mean" in result.computable_stats()
+        assert "variance" in result.computable_stats()
+        assert mock_fa_job_cls.call_count == 2
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_node_change_invalidates_cache(self, mock_fa_job_cls, base_fa, mock_fds):
@@ -606,19 +607,21 @@ class TestFederatedAnalytics:
     def test_fetch_stats_none_defaults_to_count_mean_variance(
         self, mock_fa_job_cls, base_fa
     ):
-        """fetch_stats() with no argument requests count, mean, and variance."""
-        replies = {
-            "node-1": _make_reply(
-                {"age": {"count": 100, "mean": 45.0, "variance": 4.0}}
-            )
+        """fetch_stats() defaults to count, mean, variance (variance via two-pass)."""
+        round1 = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
+        round2 = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 396.0, "count": 100}})
         }
-        mock_fa_job_cls.return_value.execute.return_value = replies
+        mock_fa_job_cls.return_value.execute.side_effect = [round1, round2]
 
         result = base_fa.fetch_stats()
 
         assert isinstance(result, FAResult)
-        call_kwargs = mock_fa_job_cls.call_args.kwargs
-        assert sorted(call_kwargs["stats"]) == ["count", "mean", "variance"]
+        # Round 1 requests the direct primitives plus count+sum (mean's building
+        # blocks); variance is derived from the round-2 centered moment.
+        first_call_kwargs = mock_fa_job_cls.call_args_list[0].kwargs
+        assert sorted(first_call_kwargs["stats"]) == ["count", "mean", "sum"]
+        assert {"count", "mean", "variance"}.issubset(set(result.computable_stats()))
 
     def test_fetch_stats_empty_list_raises(self, base_fa):
         """Passing an explicit empty list must raise FedbiomedError."""
@@ -730,22 +733,22 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_std_convenience_method(self, mock_fa_job_cls, base_fa):
-        """std() requests variance primitives and returns the global standard deviation."""
-        replies = {
-            "node-1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
-            ),
-            "node-2": _make_reply(
-                {"age": {"sum_sq": 200711.0, "sum": 4000.0, "count": 80}}
-            ),
+        """std() runs the two-pass centered scheme and returns the global std."""
+        # Global ages: node1=[40,50], node2=[60]; μ=50, N=3 → var=100, std=10.
+        round1 = {
+            "node-1": _make_reply({"age": {"sum": 90.0, "count": 2}}),
+            "node-2": _make_reply({"age": {"sum": 60.0, "count": 1}}),
         }
-        mock_fa_job_cls.return_value.execute.return_value = replies
+        round2 = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 2}}),
+            "node-2": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 1}}),
+        }
+        mock_fa_job_cls.return_value.execute.side_effect = [round1, round2]
 
         result = base_fa.std()
 
         assert isinstance(result, dict)
-        assert "age" in result
-        assert result["age"] > 0
+        assert result["age"] == pytest.approx(10.0)
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_cache_eviction_fifo(self, mock_fa_job_cls, base_fa):
@@ -857,7 +860,7 @@ class TestComputableStats:
         assert FAResult({}).computable_stats() == []
 
     def test_mean_count_computable(self):
-        # sum+count primitives → mean, count, sum computable; variance/std require sum_sq
+        # sum+count primitives → mean, count, sum computable; variance/std require sum_sq_centered
         replies = {"n1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
         result = FAResult(replies)
         cs = result.computable_stats()
@@ -869,10 +872,10 @@ class TestComputableStats:
         assert "histogram" not in cs
 
     def test_with_variance_enables_std_and_variance(self):
-        # sum_sq+sum+count primitives → all of mean, variance, std, count, sum computable
+        # count+sum+sum_sq_centered primitives → mean, variance, std, count, sum computable
         replies = {
             "n1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
+                {"age": {"sum_sq_centered": 396.0, "sum": 4500.0, "count": 100}}
             )
         }
         result = FAResult(replies)
@@ -919,10 +922,10 @@ class TestComputableStats:
         assert "quantile" in cs
 
     def test_result_is_sorted(self):
-        # sum_sq+sum+count gives multiple computable stats, verifying sort order
+        # count+sum+sum_sq_centered gives multiple computable stats, verifying sort order
         replies = {
             "n1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
+                {"age": {"sum_sq_centered": 396.0, "sum": 4500.0, "count": 100}}
             )
         }
         result = FAResult(replies)
@@ -966,21 +969,17 @@ class TestGlobalStats:
         assert FAResult({}).global_stats() == {}
 
     def test_derived_std_from_primitives(self):
-        # std is computable from sum_sq+sum+count primitives
+        # std is computable from count + sum_sq_centered primitives
         replies = {
-            "n1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
-            ),
-            "n2": _make_reply(
-                {"age": {"sum_sq": 200711.0, "sum": 4000.0, "count": 80}}
-            ),
+            "n1": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 2}}),
+            "n2": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 1}}),
         }
         result = FAResult(replies)
         assert "std" in result.computable_stats()
         global_std = result.global_stats("std")
         assert isinstance(global_std, dict)
-        assert "age" in global_std
-        assert global_std["age"] > 0
+        # Σ sum_sq_centered = 200, N = 3 → variance 100 → std 10
+        assert global_std["age"] == pytest.approx(10.0)
 
     def test_not_computable_raises(self):
         # variance is valid but missing required data when only mean+count are stored

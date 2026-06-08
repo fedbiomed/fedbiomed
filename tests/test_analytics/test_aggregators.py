@@ -12,7 +12,7 @@ from fedbiomed.common.analytics._aggregators import (
     aggregate_quantile,
     aggregate_std,
     aggregate_sum,
-    aggregate_sum_sq,
+    aggregate_sum_sq_centered,
     aggregate_variance,
     aggregator,
 )
@@ -176,18 +176,18 @@ def test_aggregate_sum():
         aggregate_sum([1.0, "bad"])
 
 
-def test_aggregate_sum_sq():
-    """Test aggregate_sum_sq function (per-node Σ x² wire primitive)."""
-    assert aggregate_sum_sq([10.0, 74.0]) == pytest.approx(84.0)
-    assert aggregate_sum_sq([4.0]) == pytest.approx(4.0)
+def test_aggregate_sum_sq_centered():
+    """Test aggregate_sum_sq_centered (per-node Σ(x−μ)² wire primitive)."""
+    assert aggregate_sum_sq_centered([10.0, 10.0]) == pytest.approx(20.0)
+    assert aggregate_sum_sq_centered([4.0]) == pytest.approx(4.0)
 
     # Empty list raises FedbiomedError
     with pytest.raises(FedbiomedError):
-        aggregate_sum_sq([])
+        aggregate_sum_sq_centered([])
 
     # Non-numeric values raise FedbiomedError
     with pytest.raises(FedbiomedError):
-        aggregate_sum_sq([1.0, "bad"])
+        aggregate_sum_sq_centered([1.0, "bad"])
 
 
 def test_aggregate_mean():
@@ -211,34 +211,32 @@ def test_aggregate_mean():
 
 
 def test_aggregate_variance():
-    """Test aggregate_variance function (uses sum_sq, sum, count sufficient stats)."""
-    # node1 (mean=2, var=2, n=2) → sum=4, sum_sq=10
-    # node2 (mean=6, var=2, n=2) → sum=12, sum_sq=74
-    sum_sq = [10.0, 74.0]
-    sums = [4.0, 12.0]
+    """Test aggregate_variance (centered two-pass: Σ(x−μ)² / (N−1))."""
+    # Global data [1,3,5,7], global mean μ=4 → np.var(..., ddof=1) = 20/3.
+    # node1 = [1,3] → Σ(x−4)² = 9+1 = 10 ; node2 = [5,7] → 1+9 = 10.
+    sum_sq_centered = [10.0, 10.0]
     counts = [2, 2]
 
-    res = aggregate_variance(sum_sq, sums, counts)
+    res = aggregate_variance(sum_sq_centered, counts)
     assert np.isclose(res, 20.0 / 3.0)
+    assert np.isclose(res, np.var([1, 3, 5, 7], ddof=1))
 
     # N=1 → variance undefined, returns nan
-    assert np.isnan(aggregate_variance([1.0], [1.0], [1]))
+    assert np.isnan(aggregate_variance([1.0], [1]))
 
     # Empty count list raises FedbiomedError
     with pytest.raises(FedbiomedError) as excinfo:
-        aggregate_variance([1.0], [1.0], [])
+        aggregate_variance([1.0], [])
     assert ErrorNumbers.FB633.value in str(excinfo.value)
 
 
 def test_aggregate_std():
-    """Test aggregate_std function (uses same sufficient stats as variance)."""
-    # Same sufficient stats as test_aggregate_variance.
-    sum_sq = [10.0, 74.0]
-    sums = [4.0, 12.0]
+    """Test aggregate_std (sqrt of the centered variance)."""
+    sum_sq_centered = [10.0, 10.0]
     counts = [2, 2]
 
     expected_std = np.sqrt(20.0 / 3.0)
-    res = aggregate_std(sum_sq, sums, counts)
+    res = aggregate_std(sum_sq_centered, counts)
     assert np.isclose(res, expected_std)
 
 

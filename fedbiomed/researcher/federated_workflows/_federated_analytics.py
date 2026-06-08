@@ -168,6 +168,25 @@ class FAResult:
         # Both scalars: new overwrites.
         return new
 
+    @staticmethod
+    def _combine(a: "FAResult", b: "FAResult") -> "FAResult":
+        """Return a new FAResult deep-merging the per-node trees of *a* and *b*.
+
+        Used to fold the round-1 result (count/sum/…) and the round-2 centered
+        result (count/sum_sq_centered) into a single result from which
+        count, mean, variance and std are all computable. Both results must share
+        the same node keys (same nodes, schema and — under secagg — the
+        ``__secagg__`` virtual node).
+        """
+        combined = FAResult(None)
+        combined._data = {nid: copy.deepcopy(out) for nid, out in a._data.items()}
+        for nid, out in b._data.items():
+            if nid in combined._data:
+                combined._data[nid] = FAResult._deep_merge(combined._data[nid], out)
+            else:
+                combined._data[nid] = copy.deepcopy(out)
+        return combined
+
     # ------------------------------------------------------------------
     # Mutation
     # ------------------------------------------------------------------
@@ -445,6 +464,9 @@ class FederatedAnalytics:
 
     _MAX_CACHE_SIZE: int = 32  # Maximum number of cached result sets.
 
+    # Statistics that are not computable by nodes in a single round
+    _CENTERED_DERIVED: tuple[str, ...] = ("variance", "std")
+
     def __init__(
         self,
         fds: FederatedDataset,
@@ -693,10 +715,59 @@ class FederatedAnalytics:
                 return filtered
         return None
 
+    @staticmethod
+    def _centered_args_from_mean(mean_tree: Any) -> Any:
+        """Turn a global-mean tree into ``sum_sq_centered`` stats_args."""
+        if isinstance(mean_tree, dict):
+            return {
+                k: FederatedAnalytics._centered_args_from_mean(v)
+                for k, v in mean_tree.items()
+            }
+        if isinstance(mean_tree, (list, tuple)):
+            return type(mean_tree)(
+                FederatedAnalytics._centered_args_from_mean(v) for v in mean_tree
+            )
+        # Scalar leaf: the global mean for one feature.
+        return {"sum_sq_centered": {"mean": float(mean_tree)}}
+
+    def _fetch_centered(
+        self,
+        stats: list[str],
+        dataset_schema: Optional[list[str | dict]],
+        node_ids: list[str],
+    ) -> FAResult:
+        """Run the two-pass centered scheme and return a combined result."""
+        # Round 1: the requested stats plus the count+sum the global mean is built from
+        round1_stats = sorted(
+            {s for s in stats if s not in self._CENTERED_DERIVED} | {"count", "sum"}
+        )
+        r1 = self.fetch_stats(round1_stats, dataset_schema, _emit_log=False)
+        mean_tree = r1.global_stats("mean")
+
+        # Round 2: Σ(x − μ)² centered on the round-1 global mean.
+        # Reuses round 1's count, so round 2 only needs the centered moment.
+        centered_args = self._centered_args_from_mean(mean_tree)
+        round2_key = self.make_cache_key(node_ids, None, centered_args)
+        r2 = self._results_store.get(round2_key)
+        if r2 is None:
+            r2 = self._execute_and_update_cache(
+                round2_key, None, centered_args, None, node_ids, None
+            )
+
+        return FAResult._combine(r1, r2)
+
+    def _log_global_stats(self, result: FAResult) -> None:
+        """Log the aggregated global statistics of *result* once, prettily."""
+        logger.info(
+            "Global statistics:\n%s",
+            json.dumps(result.global_stats(), indent=2, default=str, sort_keys=True),
+        )
+
     def fetch_stats(
         self,
         stats: Optional[str | list[str]] = None,
         dataset_schema: Optional[str | list[str | dict]] = None,
+        _emit_log: bool = True,
     ) -> FAResult:
         """Fetch named statistics across nodes. Already-cached statistics are not re-requested.
 
@@ -704,6 +775,9 @@ class FederatedAnalytics:
             stats: Statistic name(s) to request from nodes (e.g. ``"mean"``).
                 Defaults to ``["count", "mean", "variance"]``.
             dataset_schema: Optional schema definition for filtering the dataset.
+            _emit_log: Internal. When ``False``, suppresses the final global-stats
+                log line — used for intermediate rounds (e.g. the round-1 mean of
+                the variance/std two-pass) so the stats are logged once, at the end.
 
         Returns:
             A :class:`FAResult` containing per-node data and supporting global aggregation.
@@ -715,10 +789,16 @@ class FederatedAnalytics:
         if not stats:  # guard against explicit empty list
             raise FedbiomedError("'stats' must be a non-empty string or list.")
 
-        # Stats nodes can compute directly; derived stats (e.g. 'std', 'sum') are not requestable.
+        # Stats nodes can compute directly; the centered-derived stats
+        # (variance/std) are handled here via the two-pass scheme. Any other
+        # AGGREGATORS_MAP-only stat remains non-requestable.
         requestable = {s.value for s in Stats}
         computed_only = [
-            s for s in stats if s in AGGREGATORS_MAP and s not in requestable
+            s
+            for s in stats
+            if s in AGGREGATORS_MAP
+            and s not in requestable
+            and s not in self._CENTERED_DERIVED
         ]
         unknown = [
             s for s in stats if s not in AGGREGATORS_MAP and s not in requestable
@@ -750,6 +830,24 @@ class FederatedAnalytics:
         cache_key = FederatedAnalytics.make_cache_key(node_ids, dataset_schema, None)
         cached = self._results_store.get(cache_key)
 
+        # Two-pass path: any requested variance/std needs the global mean first.
+        derived = [s for s in stats if s in self._CENTERED_DERIVED]
+        if derived:
+            if cached is not None and set(stats).issubset(
+                set(cached.available_stats())
+            ):
+                logger.info(
+                    f"All requested statistics {stats} are already cached — "
+                    "skipping node requests."
+                )
+                result = cached
+            else:
+                result = self._fetch_centered(stats, dataset_schema, node_ids)
+                self._cache_store(cache_key, result)
+            if _emit_log:
+                self._log_global_stats(result)
+            return result
+
         missing = [
             s for s in stats if cached is None or s not in cached.available_stats()
         ]
@@ -771,7 +869,8 @@ class FederatedAnalytics:
                 "skipping node requests."
             )
 
-        logger.info("global_stats: %s", cached.global_stats())
+        if _emit_log:
+            self._log_global_stats(cached)
 
         return cached
 
@@ -840,9 +939,9 @@ class FederatedAnalytics:
         return self._stat(Stats.MEAN.value, "mean", dataset_schema)
 
     def variance(self, dataset_schema: Optional[str | list[str | dict]] = None) -> Any:
-        """Return the global variance across nodes."""
-        return self._stat(Stats.VARIANCE.value, "variance", dataset_schema)
+        """Return the global variance across nodes (two-pass centered scheme)."""
+        return self.fetch_stats("variance", dataset_schema).global_stats("variance")
 
     def std(self, dataset_schema: Optional[str | list[str | dict]] = None) -> Any:
-        """Return the global standard deviation across nodes."""
-        return self._stat(Stats.VARIANCE.value, "std", dataset_schema)
+        """Return the global standard deviation across nodes (two-pass centered scheme)."""
+        return self.fetch_stats("std", dataset_schema).global_stats("std")

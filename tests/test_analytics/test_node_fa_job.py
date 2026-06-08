@@ -441,11 +441,11 @@ def test_run_passes_correct_kwargs_to_compute_stats(fa_job):
 
 
 def test_run_multiple_stats(fa_job_args, request_args):
-    stats_list = [Stats.MEAN.value, Stats.VARIANCE.value]
+    stats_list = [Stats.MEAN.value, Stats.SUM.value]
     req = FARequest(**{**request_args, "stats": stats_list})
     job = FAJob(**{**fa_job_args, "request": req})
     mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": {"mean": 1, "variance": 0.1}}
+    mock_dataset.compute_stats.return_value = {"col1": {"mean": 1, "sum": 6}}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()
@@ -567,12 +567,17 @@ def test_run_encrypted_path_rejects_out_of_clipping_range(
     mock_secagg.use_secagg = True
     mock_secagg_cls.return_value = mock_secagg
 
-    secagg_args["secagg_clipping_range"] = 3  # value 99 exceeds it
+    secagg_args["secagg_clipping_range"] = (
+        3  # 'income.sum' (99) exceeds it; 'age' is fine
+    )
     job = _make_fa_job(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
     mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"a": 99.0}
+    mock_dataset.compute_stats.return_value = {
+        "age": {"sum": 1.0, "count": 2},
+        "income": {"sum": 99.0, "count": 2},
+    }
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()
@@ -580,6 +585,37 @@ def test_run_encrypted_path_rejects_out_of_clipping_range(
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
     mock_secagg.scheme.encrypt.assert_not_called()
+    # The message names the offending column/stat to help the user...
+    assert "income.sum" in reply.extra_msg
+    # ...but never echoes the offending value (would leak an unencrypted statistic).
+    assert "99" not in reply.extra_msg
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
+def test_run_encrypted_path_rejects_out_of_clipping_range_unnamed(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """A bare-scalar leaf has no key-path: the error still fires, without a name."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg_cls.return_value = mock_secagg
+
+    secagg_args["secagg_clipping_range"] = 3  # bare value 99 exceeds it
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = 99.0  # scalar → empty key-path
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    mock_secagg.scheme.encrypt.assert_not_called()
+    # No name available → no "Offending statistic(s)" clause, just the generic error.
+    assert "Offending statistic(s)" not in reply.extra_msg
+    assert "exceed the secure aggregation clipping range" in reply.extra_msg
 
 
 @patch("fedbiomed.node.jobs._fa_job.SecaggRound")
