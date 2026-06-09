@@ -38,5 +38,7 @@ class CustomBuildHook(BuildHookInterface):
                     time.sleep(5)
                 else:
                     raise
+            else:
+                break
 
         os.chdir("../../")
