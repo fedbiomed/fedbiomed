@@ -119,17 +119,12 @@ docker volume inspect fedbiomed-node-volume
 ]
 ```
 
-If it is a bind-mounted directory, you can access the configuration file from the mounted directory:
-
-```bash
--v <absolute-path-to-host-fbm-node>:/fbm-node
-```
-
 After the configuration is changed, the Fed-BioMed container needs to be restarted:
 
 ```bash
 docker restart <name-of-container>
 ```
+
 
 #### Configuration Behavior Overview:
 
@@ -142,6 +137,92 @@ docker restart <name-of-container>
 - **Overriding existing configuration at runtime**:
     If a static configuration already exists but environment variables are still provided, those variables will override the config **only at runtime**, without modifying the actual `config.ini` file.
 
+### Bind-mounted directory
+
+A bind mount maps a directory from your host machine directly into the container. This makes it easy to inspect or edit configuration files without entering the container.
+
+To mount a local directory, add the `-v` flag with an absolute path:
+
+```bash
+# For a node container
+docker run --network fedbiomed-net \
+  --name fbm-node-1 \
+  -v <absolute-path-to-host-fbm-node>:/fbm-node \
+  -e FBM_RESEARCHER_IP=fbm-researcher \
+  -e FBM_RESEARCHER_PORT=50051 \
+  fedbiomed/node:<version-tag>
+
+# For a researcher container
+docker run --network fedbiomed-net \
+  --name fbm-researcher \
+  -v <absolute-path-to-host-fbm-researcher>:/fbm-researcher \
+  -p 8888:8888 \
+  -e FBM_SERVER_HOST=fbm-researcher \
+  fedbiomed/researcher:<version-tag>
+```
+
+!!! warning "Permission issues on Linux"
+
+    On Linux, Docker creates the mounted directory on the host as `root` if it does not already exist. The container process runs as `fedbiomed` (UID/GID `2101:2101` by default) and cannot write to a root-owned directory, causing startup failures.
+
+    **Option 1 — Use Docker named volumes (recommended)**
+
+    Prefer Docker named volumes (e.g. `-v fedbiomed-node-volume:/fbm-node`) over bind mounts. Docker manages ownership automatically and avoids this problem entirely.
+
+    **Option 2 — Use `CONTAINER_UID` / `CONTAINER_GID`**
+
+    Start the container as `root` and pass your host user's UID/GID. The entrypoint remaps the internal `fedbiomed` user to match, so files created in the mounted directory are owned by you. See [Launching docker container with a different user](#launching-docker-container-with-a-different-user).
+
+    **Option 3 — Pre-create the directory with group write access**
+
+    Create the directory before running Docker and grant write permission to a `fedbiomed` group with GID `2101` (see also [Default Container User](#default-container-user)):
+
+    ```bash
+    sudo groupadd -g 2101 fedbiomed
+    mkdir -p /mounted/fbm-node
+    sudo chown -R :fedbiomed /mounted/fbm-node   # assign the group
+    sudo chmod -R g+w /mounted/fbm-node           # allow group writes
+    sudo chmod g+s /mounted/fbm-node              # new files inherit the group
+    sudo usermod -aG fedbiomed $USER              # add yourself to the group
+    # log out and back in for the group change to take effect
+    ```
+
+    Then start the container normally:
+
+    ```bash
+    docker run --network fedbiomed-net \
+      --name fbm-node-1 \
+      -v /mounted/fbm-node:/fbm-node \
+      -e FBM_RESEARCHER_IP=fbm-researcher \
+      -e FBM_RESEARCHER_PORT=50051 \
+      fedbiomed/node:<version-tag>
+    ```
+
+### Default Container User
+
+All Fed-BioMed images run component processes under a non-root user named `fedbiomed`. This user and its group are baked into the image with fixed IDs:
+
+| Identity | Name        | ID     |
+|----------|-------------|--------|
+| User     | `fedbiomed` | `2101` |
+| Group    | `fedbiomed` | `2101` |
+
+By default, the container starts directly as the `fedbiomed` user — no root involvement. If you explicitly start the container as `root` (using `--user root`) to fix volume ownership, the entrypoint script (`/entrypoint-base.sh`) performs the ownership changes first and then drops privileges to `fedbiomed` before launching the component process. This means:
+
+- All Fed-BioMed processes run without root privileges.
+- Files written inside the container (configuration, data, logs) are owned by `fedbiomed:fedbiomed` (UID/GID `2101:2101`).
+- You do **not** need to pass `--user fedbiomed` to `docker run` in normal use — the image's default user is already `fedbiomed`.
+
+When opening a shell inside a running container with `docker exec`, pass `-u fedbiomed` to match the user running the component:
+
+```bash
+docker exec -it -u fedbiomed my-node bash
+```
+
+!!! note "Remapping to your host user"
+    Files created by the container will be owned by UID `2101` on the host, which may not match your own account. If this causes permission issues with bind-mounted directories, see [Launching docker container with a different user](#launching-docker-container-with-a-different-user) to remap the `fedbiomed` user to your host UID/GID at runtime.
+
+---
 
 ### Launching docker container with a different user
 
@@ -151,6 +232,7 @@ Here's how to run the container with custom user settings:
 
 ```bash
 docker run -it \
+    --user root \
     --name my-node \
     -v <path-to-local-fbm-node>:/fbm-node \
     -v fbm-node-volume:/fbm-node
@@ -203,16 +285,16 @@ Once inside, use the Fed-BioMed CLI to inspect and control the node:
 
 ```bash
 # Check whether the node process is running
-fedbiomed node status
+fedbiomed node -p /fbm-node status
 
 # Stop the node process
-fedbiomed node stop
+fedbiomed node -p /fbm-node stop
 
 # Restart the node process
-fedbiomed node restart
+fedbiomed node -p /fbm-node restart
 
 # Start the node if it has been stopped
-fedbiomed node start
+fedbiomed node -p /fbm-node start
 ```
 
 !!! note "Restart after configuration changes"
@@ -265,7 +347,7 @@ docker exec -it -u fedbiomed my-node bash
 Once inside the container, use the Fed-BioMed CLI to add the dataset:
 
 ```bash
-$ fedbiomed node dataset add
+$ fedbiomed node -p /fbm-node dataset add
 ```
 
 For more details, see the full guide on [deploying datasets](../nodes/deploying-datasets.md).
@@ -325,10 +407,18 @@ If you are running multiple node containers, map each container's port `8484` to
 
 ```bash
 # Node 1 GUI on host port 8484
-docker run -it --name node1 -v ./node1:/fbm-node -p 8484:8484 fedbiomed/node:latest
+docker run -it --name node1 \ 
+  -v ./node1:/fbm-node \
+  # or -v fedbiomed-node-wolume-node-1:/fbm-node \
+  -p 8484:8484 \
+  fedbiomed/node:latest
 
 # Node 2 GUI on host port 8485
-docker run -it --name node2 -v ./node2:/fbm-node -p 8485:8484 fedbiomed/node:latest
+docker run -it --name node2 \
+  -v ./node2:/fbm-node \
+  # or -v fedbiomed-node-wolume-node-2:/fbm-node \
+  -p 8485:8484 \
+  fedbiomed/node:latest
 ```
 
 !!! note "GUI starts with the node"
@@ -370,6 +460,7 @@ In the following example, the Researcher is configured to bind to `127.0.0.1` (l
 docker run -it -d \
     -e FBM_SERVER_HOST=127.0.0.1 \
     -v <path-fedbiomed-researcher>:/fbm-researcher \
+    # or -v fedbiomed-node-wolume-node-2:/fbm-node \
     -p 50051:50051 \
     fedbiomed/researcher:latest
 ```
@@ -413,16 +504,16 @@ Docker Compose lets you define and start all Fed-BioMed components with a single
 
 The example below launches **one researcher** and **two nodes**, each with its own Node GUI.
 
-### Step 1 — Create the project directory structure
+### Step 1 — Create the project directory
 
-Create a working directory and the per-component data folders:
+Create a working directory for the Compose project:
 
 ```bash
-mkdir -p fbm-setup/{researcher,node1,node2}
+mkdir fbm-setup
 cd fbm-setup
 ```
 
-Each subfolder will be mounted into the corresponding container so that configuration and data persist across restarts.
+Docker will create and manage the named volumes automatically on first run — no need to create directories manually.
 
 ### Step 2 — Create the `docker-compose.yml`
 
@@ -434,10 +525,10 @@ services:
     image: fedbiomed/researcher:latest
     container_name: fbm-researcher
     environment:
-      - FBM_SERVER_HOST=0.0.0.0
+      - FBM_SERVER_HOST=fbm-researcher
       - FBM_SERVER_PORT=50051
     volumes:
-      - ./researcher:/fbm-researcher
+      - fbm-researcher:/fbm-researcher
     ports:
       - "50051:50051"   # gRPC server (nodes connect here)
       - "8888:8888"     # Jupyter notebook
@@ -449,10 +540,11 @@ services:
     image: fedbiomed/node:latest
     container_name: fbm-node1
     environment:
-      - FBM_RESEARCHER_IP=researcher
+      - FBM_RESEARCHER_IP=fbm-researcher
       - FBM_RESEARCHER_PORT=50051
+      - FBM_SECURITY_TRAINING_PLAN_APPROVAL=False
     volumes:
-      - ./node1:/fbm-node
+      - fbm-node1:/fbm-node
     ports:
       - "8484:8484"     # Node GUI
     networks:
@@ -464,16 +556,22 @@ services:
     image: fedbiomed/node:latest
     container_name: fbm-node2
     environment:
-      - FBM_RESEARCHER_IP=researcher
+      - FBM_RESEARCHER_IP=fbm-researcher
       - FBM_RESEARCHER_PORT=50051
+      - FBM_SECURITY_TRAINING_PLAN_APPROVAL=False
     volumes:
-      - ./node2:/fbm-node
+      - fbm-node2:/fbm-node
     ports:
       - "8485:8484"     # Node GUI (mapped to 8485 to avoid conflict with node1)
     networks:
       - fedbiomed-net
     depends_on:
       - researcher
+
+volumes:
+  fbm-researcher:
+  fbm-node1:
+  fbm-node2:
 
 networks:
   fedbiomed-net:
@@ -506,7 +604,7 @@ From the `fbm-setup/` directory, run:
 docker compose up -d
 ```
 
-This starts all containers in detached mode. Host data folders (`researcher/`, `node1/`, `node2/`) will be populated with the initial Fed-BioMed configuration on first run.
+This starts all containers in detached mode. The named volumes (`fbm-researcher`, `fbm-node1`, `fbm-node2`) are created automatically and populated with the initial Fed-BioMed configuration on first run.
 
 ### Step 4 — Verify the setup
 
