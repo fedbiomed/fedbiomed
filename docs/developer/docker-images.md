@@ -11,7 +11,7 @@ Docker images are located in the `docker` directory at the root of the Fed-BioMe
 * **Researcher:** The Docker image for the Fed-BioMed Researcher component.
 
 !!! warning "Build order" 
-    Docker images depend on each other, so it is important to respect the correct build order. The Base Docker image must be built first. After that, you can build the Node, Researcher, and Node GUI images. Once the Node image is built, the Node GPU image can be built on top of it. 
+    Docker images depend on each other, so it is important to respect the correct build order. The Base Docker image must be built first. After that, you can build the Node and Researcher images.
 
 ### Fed-BioMed Base Image
 
