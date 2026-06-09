@@ -6,8 +6,8 @@ FROM fedbiomed/base:${FBM_IMAGE_VERSION:-latest} AS fedbiomed-base
 # Redeclare ARGs from base image to make them available at build time
 ARG FEDBIOMED_USER=fedbiomed
 ARG FEDBIOMED_GROUP=fedbiomed
-ARG FEDBIOMED_UID=1001
-ARG FEDBIOMED_GID=101
+ARG FEDBIOMED_UID=2101
+ARG FEDBIOMED_GID=2101
 
 # Set environment variables to make them available at runtime
 ENV FEDBIOMED_USER=${FEDBIOMED_USER}

@@ -16,8 +16,8 @@ RUN yarn build
 # Stage 2: Build Python package without hatch hook
 FROM python:3.11-slim-bullseye AS python-build
 
-ARG FEDBIOMED_GID=1001
-ARG FEDBIOMED_UID=1001
+ARG FEDBIOMED_GID=2101
+ARG FEDBIOMED_UID=2101
 ARG FEDBIOMED_GROUP=fedbiomed
 ARG FEDBIOMED_USER=fedbiomed
 
@@ -60,8 +60,8 @@ RUN sed -i '/hatch\.build\.hooks/,/^$/d' pyproject.toml && pip install --no-cach
 # Stage 3: Final runtime image
 FROM debian:bullseye-slim
 
-ARG FEDBIOMED_GID=1001
-ARG FEDBIOMED_UID=1001
+ARG FEDBIOMED_GID=2101
+ARG FEDBIOMED_UID=2101
 ARG FEDBIOMED_GROUP=fedbiomed
 ARG FEDBIOMED_USER=fedbiomed
 
