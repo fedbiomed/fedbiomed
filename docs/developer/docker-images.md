@@ -8,7 +8,6 @@ Docker images are located in the `docker` directory at the root of the Fed-BioMe
 
 * **Base:** A minimal Docker image with the core Fed-BioMed installation and essential binaries.
 * **Node:** The Docker image for the Fed-BioMed Node component.
-* **Node GUI:** The image for the Fed-BioMed Node web application, including all necessary modules for the web server.
 * **Researcher:** The Docker image for the Fed-BioMed Researcher component.
 
 !!! warning "Build order" 
@@ -35,7 +34,7 @@ docker build \
     -t fedbiomed/base:<tag> ./ -f docker/base/Dockerfile
 ```
 
-Once the base image is built with a custom user, all other Fed-BioMed Docker images that use this base image will inherit that user configuration (except Node GPU). Therefore, if you change the user in the base image, make sure to rebuild the other images accordingly to ensure consistency across the stack. However, this is not the case for the Node GPU image, because it uses a multi-stage build where the base image is an NVIDIA-provided image. To rebuild a Node GPU image with a different user, you must redeclare the build arguments in the build command.
+Once the base image is built with a custom user, all other Fed-BioMed Docker images that use this base image will inherit that user configuration 
 
 !!! info "Tags"
     Please note that image tags are important to ensure that other images using the base image reference the correct version. By default, in the docker images the tag `latest` is used. Therefore, please use `latest` tag for `<tag>` if you want to follow default configuration.However, we recommend assigning appropriate and consistent tags when building images.
@@ -59,14 +58,6 @@ This means that if you have built the base image with the tag `latest`, you don'
 docker build \
     --build-arg FBM_IMAGE_VERSION=<tag> \
     -t fedbiomed/node:<tag> ./ -f docker/node/Dockerfile
-```
-
-#### Building the Node GUI Image
-
-```bash
-docker build \
-    --build-arg FBM_IMAGE_VERSION=<tag> \
-    -t fedbiomed/node-gui:<tag> ./ -f docker/node-gui/Dockerfile
 ```
 
 ### Building the Researcher Image
