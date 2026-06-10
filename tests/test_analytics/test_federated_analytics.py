@@ -1572,6 +1572,38 @@ class TestSecaggIntegration:
         assert node_output == {"age": {"sum": 90.0, "count": 360}}
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_num_expected_params_uses_schema_length(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """num_expected_params is the value count (schema length), not the payload length.
+
+        Regression test: under JLS the encrypted payload is vector-packed (many
+        values per plaintext), so ``len(params_encrypted)`` is smaller than the
+        number of statistics. Decoding must be driven by the schema length,
+        otherwise too few values are recovered and unflatten fails.
+        """
+        # 4 statistics, but only 1 packed plaintext (as JLS would produce).
+        schema = [["age", "sum"], ["age", "count"], ["bmi", "sum"], ["bmi", "count"]]
+        packed = [123456789]  # single packed plaintext, len 1 != len(schema) == 4
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply(packed, schema),
+            "node-2": _make_encrypted_reply(packed, schema),
+        }
+        # aggregate must receive the full value count to decode all of them.
+        mock_secagg.aggregate.return_value = [225.0, 50.0, 110.0, 50.0]
+
+        result = secagg_fa.fetch_stats("mean")
+
+        assert mock_secagg.aggregate.call_args.kwargs["num_expected_params"] == len(
+            schema
+        )
+        # All four values are recovered and unflattened (no zip length mismatch).
+        assert result.node_stats("__secagg__") == {
+            "age": {"sum": 450.0, "count": 100.0},
+            "bmi": {"sum": 220.0, "count": 100.0},
+        }
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_secagg_setup_called_with_node_ids(
         self, mock_fa_job_cls, secagg_fa, mock_secagg, mock_fds
     ):

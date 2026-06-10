@@ -97,6 +97,8 @@ class SecaggCrypter:
             )
 
         target_range = target_range or SAParameters.TARGET_RANGE
+        # Size the vector-encoder packing slots. Must match the decode side.
+        self._jls = JoyeLibert(target_range=target_range)
         # quantize params into [0, target_range-1] (FA uses a wider range than training)
         params = quantize(
             weights=params, clipping_range=clipping_range, target_range=target_range
@@ -191,6 +193,10 @@ class SecaggCrypter:
                 f"should be of type of integers."
             )
 
+        target_range = target_range or SAParameters.TARGET_RANGE
+        # Decode with the same slot size used to encode (derived from target_range)
+        self._jls = JoyeLibert(target_range=target_range)
+
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
         public_param = self._setup_public_param(biprime=biprime)
@@ -218,7 +224,7 @@ class SecaggCrypter:
         aggregated_params: List[float] = reverse_quantize(
             aggregated_params,
             clipping_range=clipping_range,
-            target_range=target_range or SAParameters.TARGET_RANGE,
+            target_range=target_range,
         )
         time_elapsed = time.process_time() - start
         logger.debug(
