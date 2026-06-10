@@ -51,11 +51,36 @@ def test_flatten_none_skipped():
 
 
 def test_flatten_stat_leaf():
-    """Typical per-feature stat leaf: {sum, count, sum_sq_centered}."""
+    """Typical per-feature stat leaf: keys are emitted in sorted order.
+
+    Dict keys are flattened sorted (count < sum < sum_sq_centered) regardless of
+    insertion order, so the layout is deterministic across nodes for secagg.
+    """
     output = {"age": {"sum": 450.0, "count": 10, "sum_sq_centered": 20450.0}}
     flat, schema = flatten_fa_output(output)
-    assert flat == [450.0, 10.0, 20450.0]
-    assert schema == [["age", "sum"], ["age", "count"], ["age", "sum_sq_centered"]]
+    assert flat == [10.0, 450.0, 20450.0]
+    assert schema == [["age", "count"], ["age", "sum"], ["age", "sum_sq_centered"]]
+
+
+def test_flatten_is_deterministic_across_insertion_orders():
+    """Two nodes with different dict insertion orders flatten identically.
+
+    Regression test: secure aggregation sums encrypted vectors position-by-position
+    (masks cancel by index, not by value). If nodes ordered their flat vectors
+    differently, the researcher would add e.g. node-1's ``sum`` to node-2's
+    ``count`` and silently corrupt the aggregate. Sorted flattening prevents this.
+    """
+    node1 = {"year": {"sum": 21516413.0, "count": 10667}}
+    node2 = {"year": {"count": 17965, "sum": 36233008.0}}  # different insertion order
+
+    flat1, schema1 = flatten_fa_output(node1)
+    flat2, schema2 = flatten_fa_output(node2)
+
+    assert schema1 == schema2  # identical layout → positions align across nodes
+    # Positional aggregate (as secagg does) now sums matching statistics.
+    aggregated = [a + b for a, b in zip(flat1, flat2, strict=True)]
+    result = unflatten_fa_output(aggregated, schema1)
+    assert result["year"] == {"count": 28632.0, "sum": 57749421.0}
 
 
 def test_flatten_multiple_features():

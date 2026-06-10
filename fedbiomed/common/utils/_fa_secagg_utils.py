@@ -31,7 +31,8 @@ def flatten_fa_output(output: dict) -> tuple[list[float], list]:
 
     def _traverse(obj: Any, path: list) -> None:
         if isinstance(obj, dict):
-            for k, v in obj.items():
+            # Sort keys for a node-independent, deterministic layout
+            for k, v in sorted(obj.items(), key=lambda kv: str(kv[0])):
                 _traverse(v, path + [k])
         elif isinstance(obj, (list, tuple)):
             for i, v in enumerate(obj):
