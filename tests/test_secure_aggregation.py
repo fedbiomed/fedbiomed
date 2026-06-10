@@ -123,6 +123,16 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
                 experiment_id=1345,
             )
 
+        # Fewer than 2 nodes is rejected (the researcher is not counted as a node).
+        with self.assertRaisesRegex(
+            FedbiomedSecureAggregationError, "at least 2 nodes"
+        ):
+            self.secagg.setup(
+                researcher_id=test_id,
+                parties=[test_id, "node-1"],
+                experiment_id="exp-id-1",
+            )
+
         # Execute setup
         self.secagg.setup(
             researcher_id=test_id,
@@ -466,6 +476,13 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
 
         state = self.lom.save_state_breakpoint()
         LomSecureAggregation.load_state_breakpoint(state)
+
+    def test_lom_secagg_02b_setup_requires_two_nodes(self):
+        """LOM rejects a setup with fewer than 2 nodes (researcher is not a node)."""
+        with self.assertRaisesRegex(
+            FedbiomedSecureAggregationError, "at least 2 nodes"
+        ):
+            self.lom.setup([test_id, "node-1"], self.experiment_id, test_id)
 
     def test_lom_secagg_03_aggregate(self):
         fake_replies = MagicMock(

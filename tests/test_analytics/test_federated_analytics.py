@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from fedbiomed.common.constants import SAParameters
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
+from fedbiomed.common.exceptions import (
+    FedbiomedError,
+    FedbiomedExperimentError,
+    FedbiomedSecureAggregationError,
+)
 from fedbiomed.common.message import FAReply
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import FederatedAnalytics
@@ -1504,11 +1508,18 @@ class TestSecaggIntegration:
     def test_secagg_with_fewer_than_two_nodes_raises(
         self, secagg_fa, mock_fds, mock_secagg
     ):
-        """Active secagg + <2 nodes raises a clear error before contacting nodes."""
+        """The <2-node guard lives in SecureAggregation.setup; FA delegates and surfaces it.
+
+        FA calls secagg.setup() with the participating nodes; if setup rejects them
+        (the centralised guard), the error propagates out of fetch_stats.
+        """
         mock_fds.node_ids.return_value = ["node-1"]
+        mock_secagg.setup.side_effect = FedbiomedSecureAggregationError(
+            "Secure aggregation requires at least 2 nodes"
+        )
         with pytest.raises(FedbiomedError, match="at least 2 nodes"):
             secagg_fa.fetch_stats("mean")
-        mock_secagg.setup.assert_not_called()
+        mock_secagg.setup.assert_called_once()
 
     def test_secagg_setup_sets_fa_clipping_range_on_scheme(
         self, secagg_fa, mock_secagg

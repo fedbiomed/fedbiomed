@@ -282,6 +282,15 @@ class _SecureAggregation(ABC):
                 f"string but got {type(parties)}"
             )
 
+        # Secure aggregation needs >= 2 nodes to be applied
+        nodes = [p for p in parties if p != researcher_id]
+        if len(nodes) < 2:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Secure aggregation requires at least 2 "
+                f"nodes, but only {len(nodes)} participate: {nodes}. Disable secure "
+                "aggregation or add more nodes."
+            )
+
         self._configure_round(
             researcher_id, parties, experiment_id, insecure_validation
         )
