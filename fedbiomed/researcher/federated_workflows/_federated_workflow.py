@@ -252,16 +252,33 @@ class FederatedWorkflow(ABC):
         self.set_experimentation_folder(experimentation_folder)
         self._node_state_agent = NodeStateAgent(federated_dataset=self._fds)
 
+        self._build_analytics()
+
+        # no preprocessing by default
+        self.set_preprocessing(PreprocType.NONE)
+
+    def _build_analytics(self) -> FederatedAnalytics:
+        """Creates the `FederatedAnalytics` companion using the current workflow state.
+
+        The analytics object is rebuilt (rather than mutated in place) whenever the
+        secure aggregation context changes, so that it always reflects the
+        experiment's current `secagg` and `training_data`. Rebuilding also resets the
+        FA result cache, which is the desired behaviour when the encryption context or
+        federated dataset changes.
+
+        Returns:
+            The freshly built `FederatedAnalytics` instance, also stored as
+            `self.analytics`.
+        """
         self.analytics = FederatedAnalytics(
             fds=self._fds,
             experiment_id=self._experiment_id,
             researcher_id=self._researcher_id,
             reqs=self._reqs,
             experimentation_folder=self._experimentation_folder,
+            secagg=self._secagg,
         )
-
-        # no preprocessing by default
-        self.set_preprocessing(PreprocType.NONE)
+        return self.analytics
 
     @property
     def requests(self) -> Requests:
@@ -827,6 +844,12 @@ class FederatedWorkflow(ABC):
                 f"{ErrorNumbers.FB410.value}: Expected `secagg` argument bool or "
                 f"`SecureAggregation` but got {type(secagg)}"
             )
+
+        # Keep the federated analytics companion in sync with the new secagg
+        # context. Guarded because `set_secagg` is also called during `__init__`,
+        # before `self.analytics` exists.
+        if getattr(self, "analytics", None) is not None:
+            self._build_analytics()
 
         return self._secagg
 
