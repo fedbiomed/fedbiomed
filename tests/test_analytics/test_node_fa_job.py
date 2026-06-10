@@ -445,7 +445,8 @@ def test_run_multiple_stats(fa_job_args, request_args):
     req = FARequest(**{**request_args, "stats": stats_list})
     job = FAJob(**{**fa_job_args, "request": req})
     mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": {"mean": 1, "sum": 6}}
+    # A [mean, sum] request yields the count+sum primitives (mean -> count+sum).
+    mock_dataset.compute_stats.return_value = {"col1": {"count": 6, "sum": 6}}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()

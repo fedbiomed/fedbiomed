@@ -459,8 +459,9 @@ class TestFederatedAnalytics:
     def test_same_stat_same_args_uses_cache(self, mock_fa_job_cls, base_fa):
         """Second call for the same primitive stat must be served from cache.
 
-        Primitive stats (count, sum, sum_sq_centered) are stored as-is in the result, so
-        the cache hit check ``s in available_stats()`` succeeds on the second call.
+        Primitive stats (count, sum, sum_sq_centered) are stored as-is, so the
+        cache-hit check finds them already satisfiable (present as a leaf or
+        derivable from cached primitives) and skips the second request.
         """
         replies = {"node-1": _make_reply({"age": {"count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = replies
@@ -538,6 +539,40 @@ class TestFederatedAnalytics:
 
         assert isinstance(result, FAResult)
         assert "variance" in result.computable_stats()
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_repeated_derived_stat_served_from_cache(self, mock_fa_job_cls, base_fa):
+        """A second variance/std request hits the cache, issuing no new node requests."""
+        round1 = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
+        round2 = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 396.0, "count": 100}})
+        }
+        mock_fa_job_cls.return_value.execute.side_effect = [round1, round2]
+
+        first = base_fa.fetch_stats("variance")
+        assert mock_fa_job_cls.call_count == 2  # round 1 + round 2
+
+        # Repeat the exact same request: must be served entirely from cache.
+        second = base_fa.fetch_stats("variance")
+        assert mock_fa_job_cls.call_count == 2  # unchanged — no new node requests
+        assert second is first  # same cached FAResult object
+        assert second.global_stats("variance") == first.global_stats("variance")
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_repeated_mean_served_from_cache(self, mock_fa_job_cls, base_fa):
+        """Repeated mean requests hit the cache (mean is derived from sum+count)."""
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_reply({"age": {"sum": 470.0, "count": 10}})
+        }
+
+        base_fa.fetch_stats("mean")
+        assert mock_fa_job_cls.call_count == 1
+
+        base_fa.mean()  # shorthand -> fetch_stats("mean")
+        base_fa.fetch_stats("mean")  # explicit repeat
+        base_fa.fetch_stats("count")  # also derivable from the cached primitives
+        base_fa.fetch_stats("sum")
+        assert mock_fa_job_cls.call_count == 1  # no further node requests
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_compute_multiple_stats_at_once(self, mock_fa_job_cls, base_fa):
@@ -989,11 +1024,14 @@ class TestGlobalStats:
             result.global_stats("variance")
 
     def test_no_stat_name_all_stats_match_individual_calls(self):
+        # sum+count primitives so mean (and sum, count) are all computable — the
+        # loop must cover the derived 'mean', not just the 'count' primitive.
         replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
-            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
+            "n1": _make_reply({"age": {"sum": 4500.0, "count": 100}}),
+            "n2": _make_reply({"age": {"sum": 4000.0, "count": 80}}),
         }
         result = FAResult(replies)
+        assert "mean" in result.computable_stats()  # guard: the loop covers mean
         all_at_once = result.global_stats()
         for stat in result.computable_stats():
             individual = result.global_stats(stat)
@@ -1050,12 +1088,13 @@ class TestGlobalStats:
     def test_global_stats_sequence_output(self):
         # global_stats() on list-typed outputs exercises the sequence branch in
         # _merge_stat_results (covers lines 328-334)
+        # sum+count primitives so the aggregated sequence carries mean as well.
         replies = {
             "n1": _make_reply(
-                [{"age": {"mean": 45.0, "count": 100}}, {"mean": 128.0, "count": 50}]
+                [{"age": {"sum": 4500.0, "count": 100}}, {"sum": 6400.0, "count": 50}]
             ),
             "n2": _make_reply(
-                [{"age": {"mean": 50.0, "count": 80}}, {"mean": 130.0, "count": 40}]
+                [{"age": {"sum": 4000.0, "count": 80}}, {"sum": 5200.0, "count": 40}]
             ),
         }
         result = FAResult(replies)
@@ -1375,9 +1414,9 @@ class TestCacheFallback:
                 }
             ),
         }
-        replies_mean_age = {
-            "node-1": _make_reply({"age": {"mean": 40.0}}),
-            "node-2": _make_reply({"age": {"mean": 45.0}}),
+        replies_mean_age = {  # a 'mean' request returns sum+count primitives
+            "node-1": _make_reply({"age": {"sum": 4000.0, "count": 100}}),
+            "node-2": _make_reply({"age": {"sum": 3600.0, "count": 80}}),
         }
         mock_fa_job_cls.return_value.execute.side_effect = [
             replies_count_age,  # step 1: partial cache for ["age"] (no superset yet → network)
@@ -1397,7 +1436,7 @@ class TestCacheFallback:
         # skipped and a merge network request is made instead
         result = base_fa.fetch_stats("mean", dataset_schema=["age"])
         assert mock_fa_job_cls.call_count == 3
-        assert "mean" in result.available_stats()
+        assert "mean" in result.computable_stats()  # derived from merged sum+count
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_fallback_skipped_for_sequence_output(self, mock_fa_job_cls, base_fa):

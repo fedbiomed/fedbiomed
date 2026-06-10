@@ -703,7 +703,8 @@ class FederatedAnalytics:
         filtered copy is stored under ``cache_key`` and returned.
         """
         for other in self._results_store.values():
-            if not all(s in other.available_stats() for s in missing):
+            satisfiable = set(other.available_stats()) | set(other.computable_stats())
+            if not all(s in satisfiable for s in missing):
                 continue
             filtered = other._filtered_copy(dataset_schema)
             if filtered is not None:
@@ -834,7 +835,7 @@ class FederatedAnalytics:
         derived = [s for s in stats if s in self._CENTERED_DERIVED]
         if derived:
             if cached is not None and set(stats).issubset(
-                set(cached.available_stats())
+                set(cached.computable_stats())
             ):
                 logger.info(
                     f"All requested statistics {stats} are already cached — "
@@ -848,9 +849,14 @@ class FederatedAnalytics:
                 self._log_global_stats(result)
             return result
 
-        missing = [
-            s for s in stats if cached is None or s not in cached.available_stats()
-        ]
+        # Re-requesting the same (node_ids, schema) key returns identical data, so a
+        # stat only needs requesting if it is present in NO form in the cache.
+        satisfiable = (
+            set(cached.available_stats()) | set(cached.computable_stats())
+            if cached is not None
+            else set()
+        )
+        missing = [s for s in stats if s not in satisfiable]
         if missing:
             recovered = (
                 self._recover_from_cache(cache_key, missing, dataset_schema)
