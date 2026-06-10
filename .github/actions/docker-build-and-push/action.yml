@@ -41,18 +41,6 @@ runs:
         echo "${{ steps.meta.outputs.tags }}"
         echo "${{ steps.meta.outputs.labels }}"
       shell: bash -l {0}
-    
-#    - name: Build an push image 
-#      uses: docker/build-push-action@v6
-#      with:
-#        push: true
-#        pull: true
-#        context: .
-#        file: ${{ inputs.file }} 
-#        tags: ${{ steps.meta.outputs.tags }}
-#        labels: ${{ steps.meta.outputs.labels }}
-#        build-args: FBM_IMAGE_VERSION=${{ steps.meta.outputs.version }} 
-
 
 #    Following actions are kept in case of disk space issue.
     - name: Tag used for images

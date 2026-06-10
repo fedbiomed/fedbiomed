@@ -31,8 +31,6 @@ RUN apt-get update && apt-get install -y socat
 RUN mkdir -p /fbm-researcher && \
     chown -R ${FEDBIOMED_USER}:${FEDBIOMED_GROUP} /fbm-researcher
 
-USER root:root
-
 # Install researcher-specific dependencies system-wide
 RUN pip install --no-cache-dir --no-index \
     --find-links=/tmp/wheels \

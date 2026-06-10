@@ -48,7 +48,6 @@ import json
 import logging
 import os
 import socket
-import sys
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone

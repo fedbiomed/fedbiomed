@@ -8,13 +8,11 @@ description: |
 on:
   push:
     branches:
-      - 'feature/1335-*'
       - 'develop'
       - 'master'
     tags:
       - 'v*.*.*'  # Triggers on tags like v1.2.3
   workflow_dispatch:
-
 
 jobs:
   build-and-push:
@@ -38,6 +36,7 @@ jobs:
         id: test  
         run: | 
           if [[ ( "${GITHUB_REF_NAME}" == "master" && "${GITHUB_EVENT_NAME}" == "push" ) || \
+                 ( "${GITHUB_REF_NAME}" == "develop" && "${GITHUB_EVENT_NAME}" == "push" ) || \
                  "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             echo "TEST_BUILD=true" >> $GITHUB_OUTPUT
           else
