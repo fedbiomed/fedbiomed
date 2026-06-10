@@ -497,6 +497,52 @@ This setup allows the Node container to connect to the Researcher via its contai
 
 It is up to the user to configure Docker networking according to their deployment scenario. For more information about Docker networking and available drivers, refer to the [Docker networking documentation](https://docs.docker.com/engine/network/drivers/).
 
+---
+
+### Connecting Fed-BioMed Instances Across Different Networks
+
+The setups above assume all components run on the same host or within the same Docker network. When nodes and the researcher are on **different physical machines or separate networks**, additional networking configuration is required.
+
+!!! warning "Use VPN for Sensitive Data and Production Deployments"
+    The instructions below expose the researcher's gRPC port directly over the public internet **without transport-level encryption or authentication**. Any host that can reach the port can attempt to connect. This is acceptable for experimentation or development but **is not recommended for deployments involving real patient data or sensitive datasets**.
+
+    For secure, production-grade deployments, use the **VPN-based approach** provided by Fed-BioMed. The VPN setup establishes an encrypted private network between all participants before any Fed-BioMed traffic is exchanged, and is the recommended solution whenever data privacy and regulatory compliance matter.
+
+#### Public IP Setup (Researcher as the Public Endpoint)
+
+In a cross-network federation, only the **researcher needs a publicly reachable IP address**. Nodes always initiate outbound connections to the researcher's gRPC server — the researcher never connects back to the nodes — so nodes can sit behind NAT or firewalls without any port-forwarding.
+
+**On the researcher machine:**
+
+Set `FBM_SERVER_HOST=0.0.0.0` so the gRPC server binds to all interfaces, and publish port `50051` to the host:
+
+```bash
+docker run -it -d \
+    --name fbm-researcher \
+    -e FBM_SERVER_HOST=0.0.0.0 \
+    -e FBM_SERVER_PORT=50051 \
+    -p 50051:50051 \
+    -p 8888:8888 \
+    -v <path-to-fbm-researcher>:/fbm-researcher \
+    fedbiomed/researcher:latest
+```
+
+Make sure port `50051` is open in the machine's firewall and, if applicable, in the cloud provider's security group or inbound rules.
+
+**On each node machine:**
+
+Point the node at the researcher's **public IP address** (or DNS name):
+
+```bash
+docker run -it -d \
+    -e FBM_RESEARCHER_IP=<researcher-public-ip-or-hostname> \
+    -e FBM_RESEARCHER_PORT=50051 \
+    -v <path-to-fbm-node>:/fbm-node \
+    fedbiomed/node:latest
+```
+
+No port needs to be published on the node side.
+
 
 ## Use Docker Compose to Run and Manage Multiple Fed-BioMed Instances
 
@@ -778,7 +824,7 @@ tini → /my-entrypoint.sh  (your custom logic)
 
 Replace `<version-tag>` with the desired image tag (e.g. `latest`) and `<your-package>` with the package(s) you need.
 
-## Torubleshooting
+## Troubleshooting
 
 **Fed-BioMed Docker images automatically generate configuration files and continue using them across container restarts.** These configuration files are stored in the mounted host directory corresponding to the container's `/fbm-node` path.
 
