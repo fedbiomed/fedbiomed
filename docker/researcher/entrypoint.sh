@@ -22,20 +22,17 @@ trap cleanup SIGTERM SIGINT
 fedbiomed component create -c researcher --path /fbm-researcher  --exist-ok
 echo "Starting FBM Jupyter Notebook server..."
 echo "Server port: $FBM_SERVER_PORT"
-exec jupyter notebook /fbm-researcher/notebooks \
-    --ip=0.0.0.0 --no-browser --allow-root \
-    --NotebookApp.token=''
 
-
-# proxy port for TensorBoard
-# enables launching TB without `--host` option (thus listening only on `localhost`)
-# + `watch` for easy respawn in case of failure
-while true ; do \
-  socat TCP-LISTEN:6007,fork,reuseaddr,su=$FEDBIOMED_USER TCP4:127.0.0.1:6006 ; \
-  sleep 1 ; \
+# start TensorBoard proxy first (background)
+while true; do
+  socat TCP-LISTEN:6007,fork,reuseaddr TCP4:127.0.0.1:6006
+  sleep 1
 done &
+
+# run Jupyter in background (no exec) so trap + proxy stay alive
+jupyter notebook /fbm-researcher/notebooks \
+    --ip=0.0.0.0 --no-browser --allow-root --NotebookApp.token='' &
 
 echo "Researcher container is ready"
 
-# Wait for any background job to finish
 wait
