@@ -1524,9 +1524,12 @@ class TestSecaggIntegration:
     def test_secagg_setup_sets_fa_clipping_range_on_scheme(
         self, secagg_fa, mock_secagg
     ):
-        """FA configures the scheme with FA_CLIPPING_RANGE (flows to nodes + aggregate)."""
-        secagg_fa._secagg_setup(["node-1", "node-2"])
+        """FA pins FA_CLIPPING_RANGE locally but never forwards it to the nodes."""
+        secagg_arguments = secagg_fa._secagg_setup(["node-1", "node-2"])
+        # pinned locally for decryption
         assert mock_secagg.clipping_range == SAParameters.FA_CLIPPING_RANGE
+        # but never sent to the nodes
+        assert "secagg_clipping_range" not in secagg_arguments
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_aggregate_uses_fa_ranges(self, mock_fa_job_cls, secagg_fa, mock_secagg):

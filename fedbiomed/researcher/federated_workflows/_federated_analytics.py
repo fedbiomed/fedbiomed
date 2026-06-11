@@ -599,9 +599,12 @@ class FederatedAnalytics:
             researcher_id=self._researcher_id,
             insecure_validation=False,
         )
-        # FA clipping range is fixed so the researcher can set it directly
+        # FA clipping range is fixed: pin it locally for decryption, but never send
+        # it to the nodes (they apply their own constant).
         self._secagg.clipping_range = SAParameters.FA_CLIPPING_RANGE
-        return dict(self._secagg.train_arguments())
+        secagg_arguments = dict(self._secagg.train_arguments())
+        secagg_arguments.pop("secagg_clipping_range", None)
+        return secagg_arguments
 
     def _execute_and_update_cache(
         self,

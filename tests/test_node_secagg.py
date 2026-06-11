@@ -332,6 +332,62 @@ def test_secagg_round_encrypt_forwards_target_range(
     assert mock_crypter.return_value.encrypt.call_args.kwargs["target_range"] == 999
 
 
+@pytest.mark.parametrize(
+    "args_fixture, manager_fixture, get_ret, crypter, node_id",
+    [
+        (
+            "lom_args",
+            "mock_dhmanager",
+            {"parties": ["node-1", "node-2"], "context": {"node-2": b"\x02" * 32}},
+            "SecaggLomCrypter",
+            "node-1",
+        ),
+        (
+            "jls_args",
+            "mock_skmanager",
+            {
+                "parties": ["researcher-1", "node-1", "node-2"],
+                "context": {"server_key": 12345, "biprime": 1156},
+            },
+            "SecaggCrypter",
+            "test-node-id",
+        ),
+    ],
+)
+def test_secagg_round_encrypt_clipping_range_override(
+    request,
+    db,
+    mock_skmanager,
+    mock_dhmanager,
+    args_fixture,
+    manager_fixture,
+    get_ret,
+    crypter,
+    node_id,
+):
+    """clipping_range overrides the request value; None falls back to it (3)."""
+    request.getfixturevalue(manager_fixture).return_value.get.return_value = get_ret
+    with patch(f"fedbiomed.node.secagg._secagg_round.{crypter}") as mock_crypter:
+        secagg_round = SecaggRound(
+            db=db,
+            node_id=node_id,
+            secagg_active=True,
+            force_secagg=True,
+            secagg_arguments=request.getfixturevalue(args_fixture),
+            experiment_id="exp-id",
+        )
+        # explicit override forwarded to the crypter
+        secagg_round.scheme.encrypt(
+            params=[1.0, 1.0], current_round=1, clipping_range=999
+        )
+        assert (
+            mock_crypter.return_value.encrypt.call_args.kwargs["clipping_range"] == 999
+        )
+        # None falls back to the request's secagg_clipping_range (3)
+        secagg_round.scheme.encrypt(params=[1.0, 1.0], current_round=1)
+        assert mock_crypter.return_value.encrypt.call_args.kwargs["clipping_range"] == 3
+
+
 def test_secagg_round_no_secagg_plaintext_path(db, mock_skmanager, mock_dhmanager):
     """No secagg_arguments and force_secagg=False → plaintext path, use_secagg=False."""
     secagg_round = SecaggRound(
