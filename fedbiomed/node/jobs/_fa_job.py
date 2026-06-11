@@ -194,6 +194,41 @@ class FAJob(_BaseJob):
 
         return dataset
 
+    def _check_clipping_overflow(
+        self, flat: list, schema: list, clip: float
+    ) -> Optional[ErrorMessage]:
+        """Reject statistics outside [-clip, clip]; encrypting them corrupts the aggregate.
+
+        Args:
+            flat: Flattened computed analytics values.
+            schema: Per-value key-paths (parallel to `flat`); empty path = bare scalar.
+            clip: Symmetric clipping bound.
+
+        Returns:
+            An ErrorMessage naming the offenders, or None if all values fit.
+        """
+        named = []
+        n_over = 0
+        for value, key_path in zip(flat, schema, strict=True):
+            if value > clip or value < -clip:
+                n_over += 1
+                path = ".".join(str(k) for k in key_path)
+                if path:  # bare scalars have no key-path → no name to report
+                    named.append(path)
+
+        if not n_over:
+            return None
+
+        where = f" Offending statistic(s): {', '.join(named)}." if named else ""
+        return self._build_error_msg(
+            msg=(
+                f"{n_over} computed analytics value(s) exceed the secure "
+                f"aggregation clipping range; encrypting would "
+                f"corrupt the result.{where} Restrict the request."
+            ),
+            errnum=ErrorNumbers.FB325.value,
+        )
+
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
 
@@ -267,26 +302,9 @@ class FAJob(_BaseJob):
                 self._secagg_arguments.get("secagg_clipping_range")
                 or SAParameters.FA_CLIPPING_RANGE
             )
-            # Report *where* the overflow is (column/stat key-path) to help pinpoint it
-            n_over = 0
-            named = []
-            for i, v in enumerate(flat):
-                if v > clip or v < -clip:
-                    n_over += 1
-                    path = ".".join(str(k) for k in schema[i])
-                    if path:  # a leaf may have no key-path (bare scalar) → no name
-                        named.append(path)
-            if n_over:
-                # Name the offenders when available; otherwise just signal the error.
-                where = f" Offending statistic(s): {', '.join(named)}." if named else ""
-                return self._build_error_msg(
-                    msg=(
-                        f"{n_over} computed analytics value(s) exceed the secure "
-                        f"aggregation clipping range; encrypting would "
-                        f"corrupt the result.{where} Restrict the request."
-                    ),
-                    errnum=ErrorNumbers.FB325.value,
-                )
+            clip_error = self._check_clipping_overflow(flat, schema, clip)
+            if clip_error is not None:
+                return clip_error
             fa_round = self._secagg_arguments.get("fa_round", 1)
             # FA uses a wider quantization range than training (node-local constant)
             encrypted_params = secagg_round.scheme.encrypt(

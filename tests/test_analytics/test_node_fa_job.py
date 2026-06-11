@@ -662,3 +662,56 @@ def test_run_secagg_round_error_returns_error_message(
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
     assert "context missing" in reply.extra_msg
+
+
+# ----------------------------- _check_clipping_overflow -------------
+
+
+@pytest.mark.parametrize(
+    "flat,schema,clip",
+    [
+        ([], [], 3),  # no values
+        ([3, -3, 0], [["a"], ["b"], ["c"]], 3),  # exactly on the bounds is allowed
+        ([1.5, -2.0], [["a", "sum"], ["b"]], 3),  # strictly inside
+    ],
+)
+def test_check_clipping_overflow_within_range_returns_none(fa_job, flat, schema, clip):
+    """Values in [-clip, clip] (bounds inclusive) produce no error."""
+    assert fa_job._check_clipping_overflow(flat, schema, clip) is None
+
+
+def test_check_clipping_overflow_over_upper_bound(fa_job):
+    """A value above clip is reported by its key-path, count is 1."""
+    err = fa_job._check_clipping_overflow([1.0, 99.0], [["age"], ["income", "sum"]], 3)
+    assert isinstance(err, ErrorMessage)
+    assert err.errnum == ErrorNumbers.FB325.value
+    assert "1 computed analytics value(s)" in err.extra_msg
+    assert "income.sum" in err.extra_msg
+    assert "99" not in err.extra_msg  # never echo the unencrypted value
+
+
+def test_check_clipping_overflow_below_lower_bound(fa_job):
+    """A value below -clip is also caught."""
+    err = fa_job._check_clipping_overflow([-99.0], [["loss"]], 3)
+    assert isinstance(err, ErrorMessage)
+    assert "loss" in err.extra_msg
+
+
+def test_check_clipping_overflow_unnamed_offender(fa_job):
+    """A bare scalar (empty key-path) fires the error without a name clause."""
+    err = fa_job._check_clipping_overflow([99.0], [[]], 3)
+    assert isinstance(err, ErrorMessage)
+    assert "Offending statistic(s)" not in err.extra_msg
+    assert "exceed the secure aggregation clipping range" in err.extra_msg
+
+
+def test_check_clipping_overflow_multiple_offenders_named_and_unnamed(fa_job):
+    """Count tallies every offender; only those with a key-path are named."""
+    err = fa_job._check_clipping_overflow(
+        [99.0, 1.0, -50.0, 99.0],
+        [["a", "sum"], ["b"], [], ["c"]],
+        3,
+    )
+    assert "3 computed analytics value(s)" in err.extra_msg
+    assert "a.sum" in err.extra_msg and "c" in err.extra_msg
+    assert "b" not in err.extra_msg.split("Offending statistic(s):")[1]
