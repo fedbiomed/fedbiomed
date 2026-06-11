@@ -369,23 +369,58 @@ For more details, see the full guide on [deploying datasets](../nodes/deploying-
 
 ---
 
-!!! note "GPU Support"
-    Docker containers can utilize GPUs as long as the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) is properly installed and configured. Once the toolkit is set up, you can enable GPU support by using the `--gpus all` flag with the `docker run` command, or by using the `device_requests` section in a Docker [Compose](https://docs.docker.com/compose/how-tos/gpu-support/) file.
 
-    The `fedbiomed/node` image installs PyTorch on Linux with CUDA support bundled — no NVIDIA base image is required. The NVIDIA Container Toolkit exposes the GPU device to the container, and PyTorch uses its bundled CUDA runtime to communicate with it.
+
+### Starting with GPU Option
+
+Docker containers can utilize GPUs as long as the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) is properly installed and configured on the host. Once the toolkit is set up, GPU access is enabled by passing `--gpus` to `docker run`, or via the `device_requests` block in a Docker [Compose](https://docs.docker.com/compose/how-tos/gpu-support/) file.
+
+The `fedbiomed/node` image installs PyTorch with CUDA support bundled — no NVIDIA base image is required. The NVIDIA Container Toolkit exposes the GPU device to the container, and PyTorch uses its bundled CUDA runtime to communicate with it.
 
 !!! warning "CUDA Version Compatibility"
-    PyTorch bundles a specific CUDA version in its wheel (e.g. `cu126`). The NVIDIA driver on your **host machine** must support that CUDA version or newer. If the driver is too old, PyTorch will not detect the GPU even when `--gpus all` is set.
+    PyTorch bundles a specific CUDA version in its wheel (e.g. `cu126`). The NVIDIA driver on the **host machine** must support that CUDA version or newer. If the driver is too old, PyTorch will not detect the GPU even when `--gpus all` is passed.
 
-    To check the maximum CUDA version your driver supports, run on the host:
+    Check the maximum CUDA version your host driver supports by running:
 
     ```bash
     nvidia-smi
     ```
 
-    The output shows the **CUDA Version** in the top-right corner. This must be greater than or equal to the CUDA version bundled with the installed PyTorch wheel. If it is not, update your NVIDIA driver before launching the container.
+    The **CUDA Version** shown in the top-right corner must be greater than or equal to the CUDA version bundled with the installed PyTorch wheel. If it is not, update your NVIDIA driver before launching the container.
 
----
+#### Enabling GPU in the Node
+
+Docker exposes GPUs to the container, but the Fed-BioMed node process must also be told to use them. This is controlled through the `FBM_NODE_START_OPTIONS` environment variable, which is forwarded directly to the `fedbiomed node start` command at container startup.
+
+The relevant flags are:
+
+| Flag | Description |
+| ---- | ----------- |
+| `--gpu` | Activate GPU usage |
+| `--gpu-num <n>` | Number of GPUs to use (default: `1`) |
+| `--gpu-only` | Restrict training to GPU only; implies `--gpu` |
+
+Pass them together via `FBM_NODE_START_OPTIONS`:
+
+```bash
+docker run -it -d \
+    --gpus all \
+    --network fedbiomed-net \
+    --name fbm-node-1 \
+    -v <path-to-host-fbm-node>:/fbm-node \
+    -e FBM_RESEARCHER_IP=fbm-researcher \
+    -e FBM_RESEARCHER_PORT=50051 \
+    -e FBM_NODE_START_OPTIONS="--gpu --gpu-num 1" \
+    fedbiomed/node:latest
+```
+
+Use `--gpu-only` instead of `--gpu` if you want to prevent the node from falling back to CPU when a GPU is unavailable:
+
+```bash
+-e FBM_NODE_START_OPTIONS="--gpu-only"
+```
+
+For more details on GPU usage within experiments, see the [Using GPU](../nodes/using-gpu.md) documentation.
 
 ### Node GUI
 
