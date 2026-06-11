@@ -1489,7 +1489,7 @@ class TestSecaggIntegration:
         secagg.train_arguments.return_value = {
             "secagg_scheme": "LOM",
             "secagg_random": 0.5,
-            "secagg_clipping_range": 3,
+            "secagg_clipping_range": SAParameters.FA_CLIPPING_RANGE,
             "parties": ["node-1", "node-2"],
         }
         return secagg
@@ -1524,9 +1524,13 @@ class TestSecaggIntegration:
     def test_secagg_setup_sets_fa_clipping_range_on_scheme(
         self, secagg_fa, mock_secagg
     ):
-        """FA configures the scheme with FA_CLIPPING_RANGE (flows to nodes + aggregate)."""
-        secagg_fa._secagg_setup(["node-1", "node-2"])
+        """FA sends both fixed ranges so the nodes can validate them."""
+        secagg_arguments = secagg_fa._secagg_setup(["node-1", "node-2"])
         assert mock_secagg.clipping_range == SAParameters.FA_CLIPPING_RANGE
+        assert (
+            secagg_arguments["secagg_clipping_range"] == SAParameters.FA_CLIPPING_RANGE
+        )
+        assert secagg_arguments["secagg_target_range"] == SAParameters.FA_TARGET_RANGE
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_aggregate_uses_fa_ranges(self, mock_fa_job_cls, secagg_fa, mock_secagg):

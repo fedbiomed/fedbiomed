@@ -248,6 +248,23 @@ class FAJob(_BaseJob):
                     errnum=ErrorNumbers.FB325.value,
                 )
 
+        # FA ranges are fixed; reject a request that disagrees with the node constants.
+        if self._secagg_arguments:
+            for key, expected in (
+                ("secagg_clipping_range", SAParameters.FA_CLIPPING_RANGE),
+                ("secagg_target_range", SAParameters.FA_TARGET_RANGE),
+            ):
+                requested = self._secagg_arguments.get(key)
+                if requested != expected:
+                    return self._build_error_msg(
+                        msg=(
+                            f"FA secagg '{key}' mismatch: request={requested}, "
+                            f"node={expected}; node and researcher must run the same "
+                            f"Fed-BioMed version."
+                        ),
+                        errnum=ErrorNumbers.FB325.value,
+                    )
+
         try:
             dataset = self._build_dataset(DataReturnFormat.SKLEARN)
         except _InternalJobError as e:

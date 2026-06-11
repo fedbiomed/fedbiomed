@@ -2,7 +2,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, Stats
+from fedbiomed.common.constants import (
+    DatasetTypes,
+    ErrorNumbers,
+    SAParameters,
+    Stats,
+)
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecureAggregationError
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
@@ -467,7 +472,8 @@ def secagg_args():
     return {
         "secagg_scheme": SecureAggregationSchemes.JOYE_LIBERT,
         "secagg_servkey_id": "serv-id",
-        "secagg_clipping_range": 3,
+        "secagg_clipping_range": SAParameters.FA_CLIPPING_RANGE,
+        "secagg_target_range": SAParameters.FA_TARGET_RANGE,
         "secagg_random": 0.5,
         "parties": ["researcher-1", "node-1", "node-2"],
         "fa_round": 2,
@@ -511,6 +517,34 @@ def test_run_secagg_force_without_args_returns_error(fa_job_args, fa_request):
 
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
+
+
+@pytest.mark.parametrize(
+    "key, bad_value",
+    [
+        ("secagg_clipping_range", SAParameters.FA_CLIPPING_RANGE + 1),
+        ("secagg_clipping_range", None),  # missing
+        ("secagg_target_range", SAParameters.FA_TARGET_RANGE + 1),
+        ("secagg_target_range", None),  # missing
+    ],
+)
+def test_run_secagg_range_mismatch_rejected(
+    fa_job_args, fa_request, secagg_args, key, bad_value
+):
+    """A request whose FA range differs from (or omits) the node constant is rejected."""
+    if bad_value is None:
+        secagg_args.pop(key)
+    else:
+        secagg_args[key] = bad_value
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+
+    reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    assert key in reply.extra_msg
 
 
 def test_run_secagg_not_active_returns_error(fa_job_args, fa_request, secagg_args):
@@ -568,16 +602,15 @@ def test_run_encrypted_path_rejects_out_of_clipping_range(
     mock_secagg.use_secagg = True
     mock_secagg_cls.return_value = mock_secagg
 
-    secagg_args["secagg_clipping_range"] = (
-        3  # 'income.sum' (99) exceeds it; 'age' is fine
-    )
+    # a statistic above the fixed node-side clipping range is rejected
+    over = SAParameters.FA_CLIPPING_RANGE + 1
     job = _make_fa_job(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
     mock_dataset = MagicMock()
     mock_dataset.compute_stats.return_value = {
         "age": {"sum": 1.0, "count": 2},
-        "income": {"sum": 99.0, "count": 2},
+        "income": {"sum": over, "count": 2},  # exceeds FA_CLIPPING_RANGE; 'age' is fine
     }
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
@@ -589,7 +622,7 @@ def test_run_encrypted_path_rejects_out_of_clipping_range(
     # The message names the offending column/stat to help the user...
     assert "income.sum" in reply.extra_msg
     # ...but never echoes the offending value (would leak an unencrypted statistic).
-    assert "99" not in reply.extra_msg
+    assert str(over) not in reply.extra_msg
 
 
 @patch("fedbiomed.node.jobs._fa_job.SecaggRound")
@@ -601,12 +634,12 @@ def test_run_encrypted_path_rejects_out_of_clipping_range_unnamed(
     mock_secagg.use_secagg = True
     mock_secagg_cls.return_value = mock_secagg
 
-    secagg_args["secagg_clipping_range"] = 3  # bare value 99 exceeds it
     job = _make_fa_job(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
     mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = 99.0  # scalar → empty key-path
+    # scalar → empty key-path; exceeds the fixed FA_CLIPPING_RANGE constant
+    mock_dataset.compute_stats.return_value = float(SAParameters.FA_CLIPPING_RANGE + 1)
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()
@@ -634,7 +667,7 @@ def test_run_encrypted_path_uses_fa_round_from_args(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
     mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"x": 1.0}  # within clipping range (3)
+    mock_dataset.compute_stats.return_value = {"x": 1.0}  # within FA_CLIPPING_RANGE
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         job.run()
