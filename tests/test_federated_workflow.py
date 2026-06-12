@@ -17,7 +17,10 @@ from fedbiomed.common.exceptions import (
     FedbiomedValueError,
 )
 from fedbiomed.researcher.datasets import FederatedDataset
-from fedbiomed.researcher.federated_workflows import FederatedWorkflow
+from fedbiomed.researcher.federated_workflows import (
+    FederatedAnalytics,
+    FederatedWorkflow,
+)
 from fedbiomed.researcher.federated_workflows.preproc import FedCombatPreproc
 from fedbiomed.researcher.secagg import SecureAggregation
 
@@ -258,6 +261,28 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         for scheme in bad_schemes:
             with self.assertRaises(FedbiomedExperimentError):
                 exp.set_secagg(True, scheme)
+
+    def test_federated_workflow_07b_analytics_secagg_integration(self):
+        """The FederatedAnalytics companion is wired to the workflow secagg/fds."""
+        # 1. Built at construction time and reflecting the experiment's secagg
+        exp = FederatedWorkflow(secagg=True)
+        self.assertIsInstance(exp.analytics, FederatedAnalytics)
+        self.assertIs(exp.analytics._secagg, exp.secagg)
+        self.assertTrue(exp.analytics._secagg.active)
+        # and sharing the same federated dataset object
+        self.assertIs(exp.analytics._fds, exp.training_data())
+
+        # 2. set_secagg rebuilds analytics and keeps the secagg context in sync
+        analytics_before = exp.analytics
+        exp.set_secagg(False)
+        self.assertIsNot(exp.analytics, analytics_before)  # rebuilt
+        self.assertIs(exp.analytics._secagg, exp.secagg)
+        self.assertFalse(exp.analytics._secagg.active)
+
+        # 3. Setting an explicit SecureAggregation instance also propagates
+        _secagg = MagicMock(spec=fedbiomed.researcher.secagg.SecureAggregation)
+        exp.set_secagg(_secagg)
+        self.assertIs(exp.analytics._secagg, _secagg)
 
     def test_federated_workflow_08_consistency_fds_tags(self):
         self.fake_search_reply = {
@@ -536,6 +561,11 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         self.assertEqual(exp.secagg.scheme, SecureAggregationSchemes.LOM)
         self.assertIsInstance(exp_tempo_id, str)
         mock_load_fds.assert_called_once_with(breakpoint_json["training_data"])
+
+        # The analytics companion must reflect the restored fds and secagg, not the
+        # transient ones built during the initial cls() construction.
+        self.assertIs(exp.analytics._fds, exp.training_data())
+        self.assertIs(exp.analytics._secagg, exp.secagg)
 
         # 2. Test with preprocessing
         breakpoint_json["preprocessing"] = {

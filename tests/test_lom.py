@@ -7,6 +7,7 @@ from secrets import token_bytes, token_urlsafe
 import numpy as np
 import pytest
 
+from fedbiomed.common.constants import SAParameters
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.secagg import (
     LOM,
@@ -149,6 +150,41 @@ def test_secaggg_lom_crypter_01_encrypt(lom_crypter, pairwise_keys):
             math.isclose(v1, v2, rel_tol=0.01)
             for v1, v2 in zip(result, params, strict=False)
         )
+    )
+
+
+def test_secaggg_lom_crypter_02_target_range_preserves_precision(
+    lom_crypter, pairwise_keys
+):
+    """FA_TARGET_RANGE recovers large values over a wide clipping range; the
+    default TARGET_RANGE is too coarse and loses them."""
+    node_ids, _, pwkeys = pairwise_keys
+    params = [123456.0, -98765.0, 4321.0]
+    clipping_range = 1_000_000
+
+    def round_trip(target_range):
+        enc = functools.partial(
+            lom_crypter.encrypt,
+            current_round=1,
+            node_ids=node_ids,
+            params=params,
+            weight=1,
+            clipping_range=clipping_range,
+            target_range=target_range,
+        )
+        e = [enc(node_id=node_ids[i], pairwise_secrets=pwkeys[i]) for i in range(3)]
+        # 3 identical nodes -> mean == params
+        return lom_crypter.aggregate(
+            e, 3, clipping_range=clipping_range, target_range=target_range
+        )
+
+    fa = round_trip(SAParameters.FA_TARGET_RANGE)
+    assert all(math.isclose(g, e, abs_tol=1.0) for g, e in zip(fa, params, strict=True))
+
+    # None -> TARGET_RANGE (backward-compatible default), too coarse here.
+    default = round_trip(None)
+    assert not all(
+        math.isclose(g, e, abs_tol=1.0) for g, e in zip(default, params, strict=True)
     )
 
 

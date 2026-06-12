@@ -26,6 +26,7 @@ class FARequestJob(Job):
         stats_args: Optional[dict],
         stats: Optional[list],
         dataset_schema: Optional[list],
+        secagg_arguments: Optional[Dict] = None,
         **kwargs,
     ) -> None:
         """Initialize the FARequestJob.
@@ -37,6 +38,8 @@ class FARequestJob(Job):
             stats_args: Keyword arguments passed to the statistics functions.
             stats: List of statistic names to compute.
             dataset_schema: Optional schema descriptor used to validate the dataset.
+            secagg_arguments: Secure aggregation arguments forwarded to each node in the
+                FARequest; None means no encryption is requested.
             **kwargs: Forwarded to the base `Job` constructor.
         """
         super().__init__(**kwargs)
@@ -63,6 +66,7 @@ class FARequestJob(Job):
         self._stats_args = stats_args
         self._dataset_schema = dataset_schema
         self._stats = stats
+        self._secagg_arguments = secagg_arguments
 
     def execute(self) -> Dict[str, FAReply]:
         """Send the FA request to all nodes and collect replies.
@@ -80,6 +84,7 @@ class FARequestJob(Job):
             fa_id=self._fa_id,
             stats_args=self._stats_args,
             dataset_schema=self._dataset_schema,
+            secagg_arguments=self._secagg_arguments,
         )
 
         requests = MessagesByNode()

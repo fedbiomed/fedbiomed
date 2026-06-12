@@ -25,10 +25,6 @@ class SecaggCrypter:
     by converting it proper format for the framework.
     """
 
-    def __init__(self) -> None:
-        """Constructs ParameterEncrypter"""
-        self._jls = JoyeLibert()
-
     @staticmethod
     def _setup_public_param(biprime: int) -> PublicParam:
         """Creates public parameter for encryption
@@ -55,6 +51,7 @@ class SecaggCrypter:
         biprime: int,
         clipping_range: Union[int, None] = None,
         weight: Optional[int] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
     ) -> List[int]:
         """Encrypts model parameters.
 
@@ -95,8 +92,13 @@ class SecaggCrypter:
                 f"{ErrorNumbers.FB624.value}: The argument `key` must be integer"
             )
 
-        # first we quantize the parameters, and we get params in the range [0, 2^VEParameters.TARGET_RANGE]
-        params = quantize(weights=params, clipping_range=clipping_range)
+        target_range = target_range or SAParameters.TARGET_RANGE
+        # Size the vector-encoder packing slots. Must match the decode side.
+        jls = JoyeLibert(target_range=target_range)
+        # quantize params into [0, target_range-1] (FA uses a wider range than training)
+        params = quantize(
+            weights=params, clipping_range=clipping_range, target_range=target_range
+        )
 
         # We multiply the parameters with the weight, and we get params in
         # the range [0, 2^(log2(VEParameters.TARGET_RANGE) + log2(VEParameters.WEIGHT_RANGE)) - 1]
@@ -107,7 +109,7 @@ class SecaggCrypter:
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
                     f"{SAParameters.WEIGHT_RANGE}, but got {weight}"
                 )
-            params = self._apply_weighting(params, weight)
+            params = self._apply_weighting(params, weight, target_range)
 
         public_param = self._setup_public_param(biprime=biprime)
 
@@ -117,7 +119,7 @@ class SecaggCrypter:
         try:
             # Encrypt parameters
 
-            encrypted_params: List[mpz] = self._jls.protect(
+            encrypted_params: List[mpz] = jls.protect(
                 public_param=public_param,
                 user_key=key,
                 tau=current_round,
@@ -144,6 +146,7 @@ class SecaggCrypter:
         total_sample_size: int,
         clipping_range: Union[int, None] = None,
         num_expected_params: int = 1,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
     ) -> List[float]:
         """Decrypt given parameters
 
@@ -186,6 +189,10 @@ class SecaggCrypter:
                 f"should be of type of integers."
             )
 
+        target_range = target_range or SAParameters.TARGET_RANGE
+        # Decode with the same slot size used to encode (derived from target_range)
+        jls = JoyeLibert(target_range=target_range)
+
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
         public_param = self._setup_public_param(biprime=biprime)
@@ -194,7 +201,7 @@ class SecaggCrypter:
         params = self._convert_to_encrypted_number(params, public_param)
 
         try:
-            sum_of_weights = self._jls.aggregate(
+            sum_of_weights = jls.aggregate(
                 sk_0=key,
                 tau=current_round,  # The time period \\(\\tau\\)
                 list_y_u_tau=params,
@@ -211,7 +218,9 @@ class SecaggCrypter:
         aggregated_params = self._apply_average(sum_of_weights, total_sample_size)
 
         aggregated_params: List[float] = reverse_quantize(
-            aggregated_params, clipping_range=clipping_range
+            aggregated_params,
+            clipping_range=clipping_range,
+            target_range=target_range,
         )
         time_elapsed = time.process_time() - start
         logger.debug(
@@ -243,12 +252,14 @@ class SecaggCrypter:
     def _apply_weighting(
         params: List[int],
         weight: int,
+        target_range: int = SAParameters.TARGET_RANGE,
     ) -> List[int]:
         """Multiplies parameters with weight
 
         Args:
             params: List of parameters
             weight: Weight to multiply
+            target_range: Quantization range the params were quantized into
 
         Returns:
             List of weighted parameters
@@ -256,7 +267,7 @@ class SecaggCrypter:
         m = multiply(params, weight)
 
         # Check that quantized model weights are in the correct range, for robustness sake
-        max_val = SAParameters.TARGET_RANGE - 1
+        max_val = target_range - 1
         if any([v > max_val or v < 0 for v in params]):
             raise FedbiomedSecaggCrypterError(
                 f"{ErrorNumbers.FB624.value}: Cannot apply weight to parameters, values outside of bounds"
@@ -313,6 +324,7 @@ class SecaggLomCrypter(SecaggCrypter):
         node_ids: List[str],
         clipping_range: Union[int, None] = None,
         weight: Optional[int] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
     ) -> List[int]:
         """Encrypts model parameters.
 
@@ -347,7 +359,10 @@ class SecaggLomCrypter(SecaggCrypter):
                 f"There are one or more than a value that is not type of float."
             )
 
-        params = quantize(weights=params, clipping_range=clipping_range)
+        target_range = target_range or SAParameters.TARGET_RANGE
+        params = quantize(
+            weights=params, clipping_range=clipping_range, target_range=target_range
+        )
 
         if weight is not None:
             if 2 ** weight.bit_length() > SAParameters.WEIGHT_RANGE:
@@ -355,7 +370,7 @@ class SecaggLomCrypter(SecaggCrypter):
                     f"{ErrorNumbers.FB624.value}: The weight is too large. The weight should be less than "
                     f"{SAParameters.WEIGHT_RANGE}."
                 )
-            params = self._apply_weighting(params, weight)
+            params = self._apply_weighting(params, weight, target_range)
 
         try:
             # Encrypt parameters
@@ -381,6 +396,7 @@ class SecaggLomCrypter(SecaggCrypter):
         params: List[List[int]],
         total_sample_size: int,
         clipping_range: Union[int, None] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
     ) -> List[float]:
         """Decrypt given parameters
 
@@ -427,7 +443,9 @@ class SecaggLomCrypter(SecaggCrypter):
         aggregated_params = self._apply_average(sum_of_weights, total_sample_size)
 
         aggregated_params: List[float] = reverse_quantize(
-            aggregated_params, clipping_range=clipping_range
+            aggregated_params,
+            clipping_range=clipping_range,
+            target_range=target_range or SAParameters.TARGET_RANGE,
         )
         time_elapsed = time.process_time() - start
         logger.debug(

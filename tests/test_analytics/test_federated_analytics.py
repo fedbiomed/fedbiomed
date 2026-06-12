@@ -3,7 +3,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
+from fedbiomed.common.constants import SAParameters
+from fedbiomed.common.exceptions import (
+    FedbiomedError,
+    FedbiomedExperimentError,
+    FedbiomedSecureAggregationError,
+)
 from fedbiomed.common.message import FAReply
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import FederatedAnalytics
@@ -50,9 +55,10 @@ def base_fa(mock_fds, mock_requests):
 
 
 def _make_reply(output: dict) -> MagicMock:
-    """Create a MagicMock FAReply with the given output dict."""
+    """Create a MagicMock FAReply with the given output dict (plaintext path)."""
     r = MagicMock(spec=FAReply)
     r.output = output
+    r.encrypted = False
     return r
 
 
@@ -255,22 +261,17 @@ class TestFAResult:
         assert abs(global_sum["age"] - expected_sum) < 1e-9
 
     def test_global_stats_variance_row(self):
-        # Nodes return summable primitives: sum_sq + sum + count
-        # mean=45, var=4, N=100 → sum=4500, sum_sq=var*(N-1)+sum^2/N=396+202500=202896
-        # mean=50, var=9, N=80  → sum=4000, sum_sq=9*79+4000^2/80=711+200000=200711
+        # Two-pass centered primitives: count + Σ(x − μ_global)².
+        # Global ages [40,50,60], μ=50, N=3 → var(ddof=1) = (100+0+100)/2 = 100.
+        # node1 = [40,50] → Σ(x−50)² = 100 ; node2 = [60] → Σ(x−50)² = 100.
         replies = {
-            "n1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
-            ),
-            "n2": _make_reply(
-                {"age": {"sum_sq": 200711.0, "sum": 4000.0, "count": 80}}
-            ),
+            "n1": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 2}}),
+            "n2": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 1}}),
         }
         result = FAResult(replies)
         global_variance = result.global_stats("variance")
         assert isinstance(global_variance, dict)
-        assert "age" in global_variance
-        assert global_variance["age"] > 0
+        assert global_variance["age"] == pytest.approx(100.0)
 
     def test_global_stats_count_row(self):
         replies = {
@@ -462,8 +463,9 @@ class TestFederatedAnalytics:
     def test_same_stat_same_args_uses_cache(self, mock_fa_job_cls, base_fa):
         """Second call for the same primitive stat must be served from cache.
 
-        Primitive stats (count, sum, sum_sq) are stored as-is in the result, so
-        the cache hit check ``s in available_stats()`` succeeds on the second call.
+        Primitive stats (count, sum, sum_sq_centered) are stored as-is, so the
+        cache-hit check finds them already satisfiable (present as a leaf or
+        derivable from cached primitives) and skips the second request.
         """
         replies = {"node-1": _make_reply({"age": {"count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = replies
@@ -516,40 +518,80 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_only_missing_stats_requested(self, mock_fa_job_cls, base_fa):
-        """When some stats are cached, only the missing ones are sent to nodes."""
+        """With the mean cached, variance only triggers the centered (round-2) request."""
         mean_replies = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
         mock_fa_job_cls.return_value.execute.return_value = mean_replies
         base_fa.mean()
+        assert mock_fa_job_cls.call_count == 1
 
-        variance_replies = {
-            "node-1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
-            )
+        # Round 2 reply: count + centered second moment Σ(x − μ)².
+        centered_replies = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 396.0, "count": 100}})
         }
-        mock_fa_job_cls.return_value.execute.return_value = variance_replies
+        mock_fa_job_cls.return_value.execute.return_value = centered_replies
         result = base_fa.fetch_stats("variance")
 
+        # Round 1 (mean) is served from cache → only the round-2 request hits nodes.
         assert mock_fa_job_cls.call_count == 2
         second_call_kwargs = mock_fa_job_cls.call_args_list[1].kwargs
-        assert second_call_kwargs["stats"] == ["variance"]
+        # Round 2 is a stats_args-only request (stats / dataset_schema must be None,
+        # as FARequestJob forbids combining them with stats_args).
+        assert second_call_kwargs["stats"] is None
+        assert second_call_kwargs["dataset_schema"] is None
+        age_args = second_call_kwargs["stats_args"]["age"]
+        assert age_args["sum_sq_centered"]["mean"] == pytest.approx(45.0)
 
         assert isinstance(result, FAResult)
         assert "variance" in result.computable_stats()
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_compute_multiple_stats_at_once(self, mock_fa_job_cls, base_fa):
-        replies = {
-            "node-1": _make_reply(
-                {"age": {"mean": 45.0, "count": 100, "variance": 4.0}}
-            )
+    def test_repeated_derived_stat_served_from_cache(self, mock_fa_job_cls, base_fa):
+        """A second variance/std request hits the cache, issuing no new node requests."""
+        round1 = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
+        round2 = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 396.0, "count": 100}})
         }
-        mock_fa_job_cls.return_value.execute.return_value = replies
+        mock_fa_job_cls.return_value.execute.side_effect = [round1, round2]
+
+        first = base_fa.fetch_stats("variance")
+        assert mock_fa_job_cls.call_count == 2  # round 1 + round 2
+
+        # Repeat the exact same request: must be served entirely from cache.
+        second = base_fa.fetch_stats("variance")
+        assert mock_fa_job_cls.call_count == 2  # unchanged — no new node requests
+        assert second is first  # same cached FAResult object
+        assert second.global_stats("variance") == first.global_stats("variance")
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_repeated_mean_served_from_cache(self, mock_fa_job_cls, base_fa):
+        """Repeated mean requests hit the cache (mean is derived from sum+count)."""
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_reply({"age": {"sum": 470.0, "count": 10}})
+        }
+
+        base_fa.fetch_stats("mean")
+        assert mock_fa_job_cls.call_count == 1
+
+        base_fa.mean()  # shorthand -> fetch_stats("mean")
+        base_fa.fetch_stats("mean")  # explicit repeat
+        base_fa.fetch_stats("count")  # also derivable from the cached primitives
+        base_fa.fetch_stats("sum")
+        assert mock_fa_job_cls.call_count == 1  # no further node requests
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_compute_multiple_stats_at_once(self, mock_fa_job_cls, base_fa):
+        # Two-pass: round 1 fetches the mean primitives, round 2 the centered moment.
+        round1 = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
+        round2 = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 396.0, "count": 100}})
+        }
+        mock_fa_job_cls.return_value.execute.side_effect = [round1, round2]
 
         result = base_fa.fetch_stats(stats=["mean", "variance"])
 
-        assert "mean" in result.available_stats()
-        assert "variance" in result.available_stats()
-        assert mock_fa_job_cls.call_count == 1
+        assert "mean" in result.computable_stats()
+        assert "variance" in result.computable_stats()
+        assert mock_fa_job_cls.call_count == 2
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_node_change_invalidates_cache(self, mock_fa_job_cls, base_fa, mock_fds):
@@ -604,19 +646,21 @@ class TestFederatedAnalytics:
     def test_fetch_stats_none_defaults_to_count_mean_variance(
         self, mock_fa_job_cls, base_fa
     ):
-        """fetch_stats() with no argument requests count, mean, and variance."""
-        replies = {
-            "node-1": _make_reply(
-                {"age": {"count": 100, "mean": 45.0, "variance": 4.0}}
-            )
+        """fetch_stats() defaults to count, mean, variance (variance via two-pass)."""
+        round1 = {"node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
+        round2 = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 396.0, "count": 100}})
         }
-        mock_fa_job_cls.return_value.execute.return_value = replies
+        mock_fa_job_cls.return_value.execute.side_effect = [round1, round2]
 
         result = base_fa.fetch_stats()
 
         assert isinstance(result, FAResult)
-        call_kwargs = mock_fa_job_cls.call_args.kwargs
-        assert sorted(call_kwargs["stats"]) == ["count", "mean", "variance"]
+        # Round 1 requests the direct primitives plus count+sum (mean's building
+        # blocks); variance is derived from the round-2 centered moment.
+        first_call_kwargs = mock_fa_job_cls.call_args_list[0].kwargs
+        assert sorted(first_call_kwargs["stats"]) == ["count", "mean", "sum"]
+        assert {"count", "mean", "variance"}.issubset(set(result.computable_stats()))
 
     def test_fetch_stats_empty_list_raises(self, base_fa):
         """Passing an explicit empty list must raise FedbiomedError."""
@@ -728,22 +772,22 @@ class TestFederatedAnalytics:
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_std_convenience_method(self, mock_fa_job_cls, base_fa):
-        """std() requests variance primitives and returns the global standard deviation."""
-        replies = {
-            "node-1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
-            ),
-            "node-2": _make_reply(
-                {"age": {"sum_sq": 200711.0, "sum": 4000.0, "count": 80}}
-            ),
+        """std() runs the two-pass centered scheme and returns the global std."""
+        # Global ages: node1=[40,50], node2=[60]; μ=50, N=3 → var=100, std=10.
+        round1 = {
+            "node-1": _make_reply({"age": {"sum": 90.0, "count": 2}}),
+            "node-2": _make_reply({"age": {"sum": 60.0, "count": 1}}),
         }
-        mock_fa_job_cls.return_value.execute.return_value = replies
+        round2 = {
+            "node-1": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 2}}),
+            "node-2": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 1}}),
+        }
+        mock_fa_job_cls.return_value.execute.side_effect = [round1, round2]
 
         result = base_fa.std()
 
         assert isinstance(result, dict)
-        assert "age" in result
-        assert result["age"] > 0
+        assert result["age"] == pytest.approx(10.0)
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_cache_eviction_fifo(self, mock_fa_job_cls, base_fa):
@@ -855,7 +899,7 @@ class TestComputableStats:
         assert FAResult({}).computable_stats() == []
 
     def test_mean_count_computable(self):
-        # sum+count primitives → mean, count, sum computable; variance/std require sum_sq
+        # sum+count primitives → mean, count, sum computable; variance/std require sum_sq_centered
         replies = {"n1": _make_reply({"age": {"sum": 4500.0, "count": 100}})}
         result = FAResult(replies)
         cs = result.computable_stats()
@@ -867,10 +911,10 @@ class TestComputableStats:
         assert "histogram" not in cs
 
     def test_with_variance_enables_std_and_variance(self):
-        # sum_sq+sum+count primitives → all of mean, variance, std, count, sum computable
+        # count+sum+sum_sq_centered primitives → mean, variance, std, count, sum computable
         replies = {
             "n1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
+                {"age": {"sum_sq_centered": 396.0, "sum": 4500.0, "count": 100}}
             )
         }
         result = FAResult(replies)
@@ -917,10 +961,10 @@ class TestComputableStats:
         assert "quantile" in cs
 
     def test_result_is_sorted(self):
-        # sum_sq+sum+count gives multiple computable stats, verifying sort order
+        # count+sum+sum_sq_centered gives multiple computable stats, verifying sort order
         replies = {
             "n1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
+                {"age": {"sum_sq_centered": 396.0, "sum": 4500.0, "count": 100}}
             )
         }
         result = FAResult(replies)
@@ -964,21 +1008,17 @@ class TestGlobalStats:
         assert FAResult({}).global_stats() == {}
 
     def test_derived_std_from_primitives(self):
-        # std is computable from sum_sq+sum+count primitives
+        # std is computable from count + sum_sq_centered primitives
         replies = {
-            "n1": _make_reply(
-                {"age": {"sum_sq": 202896.0, "sum": 4500.0, "count": 100}}
-            ),
-            "n2": _make_reply(
-                {"age": {"sum_sq": 200711.0, "sum": 4000.0, "count": 80}}
-            ),
+            "n1": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 2}}),
+            "n2": _make_reply({"age": {"sum_sq_centered": 100.0, "count": 1}}),
         }
         result = FAResult(replies)
         assert "std" in result.computable_stats()
         global_std = result.global_stats("std")
         assert isinstance(global_std, dict)
-        assert "age" in global_std
-        assert global_std["age"] > 0
+        # Σ sum_sq_centered = 200, N = 3 → variance 100 → std 10
+        assert global_std["age"] == pytest.approx(10.0)
 
     def test_not_computable_raises(self):
         # variance is valid but missing required data when only mean+count are stored
@@ -988,11 +1028,14 @@ class TestGlobalStats:
             result.global_stats("variance")
 
     def test_no_stat_name_all_stats_match_individual_calls(self):
+        # sum+count primitives so mean (and sum, count) are all computable — the
+        # loop must cover the derived 'mean', not just the 'count' primitive.
         replies = {
-            "n1": _make_reply({"age": {"mean": 45.0, "count": 100}}),
-            "n2": _make_reply({"age": {"mean": 50.0, "count": 80}}),
+            "n1": _make_reply({"age": {"sum": 4500.0, "count": 100}}),
+            "n2": _make_reply({"age": {"sum": 4000.0, "count": 80}}),
         }
         result = FAResult(replies)
+        assert "mean" in result.computable_stats()  # guard: the loop covers mean
         all_at_once = result.global_stats()
         for stat in result.computable_stats():
             individual = result.global_stats(stat)
@@ -1049,12 +1092,13 @@ class TestGlobalStats:
     def test_global_stats_sequence_output(self):
         # global_stats() on list-typed outputs exercises the sequence branch in
         # _merge_stat_results (covers lines 328-334)
+        # sum+count primitives so the aggregated sequence carries mean as well.
         replies = {
             "n1": _make_reply(
-                [{"age": {"mean": 45.0, "count": 100}}, {"mean": 128.0, "count": 50}]
+                [{"age": {"sum": 4500.0, "count": 100}}, {"sum": 6400.0, "count": 50}]
             ),
             "n2": _make_reply(
-                [{"age": {"mean": 50.0, "count": 80}}, {"mean": 130.0, "count": 40}]
+                [{"age": {"sum": 4000.0, "count": 80}}, {"sum": 5200.0, "count": 40}]
             ),
         }
         result = FAResult(replies)
@@ -1374,9 +1418,9 @@ class TestCacheFallback:
                 }
             ),
         }
-        replies_mean_age = {
-            "node-1": _make_reply({"age": {"mean": 40.0}}),
-            "node-2": _make_reply({"age": {"mean": 45.0}}),
+        replies_mean_age = {  # a 'mean' request returns sum+count primitives
+            "node-1": _make_reply({"age": {"sum": 4000.0, "count": 100}}),
+            "node-2": _make_reply({"age": {"sum": 3600.0, "count": 80}}),
         }
         mock_fa_job_cls.return_value.execute.side_effect = [
             replies_count_age,  # step 1: partial cache for ["age"] (no superset yet → network)
@@ -1396,7 +1440,7 @@ class TestCacheFallback:
         # skipped and a merge network request is made instead
         result = base_fa.fetch_stats("mean", dataset_schema=["age"])
         assert mock_fa_job_cls.call_count == 3
-        assert "mean" in result.available_stats()
+        assert "mean" in result.computable_stats()  # derived from merged sum+count
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_fallback_skipped_for_sequence_output(self, mock_fa_job_cls, base_fa):
@@ -1420,3 +1464,284 @@ class TestCacheFallback:
             "mean", dataset_schema=["age"]
         )  # filtered_copy fails → new request
         assert mock_fa_job_cls.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# TestSecaggIntegration — encrypted-path tests for FederatedAnalytics
+# ---------------------------------------------------------------------------
+
+
+def _make_encrypted_reply(params_encrypted, output_schema) -> MagicMock:
+    """Create a MagicMock FAReply representing the encrypted path."""
+    r = MagicMock(spec=FAReply)
+    r.encrypted = True
+    r.params_encrypted = params_encrypted
+    r.output_schema = output_schema
+    r.output = None
+    return r
+
+
+class TestSecaggIntegration:
+    @pytest.fixture
+    def mock_secagg(self):
+        secagg = MagicMock()
+        secagg.active = True
+        secagg.train_arguments.return_value = {
+            "secagg_scheme": "LOM",
+            "secagg_random": 0.5,
+            "secagg_clipping_range": 3,
+            "parties": ["node-1", "node-2"],
+        }
+        return secagg
+
+    @pytest.fixture
+    def secagg_fa(self, mock_fds, mock_requests, mock_secagg):
+        return FederatedAnalytics(
+            fds=mock_fds,
+            experiment_id="exp-secagg",
+            researcher_id="res-456",
+            reqs=mock_requests,
+            experimentation_folder="/tmp/fedbiomed",
+            secagg=mock_secagg,
+        )
+
+    def test_secagg_with_fewer_than_two_nodes_raises(
+        self, secagg_fa, mock_fds, mock_secagg
+    ):
+        """The <2-node guard lives in SecureAggregation.setup; FA delegates and surfaces it.
+
+        FA calls secagg.setup() with the participating nodes; if setup rejects them
+        (the centralised guard), the error propagates out of fetch_stats.
+        """
+        mock_fds.node_ids.return_value = ["node-1"]
+        mock_secagg.setup.side_effect = FedbiomedSecureAggregationError(
+            "Secure aggregation requires at least 2 nodes"
+        )
+        with pytest.raises(FedbiomedError, match="at least 2 nodes"):
+            secagg_fa.fetch_stats("mean")
+        mock_secagg.setup.assert_called_once()
+
+    def test_secagg_setup_does_not_mutate_scheme(self, secagg_fa, mock_secagg):
+        """_secagg_setup returns train_arguments unchanged; clipping range is stripped later, at send time."""
+        mock_secagg.clipping_range = 3
+        secagg_arguments = secagg_fa._secagg_setup(["node-1", "node-2"])
+        # researcher's scheme is left untouched (no local pinning of the FA constant)
+        assert mock_secagg.clipping_range == 3
+        # not stripped yet at this stage
+        assert secagg_arguments["secagg_clipping_range"] == 3
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_clipping_range_stripped_before_send(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """secagg_clipping_range is removed from the request before it is sent."""
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], schema),
+            "node-2": _make_encrypted_reply([1], schema),
+        }
+        mock_secagg.aggregate.return_value = [1.0]
+        secagg_fa.fetch_stats("mean")
+        sent_args = mock_fa_job_cls.call_args.kwargs["secagg_arguments"]
+        assert "secagg_clipping_range" not in sent_args
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_aggregate_uses_fa_ranges(self, mock_fa_job_cls, secagg_fa, mock_secagg):
+        """FA decrypts with the fixed FA clipping and target ranges, passed explicitly to aggregate()."""
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], schema),
+            "node-2": _make_encrypted_reply([1], schema),
+        }
+        mock_secagg.aggregate.return_value = [1.0]
+        secagg_fa.fetch_stats("mean")
+        kwargs = mock_secagg.aggregate.call_args.kwargs
+        assert kwargs["clipping_range"] == SAParameters.FA_CLIPPING_RANGE
+        assert kwargs["target_range"] == SAParameters.FA_TARGET_RANGE
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.logger")
+    def test_clipping_range_mismatch_warns_once(
+        self, mock_logger, secagg_fa, mock_secagg
+    ):
+        """A researcher clipping range that differs from the FA constant warns once."""
+        mock_secagg.clipping_range = SAParameters.FA_CLIPPING_RANGE + 1
+        secagg_fa._warn_on_clipping_mismatch()
+        secagg_fa._warn_on_clipping_mismatch()
+        mock_logger.warning.assert_called_once()
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.logger")
+    def test_clipping_range_match_does_not_warn(
+        self, mock_logger, secagg_fa, mock_secagg
+    ):
+        """A clipping range equal to the FA constant is not a mismatch: no warning."""
+        mock_secagg.clipping_range = SAParameters.FA_CLIPPING_RANGE
+        secagg_fa._warn_on_clipping_mismatch()
+        mock_logger.warning.assert_not_called()
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.logger")
+    def test_clipping_range_unset_does_not_warn(
+        self, mock_logger, secagg_fa, mock_secagg
+    ):
+        """An unset (None) clipping range expresses no intent: no warning."""
+        mock_secagg.clipping_range = None
+        secagg_fa._warn_on_clipping_mismatch()
+        mock_logger.warning.assert_not_called()
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_encrypted_replies_are_decrypted(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """Encrypted replies trigger secagg.aggregate(); result is unflattened into FAResult."""
+        # output_schema encodes {"age": {"sum": _, "count": _}}
+        schema = [["age", "sum"], ["age", "count"]]
+        reply_n1 = _make_encrypted_reply([100, 200], schema)
+        reply_n2 = _make_encrypted_reply([150, 300], schema)
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": reply_n1,
+            "node-2": reply_n2,
+        }
+
+        # aggregate() returns the per-node average; _execute_and_update_cache
+        # rescales by num_nodes (2 here) to recover the additive sum.
+        mock_secagg.aggregate.return_value = [45.0, 180]
+
+        result = secagg_fa.fetch_stats("mean")
+
+        mock_secagg.aggregate.assert_called_once()
+        assert isinstance(result, FAResult)
+        # The aggregated output is stored under "__secagg__"
+        assert "__secagg__" in result.node_ids
+        node_output = result.node_stats("__secagg__")
+        assert node_output == {"age": {"sum": 90.0, "count": 360}}
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_num_expected_params_uses_schema_length(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """num_expected_params is the value count (schema length), not the payload length.
+
+        Regression test: under JLS the encrypted payload is vector-packed (many
+        values per plaintext), so ``len(params_encrypted)`` is smaller than the
+        number of statistics. Decoding must be driven by the schema length,
+        otherwise too few values are recovered and unflatten fails.
+        """
+        # 4 statistics, but only 1 packed plaintext (as JLS would produce).
+        schema = [["age", "sum"], ["age", "count"], ["bmi", "sum"], ["bmi", "count"]]
+        packed = [123456789]  # single packed plaintext, len 1 != len(schema) == 4
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply(packed, schema),
+            "node-2": _make_encrypted_reply(packed, schema),
+        }
+        # aggregate must receive the full value count to decode all of them.
+        mock_secagg.aggregate.return_value = [225.0, 50.0, 110.0, 50.0]
+
+        result = secagg_fa.fetch_stats("mean")
+
+        assert mock_secagg.aggregate.call_args.kwargs["num_expected_params"] == len(
+            schema
+        )
+        # All four values are recovered and unflattened (no zip length mismatch).
+        assert result.node_stats("__secagg__") == {
+            "age": {"sum": 450.0, "count": 100.0},
+            "bmi": {"sum": 220.0, "count": 100.0},
+        }
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_secagg_setup_called_with_node_ids(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg, mock_fds
+    ):
+        """_secagg_setup calls secagg.setup() with the node IDs from the federated dataset."""
+        schema = [["x"]]
+        reply = _make_encrypted_reply([1], schema)
+        mock_fa_job_cls.return_value.execute.return_value = {"node-1": reply}
+        mock_fds.node_ids.return_value = ["node-1", "node-2"]
+        mock_secagg.aggregate.return_value = [5.0]
+
+        secagg_fa.fetch_stats("mean")
+
+        mock_secagg.setup.assert_called_once_with(
+            parties=["node-1", "node-2"],
+            experiment_id="exp-secagg",
+            researcher_id="res-456",
+            insecure_validation=False,
+        )
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fa_round_counter_increments(self, mock_fa_job_cls, secagg_fa, mock_secagg):
+        """fa_round injected into secagg_arguments increments with each FA request."""
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], schema)
+        }
+        mock_secagg.aggregate.return_value = [1.0]
+
+        secagg_fa.fetch_stats("count")
+        secagg_fa.fetch_stats("mean")  # triggers second request (mean is missing)
+
+        assert secagg_fa._fa_round_counter == 2
+        calls = mock_fa_job_cls.call_args_list
+        assert calls[0].kwargs["secagg_arguments"]["fa_round"] == 1
+        assert calls[1].kwargs["secagg_arguments"]["fa_round"] == 2
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_secagg_arguments_forwarded_to_fa_job(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """train_arguments() dict (plus fa_round) is passed verbatim to FARequestJob."""
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], schema)
+        }
+        mock_secagg.aggregate.return_value = [1.0]
+
+        secagg_fa.fetch_stats("count")
+
+        kwargs = mock_fa_job_cls.call_args.kwargs
+        sa = kwargs["secagg_arguments"]
+        assert sa["secagg_scheme"] == "LOM"
+        assert sa["fa_round"] == 1
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_inactive_secagg_sends_no_secagg_arguments(
+        self, mock_fa_job_cls, mock_fds, mock_requests
+    ):
+        """When secagg is inactive, secagg_arguments=None is forwarded to FARequestJob."""
+        from fedbiomed.researcher.secagg import SecureAggregation
+
+        fa = FederatedAnalytics(
+            fds=mock_fds,
+            experiment_id="exp",
+            researcher_id="res",
+            reqs=mock_requests,
+            experimentation_folder="/tmp",
+            secagg=SecureAggregation(active=False),
+        )
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_reply({"x": {"count": 10}})
+        }
+
+        fa.fetch_stats("count")
+
+        kwargs = mock_fa_job_cls.call_args.kwargs
+        assert kwargs["secagg_arguments"] is None
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_encrypted_merge_accumulates_stats(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """Two sequential encrypted requests merge their aggregate outputs in FAResult."""
+        schema_count = [["x", "count"]]
+        schema_sum = [["x", "sum"]]
+        replies_count = {"node-1": _make_encrypted_reply([100], schema_count)}
+        replies_sum = {"node-1": _make_encrypted_reply([500], schema_sum)}
+        mock_fa_job_cls.return_value.execute.side_effect = [replies_count, replies_sum]
+        mock_secagg.aggregate.side_effect = [[100.0], [500.0]]
+
+        secagg_fa.fetch_stats("count")
+        secagg_fa.fetch_stats("mean")  # mean requires sum + count
+
+        output = secagg_fa._results_store[
+            list(secagg_fa._results_store.keys())[-1]
+        ].node_stats("__secagg__")
+        assert output["x"]["count"] == 100.0
+        assert output["x"]["sum"] == 500.0

@@ -81,18 +81,25 @@ class SumAccumulator(ArrayAccumulator):
     _key = "sum"
 
     def _transform(self, val: np.ndarray) -> np.ndarray:
-        return np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+        return np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float64)
 
 
-class SumSqAccumulator(ArrayAccumulator):
-    """Accumulate sum of squares element-wise."""
+class CenteredSumSqAccumulator(ArrayAccumulator):
+    """Accumulate the centered sum of squares Σ (x - mean)² element-wise. ``mean`` is
+    the *global* mean broadcast in a prior round (the two-pass / assumed-mean scheme).
+    """
 
-    _key = "sum_sq"
+    _key = "sum_sq_centered"
+
+    def __init__(self, mean: float):
+        super().__init__()
+        self._mean = float(mean)
 
     def _transform(self, val: np.ndarray) -> np.ndarray:
-        return (
-            np.nan_to_num(val, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32) ** 2
-        )
+        # Non-finite entries (NaN/inf) are excluded and treated as zero deviation
+        finite = np.isfinite(val)
+        deviation = np.where(finite, val.astype(np.float64) - self._mean, 0.0)
+        return deviation**2
 
 
 class HistogramAccumulator(ScalarAccumulator):

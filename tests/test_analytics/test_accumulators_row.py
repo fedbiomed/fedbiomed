@@ -153,14 +153,13 @@ def test_row_accumulator_independent_accumulators(mock_registry):
     }
     row_acc = RowAccumulator(config)
 
-    stat_name, acc_obj = row_acc.independent_accumulators[0][0]
-    assert stat_name == "percentile"
+    acc_obj = row_acc.independent_accumulators[0][0]
     assert acc_obj == mock_instance
 
     row_acc.update(np.array([50000.0]))
     assert mock_instance.update.call_args[0][0] == 50000.0
 
-    mock_instance.finalize.return_value = 12345.0
+    mock_instance.finalize.return_value = {"percentile": 12345.0}
     assert row_acc.finalize()["salary"]["percentile"] == 12345.0
 
 
@@ -178,7 +177,7 @@ def test_row_accumulator_mixed_vectorized_and_independent(mock_registry):
     }
     row_acc = RowAccumulator(config)
     (vec_instance,) = row_acc.vectorized_accumulators["mean"]
-    ind_instance = row_acc.independent_accumulators[1][0][1]
+    ind_instance = row_acc.independent_accumulators[1][0]
 
     row_acc.update(np.array([30.0, 60000.0]))
 
@@ -189,7 +188,7 @@ def test_row_accumulator_mixed_vectorized_and_independent(mock_registry):
         "sum": np.array([30.5]),
         "count": np.array([1.0]),
     }
-    ind_instance.finalize.return_value = 60000.0
+    ind_instance.finalize.return_value = {"percentile": 60000.0}
     results = row_acc.finalize()
 
     assert results["age"]["sum"] == 30.5

@@ -114,16 +114,17 @@ def test_02_analytics_variance_available_computable_and_mean(exp_adni):
     # Step 1: fetch variance (sends messages to nodes)
     fa_result = exp_adni.analytics.fetch_stats("variance")
 
-    # Step 2: available_stats lists the raw numeric keys present in the result;
-    #         fetching "variance" stores the primitives count, sum, sum_sq — not
-    #         a pre-computed "variance" key.
+    # Step 2: available_stats lists the raw numeric keys present in the result.
+    #         The two-pass scheme stores count + sum (round 1) and the centered
+    #         second moment sum_sq_centered (round 2), so these must be present.
     avail = fa_result.available_stats()
-    assert all(k in avail for k in ("count", "sum", "sum_sq")), (
-        f"Expected variance primitives (count, sum, sum_sq) in available_stats(): {avail}"
+    assert all(k in avail for k in ("count", "sum", "sum_sq_centered")), (
+        "Expected variance primitives (count, sum, sum_sq_centered) in "
+        f"available_stats(): {avail}"
     )
 
     # Step 3: computable_stats derives which higher-level stats can be calculated;
-    #         variance data includes sum + count + sum_of_squares, so mean is computable
+    #         the result includes sum + count, so mean is computable
     computable = fa_result.computable_stats()
     assert "variance" in computable, (
         f"'variance' not in computable_stats(): {computable}"

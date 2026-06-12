@@ -7,10 +7,10 @@ import numpy as np
 import pytest
 
 from fedbiomed.common.analytics.accumulators._operations import (
+    CenteredSumSqAccumulator,
     CountAccumulator,
     HistogramAccumulator,
     SumAccumulator,
-    SumSqAccumulator,
 )
 from fedbiomed.common.constants import FedbiomedError
 
@@ -142,65 +142,74 @@ def test_sum_accumulator_finalize_no_data():
 
 
 # =============================================================================
-# SumSqAccumulator
+# CenteredSumSqAccumulator
 # =============================================================================
 
 
-def test_sum_sq_accumulator_init():
-    acc = SumSqAccumulator()
+def test_centered_sum_sq_accumulator_init():
+    acc = CenteredSumSqAccumulator(mean=0.0)
     assert acc._value is None
+    assert acc._mean == 0.0
 
 
-def test_sum_sq_accumulator_update_basic():
-    acc = SumSqAccumulator()
+def test_centered_sum_sq_accumulator_update_basic():
+    # Σ(x − mean)² element-wise, mean = 1
+    acc = CenteredSumSqAccumulator(mean=1.0)
     acc.update(np.array([2.0, 3.0]))
-    np.testing.assert_array_almost_equal(acc._value, [4.0, 9.0])
+    np.testing.assert_array_almost_equal(acc._value, [1.0, 4.0])
 
 
-def test_sum_sq_accumulator_update_with_nan():
-    # NaN treated as 0 in sum_sq
-    acc = SumSqAccumulator()
-    acc.update(np.array([2.0, np.nan]))
+def test_centered_sum_sq_accumulator_update_with_nan():
+    # Non-finite entries contribute 0 (not mean²), since they are excluded from count.
+    acc = CenteredSumSqAccumulator(mean=5.0)
+    acc.update(np.array([7.0, np.nan]))
     np.testing.assert_array_almost_equal(acc._value, [4.0, 0.0])
 
 
-def test_sum_sq_accumulator_update_with_inf():
-    # inf treated as 0 in sum_sq
-    acc = SumSqAccumulator()
-    acc.update(np.array([3.0, np.inf]))
+def test_centered_sum_sq_accumulator_update_with_inf():
+    # inf contributes 0 as well.
+    acc = CenteredSumSqAccumulator(mean=5.0)
+    acc.update(np.array([8.0, np.inf]))
     np.testing.assert_array_almost_equal(acc._value, [9.0, 0.0])
 
 
-def test_sum_sq_accumulator_multiple_updates():
-    acc = SumSqAccumulator()
+def test_centered_sum_sq_accumulator_multiple_updates():
+    acc = CenteredSumSqAccumulator(mean=2.0)
     acc.update(np.array([1.0]))
     acc.update(np.array([2.0]))
     acc.update(np.array([3.0]))
-    assert acc._value[0] == pytest.approx(14.0)  # 1² + 2² + 3²
+    assert acc._value[0] == pytest.approx(2.0)  # (−1)² + 0² + 1²
 
 
-def test_sum_sq_accumulator_finalize_basic():
-    acc = SumSqAccumulator()
+def test_centered_sum_sq_accumulator_finalize_basic():
     values = np.array([2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0])
+    mean = float(np.mean(values))
+    acc = CenteredSumSqAccumulator(mean=mean)
     for val in values:
         acc.update(np.array([val]))
     result = acc.finalize()
-    assert set(result.keys()) == {"sum_sq"}
-    assert result["sum_sq"][0] == pytest.approx(float(np.sum(values**2)))
+    assert set(result.keys()) == {"sum_sq_centered"}
+    assert result["sum_sq_centered"][0] == pytest.approx(
+        float(np.sum((values - mean) ** 2))
+    )
 
 
-def test_sum_sq_accumulator_finalize_vector():
-    acc = SumSqAccumulator()
+def test_centered_sum_sq_accumulator_finalize_vector():
+    acc = CenteredSumSqAccumulator(mean=2.0)
     acc.update(np.array([1.0, 10.0, 100.0]))
     acc.update(np.array([2.0, 20.0, 200.0]))
     acc.update(np.array([3.0, 30.0, 300.0]))
     result = acc.finalize()
-    np.testing.assert_array_almost_equal(result["sum_sq"], [14.0, 1400.0, 140000.0])
+    # per column: Σ(x−2)²
+    np.testing.assert_array_almost_equal(
+        result["sum_sq_centered"],
+        [2.0, (8**2 + 18**2 + 28**2), (98**2 + 198**2 + 298**2)],
+    )
 
 
-def test_sum_sq_accumulator_finalize_no_data():
-    result = SumSqAccumulator().finalize()
-    assert np.isnan(result["sum_sq"])
+def test_centered_sum_sq_accumulator_finalize_no_data():
+    result = CenteredSumSqAccumulator(mean=0.0).finalize()
+    assert np.isnan(result["sum_sq_centered"])
 
 
 # =============================================================================
@@ -210,20 +219,22 @@ def test_sum_sq_accumulator_finalize_no_data():
 
 def test_integration_all_accumulators_same_data():
     data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    mean = float(np.mean(data))  # 3.0
 
     count_acc = CountAccumulator()
     sum_acc = SumAccumulator()
-    sum_sq_acc = SumSqAccumulator()
+    centered_acc = CenteredSumSqAccumulator(mean=mean)
 
     for val in data:
         v = np.array([val])
         count_acc.update(v)
         sum_acc.update(v)
-        sum_sq_acc.update(v)
+        centered_acc.update(v)
 
     assert count_acc.finalize()["count"][0] == 5
     assert sum_acc.finalize()["sum"][0] == pytest.approx(15.0)
-    assert sum_sq_acc.finalize()["sum_sq"][0] == pytest.approx(55.0)  # 1+4+9+16+25
+    # Σ(x−3)² = 4+1+0+1+4 = 10
+    assert centered_acc.finalize()["sum_sq_centered"][0] == pytest.approx(10.0)
 
 
 def test_integration_vectorized_multi_column():

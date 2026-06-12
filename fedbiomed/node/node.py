@@ -646,6 +646,14 @@ class Node:
                                 allow_fa=self.config.getbool(
                                     "security", "allow_federated_analytics"
                                 ),
+                                db=self._db_path,
+                                secagg_active=self._config.getbool(
+                                    "security", "secure_aggregation"
+                                ),
+                                force_secagg=self._config.getbool(
+                                    "security", "force_secure_aggregation"
+                                ),
+                                secagg_arguments=item.get_param("secagg_arguments"),
                             )
                             response = fa_job.run()
                             self._grpc_client.send(response)

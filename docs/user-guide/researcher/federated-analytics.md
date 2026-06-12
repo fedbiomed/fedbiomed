@@ -8,6 +8,7 @@ This page covers the **researcher side**: how to issue analytics requests and in
 
 > - For which datasets support FA and how to make a custom dataset FA-compatible, see [Federated Analytics — Datasets](../datasets/federated-analytics.md).
 > - For enabling FA on a node, see [Federated Analytics — Nodes](../nodes/federated-analytics.md).
+> - To compute analytics under **secure aggregation**, see [Secure Aggregation](#secure-aggregation) below.
 
 ---
 
@@ -145,6 +146,51 @@ result = exp.analytics.fetch_stats_with_args(
 
 !!! note "`fetch_stats_with_args` vs `fetch_stats`"
     `fetch_stats_with_args` does not accept a `dataset_schema` argument — schema selection is embedded in `stats_args`. Use `fetch_stats` for all statistics that do not require extra parameters.
+
+---
+
+## Secure Aggregation
+
+By default, each node returns its local summary in plaintext, so the researcher can inspect every node's contribution before aggregation. With **secure aggregation (secagg)**, each node masks its contribution cryptographically, so the researcher only ever recovers the *aggregated* result — individual node values are never revealed.
+
+Enable it by constructing the `Experiment` with `secagg=True`; the analytics API is otherwise unchanged:
+
+```python
+exp = Experiment(tags=["my-tag"], secagg=True)
+
+exp.analytics.mean()       # same call, now computed under secure aggregation
+exp.analytics.variance()   # the two-pass variance/std scheme works transparently too
+```
+
+### What changes in the result
+
+Because individual contributions are masked, the result no longer exposes a value *per node*. All contributions are combined under a single virtual node, `__secagg__`:
+
+```python
+result = exp.analytics.fetch_stats("mean")
+
+result.node_ids              # ['__secagg__']  — no per-node breakdown
+result.node_stats()          # {'__secagg__': {...aggregated primitives...}}
+result.global_stats("mean")  # identical to the plaintext result
+```
+
+`global_stats()` behaves exactly as in the plaintext case; only `node_stats()` differs, since per-node values are no longer available.
+
+### Choosing the scheme
+
+FedBioMed implements two secure-aggregation schemes. Both produce the **same** statistics and differ only in the cryptographic protocol and its cost. `secagg=True` selects **LOM**. To use Joye-Libert, pass an explicit `SecureAggregation`:
+
+```python
+from fedbiomed.researcher.secagg import SecureAggregation, SecureAggregationSchemes
+
+exp = Experiment(
+    tags=["my-tag"],
+    secagg=SecureAggregation(scheme=SecureAggregationSchemes.JOYE_LIBERT),
+)
+```
+
+!!! note "See also"
+    For a full description of the schemes, node certificate registration, and configuration, see [Secure Aggregation](../secagg/introduction.md).
 
 ---
 
