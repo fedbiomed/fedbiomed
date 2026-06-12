@@ -603,6 +603,7 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         encryption_factors: Dict[str, Union[List[int], None]] = None,
         num_expected_params: int = 1,
         target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> self.clipping_range (training)
         **kwargs,
     ) -> List[float]:
         """Aggregates given model parameters
@@ -647,7 +648,9 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             key=key,
             total_sample_size=total_sample_size,
             biprime=biprime,
-            clipping_range=self.clipping_range,
+            clipping_range=(
+                clipping_range if clipping_range is not None else self.clipping_range
+            ),
             target_range=target_range,
         )
 
@@ -825,6 +828,7 @@ class LomSecureAggregation(_SecureAggregation):
         total_sample_size: int,
         encryption_factors: Dict[str, Union[List[int], None]] = None,
         target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> self.clipping_range (training)
         **kwargs,
     ) -> List[float]:
         """Aggregates given model parameters
@@ -860,7 +864,9 @@ class LomSecureAggregation(_SecureAggregation):
         aggregate = functools.partial(
             self._secagg_crypter.aggregate,
             total_sample_size=total_sample_size,
-            clipping_range=self.clipping_range,
+            clipping_range=(
+                clipping_range if clipping_range is not None else self.clipping_range
+            ),
             target_range=target_range,
         )
 

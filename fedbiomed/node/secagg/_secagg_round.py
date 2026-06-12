@@ -67,6 +67,7 @@ class _SecaggSchemeRound(ABC):
         current_round: int,
         weight: Optional[int] = None,
         target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> request value (training)
     ) -> List[int]:
         """Encrypts model parameters after local training.
 
@@ -126,6 +127,7 @@ class _JLSRound(_SecaggSchemeRound):
         current_round: int,
         weight: Optional[int] = None,
         target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> request value (training)
     ) -> List[int]:
         """Encrypts model parameters with Joye-Libert after local training.
 
@@ -145,7 +147,11 @@ class _JLSRound(_SecaggSchemeRound):
             params=params,
             key=self._secagg_servkey["context"]["server_key"],
             biprime=self._secagg_servkey["context"]["biprime"],
-            clipping_range=self._secagg_clipping_range,
+            clipping_range=(
+                clipping_range
+                if clipping_range is not None
+                else self._secagg_clipping_range
+            ),
             weight=weight,
             target_range=target_range,
         )
@@ -198,6 +204,7 @@ class _LomRound(_SecaggSchemeRound):
         current_round: int,
         weight: Optional[int] = None,
         target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> request value (training)
     ) -> List[int]:
         """Encrypts model parameters with LOM after local training.
 
@@ -215,7 +222,11 @@ class _LomRound(_SecaggSchemeRound):
             current_round=current_round,
             params=params,
             pairwise_secrets=self._secagg_dh["context"],
-            clipping_range=self._secagg_clipping_range,
+            clipping_range=(
+                clipping_range
+                if clipping_range is not None
+                else self._secagg_clipping_range
+            ),
             weight=weight,
             target_range=target_range,
         )

@@ -518,6 +518,48 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
         ):
             self.assertTrue(np.isclose(np.round(ouput_val), expected_val))
 
+    def test_lom_secagg_03b_aggregate_explicit_clipping_range(self):
+        """An explicit clipping_range overrides self.clipping_range at decryption."""
+        fake_replies = MagicMock(
+            return_value={
+                n: MagicMock(spec=Request, node_id=n, success=True)
+                for n in self.parties[1:]
+            }
+        )
+        send_fed_req = {"replies": fake_replies, "errors": MagicMock(return_value={})}
+        super().setUp(
+            module="fedbiomed.researcher.secagg._secagg_context.Requests",
+            send_fed_req_conf=send_fed_req,
+        )
+        self.lom.setup(self.parties, self.experiment_id, test_id)
+        self.lom._secagg_random = None
+
+        # Quantize with a range that differs from self.clipping_range; decryption must
+        # honour the explicitly-passed value, not the one set on the scheme.
+        custom_clip = 2 * self.clipping_range
+        pv = self.create_protected_vector(
+            1, [1, 2, 3, 4, 5], [1, 2, 3, 4, 5], [1, 2, 3, 4, 5], custom_clip, 5
+        )
+        agg_params = self.lom.aggregate(
+            round_=1,
+            total_sample_size=5,
+            model_params={n: pv[i] for i, n in enumerate(self.parties[1:])},
+            encryption_factors={"node-1": [5555], "node-2": [5555], "node-3": [5555]},
+            clipping_range=custom_clip,
+        )
+
+        # Decrypting with custom_clip yields sum + 2*custom_clip; decrypting with the
+        # scheme's range (self.clipping_range) would be off by ~custom_clip, so the small
+        # atol (quantization noise scales with the range) still separates the two.
+        expected_agg_params = (
+            np.sum([[1, 2, 3, 4, 5], [1, 2, 3, 4, 5], [1, 2, 3, 4, 5]], axis=0)
+            + 2 * custom_clip
+        )
+        for ouput_val, expected_val in zip(
+            agg_params, expected_agg_params, strict=True
+        ):
+            self.assertTrue(np.isclose(ouput_val, expected_val, atol=2))
+
     def test_lom_secagg_04_aggregate_errors(self):
         ######## WARNING #######
         # NEVER touch  self.lom._dh

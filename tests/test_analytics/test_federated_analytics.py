@@ -1521,16 +1521,20 @@ class TestSecaggIntegration:
             secagg_fa.fetch_stats("mean")
         mock_secagg.setup.assert_called_once()
 
-    def test_secagg_setup_sets_fa_clipping_range_on_scheme(
-        self, secagg_fa, mock_secagg
-    ):
-        """FA configures the scheme with FA_CLIPPING_RANGE (flows to nodes + aggregate)."""
-        secagg_fa._secagg_setup(["node-1", "node-2"])
-        assert mock_secagg.clipping_range == SAParameters.FA_CLIPPING_RANGE
+    def test_secagg_setup_does_not_mutate_scheme(self, secagg_fa, mock_secagg):
+        """_secagg_setup returns train_arguments unchanged; clipping range is stripped later, at send time."""
+        mock_secagg.clipping_range = 3
+        secagg_arguments = secagg_fa._secagg_setup(["node-1", "node-2"])
+        # researcher's scheme is left untouched (no local pinning of the FA constant)
+        assert mock_secagg.clipping_range == 3
+        # not stripped yet at this stage
+        assert secagg_arguments["secagg_clipping_range"] == 3
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
-    def test_aggregate_uses_fa_ranges(self, mock_fa_job_cls, secagg_fa, mock_secagg):
-        """FA sets the clipping range on the scheme and passes the target range to aggregate()."""
+    def test_clipping_range_stripped_before_send(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """secagg_clipping_range is removed from the request before it is sent."""
         schema = [["x"]]
         mock_fa_job_cls.return_value.execute.return_value = {
             "node-1": _make_encrypted_reply([1], schema),
@@ -1538,11 +1542,50 @@ class TestSecaggIntegration:
         }
         mock_secagg.aggregate.return_value = [1.0]
         secagg_fa.fetch_stats("mean")
-        assert mock_secagg.clipping_range == SAParameters.FA_CLIPPING_RANGE
-        assert (
-            mock_secagg.aggregate.call_args.kwargs["target_range"]
-            == SAParameters.FA_TARGET_RANGE
-        )
+        sent_args = mock_fa_job_cls.call_args.kwargs["secagg_arguments"]
+        assert "secagg_clipping_range" not in sent_args
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_aggregate_uses_fa_ranges(self, mock_fa_job_cls, secagg_fa, mock_secagg):
+        """FA decrypts with the fixed FA clipping and target ranges, passed explicitly to aggregate()."""
+        schema = [["x"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], schema),
+            "node-2": _make_encrypted_reply([1], schema),
+        }
+        mock_secagg.aggregate.return_value = [1.0]
+        secagg_fa.fetch_stats("mean")
+        kwargs = mock_secagg.aggregate.call_args.kwargs
+        assert kwargs["clipping_range"] == SAParameters.FA_CLIPPING_RANGE
+        assert kwargs["target_range"] == SAParameters.FA_TARGET_RANGE
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.logger")
+    def test_clipping_range_mismatch_warns_once(
+        self, mock_logger, secagg_fa, mock_secagg
+    ):
+        """A researcher clipping range that differs from the FA constant warns once."""
+        mock_secagg.clipping_range = SAParameters.FA_CLIPPING_RANGE + 1
+        secagg_fa._warn_on_clipping_mismatch()
+        secagg_fa._warn_on_clipping_mismatch()
+        mock_logger.warning.assert_called_once()
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.logger")
+    def test_clipping_range_match_does_not_warn(
+        self, mock_logger, secagg_fa, mock_secagg
+    ):
+        """A clipping range equal to the FA constant is not a mismatch: no warning."""
+        mock_secagg.clipping_range = SAParameters.FA_CLIPPING_RANGE
+        secagg_fa._warn_on_clipping_mismatch()
+        mock_logger.warning.assert_not_called()
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.logger")
+    def test_clipping_range_unset_does_not_warn(
+        self, mock_logger, secagg_fa, mock_secagg
+    ):
+        """An unset (None) clipping range expresses no intent: no warning."""
+        mock_secagg.clipping_range = None
+        secagg_fa._warn_on_clipping_mismatch()
+        mock_logger.warning.assert_not_called()
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_encrypted_replies_are_decrypted(

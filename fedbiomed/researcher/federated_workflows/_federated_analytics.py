@@ -499,6 +499,8 @@ class FederatedAnalytics:
             secagg if secagg is not None else SecureAggregation(active=False)
         )
         self._fa_round_counter: int = 0
+        # One-shot guard for the clipping-range mismatch warning.
+        self._fa_clipping_warned: bool = False
         # Maps hash(node_ids, dataset_schema, stats_args) → FAResult.
         self._results_store: OrderedDict[str, FAResult] = OrderedDict()
 
@@ -599,9 +601,23 @@ class FederatedAnalytics:
             researcher_id=self._researcher_id,
             insecure_validation=False,
         )
-        # FA clipping range is fixed so the researcher can set it directly
-        self._secagg.clipping_range = SAParameters.FA_CLIPPING_RANGE
+        # FA clipping range is fixed; leave the researcher's object untouched
         return dict(self._secagg.train_arguments())
+
+    def _warn_on_clipping_mismatch(self) -> None:
+        """Warn once if the researcher set a clipping range differing from the FA constant (None/equal stays silent)."""
+        requested = self._secagg.clipping_range
+        if (
+            requested is not None
+            and requested != SAParameters.FA_CLIPPING_RANGE
+            and not self._fa_clipping_warned
+        ):
+            logger.warning(
+                f"Secure aggregation 'clipping_range'={requested} is ignored for FA: "
+                f"the node uses a fixed range ({SAParameters.FA_CLIPPING_RANGE}); "
+                f"remove it from the SecureAggregation setup to silence this warning."
+            )
+            self._fa_clipping_warned = True
 
     def _execute_and_update_cache(
         self,
@@ -647,6 +663,11 @@ class FederatedAnalytics:
             secagg_arguments=secagg_arguments or None,
         )
 
+        # Warn once on a mismatching clipping range, then strip it from the arguments
+        if secagg_arguments:
+            self._warn_on_clipping_mismatch()
+            secagg_arguments.pop("secagg_clipping_range", None)
+
         # Node-level errors and empty replies are handled by FARequestJob.execute()
         analytics_replies = fa_job.execute()
 
@@ -663,6 +684,7 @@ class FederatedAnalytics:
                 model_params=model_params,
                 num_expected_params=num_expected_params,
                 target_range=SAParameters.FA_TARGET_RANGE,
+                clipping_range=SAParameters.FA_CLIPPING_RANGE,
             )
             # Crypter returns cross-node mean (÷num_nodes cancels quantization
             # offset); ×num_nodes restores the additive sum FA aggregators expect.

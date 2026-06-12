@@ -296,19 +296,19 @@ class FAJob(_BaseJob):
             return self._build_error_msg(msg=repr(e), errnum=ErrorNumbers.FB325.value)
 
         if secagg_round.use_secagg:
+            # FA uses fixed ranges, never recovered from the request.
             flat, schema = flatten_fa_output(output)
-            # Oversized statistics would corrupt the aggregate if encrypted
-            clip = (
-                self._secagg_arguments.get("secagg_clipping_range")
-                or SAParameters.FA_CLIPPING_RANGE
+            clip_error = self._check_clipping_overflow(
+                flat, schema, clip=SAParameters.FA_CLIPPING_RANGE
             )
-            clip_error = self._check_clipping_overflow(flat, schema, clip)
             if clip_error is not None:
                 return clip_error
-            fa_round = self._secagg_arguments.get("fa_round", 1)
-            # FA uses a wider quantization range than training (node-local constant)
             encrypted_params = secagg_round.scheme.encrypt(
-                flat, fa_round, weight=1, target_range=SAParameters.FA_TARGET_RANGE
+                flat,
+                fa_round=self._secagg_arguments.get("fa_round", 1),
+                weight=1,
+                target_range=SAParameters.FA_TARGET_RANGE,
+                clipping_range=SAParameters.FA_CLIPPING_RANGE,
             )
 
             return FAReply(
