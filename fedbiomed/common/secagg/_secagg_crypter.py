@@ -25,10 +25,6 @@ class SecaggCrypter:
     by converting it proper format for the framework.
     """
 
-    def __init__(self) -> None:
-        """Constructs ParameterEncrypter"""
-        self._jls = JoyeLibert()
-
     @staticmethod
     def _setup_public_param(biprime: int) -> PublicParam:
         """Creates public parameter for encryption
@@ -97,6 +93,8 @@ class SecaggCrypter:
             )
 
         target_range = target_range or SAParameters.TARGET_RANGE
+        # Size the vector-encoder packing slots. Must match the decode side.
+        jls = JoyeLibert(target_range=target_range)
         # quantize params into [0, target_range-1] (FA uses a wider range than training)
         params = quantize(
             weights=params, clipping_range=clipping_range, target_range=target_range
@@ -121,7 +119,7 @@ class SecaggCrypter:
         try:
             # Encrypt parameters
 
-            encrypted_params: List[mpz] = self._jls.protect(
+            encrypted_params: List[mpz] = jls.protect(
                 public_param=public_param,
                 user_key=key,
                 tau=current_round,
@@ -191,6 +189,10 @@ class SecaggCrypter:
                 f"should be of type of integers."
             )
 
+        target_range = target_range or SAParameters.TARGET_RANGE
+        # Decode with the same slot size used to encode (derived from target_range)
+        jls = JoyeLibert(target_range=target_range)
+
         # TODO provide dynamically created biprime. Biprime that is used
         #  on the node-side should matched the one used for decryption
         public_param = self._setup_public_param(biprime=biprime)
@@ -199,7 +201,7 @@ class SecaggCrypter:
         params = self._convert_to_encrypted_number(params, public_param)
 
         try:
-            sum_of_weights = self._jls.aggregate(
+            sum_of_weights = jls.aggregate(
                 sk_0=key,
                 tau=current_round,  # The time period \\(\\tau\\)
                 list_y_u_tau=params,
@@ -218,7 +220,7 @@ class SecaggCrypter:
         aggregated_params: List[float] = reverse_quantize(
             aggregated_params,
             clipping_range=clipping_range,
-            target_range=target_range or SAParameters.TARGET_RANGE,
+            target_range=target_range,
         )
         time_elapsed = time.process_time() - start
         logger.debug(

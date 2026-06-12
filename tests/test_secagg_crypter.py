@@ -325,6 +325,62 @@ class TestSecaggCrypter(unittest.TestCase):
                 total_sample_size=8,
             )
 
+    def test_secagg_crypter_07_fa_wide_range_roundtrip(self):
+        """JLS round-trip with federated-analytics wide-range (~55-bit) values.
+
+        Regression test: the Joye-Libert vector encoder packs several values into
+        one plaintext. Its slot size must be derived from the (wide) FA target
+        range, otherwise ~55-bit FA statistics overflow the default training-sized
+        slots and corrupt the neighbouring packed value. With the encoder sized for
+        FA_TARGET_RANGE the two adjacent stats (count, sum) decode independently.
+        """
+        C = SAParameters.FA_CLIPPING_RANGE
+        T = SAParameters.FA_TARGET_RANGE
+        num_nodes, current_round = 2, 1
+
+        # 'year' [count, sum] held by each of two nodes (adjacent in the vector).
+        node_1_vals = [10667.0, 21516413.0]
+        node_2_vals = [17965.0, 36233008.0]
+
+        node_1 = self.secagg_crypter.encrypt(
+            num_nodes=num_nodes,
+            current_round=current_round,
+            params=node_1_vals,
+            key=10,
+            biprime=TestSecaggCrypter.biprime,
+            clipping_range=C,
+            weight=1,
+            target_range=T,
+        )
+        node_2 = self.secagg_crypter.encrypt(
+            num_nodes=num_nodes,
+            current_round=current_round,
+            params=node_2_vals,
+            key=10,
+            biprime=TestSecaggCrypter.biprime,
+            clipping_range=C,
+            weight=1,
+            target_range=T,
+        )
+
+        aggregated = self.secagg_crypter.aggregate(
+            current_round=current_round,
+            num_nodes=num_nodes,
+            params=[node_1, node_2],
+            key=-20,
+            biprime=TestSecaggCrypter.biprime,
+            total_sample_size=num_nodes,
+            clipping_range=C,
+            num_expected_params=2,
+            target_range=T,
+        )
+        # FA restores the additive sum across nodes (crypter returns the mean).
+        result = [v * num_nodes for v in aggregated]
+
+        # count = 10667 + 17965 = 28632 ; sum = 21516413 + 36233008 = 57749421
+        self.assertAlmostEqual(result[0], 28632.0, delta=1.0)
+        self.assertAlmostEqual(result[1], 57749421.0, delta=1.0)
+
 
 if __name__ == "__main__":
     unittest.main()
