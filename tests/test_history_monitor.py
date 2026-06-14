@@ -6,37 +6,21 @@ from fedbiomed.node.history_monitor import HistoryMonitor
 
 
 class TestHistoryMonitor(unittest.TestCase):
-    """
-    Test `HistoryMonitor` class
-    Args:
-        unittest ([type]): [description]
-    """
+    """Tests for HistoryMonitor."""
 
     def setUp(self):
         # Messaging to pass HistoryMonitor
         self.send = MagicMock()
-
-        try:
-            self.history_monitor = HistoryMonitor(
-                node_id="test-node-id",
-                node_name="test-node-name",
-                experiment_id="1234",
-                researcher_id="researcher-id",
-                send=self.send,
-            )
-            self._history_monitor_ok = True
-        except:
-            self._history_monitor_ok = False
-
-        self.assertTrue(
-            self._history_monitor_ok, "History monitor has initialized correctly"
+        self.history_monitor = HistoryMonitor(
+            node_id="test-node-id",
+            node_name="test-node-name",
+            experiment_id="1234",
+            researcher_id="researcher-id",
+            send=self.send,
         )
 
     def tearDown(self):
-        """
-        after all tests
-        """
-        pass
+        """After all tests."""
 
     def test_send_message(self):
         """Test history monitor can add a scalar value using
@@ -55,8 +39,21 @@ class TestHistoryMonitor(unittest.TestCase):
             epoch=111,
         )
         self.assertEqual(scalar, None)
+        self.send.assert_called_once()
 
-        pass
+        feedback_message = self.send.call_args.args[0]
+        self.assertEqual(feedback_message.researcher_id, "researcher-id")
+        self.assertEqual(feedback_message.scalar.node_id, "test-node-id")
+        self.assertEqual(feedback_message.scalar.node_name, "test-node-name")
+        self.assertEqual(feedback_message.scalar.experiment_id, "1234")
+        self.assertEqual(feedback_message.scalar.metric, {"test": 123})
+        self.assertTrue(feedback_message.scalar.train)
+        self.assertFalse(feedback_message.scalar.test)
+        self.assertEqual(feedback_message.scalar.total_samples, 1234)
+        self.assertEqual(feedback_message.scalar.batch_samples, 12)
+        self.assertEqual(feedback_message.scalar.num_batches, 12)
+        self.assertEqual(feedback_message.scalar.iteration, 111)
+        self.assertEqual(feedback_message.scalar.epoch, 111)
 
     def test_send_message_error(self):
         """Test send message in case of sending wrong types"""

@@ -26,9 +26,10 @@ class HistoryMonitor:
 
         Args:
             node_id: Unique ID of this node
-            experiment_id: TODO
-            researcher_id: TODO
-            client: TODO
+            node_name: Human-readable name of this node
+            experiment_id: Unique identifier of the running experiment
+            researcher_id: Unique identifier of the researcher receiving feedback
+            send: Callable used to transmit a FeedbackMessage
         """
         self._node_id = node_id
         self._node_name = node_name
@@ -61,18 +62,20 @@ class HistoryMonitor:
             response to researcher.
 
         Args:
-            metric:  recorded value
-            iteration: current epoch iteration.
-            epoch: current epoch
-            total_samples: TODO
-            batch_samples: TODO
-            num_batches: TODO
-            num_samples_trained: TODO
-            train: TODO
-            test: TODO
-            test_on_global_updates: TODO
-            test_on_local_updates: TODO
+            metric: Recorded metric values (for example loss or accuracy)
+            iteration: Current iteration index within the training process
+            epoch: Current epoch index
+            total_samples: Total number of samples in the dataset
+            batch_samples: Number of samples in the current batch
+            num_batches: Number of batches for one epoch
+            num_samples_trained: Cumulative number of samples used for training
+            train: Whether this metric is emitted during training
+            test: Whether this metric is emitted during validation/testing
+            test_on_global_updates: Whether test metrics use globally updated params
+            test_on_local_updates: Whether test metrics use locally updated params
 
+        Returns:
+            None
         """
         self.send(
             FeedbackMessage(
