@@ -41,7 +41,7 @@ class TestHistoryMonitor(unittest.TestCase):
         self.assertEqual(scalar, None)
         self.send.assert_called_once()
 
-        feedback_message = self.send.call_args.args[0]
+        feedback_message = self.send.call_args[0][0]
         self.assertEqual(feedback_message.researcher_id, "researcher-id")
         self.assertEqual(feedback_message.scalar.node_id, "test-node-id")
         self.assertEqual(feedback_message.scalar.node_name, "test-node-name")

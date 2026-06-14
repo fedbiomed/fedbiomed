@@ -68,7 +68,8 @@ class HistoryMonitor:
             total_samples: Total number of samples in the dataset
             batch_samples: Number of samples in the current batch
             num_batches: Number of batches for one epoch
-            num_samples_trained: Cumulative number of samples used for training
+            num_samples_trained: Optional cumulative number of samples used for
+                training; None when that value is unknown or not provided
             train: Whether this metric is emitted during training
             test: Whether this metric is emitted during validation/testing
             test_on_global_updates: Whether test metrics use globally updated params
