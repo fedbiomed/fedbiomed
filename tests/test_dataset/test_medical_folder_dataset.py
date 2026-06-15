@@ -355,8 +355,8 @@ def test_validate_format_and_transformations_transform_error(sample_dict):
         )
 
 
-def test_complete_initialization(monkeypatch, sample_dict):
-    """Test the complete_initialization method"""
+def test_load(monkeypatch, sample_dict):
+    """Test the load method"""
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
@@ -372,7 +372,7 @@ def test_complete_initialization(monkeypatch, sample_dict):
     )
 
     # Test successful initialization
-    ds.complete_initialization(controller_kwargs={}, to_format=DataReturnFormat.SKLEARN)
+    ds.load(controller_kwargs={}, to_format=DataReturnFormat.SKLEARN)
 
     assert ds.to_format == DataReturnFormat.SKLEARN
     assert ds._controller is not None
@@ -742,7 +742,7 @@ def test_analytics_schema(monkeypatch, sample_dict):
     )
 
     # Init controller
-    ds.complete_initialization({}, DataReturnFormat.SKLEARN)
+    ds.load({}, DataReturnFormat.SKLEARN)
 
     schema, _ = ds.analytics_schema()
 
@@ -1007,11 +1007,11 @@ def test_iter(sample_dict):
         assert "label" in target
 
 
-# === complete_initialization edge cases ===
+# === load edge cases ===
 
 
-def test_complete_initialization_no_target(monkeypatch, sample_dict):
-    """complete_initialization with target_modalities=None sets format and controller."""
+def test_load_no_target(monkeypatch, sample_dict):
+    """load with target_modalities=None sets format and controller."""
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
@@ -1025,7 +1025,7 @@ def test_complete_initialization_no_target(monkeypatch, sample_dict):
         transform=None,
         target_transform=None,
     )
-    ds.complete_initialization(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+    ds.load(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
 
     assert ds.to_format == DataReturnFormat.TORCH
     assert ds._controller is not None
@@ -1054,7 +1054,7 @@ def test_analytics_schema_no_demographics(monkeypatch, sample_dict):
         transform=None,
         target_transform=None,
     )
-    ds.complete_initialization({}, DataReturnFormat.SKLEARN)
+    ds.load({}, DataReturnFormat.SKLEARN)
 
     schema, second = ds.analytics_schema()
 

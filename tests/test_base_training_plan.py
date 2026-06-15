@@ -360,7 +360,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
                     np.array(np.random.randint(0, 2)) for _ in range(nb_samples)
                 ]
 
-            def complete_initialization(self, *args, **kwargs) -> None:
+            def load(self, *args, **kwargs) -> None:
                 pass
 
             def __getitem__(self, idx: int):

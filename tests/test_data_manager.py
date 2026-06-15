@@ -32,10 +32,10 @@ class TestDataManager(unittest.TestCase):
         def to_format(self) -> DataReturnFormat:
             return DataReturnFormat.TORCH
 
-        def complete_initialization(self) -> None:
+        def load(self) -> None:
             pass
 
-        def complete_initialization(self):
+        def load(self):
             return None
 
     def setUp(self):

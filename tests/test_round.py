@@ -1450,7 +1450,7 @@ class TestRound(unittest.TestCase):
             def __getitem__(self, idx):
                 return self.X_train[idx], self.Y_train[idx]
 
-            def complete_initialization(
+            def load(
                 self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
             ):
                 pass

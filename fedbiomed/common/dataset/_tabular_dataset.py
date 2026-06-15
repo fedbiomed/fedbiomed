@@ -64,12 +64,12 @@ class TabularDataset(Dataset):
         self._transform = self._validate_transform(transform=transform)
         self._target_transform = self._validate_transform(transform=target_transform)
 
-        # Validation of columns is deferred to complete_initialization
+        # Validation of columns is deferred to load
         # as self._controller._reader implements the logic to validate columns
         self._input_columns = input_columns
         self._target_columns = target_columns
 
-    def complete_initialization(
+    def load(
         self,
         controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,

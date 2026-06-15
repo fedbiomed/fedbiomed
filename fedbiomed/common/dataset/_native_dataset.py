@@ -77,7 +77,7 @@ class NativeDataset(Dataset):
 
         self._target = target  # may be None
 
-    def complete_initialization(
+    def load(
         self,
         controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,

@@ -33,7 +33,7 @@ def dataset_with_mock_controller(request, mock_controller, tmp_path):
     """ImageFolderDataset initialized with either sklearn or torch return format."""
     dataset = ImageFolderDataset()
     dataset._controller_cls = lambda **kwargs: mock_controller
-    dataset.complete_initialization(
+    dataset.load(
         controller_kwargs={"root": tmp_path},
         to_format=request.param,
     )
@@ -159,10 +159,10 @@ def test_apply_transforms_success(dataset_with_mock_controller):
     assert isinstance(target, dataset_with_mock_controller._to_format.value)
 
 
-# === Tests for complete_initialization ===
+# === Tests for load ===
 
 
-def test_complete_initialization_missing_keys(tmp_path):
+def test_load_missing_keys(tmp_path):
     # incomplete controller
     mock_controller = MagicMock()
     mock_controller.get_sample.side_effect = lambda index: {
@@ -171,10 +171,10 @@ def test_complete_initialization_missing_keys(tmp_path):
     dataset = ImageFolderDataset()
     dataset._controller_cls = lambda **kwargs: mock_controller
     with pytest.raises(KeyError):
-        dataset.complete_initialization({"root": tmp_path}, DataReturnFormat.SKLEARN)
+        dataset.load({"root": tmp_path}, DataReturnFormat.SKLEARN)
 
 
-def test_complete_initialization_success(dataset_with_mock_controller):
+def test_load_success(dataset_with_mock_controller):
     dataset = dataset_with_mock_controller
     data, target = dataset[0]
     assert isinstance(data, dataset_with_mock_controller._to_format.value)
@@ -204,7 +204,7 @@ def test_getitem_torch_numpy_input(tmp_path):
 
     dataset = ImageFolderDataset()
     dataset._controller_cls = lambda **kwargs: mock_controller
-    dataset.complete_initialization(
+    dataset.load(
         controller_kwargs={"root": tmp_path},
         to_format=DataReturnFormat.TORCH,
     )

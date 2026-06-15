@@ -204,7 +204,7 @@ def test_build_args_for_dataset_unknown_type_raises(fa_job):
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
 def test_build_dataset_success(mock_registry, fa_job, mock_dm, mock_dataset_cls):
-    """Happy path: correct dataset returned and complete_initialization called."""
+    """Happy path: correct dataset returned and load called."""
     instance, cls = mock_dataset_cls
     fa_job._dataset_manager = mock_dm
     mock_registry.__contains__.return_value = True
@@ -213,8 +213,8 @@ def test_build_dataset_success(mock_registry, fa_job, mock_dm, mock_dataset_cls)
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     assert dataset is instance
-    instance.complete_initialization.assert_called_once()
-    call_args = instance.complete_initialization.call_args
+    instance.load.assert_called_once()
+    call_args = instance.load.call_args
     assert call_args[0][0]["root"] == "/path/to/data"
     assert call_args[0][1] == DataReturnFormat.SKLEARN
 
@@ -237,7 +237,7 @@ def test_build_dataset_forwards_dataset_parameters(
 
     fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
-    call_kwargs = instance.complete_initialization.call_args[0][0]
+    call_kwargs = instance.load.call_args[0][0]
     assert call_kwargs.get("tabular_file") == "labels.csv"
 
 
@@ -283,7 +283,7 @@ def test_build_dataset_with_dlp(
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     assert dataset is instance
-    assert instance.complete_initialization.call_args[0][0]["dlp"] == mock_dlp
+    assert instance.load.call_args[0][0]["dlp"] == mock_dlp
 
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")

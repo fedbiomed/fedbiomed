@@ -62,7 +62,7 @@ class _SkLearnSubset(Dataset, FrameworkSubset[Dataset]):
         actual_idx = self.indices[idx]
         return self.dataset[actual_idx]
 
-    def complete_initialization(
+    def load(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
     ) -> None:
         """Unused method to comply with Dataset interface."""

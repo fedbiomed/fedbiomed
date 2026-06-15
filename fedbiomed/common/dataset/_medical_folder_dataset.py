@@ -173,7 +173,7 @@ class MedicalFolderDataset(Dataset):
         transform: Transform,
         is_target: bool = False,
     ) -> Dict[str, Callable]:
-        """Called once per `transform` from `complete_initialization`
+        """Called once per `transform` from `load`
 
         Args:
             data: from `self._controller.get_sample`
@@ -217,7 +217,7 @@ class MedicalFolderDataset(Dataset):
                     f"{'target_transform' if is_target else 'transform'} to entire data dict"
                 ) from e
 
-    def complete_initialization(
+    def load(
         self,
         controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,

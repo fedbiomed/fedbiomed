@@ -27,8 +27,8 @@ class DummyDataset(Dataset):
     _transform = staticmethod(lambda x: x)
     _target_transform = staticmethod(lambda x: x)
 
-    def complete_initialization(self, controller_kwargs=None, to_format=None):
-        super().complete_initialization(controller_kwargs, to_format)
+    def load(self, controller_kwargs=None, to_format=None):
+        super().load(controller_kwargs, to_format)
 
     def __getitem__(self, idx):
         return (1, 2)
@@ -221,10 +221,10 @@ def test_18_iter():
     assert all(item == (1, 2) for item in items)
 
 
-def test_19_complete_initialization_calls_super():
+def test_19_load_calls_super():
     """Covers abstract body at line 51."""
     ds = DummyDataset()
-    ds.complete_initialization(
+    ds.load(
         controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
     )  # DummyDataset calls super() → hits `pass`
 
@@ -238,7 +238,7 @@ def test_20_abstract_getitem_body():
         _transform = staticmethod(lambda x: x)
         _target_transform = staticmethod(lambda x: x)
 
-        def complete_initialization(self):
+        def load(self):
             pass
 
         def __getitem__(self, idx):
@@ -291,7 +291,7 @@ def test_24_init_controller_instantiation_failure():
         _transform = staticmethod(lambda x: x)
         _target_transform = staticmethod(lambda x: x)
 
-        def complete_initialization(self):
+        def load(self):
             pass
 
         def __getitem__(self, idx):

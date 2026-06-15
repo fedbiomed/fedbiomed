@@ -49,7 +49,7 @@ class _ImageLabelDataset(Dataset):
         self._transform = self._validate_transform(transform)
         self._target_transform = self._validate_transform(target_transform)
 
-    def complete_initialization(
+    def load(
         self,
         controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,

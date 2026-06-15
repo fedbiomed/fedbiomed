@@ -73,7 +73,7 @@ class CustomDataset(Dataset):
         """Returns the number of samples in the dataset."""
         pass
 
-    def complete_initialization(
+    def load(
         self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
     ) -> None:
         """Finalize initialization of object to be able to recover items.

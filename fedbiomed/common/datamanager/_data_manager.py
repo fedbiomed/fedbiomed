@@ -130,7 +130,7 @@ class DataManager(object):
             )
 
         try:
-            self._dataset.complete_initialization(
+            self._dataset.load(
                 controller_kwargs,
                 _dm_to_format[self._data_manager_instance.__class__],
             )

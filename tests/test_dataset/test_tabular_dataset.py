@@ -7,10 +7,10 @@ from fedbiomed.common.dataset._tabular_dataset import TabularDataset, _polars_to
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
-# ---------- complete_initialization wiring ----------
+# ---------- load wiring ----------
 
 
-def test_complete_initialization_wires_controller_and_validates(mocker):
+def test_load_wires_controller_and_validates(mocker):
     df = pl.DataFrame({"data": [1], "target": [2]})
 
     # Stub a controller that returns a sample
@@ -40,7 +40,7 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
     # Patch instance methods
     mocker.patch.object(ds, "_init_controller", side_effect=fake_init_controller)
 
-    ds.complete_initialization(
+    ds.load(
         controller_kwargs={"root": "/path"},
         to_format=DataReturnFormat.SKLEARN,
     )
@@ -66,7 +66,7 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
     # Patch instance methods
     mocker.patch.object(ds, "_init_controller", side_effect=fake_init_controller)
 
-    ds.complete_initialization(
+    ds.load(
         controller_kwargs={"root": "/path"},
         to_format=DataReturnFormat.SKLEARN,
     )
@@ -74,7 +74,7 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
     mock_logger_warning.assert_called_once()
 
 
-def test_complete_initialization_raises_if_sample_multiline(mocker):
+def test_load_raises_if_sample_multiline(mocker):
     # Sample with multiple rows (instead of single-row)
     df = pl.DataFrame({"col1": [1, 2], "col2": [2, 3], "col3": [3, 4]})
 
@@ -100,9 +100,7 @@ def test_complete_initialization_raises_if_sample_multiline(mocker):
     mocker.patch.object(ds, "_validate_format_and_transformations")
 
     with pytest.raises(FedbiomedError) as exc:
-        ds.complete_initialization(
-            controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
-        )
+        ds.load(controller_kwargs={}, to_format=DataReturnFormat.SKLEARN)
     assert "TabularDataset currently only supports row-wise samples" in str(exc.value)
 
 
@@ -520,7 +518,7 @@ def test_get_item_from_sample_numeric_passes_non_numeric_raises():
         (["feature"], ["label"], {"feature": [1.0], "label": ["cat"]}, "label"),
     ],
 )
-def test_complete_initialization_raises_for_non_numeric_column(
+def test_load_raises_for_non_numeric_column(
     mocker, fmt, input_cols, target_cols, df_data, bad_col
 ):
     df = pl.DataFrame(df_data)
@@ -541,7 +539,7 @@ def test_complete_initialization_raises_for_non_numeric_column(
         ),
     )
     with pytest.raises(FedbiomedError, match=bad_col):
-        ds.complete_initialization(controller_kwargs={}, to_format=fmt)
+        ds.load(controller_kwargs={}, to_format=fmt)
 
 
 @pytest.mark.parametrize(
