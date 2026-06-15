@@ -686,9 +686,9 @@ class TestRound(unittest.TestCase):
             def get_dataset_type() -> DatasetTypes:
                 return DatasetTypes.TEST
 
-        def complete_dataset_initialization_side_effect(controller_kwargs):
+        def load_dataset_side_effect(controller_kwargs):
             """
-            Mimic what the real DataManager.complete_dataset_initialization() would do in this test:
+            Mimic what the real DataManager.load_dataset() would do in this test:
             Attach the deserialized DLP to the dataset.
             """
             dlp = controller_kwargs.get("dlp")
@@ -708,9 +708,7 @@ class TestRound(unittest.TestCase):
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
 
-        data_manager_mock.complete_dataset_initialization.side_effect = (
-            complete_dataset_initialization_side_effect
-        )
+        data_manager_mock.load_dataset.side_effect = load_dataset_side_effect
 
         data_manager_mock.save_state = MagicMock()
         data_manager_mock.load_state = MagicMock()

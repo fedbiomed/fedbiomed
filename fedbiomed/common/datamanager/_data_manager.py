@@ -111,9 +111,7 @@ class DataManager(object):
                 "cannot instantiate data manager."
             )
 
-    def complete_dataset_initialization(
-        self, controller_kwargs: Dict[str, Any]
-    ) -> None:
+    def load_dataset(self, controller_kwargs: Dict[str, Any]) -> None:
         """Finalizes initialization of the DataManager's dataset controller
 
         Args:
