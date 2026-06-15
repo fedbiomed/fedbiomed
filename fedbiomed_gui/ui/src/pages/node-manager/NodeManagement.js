@@ -1,18 +1,19 @@
 import React from 'react'
 import {connect} from 'react-redux'
 import {
-    EuiBadge,
-    EuiBasicTable,
     EuiButton,
     EuiFieldNumber,
     EuiFlexGroup,
     EuiFlexItem,
     EuiFormRow,
     EuiIcon,
-    EuiPanel,
-    EuiSpacer,
+    EuiModal,
+    EuiModalBody,
+    EuiModalFooter,
+    EuiModalHeader,
+    EuiModalHeaderTitle,
     EuiSwitch,
-    EuiText,
+    EuiToolTip,
 } from '@elastic/eui'
 
 import {
@@ -53,14 +54,7 @@ const formatDateTime = (value) => {
     return date.toLocaleString()
 }
 
-const toRows = (data, keys) => {
-    return keys.map((key) => ({
-        key,
-        value: formatValue(data ? data[key] : null),
-    }))
-}
-
-const stateBadgeColor = (state) => {
+const stateTone = (state) => {
     switch (String(state || '').toLowerCase()) {
         case 'running':
             return 'success'
@@ -69,7 +63,7 @@ const stateBadgeColor = (state) => {
         case 'stopped':
             return 'danger'
         default:
-            return 'primary'
+            return 'neutral'
     }
 }
 
@@ -122,6 +116,41 @@ const getRunningFor = (processState, now) => {
     return formatDuration(now.getTime() - startedAt.getTime())
 }
 
+const StatusPill = ({state, uppercase = false}) => {
+    const label = formatValue(state)
+
+    return (
+        <span className={`node-management-status-pill ${stateTone(state)}`}>
+            <span className="node-management-status-dot" />
+            {uppercase ? label.toUpperCase() : label}
+        </span>
+    )
+}
+
+const SummaryCard = ({className, label, value, description}) => (
+    <div className={`node-management-summary-card ${className}`}>
+        <span className="node-management-summary-label">{label}</span>
+        <strong>{formatValue(value)}</strong>
+        <span className="node-management-summary-description">
+            {description}
+        </span>
+    </div>
+)
+
+const DetailItem = ({icon, label, value, valueContent}) => (
+    <div className="node-management-detail-item">
+        <span className="node-management-detail-icon">
+            <EuiIcon type={icon} size="m" />
+        </span>
+        <span className="node-management-detail-content">
+            <span className="node-management-detail-label">{label}</span>
+            <span className="node-management-detail-value">
+                {valueContent || formatValue(value)}
+            </span>
+        </span>
+    </div>
+)
+
 const NodeManagement = ({
     processState,
     loading,
@@ -134,6 +163,7 @@ const NodeManagement = ({
 }) => {
     const [now, setNow] = React.useState(new Date())
     const [nodeArgs, setNodeArgs] = React.useState(defaultNodeArgs)
+    const [isActorModalVisible, setIsActorModalVisible] = React.useState(false)
 
     const updateNodeArg = (key, value) => {
         setNodeArgs((currentNodeArgs) => ({
@@ -171,245 +201,363 @@ const NodeManagement = ({
         return () => clearInterval(intervalId)
     }, [isRunning])
 
-    const columns = [
-        {
-            field: 'key',
-            name: 'Field',
-            render: (value) => (
-                <strong className="node-management-table-field">{value}</strong>
-            ),
-        },
-        {
-            field: 'value',
-            name: 'Value',
-            render: (value) => (
-                <span className="node-management-table-value">{value}</span>
-            ),
-        },
-    ]
-
-    const processStateWithRuntime = {
-        ...processState,
-        running_for: getRunningFor(processState, now),
-        last_refresh: formatDateTime(lastRefresh),
-    }
-
-    const stateRows = toRows(processStateWithRuntime,
-        [
-            'node_id',
-            'node_name',
-            'state',
-            'running_for',
-            'pid',
-            'action',
-            'reason',
-            'updated_at',
-            'last_refresh',
-            'started_at',
-            'stopped_at',
-            'exit_code',
-        ]
-    )
-
-    const actorRows = toRows(processState?.actor, [
-        'source',
-        'user_id',
-        'email',
-        'role',
-        'name',
-        'surname',
-        'local_username',
-    ])
+    const runningFor = getRunningFor(processState, now)
+    const actor = processState?.actor || {}
+    const actorName = [actor.name, actor.surname].filter(Boolean).join(' ')
+    const statusMessage = isRunning
+        ? 'The node is currently running smoothly.'
+        : isStopping
+            ? 'The node process is stopping.'
+            : isStopped
+                ? 'The node process is currently stopped.'
+                : 'Node process information is not available yet.'
 
     return (
-        <React.Fragment>
-            <EuiFlexGroup
-                justifyContent="spaceBetween"
-                alignItems="center"
-                gutterSize="m"
-                wrap
-            >
-                <EuiFlexItem grow={false}>
-                    <EuiIcon type="grid" size="xxl" />
-                </EuiFlexItem>
-                <EuiFlexItem grow={false}>
-                    <EuiText>      
-                        <h1>Node Management</h1>
-                    </EuiText>
-                    <EuiText color="subdued">
-                        <p>Monitor and manage node processes</p>
-                    </EuiText>
-                </EuiFlexItem>
-                <EuiFlexItem grow={false}>
-                    <EuiBadge color={stateBadgeColor(currentState)}>
-                        <span className="node-management-status-badge">
-                            {formatValue(currentState).toUpperCase()}
+        <div className="node-management-page">
+            <section className="node-management-card node-management-header">
+                <div className="node-management-header-top">
+                    <div className="node-management-heading">
+                        <span className="node-management-heading-icon">
+                            <EuiIcon type="node" size="xl" />
                         </span>
-                    </EuiBadge>
-                </EuiFlexItem>
-                <EuiFlexItem grow={false}>
-                    <EuiButton
-                        size="m"
-                        fill
-                        onClick={() => fetchNodeProcessState({
-                            markRefresh: true,
-                        })}
-                        isLoading={loading}
+                        <div>
+                            <h1>Node Management</h1>
+                            <p>Monitor and manage node processes</p>
+                        </div>
+                    </div>
+                    <div className="node-management-header-actions">
+                        <StatusPill state={currentState} uppercase />
+                        <EuiButton
+                            iconType="refresh"
+                            fill
+                            onClick={() => fetchNodeProcessState({
+                                markRefresh: true,
+                            })}
+                            isLoading={loading}
+                        >
+                            Refresh
+                        </EuiButton>
+                    </div>
+                </div>
+
+                <div className="node-management-header-controls">
+                    <EuiFlexGroup gutterSize="m" alignItems="flexEnd" wrap>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="GPU">
+                                <EuiSwitch
+                                    label="Enable GPU"
+                                    checked={nodeArgs.gpu}
+                                    onChange={(event) => updateNodeArg(
+                                        'gpu',
+                                        event.target.checked
+                                    )}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="GPU only">
+                                <EuiSwitch
+                                    label="GPU only"
+                                    checked={nodeArgs.gpu_only}
+                                    onChange={(event) => updateNodeArg(
+                                        'gpu_only',
+                                        event.target.checked
+                                    )}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="Debug">
+                                <EuiSwitch
+                                    label="Debug"
+                                    checked={nodeArgs.debug}
+                                    onChange={(event) => updateNodeArg(
+                                        'debug',
+                                        event.target.checked
+                                    )}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="GPU number">
+                                <EuiFieldNumber
+                                    min={0}
+                                    value={nodeArgs.gpu_num}
+                                    onChange={(event) => updateNodeArg(
+                                        'gpu_num',
+                                        Math.max(
+                                            0,
+                                            Number.parseInt(
+                                                event.target.value || '0',
+                                                10
+                                            ) || 0
+                                        )
+                                    )}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                    </EuiFlexGroup>
+
+                    <EuiFlexGroup
+                        className="node-management-header-control-actions"
+                        gutterSize="s"
+                        wrap
                     >
-                        Refresh
-                    </EuiButton>
-                </EuiFlexItem>
-            </EuiFlexGroup>
+                        <EuiFlexItem grow={false}>
+                            <EuiButton
+                                color="success"
+                                fill
+                                onClick={() => executeNodeAction(
+                                    'start',
+                                    nodeArgs
+                                )}
+                                isLoading={actionLoading === 'start'}
+                                isDisabled={isRunning || isStopping}
+                            >
+                                Start
+                            </EuiButton>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiButton
+                                color="danger"
+                                fill
+                                onClick={() => executeNodeAction(
+                                    'stop',
+                                    nodeArgs
+                                )}
+                                isLoading={actionLoading === 'stop'}
+                                isDisabled={!isStateKnown || isStopped}
+                            >
+                                Stop
+                            </EuiButton>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiButton
+                                color="warning"
+                                fill
+                                onClick={() => executeNodeAction(
+                                    'restart',
+                                    nodeArgs
+                                )}
+                                isLoading={actionLoading === 'restart'}
+                                isDisabled={!isStateKnown || isStopping}
+                            >
+                                Restart
+                            </EuiButton>
+                        </EuiFlexItem>
+                    </EuiFlexGroup>
+                </div>
+            </section>
 
             {processStateError ? (
-                <React.Fragment>
-                    <EuiSpacer size="m" />
-                    <EuiText color="subdued">
-                        <p>{processStateError}</p>
-                    </EuiText>
-                </React.Fragment>
+                <div className="node-management-alert error">
+                    <EuiIcon type="alert" />
+                    <span>{processStateError}</span>
+                </div>
             ) : null}
 
             {actionError ? (
-                <React.Fragment>
-                    <EuiSpacer size="m" />
-                    <EuiText color="danger">
-                        <p>{actionError}</p>
-                    </EuiText>
-                </React.Fragment>
+                <div className="node-management-alert error">
+                    <EuiIcon type="alert" />
+                    <span>{actionError}</span>
+                </div>
             ) : null}
 
-            <EuiSpacer size="l" />
-            <EuiPanel paddingSize="m" hasShadow={false} hasBorder>
-                <EuiText>
-                    <h3>Node Controls</h3>
-                </EuiText>
-                <EuiSpacer size="m" />
-                <EuiFlexGroup gutterSize="m" alignItems="flexEnd" wrap>
-                    <EuiFlexItem grow={false}>
-                        <EuiFormRow label="GPU">
-                            <EuiSwitch
-                                label="Enable GPU"
-                                checked={nodeArgs.gpu}
-                                onChange={(event) => updateNodeArg(
-                                    'gpu',
-                                    event.target.checked
-                                )}
-                            />
-                        </EuiFormRow>
-                    </EuiFlexItem>
-                    <EuiFlexItem grow={false}>
-                        <EuiFormRow label="GPU only">
-                            <EuiSwitch
-                                label="GPU only"
-                                checked={nodeArgs.gpu_only}
-                                onChange={(event) => updateNodeArg(
-                                    'gpu_only',
-                                    event.target.checked
-                                )}
-                            />
-                        </EuiFormRow>
-                    </EuiFlexItem>
-                    <EuiFlexItem grow={false}>
-                        <EuiFormRow label="Debug">
-                            <EuiSwitch
-                                label="Debug"
-                                checked={nodeArgs.debug}
-                                onChange={(event) => updateNodeArg(
-                                    'debug',
-                                    event.target.checked
-                                )}
-                            />
-                        </EuiFormRow>
-                    </EuiFlexItem>
-                    <EuiFlexItem grow={false}>
-                        <EuiFormRow label="GPU number">
-                            <EuiFieldNumber
-                                min={0}
-                                value={nodeArgs.gpu_num}
-                                onChange={(event) => updateNodeArg(
-                                    'gpu_num',
-                                    Math.max(
-                                        0,
-                                        Number.parseInt(
-                                            event.target.value || '0',
-                                            10
-                                        ) || 0
-                                    )
-                                )}
-                            />
-                        </EuiFormRow>
-                    </EuiFlexItem>
-                </EuiFlexGroup>
-                <EuiSpacer size="m" />
-                <EuiFlexGroup gutterSize="s" wrap>
-                    <EuiFlexItem grow={false}>
-                        <EuiButton
-                            color="success"
-                            fill
-                            onClick={() => executeNodeAction('start', nodeArgs)}
-                            isLoading={actionLoading === 'start'}
-                            isDisabled={isRunning || isStopping}
+            <section className="node-management-card node-management-process">
+                <div className="node-management-section-header">
+                    <div className="node-management-section-heading">
+                        <span className="node-management-section-icon">
+                            <EuiIcon type="stats" size="l" />
+                        </span>
+                        <div>
+                            <h2>Process Details</h2>
+                            <p>Current process information and status</p>
+                        </div>
+                    </div>
+                    <div className="node-management-process-header-actions">
+                        <EuiToolTip
+                            position="bottom"
+                            title="Last Action Actor"
+                            content={(
+                                <div className="node-management-actor-tooltip">
+                                    <span>
+                                        <strong>Name:</strong>{' '}
+                                        {formatValue(
+                                            actorName || actor.local_username
+                                        )}
+                                    </span>
+                                    <span>
+                                        <strong>Email:</strong>{' '}
+                                        {formatValue(actor.email)}
+                                    </span>
+                                    <span>
+                                        <strong>Role:</strong>{' '}
+                                        {formatValue(actor.role)}
+                                    </span>
+                                    <span>
+                                        <strong>Source:</strong>{' '}
+                                        {formatValue(actor.source)}
+                                    </span>
+                                    <span>
+                                        <strong>User ID:</strong>{' '}
+                                        {formatValue(actor.user_id)}
+                                    </span>
+                                </div>
+                            )}
                         >
-                            Start
-                        </EuiButton>
-                    </EuiFlexItem>
-                    <EuiFlexItem grow={false}>
-                        <EuiButton
-                            color="danger"
-                            fill
-                            onClick={() => executeNodeAction('stop', nodeArgs)}
-                            isLoading={actionLoading === 'stop'}
-                            isDisabled={!isStateKnown || isStopped}
-                        >
-                            Stop
-                        </EuiButton>
-                    </EuiFlexItem>
-                    <EuiFlexItem grow={false}>
-                        <EuiButton
-                            color="warning"
-                            fill
-                            onClick={() => executeNodeAction('restart', nodeArgs)}
-                            isLoading={actionLoading === 'restart'}
-                            isDisabled={!isStateKnown || isStopping}
-                        >
-                            Restart
-                        </EuiButton>
-                    </EuiFlexItem>
-                </EuiFlexGroup>
-            </EuiPanel>
+                            <EuiButton
+                                size="s"
+                                iconType="user"
+                                onClick={() => setIsActorModalVisible(true)}
+                            >
+                                View actor
+                            </EuiButton>
+                        </EuiToolTip>
+                        <StatusPill state={currentState} />
+                    </div>
+                </div>
 
-            <EuiSpacer size="l" />
-            <EuiPanel paddingSize="m" hasShadow={false} hasBorder>
-                <EuiText>
-                    <h3>Process State</h3>
-                </EuiText>
-                <EuiSpacer size="m" />
-                <EuiBasicTable
-                    itemId="key"
-                    items={stateRows}
-                    columns={columns}
-                    loading={loading}
-                    tableLayout="auto"
-                />
-            </EuiPanel>
+                <div className="node-management-process-content">
+                    <aside className="node-management-summary">
+                        <SummaryCard
+                            className="uptime"
+                            label="Uptime"
+                            value={runningFor}
+                            description="Running for"
+                        />
+                        <SummaryCard
+                            className="pid"
+                            label="PID"
+                            value={processState?.pid}
+                            description="Process ID"
+                        />
+                    </aside>
 
-            <EuiSpacer size="l" />
-            <EuiPanel paddingSize="m" hasShadow={false} hasBorder>
-                <EuiText>
-                    <h3>Actor</h3>
-                </EuiText>
-                <EuiSpacer size="m" />
-                <EuiBasicTable
-                    itemId="key"
-                    items={actorRows}
-                    columns={columns}
-                    loading={loading}
-                    tableLayout="auto"
-                />
-            </EuiPanel>
-            <EuiSpacer size="l" />
-        </React.Fragment>
+                    <div className="node-management-details-grid">
+                        <DetailItem
+                            icon="tokenKey"
+                            label="Node ID"
+                            value={processState?.node_id}
+                        />
+                        <DetailItem
+                            icon="calendar"
+                            label="Started At"
+                            value={formatDateTime(processState?.started_at)}
+                        />
+                        <DetailItem
+                            icon="user"
+                            label="Node Name"
+                            value={processState?.node_name}
+                        />
+                        <DetailItem
+                            icon="refresh"
+                            label="Last Refresh"
+                            value={formatDateTime(lastRefresh)}
+                        />
+                        <DetailItem
+                            icon="iInCircle"
+                            label="State"
+                            valueContent={<StatusPill state={currentState} />}
+                        />
+                        <DetailItem
+                            icon="calendar"
+                            label="Updated At"
+                            value={formatDateTime(processState?.updated_at)}
+                        />
+                        <DetailItem
+                            icon="clock"
+                            label="Running For"
+                            value={runningFor}
+                        />
+                        <DetailItem
+                            icon="clock"
+                            label="Stopped At"
+                            value={formatDateTime(processState?.stopped_at)}
+                        />
+                        <DetailItem
+                            icon="play"
+                            label="Action"
+                            value={processState?.action}
+                        />
+                        <DetailItem
+                            icon="console"
+                            label="Exit Code"
+                            value={processState?.exit_code}
+                        />
+                        <DetailItem
+                            icon="flag"
+                            label="Reason"
+                            value={processState?.reason}
+                        />
+                    </div>
+                </div>
+
+                <div className={`node-management-status-banner ${
+                    stateTone(currentState)
+                }`}>
+                    <span className="node-management-status-banner-icon">
+                        <EuiIcon type="iInCircle" size="l" />
+                    </span>
+                    <div>
+                        <strong>Process Status</strong>
+                        <p>{statusMessage}</p>
+                    </div>
+                </div>
+            </section>
+
+            {isActorModalVisible ? (
+                <EuiModal
+                    className="node-management-actor-modal"
+                    onClose={() => setIsActorModalVisible(false)}
+                >
+                    <EuiModalHeader>
+                        <EuiModalHeaderTitle>
+                            Last Action Actor
+                        </EuiModalHeaderTitle>
+                    </EuiModalHeader>
+                    <EuiModalBody>
+                        <p className="node-management-actor-description">
+                            User or process responsible for the latest action
+                        </p>
+                        <div className="node-management-actor-grid">
+                            <DetailItem
+                                icon="user"
+                                label="Name"
+                                value={actorName || actor.local_username}
+                            />
+                            <DetailItem
+                                icon="email"
+                                label="Email"
+                                value={actor.email}
+                            />
+                            <DetailItem
+                                icon="users"
+                                label="Role"
+                                value={actor.role}
+                            />
+                            <DetailItem
+                                icon="inputOutput"
+                                label="Source"
+                                value={actor.source}
+                            />
+                            <DetailItem
+                                icon="tokenKey"
+                                label="User ID"
+                                value={actor.user_id}
+                            />
+                        </div>
+                    </EuiModalBody>
+                    <EuiModalFooter>
+                        <EuiButton
+                            fill
+                            onClick={() => setIsActorModalVisible(false)}
+                        >
+                            Close
+                        </EuiButton>
+                    </EuiModalFooter>
+                </EuiModal>
+            ) : null}
+        </div>
     )
 }
 
