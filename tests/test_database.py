@@ -6,6 +6,7 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db_dataclasses import (
     DatasetEntry,
     DynamicDatasetEntry,
+    NodeProcessStateEntry,
 )
 from fedbiomed.node.dataset_manager._db_tables import (
     DatasetTable,
@@ -336,6 +337,13 @@ class TestNodeProcessStateTables(unittest.TestCase):
             "state": "running",
             "action": "start",
             "reason": "process_started",
+            "node_args": {
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": False,
+                "debug": True,
+            },
+            "background": True,
         }
         second_entry = {
             "node_id": "node-1",
@@ -353,6 +361,42 @@ class TestNodeProcessStateTables(unittest.TestCase):
         self.assertEqual(stored["pid"], 222)
         self.assertEqual(stored["state"], "stopped")
         self.assertEqual(len(self.state_table.all()), 1)
+
+    def test_process_state_entry_accepts_legacy_records(self):
+        entry = NodeProcessStateEntry.from_dict(
+            {
+                "node_id": "node-1",
+                "node_name": "Node 1",
+                "pid": 111,
+                "state": "running",
+                "action": "start",
+            }
+        )
+
+        self.assertIsNone(entry.node_args)
+        self.assertIsNone(entry.background)
+
+    def test_process_state_table_stores_execution_settings(self):
+        entry = {
+            "node_id": "node-1",
+            "node_name": "Node 1",
+            "pid": 111,
+            "state": "running",
+            "action": "start",
+            "node_args": {
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": False,
+                "debug": True,
+            },
+            "background": True,
+        }
+
+        self.state_table.update_or_insert_by_id("node-1", entry)
+        stored = self.state_table.get_by_id("node-1")
+
+        self.assertEqual(stored["node_args"], entry["node_args"])
+        self.assertTrue(stored["background"])
 
     def test_history_table_inserts_multiple_entries_for_same_pid(self):
         first_entry = {

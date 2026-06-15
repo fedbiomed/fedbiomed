@@ -28,6 +28,13 @@ from fedbiomed.node.dataset_manager._db_tables import (
 )
 from fedbiomed.node.node import Node
 
+DEFAULT_NODE_ARGS = {
+    "gpu": False,
+    "gpu_num": 1,
+    "gpu_only": False,
+    "debug": False,
+}
+
 
 class NodeState(enum.Enum):
     RUNNING = "running"
@@ -271,6 +278,8 @@ class NodeProcessManager:
         actor: Optional[Dict[str, Any]] = None,
         reason: Optional[str] = None,
         exit_code: Optional[int] = None,
+        node_args: Optional[Dict[str, Any]] = None,
+        background: Optional[bool] = None,
     ) -> None:
         """Persist the current process state if the node DB is available.
 
@@ -280,6 +289,8 @@ class NodeProcessManager:
             actor: Optional user/source metadata for process state attribution.
             reason: Optional reason for the state change.
             exit_code: Optional exit code for the process.
+            node_args: Effective arguments used to start the node process.
+            background: Whether the node process runs in the background.
         """
         if (
             not self._get_state_table()
@@ -292,6 +303,15 @@ class NodeProcessManager:
         try:
             now = _utc_now()
             existing = self._get_state_table().get_by_id(self._node_id) or {}
+            effective_node_args = existing.get("node_args")
+            if node_args is not None:
+                effective_node_args = (
+                    dict(effective_node_args)
+                    if isinstance(effective_node_args, dict)
+                    else {}
+                )
+                effective_node_args.update(node_args)
+
             entry = NodeProcessStateEntry(
                 pid=pid,
                 state=state.value,
@@ -304,6 +324,10 @@ class NodeProcessManager:
                 started_at=existing.get("started_at"),
                 stopped_at=existing.get("stopped_at"),
                 exit_code=exit_code,
+                node_args=effective_node_args,
+                background=(
+                    background if background is not None else existing.get("background")
+                ),
             )
 
             match state:
@@ -350,6 +374,8 @@ class NodeProcessManager:
             started_at=None,
             stopped_at=None,
             exit_code=None,
+            node_args=None,
+            background=None,
         )
 
         if not self._get_state_table() or not self._node_id:
@@ -433,6 +459,8 @@ class NodeProcessManager:
             action="start",
             actor=actor,
             reason=reason,
+            node_args=node_args,
+            background=background,
         )
         logger.info(f"Node '{self._node_id}' started (pid={_process.pid}).")
 
@@ -543,22 +571,47 @@ class NodeProcessManager:
 
     def restart(
         self,
-        node_args: dict,
-        background: bool = False,
+        node_args: Optional[Dict[str, Any]] = None,
+        background: Optional[bool] = None,
         actor: Optional[Dict[str, Any]] = None,
         reason: Optional[str] = "restart_requested",
     ) -> None:
         """Stop then start the node subprocess.
 
         Args:
-            node_args: Dict of arguments forwarded to the node subprocess on start.
-            background: Whether to start the node in the background.
+            node_args: Partial arguments to override the last saved execution
+                settings. Omitted values inherit saved settings.
+            background: Whether to start the node in the background. If omitted,
+                the last saved execution mode is used.
             actor: Optional user/source metadata for process state attribution.
             reason: Optional reason for restarting the process, default is "restart_requested".
         """
+        effective_node_args = dict(DEFAULT_NODE_ARGS)
+        effective_background = False
+
+        if self._get_state_table() and self._node_id:
+            stored_state = self._get_state_table().get_by_id(self._node_id) or {}
+            stored_node_args = stored_state.get("node_args")
+            if isinstance(stored_node_args, dict):
+                effective_node_args.update(stored_node_args)
+            if isinstance(stored_state.get("background"), bool):
+                effective_background = stored_state["background"]
+
+        if node_args:
+            effective_node_args.update(
+                {key: value for key, value in node_args.items() if value is not None}
+            )
+        if effective_node_args["gpu_only"]:
+            effective_node_args["gpu"] = True
+        if background is not None:
+            effective_background = background
+
         self.stop(actor=actor, reason=reason)
         self.start(
-            node_args=node_args, background=background, actor=actor, reason=reason
+            node_args=effective_node_args,
+            background=effective_background,
+            actor=actor,
+            reason=reason,
         )
 
     def _is_process_active(self, pid: Optional[int]) -> bool:

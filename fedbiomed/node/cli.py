@@ -386,6 +386,7 @@ class NodeControl(CLIArgumentParser):
         restart.add_argument(
             "--gpu",
             action="store_true",
+            default=None,
             help="Activate GPU usage if the flag is present",
         )
 
@@ -395,7 +396,7 @@ class NodeControl(CLIArgumentParser):
             type=int,
             nargs="?",
             required=False,
-            default=1,
+            default=None,
             help="Number of GPU that is going to be used",
         )
 
@@ -403,6 +404,7 @@ class NodeControl(CLIArgumentParser):
             "--gpu-only",
             "-go",
             action="store_true",
+            default=None,
             help="Node performs training only using GPU resources."
             "This flag automatically activate GPU.",
         )
@@ -412,6 +414,7 @@ class NodeControl(CLIArgumentParser):
             "-D",
             action="store_true",
             required=False,
+            default=None,
             help="Activate debug mode for the Node. Default is `False`",
         )
 
@@ -420,6 +423,7 @@ class NodeControl(CLIArgumentParser):
             "-b",
             action="store_true",
             required=False,
+            default=None,
             help="Start the node in the background. Default is `False`",
         )
 
@@ -476,17 +480,22 @@ class NodeControl(CLIArgumentParser):
 
     def restart(self, args):
         """Restarts the node"""
-        node_args = {
-            "gpu": (args.gpu is True) or (args.gpu_only is True),
-            "gpu_num": args.gpu_num,
-            "gpu_only": True if args.gpu_only else False,
-            "debug": True if args.debug else False,
-        }
+        node_args = {}
+        if args.gpu is not None:
+            node_args["gpu"] = args.gpu
+        if args.gpu_num is not None:
+            node_args["gpu_num"] = args.gpu_num
+        if args.gpu_only is not None:
+            node_args["gpu_only"] = args.gpu_only
+            if args.gpu_only:
+                node_args["gpu"] = True
+        if args.debug is not None:
+            node_args["debug"] = args.debug
 
         node_process_manager = NodeProcessManager(self._node.config)
         node_process_manager.restart(
             node_args=node_args,
-            background=(True if args.background else False),
+            background=args.background,
             actor={"source": "cli"},
             reason="cli_restart_command",
         )

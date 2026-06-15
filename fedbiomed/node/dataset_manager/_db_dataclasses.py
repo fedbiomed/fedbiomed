@@ -112,6 +112,8 @@ class NodeProcessStateEntry(TableEntry):
     started_at: Optional[str] = None
     stopped_at: Optional[str] = None
     exit_code: Optional[int] = None
+    node_args: Optional[Dict[str, Any]] = None
+    background: Optional[bool] = None
 
 
 @dataclass

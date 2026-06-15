@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import psutil
 import pytest
 
-from fedbiomed.node.node_pm import NodeProcessManager, NodeState
+from fedbiomed.node.node_pm import DEFAULT_NODE_ARGS, NodeProcessManager, NodeState
 
 
 class FakeDoc(dict):
@@ -117,15 +117,16 @@ def test_node_pm_01_start(mocker, _manager, background):
     )
 
     mock_popen.assert_called_once()
-    if background:
-        manager._set_process_state.assert_called_once_with(
-            pid=12345,
-            state=NodeState.RUNNING,
-            action="start",
-            actor={"source": "gui"},
-            reason="start_requested",
-        )
-    else:
+    manager._set_process_state.assert_called_once_with(
+        pid=12345,
+        state=NodeState.RUNNING,
+        action="start",
+        actor={"source": "gui"},
+        reason="start_requested",
+        node_args=node_args,
+        background=background,
+    )
+    if not background:
         manager._wait.assert_called_once_with(process, actor={"source": "gui"})
 
 
@@ -237,15 +238,74 @@ def test_node_pm_03_stop(
     )
 
 
-def test_node_pm_04_restart(mocker, _manager):
+@pytest.mark.parametrize(
+    "node_args, background, expected_node_args, expected_background",
+    [
+        (
+            None,
+            None,
+            {
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": True,
+                "debug": True,
+            },
+            True,
+        ),
+        (
+            {"gpu_num": 4},
+            None,
+            {
+                "gpu": True,
+                "gpu_num": 4,
+                "gpu_only": True,
+                "debug": True,
+            },
+            True,
+        ),
+        (
+            {
+                "gpu": False,
+                "gpu_num": 0,
+                "gpu_only": False,
+                "debug": False,
+            },
+            False,
+            {
+                "gpu": False,
+                "gpu_num": 0,
+                "gpu_only": False,
+                "debug": False,
+            },
+            False,
+        ),
+    ],
+)
+def test_node_pm_04_restart_inherits_and_overrides_saved_settings(
+    mocker,
+    _manager,
+    node_args,
+    background,
+    expected_node_args,
+    expected_background,
+):
     manager = _manager
+    manager._state_table.get_by_id.return_value = {
+        "node_args": {
+            "gpu": True,
+            "gpu_num": 2,
+            "gpu_only": True,
+            "debug": True,
+        },
+        "background": True,
+    }
 
     manager.stop = mocker.MagicMock()
-    manager.start = mocker.MagicMock(return_value=67890)
+    manager.start = mocker.MagicMock()
 
     manager.restart(
-        node_args={"gpu": False},
-        background=False,
+        node_args=node_args,
+        background=background,
         actor={"source": "gui"},
     )
 
@@ -255,9 +315,25 @@ def test_node_pm_04_restart(mocker, _manager):
     )
 
     manager.start.assert_called_once_with(
-        node_args={"gpu": False},
-        background=False,
+        node_args=expected_node_args,
+        background=expected_background,
         actor={"source": "gui"},
+        reason="restart_requested",
+    )
+
+
+def test_node_pm_04_restart_uses_cli_defaults_without_saved_state(mocker, _manager):
+    manager = _manager
+    manager._state_table.get_by_id.return_value = None
+    manager.stop = mocker.MagicMock()
+    manager.start = mocker.MagicMock()
+
+    manager.restart(actor={"source": "cli"})
+
+    manager.start.assert_called_once_with(
+        node_args=DEFAULT_NODE_ARGS,
+        background=False,
+        actor={"source": "cli"},
         reason="restart_requested",
     )
 
@@ -284,6 +360,8 @@ def test_node_pm_05_set_process_state(mocker, _manager):
         action="start",
         actor={"source": "local"},
         reason="start_requested",
+        node_args={"gpu": True, "gpu_num": 2},
+        background=True,
     )
 
     state_table.update_or_insert_by_id.assert_called_once()
@@ -299,7 +377,75 @@ def test_node_pm_05_set_process_state(mocker, _manager):
     assert NodeState(state_entry["state"]) == NodeState.RUNNING
     assert state_entry["started_at"] == "utc-now"
     assert state_entry["actor"] == {"source": "local"}
+    assert state_entry["node_args"] == {"gpu": True, "gpu_num": 2}
+    assert state_entry["background"] is True
     assert history_entry == state_entry
+
+
+def test_node_pm_05_set_process_state_preserves_execution_settings(mocker, _manager):
+    manager = _manager
+    manager._node_id = "node_id1"
+    manager._state_table.get_by_id.return_value = {
+        "state": NodeState.RUNNING.value,
+        "started_at": "start-time",
+        "node_args": {
+            "gpu": True,
+            "gpu_num": 3,
+            "gpu_only": False,
+            "debug": True,
+        },
+        "background": True,
+    }
+
+    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value="stop-time")
+    manager._set_process_state(
+        pid=1234,
+        state=NodeState.STOPPED,
+        action="stop",
+    )
+
+    state_entry = manager._state_table.update_or_insert_by_id.call_args.args[1]
+    assert state_entry["node_args"] == {
+        "gpu": True,
+        "gpu_num": 3,
+        "gpu_only": False,
+        "debug": True,
+    }
+    assert state_entry["background"] is True
+    assert state_entry["stopped_at"] == "stop-time"
+
+
+def test_node_pm_05_set_process_state_merges_partial_node_args(mocker, _manager):
+    manager = _manager
+    manager._node_id = "node_id1"
+    manager._state_table.get_by_id.return_value = {
+        "state": NodeState.RUNNING.value,
+        "started_at": "start-time",
+        "node_args": {
+            "gpu": True,
+            "gpu_num": 3,
+            "gpu_only": False,
+            "debug": True,
+        },
+        "background": True,
+    }
+
+    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value="update-time")
+    manager._set_process_state(
+        pid=1234,
+        state=NodeState.RUNNING,
+        action="status_check",
+        node_args={"gpu_num": 4, "debug": False},
+    )
+
+    state_entry = manager._state_table.update_or_insert_by_id.call_args.args[1]
+    assert state_entry["node_args"] == {
+        "gpu": True,
+        "gpu_num": 4,
+        "gpu_only": False,
+        "debug": False,
+    }
+    assert state_entry["background"] is True
 
 
 def test_node_pm_05_set_process_state_resets_started_at_after_stop(mocker, _manager):
@@ -430,6 +576,8 @@ def test_node_pm_09_get_process_state_returns_stored_entry(mocker, _manager):
     assert state.node_id == "node-1"
     assert state.node_name == "Node 1"
     assert state.actor == {"source": "gui"}
+    assert state.node_args is None
+    assert state.background is None
 
 
 def test_10_cleanup_process_state_history_removes_entries_older_than_30_days(

@@ -182,6 +182,25 @@ const NodeManagement = ({
         }
     }, [lastRefresh])
 
+    React.useEffect(() => {
+        const savedNodeArgs = processState?.node_args
+        if (!savedNodeArgs || typeof savedNodeArgs !== 'object') {
+            return
+        }
+
+        const savedGpuNumber = Number(savedNodeArgs.gpu_num)
+        setNodeArgs({
+            gpu: Boolean(savedNodeArgs.gpu ?? defaultNodeArgs.gpu),
+            gpu_num: Number.isFinite(savedGpuNumber)
+                ? Math.max(0, savedGpuNumber)
+                : defaultNodeArgs.gpu_num,
+            gpu_only: Boolean(
+                savedNodeArgs.gpu_only ?? defaultNodeArgs.gpu_only
+            ),
+            debug: Boolean(savedNodeArgs.debug ?? defaultNodeArgs.debug),
+        })
+    }, [processState])
+
     const currentState = processState?.state
     const normalizedState = String(currentState || '').toLowerCase()
     const isStateKnown = Boolean(currentState)
@@ -488,6 +507,31 @@ const NodeManagement = ({
                             icon="flag"
                             label="Reason"
                             value={processState?.reason}
+                        />
+                        <DetailItem
+                            icon="compute"
+                            label="GPU"
+                            value={processState?.node_args?.gpu}
+                        />
+                        <DetailItem
+                            icon="number"
+                            label="GPU Number"
+                            value={processState?.node_args?.gpu_num}
+                        />
+                        <DetailItem
+                            icon="check"
+                            label="GPU Only"
+                            value={processState?.node_args?.gpu_only}
+                        />
+                        <DetailItem
+                            icon="bug"
+                            label="Debug"
+                            value={processState?.node_args?.debug}
+                        />
+                        <DetailItem
+                            icon="desktop"
+                            label="Background"
+                            value={processState?.background}
                         />
                     </div>
                 </div>
