@@ -1,5 +1,5 @@
 import React from 'react'
-import axios from 'axios'
+import {connect} from 'react-redux'
 import {
     EuiBadge,
     EuiBasicTable,
@@ -16,14 +16,9 @@ import {
 } from '@elastic/eui'
 
 import {
-    EP_NODE_PROCESS_STATE,
-    EP_NODE_RESTART,
-    EP_NODE_START,
-    EP_NODE_STOP,
-} from '../../constants'
-import {ReactComponent as StorageIcon}  from '../../assets/img/disk-storage.svg'
-import Header from '../../components/layout/Header'
-
+    executeNodeAction,
+    fetchNodeProcessState,
+} from '../../store/actions/nodeManagementActions'
 
 const emptyValue = '-'
 const defaultNodeArgs = {
@@ -45,7 +40,12 @@ const formatValue = (value) => {
     return String(value)
 }
 
-const formatDateTime = (date) => {
+const formatDateTime = (value) => {
+    if (!value) {
+        return emptyValue
+    }
+
+    const date = value instanceof Date ? value : new Date(value)
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
         return emptyValue
     }
@@ -122,37 +122,18 @@ const getRunningFor = (processState, now) => {
     return formatDuration(now.getTime() - startedAt.getTime())
 }
 
-const NodeManagement = () => {
-    const [processState, setProcessState] = React.useState(null)
-    const [loading, setLoading] = React.useState(false)
-    const [actionLoading, setActionLoading] = React.useState(null)
-    const [actionError, setActionError] = React.useState(null)
-    const [processStateError, setProcessStateError] = React.useState(null)
+const NodeManagement = ({
+    processState,
+    loading,
+    actionLoading,
+    actionError,
+    processStateError,
+    lastRefresh,
+    fetchNodeProcessState,
+    executeNodeAction,
+}) => {
     const [now, setNow] = React.useState(new Date())
-    const [lastRefresh, setLastRefresh] = React.useState(null)
     const [nodeArgs, setNodeArgs] = React.useState(defaultNodeArgs)
-
-    const loadState = React.useCallback(async ({markRefresh = false} = {}) => {
-        setLoading(true)
-        setProcessStateError(null)
-
-        try {
-            const processStateResponse = await axios.get(EP_NODE_PROCESS_STATE)
-            setProcessState(processStateResponse.data.result)
-            const currentDate = new Date()
-            setNow(currentDate)
-            if (markRefresh) {
-                setLastRefresh(currentDate)
-            }
-        } catch (error) {
-            setProcessState(null)
-            setProcessStateError(
-                error?.response?.data?.message || 'Could not get node process state'
-            )
-        } finally {
-            setLoading(false)
-        }
-    }, [])
 
     const updateNodeArg = (key, value) => {
         setNodeArgs((currentNodeArgs) => ({
@@ -161,34 +142,15 @@ const NodeManagement = () => {
         }))
     }
 
-    const nodeActionBody = () => ({
-        ...nodeArgs,
-        gpu_num: Math.max(0, Number(nodeArgs.gpu_num) || 0),
-    })
-
-    const runNodeAction = async (action, endpoint) => {
-        setActionLoading(action)
-        setActionError(null)
-
-        try {
-            if (action === 'stop') {
-                await axios.post(endpoint)
-            } else {
-                await axios.post(endpoint, nodeActionBody())
-            }
-            await loadState({markRefresh: true})
-        } catch (error) {
-            setActionError(
-                error?.response?.data?.message || `Could not ${action} node process`
-            )
-        } finally {
-            setActionLoading(null)
-        }
-    }
+    React.useEffect(() => {
+        fetchNodeProcessState()
+    }, [fetchNodeProcessState])
 
     React.useEffect(() => {
-        loadState()
-    }, [])
+        if (lastRefresh) {
+            setNow(new Date())
+        }
+    }, [lastRefresh])
 
     const currentState = processState?.state
     const normalizedState = String(currentState || '').toLowerCase()
@@ -289,7 +251,9 @@ const NodeManagement = () => {
                     <EuiButton
                         size="m"
                         fill
-                        onClick={() => loadState({markRefresh: true})}
+                        onClick={() => fetchNodeProcessState({
+                            markRefresh: true,
+                        })}
                         isLoading={loading}
                     >
                         Refresh
@@ -383,7 +347,7 @@ const NodeManagement = () => {
                         <EuiButton
                             color="success"
                             fill
-                            onClick={() => runNodeAction('start', EP_NODE_START)}
+                            onClick={() => executeNodeAction('start', nodeArgs)}
                             isLoading={actionLoading === 'start'}
                             isDisabled={isRunning || isStopping}
                         >
@@ -394,7 +358,7 @@ const NodeManagement = () => {
                         <EuiButton
                             color="danger"
                             fill
-                            onClick={() => runNodeAction('stop', EP_NODE_STOP)}
+                            onClick={() => executeNodeAction('stop', nodeArgs)}
                             isLoading={actionLoading === 'stop'}
                             isDisabled={!isStateKnown || isStopped}
                         >
@@ -405,7 +369,7 @@ const NodeManagement = () => {
                         <EuiButton
                             color="warning"
                             fill
-                            onClick={() => runNodeAction('restart', EP_NODE_RESTART)}
+                            onClick={() => executeNodeAction('restart', nodeArgs)}
                             isLoading={actionLoading === 'restart'}
                             isDisabled={!isStateKnown || isStopping}
                         >
@@ -449,4 +413,26 @@ const NodeManagement = () => {
     )
 }
 
-export default NodeManagement
+const mapStateToProps = (state) => {
+    return {
+        processState: state.node_management.processState,
+        loading: state.node_management.loading,
+        actionLoading: state.node_management.actionLoading,
+        actionError: state.node_management.actionError,
+        processStateError: state.node_management.processStateError,
+        lastRefresh: state.node_management.lastRefresh,
+    }
+}
+
+const mapDispatchToProps = (dispatch) => {
+    return {
+        fetchNodeProcessState: (options) => dispatch(
+            fetchNodeProcessState(options)
+        ),
+        executeNodeAction: (action, nodeArgs) => dispatch(
+            executeNodeAction(action, nodeArgs)
+        ),
+    }
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(NodeManagement)
