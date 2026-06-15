@@ -4,20 +4,34 @@ import {
     EuiBadge,
     EuiBasicTable,
     EuiButton,
+    EuiFieldNumber,
     EuiFlexGroup,
     EuiFlexItem,
+    EuiFormRow,
     EuiIcon,
     EuiPanel,
     EuiSpacer,
+    EuiSwitch,
     EuiText,
 } from '@elastic/eui'
 
-import {EP_NODE_PROCESS_STATE} from '../../constants'
+import {
+    EP_NODE_PROCESS_STATE,
+    EP_NODE_RESTART,
+    EP_NODE_START,
+    EP_NODE_STOP,
+} from '../../constants'
 import {ReactComponent as StorageIcon}  from '../../assets/img/disk-storage.svg'
 import Header from '../../components/layout/Header'
 
 
 const emptyValue = '-'
+const defaultNodeArgs = {
+    gpu: false,
+    gpu_num: 0,
+    gpu_only: false,
+    debug: false,
+}
 
 const formatValue = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -111,9 +125,12 @@ const getRunningFor = (processState, now) => {
 const NodeManagement = () => {
     const [processState, setProcessState] = React.useState(null)
     const [loading, setLoading] = React.useState(false)
+    const [actionLoading, setActionLoading] = React.useState(null)
+    const [actionError, setActionError] = React.useState(null)
     const [processStateError, setProcessStateError] = React.useState(null)
     const [now, setNow] = React.useState(new Date())
     const [lastRefresh, setLastRefresh] = React.useState(null)
+    const [nodeArgs, setNodeArgs] = React.useState(defaultNodeArgs)
 
     const loadState = React.useCallback(async ({markRefresh = false} = {}) => {
         setLoading(true)
@@ -137,14 +154,51 @@ const NodeManagement = () => {
         }
     }, [])
 
+    const updateNodeArg = (key, value) => {
+        setNodeArgs((currentNodeArgs) => ({
+            ...currentNodeArgs,
+            [key]: value,
+        }))
+    }
+
+    const nodeActionBody = () => ({
+        ...nodeArgs,
+        gpu_num: Math.max(0, Number(nodeArgs.gpu_num) || 0),
+    })
+
+    const runNodeAction = async (action, endpoint) => {
+        setActionLoading(action)
+        setActionError(null)
+
+        try {
+            if (action === 'stop') {
+                await axios.post(endpoint)
+            } else {
+                await axios.post(endpoint, nodeActionBody())
+            }
+            await loadState({markRefresh: true})
+        } catch (error) {
+            setActionError(
+                error?.response?.data?.message || `Could not ${action} node process`
+            )
+        } finally {
+            setActionLoading(null)
+        }
+    }
+
     React.useEffect(() => {
         loadState()
     }, [])
 
     const currentState = processState?.state
+    const normalizedState = String(currentState || '').toLowerCase()
+    const isStateKnown = Boolean(currentState)
+    const isRunning = normalizedState === 'running'
+    const isStopping = normalizedState === 'stopping'
+    const isStopped = normalizedState === 'stopped'
 
     React.useEffect(() => {
-        if (String(currentState || '').toLowerCase() !== 'running') {
+        if (!isRunning) {
             return undefined
         }
 
@@ -153,7 +207,7 @@ const NodeManagement = () => {
         }, 1000)
 
         return () => clearInterval(intervalId)
-    }, [currentState])
+    }, [isRunning])
 
     const columns = [
         {
@@ -212,7 +266,7 @@ const NodeManagement = () => {
                 alignItems="center"
                 gutterSize="m"
                 wrap
-            >   
+            >
                 <EuiFlexItem grow={false}>
                     <EuiIcon type="grid" size="xxl" />
                 </EuiFlexItem>
@@ -251,6 +305,115 @@ const NodeManagement = () => {
                     </EuiText>
                 </React.Fragment>
             ) : null}
+
+            {actionError ? (
+                <React.Fragment>
+                    <EuiSpacer size="m" />
+                    <EuiText color="danger">
+                        <p>{actionError}</p>
+                    </EuiText>
+                </React.Fragment>
+            ) : null}
+
+            <EuiSpacer size="l" />
+            <EuiPanel paddingSize="m" hasShadow={false} hasBorder>
+                <EuiText>
+                    <h3>Node Controls</h3>
+                </EuiText>
+                <EuiSpacer size="m" />
+                <EuiFlexGroup gutterSize="m" alignItems="flexEnd" wrap>
+                    <EuiFlexItem grow={false}>
+                        <EuiFormRow label="GPU">
+                            <EuiSwitch
+                                label="Enable GPU"
+                                checked={nodeArgs.gpu}
+                                onChange={(event) => updateNodeArg(
+                                    'gpu',
+                                    event.target.checked
+                                )}
+                            />
+                        </EuiFormRow>
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                        <EuiFormRow label="GPU only">
+                            <EuiSwitch
+                                label="GPU only"
+                                checked={nodeArgs.gpu_only}
+                                onChange={(event) => updateNodeArg(
+                                    'gpu_only',
+                                    event.target.checked
+                                )}
+                            />
+                        </EuiFormRow>
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                        <EuiFormRow label="Debug">
+                            <EuiSwitch
+                                label="Debug"
+                                checked={nodeArgs.debug}
+                                onChange={(event) => updateNodeArg(
+                                    'debug',
+                                    event.target.checked
+                                )}
+                            />
+                        </EuiFormRow>
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                        <EuiFormRow label="GPU number">
+                            <EuiFieldNumber
+                                min={0}
+                                value={nodeArgs.gpu_num}
+                                onChange={(event) => updateNodeArg(
+                                    'gpu_num',
+                                    Math.max(
+                                        0,
+                                        Number.parseInt(
+                                            event.target.value || '0',
+                                            10
+                                        ) || 0
+                                    )
+                                )}
+                            />
+                        </EuiFormRow>
+                    </EuiFlexItem>
+                </EuiFlexGroup>
+                <EuiSpacer size="m" />
+                <EuiFlexGroup gutterSize="s" wrap>
+                    <EuiFlexItem grow={false}>
+                        <EuiButton
+                            color="success"
+                            fill
+                            onClick={() => runNodeAction('start', EP_NODE_START)}
+                            isLoading={actionLoading === 'start'}
+                            isDisabled={isRunning || isStopping}
+                        >
+                            Start
+                        </EuiButton>
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                        <EuiButton
+                            color="danger"
+                            fill
+                            onClick={() => runNodeAction('stop', EP_NODE_STOP)}
+                            isLoading={actionLoading === 'stop'}
+                            isDisabled={!isStateKnown || isStopped}
+                        >
+                            Stop
+                        </EuiButton>
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                        <EuiButton
+                            color="warning"
+                            fill
+                            onClick={() => runNodeAction('restart', EP_NODE_RESTART)}
+                            isLoading={actionLoading === 'restart'}
+                            isDisabled={!isStateKnown || isStopping}
+                        >
+                            Restart
+                        </EuiButton>
+                    </EuiFlexItem>
+                </EuiFlexGroup>
+            </EuiPanel>
 
             <EuiSpacer size="l" />
             <EuiPanel paddingSize="m" hasShadow={false} hasBorder>
