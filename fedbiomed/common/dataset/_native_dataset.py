@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import numpy as np
 import torch
@@ -79,14 +79,14 @@ class NativeDataset(Dataset):
 
     def load(
         self,
-        controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,
+        **controller_kwargs: Any,
     ) -> None:
         """Select data and target, and check if they can be converted to requested format.
 
         Args:
-            controller_kwargs: keyword arguments for controller (not used here).
             to_format: format associated to expected return format.
+            controller_kwargs: keyword arguments for controller (not used here).
         Raises:
             FedbiomedError: if there is a problem converting dataset items to requested format.
         """

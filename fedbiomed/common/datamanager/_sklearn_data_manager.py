@@ -5,7 +5,7 @@
 Data manager for scikit-learn training plan
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
@@ -62,9 +62,7 @@ class _SkLearnSubset(Dataset, FrameworkSubset[Dataset]):
         actual_idx = self.indices[idx]
         return self.dataset[actual_idx]
 
-    def load(
-        self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
-    ) -> None:
+    def load(self, to_format: DataReturnFormat, **controller_kwargs: Any) -> None:
         """Unused method to comply with Dataset interface."""
 
 

@@ -122,7 +122,7 @@ class TestNativeDataset(unittest.TestCase):
         self.assertEqual(len(nd), 5)
 
         # Convert to Torch (lazy in __getitem__)
-        nd.load(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+        nd.load(to_format=DataReturnFormat.TORCH)
         d2, t2 = nd[2]
         self.assertIsInstance(d2, torch.Tensor)
         self.assertIsInstance(t2, torch.Tensor)
@@ -139,7 +139,7 @@ class TestNativeDataset(unittest.TestCase):
         self.assertEqual(len(nd), 5)
 
         # Ensure conversion only happens after load
-        nd.load(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+        nd.load(to_format=DataReturnFormat.TORCH)
         d0, t0 = nd[0]
         self.assertIsInstance(d0, torch.Tensor)
         self.assertIsInstance(t0, torch.Tensor)
@@ -152,7 +152,7 @@ class TestNativeDataset(unittest.TestCase):
         y = [0, 1, 0]
 
         nd = NativeDataset(ds, target=y)
-        nd.load(controller_kwargs={}, to_format=DataReturnFormat.SKLEARN)
+        nd.load(to_format=DataReturnFormat.SKLEARN)
 
         d1, t1 = nd[1]
         self.assertIsInstance(d1, np.ndarray)
@@ -170,7 +170,7 @@ class TestNativeDataset(unittest.TestCase):
         nd = NativeDataset(ds)  # no target argument
         self.assertEqual(len(nd), 3)
 
-        nd.load(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+        nd.load(to_format=DataReturnFormat.TORCH)
         d, t = nd[2]
         self.assertIsInstance(d, torch.Tensor)
         self.assertIsInstance(t, torch.Tensor)
@@ -211,7 +211,7 @@ class TestNativeDataset(unittest.TestCase):
         ds = _ArrayDataset(np.array([1, 2, 3]))
         nd = NativeDataset(ds)  # no target
         # Should validate data conversion only and not crash
-        nd.load(controller_kwargs={}, to_format=DataReturnFormat.SKLEARN)
+        nd.load(to_format=DataReturnFormat.SKLEARN)
         d0, t0 = nd[0]
         self.assertIsInstance(d0, np.ndarray)
         self.assertIsNone(t0)
@@ -223,7 +223,7 @@ class TestNativeDataset(unittest.TestCase):
         """
         nd = NativeDataset(_UnsupervisedBadFirstData())
         with self.assertRaises(FedbiomedError):
-            nd.load(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+            nd.load(to_format=DataReturnFormat.TORCH)
 
     def test_load_target_conversion_error(self):
         """
@@ -234,7 +234,7 @@ class TestNativeDataset(unittest.TestCase):
         bad_target = [{"bad": "t0"}, 1]
         nd = NativeDataset(data, target=bad_target)
         with self.assertRaises(FedbiomedError):
-            nd.load(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+            nd.load(to_format=DataReturnFormat.TORCH)
 
     def test_getitem_data_conversion_error(self):
         """
@@ -242,7 +242,7 @@ class TestNativeDataset(unittest.TestCase):
         First sample is OK so CI passes; request idx=1 to trigger failure.
         """
         nd = NativeDataset(_SupervisedBadOnDemand())
-        nd.load(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+        nd.load(to_format=DataReturnFormat.TORCH)
         with self.assertRaises(FedbiomedError):
             _ = nd[1]  # bad data
 
@@ -252,7 +252,7 @@ class TestNativeDataset(unittest.TestCase):
         First sample is OK so CI passes; request idx=2 to trigger failure.
         """
         nd = NativeDataset(_SupervisedBadOnDemand())
-        nd.load(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+        nd.load(to_format=DataReturnFormat.TORCH)
         with self.assertRaises(FedbiomedError):
             _ = nd[2]  # bad target
 

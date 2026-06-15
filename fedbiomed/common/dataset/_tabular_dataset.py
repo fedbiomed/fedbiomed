@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Callable, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import polars as pl
@@ -71,18 +71,18 @@ class TabularDataset(Dataset):
 
     def load(
         self,
-        controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,
+        **controller_kwargs: Any,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
         Args:
-            controller_kwargs: arguments to create controller
             to_format: format associated to expected return format
+            controller_kwargs: arguments to create controller
         """
         self.to_format = to_format
 
-        self._init_controller(controller_kwargs=controller_kwargs)
+        self._init_controller(**controller_kwargs)
 
         # Normalize columns using controller (implies validation)
         self._input_columns = self._controller.normalize_columns(self._input_columns)

@@ -27,8 +27,8 @@ class DummyDataset(Dataset):
     _transform = staticmethod(lambda x: x)
     _target_transform = staticmethod(lambda x: x)
 
-    def load(self, controller_kwargs=None, to_format=None):
-        super().load(controller_kwargs, to_format)
+    def load(self, to_format=None, **controller_kwargs):
+        super().load(to_format, **controller_kwargs)
 
     def __getitem__(self, idx):
         return (1, 2)
@@ -76,21 +76,15 @@ def test_07_validate_transform_invalid():
         ds._validate_transform("not_callable")
 
 
-def test_08_init_controller_invalid_type():
-    ds = DummyDataset()
-    with pytest.raises(FedbiomedError):
-        ds._init_controller("not_a_dict")
-
-
 def test_09_init_controller_valid():
     ds = DummyDataset()
-    ds._init_controller({})
+    ds._init_controller()
     assert isinstance(ds._controller, DummyController)
 
 
 def test_10_len():
     ds = DummyDataset()
-    ds._init_controller({})
+    ds._init_controller()
     assert len(ds) == 42
 
 
@@ -215,7 +209,7 @@ def test_17_validate_transformation_success():
 
 def test_18_iter():
     ds = DummyDataset()
-    ds._init_controller({})
+    ds._init_controller()
     items = list(ds)
     assert len(items) == 42
     assert all(item == (1, 2) for item in items)
@@ -225,7 +219,7 @@ def test_19_load_calls_super():
     """Covers abstract body at line 51."""
     ds = DummyDataset()
     ds.load(
-        controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
+        to_format=DataReturnFormat.SKLEARN
     )  # DummyDataset calls super() → hits `pass`
 
 
@@ -299,7 +293,7 @@ def test_24_init_controller_instantiation_failure():
 
     ds = BrokenDataset()
     with pytest.raises(FedbiomedError, match="Failed to create Controller"):
-        ds._init_controller({})
+        ds._init_controller()
 
 
 def test_25_apply_transforms_no_target():

@@ -48,8 +48,8 @@ class Dataset(ABC):
     @abstractmethod
     def load(
         self,
-        controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,
+        **controller_kwargs: Any,
     ) -> None:
         """Finalize initialization of object to be able to recover items"""
         # Recover sample and validate consistency of transforms
@@ -274,22 +274,15 @@ class Dataset(ABC):
         return data
 
     # === Functions ===
-    def _init_controller(self, controller_kwargs: Dict[str, Any]) -> None:
+    def _init_controller(self, **controller_kwargs: Any) -> None:
         """Initializes self._controller
 
         Args:
             controller_kwargs: arguments necessary to initialize the controller
 
         Raises:
-            FedbiomedError: if `controller_kwargs` is not a `dict`
             FedbiomedError: if there is a problem instantiating `_controller`
         """
-        if not isinstance(controller_kwargs, dict):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Expected `controller_kwargs` to be a "
-                f"`dict`, got {type(controller_kwargs).__name__}"
-            )
-
         try:
             # Instantiate controller
             self._controller = self._controller_cls(**controller_kwargs)

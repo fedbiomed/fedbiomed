@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import abstractmethod
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Tuple, Union
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
@@ -73,14 +73,12 @@ class CustomDataset(Dataset):
         """Returns the number of samples in the dataset."""
         pass
 
-    def load(
-        self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
-    ) -> None:
+    def load(self, to_format: DataReturnFormat, **controller_kwargs: Any) -> None:
         """Finalize initialization of object to be able to recover items.
 
         Args:
-            controller_kwargs: must contain a ``"root"`` key with the path to the dataset.
             to_format: expected format of data returned by ``__getitem__``.
+            controller_kwargs: must contain a ``"root"`` key with the path to the dataset.
         """
 
         self.path = controller_kwargs.get("root", None)

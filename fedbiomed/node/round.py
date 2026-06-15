@@ -1141,7 +1141,7 @@ class Round:
             )
 
         try:
-            data_manager.load_dataset(controller_kwargs)
+            data_manager.load_dataset(**controller_kwargs)
         except FedbiomedError as e:
             raise e
         except Exception as e:

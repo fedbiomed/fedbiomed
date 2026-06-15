@@ -686,7 +686,7 @@ class TestRound(unittest.TestCase):
             def get_dataset_type() -> DatasetTypes:
                 return DatasetTypes.TEST
 
-        def load_dataset_side_effect(controller_kwargs):
+        def load_dataset_side_effect(**controller_kwargs):
             """
             Mimic what the real DataManager.load_dataset() would do in this test:
             Attach the deserialized DLP to the dataset.
@@ -1448,9 +1448,7 @@ class TestRound(unittest.TestCase):
             def __getitem__(self, idx):
                 return self.X_train[idx], self.Y_train[idx]
 
-            def load(
-                self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
-            ):
+            def load(self, to_format: DataReturnFormat, **controller_kwargs):
                 pass
 
         # for pytorch: mimicking the process of saving and re-loading testing

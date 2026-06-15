@@ -34,7 +34,7 @@ def dataset_with_mock_controller(request, mock_controller, tmp_path):
     dataset = ImageFolderDataset()
     dataset._controller_cls = lambda **kwargs: mock_controller
     dataset.load(
-        controller_kwargs={"root": tmp_path},
+        root=tmp_path,
         to_format=request.param,
     )
     return dataset
@@ -56,17 +56,11 @@ def test_to_format_invalid_type():
         dataset.to_format = "not an enum"
 
 
-def test_init_controller_invalid_kwargs_type():
-    dataset = ImageFolderDataset()
-    with pytest.raises(FedbiomedError):
-        dataset._init_controller(controller_kwargs="not a dict")
-
-
 def test_init_controller_instantiation_failure(tmp_path):
     dataset = ImageFolderDataset()
     dataset._controller_cls = lambda **kwargs: (_ for _ in ()).throw(Exception("Fail"))
     with pytest.raises(FedbiomedError):
-        dataset._init_controller({"root": tmp_path})
+        dataset._init_controller(root=tmp_path)
 
 
 # === Tests for ImageLabelDataset ===
@@ -171,7 +165,7 @@ def test_load_missing_keys(tmp_path):
     dataset = ImageFolderDataset()
     dataset._controller_cls = lambda **kwargs: mock_controller
     with pytest.raises(KeyError):
-        dataset.load({"root": tmp_path}, DataReturnFormat.SKLEARN)
+        dataset.load(DataReturnFormat.SKLEARN, root=tmp_path)
 
 
 def test_load_success(dataset_with_mock_controller):
@@ -205,7 +199,7 @@ def test_getitem_torch_numpy_input(tmp_path):
     dataset = ImageFolderDataset()
     dataset._controller_cls = lambda **kwargs: mock_controller
     dataset.load(
-        controller_kwargs={"root": tmp_path},
+        root=tmp_path,
         to_format=DataReturnFormat.TORCH,
     )
 

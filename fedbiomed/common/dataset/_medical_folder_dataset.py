@@ -219,17 +219,17 @@ class MedicalFolderDataset(Dataset):
 
     def load(
         self,
-        controller_kwargs: Dict[str, Any],
         to_format: DataReturnFormat,
+        **controller_kwargs: Any,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
         Args:
-            controller_kwargs: arguments to create controller
             to_format: format associated to expected return format
+            controller_kwargs: arguments to create controller
         """
         self.to_format = to_format
-        self._init_controller(controller_kwargs=controller_kwargs)
+        self._init_controller(**controller_kwargs)
 
         # Recover sample and validate consistency of transforms
         sample = self._controller.get_sample(0)

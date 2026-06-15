@@ -33,7 +33,7 @@ def test_load_wires_controller_and_validates(mocker):
         input_columns=["data"], target_columns=["target"], transform=None
     )
 
-    def fake_init_controller(*, controller_kwargs):
+    def fake_init_controller(**controller_kwargs):
         captured_kwargs.update(controller_kwargs)
         ds._controller = StubController()
 
@@ -41,7 +41,7 @@ def test_load_wires_controller_and_validates(mocker):
     mocker.patch.object(ds, "_init_controller", side_effect=fake_init_controller)
 
     ds.load(
-        controller_kwargs={"root": "/path"},
+        root="/path",
         to_format=DataReturnFormat.SKLEARN,
     )
 
@@ -59,7 +59,7 @@ def test_load_wires_controller_and_validates(mocker):
         input_columns=["data", "target"], target_columns=["target"], transform=None
     )
 
-    def fake_init_controller(*, controller_kwargs):
+    def fake_init_controller(**controller_kwargs):
         captured_kwargs.update(controller_kwargs)
         ds._controller = StubController()
 
@@ -67,7 +67,7 @@ def test_load_wires_controller_and_validates(mocker):
     mocker.patch.object(ds, "_init_controller", side_effect=fake_init_controller)
 
     ds.load(
-        controller_kwargs={"root": "/path"},
+        root="/path",
         to_format=DataReturnFormat.SKLEARN,
     )
 
@@ -91,7 +91,7 @@ def test_load_raises_if_sample_multiline(mocker):
     mocker.patch.object(
         ds,
         "_init_controller",
-        side_effect=lambda controller_kwargs: setattr(
+        side_effect=lambda **controller_kwargs: setattr(
             ds, "_controller", StubController()
         ),
     )
@@ -100,7 +100,7 @@ def test_load_raises_if_sample_multiline(mocker):
     mocker.patch.object(ds, "_validate_format_and_transformations")
 
     with pytest.raises(FedbiomedError) as exc:
-        ds.load(controller_kwargs={}, to_format=DataReturnFormat.SKLEARN)
+        ds.load(to_format=DataReturnFormat.SKLEARN)
     assert "TabularDataset currently only supports row-wise samples" in str(exc.value)
 
 
@@ -534,12 +534,12 @@ def test_load_raises_for_non_numeric_column(
     mocker.patch.object(
         ds,
         "_init_controller",
-        side_effect=lambda controller_kwargs: setattr(
+        side_effect=lambda **controller_kwargs: setattr(
             ds, "_controller", StubController()
         ),
     )
     with pytest.raises(FedbiomedError, match=bad_col):
-        ds.load(controller_kwargs={}, to_format=fmt)
+        ds.load(to_format=fmt)
 
 
 @pytest.mark.parametrize(

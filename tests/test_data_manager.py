@@ -51,18 +51,18 @@ class TestDataManager(unittest.TestCase):
         with self.assertRaises(FedbiomedError):
             data_manager = DataManager(dataset="invalid-argument")
             data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
-            data_manager.load_dataset(controller_kwargs={"root": "dummy_path"})
+            data_manager.load_dataset(root="dummy_path")
 
         # Test passing another invalid argument
         with self.assertRaises(FedbiomedError):
             data_manager = DataManager(dataset=12)
             data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
-            data_manager.load_dataset(controller_kwargs={"root": "dummy_path"})
+            data_manager.load_dataset(root="dummy_path")
 
         # Test Native Dataset Scenario
         data_manager = DataManager(dataset=[12, 12, 12, 12])
         data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
-        data_manager.load_dataset(controller_kwargs={"root": "dummy_path"})
+        data_manager.load_dataset(root="dummy_path")
         self.assertIsInstance(data_manager._data_manager_instance, TorchDataManager)
         self.assertIsInstance(data_manager._dataset, NativeDataset)
 
