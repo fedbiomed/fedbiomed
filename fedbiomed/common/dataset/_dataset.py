@@ -12,6 +12,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import Controller
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
+from fedbiomed.common.logger import logger
 
 
 class Dataset(ABC):
@@ -57,6 +58,18 @@ class Dataset(ABC):
     @abstractmethod
     def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
         pass
+
+    def complete_initialization(self, *args: Any, **kwargs: Any) -> None:
+        """Deprecated alias for `load`.
+
+        .. deprecated::
+            Use `load` instead. This method will be removed in a future Fed-BioMed release.
+        """
+        logger.warning(
+            "`complete_initialization` is deprecated and will be removed in future "
+            "Fed-BioMed releases; use `load` instead."
+        )
+        return self.load(*args, **kwargs)
 
     def _get_format_conversion_callable(self) -> Callable:
         """Gets conversion function from data to expected format
