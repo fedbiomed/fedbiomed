@@ -133,7 +133,7 @@ class TestRound(unittest.TestCase):
             model_kwargs={},
             researcher_id="researcher-id",
             history_monitor=history_monitor,
-            dataset={"path": "ssss"},
+            dataset_entry={"path": "ssss"},
             experiment_id="experiment_id",
             training=True,
             node_args={},
@@ -141,7 +141,7 @@ class TestRound(unittest.TestCase):
         )
 
         params = {"path": "my/dataset/path", "dataset_id": "id_1234"}
-        self.r1.dataset = params
+        self.r1.dataset_entry = params
         self.r1.experiment_id = "1234"
         self.r1.researcher_id = "1234"
         dummy_monitor = MagicMock()
@@ -160,13 +160,13 @@ class TestRound(unittest.TestCase):
             model_kwargs={},
             researcher_id="researcher-id",
             history_monitor=history_monitor,
-            dataset={"path": "ssss"},
+            dataset_entry={"path": "ssss"},
             experiment_id="experiment_id",
             training=True,
             node_args={},
             aggregator_args={},
         )
-        self.r2.dataset = params
+        self.r2.dataset_entry = params
         self.r2.history_monitor = dummy_monitor
 
     def tearDown(self):
@@ -264,7 +264,7 @@ class TestRound(unittest.TestCase):
         import_module_patch.return_value = FakeModule
 
         self.r1.training_kwargs = {}
-        self.r1.dataset = {"path": "my/dataset/path", "dataset_id": "id_1234"}
+        self.r1.dataset_entry = {"path": "my/dataset/path", "dataset_id": "id_1234"}
 
         # define context managers for each model method
         # we are mocking every methods of our dummy model FakeModel,
@@ -293,7 +293,7 @@ class TestRound(unittest.TestCase):
 
             # Check set train and test data split function is called
             # Set dataset is called in set_train_and_test_data
-            # mock_set_dataset.assert_called_once_with(self.r1.dataset.get('path'))
+            # mock_set_dataset.assert_called_once_with(self.r1.dataset_entry.get('path'))
             mock_split_train_and_test_data.assert_called_once()
             mock_set_round.assert_called_once_with(self.r1._round)
 
@@ -439,7 +439,7 @@ class TestRound(unittest.TestCase):
                 == (
                     f"Starting round execution: node_id={self.r1._node_id} "
                     f"experiment={self.r1.experiment_id} round={self.r1._round} "
-                    f"training={self.r1.training} dataset={self.r1.dataset.get('dataset_id')} "
+                    f"training={self.r1.training} dataset={self.r1.dataset_entry.get('dataset_id')} "
                     "secagg_active=False force_secagg=False "
                     "dp_active=False secagg_args_keys=[]"
                 )
@@ -466,7 +466,7 @@ class TestRound(unittest.TestCase):
             )
 
         self.assertTrue(reply.success)
-        self.assertEqual(reply.dataset_id, self.r1.dataset["dataset_id"])
+        self.assertEqual(reply.dataset_id, self.r1.dataset_entry["dataset_id"])
         self.assertTrue(
             any(
                 call.args[0]
@@ -497,7 +497,7 @@ class TestRound(unittest.TestCase):
                     reply.__class__.__name__,
                     True,
                     True,
-                    self.r1.dataset["dataset_id"],
+                    self.r1.dataset_entry["dataset_id"],
                 )
                 for call in logger_debug.call_args_list
             )
@@ -853,7 +853,7 @@ class TestRound(unittest.TestCase):
             DeclearnAuxVarModel(),
         )
         self.r1.training_plan_class = "DeclearnAuxVarModel"
-        self.r1.dataset = {
+        self.r1.dataset_entry = {
             "dataset_id": "dataset_id_1234",
             "path": os.path.join("path", "to", "my", "dataset"),
         }
