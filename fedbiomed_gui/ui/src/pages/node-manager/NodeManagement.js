@@ -6,13 +6,15 @@ import {
     EuiButton,
     EuiFlexGroup,
     EuiFlexItem,
+    EuiIcon,
     EuiPanel,
     EuiSpacer,
     EuiText,
-    EuiTitle,
 } from '@elastic/eui'
 
 import {EP_NODE_PROCESS_STATE} from '../../constants'
+import {ReactComponent as StorageIcon}  from '../../assets/img/disk-storage.svg'
+import Header from '../../components/layout/Header'
 
 
 const emptyValue = '-'
@@ -205,32 +207,39 @@ const NodeManagement = () => {
 
     return (
         <React.Fragment>
-            <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" gutterSize="m" wrap>
+            <EuiFlexGroup
+                justifyContent="spaceBetween"
+                alignItems="center"
+                gutterSize="m"
+                wrap
+            >   
                 <EuiFlexItem grow={false}>
-                    <EuiTitle size="m">
-                        <h2>Node Management</h2>
-                    </EuiTitle>
+                    <EuiIcon type="grid" size="xxl" />
                 </EuiFlexItem>
                 <EuiFlexItem grow={false}>
-                    <EuiFlexGroup gutterSize="s" alignItems="center">
-                        <EuiFlexItem grow={false}>
-                            <EuiBadge color={stateBadgeColor(currentState)}>
-                                <span className="node-management-status-badge">
-                                    {formatValue(currentState).toUpperCase()}
-                                </span>
-                            </EuiBadge>
-                        </EuiFlexItem>
-                        <EuiFlexItem grow={false}>
-                            <EuiButton
-                                size="m"
-                                fill
-                                onClick={() => loadState({markRefresh: true})}
-                                isLoading={loading}
-                            >
-                                Refresh
-                            </EuiButton>
-                        </EuiFlexItem>
-                    </EuiFlexGroup>
+                    <EuiText>      
+                        <h1>Node Management</h1>
+                    </EuiText>
+                    <EuiText color="subdued">
+                        <p>Monitor and manage node processes</p>
+                    </EuiText>
+                </EuiFlexItem>
+                <EuiFlexItem grow={false}>
+                    <EuiBadge color={stateBadgeColor(currentState)}>
+                        <span className="node-management-status-badge">
+                            {formatValue(currentState).toUpperCase()}
+                        </span>
+                    </EuiBadge>
+                </EuiFlexItem>
+                <EuiFlexItem grow={false}>
+                    <EuiButton
+                        size="m"
+                        fill
+                        onClick={() => loadState({markRefresh: true})}
+                        isLoading={loading}
+                    >
+                        Refresh
+                    </EuiButton>
                 </EuiFlexItem>
             </EuiFlexGroup>
 
