@@ -320,19 +320,20 @@ def test_prepare_df_dir_for_use_missing_modalities(temp_medical_folder):
 
 @pytest.mark.parametrize("temp_medical_folder", ["incomplete_subject"], indirect=True)
 def test_prepare_df_dir_for_use_incomplete_subject(temp_medical_folder):
-    """Test _prepare_df_dir_for_use no subject has all modalities"""
+    """Test _prepare_df_dir_for_use drops subjects missing some modalities"""
     controller = MedicalFolderController(temp_medical_folder, validate=False)
     _, df_dir = controller._prepare_df_dir_for_use(controller.df_dir)
     subjects = df_dir["subject"].unique()
     assert len(subjects) > 0
-    assert "T2" not in subjects
+    # patient2 only has T1, so it must be dropped
+    assert "patient2" not in subjects
 
 
 @pytest.mark.parametrize(
     "temp_medical_folder", ["incomplete_modalities"], indirect=True
 )
 def test_prepare_df_dir_for_use_incomplete_modalities(temp_medical_folder):
-    """Test _prepare_df_dir_for_use no subject has all modalities"""
+    """Test _prepare_df_dir_for_use raises when no subject has all modalities"""
     controller = MedicalFolderController(temp_medical_folder, validate=False)
     with pytest.raises(FedbiomedError) as exc_info:
         _ = controller._prepare_df_dir_for_use(controller.df_dir)
@@ -625,7 +626,7 @@ def test_subject_intersection_with_demographics(temp_medical_folder):
     "temp_medical_folder", ["incomplete_modalities"], indirect=True
 )
 def test_subject_modality_status(temp_medical_folder):
-    """Test _prepare_df_dir_for_use no subject has all modalities"""
+    """Test subject_modality_status reports per-subject modality availability"""
     controller = MedicalFolderController(temp_medical_folder, validate=False)
     subject_modality_status = controller.subject_modality_status()
 
