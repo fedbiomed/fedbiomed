@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import abstractmethod
+from pathlib import Path
 from typing import Any, Tuple, Union
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -73,18 +74,24 @@ class CustomDataset(Dataset):
         """Returns the number of samples in the dataset."""
         pass
 
-    def load(self, to_format: DataReturnFormat, **controller_kwargs: Any) -> None:
+    def load(
+        self,
+        root: Union[str, Path],
+        to_format: DataReturnFormat,
+        **controller_kwargs: Any,
+    ) -> None:
         """Finalize initialization of object to be able to recover items.
 
         Args:
+            root: path to the dataset (must not be ``None``).
             to_format: expected format of data returned by ``__getitem__``.
-            controller_kwargs: must contain a ``"root"`` key with the path to the dataset.
+            controller_kwargs: additional arguments to create controller.
         """
 
-        self.path = controller_kwargs.get("root", None)
+        self.path = root
         if self.path is None:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Custom Dataset ERROR: 'root' must be provided in controller_kwargs to specify dataset location."
+                f"{ErrorNumbers.FB632.value}: Custom Dataset ERROR: 'root' must be provided to specify dataset location."
             )
         self._to_format = to_format
 

@@ -158,9 +158,10 @@ class FAJob(_BaseJob):
             )
 
         # get controller parameters
+        # `root` is set last so it cannot be shadowed by `dataset_parameters`.
         controller_kwargs = {
-            "root": dataset_entry.get("path"),
             **dataset_entry.get("dataset_parameters", {}),
+            "root": dataset_entry.get("path"),
         }
 
         # recover dlp if any
@@ -179,7 +180,7 @@ class FAJob(_BaseJob):
         try:
             # build with type-specific args then attach controller config and output format
             dataset = dataset_cls(**self._build_args_for_dataset(dataset_entry))
-            dataset.load(return_type, **controller_kwargs)
+            dataset.load(to_format=return_type, **controller_kwargs)
         except FedbiomedError as e:
             raise _InternalJobError(
                 f"Cannot initialize dataset on node='{self._node_id}': {repr(e)}"

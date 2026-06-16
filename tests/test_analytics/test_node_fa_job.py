@@ -216,7 +216,7 @@ def test_build_dataset_success(mock_registry, fa_job, mock_dm, mock_dataset_cls)
     instance.load.assert_called_once()
     call_args = instance.load.call_args
     assert call_args.kwargs["root"] == "/path/to/data"
-    assert call_args[0][0] == DataReturnFormat.SKLEARN
+    assert call_args.kwargs["to_format"] == DataReturnFormat.SKLEARN
 
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")

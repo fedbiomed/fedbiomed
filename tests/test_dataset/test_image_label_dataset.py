@@ -165,7 +165,7 @@ def test_load_missing_keys(tmp_path):
     dataset = ImageFolderDataset()
     dataset._controller_cls = lambda **kwargs: mock_controller
     with pytest.raises(KeyError):
-        dataset.load(DataReturnFormat.SKLEARN, root=tmp_path)
+        dataset.load(root=tmp_path, to_format=DataReturnFormat.SKLEARN)
 
 
 def test_load_success(dataset_with_mock_controller):

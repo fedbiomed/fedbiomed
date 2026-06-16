@@ -100,7 +100,7 @@ def test_load_raises_if_sample_multiline(mocker):
     mocker.patch.object(ds, "_validate_format_and_transformations")
 
     with pytest.raises(FedbiomedError) as exc:
-        ds.load(to_format=DataReturnFormat.SKLEARN)
+        ds.load("dummy", to_format=DataReturnFormat.SKLEARN)
     assert "TabularDataset currently only supports row-wise samples" in str(exc.value)
 
 
@@ -539,7 +539,7 @@ def test_load_raises_for_non_numeric_column(
         ),
     )
     with pytest.raises(FedbiomedError, match=bad_col):
-        ds.load(to_format=fmt)
+        ds.load("dummy", to_format=fmt)
 
 
 @pytest.mark.parametrize(

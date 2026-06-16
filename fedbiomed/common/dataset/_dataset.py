@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
@@ -48,6 +49,7 @@ class Dataset(ABC):
     @abstractmethod
     def load(
         self,
+        root: Union[str, Path],
         to_format: DataReturnFormat,
         **controller_kwargs: Any,
     ) -> None:
@@ -59,8 +61,14 @@ class Dataset(ABC):
     def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
         pass
 
-    def complete_initialization(self, *args: Any, **kwargs: Any) -> None:
+    def complete_initialization(
+        self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
+    ) -> None:
         """Deprecated alias for `load`.
+
+        Preserves the legacy signature where ``root`` was passed inside the
+        ``controller_kwargs`` dict; it is unpacked so it binds to the ``root``
+        parameter of `load`.
 
         .. deprecated::
             Use `load` instead. This method will be removed in a future Fed-BioMed release.
@@ -69,7 +77,7 @@ class Dataset(ABC):
             "`complete_initialization` is deprecated and will be removed in future "
             "Fed-BioMed releases; use `load` instead."
         )
-        return self.load(*args, **kwargs)
+        return self.load(to_format=to_format, **controller_kwargs)
 
     def _get_format_conversion_callable(self) -> Callable:
         """Gets conversion function from data to expected format

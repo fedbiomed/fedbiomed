@@ -372,7 +372,7 @@ def test_load(monkeypatch, sample_dict):
     )
 
     # Test successful initialization
-    ds.load(to_format=DataReturnFormat.SKLEARN)
+    ds.load("dummy", to_format=DataReturnFormat.SKLEARN)
 
     assert ds.to_format == DataReturnFormat.SKLEARN
     assert ds._controller is not None
@@ -742,7 +742,7 @@ def test_analytics_schema(monkeypatch, sample_dict):
     )
 
     # Init controller
-    ds.load(DataReturnFormat.SKLEARN)
+    ds.load("dummy", to_format=DataReturnFormat.SKLEARN)
 
     schema, _ = ds.analytics_schema()
 
@@ -1025,7 +1025,7 @@ def test_load_no_target(monkeypatch, sample_dict):
         transform=None,
         target_transform=None,
     )
-    ds.load(to_format=DataReturnFormat.TORCH)
+    ds.load("dummy", to_format=DataReturnFormat.TORCH)
 
     assert ds.to_format == DataReturnFormat.TORCH
     assert ds._controller is not None
@@ -1054,7 +1054,7 @@ def test_analytics_schema_no_demographics(monkeypatch, sample_dict):
         transform=None,
         target_transform=None,
     )
-    ds.load(DataReturnFormat.SKLEARN)
+    ds.load("dummy", to_format=DataReturnFormat.SKLEARN)
 
     schema, second = ds.analytics_schema()
 

@@ -239,9 +239,9 @@ def test_data_access():
 
 
 def test_load_missing_root_key():
-    """load raises when 'root' key is absent from controller_kwargs."""
+    """load requires `root` as a positional argument."""
     ds = ValidTorchDataset()
-    with pytest.raises(FedbiomedError, match="'root' must be provided"):
+    with pytest.raises(TypeError):
         ds.load(to_format=DataReturnFormat.SKLEARN)
 
 

@@ -1448,7 +1448,7 @@ class TestRound(unittest.TestCase):
             def __getitem__(self, idx):
                 return self.X_train[idx], self.Y_train[idx]
 
-            def load(self, to_format: DataReturnFormat, **controller_kwargs):
+            def load(self, root, to_format: DataReturnFormat, **controller_kwargs):
                 pass
 
         # for pytorch: mimicking the process of saving and re-loading testing
