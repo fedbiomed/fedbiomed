@@ -354,44 +354,6 @@ class NodeProcessManager:
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
 
-    def _get_process_state(self) -> NodeProcessStateEntry:
-        """Get the current node process state.
-
-        Returns:
-            Dictionary containing the latest persisted process-state metadata,
-            with `state` resolved through `get_status`.
-        """
-
-        state_entry = NodeProcessStateEntry(
-            pid=self._get_pid(),
-            state=self.get_status().value,
-            node_id=self._node_id,
-            node_name=self._node_name,
-            action=None,
-            reason=None,
-            actor=None,
-            updated_at=None,
-            started_at=None,
-            stopped_at=None,
-            exit_code=None,
-            node_args=None,
-            background=None,
-        )
-
-        if not self._get_state_table() or not self._node_id:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB327.value}: Node process state table is not initialized or node_id is missing."
-            )
-
-        stored_state = self._get_state_table().get_by_id(self._node_id)
-        if not stored_state:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB327.value}: No process state found for node_id: {self._node_id}."
-            )
-
-        state_entry = state_entry.from_dict(dict(stored_state))
-        return state_entry
-
     def _get_pid(self) -> Optional[int]:
         """Get the PID of the currently running node process, if any."""
         state = self._get_state_table().get_by_id(self._node_id)
@@ -667,9 +629,38 @@ class NodeProcessManager:
         """Get the current persisted node process state.
 
         Returns:
-            Current node process state entry.
+            Dictionary containing the latest persisted process-state metadata,
+            with `state` resolved through `get_status`.
         """
-        return self._get_process_state()
+        state_entry = NodeProcessStateEntry(
+            pid=self._get_pid(),
+            state=self.get_status().value,
+            node_id=self._node_id,
+            node_name=self._node_name,
+            action=None,
+            reason=None,
+            actor=None,
+            updated_at=None,
+            started_at=None,
+            stopped_at=None,
+            exit_code=None,
+            node_args=None,
+            background=None,
+        )
+
+        if not self._get_state_table() or not self._node_id:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB327.value}: Node process state table is not initialized or node_id is missing."
+            )
+
+        stored_state = self._get_state_table().get_by_id(self._node_id)
+        if not stored_state:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB327.value}: No process state found for node_id: {self._node_id}."
+            )
+
+        state_entry = state_entry.from_dict(dict(stored_state))
+        return state_entry
 
 
 if __name__ == "__main__":

@@ -541,7 +541,7 @@ def test_node_pm_08_get_status(
     state_table.get_by_id.assert_called_with("node-1")
 
 
-def test_node_pm_09_get_process_state_returns_stored_entry(mocker, _manager):
+def test_node_pm_09_process_state_returns_stored_entry(mocker, _manager):
     manager = _manager
 
     manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING)
@@ -565,7 +565,7 @@ def test_node_pm_09_get_process_state_returns_stored_entry(mocker, _manager):
 
     state_table.get_by_id.return_value = stored
 
-    state = manager._get_process_state()
+    state = manager.get_process_state()
 
     manager._get_pid.assert_called_once()
     manager.get_status.assert_called_once()
