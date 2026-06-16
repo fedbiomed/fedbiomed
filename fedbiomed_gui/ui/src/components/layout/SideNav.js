@@ -7,7 +7,7 @@ import {ReactComponent as FolderIcon}  from '../../assets/img/folder.svg'
 import {ReactComponent as HomeIcon}  from '../../assets/img/home.svg'
 import {ReactComponent as PlusIcon}  from '../../assets/img/plus.svg'
 import {ReactComponent as FileIcon}  from '../../assets/img/file.svg'
-import {ReactComponent as LaunchIcon}  from '../../assets/img/launch.svg'
+import {ReactComponent as PlayIcon}  from '../../assets/img/play.svg'
 import {useLocation} from "react-router-dom";
 
 
@@ -22,7 +22,7 @@ const SideNav= (props) => {
             { key: '4', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon, action: null },
             { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset/', icon: PlusIcon, action: null },
             { key: '6', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon, action: null },
-            { key: '7', label: 'Node Management', path: '/node-management/', icon: LaunchIcon, action: null },
+            { key: '7', label: 'Node Management', path: '/node-management/', icon: PlayIcon, action: null },
         ]
     }, [])
 
