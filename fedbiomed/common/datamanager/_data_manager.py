@@ -5,7 +5,6 @@
 Data Management factory class
 """
 
-from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
@@ -112,12 +111,11 @@ class DataManager(object):
                 "cannot instantiate data manager."
             )
 
-    def load_dataset(self, root: Union[str, Path], **kwargs: Any) -> None:
+    def load_dataset(self, **kwargs: Any) -> None:
         """Finalizes initialization of the DataManager's dataset controller
 
         Args:
-            root: path to the dataset root
-            kwargs: arguments for the controller
+            **kwargs: arguments for the controller
 
         Raises:
             FedbiomedError: if `_data_manager_instance` is not initialized
@@ -131,9 +129,8 @@ class DataManager(object):
 
         try:
             self._dataset.load(
-                root,
-                to_format=_dm_to_format[self._data_manager_instance.__class__],
                 **kwargs,
+                to_format=_dm_to_format[self._data_manager_instance.__class__],
             )
         except FedbiomedError as e:
             raise e

@@ -286,7 +286,7 @@ class Dataset(ABC):
         """Initializes self._controller
 
         Args:
-            kwargs: arguments necessary to initialize the controller
+            **kwargs: arguments necessary to initialize the controller
 
         Raises:
             FedbiomedError: if there is a problem instantiating `_controller`

@@ -174,8 +174,8 @@ class FAJob(_BaseJob):
                     f"Cannot recover dlp on node={self._node_id}: {repr(e)}"
                 ) from e
 
-        # REGISTRY_CONTROLLERS maps dataset_type -> (controller_cls, loader_cls, dataset_cls)
-        _, _, dataset_cls = REGISTRY_CONTROLLERS[dataset_type]
+        # REGISTRY_CONTROLLERS maps dataset_type -> (controller_cls, dataset_cls)
+        _, dataset_cls = REGISTRY_CONTROLLERS[dataset_type]
 
         try:
             # build with type-specific args then attach controller config and output format

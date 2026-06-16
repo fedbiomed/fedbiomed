@@ -8,6 +8,7 @@ import pandas as pd
 import torch
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
@@ -222,17 +223,26 @@ class MedicalFolderDataset(Dataset):
         self,
         root: Union[str, Path],
         to_format: DataReturnFormat,
-        **kwargs: Any,
+        tabular_file: Optional[str] = None,
+        index_col: Optional[str] = None,
+        dlp: Optional[DataLoadingPlan] = None,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
         Args:
             root: path to the dataset root
             to_format: format associated to expected return format
-            kwargs: arguments to create controller
+            tabular_file: path to the CSV file holding the demographic information
+            index_col: column in the tabular file holding the subject names
+            dlp: data loading plan to apply
         """
         self.to_format = to_format
-        self._init_controller(root=root, **kwargs)
+        self._init_controller(
+            root=root,
+            tabular_file=tabular_file,
+            index_col=index_col,
+            dlp=dlp,
+        )
 
         # Recover sample and validate consistency of transforms
         sample = self._controller.get_sample(0)

@@ -1128,15 +1128,9 @@ class Round:
                 f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}"
             ) from e
 
-        # Info: controller_kwargs not yet implemented in DatasetManager
-        # so they are empty for now.
-        # `root` is set last so it cannot be shadowed by `dataset_parameters`.
-        controller_kwargs = {
-            **self.dataset_entry.get("controller_kwargs", {}),
-            **self.dataset_entry.get("dataset_parameters", {}),
-            "root": self.dataset_entry.get("path"),
-        }
-
+        controller_kwargs = self.dataset_entry.get(
+            "dataset_parameters", {"root": self.dataset_entry.get("path")}
+        )
         if self._dlp_and_loading_block_metadata is not None:
             controller_kwargs["dlp"] = DataLoadingPlan().deserialize(
                 *self._dlp_and_loading_block_metadata

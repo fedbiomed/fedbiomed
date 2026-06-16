@@ -1467,6 +1467,11 @@ class TestRound(unittest.TestCase):
         )
         self.r1.training_plan = training_plan_mock
         self.r1.testing_arguments = {}
+        self.r1.dataset_entry = {
+            "path": "my/dataset/path",
+            "dataset_id": "id_1234",
+            "dataset_parameters": {"root": "my/dataset/path"},
+        }
         test_ratio = 0.66
 
         train_loader, test_loader = self.r1._split_train_and_test_data(test_ratio)
