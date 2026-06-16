@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -54,17 +54,15 @@ class _ImageLabelDataset(Dataset):
         self,
         root: Union[str, Path],
         to_format: DataReturnFormat,
-        **controller_kwargs: Any,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
         Args:
             root: path to the dataset root
             to_format: format associated to expected return format
-            controller_kwargs: arguments to create controller
         """
         self.to_format = to_format
-        self._init_controller(root=root, **controller_kwargs)
+        self._init_controller(root=root)
 
         sample = self._controller.get_sample(0)
         self._validate_format_and_transformations(

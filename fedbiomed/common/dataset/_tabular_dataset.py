@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
-from typing import Any, Callable, Iterable, Optional, Tuple, Union
+from typing import Callable, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import polars as pl
@@ -74,18 +74,16 @@ class TabularDataset(Dataset):
         self,
         root: Union[str, Path],
         to_format: DataReturnFormat,
-        **controller_kwargs: Any,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
         Args:
             root: path to the dataset root
             to_format: format associated to expected return format
-            controller_kwargs: arguments to create controller
         """
         self.to_format = to_format
 
-        self._init_controller(root=root, **controller_kwargs)
+        self._init_controller(root=root)
 
         # Normalize columns using controller (implies validation)
         self._input_columns = self._controller.normalize_columns(self._input_columns)

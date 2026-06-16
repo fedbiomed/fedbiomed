@@ -78,14 +78,12 @@ class CustomDataset(Dataset):
         self,
         root: Union[str, Path],
         to_format: DataReturnFormat,
-        **controller_kwargs: Any,
     ) -> None:
         """Finalize initialization of object to be able to recover items.
 
         Args:
             root: path to the dataset (must not be ``None``).
             to_format: expected format of data returned by ``__getitem__``.
-            controller_kwargs: additional arguments to create controller.
         """
 
         self.path = root
