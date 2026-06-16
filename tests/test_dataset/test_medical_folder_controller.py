@@ -24,12 +24,12 @@ def mock_nifti_reader(monkeypatch):
     )
 
 
-@pytest.fixture(params=["default"])
+@pytest.fixture
 def temp_medical_folder(request):
     """Create a temporary medical folder structure for testing"""
     temp_dir = tempfile.mkdtemp()
 
-    match request.param:
+    match getattr(request, "param", "default"):
         case "default":
             tree_dir = {
                 "patient1": ["T1", "T2"],
