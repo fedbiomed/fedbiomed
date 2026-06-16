@@ -305,7 +305,7 @@ class FAJob(_BaseJob):
                 return clip_error
             encrypted_params = secagg_round.scheme.encrypt(
                 flat,
-                fa_round=self._secagg_arguments.get("fa_round", 1),
+                current_round=self._secagg_arguments.get("fa_round", 1),
                 weight=1,
                 target_range=SAParameters.FA_TARGET_RANGE,
                 clipping_range=SAParameters.FA_CLIPPING_RANGE,
