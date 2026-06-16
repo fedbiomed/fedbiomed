@@ -27,8 +27,8 @@ class DummyDataset(Dataset):
     _transform = staticmethod(lambda x: x)
     _target_transform = staticmethod(lambda x: x)
 
-    def load(self, root=None, to_format=None, **controller_kwargs):
-        super().load(root, to_format, **controller_kwargs)
+    def load(self, root=None, to_format=None, **kwargs):
+        super().load(root, to_format, **kwargs)
 
     def __getitem__(self, idx):
         return (1, 2)

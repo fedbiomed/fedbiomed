@@ -70,7 +70,7 @@ def test_init_and_getitem(
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -164,7 +164,7 @@ def test_getitem_transform_types(
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -205,7 +205,7 @@ def test_getitem_transform_error(monkeypatch, sample_dict, bad_transform):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -228,7 +228,7 @@ def test_demographics_transform(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -255,7 +255,7 @@ def test_demographics_transform_error(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -360,7 +360,7 @@ def test_load(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -413,7 +413,7 @@ def test_process_sample_data(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -453,7 +453,7 @@ def test_process_sample_data_transform_error(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -595,7 +595,7 @@ def test_whole_dict_transforms(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -631,7 +631,7 @@ def test_process_sample_data_with_target(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -665,7 +665,7 @@ def test_process_sample_data_whole_dict_transform_error(monkeypatch, sample_dict
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -694,7 +694,7 @@ def test_torch_format_conversion(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -729,7 +729,7 @@ def test_analytics_schema(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyControllerWithDemographics(sample_dict)
         ),
     )
@@ -773,7 +773,7 @@ def test_process_sample_data_default_types_error(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -807,7 +807,7 @@ def test_process_sample_data_whole_dict_default_types_error(monkeypatch, sample_
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -1015,7 +1015,7 @@ def test_load_no_target(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -1044,7 +1044,7 @@ def test_analytics_schema_no_demographics(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, **controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", ControllerWithoutDemographics(sample_dict)
         ),
     )

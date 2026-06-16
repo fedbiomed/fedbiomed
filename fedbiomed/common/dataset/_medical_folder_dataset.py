@@ -222,17 +222,17 @@ class MedicalFolderDataset(Dataset):
         self,
         root: Union[str, Path],
         to_format: DataReturnFormat,
-        **controller_kwargs: Any,
+        **kwargs: Any,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
         Args:
             root: path to the dataset root
             to_format: format associated to expected return format
-            controller_kwargs: arguments to create controller
+            kwargs: arguments to create controller
         """
         self.to_format = to_format
-        self._init_controller(root=root, **controller_kwargs)
+        self._init_controller(root=root, **kwargs)
 
         # Recover sample and validate consistency of transforms
         sample = self._controller.get_sample(0)

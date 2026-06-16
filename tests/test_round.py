@@ -686,12 +686,12 @@ class TestRound(unittest.TestCase):
             def get_dataset_type() -> DatasetTypes:
                 return DatasetTypes.TEST
 
-        def load_dataset_side_effect(**controller_kwargs):
+        def load_dataset_side_effect(**kwargs):
             """
             Mimic what the real DataManager.load_dataset() would do in this test:
             Attach the deserialized DLP to the dataset.
             """
-            dlp = controller_kwargs.get("dlp")
+            dlp = kwargs.get("dlp")
             if dlp is not None:
                 # MyDataset inherits DataLoadingPlanMixin, which uses self._dlp internally
                 # in apply_dlb(). Setting this is enough for the test.
@@ -1448,7 +1448,7 @@ class TestRound(unittest.TestCase):
             def __getitem__(self, idx):
                 return self.X_train[idx], self.Y_train[idx]
 
-            def load(self, root, to_format: DataReturnFormat, **controller_kwargs):
+            def load(self, root, to_format: DataReturnFormat, **kwargs):
                 pass
 
         # for pytorch: mimicking the process of saving and re-loading testing

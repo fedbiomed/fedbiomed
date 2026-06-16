@@ -33,8 +33,8 @@ def test_load_wires_controller_and_validates(mocker):
         input_columns=["data"], target_columns=["target"], transform=None
     )
 
-    def fake_init_controller(**controller_kwargs):
-        captured_kwargs.update(controller_kwargs)
+    def fake_init_controller(**kwargs):
+        captured_kwargs.update(kwargs)
         ds._controller = StubController()
 
     # Patch instance methods
@@ -59,8 +59,8 @@ def test_load_wires_controller_and_validates(mocker):
         input_columns=["data", "target"], target_columns=["target"], transform=None
     )
 
-    def fake_init_controller(**controller_kwargs):
-        captured_kwargs.update(controller_kwargs)
+    def fake_init_controller(**kwargs):
+        captured_kwargs.update(kwargs)
         ds._controller = StubController()
 
     # Patch instance methods
@@ -91,9 +91,7 @@ def test_load_raises_if_sample_multiline(mocker):
     mocker.patch.object(
         ds,
         "_init_controller",
-        side_effect=lambda **controller_kwargs: setattr(
-            ds, "_controller", StubController()
-        ),
+        side_effect=lambda **kwargs: setattr(ds, "_controller", StubController()),
     )
 
     # Patch validation to avoid unrelated errors if it were called
@@ -534,9 +532,7 @@ def test_load_raises_for_non_numeric_column(
     mocker.patch.object(
         ds,
         "_init_controller",
-        side_effect=lambda **controller_kwargs: setattr(
-            ds, "_controller", StubController()
-        ),
+        side_effect=lambda **kwargs: setattr(ds, "_controller", StubController()),
     )
     with pytest.raises(FedbiomedError, match=bad_col):
         ds.load("dummy", to_format=fmt)

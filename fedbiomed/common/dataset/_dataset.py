@@ -51,7 +51,7 @@ class Dataset(ABC):
         self,
         root: Union[str, Path],
         to_format: DataReturnFormat,
-        **controller_kwargs: Any,
+        **kwargs: Any,
     ) -> None:
         """Finalize initialization of object to be able to recover items"""
         # Recover sample and validate consistency of transforms
@@ -282,18 +282,18 @@ class Dataset(ABC):
         return data
 
     # === Functions ===
-    def _init_controller(self, **controller_kwargs: Any) -> None:
+    def _init_controller(self, **kwargs: Any) -> None:
         """Initializes self._controller
 
         Args:
-            controller_kwargs: arguments necessary to initialize the controller
+            kwargs: arguments necessary to initialize the controller
 
         Raises:
             FedbiomedError: if there is a problem instantiating `_controller`
         """
         try:
             # Instantiate controller
-            self._controller = self._controller_cls(**controller_kwargs)
+            self._controller = self._controller_cls(**kwargs)
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to create Controller. {e}"

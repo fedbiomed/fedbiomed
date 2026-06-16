@@ -67,7 +67,7 @@ class _SkLearnSubset(Dataset, FrameworkSubset[Dataset]):
         self,
         root: Union[str, Path],
         to_format: DataReturnFormat,
-        **controller_kwargs: Any,
+        **kwargs: Any,
     ) -> None:
         """Unused method to comply with Dataset interface."""
 
