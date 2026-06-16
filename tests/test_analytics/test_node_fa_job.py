@@ -669,7 +669,7 @@ def test_run_encrypted_path_uses_fa_round_from_args(
         job.run()
 
     call_args = mock_secagg.scheme.encrypt.call_args
-    assert call_args.kwargs["fa_round"] == 7
+    assert call_args.kwargs["current_round"] == 7
     # FA clipping range is the fixed node-side constant, not the request value
     assert call_args.kwargs["clipping_range"] == SAParameters.FA_CLIPPING_RANGE
 
