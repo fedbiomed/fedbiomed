@@ -29,6 +29,28 @@ const defaultNodeArgs = {
     debug: false,
 }
 
+const normalizeNodeArgs = (nodeArgs = {}) => {
+    const gpuNumber = Number(nodeArgs.gpu_num)
+
+    return {
+        gpu: Boolean(nodeArgs.gpu ?? defaultNodeArgs.gpu),
+        gpu_num: Number.isFinite(gpuNumber)
+            ? Math.max(0, gpuNumber)
+            : defaultNodeArgs.gpu_num,
+        gpu_only: Boolean(nodeArgs.gpu_only ?? defaultNodeArgs.gpu_only),
+        debug: Boolean(nodeArgs.debug ?? defaultNodeArgs.debug),
+    }
+}
+
+const areNodeArgsEqual = (firstNodeArgs, secondNodeArgs) => {
+    const first = normalizeNodeArgs(firstNodeArgs)
+    const second = normalizeNodeArgs(secondNodeArgs)
+
+    return Object.keys(defaultNodeArgs).every((key) => (
+        first[key] === second[key]
+    ))
+}
+
 const formatValue = (value) => {
     if (value === null || value === undefined || value === '') {
         return emptyValue
@@ -194,17 +216,7 @@ const NodeManagement = ({
             return
         }
 
-        const savedGpuNumber = Number(savedNodeArgs.gpu_num)
-        setNodeArgs({
-            gpu: Boolean(savedNodeArgs.gpu ?? defaultNodeArgs.gpu),
-            gpu_num: Number.isFinite(savedGpuNumber)
-                ? Math.max(0, savedGpuNumber)
-                : defaultNodeArgs.gpu_num,
-            gpu_only: Boolean(
-                savedNodeArgs.gpu_only ?? defaultNodeArgs.gpu_only
-            ),
-            debug: Boolean(savedNodeArgs.debug ?? defaultNodeArgs.debug),
-        })
+        setNodeArgs(normalizeNodeArgs(savedNodeArgs))
     }, [processState])
 
     const currentState = processState?.state
@@ -213,6 +225,11 @@ const NodeManagement = ({
     const isRunning = normalizedState === 'running'
     const isStopping = normalizedState === 'stopping'
     const isStopped = normalizedState === 'stopped'
+    const hasSavedNodeArgs = processState?.node_args
+        && typeof processState.node_args === 'object'
+    const hasPendingNodeArgChanges = isRunning
+        && hasSavedNodeArgs
+        && !areNodeArgsEqual(nodeArgs, processState.node_args)
 
     React.useEffect(() => {
         if (!isRunning) {
@@ -322,6 +339,16 @@ const NodeManagement = ({
                             </EuiFormRow>
                         </EuiFlexItem>
                     </EuiFlexGroup>
+
+                    {hasPendingNodeArgChanges ? (
+                        <div className="node-management-alert info">
+                            <EuiIcon type="iInCircle" />
+                            <span>
+                                Node has to be restarted for the changes to
+                                take effect.
+                            </span>
+                        </div>
+                    ) : null}
 
                     <EuiFlexGroup
                         className="node-management-header-control-actions"

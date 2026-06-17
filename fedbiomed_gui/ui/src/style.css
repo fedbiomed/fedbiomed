@@ -1060,6 +1060,12 @@ a.fed-box-link{
   color: #b91c1c;
 }
 
+.node-management-alert.info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
 .node-management-process {
   padding: 28px;
 }
