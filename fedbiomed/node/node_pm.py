@@ -655,9 +655,7 @@ class NodeProcessManager:
 
         stored_state = self._get_state_table().get_by_id(self._node_id)
         if not stored_state:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB327.value}: No process state found for node_id: {self._node_id}."
-            )
+            return state_entry
 
         state_entry = state_entry.from_dict(dict(stored_state))
         return state_entry

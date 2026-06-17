@@ -580,6 +580,23 @@ def test_node_pm_09_process_state_returns_stored_entry(mocker, _manager):
     assert state.background is None
 
 
+def test_node_pm_09_process_state_returns_unknown_without_stored_entry(
+    mocker, _manager
+):
+    manager = _manager
+    manager.get_status = mocker.MagicMock(return_value=NodeState.UNKNOWN)
+    manager._get_pid = mocker.MagicMock(return_value=None)
+    manager._state_table.get_by_id.return_value = None
+
+    state = manager.get_process_state()
+
+    assert state.pid is None
+    assert state.state == NodeState.UNKNOWN.value
+    assert state.node_id == "node-1"
+    assert state.node_name == "Node 1"
+    assert state.action is None
+
+
 def test_10_cleanup_process_state_history_removes_entries_older_than_30_days(
     mocker, _manager
 ):

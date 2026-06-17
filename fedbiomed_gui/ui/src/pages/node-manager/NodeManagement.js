@@ -117,10 +117,16 @@ const getRunningFor = (processState, now) => {
 }
 
 const StatusPill = ({state, uppercase = false}) => {
-    const label = formatValue(state)
+    const normalizedState = String(state || '').toLowerCase()
+    const displayState = !normalizedState || normalizedState === 'unknown'
+        ? 'stopped'
+        : state
+    const label = formatValue(displayState)
 
     return (
-        <span className={`node-management-status-pill ${stateTone(state)}`}>
+        <span className={`node-management-status-pill ${
+            stateTone(displayState)
+        }`}>
             <span className="node-management-status-dot" />
             {uppercase ? label.toUpperCase() : label}
         </span>
@@ -203,7 +209,7 @@ const NodeManagement = ({
 
     const currentState = processState?.state
     const normalizedState = String(currentState || '').toLowerCase()
-    const isStateKnown = Boolean(currentState)
+    const isStateKnown = Boolean(currentState) && normalizedState !== 'unknown'
     const isRunning = normalizedState === 'running'
     const isStopping = normalizedState === 'stopping'
     const isStopped = normalizedState === 'stopped'
