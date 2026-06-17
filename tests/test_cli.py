@@ -985,5 +985,51 @@ def test_node_control_start_keyboard_interrupt_stops_node(mocker):
     )
 
 
+@pytest.mark.parametrize(
+    "argv, expected_node_args, expected_background",
+    [
+        (["restart"], {}, None),
+        (
+            ["restart", "--gpu", "--gpu-num", "2", "--debug", "--background"],
+            {"gpu": True, "gpu_num": 2, "debug": True},
+            True,
+        ),
+        (
+            ["restart", "--gpu-only"],
+            {"gpu": True, "gpu_only": True},
+            None,
+        ),
+    ],
+)
+def test_node_control_restart_passes_only_supplied_overrides(
+    mocker,
+    argv,
+    expected_node_args,
+    expected_background,
+):
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    control = NodeControl(subparsers)
+    control.initialize()
+
+    node = MagicMock()
+    control._node = node
+
+    mock_node_process_manager_cls = mocker.patch(
+        "fedbiomed.node.cli.NodeProcessManager"
+    )
+    mock_node_process_manager = mock_node_process_manager_cls.return_value
+
+    control.restart(parser.parse_args(argv))
+
+    mock_node_process_manager.restart.assert_called_once_with(
+        node_args=expected_node_args,
+        background=expected_background,
+        actor={"source": "cli"},
+        reason="cli_restart_command",
+    )
+
+
 if __name__ == "__main__":
     unittest.main()

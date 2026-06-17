@@ -1,5 +1,4 @@
 import jsonschema
-from flask import request
 from jsonschema import Draft7Validator, validators
 
 # Constant validators settings
@@ -85,7 +84,7 @@ class Validator:
         """
 
         if self._type == "json":
-            self._schema(request.json)
+            self._schema(self._request.json)
         else:
             raise Exception("Unsupported schema validator type")
 

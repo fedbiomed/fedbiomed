@@ -31,6 +31,7 @@ import UserManagement from "./pages/admin/UserManagement";
 import AccountRequestManagement from "./pages/admin/AccountRequestManagement";
 import SecurityLogs from "./pages/admin/SecurityLogs";
 import UserAccount from './pages/authentication/UserAccount';
+import NodeManagement from './pages/node-manager/NodeManagement';
 
 
 function App(props) {
@@ -58,6 +59,7 @@ function App(props) {
                       <Route path={"security-logs"} element={<AdminProtected redirect_to={'/user-account'}><SecurityLogs/></AdminProtected>}/>
                   </Route>
                   <Route path="/repository/" element={<Repository/>} />
+                  <Route path="/node-management/" element={<NodeManagement/>} />
                   <Route path="/training-plans/" element={<TrainingPlans/>} />
                   <Route path="/training-plans/preview/:training_plan_id" element={<SingleModel />} />
                   <Route path="/datasets/" element={<Datasets/>} />
