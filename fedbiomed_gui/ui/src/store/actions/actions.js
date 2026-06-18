@@ -35,6 +35,9 @@ export const NODE_PROCESS_STATE_SUCCESS = 'NODE_PROCESS_STATE_SUCCESS'
 export const NODE_PROCESS_STATE_ERROR = 'NODE_PROCESS_STATE_ERROR'
 export const NODE_ACTION_LOADING = 'NODE_ACTION_LOADING'
 export const NODE_ACTION_ERROR = 'NODE_ACTION_ERROR'
+export const NODE_LOGS_LOADING = 'NODE_LOGS_LOADING'
+export const NODE_LOGS_SUCCESS = 'NODE_LOGS_SUCCESS'
+export const NODE_LOGS_ERROR = 'NODE_LOGS_ERROR'
 
 /**
  * Dispatch action the display global error modal window

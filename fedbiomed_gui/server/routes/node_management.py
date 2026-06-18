@@ -14,7 +14,12 @@ from ..utils import error, response
 from .api import api
 from .log_utils import (
     FilterValue,
+    exhausted_payload,
+    filter_sort_page,
+    parse_log_query_args,
     parse_timestamp,
+    read_log_items,
+    select_log_paths,
 )
 
 node_process_manager = NodeProcessManager(config.node_config)
@@ -244,3 +249,61 @@ def node_process_state():
 
     except FedbiomedError as e:
         return error(f"Could not get node process state: {e}"), 500
+
+
+@api.route("/node/logs", methods=["GET"])
+def node_logs():
+    """Return filtered application log entries for the active node."""
+    log_query, query_error = parse_log_query_args(
+        request.args,
+        filter_names=("level",),
+        level_values={"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"},
+    )
+    if query_error:
+        return error(query_error), 400
+
+    if log_query.exhausted:
+        return response(exhausted_payload(log_query)), 200
+
+    paths = select_log_paths(
+        _application_log_dir(),
+        _APPLICATION_LOG_BASENAME,
+        log_query,
+    )
+
+    if not paths:
+        return (
+            response(
+                {
+                    "items": [],
+                    "next_skip": 0,
+                    "files": [],
+                    "page_size": log_query.page_size,
+                    "current_page": log_query.current_page,
+                    "next_page": log_query.current_page,
+                }
+            ),
+            200,
+        )
+
+    items, scanned_files = read_log_items(
+        paths,
+        log_query,
+        _parse_application_log_lines,
+    )
+    page, next_skip, next_page = filter_sort_page(
+        items,
+        log_query,
+        _matches_log_filters,
+    )
+
+    return response(
+        {
+            "items": page,
+            "next_skip": next_skip,
+            "files": scanned_files,
+            "page_size": log_query.page_size,
+            "current_page": log_query.current_page,
+            "next_page": next_page,
+        }
+    ), 200

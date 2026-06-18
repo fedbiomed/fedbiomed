@@ -1,8 +1,12 @@
 import React from 'react'
 import {connect} from 'react-redux'
 import {
+    EuiBasicTable,
     EuiButton,
+    EuiButtonEmpty,
+    EuiFieldSearch,
     EuiFieldNumber,
+    EuiFieldText,
     EuiFlexGroup,
     EuiFlexItem,
     EuiFormRow,
@@ -23,6 +27,7 @@ import {
 
 import {
     executeNodeAction,
+    fetchNodeLogs,
     fetchNodeProcessState,
 } from '../../store/actions/nodeManagementActions'
 
@@ -55,6 +60,20 @@ const areNodeArgsEqual = (firstNodeArgs, secondNodeArgs) => {
         first[key] === second[key]
     ))
 }
+
+const nodeManagementTabs = {
+    process: 'process',
+    logs: 'logs',
+}
+
+const logLevelOptions = [
+    {value: '', text: 'All levels'},
+    {value: 'DEBUG', text: 'DEBUG'},
+    {value: 'INFO', text: 'INFO'},
+    {value: 'WARNING', text: 'WARNING'},
+    {value: 'ERROR', text: 'ERROR'},
+    {value: 'CRITICAL', text: 'CRITICAL'},
+]
 
 const formatValue = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -191,12 +210,26 @@ const NodeManagement = ({
     actionError,
     processStateError,
     lastRefresh,
+    logItems,
+    logLoading,
+    logError,
+    logLastBatchSize,
+    logLastRefresh,
     fetchNodeProcessState,
+    fetchNodeLogs,
     executeNodeAction,
 }) => {
     const [now, setNow] = React.useState(new Date())
     const [nodeArgs, setNodeArgs] = React.useState(defaultNodeArgs)
     const [isActorModalVisible, setIsActorModalVisible] = React.useState(false)
+    const [activeTab, setActiveTab] = React.useState(nodeManagementTabs.process)
+    const [logContains, setLogContains] = React.useState('')
+    const [logLevel, setLogLevel] = React.useState('')
+    const [logStartTs, setLogStartTs] = React.useState('')
+    const [logEndTs, setLogEndTs] = React.useState('')
+    const [logMaxTotal, setLogMaxTotal] = React.useState('2000')
+    const [logCurrentPage, setLogCurrentPage] = React.useState(0)
+    const [logPageSize, setLogPageSize] = React.useState(50)
 
     const updateNodeArg = (key, value) => {
         setNodeArgs((currentNodeArgs) => ({
@@ -208,6 +241,39 @@ const NodeManagement = ({
     React.useEffect(() => {
         fetchNodeProcessState()
     }, [fetchNodeProcessState])
+
+    const loadNodeLogs = React.useCallback(() => {
+        fetchNodeLogs({
+            contains: logContains,
+            level: logLevel,
+            startTs: logStartTs,
+            endTs: logEndTs,
+            maxTotal: logMaxTotal,
+            currentPage: logCurrentPage,
+            pageSize: logPageSize,
+        })
+    }, [
+        fetchNodeLogs,
+        logContains,
+        logLevel,
+        logStartTs,
+        logEndTs,
+        logMaxTotal,
+        logCurrentPage,
+        logPageSize,
+    ])
+
+    React.useEffect(() => {
+        if (activeTab !== nodeManagementTabs.logs) {
+            return
+        }
+
+        loadNodeLogs()
+    }, [activeTab, loadNodeLogs])
+
+    React.useEffect(() => {
+        setLogCurrentPage(0)
+    }, [logContains, logLevel, logStartTs, logEndTs])
 
     React.useEffect(() => {
         if (lastRefresh) {
@@ -258,6 +324,52 @@ const NodeManagement = ({
             : isStopped
                 ? 'The node process is currently stopped.'
                 : 'Node process information is not available yet.'
+    const canGoPrevLogs = logCurrentPage > 0
+    const canGoNextLogs = logLastBatchSize === logPageSize
+    const logColumns = [
+        {
+            field: 'timestamp',
+            name: 'Timestamp',
+            truncateText: false,
+            render: (timestamp) => (
+                <span className="node-management-log-nowrap">
+                    {formatDateTime(timestamp)}
+                </span>
+            ),
+        },
+        {
+            field: 'level',
+            name: 'Level',
+            truncateText: false,
+            render: (level) => (
+                <span className={`node-management-log-level ${
+                    String(level || '').toLowerCase()
+                }`}>
+                    {formatValue(level)}
+                </span>
+            ),
+        },
+        {
+            field: 'caller',
+            name: 'Caller',
+            truncateText: false,
+            render: (caller) => (
+                <span className="node-management-log-nowrap">
+                    {formatValue(caller)}
+                </span>
+            ),
+        },
+        {
+            field: 'message',
+            name: 'Message',
+            truncateText: false,
+            render: (message) => (
+                <div className="node-management-log-message">
+                    {formatValue(message)}
+                </div>
+            ),
+        },
+    ]
 
     return (
         <div className="node-management-page">
@@ -420,6 +532,24 @@ const NodeManagement = ({
                 </div>
             ) : null}
 
+            <section className="node-management-card node-management-tabs-card">
+                <EuiTabs>
+                    <EuiTab
+                        isSelected={activeTab === nodeManagementTabs.process}
+                        onClick={() => setActiveTab(nodeManagementTabs.process)}
+                    >
+                        Process Details
+                    </EuiTab>
+                    <EuiTab
+                        isSelected={activeTab === nodeManagementTabs.logs}
+                        onClick={() => setActiveTab(nodeManagementTabs.logs)}
+                    >
+                        Application Logs
+                    </EuiTab>
+                </EuiTabs>
+            </section>
+
+            {activeTab === nodeManagementTabs.process ? (
             <section className="node-management-card node-management-process">
                 <div className="node-management-section-header">
                     <div className="node-management-section-heading">
@@ -586,6 +716,179 @@ const NodeManagement = ({
                     </div>
                 </div>
             </section>
+            ) : (
+            <section className="node-management-card node-management-logs">
+                <div className="node-management-section-header">
+                    <div className="node-management-section-heading">
+                        <span className="node-management-section-icon">
+                            <EuiIcon type="console" size="l" />
+                        </span>
+                        <div>
+                            <h2>Application Logs</h2>
+                            <p>Node runtime log entries from application.log</p>
+                        </div>
+                    </div>
+                    <div className="node-management-process-header-actions">
+                        <EuiButton
+                            size="s"
+                            iconType="refresh"
+                            onClick={() => loadNodeLogs()}
+                            isLoading={logLoading}
+                        >
+                            Refresh
+                        </EuiButton>
+                    </div>
+                </div>
+
+                {logError ? (
+                    <div className="node-management-alert error">
+                        <EuiIcon type="alert" />
+                        <span>{logError}</span>
+                    </div>
+                ) : null}
+
+                <div className="node-management-log-controls">
+                    <EuiFlexGroup gutterSize="m" wrap>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="Contains">
+                                <EuiFieldSearch
+                                    value={logContains}
+                                    onChange={(event) => setLogContains(
+                                        event.target.value
+                                    )}
+                                    placeholder="Search logs"
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="Level">
+                                <EuiSelect
+                                    options={logLevelOptions}
+                                    value={logLevel}
+                                    onChange={(event) => setLogLevel(
+                                        event.target.value
+                                    )}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="From">
+                                <EuiFieldText
+                                    type="datetime-local"
+                                    value={logStartTs}
+                                    max={logEndTs || undefined}
+                                    onChange={(event) => setLogStartTs(
+                                        event.target.value
+                                    )}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="To">
+                                <EuiFieldText
+                                    type="datetime-local"
+                                    value={logEndTs}
+                                    min={logStartTs || undefined}
+                                    onChange={(event) => setLogEndTs(
+                                        event.target.value
+                                    )}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="Max logs">
+                                <EuiFieldNumber
+                                    min={1}
+                                    value={logMaxTotal}
+                                    onChange={(event) => setLogMaxTotal(
+                                        event.target.value
+                                    )}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="Rows per page">
+                                <EuiSelect
+                                    value={String(logPageSize)}
+                                    options={[20, 50, 100, 200].map((value) => ({
+                                        value: String(value),
+                                        text: String(value),
+                                    }))}
+                                    onChange={(event) => {
+                                        setLogPageSize(
+                                            Number.parseInt(
+                                                event.target.value,
+                                                10
+                                            )
+                                        )
+                                        setLogCurrentPage(0)
+                                    }}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                    </EuiFlexGroup>
+                </div>
+
+                <EuiSpacer size="m" />
+
+                <EuiFlexGroup
+                    justifyContent="spaceBetween"
+                    alignItems="center"
+                    gutterSize="m"
+                    wrap
+                >
+                    <EuiFlexItem grow={false}>
+                        <EuiText size="s">
+                            <span>
+                                Last refresh: {formatDateTime(logLastRefresh)}
+                            </span>
+                        </EuiText>
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                        <EuiFlexGroup gutterSize="s" alignItems="center">
+                            <EuiFlexItem grow={false}>
+                                <EuiButtonEmpty
+                                    size="s"
+                                    onClick={() => setLogCurrentPage((page) => (
+                                        Math.max(0, page - 1)
+                                    ))}
+                                    isDisabled={!canGoPrevLogs || logLoading}
+                                >
+                                    Prev
+                                </EuiButtonEmpty>
+                            </EuiFlexItem>
+                            <EuiFlexItem grow={false}>
+                                <EuiText size="s">
+                                    <span>Page {logCurrentPage + 1}</span>
+                                </EuiText>
+                            </EuiFlexItem>
+                            <EuiFlexItem grow={false}>
+                                <EuiButtonEmpty
+                                    size="s"
+                                    onClick={() => setLogCurrentPage((page) => (
+                                        page + 1
+                                    ))}
+                                    isDisabled={!canGoNextLogs || logLoading}
+                                >
+                                    Next
+                                </EuiButtonEmpty>
+                            </EuiFlexItem>
+                        </EuiFlexGroup>
+                    </EuiFlexItem>
+                </EuiFlexGroup>
+
+                <EuiSpacer size="m" />
+
+                <div className="node-management-log-table">
+                    <EuiBasicTable
+                        items={logItems}
+                        columns={logColumns}
+                        loading={logLoading}
+                        tableLayout="auto"
+                    />
+                </div>
+            </section>
+            )}
 
             {isActorModalVisible ? (
                 <EuiModal
@@ -651,6 +954,11 @@ const mapStateToProps = (state) => {
         actionError: state.node_management.actionError,
         processStateError: state.node_management.processStateError,
         lastRefresh: state.node_management.lastRefresh,
+        logItems: state.node_management.logItems,
+        logLoading: state.node_management.logLoading,
+        logError: state.node_management.logError,
+        logLastBatchSize: state.node_management.logLastBatchSize,
+        logLastRefresh: state.node_management.logLastRefresh,
     }
 }
 
@@ -659,6 +967,7 @@ const mapDispatchToProps = (dispatch) => {
         fetchNodeProcessState: (options) => dispatch(
             fetchNodeProcessState(options)
         ),
+        fetchNodeLogs: (args) => dispatch(fetchNodeLogs(args)),
         executeNodeAction: (action, nodeArgs) => dispatch(
             executeNodeAction(action, nodeArgs)
         ),

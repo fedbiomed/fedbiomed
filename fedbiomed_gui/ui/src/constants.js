@@ -68,6 +68,7 @@ export const EP_NODE_PROCESS_STATE = "/api/node/process-state";
 export const EP_NODE_START = "/api/node/start";
 export const EP_NODE_STOP = "/api/node/stop";
 export const EP_NODE_RESTART = "/api/node/restart";
+export const EP_NODE_LOGS = "/api/node/logs";
 
 // Messages
 export const DATA_NOTFOUND = 'There is no data found for the dataset. It might be deleted'

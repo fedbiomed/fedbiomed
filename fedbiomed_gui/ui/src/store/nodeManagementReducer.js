@@ -1,6 +1,9 @@
 import {
     NODE_ACTION_ERROR,
     NODE_ACTION_LOADING,
+    NODE_LOGS_ERROR,
+    NODE_LOGS_LOADING,
+    NODE_LOGS_SUCCESS,
     NODE_PROCESS_STATE_ERROR,
     NODE_PROCESS_STATE_LOADING,
     NODE_PROCESS_STATE_SUCCESS,
@@ -13,6 +16,11 @@ const initialNodeManagementState = {
     actionError: null,
     processStateError: null,
     lastRefresh: null,
+    logItems: [],
+    logLoading: false,
+    logError: null,
+    logLastBatchSize: 0,
+    logLastRefresh: null,
 }
 
 export const nodeManagementReducer = (
@@ -57,6 +65,30 @@ export const nodeManagementReducer = (
             return {
                 ...state,
                 actionError: action.payload,
+            }
+
+        case NODE_LOGS_LOADING:
+            return {
+                ...state,
+                logLoading: Boolean(action.payload),
+                logError: action.payload ? null : state.logError,
+            }
+
+        case NODE_LOGS_SUCCESS:
+            return {
+                ...state,
+                logItems: action.payload.items,
+                logLastBatchSize: action.payload.lastBatchSize,
+                logLastRefresh: action.payload.lastRefresh,
+                logError: null,
+            }
+
+        case NODE_LOGS_ERROR:
+            return {
+                ...state,
+                logItems: [],
+                logLastBatchSize: 0,
+                logError: action.payload,
             }
 
         default:

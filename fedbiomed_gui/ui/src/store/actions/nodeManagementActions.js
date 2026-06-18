@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 import {
+    EP_NODE_LOGS,
     EP_NODE_PROCESS_STATE,
     EP_NODE_RESTART,
     EP_NODE_START,
@@ -9,6 +10,9 @@ import {
 import {
     NODE_ACTION_ERROR,
     NODE_ACTION_LOADING,
+    NODE_LOGS_ERROR,
+    NODE_LOGS_LOADING,
+    NODE_LOGS_SUCCESS,
     NODE_PROCESS_STATE_ERROR,
     NODE_PROCESS_STATE_LOADING,
     NODE_PROCESS_STATE_SUCCESS,
@@ -22,6 +26,54 @@ const nodeActionEndpoints = {
 
 const getErrorMessage = (error, fallback) => {
     return error?.response?.data?.message || fallback
+}
+
+const toIsoString = (value) => {
+    if (!value) {
+        return undefined
+    }
+
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+}
+
+const buildLogParams = ({
+    contains,
+    level,
+    startTs,
+    endTs,
+    maxTotal,
+    currentPage,
+    pageSize,
+}) => {
+    const params = {
+        current_page: currentPage,
+        page_size: pageSize,
+    }
+
+    if (contains) {
+        params.contains = contains
+    }
+    if (level) {
+        params.level = level
+    }
+
+    const parsedStart = toIsoString(startTs)
+    if (parsedStart) {
+        params.start_ts = parsedStart
+    }
+
+    const parsedEnd = toIsoString(endTs)
+    if (parsedEnd) {
+        params.end_ts = parsedEnd
+    }
+
+    const parsedMax = Number(maxTotal)
+    if (Number.isFinite(parsedMax) && parsedMax > 0) {
+        params.max_num_of_logs = parsedMax
+    }
+
+    return params
 }
 
 export const fetchNodeProcessState = ({markRefresh = false} = {}) => {
@@ -77,6 +129,38 @@ export const executeNodeAction = (action, nodeArgs) => {
             })
         } finally {
             dispatch({type: NODE_ACTION_LOADING, payload: null})
+        }
+    }
+}
+
+export const fetchNodeLogs = (args) => {
+    return async (dispatch) => {
+        dispatch({type: NODE_LOGS_LOADING, payload: true})
+
+        try {
+            const response = await axios.get(EP_NODE_LOGS, {
+                params: buildLogParams(args),
+            })
+            const result = response.data.result || {}
+            const items = Array.isArray(result.items) ? result.items : []
+            dispatch({
+                type: NODE_LOGS_SUCCESS,
+                payload: {
+                    items,
+                    lastBatchSize: items.length,
+                    lastRefresh: new Date().toISOString(),
+                },
+            })
+        } catch (error) {
+            dispatch({
+                type: NODE_LOGS_ERROR,
+                payload: getErrorMessage(
+                    error,
+                    'Could not get node application logs'
+                ),
+            })
+        } finally {
+            dispatch({type: NODE_LOGS_LOADING, payload: false})
         }
     }
 }

@@ -70,8 +70,8 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
 
     _node = Node(config, node_args)
 
-    print(_node)
-    print("\t- Node name: ", _node.config.get("default", "name"), "\n")
+    logger.info(str(_node))
+    logger.info(f"Node name: {_node.config.get('default', 'name')}")
 
     def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
         """Signal handler that terminates the process.
@@ -387,13 +387,6 @@ class NodeProcessManager:
             logger.warning("Node process is already running. Ignoring start request.")
             return
 
-        if background:
-            log_path = os.path.join(self._config.root, "log", "node_process.log")
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            output_target = open(log_path, "a")
-        else:
-            output_target = None
-
         logger.info(f"Starting node subprocess with python={sys.executable}")
         logger.info(f"Node subprocess config root={self._config.root}")
         # We are starting a new node process. We generate a new pid after starting the process.
@@ -409,11 +402,7 @@ class NodeProcessManager:
                     node_args
                 ),  # Convert to string to pass using subprocess (will be parsed back to dict in the subprocess)
             ],
-            stdout=output_target,
-            stderr=output_target,
         )
-        if output_target is not None:
-            output_target.close()
 
         self._set_process_state(
             pid=_process.pid,
