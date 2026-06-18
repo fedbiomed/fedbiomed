@@ -158,7 +158,7 @@ class FAJob(_BaseJob):
             )
 
         # get controller parameters
-        # `root` is set last so it cannot be shadowed by `dataset_parameters`.
+        # `root` is in both `dataset_parameters` and `path`; they must be the same.
         controller_kwargs = {
             **dataset_entry.get("dataset_parameters", {}),
             "root": dataset_entry.get("path"),

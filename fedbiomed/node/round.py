@@ -1128,9 +1128,11 @@ class Round:
                 f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}"
             ) from e
 
-        controller_kwargs = self.dataset_entry.get(
-            "dataset_parameters", {"root": self.dataset_entry.get("path")}
-        )
+        # `root` is in both `dataset_parameters` and `path`; they must be the same.
+        controller_kwargs = {
+            **self.dataset_entry.get("dataset_parameters", {}),
+            "root": self.dataset_entry.get("path"),
+        }
         if self._dlp_and_loading_block_metadata is not None:
             controller_kwargs["dlp"] = DataLoadingPlan().deserialize(
                 *self._dlp_and_loading_block_metadata

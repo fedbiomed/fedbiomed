@@ -63,7 +63,10 @@ class _ImageLabelDataset(Dataset):
         """
         self.to_format = to_format
         self._init_controller(root=root)
+        self._validate_initial_sample()
 
+    def _validate_initial_sample(self) -> None:
+        """Validate format conversion and transforms on the first sample."""
         sample = self._controller.get_sample(0)
         self._validate_format_and_transformations(
             sample["data"],
@@ -102,3 +105,22 @@ class MedNistDataset(_ImageLabelDataset):
 
 class MnistDataset(_ImageLabelDataset):
     _controller_cls = MnistController
+
+    def load(
+        self,
+        root: Union[str, Path],
+        to_format: DataReturnFormat,
+        train: bool = True,
+        download: bool = True,
+    ) -> None:
+        """Finalize initialization of object to be able to recover items
+
+        Args:
+            root: path to the dataset root
+            to_format: format associated to expected return format
+            train: if true then train files are used
+            download: if true then downloads and extracts the files if they do not exist
+        """
+        self.to_format = to_format
+        self._init_controller(root=root, train=train, download=download)
+        self._validate_initial_sample()
