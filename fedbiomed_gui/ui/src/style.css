@@ -1008,9 +1008,9 @@ a.fed-box-link{
 }
 
 .node-management-status-pill {
-  display: inline-flex;
   align-items: center;
   border-radius: 12px;
+  display: inline-flex;
   font-size: 14px;
   font-weight: 600;
   gap: 9px;
@@ -1176,8 +1176,8 @@ a.fed-box-link{
 }
 
 .node-management-detail-value .node-management-status-pill {
-  padding: 5px 0;
   background: transparent;
+  padding: 5px 0;
 }
 
 .node-management-status-banner {
@@ -1259,6 +1259,67 @@ a.fed-box-link{
   overflow-wrap: anywhere;
 }
 
+.node-management-tabs-card {
+  padding: 0 24px;
+}
+
+.node-management-logs {
+  padding: 28px;
+}
+
+.node-management-log-controls {
+  padding-top: 24px;
+}
+
+.node-management-log-table {
+  overflow-x: auto;
+}
+
+.node-management-log-table .euiBasicTable {
+  min-width: 1050px;
+}
+
+.node-management-log-nowrap {
+  white-space: nowrap;
+}
+
+.node-management-log-level {
+  border-radius: 8px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 6px 8px;
+}
+
+.node-management-log-level.debug {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.node-management-log-level.info {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.node-management-log-level.warning {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.node-management-log-level.error,
+.node-management-log-level.critical {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.node-management-log-message {
+  color: var(--node-management-text);
+  max-width: 720px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 980px) {
   .node-management-process-content {
     grid-template-columns: 1fr;
@@ -1275,7 +1336,6 @@ a.fed-box-link{
   .node-management-summary-card:last-child {
     border-radius: 0 12px 12px 0;
   }
-
 }
 
 @media (max-width: 680px) {

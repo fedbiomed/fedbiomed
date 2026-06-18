@@ -1,3 +1,8 @@
+import os
+import re
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 from flask import request
 from flask_jwt_extended import get_jwt
 
@@ -7,8 +12,22 @@ from fedbiomed.node.node_pm import NodeProcessManager
 from ..config import config
 from ..utils import error, response
 from .api import api
+from .log_utils import (
+    FilterValue,
+    parse_timestamp,
+)
 
 node_process_manager = NodeProcessManager(config.node_config)
+
+_APPLICATION_LOG_BASENAME = "application.log"
+_APPLICATION_LOG_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S,%f"
+_LOG_LINE_RE = re.compile(
+    r"^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})\s+"
+    r"(?P<logger>\S+)\s+"
+    r"(?P<level>DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+"
+    r"(?:\[(?P<caller>[^\]]+)\]\s+)?-\s"
+    r"(?P<message>.*)$"
+)
 
 
 def _actor_from_request() -> dict:
@@ -60,6 +79,80 @@ def _node_args_from_request() -> tuple[dict, bool]:
     }
 
     return node_args, background
+
+
+def _application_log_dir() -> str:
+    return os.path.join(config["NODE_FEDBIOMED_ROOT"], "log")
+
+
+def _parse_application_log_lines(lines: List[str]) -> List[Dict[str, Any]]:
+    items: List[Dict[str, Any]] = []
+    current: Optional[Dict[str, Any]] = None
+
+    for line in lines:
+        match = _LOG_LINE_RE.match(line)
+        if match:
+            parsed_dt = parse_timestamp(
+                match.group("timestamp"),
+                extra_formats=(_APPLICATION_LOG_TIMESTAMP_FORMAT,),
+            )
+            current = {
+                "timestamp": parsed_dt.isoformat() if parsed_dt else None,
+                "level": match.group("level"),
+                "logger": match.group("logger"),
+                "caller": match.group("caller") or "",
+                "message": match.group("message"),
+                "raw": line,
+            }
+            items.append(current)
+            continue
+
+        if current is not None:
+            current["message"] = f"{current['message']}\n{line}"
+            current["raw"] = f"{current['raw']}\n{line}"
+        elif line:
+            items.append(
+                {
+                    "timestamp": None,
+                    "level": "",
+                    "logger": "",
+                    "caller": "",
+                    "message": line,
+                    "raw": line,
+                }
+            )
+
+    return items
+
+
+def _matches_log_filters(item: Dict[str, Any], filters: Dict[str, FilterValue]) -> bool:
+    level = filters.get("level")
+    if level and str(item.get("level")) != level:
+        return False
+
+    contains = filters.get("contains")
+    if contains:
+        needle = str(contains).strip().lower()
+        candidate = "\n".join(
+            str(item.get(k) or "")
+            for k in ("timestamp", "level", "logger", "caller", "message", "raw")
+        )
+        if needle and needle not in candidate.lower():
+            return False
+
+    start_dt = filters.get("start_dt")
+    end_dt = filters.get("end_dt")
+    if start_dt or end_dt:
+        item_dt = parse_timestamp(item.get("timestamp"))
+        if item_dt is None:
+            return False
+
+        if isinstance(start_dt, datetime) and item_dt < start_dt:
+            return False
+        if isinstance(end_dt, datetime) and item_dt > end_dt:
+            return False
+
+    return True
 
 
 @api.route("/node/start", methods=["POST"])

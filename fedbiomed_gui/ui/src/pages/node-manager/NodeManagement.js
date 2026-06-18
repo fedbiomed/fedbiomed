@@ -12,7 +12,12 @@ import {
     EuiModalFooter,
     EuiModalHeader,
     EuiModalHeaderTitle,
+    EuiSelect,
+    EuiSpacer,
     EuiSwitch,
+    EuiTab,
+    EuiTabs,
+    EuiText,
     EuiToolTip,
 } from '@elastic/eui'
 
