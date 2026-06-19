@@ -11,6 +11,7 @@ import torch
 from fedbiomed.common.constants import (
     HARMONIZED_PREFIX,
     NODE_DYNAMIC_DATA_FOLDER,
+    UPDATED_PREFIX,
     HarmonizationStep,
 )
 from fedbiomed.common.dataset import TabularDataset
@@ -140,6 +141,16 @@ class _FedCombatJobs:
             phenotypes - global_mean_phenotypes
         ) / global_std_phenotypes
 
+        # Save temporary dataset with standardized values
+        # for training FedComBat models
+        standardized_dataset = self._save_updated_dataset_values(
+            phenotypes_name=phenotypes_name,
+            phenotypes_data=standardized_phenotypes,
+            covariates_name=covariates_name,
+            covariates_data=standardized_covariates,
+            is_harmonization=False,
+        )
+
         # Save results locally
         state = {
             "covariates_name": covariates_name,
@@ -147,11 +158,12 @@ class _FedCombatJobs:
             "n_samples": n_samples,
             "standardized_covariates": standardized_covariates,
             "standardized_phenotypes": standardized_phenotypes,
+            "std_dataset_id": standardized_dataset["dataset_id"],
         }
         self._save_state_values(state)
 
         # Return results to researcher
-        return {}
+        return {"standardized_dataset": standardized_dataset}
 
     def _compute_residual_variance(self, params) -> dict:
         """
@@ -182,6 +194,10 @@ class _FedCombatJobs:
         n_covariates = len(covariates_name)
         n_phenotypes = len(phenotypes_name)
 
+        # Clean temporary dataset with standardized values used for training FedComBat models
+        standardized_dataset_id = state["std_dataset_id"]
+        self._delete_temporary_dataset(standardized_dataset_id)
+
         # Instantiate models and load parameters
         biological_model = FedCombatBiologicalModel(
             n_covariates=n_covariates, n_phenotypes=n_phenotypes
@@ -199,8 +215,7 @@ class _FedCombatJobs:
             local_bias_values = local_bias_model(bias_param)
 
             # Compute residual variance
-            # TODO: check sign ?
-            preds = biological_model_values - global_bias_values - local_bias_values
+            preds = biological_model_values + global_bias_values + local_bias_values
             residuals = standardized_phenotypes - preds
             residual_variance = residuals.var(0)
 
@@ -244,10 +259,7 @@ class _FedCombatJobs:
         global_bias_values = torch.as_tensor(state["global_bias_values"])
 
         # Compute standardized residuals parameters
-
-        # TODO: missing "- local_bias" term or bias_param not needed ?
-        # bias_param = torch.ones((len(standardized_covariates), 1))
-        preds = biological_model_values - global_bias_values
+        preds = biological_model_values + global_bias_values
         residuals = standardized_phenotypes - preds
         z = residuals / sigma_hat_g
 
@@ -294,13 +306,14 @@ class _FedCombatJobs:
         gamma_hat_ig = z.mean(0)
         delta_hat_ig = z.var(0)
 
-        # TODO: missing "- local_bias" term or bias_param not needed ?
-        # bias_param = torch.ones((len(standardized_covariates), 1))
-        pred = biological_model_values - global_bias_values
+        pred = biological_model_values + global_bias_values
 
         # Initial value
         delta2_star_ig = delta_hat_ig
 
+        # Iterate to estimate the ComBat parameters
+        # Note: could be improved by checking convergence or making
+        # the number of iterations a parameter
         for _ in range(30):
             gamma_star_ig = (
                 n_samples * tau_2 * gamma_hat_ig + delta2_star_ig * gamma_bar
@@ -318,7 +331,7 @@ class _FedCombatJobs:
         ) + pred
 
         # Save results locally in new dataset and return new dataset id to researcher
-        harmonized_dataset = self._save_harmonized_dataset_values(
+        harmonized_dataset = self._save_updated_dataset_values(
             phenotypes_name, harmonized_data
         )
 
@@ -354,59 +367,101 @@ class _FedCombatJobs:
 
         return covariates, phenotypes
 
-    def _save_harmonized_dataset_values(
-        self, phenotypes_name: list[str], harmonized_data: torch.Tensor
+    def _delete_temporary_dataset(self, dataset_id: str):
+        """
+        Deletes a temporary dataset from the dataset registry
+
+        Args:
+            dataset_id: the id of the dataset to delete
+        """
+        self._dataset_manager.delete_dataset_by_id(dataset_id)
+
+    def _save_updated_dataset_values(
+        self,
+        phenotypes_name: list[str],
+        phenotypes_data: torch.Tensor,
+        covariates_name: list[str] | None = None,
+        covariates_data: torch.Tensor | None = None,
+        is_harmonization: bool = True,
     ) -> dict:
         """
-        Saves the harmonized dataset locally and returns its description.
+        Saves the updated dataset locally and returns its description.
 
-        Harmonized dataset has same structure as the original dataset but replaces the phenotypes with the harmonized phenotypes.
+        Updated dataset has same structure as the original dataset but replaces the phenotypes with the updated phenotypes,
+        and optionally replaces the covariates with the updated covariates if provided.
         It is saved as a new dynamic dataset linked to the original dataset in the dataset registry.
 
         Args:
             phenotypes_name: the names of the phenotypes columns
-            harmonized_data: the harmonized phenotypes data to save
+            phenotypes_data: the phenotypes data to save
+            covariates_name: optional names of covariates columns to overwrite in output dataset
+            covariates_data: optional covariates data to save
+            is_harmonization: whether the updated dataset is a harmonized dataset or generic updated
 
         Returns:
-            dict: the description of the saved harmonized dataset
+            dict: the description of the saved updated dataset
         """
-
-        # Build full new harmonized dataset by replacing phenotypes columns with harmonized phenotypes in original dataset
+        # Build full new updated dataset by replacing phenotypes columns
+        # with updated phenotypes in original dataset
         controller = TabularController(root=self._dataset_entry["path"])
         source_df = pl.concat(
             [controller.get_sample(i) for i in range(len(controller))]
         )
 
-        harmonized_array = harmonized_data.numpy()
+        phenotypes_array = phenotypes_data.detach().cpu().numpy()
         for col_idx, phenotype_col in enumerate(phenotypes_name):
             source_df = source_df.with_columns(
                 pl.Series(
                     name=phenotype_col,
-                    values=harmonized_array[:, col_idx],
+                    values=phenotypes_array[:, col_idx],
                 )
             )
 
-        # Save harmonized dataset as new CSV file
+        # Optionally overwrite covariates columns with provided values.
+        covariates_name = covariates_name or []
+        covariates_data = (
+            covariates_data if covariates_data is not None else torch.empty(0)
+        )
+        if covariates_name and covariates_data.numel() > 0:
+            covariates_array = covariates_data.detach().cpu().numpy()
+            for col_idx, covariate_col in enumerate(covariates_name):
+                source_df = source_df.with_columns(
+                    pl.Series(
+                        name=covariate_col,
+                        values=covariates_array[:, col_idx],
+                    )
+                )
+
+        if is_harmonization:
+            prefix = HARMONIZED_PREFIX
+            name_prefix = "FedComBat"
+            description_prefix = "Harmonized with FedComBat"
+        else:
+            prefix = UPDATED_PREFIX
+            name_prefix = "Updated"
+            description_prefix = "Updated dataset"
+
+        # Save updated dataset as new CSV file
         # Possible improvement: use a dedicated class that can be reused in other module
         source_path = Path(self._dataset_entry["path"])
-        base_name = source_path.stem.split(f"_{HARMONIZED_PREFIX}")[0]
-        harmonized_path = os.path.join(
+        base_name = source_path.stem.split(f"_{prefix}")[0]
+        updated_path = os.path.join(
             self._root_dir,
             NODE_DYNAMIC_DATA_FOLDER,
-            f"{base_name}_{HARMONIZED_PREFIX}{self._preproc_id}.csv",
+            f"{base_name}_{prefix}{self._preproc_id}.csv",
         )
-        source_df.write_csv(harmonized_path)
+        source_df.write_csv(updated_path)
 
         # Save dataset entry in database and return new dataset id
         dynamic_dataset_id = self._dataset_manager.add_dynamic_dataset(
-            path=str(harmonized_path),
+            path=str(updated_path),
             researcher_id=self._researcher_id,
             experiment_id=self._experiment_id,
             processing_id=self._preproc_id,
             parent_dataset_id=self._dataset_entry["dataset_id"],
-            name=f"FedCombat from {self._dataset_entry['name']}",
+            name=f"{name_prefix} from {self._dataset_entry['name']}",
             tags=None,
-            description=f"Harmonized with FedCombat from {self._dataset_entry['description']}",
+            description=f"{description_prefix} from {self._dataset_entry['description']}",
             dataset_id=None,
             dataset_parameters=self._dataset_entry.get("dataset_parameters", {}),
         )

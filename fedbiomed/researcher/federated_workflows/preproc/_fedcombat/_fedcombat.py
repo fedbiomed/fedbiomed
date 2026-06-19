@@ -204,6 +204,11 @@ class FedCombatPreproc:
                 "Empty list of nodes for Fed-ComBat: no nodes replied to original "
                 "request or sampling strategy returned an empty list."
             )
+        if len(current_nodes) == 1:
+            raise FedbiomedExperimentError(
+                f"{ErrorNumbers.FB420.value}: "
+                "Insufficient number of nodes for Fed-ComBat: at least two nodes are required."
+            )
 
         fedcombat_parameters = _FedCombatParameters(
             experiment_id=self._experiment_id,
@@ -232,6 +237,12 @@ class FedCombatPreproc:
                     "phenotypes": self._preproc_args.get("phenotypes"),
                 }
             elif preproc_step == HarmonizationStep.TRAIN_RESID_VAR:
+                # Create a federated dataset with the standardized datasets from each node
+                dict_standardized_datasets = {
+                    node_id: reply.preproc_output.get("standardized_dataset")
+                    for node_id, reply in fedcombat_replies.items()
+                }
+
                 # Nota: don't assign default values as _preproc_args are later checked by _FedCombatTrainModel
                 step_args_local = {
                     "covariates": self._preproc_args.get("covariates"),
@@ -239,6 +250,7 @@ class FedCombatPreproc:
                     "training_args": self._preproc_args.get("training_args"),
                     "model_args": self._preproc_args.get("model_args"),
                     "rounds": self._preproc_args.get("rounds"),
+                    "dict_std_fds": dict_standardized_datasets,
                 }
             else:
                 step_args_local = None

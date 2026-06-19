@@ -63,6 +63,9 @@ REQUEST_PREFIX = "request_"
 HARMONIZED_PREFIX = "harmonized_"
 """Prefix for harmonized dataset ID"""
 
+UPDATED_PREFIX = "updated_"
+"""Prefix for updated dataset ID"""
+
 DEFAULT_NODE_NAME = "fbm-node"
 """Default node component folder name"""
 

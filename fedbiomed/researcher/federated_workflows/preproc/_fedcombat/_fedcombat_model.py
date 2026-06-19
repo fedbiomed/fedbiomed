@@ -177,7 +177,7 @@ class _FedCombatTrainModel:
                 "phenotypes": self._phenotypes,
             }
         )
-        self._rounds = rounds or 3
+        self._rounds = rounds or 20
 
         self._training_plan_class = _FedCombatTrainingPlan
 

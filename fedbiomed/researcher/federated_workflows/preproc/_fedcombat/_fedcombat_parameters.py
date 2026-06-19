@@ -1,7 +1,8 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Optional, Tuple
+import math
+from typing import Dict, List, Optional, Tuple
 
 import torch
 
@@ -78,11 +79,11 @@ class _FedCombatParameters:
             kwargs = self._stack_dict_params(list_dict_params=list_dict_params)
         return self.step_functions[harmonization_step](**kwargs)
 
-        # Note: at each step, the researcher could check the type and shape of the received parameters.
-        # It is not implemented for now to keep implementation simple but could be considered for:
-        # - security: avoid malicious parameters. Risk seems limited as they are used for simple math operations,
-        #   not function names, etc.
-        # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
+    # Note: at each step, the researcher could check the type and shape of the received parameters.
+    # It is not implemented for now to keep implementation simple but could be considered for:
+    # - security: avoid malicious parameters. Risk seems limited as they are used for simple math operations,
+    #   not function names, etc.
+    # - robustness: avoid errors due to wrong parameters. This will be handled by enclosing try/except
 
     def _compute_global_mean_std(self, **kwargs) -> Tuple[dict, dict]:
         """
@@ -122,22 +123,32 @@ class _FedCombatParameters:
             experimentation_folder=self._experimentation_folder,
         )
 
-        # FA glitch: currently need to request `variance` to retrieve `std`
-        result = analytics.fetch_stats(["mean", "variance"], _emit_log=False)
-        logger.debug(f"Global mean and std computed:\n {result.global_stats()}")
+        # FA returns sample variance/std (ddof=1). We request count too in order to
+        # convert variance to population std (ddof=0): sqrt(var * (N - 1) / N).
+        result = analytics.fetch_stats(["mean", "variance", "count"], _emit_log=False)
 
-        global_mean_covariates = [
-            v for k, v in result.global_stats("mean").items() if k in covariates
-        ]
-        global_mean_phenotypes = [
-            v for k, v in result.global_stats("mean").items() if k in phenotypes
-        ]
-        global_std_covariates = [
-            v for k, v in result.global_stats("std").items() if k in covariates
-        ]
-        global_std_phenotypes = [
-            v for k, v in result.global_stats("std").items() if k in phenotypes
-        ]
+        global_variance = result.global_stats("variance")
+        global_count = result.global_stats("count")
+
+        global_std_population = self._population_std_from_sample_variance(
+            variance=global_variance,
+            count=global_count,
+        )
+
+        global_mean = result.global_stats("mean")
+        global_mean_covariates = [global_mean[k] for k in covariates]
+        global_mean_phenotypes = [global_mean[k] for k in phenotypes]
+        global_std_covariates = [global_std_population[k] for k in covariates]
+        global_std_phenotypes = [global_std_population[k] for k in phenotypes]
+
+        logger.debug(
+            f"Global mean and std computed:\
+                     Covariates mean: {global_mean_covariates}\
+                     Phenotypes mean: {global_mean_phenotypes}\
+                     Covariates std: {global_std_covariates}\
+                     Phenotypes std: {global_std_phenotypes}\
+            "
+        )
 
         # Clean up
         del analytics
@@ -176,10 +187,11 @@ class _FedCombatParameters:
         training_args = kwargs.get("training_args")
         model_args = kwargs.get("model_args")
         rounds = kwargs.get("rounds")
+        dict_std_fds = kwargs.get("dict_std_fds")
 
         fc_model_training = _FedCombatTrainModel(
             experiment_class=self._experiment_class,
-            fds=self._fds,
+            fds=FederatedDataset(dict_std_fds),
             nodes=self._nodes,
             experimentation_folder=self._experimentation_folder,
             covariates=covariates,
@@ -213,10 +225,12 @@ class _FedCombatParameters:
         stacked_residual_variances = kwargs["residual_variance"]
         stacked_n_samples = kwargs["n_samples"]
 
-        sigma_hat_g = self._weighted_mean(
+        sigma_hat_g = self._weighted_variance_mean(
             stacked_residual_variances, stacked_n_samples, ddof=1
         )  # pooled variance
-        sigma_hat_g[sigma_hat_g == 0] = 1e-8
+        sigma_hat_g = torch.clamp(sigma_hat_g, min=1e-8)  # avoid near-zero values
+        sigma_hat_g = torch.sqrt(sigma_hat_g)  # from variance to std
+
         return {"sigma_hat_g": sigma_hat_g}, {}
 
     def _compute_residual_parameters(self, **kwargs) -> Tuple[dict, dict]:
@@ -241,7 +255,7 @@ class _FedCombatParameters:
         v_bar = stacked_delta_hat_ig.mean(0)
         s_bar_2 = stacked_delta_hat_ig.var(0)
 
-        s_bar_2[s_bar_2 == 0.0] = 1e-8
+        s_bar_2 = torch.clamp(s_bar_2, min=1e-8)  # avoid near-zero values
 
         lambda_bar_i = (v_bar + 2 * s_bar_2) / s_bar_2
         theta_bar_i = (v_bar**3 + v_bar * s_bar_2) / s_bar_2
@@ -253,14 +267,46 @@ class _FedCombatParameters:
             "theta_bar_i": theta_bar_i,
         }, {}
 
-    def _weighted_mean(
+    # Utility functions
+    @staticmethod
+    def _population_std_from_sample_variance(
+        variance: Dict[str, float],
+        count: Dict[str, int],
+    ) -> Dict[str, float]:
+        """
+        Converts sample variance (ddof=1) to population std (ddof=0).
+
+        Cannot be done in FA as it only returns sample variance (ddof=1) and not the population std (ddof=0).
+
+        Args:
+            variance: Dict containing the sample variance (ddof=1) for each key.
+            count: Dict containing the number of samples for each key.
+
+        Returns:
+            Dict containing the population standard deviation (ddof=0) for each key.
+        """
+        pop_std: Dict[str, float] = {}
+
+        for key, sample_variance in variance.items():
+            n = float(count[key])
+            sample_variance_float = float(sample_variance)
+            if n <= 0:
+                pop_std[key] = float("nan")
+            elif n == 1:
+                pop_std[key] = 0.0
+            else:
+                pop_std[key] = math.sqrt(sample_variance_float * (n - 1.0) / n)
+
+        return pop_std
+
+    def _weighted_variance_mean(
         self, values: torch.Tensor, weights: torch.Tensor, ddof: int = 0
     ) -> torch.Tensor:
         """
-        Computes the weighted mean from a set of values and weights.
+        Computes the weighted mean from a set of variances and weights.
 
         Args:
-            values: a torch.Tensor of size (N x M) containing the values to average
+            values: a torch.Tensor of size (N x M) containing the variances to average
             weights: a torch.Tensor of size (N) containing the weights
             ddof: an int to subtract the degrees of freedom (useful for unbiased variance)
 
