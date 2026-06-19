@@ -397,21 +397,26 @@ class NodeProcessManager:
         logger.info(f"Starting node subprocess with python={sys.executable}")
         logger.info(f"Node subprocess config root={self._config.root}")
         # We are starting a new node process. We generate a new pid after starting the process.
-        _process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "fedbiomed.node.node_pm",
-                "--config",
-                self._config.root,
-                "--node-args",
-                json.dumps(
-                    node_args
-                ),  # Convert to string to pass using subprocess (will be parsed back to dict in the subprocess)
-            ],
-            stdout=output_target,
-            stderr=output_target,
-        )
+        try:
+            _process = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-m",
+                    "fedbiomed.node.node_pm",
+                    "--config",
+                    self._config.root,
+                    "--node-args",
+                    json.dumps(
+                        node_args
+                    ),  # Convert to string to pass using subprocess (will be parsed back to dict in the subprocess)
+                ],
+                stdout=output_target,
+                stderr=output_target,
+            )
+        except Exception:
+            if output_target is not None:
+                output_target.close()
+            raise
         if output_target is not None:
             output_target.close()
 
