@@ -29,7 +29,6 @@ def read_file(path):
     try:
         with open(path, "r", encoding="UTF-8") as file:
             content = file.read()
-            file.close()
     except Exception as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Can not read file {path}. Error: {e}"
