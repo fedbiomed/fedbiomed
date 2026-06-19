@@ -30,7 +30,9 @@ class _ImageLabelDataset(Dataset):
     _native_to_framework = {
         DataReturnFormat.SKLEARN: np.array,
         DataReturnFormat.TORCH: lambda x: (
-            T.ToTensor()(x)  # In case the target is a PIL Image
+            {k: (v if isinstance(v, torch.Tensor) else T.ToTensor()(v) if isinstance(v, (Image.Image, np.ndarray)) else torch.tensor(v)) for k, v in x.items()}
+            if isinstance(x, dict)
+            else T.ToTensor()(x)  # In case the target is a PIL Image
             if isinstance(x, (Image.Image, np.ndarray))
             else torch.tensor(x)
         ),

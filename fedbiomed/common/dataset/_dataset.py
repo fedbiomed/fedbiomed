@@ -73,17 +73,20 @@ class Dataset(ABC):
 
         return self._native_to_framework[self._to_format]
 
-    def _default_types_torch(self, x: torch.Tensor) -> torch.Tensor:
-        """Performs default type conversion for a torch.Tensor
+    def _default_types_torch(self, x) -> torch.Tensor:
+        """Performs default type conversion for a torch.Tensor or dict of torch.Tensors
 
         Torch makes a copy if the type changes.
 
         Args:
-            x: data to convert
+            x: data to convert (torch.Tensor or dict of torch.Tensors)
 
         Returns:
-            Converted torch Tensor with default types
+            Converted torch Tensor (or dict of converted Tensors) with default types
         """
+        if isinstance(x, dict):
+            return {k: self._default_types_torch(v) for k, v in x.items()}
+
         if not isinstance(x, torch.Tensor):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Expected input to be of type "
@@ -195,7 +198,15 @@ class Dataset(ABC):
                 f"data to {self._to_format.value}. {extra_info}"
             ) from e
 
-        if not isinstance(data, self._to_format.value):
+        if isinstance(data, dict):
+            if not all(isinstance(v, self._to_format.value) for v in data.values()):
+                bad_types = {k: type(v).__name__ for k, v in data.items() if not isinstance(v, self._to_format.value)}
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: "
+                    f"Expected all dict values to convert to "
+                    f"`{self._to_format.value}`, but got {bad_types}. {extra_info}"
+                )
+        elif not isinstance(data, self._to_format.value):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: "
                 f"Expected type conversion for the data to return "
@@ -226,7 +237,15 @@ class Dataset(ABC):
                 f"{extra_info if extra_info else ''}"
             ) from e
 
-        if not isinstance(data, self._to_format.value):
+        if isinstance(data, dict):
+            if not all(isinstance(v, self._to_format.value) for v in data.values()):
+                bad_types = {k: type(v).__name__ for k, v in data.items() if not isinstance(v, self._to_format.value)}
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Expected "
+                    f"`transform` to return dict of `{self._to_format.value}`, "
+                    f"but got {bad_types}. {extra_info}"
+                )
+        elif not isinstance(data, self._to_format.value):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Expected "
                 f"`transform` to return `{self._to_format.value}`, "
