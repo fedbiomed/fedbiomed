@@ -32,7 +32,7 @@ class TestTorchDataManager(unittest.TestCase):
                 torch.Tensor(6),
             ]
 
-        def complete_initialization(self):
+        def load(self):
             pass
 
         def _apply_transforms(self, sample):
@@ -51,7 +51,7 @@ class TestTorchDataManager(unittest.TestCase):
             self.X_train = [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
             self.Y_train = [1, 2, 3]
 
-        def complete_initialization(self):
+        def load(self):
             pass
 
         def _apply_transforms(self, sample):
@@ -69,7 +69,7 @@ class TestTorchDataManager(unittest.TestCase):
             self.data = None
             pass
 
-        def complete_initialization(self):
+        def load(self):
             pass
 
         def _apply_transforms(self, sample):
@@ -88,7 +88,7 @@ class TestTorchDataManager(unittest.TestCase):
             self.data = None
             pass
 
-        def complete_initialization(self):
+        def load(self):
             pass
 
         def _apply_transforms(self, sample):

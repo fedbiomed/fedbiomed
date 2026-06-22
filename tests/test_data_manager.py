@@ -32,26 +32,16 @@ class TestDataManager(unittest.TestCase):
         def to_format(self) -> DataReturnFormat:
             return DataReturnFormat.TORCH
 
-        def complete_initialization(self) -> None:
-            pass
-
-        def complete_initialization(self):
+        def load(self):
             return None
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
-    # NOTE: alitolga: Which data types we support for NativeDataset? Depending on that some cases in this test become invalid.
-    def test_dataset_numpy(self, n=8, d=3):
+    def _make_dataset_numpy(self, n=8, d=3):
         X = np.arange(n * d, dtype=float).reshape(n, d)
         y = (np.arange(n) % 2).astype(int)
         return X, y
 
-    def test_dataset_pandas(self, n=8, d=3):
-        X, y = self.test_dataset_numpy(n=n, d=d)
+    def _make_dataset_pandas(self, n=8, d=3):
+        X, y = self._make_dataset_numpy(n=n, d=d)
         return pd.DataFrame(X), pd.Series(y)
 
     def test_data_manager_01_load(self):
@@ -61,24 +51,18 @@ class TestDataManager(unittest.TestCase):
         with self.assertRaises(FedbiomedError):
             data_manager = DataManager(dataset="invalid-argument")
             data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
-            data_manager.complete_dataset_initialization(
-                controller_kwargs={"root": "dummy_path"}
-            )
+            data_manager.load_dataset(root="dummy_path")
 
         # Test passing another invalid argument
         with self.assertRaises(FedbiomedError):
-            DataManager(dataset=12)
+            data_manager = DataManager(dataset=12)
             data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
-            data_manager.complete_dataset_initialization(
-                controller_kwargs={"root": "dummy_path"}
-            )
+            data_manager.load_dataset(root="dummy_path")
 
         # Test Native Dataset Scenario
         data_manager = DataManager(dataset=[12, 12, 12, 12])
         data_manager.load(tp_type=TrainingPlans.TorchTrainingPlan)
-        data_manager.complete_dataset_initialization(
-            controller_kwargs={"root": "dummy_path"}
-        )
+        data_manager.load_dataset(root="dummy_path")
         self.assertIsInstance(data_manager._data_manager_instance, TorchDataManager)
         self.assertIsInstance(data_manager._dataset, NativeDataset)
 
@@ -88,7 +72,7 @@ class TestDataManager(unittest.TestCase):
         self.assertIsInstance(data_manager._data_manager_instance, TorchDataManager)
 
         # sklearn route — NumPy (X, y)
-        X, y = self.test_dataset_numpy(n=6, d=2)
+        X, y = self._make_dataset_numpy(n=6, d=2)
         dm = DataManager(dataset=X, target=y)
         dm.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
         self.assertIsInstance(dm._data_manager_instance, SkLearnDataManager)
@@ -97,13 +81,13 @@ class TestDataManager(unittest.TestCase):
         )
 
         # sklearn route — NumPy with target=None
-        X2, _ = self.test_dataset_numpy(n=5, d=2)
+        X2, _ = self._make_dataset_numpy(n=5, d=2)
         dm2 = DataManager(dataset=X2, target=None)
         dm2.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
         self.assertIsInstance(dm2._data_manager_instance, SkLearnDataManager)
 
         # sklearn route — pandas DataFrame/Series
-        Xp, yp = self.test_dataset_pandas(n=4, d=2)
+        Xp, yp = self._make_dataset_pandas(n=4, d=2)
         dmp = DataManager(dataset=Xp, target=yp)
         dmp.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
         self.assertIsInstance(dmp._data_manager_instance, SkLearnDataManager)
@@ -131,7 +115,7 @@ class TestDataManager(unittest.TestCase):
             data_manager.__getattr__("toto")
 
         # sklearn path
-        X, y = self.test_dataset_numpy(n=6, d=2)
+        X, y = self._make_dataset_numpy(n=6, d=2)
         dm_sk = DataManager(dataset=X, target=y)
         dm_sk.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
         try:
@@ -158,12 +142,9 @@ class TestDataManager(unittest.TestCase):
             {**extension_keyword_args, **dm_keyword_args},
         )
 
-        # NOTE: @alitolga - is a similar test required here for sklearn data manager?
-        # Does the SkLearnDataLoader need to take kwargs or not?
-
     def test_data_manager_04_testing_index_setter_getter(self):
         # sklearn path — NumPy (tuple input)
-        X, y = self.test_dataset_numpy(n=9, d=2)
+        X, y = self._make_dataset_numpy(n=9, d=2)
         dm_s = DataManager(dataset=(X, y))
         dm_s.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
         dm_s._testing_index = [2, 4]
@@ -176,7 +157,7 @@ class TestDataManager(unittest.TestCase):
         self.assertListEqual(dm_s._testing_index, [2, 4])
 
         # sklearn path — edge ratios
-        X2, _ = self.test_dataset_numpy(n=4, d=2)
+        X2, _ = self._make_dataset_numpy(n=4, d=2)
         dm_none = DataManager(dataset=X2, target=None)
         dm_none.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
         tr0, ts0 = dm_none.split(test_ratio=0.0, test_batch_size=None)
@@ -187,7 +168,7 @@ class TestDataManager(unittest.TestCase):
         self.assertIsNotNone(ts1)
 
         # pandas variant
-        Xp, yp = self.test_dataset_pandas(n=7, d=2)
+        Xp, yp = self._make_dataset_pandas(n=7, d=2)
         dm_p = DataManager(dataset=Xp, target=yp)
         dm_p.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
         tr_p, ts_p = dm_p.split(test_ratio=0.3, test_batch_size=None)
@@ -202,7 +183,6 @@ class TestDataManager(unittest.TestCase):
 
         train, test = data_manager.split(test_ratio=0.5, test_batch_size=None)
         self.assertEqual(data_manager._testing_index, [1])
-        # self.assertListEqual(data_manager._testing_index, data_manager._testing_index)
 
 
 if __name__ == "__main__":  # pragma: no cover

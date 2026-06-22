@@ -111,13 +111,11 @@ class DataManager(object):
                 "cannot instantiate data manager."
             )
 
-    def complete_dataset_initialization(
-        self, controller_kwargs: Dict[str, Any]
-    ) -> None:
+    def load_dataset(self, **kwargs: Any) -> None:
         """Finalizes initialization of the DataManager's dataset controller
 
         Args:
-            controller_kwargs: arguments for the controller
+            **kwargs: arguments for the controller
 
         Raises:
             FedbiomedError: if `_data_manager_instance` is not initialized
@@ -130,9 +128,9 @@ class DataManager(object):
             )
 
         try:
-            self._dataset.complete_initialization(
-                controller_kwargs,
-                _dm_to_format[self._data_manager_instance.__class__],
+            self._dataset.load(
+                **kwargs,
+                to_format=_dm_to_format[self._data_manager_instance.__class__],
             )
         except FedbiomedError as e:
             raise e

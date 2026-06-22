@@ -204,19 +204,19 @@ def test_build_args_for_dataset_unknown_type_raises(fa_job):
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
 def test_build_dataset_success(mock_registry, fa_job, mock_dm, mock_dataset_cls):
-    """Happy path: correct dataset returned and complete_initialization called."""
+    """Happy path: correct dataset returned and load called."""
     instance, cls = mock_dataset_cls
     fa_job._dataset_manager = mock_dm
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     assert dataset is instance
-    instance.complete_initialization.assert_called_once()
-    call_args = instance.complete_initialization.call_args
-    assert call_args[0][0]["root"] == "/path/to/data"
-    assert call_args[0][1] == DataReturnFormat.SKLEARN
+    instance.load.assert_called_once()
+    call_args = instance.load.call_args
+    assert call_args.kwargs["root"] == "/path/to/data"
+    assert call_args.kwargs["to_format"] == DataReturnFormat.SKLEARN
 
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
@@ -233,11 +233,11 @@ def test_build_dataset_forwards_dataset_parameters(
     }
     fa_job._dataset_manager = dm
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
-    call_kwargs = instance.complete_initialization.call_args[0][0]
+    call_kwargs = instance.load.call_args.kwargs
     assert call_kwargs.get("tabular_file") == "labels.csv"
 
 
@@ -278,12 +278,12 @@ def test_build_dataset_with_dlp(
     mock_dlp = mock_dlp_cls.return_value
     mock_dlp.deserialize.return_value = mock_dlp
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     assert dataset is instance
-    assert instance.complete_initialization.call_args[0][0]["dlp"] == mock_dlp
+    assert instance.load.call_args.kwargs["dlp"] == mock_dlp
 
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
@@ -311,7 +311,7 @@ def test_build_dataset_initialization_error(mock_registry, fa_job, mock_dm):
     fa_job._dataset_manager = mock_dm
     broken_cls = MagicMock(side_effect=FedbiomedError("Init Error"))
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, broken_cls)
+    mock_registry.__getitem__.return_value = (None, broken_cls)
 
     with pytest.raises(
         _InternalJobError, match="Cannot initialize dataset.*Init Error"
@@ -328,7 +328,7 @@ def test_build_dataset_below_minimum_samples_raises(
     mock_dm.validate_samples.side_effect = FedbiomedError("below minimum")
     fa_job._dataset_manager = mock_dm
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     with pytest.raises(
         _InternalJobError, match="does not meet minimum sample requirement"
@@ -344,7 +344,7 @@ def test_build_dataset_validate_samples_called(
     _, cls = mock_dataset_cls
     fa_job._dataset_manager = mock_dm
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     fa_job._build_dataset(DataReturnFormat.SKLEARN)
 

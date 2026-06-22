@@ -1,7 +1,8 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, Optional, Tuple
+from pathlib import Path
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -77,15 +78,15 @@ class NativeDataset(Dataset):
 
         self._target = target  # may be None
 
-    def complete_initialization(
+    def load(
         self,
-        controller_kwargs: Dict[str, Any],
+        root: Union[str, Path],
         to_format: DataReturnFormat,
     ) -> None:
         """Select data and target, and check if they can be converted to requested format.
 
         Args:
-            controller_kwargs: keyword arguments for controller (not used here).
+            root: path to the dataset root (not used here; data is held in memory).
             to_format: format associated to expected return format.
         Raises:
             FedbiomedError: if there is a problem converting dataset items to requested format.

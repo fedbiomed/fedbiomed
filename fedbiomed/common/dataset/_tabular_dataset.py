@@ -1,7 +1,8 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from pathlib import Path
+from typing import Callable, Iterable, Optional, Tuple, Union
 
 import numpy as np
 import polars as pl
@@ -64,25 +65,25 @@ class TabularDataset(Dataset):
         self._transform = self._validate_transform(transform=transform)
         self._target_transform = self._validate_transform(transform=target_transform)
 
-        # Validation of columns is deferred to complete_initialization
+        # Validation of columns is deferred to load
         # as self._controller._reader implements the logic to validate columns
         self._input_columns = input_columns
         self._target_columns = target_columns
 
-    def complete_initialization(
+    def load(
         self,
-        controller_kwargs: Dict[str, Any],
+        root: Union[str, Path],
         to_format: DataReturnFormat,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
         Args:
-            controller_kwargs: arguments to create controller
+            root: path to the dataset root
             to_format: format associated to expected return format
         """
         self.to_format = to_format
 
-        self._init_controller(controller_kwargs=controller_kwargs)
+        self._init_controller(root=root)
 
         # Normalize columns using controller (implies validation)
         self._input_columns = self._controller.normalize_columns(self._input_columns)

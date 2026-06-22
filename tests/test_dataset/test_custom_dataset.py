@@ -116,9 +116,7 @@ class EmptyDataset(CustomDataset):
 
 def test_valid_dataset_creation():
     dataset = ValidTorchDataset()
-    dataset.complete_initialization(
-        controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
-    )
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.TORCH)
     assert len(dataset) == 10
     data, target = dataset[0]
     assert isinstance(data, torch.Tensor)
@@ -166,8 +164,8 @@ def test_wrong_format():
     for ds_class in _dataset_classes:
         dataset = ds_class()
         with pytest.raises(FedbiomedError):
-            dataset.complete_initialization(
-                controller_kwargs={"root": "dummy_path"},
+            dataset.load(
+                root="dummy_path",
                 to_format=DataReturnFormat.SKLEARN,
             )
 
@@ -177,8 +175,8 @@ def test_wrong_format():
 
 def test_wrong_format_changing_dataset():
     dataset = WrongFormatChangingDataset()
-    dataset.complete_initialization(
-        controller_kwargs={"root": "dummy_path"},
+    dataset.load(
+        root="dummy_path",
         to_format=DataReturnFormat.SKLEARN,
     )
 
@@ -222,18 +220,14 @@ def test_override_init():
 def test_initialization_parameters():
     dataset = ValidTorchDataset()
     path = "test_path"
-    dataset.complete_initialization(
-        controller_kwargs={"root": path}, to_format=DataReturnFormat.TORCH
-    )
+    dataset.load(root=path, to_format=DataReturnFormat.TORCH)
     assert dataset.path == path
     assert dataset._to_format == DataReturnFormat.TORCH
 
 
 def test_data_access():
     dataset = ValidTorchDataset()
-    dataset.complete_initialization(
-        controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
-    )
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.TORCH)
 
     # Test multiple indices
     for i in range(len(dataset)):
@@ -244,22 +238,18 @@ def test_data_access():
         assert target.shape == ()  # Single target value
 
 
-def test_complete_initialization_missing_root_key():
-    """complete_initialization raises when 'root' key is absent from controller_kwargs."""
+def test_load_missing_root_key():
+    """load requires `root` as a positional argument."""
     ds = ValidTorchDataset()
-    with pytest.raises(FedbiomedError, match="'root' must be provided"):
-        ds.complete_initialization(
-            controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
-        )
+    with pytest.raises(TypeError):
+        ds.load(to_format=DataReturnFormat.SKLEARN)
 
 
-def test_complete_initialization_root_is_none():
-    """complete_initialization raises when 'root' is explicitly None."""
+def test_load_root_is_none():
+    """load raises when 'root' is explicitly None."""
     ds = ValidTorchDataset()
     with pytest.raises(FedbiomedError, match="'root' must be provided"):
-        ds.complete_initialization(
-            controller_kwargs={"root": None}, to_format=DataReturnFormat.SKLEARN
-        )
+        ds.load(root=None, to_format=DataReturnFormat.SKLEARN)
 
 
 def test_read_exception_is_wrapped(tmp_path):
@@ -275,20 +265,18 @@ def test_read_exception_is_wrapped(tmp_path):
 
     ds = DS()
     with pytest.raises(FedbiomedError):
-        ds.complete_initialization(
-            controller_kwargs={"root": str(tmp_path)},
+        ds.load(
+            root=str(tmp_path),
             to_format=DataReturnFormat.TORCH,
         )
 
 
-def test_complete_initialization_empty_dataset():
-    """complete_initialization raises when dataset length is 0 after read()."""
+def test_load_empty_dataset():
+    """load raises when dataset length is 0 after read()."""
 
     ds = EmptyDataset()
     with pytest.raises(FedbiomedError, match="dataset is empty"):
-        ds.complete_initialization(
-            controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
-        )
+        ds.load(root="dummy_path", to_format=DataReturnFormat.TORCH)
 
 
 def test_get_item_exception_is_wrapped(tmp_path):
@@ -302,8 +290,8 @@ def test_get_item_exception_is_wrapped(tmp_path):
 
     ds = DS()
     with pytest.raises(FedbiomedError):
-        ds.complete_initialization(
-            controller_kwargs={"root": str(tmp_path)},
+        ds.load(
+            root=str(tmp_path),
             to_format=DataReturnFormat.TORCH,
         )
 
@@ -319,8 +307,8 @@ def test_get_item_must_return_tuple_of_len_2(tmp_path):
 
     ds = DSWrongTuple()
     with pytest.raises(FedbiomedError):
-        ds.complete_initialization(
-            controller_kwargs={"root": str(tmp_path)},
+        ds.load(
+            root=str(tmp_path),
             to_format=DataReturnFormat.TORCH,
         )
 
@@ -342,9 +330,7 @@ def test_getitem_not_composed():
         strict=True,
     ):
         ds = ds_class()
-        ds.complete_initialization(
-            controller_kwargs={"root": "dummy_path"}, to_format=_d_format
-        )
+        ds.load(root="dummy_path", to_format=_d_format)
         result = ds.__getitem__(0)
         assert isinstance(result, tuple) and len(result) == 2
         data, target = result
@@ -366,9 +352,7 @@ def test_getitem_composed():
         strict=True,
     ):
         ds = ds_class()
-        ds.complete_initialization(
-            controller_kwargs={"root": "dummy_path"}, to_format=_d_format
-        )
+        ds.load(root="dummy_path", to_format=_d_format)
         result = ds.__getitem__(0)
         assert isinstance(result, tuple) and len(result) == 2
         data, target = result
@@ -386,8 +370,8 @@ def test_apply_default_types_exception_is_wrapped():
     """_apply_default_types wraps errors raised while converting data."""
 
     ds = ValidNumpyDataset()
-    ds.complete_initialization(
-        controller_kwargs={"root": "dummy_path"},
+    ds.load(
+        root="dummy_path",
         to_format=DataReturnFormat.SKLEARN,
     )
 
