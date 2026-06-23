@@ -62,10 +62,9 @@ def download_file(url, filename):
     return filename
 
 
-def download_and_extract_ixi_sample(root_folder):
+def download_and_extract_ixi_sample(data_folder):
     url = "https://data.mendeley.com/public-api/zip/7kd5wj7v7p/download/3"
-    zip_filename = os.path.join(root_folder, "notebooks", "data", "7kd5wj7v7p-3.zip")
-    data_folder = os.path.join(root_folder, "notebooks", "data")
+    zip_filename = os.path.join(data_folder, "7kd5wj7v7p-3.zip")
     extracted_folder = os.path.join(data_folder, "7kd5wj7v7p-3", "IXI_sample")
 
     if not os.path.exists(zip_filename):
@@ -106,14 +105,19 @@ if __name__ == "__main__":
     if not os.path.isdir(root_folder):
         raise SystemExit(f"Error: root folder does not exist: '{root_folder}'")
 
+    data_folder = os.path.join(root_folder, "notebooks", "data")
+    if not os.path.isdir(data_folder):
+        raise SystemExit(
+            f"Error: data folder does not exist: '{data_folder}'. "
+            "Create it before running this script."
+        )
+
     # Download and extract the centralized dataset
     print("--- Step 1: Downloading and extracting IXI sample dataset ---")
-    centralized_data_folder = download_and_extract_ixi_sample(root_folder)
+    centralized_data_folder = download_and_extract_ixi_sample(data_folder)
 
     # Prepare the federated split output folder
-    federated_data_folder = os.path.join(
-        root_folder, "notebooks", "data", "Hospital-Centers"
-    )
+    federated_data_folder = os.path.join(data_folder, "Hospital-Centers")
     shutil.rmtree(federated_data_folder, ignore_errors=True)
 
     csv_global = os.path.join(centralized_data_folder, "participants.csv")
