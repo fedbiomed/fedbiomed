@@ -1,9 +1,8 @@
 import os
 import re
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from flask import request
+from flask import request, send_file
 from flask_jwt_extended import get_jwt
 
 from fedbiomed.common.exceptions import FedbiomedError
@@ -12,27 +11,11 @@ from fedbiomed.node.node_pm import NodeProcessManager
 from ..config import config
 from ..utils import error, response
 from .api import api
-from .log_utils import (
-    FilterValue,
-    exhausted_payload,
-    filter_sort_page,
-    parse_log_query_args,
-    parse_timestamp,
-    read_log_items,
-    select_log_paths,
-)
 
 node_process_manager = NodeProcessManager(config.node_config)
 
 _APPLICATION_LOG_BASENAME = "application.log"
-_APPLICATION_LOG_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S,%f"
-_LOG_LINE_RE = re.compile(
-    r"^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})\s+"
-    r"(?P<logger>\S+)\s+"
-    r"(?P<level>DEBUG|INFO|WARNING|ERROR|CRITICAL)\s+"
-    r"(?:\[(?P<caller>[^\]]+)\]\s+)?-\s"
-    r"(?P<message>.*)$"
-)
+_LOG_TIMESTAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})")
 
 
 def _actor_from_request() -> dict:
@@ -90,74 +73,199 @@ def _application_log_dir() -> str:
     return os.path.join(config["NODE_FEDBIOMED_ROOT"], "log")
 
 
-def _parse_application_log_lines(lines: List[str]) -> List[Dict[str, Any]]:
-    items: List[Dict[str, Any]] = []
-    current: Optional[Dict[str, Any]] = None
+def _is_application_log_file(name: str) -> bool:
+    return name == _APPLICATION_LOG_BASENAME or name.startswith(
+        f"{_APPLICATION_LOG_BASENAME}."
+    )
 
-    for line in lines:
-        match = _LOG_LINE_RE.match(line)
-        if match:
-            parsed_dt = parse_timestamp(
-                match.group("timestamp"),
-                extra_formats=(_APPLICATION_LOG_TIMESTAMP_FORMAT,),
-            )
-            current = {
-                "timestamp": parsed_dt.isoformat() if parsed_dt else None,
-                "level": match.group("level"),
-                "logger": match.group("logger"),
-                "caller": match.group("caller") or "",
-                "message": match.group("message"),
-                "raw": line,
-            }
-            items.append(current)
+
+def _application_log_path(name: Optional[str] = None) -> str:
+    name = name or _APPLICATION_LOG_BASENAME
+    if os.path.basename(name) != name or not _is_application_log_file(name):
+        raise FedbiomedError("Invalid application log file")
+
+    log_dir = os.path.realpath(_application_log_dir())
+    path = os.path.realpath(os.path.join(log_dir, name))
+    if os.path.commonpath([log_dir, path]) != log_dir:
+        raise FedbiomedError("Invalid application log file")
+
+    return path
+
+
+def _application_log_files() -> List[Dict[str, Any]]:
+    try:
+        entries = os.listdir(_application_log_dir())
+    except FileNotFoundError:
+        return []
+
+    files = []
+    for name in entries:
+        if not _is_application_log_file(name):
             continue
 
-        if current is not None:
-            current["message"] = f"{current['message']}\n{line}"
-            current["raw"] = f"{current['raw']}\n{line}"
-        elif line:
-            items.append(
-                {
-                    "timestamp": None,
-                    "level": "",
-                    "logger": "",
-                    "caller": "",
-                    "message": line,
-                    "raw": line,
-                }
-            )
+        try:
+            path = _application_log_path(name)
+        except FedbiomedError:
+            continue
 
-    return items
+        if not os.path.isfile(path):
+            continue
 
+        try:
+            stat = os.stat(path)
+        except OSError:
+            continue
 
-def _matches_log_filters(item: Dict[str, Any], filters: Dict[str, FilterValue]) -> bool:
-    level = filters.get("level")
-    if level and str(item.get("level")) != level:
-        return False
-
-    contains = filters.get("contains")
-    if contains:
-        needle = str(contains).strip().lower()
-        candidate = "\n".join(
-            str(item.get(k) or "")
-            for k in ("timestamp", "level", "logger", "caller", "message", "raw")
+        files.append(
+            {
+                "name": name,
+                "size": int(stat.st_size),
+                "mtime": int(stat.st_mtime),
+            }
         )
-        if needle and needle not in candidate.lower():
-            return False
 
-    start_dt = filters.get("start_dt")
-    end_dt = filters.get("end_dt")
-    if start_dt or end_dt:
-        item_dt = parse_timestamp(item.get("timestamp"))
-        if item_dt is None:
-            return False
+    files.sort(
+        key=lambda item: (
+            item["name"] != _APPLICATION_LOG_BASENAME,
+            -item["mtime"],
+            item["name"],
+        )
+    )
+    return files
 
-        if isinstance(start_dt, datetime) and item_dt < start_dt:
-            return False
-        if isinstance(end_dt, datetime) and item_dt > end_dt:
-            return False
 
-    return True
+def _parse_positive_int(value: Any, default: int, maximum: int) -> Tuple[int, bool]:
+    if value in (None, ""):
+        return default, True
+
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default, False
+
+    return max(1, min(parsed, maximum)), True
+
+
+def _parse_cursor(value: Any, file_size: int) -> Tuple[int, bool]:
+    if value in (None, ""):
+        return file_size, True
+
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return file_size, False
+
+    return max(0, min(parsed, file_size)), True
+
+
+def _extract_log_timestamp(line: str) -> Optional[str]:
+    match = _LOG_TIMESTAMP_RE.match(line)
+    return match.group(1) if match else None
+
+
+def _read_application_log_page(
+    path: str,
+    *,
+    cursor: Optional[int] = None,
+    page_size: int = 100,
+    block_size: int = 8192,
+) -> Dict[str, Any]:
+    file_size = os.path.getsize(path)
+    end, valid_cursor = _parse_cursor(cursor, file_size)
+    if not valid_cursor:
+        raise FedbiomedError("Invalid 'cursor'")
+
+    # If we have reached the beginning of the file, return an empty page
+    if end <= 0:
+        return {
+            "items": [],
+            "next_cursor": 0,
+            "has_more": False,
+            "file_size": file_size,
+        }
+
+    with open(path, "rb") as fp:
+        pos = end
+        chunks: List[bytes] = []
+        newline_count = 0
+
+        # Read from the end of the file backwards in blocks until we have enough lines for the page
+        while pos > 0 and newline_count <= page_size:
+            read_size = min(block_size, pos)
+            pos -= read_size
+            fp.seek(pos)
+            chunk = fp.read(read_size)
+            chunks.insert(0, chunk)
+            newline_count += chunk.count(b"\n")
+
+    data_start = pos
+    segment = b"".join(chunks)
+
+    # Drop the first line in case it is incomplete
+    if data_start > 0:
+        first_newline = segment.find(b"\n")
+        # If there is no newline in the segment,
+        # it means the entire segment is a single line that is incomplete, so we return an empty page
+        if first_newline == -1:
+            return {
+                "items": [],
+                "next_cursor": 0,
+                "has_more": False,
+                "file_size": file_size,
+            }
+        data_start += first_newline + 1
+        segment = segment[first_newline + 1 :]
+
+    # If the segment ends with a newline,
+    # remove it to avoid returning an empty line at the end of the page
+    if segment.endswith(b"\n"):
+        segment = segment[:-1]
+
+    # If the segment is empty after removing the first line and the last newline,
+    # it means there are no complete lines to return, so we return an empty page
+    if not segment:
+        return {
+            "items": [],
+            "next_cursor": 0,
+            "has_more": False,
+            "file_size": file_size,
+        }
+
+    # Get the line offsets for each line in the segment, relative to the start of the file
+    line_bytes = segment.split(b"\n")
+    offsets: List[int] = []
+    offset = data_start
+    for raw_line in line_bytes:
+        offsets.append(offset)
+        offset += len(raw_line) + 1
+
+    # Get page_size number of lines
+    # Starts from the end of the segment (last line)
+    selected_start = max(0, len(line_bytes) - page_size)
+    selected_lines = line_bytes[selected_start:]
+    selected_offsets = offsets[selected_start:]
+    next_cursor = selected_offsets[0] if selected_offsets else 0
+
+    # Decode the selected lines to get the actual log lines and build the items list with metadata
+    items = []
+    for line_offset, raw_line in zip(selected_offsets, selected_lines, strict=True):
+        line = raw_line.decode("utf-8", errors="replace")
+        items.append(
+            {
+                "id": str(line_offset),
+                "offset": line_offset,
+                "timestamp": _extract_log_timestamp(line),
+                "raw": line,
+            }
+        )
+
+    # Return the page of log lines along with the next cursor and file size
+    return {
+        "items": items,
+        "next_cursor": next_cursor,
+        "has_more": next_cursor > 0,
+        "file_size": file_size,
+    }
 
 
 @api.route("/node/start", methods=["POST"])
@@ -253,57 +361,75 @@ def node_process_state():
 
 @api.route("/node/logs", methods=["GET"])
 def node_logs():
-    """Return filtered application log entries for the active node."""
-    log_query, query_error = parse_log_query_args(
-        request.args,
-        filter_names=("level",),
-        level_values={"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"},
+    """Return raw application log lines for the active node."""
+    page_size, valid_page_size = _parse_positive_int(
+        request.args.get("page_size"),
+        default=100,
+        maximum=2000,
     )
-    if query_error:
-        return error(query_error), 400
+    if not valid_page_size:
+        return error("Invalid 'page_size'"), 400
 
-    if log_query.exhausted:
-        return response(exhausted_payload(log_query)), 200
+    log_name = request.args.get("file") or _APPLICATION_LOG_BASENAME
+    try:
+        path = _application_log_path(log_name)
+    except FedbiomedError as e:
+        return error(str(e)), 400
 
-    paths = select_log_paths(
-        _application_log_dir(),
-        _APPLICATION_LOG_BASENAME,
-        log_query,
-    )
-
-    if not paths:
+    if not os.path.isfile(path):
         return (
             response(
                 {
                     "items": [],
-                    "next_skip": 0,
-                    "files": [],
-                    "page_size": log_query.page_size,
-                    "current_page": log_query.current_page,
-                    "next_page": log_query.current_page,
+                    "next_cursor": 0,
+                    "has_more": False,
+                    "file_size": 0,
+                    "page_size": page_size,
+                    "file": log_name,
                 }
             ),
             200,
         )
 
-    items, scanned_files = read_log_items(
-        paths,
-        log_query,
-        _parse_application_log_lines,
-    )
-    page, next_skip, next_page = filter_sort_page(
-        items,
-        log_query,
-        _matches_log_filters,
-    )
+    try:
+        page = _read_application_log_page(
+            path,
+            cursor=request.args.get("cursor"),
+            page_size=page_size,
+        )
+    except FedbiomedError as e:
+        return error(str(e)), 400
 
     return response(
         {
-            "items": page,
-            "next_skip": next_skip,
-            "files": scanned_files,
-            "page_size": log_query.page_size,
-            "current_page": log_query.current_page,
-            "next_page": next_page,
+            **page,
+            "page_size": page_size,
+            "file": log_name,
         }
     ), 200
+
+
+@api.route("/node/logs/files", methods=["GET"])
+def node_log_files():
+    """Return application log files available for display or download."""
+    return response({"files": _application_log_files()}), 200
+
+
+@api.route("/node/logs/download", methods=["GET"])
+def download_node_logs():
+    """Download the raw application log file for the active node."""
+    log_name = request.args.get("file") or _APPLICATION_LOG_BASENAME
+    try:
+        path = _application_log_path(log_name)
+    except FedbiomedError as e:
+        return error(str(e)), 400
+
+    if not os.path.isfile(path):
+        return error("Application log file does not exist"), 404
+
+    return send_file(
+        path,
+        as_attachment=True,
+        download_name=log_name,
+        mimetype="text/plain",
+    )
