@@ -44,9 +44,10 @@ class TestUtils(unittest.TestCase):
         expected_cls_source = "".join(class_source)
         mock_get_lines.return_value = class_source
         mock_get_ipython_class_file.return_value = None
-        mock_importlib.import_module.return_value.extract_symbols.return_value = [
-            [expected_cls_source]
-        ]
+        mock_importlib.import_module.return_value.extract_symbols.return_value = (
+            [expected_cls_source],
+            [],
+        )
 
         mock_getsource.return_value = expected_cls_source
 
@@ -63,6 +64,15 @@ class TestUtils(unittest.TestCase):
 
             # Test if not in ipython kernel
             mock_is_ipython.return_value = False
+            with self.assertRaises(FedbiomedError):
+                fed_utils.get_class_source(TestClass)
+
+            # Test in ipython kernel but no candidate file yields the class
+            mock_is_ipython.return_value = True
+            mock_importlib.import_module.return_value.extract_symbols.return_value = (
+                [],
+                [],
+            )
             with self.assertRaises(FedbiomedError):
                 fed_utils.get_class_source(TestClass)
 

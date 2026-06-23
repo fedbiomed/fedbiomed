@@ -73,14 +73,27 @@ def get_class_source(cls: Callable) -> str:
             f"{ErrorNumbers.FB627.value}: Could not read source file of the class {cls.__name__}"
         )
 
-    file = get_ipython_class_file(cls)
-    codes = "".join(inspect.linecache.getlines(file))
+    extract_symbols = importlib.import_module(
+        "IPython.core.magics.code"
+    ).extract_symbols
 
-    # Import only on IPython interface
-    module = importlib.import_module("IPython.core.magics.code")
-    extract_symbols = module.extract_symbols
-    class_code = extract_symbols(codes, cls.__name__)[0][0]
-    return class_code
+    # `get_ipython_class_file` may return the module file which lacks the class
+    files = [get_ipython_class_file(cls)] + [
+        inspect.getfile(m)
+        for _, m in inspect.getmembers(cls, inspect.isfunction)
+        if m.__qualname__ == f"{cls.__qualname__}.{m.__name__}"
+    ]
+    for file in dict.fromkeys(f for f in files if f):
+        blocks, _ = extract_symbols(
+            "".join(inspect.linecache.getlines(file)), cls.__name__
+        )
+        if blocks:
+            return blocks[0]
+
+    raise FedbiomedError(
+        f"{ErrorNumbers.FB627.value}: Could not extract source of class {cls.__name__} "
+        "from the IPython session; restart the kernel and re-run the cell defining it."
+    )
 
 
 def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
