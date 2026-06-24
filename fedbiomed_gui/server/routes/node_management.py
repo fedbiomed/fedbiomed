@@ -19,7 +19,12 @@ _LOG_TIMESTAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})")
 
 
 def _actor_from_request() -> dict:
-    """Build GUI actor metadata without enforcing role authorization."""
+    """Build GUI actor metadata without enforcing role authorization.
+
+    Returns:
+        Dictionary containing actor metadata extracted from JWT claims.
+    """
+
     claims = get_jwt()
 
     return {
@@ -45,6 +50,10 @@ def _node_args_from_request() -> tuple[dict, bool]:
 
     `background` is forced to True for GUI API calls so the HTTP request
     does not block.
+
+    Returns:
+        Tuple containing sanitized node process arguments and the background
+        execution flag.
     """
 
     req = request.get_json(silent=True) or {}
@@ -70,16 +79,45 @@ def _node_args_from_request() -> tuple[dict, bool]:
 
 
 def _application_log_dir() -> str:
+    """Return the directory that stores node application log files.
+
+    Returns:
+        Absolute path to the node log directory.
+    """
+
     return os.path.join(config["NODE_FEDBIOMED_ROOT"], "log")
 
 
 def _is_application_log_file(name: str) -> bool:
+    """Check whether a file name matches an application log file.
+
+    Args:
+        name: File name to validate.
+
+    Returns:
+        True if the name is the current application log or a rotated
+        application log file, False otherwise.
+    """
+
     return name == _APPLICATION_LOG_BASENAME or name.startswith(
         f"{_APPLICATION_LOG_BASENAME}."
     )
 
 
 def _application_log_path(name: Optional[str] = None) -> str:
+    """Resolve and validate an application log file path.
+
+    Args:
+        name: Application log file name. Defaults to the current log file.
+
+    Returns:
+        Absolute real path to the requested application log file.
+
+    Raises:
+        FedbiomedError: If the requested name is not an application log file
+            or would resolve outside the node log directory.
+    """
+
     name = name or _APPLICATION_LOG_BASENAME
     if os.path.basename(name) != name or not _is_application_log_file(name):
         raise FedbiomedError("Invalid application log file")
@@ -93,6 +131,14 @@ def _application_log_path(name: Optional[str] = None) -> str:
 
 
 def _application_log_files() -> List[Dict[str, Any]]:
+    """List application log files available for display and download.
+
+    Returns:
+        List of log file metadata dictionaries with name, size, and mtime keys.
+        The current application log is listed first, followed by rotated files
+        from newest to oldest.
+    """
+
     try:
         entries = os.listdir(_application_log_dir())
     except FileNotFoundError:
@@ -135,6 +181,19 @@ def _application_log_files() -> List[Dict[str, Any]]:
 
 
 def _parse_positive_int(value: Any, default: int, maximum: int) -> Tuple[int, bool]:
+    """Parse a positive integer query argument with bounds.
+
+    Used by `node_logs` to validate the `page_size` query parameter.
+
+    Args:
+        value: Raw value to parse.
+        default: Value returned when the raw value is missing or empty.
+        maximum: Maximum accepted value.
+
+    Returns:
+        Tuple containing the parsed value and whether parsing succeeded.
+    """
+
     if value in (None, ""):
         return default, True
 
@@ -147,6 +206,20 @@ def _parse_positive_int(value: Any, default: int, maximum: int) -> Tuple[int, bo
 
 
 def _parse_cursor(value: Any, file_size: int) -> Tuple[int, bool]:
+    """Parse a log pagination cursor/file pointer.
+
+    Used by `_read_application_log_page` to resolve the byte offset in the
+    selected log file before which older lines should be read.
+
+    Args:
+        value: Raw cursor/file pointer value to parse.
+        file_size: Size of the log file in bytes.
+
+    Returns:
+        Tuple containing the clamped file byte offset and whether parsing
+        succeeded. Missing values resolve to the end of the file.
+    """
+
     if value in (None, ""):
         return file_size, True
 
@@ -159,6 +232,16 @@ def _parse_cursor(value: Any, file_size: int) -> Tuple[int, bool]:
 
 
 def _extract_log_timestamp(line: str) -> Optional[str]:
+    """Extract the leading timestamp from a raw application log line.
+
+    Args:
+        line: Raw log line.
+
+    Returns:
+        Timestamp string when the line starts with the expected timestamp
+        format, or None otherwise.
+    """
+
     match = _LOG_TIMESTAMP_RE.match(line)
     return match.group(1) if match else None
 
@@ -170,6 +253,23 @@ def _read_application_log_page(
     page_size: int = 100,
     block_size: int = 8192,
 ) -> Dict[str, Any]:
+    """Read a page of raw application log lines before a byte cursor.
+
+    Args:
+        path: Application log file path to read.
+        cursor: Byte offset before which older lines should be read. Defaults
+            to the end of the file.
+        page_size: Maximum number of lines to return.
+        block_size: Number of bytes to read per backwards file scan.
+
+    Returns:
+        Dictionary containing log items, next cursor, whether older lines are
+        available, and file size.
+
+    Raises:
+        FedbiomedError: If the cursor value cannot be parsed.
+    """
+
     file_size = os.path.getsize(path)
     end, valid_cursor = _parse_cursor(cursor, file_size)
     if not valid_cursor:

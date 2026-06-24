@@ -19,7 +19,7 @@ import psutil
 
 from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.logger import logger
+from fedbiomed.common.logger import DEFAULT_APPLICATION_LOG_FILE, logger
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.dataset_manager._db_dataclasses import NodeProcessStateEntry
 from fedbiomed.node.dataset_manager._db_tables import (
@@ -389,6 +389,10 @@ class NodeProcessManager:
 
         logger.info(f"Starting node subprocess with python={sys.executable}")
         logger.info(f"Node subprocess config root={self._config.root}")
+        logger.info(
+            "Application logs will be logged to file: "
+            f"{os.path.join(self._config.root, 'log', DEFAULT_APPLICATION_LOG_FILE)}"
+        )
         # We are starting a new node process. We generate a new pid after starting the process.
         _process = subprocess.Popen(
             [
