@@ -46,7 +46,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
       based on `self.train_data_loader` (which is a `SkLearnDataLoader`).
 
     Attributes:
-        dataset_path: The path that indicates where dataset has been stored
         pre_processes: Preprocess functions that will be applied to the
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
@@ -68,7 +67,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._training_args = {}  # type: Dict[str, Any]
         self._type = TrainingPlans.SkLearnTrainingPlan
         self._batch_maxnum = 0
-        self.dataset_path: Optional[str] = None
         self._optimizer: Optional[BaseOptimizer] = None
         self._add_dependency(
             [

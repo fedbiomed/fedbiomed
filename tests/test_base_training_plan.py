@@ -64,15 +64,6 @@ class TestBaseTrainingPlan(unittest.TestCase):
             expected, self.tp._dependencies, "Can not set dependency properly"
         )
 
-    def test_base_training_plan_02_set_dataset_path(self):
-        """Test setting dataset path"""
-
-        expected = "/path/to/my/data.csv"
-        self.tp.set_dataset_path(expected)
-        self.assertEqual(
-            expected, self.tp.dataset_path, "Can not set `dataset_path` properly"
-        )
-
     def test_base_training_plan_03_save_code(self):
         """Testing the method save_code of BaseTrainingPlan"""
         expected_filepath = "path/to/model.py"

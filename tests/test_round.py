@@ -251,7 +251,6 @@ class TestRound(unittest.TestCase):
         #  - model.save
         #  - model.training_routine
         #  - model.after_training_params
-        #  - model.set_dataset_path
 
         FakeModel.SLEEPING_TIME = 0
         MODEL_PARAMS = {"coef": [1, 2, 3, 4]}
@@ -271,7 +270,6 @@ class TestRound(unittest.TestCase):
         # and we will check if there are called when running
         # `run_model_training`
         with (
-            patch.object(FakeModel, "set_dataset_path"),
             patch.object(FakeModel, "_set_round") as mock_set_round,
             patch.object(FakeModel, "training_routine") as mock_training_routine,
             patch.object(

@@ -61,7 +61,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     Researcher may have to add extra dependencies/python imports, by using `init_dependencies` method.
 
     Attributes:
-        dataset_path: The path that indicates where dataset has been stored
         pre_processes: Preprocess functions that will be applied to the
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
