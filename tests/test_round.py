@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional, Tuple
 from unittest.mock import MagicMock, PropertyMock, call, create_autospec, patch
 
 import numpy as np
-import pandas as pd
 import pytest
 import torch
 from testsupport import fake_training_plan
@@ -1486,14 +1485,6 @@ class TestRound(unittest.TestCase):
         print(state)
 
         # for sklearn
-        data_manager = DataManager(
-            dataset=pd.DataFrame(
-                [[1, 2, 3], [0.1, 0.2, 0.3], [0.11, 0.22, 0.33], [0.32, 0.11, 0.12]]
-            ),
-            target=pd.Series([1, 2, 1, 2]),
-        )
-        data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
-
         data_manager = DataManager(dataset=TestDataset())
         training_plan_mock.training_data = MagicMock(return_value=data_manager)
         training_plan_mock.type = MagicMock(

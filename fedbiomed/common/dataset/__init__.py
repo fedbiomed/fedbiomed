@@ -18,7 +18,6 @@ from ._mappings import (
     get_controller,
 )
 from ._medical_folder_dataset import MedicalFolderDataset
-from ._native_dataset import NativeDataset
 from ._tabular_dataset import TabularDataset
 
 __all__ = [
@@ -28,7 +27,6 @@ __all__ = [
     "MedicalFolderDataset",
     "MedNistDataset",
     "MnistDataset",
-    "NativeDataset",
     "TabularDataset",
     "DATASET_CLASSES_PER_TYPE",
     "REGISTRY_CONTROLLERS",
