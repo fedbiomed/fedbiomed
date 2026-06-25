@@ -5,6 +5,8 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Tuple, Union
 
+import numpy as np
+
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
@@ -25,16 +27,24 @@ class CustomDataset(Dataset):
 
         if "__getitem__" in cls.__dict__:
             raise FedbiomedError(
-                "Overriding __getitem__ in CustomDataset subclasses is not allowed. "
-                "Please overwrite get_item instead."
+                f"{ErrorNumbers.FB632.value}: Overriding __getitem__ in CustomDataset "
+                "subclasses is not allowed. Please overwrite get_item instead."
             )
 
         if "__init__" in cls.__dict__:
             raise FedbiomedError(
-                "Overriding __init__ in CustomDataset subclasses is not allowed. "
-                "Please overwrite `read` method instead. Using path attribute to "
-                "access dataset location."
+                f"{ErrorNumbers.FB632.value}: Overriding __init__ in CustomDataset "
+                "subclasses is not allowed. Please overwrite `read` method instead. "
+                "Using path attribute to access dataset location."
             )
+
+        for reserved in ("load", "path"):
+            if reserved in cls.__dict__:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Overriding `{reserved}` in "
+                    "CustomDataset subclasses is not allowed; it is reserved for "
+                    "internal use and managed by the node."
+                )
 
         for method, label in [
             ("read", "read"),
@@ -74,6 +84,11 @@ class CustomDataset(Dataset):
         """Returns the number of samples in the dataset."""
         pass
 
+    @property
+    def path(self) -> Union[str, Path]:
+        """Dataset location (file or folder) on the node; set by `load`, read-only."""
+        return self.__path
+
     def load(
         self,
         root: Union[str, Path],
@@ -86,11 +101,11 @@ class CustomDataset(Dataset):
             to_format: expected format of data returned by ``__getitem__``.
         """
 
-        self.path = root
-        if self.path is None:
+        if root is None:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Custom Dataset ERROR: 'root' must be provided to specify dataset location."
             )
+        self.__path = root
         self._to_format = to_format
 
         # Call user defined read function to read the dataset
@@ -123,12 +138,24 @@ class CustomDataset(Dataset):
             )
 
         data, target = sample
+        target = self._normalize_target(target)
         self._composed: dict[str, Union[bool, None]] = {
             "data": None,
             "target": None,
         }
         self._check_type(data, "data")
-        self._check_type(target, "target")
+        if target is not None:
+            self._check_type(target, "target")
+
+    def _normalize_target(self, target: Any) -> Any:
+        """Coerce a numpy scalar `target` to a 0-d ``np.ndarray`` (scikit-learn only).
+
+        Indexing a 1-D label array yields a numpy scalar; treat it as a 0-d array
+        so it passes the type check. No-op for torch, dict targets, and ``None``.
+        """
+        if self._to_format.value is np.ndarray and isinstance(target, np.generic):
+            return np.asarray(target)
+        return target
 
     def _check_type(self, sample: Any, type_: str) -> None:
         """Check if sample is of expected type"""
@@ -192,12 +219,13 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx) -> Tuple[Any, Any]:
         """Retrieves a sample and its target by index."""
         data, target = self.get_item(idx)
+        target = self._normalize_target(target)
 
         self._check_type(data, "data")
-        self._check_type(target, "target")
-
-        # Apply default types for training plan framework
         data = self._apply_default_types(data, "data")
-        target = self._apply_default_types(target, "target")
+
+        if target is not None:
+            self._check_type(target, "target")
+            target = self._apply_default_types(target, "target")
 
         return data, target
