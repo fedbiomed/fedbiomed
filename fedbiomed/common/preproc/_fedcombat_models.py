@@ -23,6 +23,9 @@ class FedCombatBiasModel(nn.Module):
         n_phenotypes: int,
     ):
         super().__init__()
+        # Note: probably does not make sense to use another model than Linear here as
+        # ComBat parameters estimated using a non-linear bias model would not behave
+        # as expected for this algorithm
         self.bias = nn.Linear(1, n_phenotypes, bias=False)
 
     def forward(self, x):

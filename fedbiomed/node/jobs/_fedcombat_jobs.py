@@ -30,7 +30,6 @@ class _FedCombatJobs:
     Current implementation makes the assumption the whole dataset can be loaded in memory.
     """
 
-    # TODO: use the right arguments to use non-dummy data (DatasetManager, NodeState, ...)
     def __init__(
         self,
         root_dir: str,
@@ -38,7 +37,6 @@ class _FedCombatJobs:
         preproc_id: str,
         researcher_id: str,
         node_state_manager: NodeStateManager,
-        # root_dir: str,
         dataset_manager: DatasetManager,
         dataset_entry: dict,
     ):
@@ -112,12 +110,16 @@ class _FedCombatJobs:
         Standardizes the data from given means and standard deviations
 
         Args:
-            params: Dict containing global means and stds of the covariates and phenotypes.
-                    Keys: ["global_mean_covariates", "global_mean_phenotypes",
+            params: Dict containing the name of the covariate and phenotype variables,
+                as well as the global means and stds of the covariates and phenotypes.
+                    Keys: [
+                    "covariates", "phenotypes",
+                    "global_mean_covariates", "global_mean_phenotypes",
                            "global_std_covariates", "global_std_phenotypes"]
 
         Returns:
-            Dict: empty Dict
+            Dict containing the description of the standardized dataset
+                Keys: ["standardized_dataset"]
         """
         # Parameters received from the researcher
         covariates_name = params["covariates"]
@@ -159,6 +161,8 @@ class _FedCombatJobs:
             "standardized_covariates": standardized_covariates,
             "standardized_phenotypes": standardized_phenotypes,
             "std_dataset_id": standardized_dataset["dataset_id"],
+            "global_mean_phenotypes": global_mean_phenotypes,
+            "global_std_phenotypes": global_std_phenotypes,
         }
         self._save_state_values(state)
 
@@ -184,6 +188,8 @@ class _FedCombatJobs:
 
         # Parameters read locally
         state = self._read_state_values()
+        global_mean_phenotypes = state["global_mean_phenotypes"]
+        global_std_phenotypes = state["global_std_phenotypes"]
         covariates_name = state["covariates_name"]
         phenotypes_name = state["phenotypes_name"]
         n_samples = int(state["n_samples"])
@@ -226,6 +232,8 @@ class _FedCombatJobs:
             "standardized_phenotypes": standardized_phenotypes,
             "biological_model_values": biological_model_values,
             "global_bias_values": global_bias_values,
+            "global_mean_phenotypes": global_mean_phenotypes,
+            "global_std_phenotypes": global_std_phenotypes,
         }
         self._save_state_values(state)
 
@@ -252,6 +260,8 @@ class _FedCombatJobs:
 
         # Parameters read locally
         state = self._read_state_values()
+        global_mean_phenotypes = torch.as_tensor(state["global_mean_phenotypes"])
+        global_std_phenotypes = torch.as_tensor(state["global_std_phenotypes"])
         phenotypes_name = list(state["phenotypes_name"])
         n_samples = int(state["n_samples"])
         standardized_phenotypes = torch.as_tensor(state["standardized_phenotypes"])
@@ -271,6 +281,8 @@ class _FedCombatJobs:
             "standardized_residuals": z,
             "biological_model_values": biological_model_values,
             "global_bias_values": global_bias_values,
+            "global_mean_phenotypes": global_mean_phenotypes,
+            "global_std_phenotypes": global_std_phenotypes,
         }
         self._save_state_values(state)
         # Return results to researcher
@@ -281,8 +293,9 @@ class _FedCombatJobs:
         Estimates the ComBat parameters and harmonizes the dataset
 
         Args:
-            params: Dict containing the bayesian priors to estimate the ComBat parameters
-                    Keys: ["gamma_bar", "tau_2", "lambda_bar_i", "theta_bar_i", "sigma_hat_g"]
+            params: Dict containing the bayesian priors to estimate the ComBat parameters, and
+                whether the harmonized dataset should be standardized or not.
+                    Keys: ["gamma_bar", "tau_2", "lambda_bar_i", "theta_bar_i", "standardize_result"]
 
         Returns:
             Dict: Dict containing the description of the local harmonized dataset
@@ -293,9 +306,12 @@ class _FedCombatJobs:
         tau_2 = params["tau_2"]
         lambda_bar_i = params["lambda_bar_i"]
         theta_bar_i = params["theta_bar_i"]
+        standardize_result = params["standardize_result"]
 
         # Parameters read locally
         state = self._read_state_values()
+        global_mean_phenotypes = torch.as_tensor(state["global_mean_phenotypes"])
+        global_std_phenotypes = torch.as_tensor(state["global_std_phenotypes"])
         phenotypes_name = list(state["phenotypes_name"])
         n_samples = int(state["n_samples"])
         sigma_hat_g = torch.as_tensor(state["sigma_hat_g"])
@@ -326,9 +342,14 @@ class _FedCombatJobs:
             )
             delta2_star_ig /= 0.5 * n_samples + lambda_bar_i - 1
 
-        harmonized_data = (
-            sigma_hat_g / delta2_star_ig.sqrt() * (z - gamma_star_ig)
-        ) + pred
+        residuals = sigma_hat_g / delta2_star_ig.sqrt() * (z - gamma_star_ig)
+        harmonized_data = residuals + pred
+
+        # Undo standardization to return harmonized dataset in original scale
+        if not standardize_result:
+            harmonized_data = (
+                harmonized_data * global_std_phenotypes
+            ) + global_mean_phenotypes
 
         # Save results locally in new dataset and return new dataset id to researcher
         harmonized_dataset = self._save_updated_dataset_values(

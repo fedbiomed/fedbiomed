@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import torch
 
@@ -17,6 +17,12 @@ from ._fedcombat_model import ExperimentFactory, _FedCombatTrainModel
 
 
 class _FedCombatParameters:
+    """
+    Class computing the Fed-ComBat steps on the researcher side
+
+    Current implementation makes the assumption the whole dataset can be loaded in memory.
+    """
+
     def __init__(
         self,
         experiment_id: str,
@@ -28,7 +34,7 @@ class _FedCombatParameters:
         experiment_class: ExperimentFactory,
     ):
         """
-        Class computing the Fed-ComBat steps on the server side
+        Class computing the Fed-ComBat steps on the researcher side
 
         Args:
             experiment_id: ID of the experiment
@@ -58,7 +64,7 @@ class _FedCombatParameters:
         self,
         harmonization_step: HarmonizationStep,
         list_dict_params: List,
-        dict_params_local: Optional[dict],
+        dict_params_local: dict,
     ):
         """
         Generic call of the class to automatically compute the right function
@@ -70,13 +76,15 @@ class _FedCombatParameters:
             dict_params_local: dictionary of parameters computed locally. Take precedence
                 over the parameters returned by the nodes.
 
-        Returns;
-            Dict: parameters resulting from the harmonization_step computation from the researcher
+        Returns:
+            Tuple of Dict containing the computed parameters for the harmonization step,
+                and a Dict containing the local parameters by node (if any)
         """
-        if dict_params_local is not None:
-            kwargs = dict_params_local
-        else:
-            kwargs = self._stack_dict_params(list_dict_params=list_dict_params)
+        kwargs = self._stack_dict_params(list_dict_params=list_dict_params)
+        # In case of conflicting parameters, the local parameters take precedence
+        # (would be an error or a malicious node)
+        kwargs.update(dict_params_local)
+
         return self.step_functions[harmonization_step](**kwargs)
 
     # Note: at each step, the researcher could check the type and shape of the received parameters.
@@ -87,17 +95,18 @@ class _FedCombatParameters:
 
     def _compute_global_mean_std(self, **kwargs) -> Tuple[dict, dict]:
         """
-        Computes the global means and stds from the nodes' ones
+        Query nodes statistics to compute the global mean and std of the covariates and phenotypes.
 
         Args:
-            kwargs: Dict containing the list of means and stds of the
-                    covariates and phenotypes sent by the nodes.
-                    Keys: ["mean_covariates", "mean_phenotypes", "std_covariates", "std_phenotypes"]
+            kwargs: Dict containing the list of covariates and phenotypes variable names.
+                    Keys: ["covariates", "phenotypes"]
 
         Returns:
-            Tuple of Dict containing the global means and stds of the covariates and phenotypes;
-                  Keys: ["global_mean_covariates", "global_mean_phenotypes",
-                         "global_std_covariates", "global_std_phenotypes"]
+            Tuple of Dict containing the name of the covariates and phenotypes,
+                and their global means and stds;
+                  Keys: [ "covariates", "phenotypes",
+                          "global_mean_covariates", "global_mean_phenotypes",
+                          "global_std_covariates", "global_std_phenotypes"]
             and empty Dict (normally for per node values)
         """
         covariates = kwargs.get("covariates", [])
@@ -174,13 +183,14 @@ class _FedCombatParameters:
         """Train the harmonization model using the provided arguments.
 
         Args:
-            kwargs: Dict containing the arguments for training the harmonization model.
-                    Keys: ["covariates", "phenotypes", "training_args", "model_args", "rounds"]
+            kwargs: Dict containing the arguments for training the harmonization model and
+                the federated dataset to be used for training.
+                    Keys: ["covariates", "phenotypes", "training_args", "model_args", "rounds", "dict_std_fds"]
 
         Returns:
-            Tuple of Dict containing the trained biological model parameters, global bias model parameters, and local bias model parameters by node.
-                  Keys: ["biological_model", "global_bias_model"]
-                  and Dict containing the local bias model parameters by node.
+            Tuple of aDict containing the trained biological model parameters, global bias model parameters,
+                Keys: ["biological_model", "global_bias_model"]
+            and a Dict containing the local bias model parameters by node.
         """
         covariates = kwargs.get("covariates")
         phenotypes = kwargs.get("phenotypes")
@@ -220,7 +230,7 @@ class _FedCombatParameters:
         Returns:
             Tuple of Dict: Dict containing the pooled residual variance (weighted residual variance)
                   Keys: ["sigma_hat_g"]
-                and empty Dict (normally for per node values)
+            and empty Dict (normally for per node values)
         """
         stacked_residual_variances = kwargs["residual_variance"]
         stacked_n_samples = kwargs["n_samples"]
@@ -239,15 +249,16 @@ class _FedCombatParameters:
 
         Args:
             kwargs: Dict containing the list of the means (gamma_hat_ig) and variances (delta_hat_ig) of the residuals sent by the nodes.
-                    Keys: ["gamma_hat_ig", "delta_hat_ig"]
+                    Keys: ["gamma_hat_ig", "delta_hat_ig", "standardize_result"]
 
         Returns:
             Dict: Dict containing the computed bayesian priors
-                  Keys: ["gamma_bar", "tau_2", "lambda_bar_i", "theta_bar_i"]
-                  and empty Dict (normally for per node values)
+                Keys: ["gamma_bar", "tau_2", "lambda_bar_i", "theta_bar_i", "standardize_result"]
+            and empty Dict (normally for per node values)
         """
         stacked_gamma_hat_ig = kwargs["gamma_hat_ig"]
         stacked_delta_hat_ig = kwargs["delta_hat_ig"]
+        standardize_result = kwargs["standardize_result"]
 
         gamma_bar = stacked_gamma_hat_ig.mean(0)
         tau_2 = stacked_gamma_hat_ig.var(0)
@@ -265,6 +276,7 @@ class _FedCombatParameters:
             "tau_2": tau_2,
             "lambda_bar_i": lambda_bar_i,
             "theta_bar_i": theta_bar_i,
+            "standardize_result": standardize_result,
         }, {}
 
     # Utility functions

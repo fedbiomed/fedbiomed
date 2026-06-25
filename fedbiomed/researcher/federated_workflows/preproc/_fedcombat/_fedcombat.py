@@ -252,8 +252,16 @@ class FedCombatPreproc:
                     "rounds": self._preproc_args.get("rounds"),
                     "dict_std_fds": dict_standardized_datasets,
                 }
+                # Don't pass datasets as step_args (expecting tensors)
+                step_args = {}
+            elif preproc_step == HarmonizationStep.FC_PARAMS:
+                step_args_local = {
+                    "standardize_result": self._preproc_args.get(
+                        "standardize_result", False
+                    ),
+                }
             else:
-                step_args_local = None
+                step_args_local = {}
 
             # Local computation of the parameters or use of external facility (FA, FL)
             logger.debug(

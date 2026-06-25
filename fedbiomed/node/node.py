@@ -662,6 +662,7 @@ class Node:
                                 operation="federated_analytics_complete",
                                 status="success",
                             )
+                            del fa_job
                         case PreprocRequest.__name__:
                             # Log preprocessing start
                             logger.security_event(
@@ -681,11 +682,13 @@ class Node:
                             )
                             response = preproc_job.run()
                             self._grpc_client.send(response)
+
                             # Log preprocessing complete
                             logger.security_event(
                                 operation="preprocessing_complete",
                                 status="success",
                             )
+                            del preproc_job
                         case _:
                             errmess = (
                                 f"{ErrorNumbers.FB319.value}: Undefined request message"
