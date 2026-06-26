@@ -707,6 +707,13 @@ class FederatedAnalytics:
 
         first_reply = next(iter(analytics_replies.values()))
         if first_reply.encrypted:
+            # Every party must contribute or secagg masks will not cancel on decryption.
+            if set(analytics_replies) != set(node_ids):
+                raise FedbiomedError(
+                    "Secure aggregation requires all nodes to reply; missing "
+                    f"contributions break mask cancellation. Expected {sorted(node_ids)}, "
+                    f"got {sorted(analytics_replies)}."
+                )
             model_params = {
                 nid: r.params_encrypted for nid, r in analytics_replies.items()
             }
@@ -744,15 +751,20 @@ class FederatedAnalytics:
         cache_key: Any,
         missing: list[str],
         dataset_schema: list[str | dict],
+        node_ids: list[str],
     ) -> Optional[FAResult]:
         """Recover missing stats from a cached superset-schema result, or None.
 
-        Scans stored results for an entry containing all ``missing`` stats whose
-        schema is a superset of ``dataset_schema``. ``_filtered_copy`` returns None
-        on any missing key, so a non-None result implies a superset. On success the
-        filtered copy is stored under ``cache_key`` and returned.
+        Scans stored results for an entry from the same node set containing all
+        ``missing`` stats whose schema is a superset of ``dataset_schema``.
+        ``_filtered_copy`` returns None on any missing key, so a non-None result
+        implies a superset. On success the filtered copy is stored under
+        ``cache_key`` and returned. Results from a different node set are skipped:
+        reusing them would drop or invent node contributions.
         """
         for other in self._results_store.values():
+            if set(other.node_ids) != set(node_ids):
+                continue
             satisfiable = set(other.available_stats()) | set(other.computable_stats())
             if not all(s in satisfiable for s in missing):
                 continue
@@ -909,7 +921,7 @@ class FederatedAnalytics:
         missing = [s for s in stats if s not in satisfiable]
         if missing:
             recovered = (
-                self._recover_from_cache(cache_key, missing, dataset_schema)
+                self._recover_from_cache(cache_key, missing, dataset_schema, node_ids)
                 if dataset_schema is not None and cached is None
                 else None
             )
