@@ -164,17 +164,17 @@ exp.analytics.variance()   # the two-pass variance/std scheme works transparentl
 
 ### What changes in the result
 
-Because individual contributions are masked, the result no longer exposes a value *per node*. All contributions are combined under a single virtual node, `__secagg__`:
+Because individual contributions are masked, the result no longer exposes a value *per node* — only the aggregate can be recovered. The API is otherwise unchanged:
 
 ```python
 result = exp.analytics.fetch_stats("mean")
 
-result.node_ids              # ['__secagg__']  — no per-node breakdown
-result.node_stats()          # {'__secagg__': {...aggregated primitives...}}
+result.node_ids              # real participating nodes — per-node values still hidden
+result.node_stats()          # no per-node values: logs an info message and returns global_stats()
 result.global_stats("mean")  # identical to the plaintext result
 ```
 
-`global_stats()` behaves exactly as in the plaintext case; only `node_stats()` differs, since per-node values are no longer available.
+`global_stats()` and `node_ids` behave as in the plaintext case; only `node_stats()` differs, falling back to the global aggregate since per-node values are no longer available.
 
 ### Choosing the scheme
 

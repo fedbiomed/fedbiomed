@@ -380,6 +380,17 @@ class TestFAResult:
             # One sequence, one scalar
             FAResult._deep_merge([1], 1)
 
+    def test_combine_preserves_secagg_node_ids(self):
+        """_combine (variance two-pass fold) keeps the real participating node IDs."""
+        a = FAResult(None)
+        a._data = {"__secagg__": {"age": {"count": 100, "sum": 4000.0}}}
+        a._secagg_node_ids = ["node-1", "node-2"]
+        b = FAResult(None)
+        b._data = {"__secagg__": {"age": {"sum_sq_centered": 200.0}}}
+
+        combined = FAResult._combine(a, b)
+        assert combined._secagg_node_ids == ["node-1", "node-2"]
+
     # --- node_stats ---
 
     def test_node_stats_returns_dict_by_default(self):
@@ -1270,6 +1281,15 @@ class TestFilterOutput:
         assert isinstance(filtered, FAResult)
         assert filtered._data["n1"] == {}
 
+    def test_filtered_copy_preserves_secagg_node_ids(self):
+        """Filtering a secagg result keeps the real participating node IDs."""
+        result = FAResult(None)
+        result._data = {"__secagg__": {"age": {"mean": 40.0, "count": 100}}}
+        result._secagg_node_ids = ["node-1", "node-2"]
+
+        filtered = result._filtered_copy(["age"])
+        assert filtered._secagg_node_ids == ["node-1", "node-2"]
+
 
 # ---------------------------------------------------------------------------
 # TestCacheFallback
@@ -1609,10 +1629,10 @@ class TestSecaggIntegration:
 
         mock_secagg.aggregate.assert_called_once()
         assert isinstance(result, FAResult)
-        # The aggregated output is stored under "__secagg__"
-        assert "__secagg__" in result.node_ids
-        node_output = result.node_stats("__secagg__")
-        assert node_output == {"age": {"sum": 90.0, "count": 360}}
+        # Real participating node IDs are still reported under secure aggregation.
+        assert sorted(result.node_ids) == ["node-1", "node-2"]
+        # The aggregated output is stored under the "__secagg__" virtual node.
+        assert result._data["__secagg__"] == {"age": {"sum": 90.0, "count": 360}}
 
     @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
     def test_num_expected_params_uses_schema_length(
@@ -1641,7 +1661,7 @@ class TestSecaggIntegration:
             schema
         )
         # All four values are recovered and unflattened (no zip length mismatch).
-        assert result.node_stats("__secagg__") == {
+        assert result._data["__secagg__"] == {
             "age": {"sum": 450.0, "count": 100.0},
             "bmi": {"sum": 220.0, "count": 100.0},
         }
@@ -1742,6 +1762,46 @@ class TestSecaggIntegration:
 
         output = secagg_fa._results_store[
             list(secagg_fa._results_store.keys())[-1]
-        ].node_stats("__secagg__")
+        ]._data["__secagg__"]
         assert output["x"]["count"] == 100.0
         assert output["x"]["sum"] == 500.0
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_node_ids_reports_real_nodes_under_secagg(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """node_ids reports the real participating nodes, not the __secagg__ sentinel."""
+        schema = [["age", "sum"], ["age", "count"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([100, 200], schema),
+            "node-2": _make_encrypted_reply([150, 300], schema),
+        }
+        mock_secagg.aggregate.return_value = [45.0, 180]
+
+        result = secagg_fa.fetch_stats("mean")
+
+        assert sorted(result.node_ids) == ["node-1", "node-2"]
+        assert "__secagg__" not in result.node_ids
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.logger")
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_node_stats_redirects_to_global_under_secagg(
+        self, mock_fa_job_cls, mock_logger, secagg_fa, mock_secagg
+    ):
+        """Under secagg, node_stats logs an info message and returns global_stats."""
+        schema = [["age", "sum"], ["age", "count"]]
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([100, 200], schema),
+            "node-2": _make_encrypted_reply([150, 300], schema),
+        }
+        mock_secagg.aggregate.return_value = [45.0, 180]
+
+        result = secagg_fa.fetch_stats("mean")
+
+        # Both the all-nodes and the per-node forms redirect to global_stats.
+        assert result.node_stats("node-1") == result.global_stats()
+        assert result.node_stats() == result.global_stats()
+        assert any(
+            "global statistics" in call.args[0].lower()
+            for call in mock_logger.info.call_args_list
+        )
