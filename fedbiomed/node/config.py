@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Component, Config
@@ -16,6 +16,82 @@ from fedbiomed.common.constants import (
     __node_config_version__,
 )
 from fedbiomed.common.logger import logger
+
+NODE_CONFIG_SECURITY_SECTION = "security"
+NODE_CONFIG_SECURITY_FIELDS = {
+    "hashing_algorithm": {
+        "type": "enum",
+        "default": HashingAlgorithms.SHA256.value,
+        "options": [algorithm.value for algorithm in HashingAlgorithms],
+    },
+    "allow_default_training_plans": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS",
+    },
+    "training_plan_approval": {
+        "type": "boolean",
+        "default": "False",
+        "env": "FBM_SECURITY_TRAINING_PLAN_APPROVAL",
+    },
+    "secure_aggregation": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_SECURE_AGGREGATION",
+    },
+    "force_secure_aggregation": {
+        "type": "boolean",
+        "default": "False",
+        "env": "FBM_SECURITY_FORCE_SECURE_AGGREGATION",
+    },
+    "secagg_insecure_validation": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_SECAGG_INSECURE_VALIDATION",
+    },
+    "allow_preproc": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_ALLOW_PREPROC",
+    },
+    "allow_federated_analytics": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS",
+    },
+    "minimum_samples": {
+        "type": "integer",
+        "default": "0",
+        "env": "FBM_SECURITY_MINIMUM_SAMPLES",
+        "min": 0,
+    },
+}
+NODE_CONFIG_READ_ONLY_FIELDS = {
+    ("default", "id"),
+    ("default", "db"),
+}
+NODE_CONFIG_READ_ONLY_SECTIONS = {
+    "certificate",
+}
+NODE_CONFIG_SKIPPED_SECTIONS = set()
+NODE_CONFIG_FIELD_SCHEMAS = {
+    NODE_CONFIG_SECURITY_SECTION: NODE_CONFIG_SECURITY_FIELDS,
+    "researcher": {
+        "port": {
+            "type": "integer",
+            "min": 0,
+        },
+    },
+    "syslog": {
+        "enable": {
+            "type": "boolean",
+        },
+        "port": {
+            "type": "integer",
+            "min": 0,
+        },
+    },
+}
 
 
 class NodeConfig(Config):
@@ -42,26 +118,9 @@ class NodeConfig(Config):
         self._cfg["default"]["name"] = self._component_alias
 
         # Security variables
-        self._cfg["security"] = {
-            "hashing_algorithm": HashingAlgorithms.SHA256.value,
-            "allow_default_training_plans": os.getenv(
-                "FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS", "True"
-            ),
-            "training_plan_approval": os.getenv(
-                "FBM_SECURITY_TRAINING_PLAN_APPROVAL", "False"
-            ),
-            "secure_aggregation": os.getenv("FBM_SECURITY_SECURE_AGGREGATION", "True"),
-            "force_secure_aggregation": os.getenv(
-                "FBM_SECURITY_FORCE_SECURE_AGGREGATION", "False"
-            ),
-            "secagg_insecure_validation": os.getenv(
-                "FBM_SECURITY_SECAGG_INSECURE_VALIDATION", "True"
-            ),
-            "allow_preproc": os.getenv("FBM_SECURITY_ALLOW_PREPROC", "True"),
-            "allow_federated_analytics": os.getenv(
-                "FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS", "True"
-            ),
-            "minimum_samples": os.getenv("FBM_SECURITY_MINIMUM_SAMPLES", "0"),
+        self._cfg[NODE_CONFIG_SECURITY_SECTION] = {
+            key: os.getenv(field.get("env", ""), str(field["default"]))
+            for key, field in NODE_CONFIG_SECURITY_FIELDS.items()
         }
         # Generate self-signed certificates
         key_file, pem_file = generate_certificate(
@@ -80,6 +139,71 @@ class NodeConfig(Config):
             "ip": os.getenv("FBM_RESEARCHER_IP", "localhost"),
             "port": os.getenv("FBM_RESEARCHER_PORT", "50051"),
         }
+
+    @staticmethod
+    def _infer_gui_field_type(value: str) -> str:
+        """Infer a GUI field type for config values without explicit schema.
+
+        Args:
+            value: Raw string value read from `config.ini`.
+
+        Returns:
+            Best-effort field type for GUI rendering. Boolean-like strings are
+            exposed as `boolean`, integer-like strings are exposed as
+            `integer`, and all other values are exposed as `string`.
+        """
+
+        normalized = value.strip().lower()
+        if normalized in {"true", "false", "1", "0", "yes", "no"}:
+            return "boolean"
+
+        try:
+            int(value)
+            return "integer"
+        except ValueError:
+            return "string"
+
+    def get_gui_config_sections(self) -> Dict[str, Dict[str, Any]]:
+        """Return current config sections and field descriptors for the GUI.
+
+        This method is the single owner of GUI-editable node config metadata.
+        It derives sections and keys from the loaded `ConfigParser` instance,
+        skips sections that should not be edited from the GUI, applies explicit
+        schema hints where the node config has known types or constraints, and
+        marks immutable fields as read-only.
+
+        Returns:
+            Mapping of section names to section descriptors. Each descriptor
+            contains a human-readable label and a `fields` mapping. Each field
+            descriptor contains the field type, label, editability flag, and
+            optional validation metadata such as enum options or integer
+            minimum value.
+        """
+
+        sections = {}
+        for section in self.sections():
+            if section in NODE_CONFIG_SKIPPED_SECTIONS:
+                continue
+
+            fields = {}
+            for key in self._cfg.options(section):
+                value = self.get(section, key)
+                schema = dict(NODE_CONFIG_FIELD_SCHEMAS.get(section, {}).get(key, {}))
+                schema.setdefault("type", self._infer_gui_field_type(value))
+                schema.setdefault("label", key.replace("_", " ").title())
+                schema["editable"] = (
+                    section not in NODE_CONFIG_READ_ONLY_SECTIONS
+                    and (section != "default" or key == "name")
+                    and (section, key) not in NODE_CONFIG_READ_ONLY_FIELDS
+                )
+                fields[key] = schema
+
+            sections[section] = {
+                "label": section.replace("_", " ").title(),
+                "fields": fields,
+            }
+
+        return sections
 
     def migrate(self):
         """Please add migrated parameters for the new version.

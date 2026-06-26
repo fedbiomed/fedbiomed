@@ -347,6 +347,12 @@ const NodeManagement = ({
     const hasPendingNodeArgChanges = isRunning
         && hasSavedNodeArgs
         && !areNodeArgsEqual(nodeArgs, processState.node_args)
+    const configModifiedAfterStartup = Boolean(
+        processState?.config_modified_after_startup
+    )
+    const configStartupCheckMessage = (
+        processState?.config_startup_check_message
+    )
 
     React.useEffect(() => {
         if (!isRunning) {
@@ -558,6 +564,23 @@ const NodeManagement = ({
                 <div className="node-management-alert error">
                     <EuiIcon type="alert" />
                     <span>{actionError}</span>
+                </div>
+            ) : null}
+
+            {configModifiedAfterStartup ? (
+                <div className="node-management-alert warning">
+                    <EuiIcon type="alert" />
+                    <span>
+                        The config file config.ini has been modified after node
+                        startup
+                    </span>
+                </div>
+            ) : null}
+
+            {configStartupCheckMessage ? (
+                <div className="node-management-alert warning">
+                    <EuiIcon type="alert" />
+                    <span>{configStartupCheckMessage}</span>
                 </div>
             ) : null}
 
