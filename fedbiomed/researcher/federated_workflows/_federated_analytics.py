@@ -35,6 +35,9 @@ class FAResult:
         self._data: dict[str, Any] = {}  # {node_id: raw_orchestrator_output}
         # Cache for the list of computable stats, set to None on every merge.
         self._computable_stats_cache: Optional[list[str]] = None
+        # Real participating node IDs under secure aggregation, where per-node data
+        # is collapsed into the ``__secagg__`` virtual node. None for plaintext.
+        self._secagg_node_ids: Optional[list[str]] = None
         if replies:
             self.merge(replies)
 
@@ -129,6 +132,8 @@ class FAResult:
             filtered_data[node_id] = out
         result = FAResult(None)
         result._data = filtered_data
+        if self._secagg_node_ids is not None:
+            result._secagg_node_ids = list(self._secagg_node_ids)
         return result
 
     @staticmethod
@@ -185,17 +190,26 @@ class FAResult:
                 combined._data[nid] = FAResult._deep_merge(combined._data[nid], out)
             else:
                 combined._data[nid] = copy.deepcopy(out)
+        secagg_node_ids = a._secagg_node_ids or b._secagg_node_ids
+        if secagg_node_ids is not None:
+            combined._secagg_node_ids = list(secagg_node_ids)
         return combined
 
     # ------------------------------------------------------------------
     # Mutation
     # ------------------------------------------------------------------
 
-    def _merge_aggregate(self, output: dict) -> None:
+    def _merge_aggregate(
+        self, output: dict, node_ids: Optional[list[str]] = None
+    ) -> None:
         """Merge a pre-built aggregate output into the secagg virtual node.
 
         Used by the encrypted reply path where all node contributions have been
         decrypted and unflattened into a single aggregate dict by the researcher.
+
+        Args:
+            output: The decrypted, unflattened aggregate output.
+            node_ids: Real participating node IDs, recorded for reporting.
         """
         if "__secagg__" not in self._data:
             self._data["__secagg__"] = output
@@ -203,6 +217,8 @@ class FAResult:
             self._data["__secagg__"] = FAResult._deep_merge(
                 self._data["__secagg__"], output
             )
+        if node_ids is not None:
+            self._secagg_node_ids = list(node_ids)
         self._computable_stats_cache = None
 
     def merge(self, replies: dict[str, FAReply]) -> None:
@@ -236,7 +252,13 @@ class FAResult:
 
     @property
     def node_ids(self) -> list[str]:
-        """List of node IDs present in the result."""
+        """List of node IDs present in the result.
+
+        Under secure aggregation, reports the real participating node IDs rather
+        than the ``__secagg__`` virtual node.
+        """
+        if self._secagg_node_ids is not None:
+            return list(self._secagg_node_ids)
         return list(self._data.keys())
 
     @property
@@ -306,17 +328,29 @@ class FAResult:
     def node_stats(self, node_id: Optional[str] = None) -> Any:
         """Return a copy of the raw statistics output for one or all nodes.
 
+        Under secure aggregation per-node statistics do not exist, so an info
+        message is logged and :meth:`global_stats` is returned instead.
+
         Args:
             node_id: Identifier of the node. When omitted, returns a dict
                 mapping every node ID to its output.
 
         Returns:
             Per-node output when *node_id* is given, or a ``{node_id: output}``
-            dict for all nodes when omitted.
+            dict for all nodes when omitted. Under secure aggregation, the result
+            of :meth:`global_stats` regardless of *node_id*.
 
         Raises:
             FedbiomedError: If *node_id* is not found.
         """
+        if self._secagg_node_ids is not None:
+            logger.info(
+                "Per-node statistics are not available under secure aggregation: "
+                "node contributions are encrypted and only their aggregate is "
+                "recoverable. Returning global statistics instead."
+            )
+            return self.global_stats()
+
         if node_id is None:
             return {nid: copy.deepcopy(output) for nid, output in self._data.items()}
 
@@ -693,7 +727,9 @@ class FederatedAnalytics:
             aggregated_output = unflatten_fa_output(aggregated_flat, output_schema)
             if cached is None:
                 cached = FAResult(None)
-            cached._merge_aggregate(aggregated_output)
+            cached._merge_aggregate(
+                aggregated_output, node_ids=list(analytics_replies.keys())
+            )
         else:
             if cached is None:
                 cached = FAResult(analytics_replies)
