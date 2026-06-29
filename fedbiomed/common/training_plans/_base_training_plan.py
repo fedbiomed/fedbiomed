@@ -259,7 +259,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         if not isinstance(dependencies, (list, tuple)):
             raise FedbiomedTrainingPlanError(
                 f"{ErrorNumbers.FB605.value}: Expected dependencies are a list or "
-                "tuple of str, but got {type(dependencies)}"
+                f"tuple of str, but got {type(dependencies)}"
             )
         self._add_dependency(dependencies)
 
@@ -294,7 +294,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             if not isinstance(from_code, str):
                 raise FedbiomedTrainingPlanError(
                     f"{ErrorNumbers.FB605.value}: Expected type str for `from_code`, "
-                    "got: {type(from_code)}"
+                    f"got: {type(from_code)}"
                 )
             content = from_code
 

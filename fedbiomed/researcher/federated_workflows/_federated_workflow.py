@@ -832,7 +832,7 @@ class FederatedWorkflow(ABC):
         if not isinstance(scheme, SecureAggregationSchemes):
             raise FedbiomedExperimentError(
                 f"{ErrorNumbers.FB410.value}: Expected `scheme` argument "
-                "`SecureAggregationSchemes`, but got {type(scheme)}"
+                f"`SecureAggregationSchemes`, but got {type(scheme)}"
             )
 
         if isinstance(secagg, bool):
