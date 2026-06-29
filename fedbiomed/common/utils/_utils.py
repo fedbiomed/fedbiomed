@@ -148,7 +148,7 @@ def import_object(module: str, obj_name: str) -> Any:
         obj_ = getattr(module, obj_name)
     except AttributeError as exp:
         raise FedbiomedError(
-            f"{ErrorNumbers.FB627}, Attribute error while loading the class "
+            f"{ErrorNumbers.FB627.value}, Attribute error while loading the class "
             f"{obj_name} from {module}. Error: {exp}"
         ) from exp
 
@@ -171,7 +171,7 @@ def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]
     """
     if not os.path.isfile(module_path):
         raise FedbiomedError(
-            f"{ErrorNumbers.FB627}: Given path for importing {class_name} is not existing"
+            f"{ErrorNumbers.FB627.value}: Given path for importing {class_name} is not existing"
         )
 
     module_base_name = os.path.basename(module_path)
@@ -179,7 +179,7 @@ def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]
 
     match = pattern.match(module_base_name)
     if not match:
-        raise FedbiomedError(f"{ErrorNumbers.FB627}: File is not a python file.")
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: File is not a python file.")
 
     module = match.group(1)
     sys.path.insert(0, os.path.dirname(module_path))

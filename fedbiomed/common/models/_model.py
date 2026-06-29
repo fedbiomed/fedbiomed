@@ -225,5 +225,5 @@ class Model(Generic[_MT, DT], metaclass=ABCMeta):
             [isinstance(w, float) for w in weights_vector]
         ):
             raise FedbiomedModelError(
-                f"{ErrorNumbers.FB622} `weights_vector should be 1D list of float containing flatten model parameters`"
+                f"{ErrorNumbers.FB622.value} `weights_vector should be 1D list of float containing flatten model parameters`"
             )

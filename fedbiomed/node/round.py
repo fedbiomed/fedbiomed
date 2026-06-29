@@ -433,7 +433,7 @@ class Round:
                     )
                 except FedbiomedError as e:
                     logger.error(
-                        f"{ErrorNumbers.FB314}: During the validation phase on global parameter updates; "
+                        f"{ErrorNumbers.FB314.value}: During the validation phase on global parameter updates; "
                         f"{repr(e)}",
                         researcher_id=self.researcher_id,
                     )
@@ -451,7 +451,7 @@ class Round:
                     )
             else:
                 logger.error(
-                    f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
+                    f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing dataset"
                     f"Please make sure that `test_ratio` has been set correctly",
                     researcher_id=self.researcher_id,
                 )
