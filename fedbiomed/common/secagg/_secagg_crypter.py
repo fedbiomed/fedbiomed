@@ -179,13 +179,13 @@ class SecaggCrypter:
 
         if not isinstance(params, list) or not all(isinstance(p, list) for p in params):
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB624}: The parameters to aggregate should be a "
+                f"{ErrorNumbers.FB624.value}: The parameters to aggregate should be a "
                 f"list containing list of parameters"
             )
 
         if not all(all(isinstance(p_, int) for p_ in p) for p in params):
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
+                f"{ErrorNumbers.FB624.value}: Invalid parameter type. The parameters "
                 f"should be of type of integers."
             )
 
@@ -416,13 +416,13 @@ class SecaggLomCrypter(SecaggCrypter):
 
         if not isinstance(params, list) or not all(isinstance(p, list) for p in params):
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB624}: The parameters to aggregate should be a "
+                f"{ErrorNumbers.FB624.value}: The parameters to aggregate should be a "
                 f"list containing list of parameters"
             )
 
         if not all(all(isinstance(p_, int) for p_ in p) for p in params):
             raise FedbiomedSecaggCrypterError(
-                f"{ErrorNumbers.FB624}: Invalid parameter type. The parameters "
+                f"{ErrorNumbers.FB624.value}: Invalid parameter type. The parameters "
                 f"should be of type of integers."
             )
 

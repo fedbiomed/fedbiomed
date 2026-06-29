@@ -91,7 +91,9 @@ class _NodeToNodeAsyncRouter:
                 del self._active_tasks[task_name]
             else:
                 # don't raise exception
-                logger.error(f"{ErrorNumbers.FB324}: task already finished {task_name}")
+                logger.error(
+                    f"{ErrorNumbers.FB324.value}: task already finished {task_name}"
+                )
 
     async def _clean_active_tasks(self) -> None:
         """Main function for background task cleaning active task list.
@@ -150,7 +152,7 @@ class _NodeToNodeAsyncRouter:
         # FIXME: Never raises QueueFull maxsize=0 by default
         except asyncio.QueueFull as e:
             logger.error(
-                f"{ErrorNumbers.FB324}: Failed submitting message to node to node router. "
+                f"{ErrorNumbers.FB324.value}: Failed submitting message to node to node router. "
                 f"Discard message. Exception: {type(e).__name__}. Error message: {e}"
             )
 
@@ -165,7 +167,7 @@ class _NodeToNodeAsyncRouter:
             try:
                 if overlay_msg.dest_node_id != self._node_id:
                     logger.error(
-                        f"{ErrorNumbers.FB324}: Node {self._node_id} received an overlay "
+                        f"{ErrorNumbers.FB324.value}: Node {self._node_id} received an overlay "
                         f"message sent to {overlay_msg.dest_node_id}. Maybe malicious activity. "
                         "Ignore message."
                     )
@@ -192,7 +194,7 @@ class _NodeToNodeAsyncRouter:
 
             except asyncio.CancelledError as e:
                 logger.error(
-                    f"{ErrorNumbers.FB324}: Task {asyncio.current_task().get_name()} was cancelled "
+                    f"{ErrorNumbers.FB324.value}: Task {asyncio.current_task().get_name()} was cancelled "
                     f"before completing. Error message: {e}. Overlay message: "
                     f"{overlay_msg.overlay.__name__}"
                 )
@@ -203,7 +205,7 @@ class _NodeToNodeAsyncRouter:
 
         except Exception as e:
             logger.error(
-                f"{ErrorNumbers.FB324}: Failed processing overlay message. Exception: "
+                f"{ErrorNumbers.FB324.value}: Failed processing overlay message. Exception: "
                 f"{type(e).__name__}. Error message: {e}. Overlay message: "
                 f"{overlay_msg.overlay}"
             )

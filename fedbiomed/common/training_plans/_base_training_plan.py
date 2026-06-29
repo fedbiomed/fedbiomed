@@ -252,14 +252,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
+                f"{ErrorNumbers.FB605.value}: `init_dependencies` should not take any argument. "
                 f"Unexpected arguments: {list(init_dep_spec.keys())}"
             )
         dependencies = self.init_dependencies()
         if not isinstance(dependencies, (list, tuple)):
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: Expected dependencies are a list or "
-                "tuple of str, but got {type(dependencies)}"
+                f"{ErrorNumbers.FB605.value}: Expected dependencies are a list or "
+                f"tuple of str, but got {type(dependencies)}"
             )
         self._add_dependency(dependencies)
 
@@ -293,8 +293,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         else:
             if not isinstance(from_code, str):
                 raise FedbiomedTrainingPlanError(
-                    f"{ErrorNumbers.FB605}: Expected type str for `from_code`, "
-                    "got: {type(from_code)}"
+                    f"{ErrorNumbers.FB605.value}: Expected type str for `from_code`, "
+                    f"got: {type(from_code)}"
                 )
             content = from_code
 
@@ -749,14 +749,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         if not isinstance(tags, set):
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: tag_parameters must return a set, "
+                f"{ErrorNumbers.FB605.value}: tag_parameters must return a set, "
                 f"got: {type(tags)} for parameter '{name}'"
             )
 
         invalid_tags = tags - self._allowed_tags
         if invalid_tags:
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: Invalid tags {invalid_tags} for parameter '{name}'. "
+                f"{ErrorNumbers.FB605.value}: Invalid tags {invalid_tags} for parameter '{name}'. "
                 f"Allowed tags are {self._allowed_tags}"
             )
 
@@ -797,7 +797,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         if not isinstance(required_tags, set) or not isinstance(forbidden_tags, set):
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: required_tags and forbidden_tags must be sets"
+                f"{ErrorNumbers.FB605.value}: required_tags and forbidden_tags must be sets"
             )
 
         for name, value in params.items():

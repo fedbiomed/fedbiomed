@@ -50,7 +50,7 @@ class MnistController(Controller):
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: "
-                "Failed to instantiate MnistDataset object. {e}"
+                f"Failed to instantiate MnistDataset object. {e}"
             ) from e
 
         self._controller_kwargs = {
