@@ -61,6 +61,7 @@ from fedbiomed.common.singleton import SingletonMeta
 
 # default values
 DEFAULT_LOG_FILE = "mylog.log"
+DEFAULT_APPLICATION_LOG_FILE = "application.log"
 DEFAULT_SECURITY_LOG_FILE = "security_audit.log"
 DEFAULT_LOG_LEVEL = logging.WARNING
 SYSLOG_IDENT = "fedbiomed: "
@@ -346,6 +347,16 @@ class FedLogger(metaclass=SingletonMeta):
         os.makedirs(security_log_dir, exist_ok=True)
         security_log_path = os.path.join(security_log_dir, "security_audit.log")
         self.add_security_file_handler(filename=security_log_path)
+
+    def set_application_logs(self, root_path: str) -> None:
+        """Configure the rotating application log file for a component root."""
+        if self._logger.getEffectiveLevel() > logging.INFO:
+            self._logger.setLevel(logging.INFO)
+
+        log_dir = os.path.join(root_path, "log")
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, DEFAULT_APPLICATION_LOG_FILE)
+        self.add_application_file_handler(filename=log_path)
 
     def configure_security(
         self,
@@ -647,7 +658,11 @@ class FedLogger(metaclass=SingletonMeta):
         format: str = DEFAULT_FORMAT,
         level: Any = DEFAULT_LOG_LEVEL,
     ):
-        """Adds a file handler
+        """Adds a non-rotating file handler.
+
+        Kept for compatibility with callers that explicitly configure an
+        arbitrary log file. Component application logs should use
+        `add_application_file_handler()` so they rotate daily.
 
         Args:
             filename: File to log to
@@ -657,6 +672,58 @@ class FedLogger(metaclass=SingletonMeta):
 
         handler = logging.FileHandler(filename=filename, mode="a")
         handler.setLevel(self._internal_level_translator(level))
+        handler.addFilter(_ExcludeSecurityFilter())
+
+        self._internal_add_handler("FILE", handler, format)
+
+    def add_application_file_handler(
+        self,
+        filename: str = DEFAULT_APPLICATION_LOG_FILE,
+        format: str = DEFAULT_FORMAT,
+        level: Any = logging.INFO,
+    ) -> None:
+        """Adds a daily rotating application log file handler.
+
+        The application log is registered as the standard FILE handler so all
+        Fed-BioMed logger calls use the same destination, regardless of whether
+        the node was started from the CLI or GUI. Reconfiguring with another
+        filename replaces the existing FILE handler.
+
+        Args:
+            filename: File to log to.
+            format: Log format.
+            level: Initial level of the file handler.
+        """
+
+        abs_filename = os.path.abspath(filename)
+        existing = self._handlers.get("FILE")
+        if existing is not None:
+            existing_filename = getattr(existing, "baseFilename", None)
+            if existing_filename == abs_filename and isinstance(
+                existing, TimedRotatingFileHandler
+            ):
+                existing.setLevel(self._internal_level_translator(level))
+                self._original_format["FILE"] = format
+                self._set_handler_formatter("FILE")
+                return
+
+            self._internal_add_handler("FILE", None)
+            try:
+                existing.close()
+            except Exception:
+                pass
+
+        handler = TimedRotatingFileHandler(
+            filename=abs_filename,
+            when="midnight",
+            interval=1,
+            backupCount=0,
+            encoding="utf-8",
+        )
+        handler.setLevel(self._internal_level_translator(level))
+        handler.addFilter(_ExcludeSecurityFilter())
+        if hasattr(handler.stream, "reconfigure"):
+            handler.stream.reconfigure(line_buffering=True)
 
         self._internal_add_handler("FILE", handler, format)
 

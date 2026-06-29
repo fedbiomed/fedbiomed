@@ -2,6 +2,7 @@ import React from 'react'
 import {connect} from 'react-redux'
 import {
     EuiButton,
+    EuiButtonEmpty,
     EuiFieldNumber,
     EuiFlexGroup,
     EuiFlexItem,
@@ -12,12 +13,20 @@ import {
     EuiModalFooter,
     EuiModalHeader,
     EuiModalHeaderTitle,
+    EuiSelect,
+    EuiSpacer,
     EuiSwitch,
+    EuiTab,
+    EuiTabs,
+    EuiText,
     EuiToolTip,
 } from '@elastic/eui'
 
 import {
+    downloadNodeLogFile,
     executeNodeAction,
+    fetchNodeLogFiles,
+    fetchNodeLogs,
     fetchNodeProcessState,
 } from '../../store/actions/nodeManagementActions'
 
@@ -50,6 +59,13 @@ const areNodeArgsEqual = (firstNodeArgs, secondNodeArgs) => {
         first[key] === second[key]
     ))
 }
+
+const nodeManagementTabs = {
+    process: 'process',
+    logs: 'logs',
+}
+
+const applicationLogBasename = 'application.log'
 
 const formatValue = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -138,6 +154,15 @@ const getRunningFor = (processState, now) => {
     return formatDuration(now.getTime() - startedAt.getTime())
 }
 
+const formatLogFileLabel = (file) => {
+    const name = file?.name || applicationLogBasename
+    if (name === applicationLogBasename) {
+        return `${name} (current)`
+    }
+
+    return name
+}
+
 const StatusPill = ({state, uppercase = false}) => {
     const normalizedState = String(state || '').toLowerCase()
     const displayState = !normalizedState || normalizedState === 'unknown'
@@ -186,12 +211,32 @@ const NodeManagement = ({
     actionError,
     processStateError,
     lastRefresh,
+    logItems,
+    logLoading,
+    logError,
+    logLastRefresh,
+    logCursor,
+    logHasMore,
+    logFileSize,
+    logFiles,
+    logFilesLoading,
+    logFilesError,
     fetchNodeProcessState,
+    fetchNodeLogs,
+    fetchNodeLogFiles,
+    downloadNodeLogFile,
     executeNodeAction,
 }) => {
     const [now, setNow] = React.useState(new Date())
     const [nodeArgs, setNodeArgs] = React.useState(defaultNodeArgs)
     const [isActorModalVisible, setIsActorModalVisible] = React.useState(false)
+    const [activeTab, setActiveTab] = React.useState(nodeManagementTabs.process)
+    const [logFileName, setLogFileName] = React.useState(applicationLogBasename)
+    const [logPageSize, setLogPageSize] = React.useState(100)
+    const logScrollRef = React.useRef(null)
+    const preserveLogScrollRef = React.useRef(null)
+    const scrollToLatestLogRef = React.useRef(false)
+    const pendingOlderLogLoadRef = React.useRef(false)
 
     const updateNodeArg = (key, value) => {
         setNodeArgs((currentNodeArgs) => ({
@@ -203,6 +248,78 @@ const NodeManagement = ({
     React.useEffect(() => {
         fetchNodeProcessState()
     }, [fetchNodeProcessState])
+
+    const loadLatestNodeLogs = React.useCallback(() => {
+        scrollToLatestLogRef.current = true
+        fetchNodeLogs({
+            fileName: logFileName,
+            pageSize: logPageSize,
+            mode: 'reset',
+        })
+    }, [fetchNodeLogs, logFileName, logPageSize])
+
+    const loadOlderNodeLogs = React.useCallback(() => {
+        if (!logHasMore || logLoading || pendingOlderLogLoadRef.current) {
+            return
+        }
+
+        const scrollElement = logScrollRef.current
+        if (scrollElement) {
+            preserveLogScrollRef.current = {
+                scrollHeight: scrollElement.scrollHeight,
+                scrollTop: scrollElement.scrollTop,
+            }
+        }
+
+        pendingOlderLogLoadRef.current = true
+        Promise.resolve(fetchNodeLogs({
+            cursor: logCursor,
+            fileName: logFileName,
+            pageSize: logPageSize,
+            mode: 'prepend',
+        })).finally(() => {
+            pendingOlderLogLoadRef.current = false
+        })
+    }, [
+        fetchNodeLogs,
+        logCursor,
+        logFileName,
+        logHasMore,
+        logLoading,
+        logPageSize,
+    ])
+
+    const handleLogScroll = React.useCallback((event) => {
+        if (event.currentTarget.scrollTop <= 80) {
+            loadOlderNodeLogs()
+        }
+    }, [loadOlderNodeLogs])
+
+    React.useEffect(() => {
+        if (activeTab !== nodeManagementTabs.logs) {
+            return
+        }
+
+        fetchNodeLogFiles()
+    }, [activeTab, fetchNodeLogFiles])
+
+    React.useEffect(() => {
+        if (activeTab !== nodeManagementTabs.logs) {
+            return
+        }
+
+        loadLatestNodeLogs()
+    }, [activeTab, loadLatestNodeLogs])
+
+    React.useEffect(() => {
+        if (!logFiles.length) {
+            return
+        }
+
+        if (!logFiles.some((file) => file.name === logFileName)) {
+            setLogFileName(logFiles[0].name)
+        }
+    }, [logFileName, logFiles])
 
     React.useEffect(() => {
         if (lastRefresh) {
@@ -243,9 +360,38 @@ const NodeManagement = ({
         return () => clearInterval(intervalId)
     }, [isRunning])
 
+    React.useEffect(() => {
+        const scrollElement = logScrollRef.current
+        if (!scrollElement) {
+            return
+        }
+
+        const preservedScroll = preserveLogScrollRef.current
+        if (preservedScroll) {
+            scrollElement.scrollTop = (
+                scrollElement.scrollHeight
+                - preservedScroll.scrollHeight
+                + preservedScroll.scrollTop
+            )
+            preserveLogScrollRef.current = null
+            return
+        }
+
+        if (scrollToLatestLogRef.current) {
+            scrollElement.scrollTop = scrollElement.scrollHeight
+            scrollToLatestLogRef.current = false
+        }
+    }, [logItems.length, logLastRefresh])
+
     const runningFor = getRunningFor(processState, now)
     const actor = processState?.actor || {}
     const actorName = [actor.name, actor.surname].filter(Boolean).join(' ')
+    const logFileOptions = (logFiles.length ? logFiles : [
+        {name: applicationLogBasename},
+    ]).map((file) => ({
+        value: file.name,
+        text: formatLogFileLabel(file),
+    }))
     const statusMessage = isRunning
         ? 'The node is currently running smoothly.'
         : isStopping
@@ -415,6 +561,24 @@ const NodeManagement = ({
                 </div>
             ) : null}
 
+            <section className="node-management-card node-management-tabs-card">
+                <EuiTabs>
+                    <EuiTab
+                        isSelected={activeTab === nodeManagementTabs.process}
+                        onClick={() => setActiveTab(nodeManagementTabs.process)}
+                    >
+                        Process Details
+                    </EuiTab>
+                    <EuiTab
+                        isSelected={activeTab === nodeManagementTabs.logs}
+                        onClick={() => setActiveTab(nodeManagementTabs.logs)}
+                    >
+                        Application Logs
+                    </EuiTab>
+                </EuiTabs>
+            </section>
+
+            {activeTab === nodeManagementTabs.process ? (
             <section className="node-management-card node-management-process">
                 <div className="node-management-section-header">
                     <div className="node-management-section-heading">
@@ -581,6 +745,165 @@ const NodeManagement = ({
                     </div>
                 </div>
             </section>
+            ) : (
+            <section className="node-management-card node-management-logs">
+                <div className="node-management-section-header">
+                    <div className="node-management-section-heading">
+                        <span className="node-management-section-icon">
+                            <EuiIcon type="console" size="l" />
+                        </span>
+                        <div>
+                            <h2>Application Logs</h2>
+                            <p>Node runtime log entries from application.log</p>
+                        </div>
+                    </div>
+                    <div className="node-management-process-header-actions">
+                        <EuiButton
+                            size="s"
+                            iconType="download"
+                            onClick={() => downloadNodeLogFile(logFileName)}
+                        >
+                            Download raw log
+                        </EuiButton>
+                        <EuiButton
+                            size="s"
+                            iconType="refresh"
+                            onClick={() => loadLatestNodeLogs()}
+                            isLoading={logLoading}
+                        >
+                            Refresh
+                        </EuiButton>
+                    </div>
+                </div>
+
+                {logError ? (
+                    <div className="node-management-alert error">
+                        <EuiIcon type="alert" />
+                        <span>{logError}</span>
+                    </div>
+                ) : null}
+
+                {logFilesError ? (
+                    <div className="node-management-alert error">
+                        <EuiIcon type="alert" />
+                        <span>{logFilesError}</span>
+                    </div>
+                ) : null}
+
+                <div className="node-management-log-controls">
+                    <EuiFlexGroup gutterSize="m" alignItems="center" wrap>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="Log file">
+                                <EuiSelect
+                                    value={logFileName}
+                                    options={logFileOptions}
+                                    isDisabled={logFilesLoading}
+                                    onChange={(event) => {
+                                        preserveLogScrollRef.current = null
+                                        setLogFileName(event.target.value)
+                                    }}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiFormRow label="Lines per load">
+                                <EuiSelect
+                                    value={String(logPageSize)}
+                                    options={[50, 100, 200, 500].map((value) => ({
+                                        value: String(value),
+                                        text: String(value),
+                                    }))}
+                                    onChange={(event) => {
+                                        setLogPageSize(
+                                            Number.parseInt(
+                                                event.target.value,
+                                                10
+                                            )
+                                        )
+                                    }}
+                                />
+                            </EuiFormRow>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiText size="s">
+                                <span>
+                                    Loaded lines: {logItems.length}
+                                    {' | '}
+                                    File size: {formatValue(logFileSize)} bytes
+                                </span>
+                            </EuiText>
+                        </EuiFlexItem>
+                    </EuiFlexGroup>
+                </div>
+
+                <EuiSpacer size="m" />
+
+                <EuiFlexGroup
+                    justifyContent="spaceBetween"
+                    alignItems="center"
+                    gutterSize="m"
+                    wrap
+                >
+                    <EuiFlexItem grow={false}>
+                        <EuiText size="s">
+                            <span>
+                                Last refresh: {formatDateTime(logLastRefresh)}
+                            </span>
+                        </EuiText>
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                        <EuiText size="s">
+                            <span>
+                                {logHasMore
+                                    ? 'Scroll up to load older logs'
+                                    : 'Start of log file reached'}
+                            </span>
+                        </EuiText>
+                    </EuiFlexItem>
+                </EuiFlexGroup>
+
+                <EuiSpacer size="m" />
+
+                <div
+                    className="node-management-log-viewer"
+                    ref={logScrollRef}
+                    onScroll={handleLogScroll}
+                >
+                    <div className="node-management-log-load-more">
+                        {logHasMore ? (
+                            <EuiButtonEmpty
+                                size="xs"
+                                onClick={() => loadOlderNodeLogs()}
+                                isLoading={logLoading}
+                            >
+                                Load older logs
+                            </EuiButtonEmpty>
+                        ) : (
+                            <span>Start of log file</span>
+                        )}
+                    </div>
+                    {logItems.length ? (
+                        logItems.map((item) => (
+                            <div
+                                className="node-management-log-row"
+                                key={item.id || item.offset}
+                            >
+                                <span className="node-management-log-timestamp">
+                                    {formatValue(item.timestamp)}
+                                </span>
+                                <span className="node-management-log-line">
+                                    {formatValue(item.raw)}
+                                </span>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="node-management-log-empty">
+                            {logLoading ? 'Loading logs...' : 'No logs found'}
+                        </div>
+                    )}
+                </div>
+            </section>
+            )}
 
             {isActorModalVisible ? (
                 <EuiModal
@@ -646,6 +969,16 @@ const mapStateToProps = (state) => {
         actionError: state.node_management.actionError,
         processStateError: state.node_management.processStateError,
         lastRefresh: state.node_management.lastRefresh,
+        logItems: state.node_management.logItems,
+        logLoading: state.node_management.logLoading,
+        logError: state.node_management.logError,
+        logLastRefresh: state.node_management.logLastRefresh,
+        logCursor: state.node_management.logCursor,
+        logHasMore: state.node_management.logHasMore,
+        logFileSize: state.node_management.logFileSize,
+        logFiles: state.node_management.logFiles,
+        logFilesLoading: state.node_management.logFilesLoading,
+        logFilesError: state.node_management.logFilesError,
     }
 }
 
@@ -653,6 +986,11 @@ const mapDispatchToProps = (dispatch) => {
     return {
         fetchNodeProcessState: (options) => dispatch(
             fetchNodeProcessState(options)
+        ),
+        fetchNodeLogs: (args) => dispatch(fetchNodeLogs(args)),
+        fetchNodeLogFiles: () => dispatch(fetchNodeLogFiles()),
+        downloadNodeLogFile: (fileName) => dispatch(
+            downloadNodeLogFile(fileName)
         ),
         executeNodeAction: (action, nodeArgs) => dispatch(
             executeNodeAction(action, nodeArgs)

@@ -112,8 +112,6 @@ def test_node_pm_01_start(mocker, _manager, background):
             "--node-args",
             json.dumps(node_args),
         ],
-        stdout=mocker.ANY,
-        stderr=mocker.ANY,
     )
 
     mock_popen.assert_called_once()
