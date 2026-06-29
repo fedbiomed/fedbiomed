@@ -159,8 +159,11 @@ def save_config_file(peer_type: str, peer_id: str, mapping: dict) -> None:
         print(f"CRITICAL: cannot open template file {template_file % peer_type} : {e}")
         exit(1)
 
-    with run_drop_priv(open, filepath, 'w') as f_config:
+    f_config = run_drop_priv(open, filepath, 'w')
+    try:
         f_config.write(Template(template_content).substitute(mapping))
+    finally:
+        f_config.close()
 
     print(f"info: configuration for {peer_type}/{peer_id} saved in {filepath}")
 
