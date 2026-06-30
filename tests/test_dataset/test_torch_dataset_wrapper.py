@@ -122,8 +122,9 @@ def test_getitem_dict_non_tensor_values():
 
 def test_getitem_none_target():
     w = _DatasetWrapper(NoneTargetDataset())
-    with pytest.raises(FedbiomedError):
-        w[0]
+    data, target = w[0]
+    assert isinstance(data, torch.Tensor)
+    assert target is None
 
 
 def test_getitem_invalid_target_type():

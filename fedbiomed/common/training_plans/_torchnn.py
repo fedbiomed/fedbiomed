@@ -444,7 +444,9 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Raises:
            FedbiomedTrainingPlanError: when to_send is not the correct type
         """
-        if isinstance(to_send, torch.Tensor):
+        if to_send is None:
+            return None
+        elif isinstance(to_send, torch.Tensor):
             return to_send.to(device)
         elif isinstance(to_send, dict):
             return {

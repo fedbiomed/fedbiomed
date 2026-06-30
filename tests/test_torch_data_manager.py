@@ -4,6 +4,10 @@ from unittest.mock import MagicMock, patch
 import torch
 from torch.utils.data import Subset
 
+from fedbiomed.common.dataloader._pytorch_dataloader import (
+    PytorchDataLoader,
+    collate_optional_target,
+)
 from fedbiomed.common.datamanager import TorchDataManager
 from fedbiomed.common.dataset import Dataset
 from fedbiomed.common.exceptions import FedbiomedError
@@ -219,6 +223,76 @@ class TestTorchDataManager(unittest.TestCase):
             len(self.dataset),
             "Did not properly get loader for all samples",
         )
+
+    def test_torch_data_manager_10_none_target(self):
+        """Unsupervised dataset (None target) is collated as (data, None)."""
+
+        class UnsupervisedDataset(Dataset):
+            def __init__(self):
+                self.X = [torch.Tensor([i, i + 1, i + 2]) for i in range(6)]
+
+            def load(self):
+                pass
+
+            def __len__(self):
+                return len(self.X)
+
+            def __getitem__(self, idx):
+                return self.X[idx], None
+
+        dm = TorchDataManager(
+            dataset=UnsupervisedDataset(), batch_size=3, shuffle=False
+        )
+        data, target = next(iter(dm.load_all_samples()))
+        self.assertIsInstance(data, torch.Tensor)
+        self.assertEqual(tuple(data.shape), (3, 3))
+        self.assertIsNone(target)
+
+    def test_torch_data_manager_11_inconsistent_target(self):
+        """A dataset with a target on some samples but None on others is rejected."""
+
+        class InconsistentDataset(Dataset):
+            def __init__(self):
+                self.X = [torch.Tensor([i, i + 1, i + 2]) for i in range(4)]
+
+            def load(self):
+                pass
+
+            def __len__(self):
+                return len(self.X)
+
+            def __getitem__(self, idx):
+                # First sample has no target, later ones do.
+                target = None if idx == 0 else torch.Tensor([idx])
+                return self.X[idx], target
+
+        dm = TorchDataManager(
+            dataset=InconsistentDataset(), batch_size=4, shuffle=False
+        )
+        with self.assertRaisesRegex(FedbiomedError, "Inconsistent target"):
+            next(iter(dm.load_all_samples()))
+
+    def test_torch_data_manager_12_collate_optional_target_supervised(self):
+        """A batch with targets is collated with the default behaviour."""
+        batch = [(torch.tensor([1.0]), torch.tensor([0])) for _ in range(3)]
+        data, target = collate_optional_target(batch)
+        self.assertEqual(tuple(data.shape), (3, 1))
+        self.assertEqual(tuple(target.shape), (3, 1))
+
+    def test_torch_data_manager_13_dataloader_default_collate(self):
+        """PytorchDataLoader uses the optional-target collate unless overridden."""
+        dataset = [(torch.tensor([float(i)]), None) for i in range(4)]
+        loader = PytorchDataLoader(dataset, batch_size=2)
+        self.assertIs(loader.collate_fn, collate_optional_target)
+        _, target = next(iter(loader))
+        self.assertIsNone(target)
+
+    def test_torch_data_manager_14_dataloader_explicit_collate(self):
+        """An explicit collate_fn is not overridden by the default."""
+        dataset = [(torch.tensor([float(i)]), None) for i in range(4)]
+        loader = PytorchDataLoader(dataset, batch_size=2, collate_fn=lambda b: "custom")
+        self.assertIsNot(loader.collate_fn, collate_optional_target)
+        self.assertEqual(next(iter(loader)), "custom")
 
     @patch(
         "fedbiomed.common.datamanager._torch_data_manager.TorchDataManager._loader_class"
