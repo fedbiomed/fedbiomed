@@ -59,16 +59,43 @@ class ValidNumpyComposedDataset(ValidNumpyDataset):
         return data, target
 
 
-class WrongFormatDataset(CustomDataset):
+class ScalarTargetDataset(CustomDataset):
+    """Classifier-style dataset whose target is a numpy scalar from a 1-D label array."""
+
     def read(self):
         self.data = np.random.randn(10, 5).astype(np.float32)
-        self.targets = np.random.randint(0, 2, 10)  # Int instead of ndarray
+        self.targets = np.random.randint(0, 2, 10).astype(np.int64)  # 1-D labels
 
     def __len__(self):
         return 10
 
     def get_item(self, idx):
         return self.data[idx], self.targets[idx]
+
+
+class NoneTargetDataset(CustomDataset):
+    """Unsupervised-style dataset whose `get_item` returns a ``None`` target."""
+
+    def read(self):
+        self.data = np.random.randn(10, 5).astype(np.float32)
+
+    def __len__(self):
+        return 10
+
+    def get_item(self, idx):
+        return self.data[idx], None
+
+
+class WrongFormatDataset(CustomDataset):
+    def read(self):
+        self.data = np.random.randn(10, 5).astype(np.float32)
+        self.targets = np.random.randint(0, 2, 10)
+
+    def __len__(self):
+        return 10
+
+    def get_item(self, idx):
+        return self.data[idx], str(self.targets[idx])  # str instead of ndarray/scalar
 
 
 class WrongFormatComposedDataset(WrongFormatDataset):
@@ -78,7 +105,7 @@ class WrongFormatComposedDataset(WrongFormatDataset):
             "modality_2": self.data[idx] * 2,
         }
         target = {
-            "label_1": self.targets[idx],  # int instead of array
+            "label_1": str(self.targets[idx]),  # str instead of ndarray/scalar
             "label_2": (self.targets[idx] + 1) % 2,
         }
         return data, target
@@ -184,6 +211,27 @@ def test_wrong_format_changing_dataset():
         _ = dataset[1]
 
 
+def test_scalar_target_is_accepted():
+    """A numpy scalar target is accepted (sklearn) and normalized to a 0-d ndarray."""
+    dataset = ScalarTargetDataset()
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.SKLEARN)
+    assert len(dataset) == 10
+    data, target = dataset[0]
+    assert isinstance(data, np.ndarray)
+    assert isinstance(target, np.ndarray)
+    assert np.issubdtype(target.dtype, np.integer)
+
+
+def test_none_target_is_accepted():
+    """A ``None`` target is accepted and passed through untouched."""
+    dataset = NoneTargetDataset()
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.SKLEARN)
+    assert len(dataset) == 10
+    data, target = dataset[0]
+    assert isinstance(data, np.ndarray)
+    assert target is None
+
+
 def test_override_getitem():
     with pytest.raises(
         FedbiomedError, match="Overriding __getitem__ .* is not allowed"
@@ -215,6 +263,49 @@ def test_override_init():
 
             def __len__(self):
                 return 0
+
+
+def test_override_path():
+    with pytest.raises(FedbiomedError, match="Overriding `path` .* is not allowed"):
+
+        class OverridePathDataset(CustomDataset):
+            path = "hardcoded"
+
+            def read(self):
+                pass
+
+            def get_item(self, idx):
+                return None, None
+
+            def __len__(self):
+                return 0
+
+
+def test_override_load():
+    with pytest.raises(FedbiomedError, match="Overriding `load` .* is not allowed"):
+
+        class OverrideLoadDataset(CustomDataset):
+            def load(self, root, to_format):
+                pass
+
+            def read(self):
+                pass
+
+            def get_item(self, idx):
+                return None, None
+
+            def __len__(self):
+                return 0
+
+
+def test_path_is_read_only():
+    """`path` is set by load() and cannot be reassigned by subclass code."""
+    dataset = ValidTorchDataset()
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.TORCH)
+    assert dataset.path == "dummy_path"
+    with pytest.raises(AttributeError):
+        dataset.path = "/evil/path"
+    assert dataset.path == "dummy_path"
 
 
 def test_initialization_parameters():

@@ -56,19 +56,12 @@ model validation is activated in the experiment.
     A `DataManager` is a Fed-BioMed concept that makes the link between a `Dataset` and the corresponding `DataLoader`.
     It has a generic interface that is framework-agnostic (Pytorch, sklearn, etc...)
 
-`DataManager` takes two main input arguments as `dataset` and `target`.
-In most cases, `dataset` should be an instance of one of PyTorch `Dataset`, and `target` should be `None`.
-
-For handling backwards compatibility and some simple cases, a user does not have to instantiate a `Dataset` object.
-User can pass the argument `dataset` as
-Numpy `ndarray`, `pd.DataFrame` or `pd.Series`. The argument `target` should then be an instance of one of Numpy `ndarray`,
-`pd.DataFrame` or `pd.Series`. By default, the argument `target` is `None`. If `target` is `None` the data manager
-considers that the `dataset` is an object that includes both input and target variables. This is the case where
-the dataset is an instance of the PyTorch dataset. **If `dataset` is an instance of Numpy `Array` or Pandas `DataFrame`,
-it is mandatory to provide the `target` variable.**
-
- For handling any arbitrary type of data, a
- user is also allowed to define a [`CustomDataset`](../datasets/custom-dataset.md), where the user directly writes how to `read` and `get_item` from the dataset. In this case, it is upto the user to whether to pass the targets through the `dataset` object, `target` variable or to not give targets (unsupervised) at all.
+`DataManager` takes a single input argument `dataset`, which must be an instance of a Fed-BioMed
+[`Dataset`](../datasets/index.md). This can be one of the built-in datasets (e.g. `MnistDataset`,
+`TabularDataset`, `ImageFolderDataset`, `MedicalFolderDataset`) or a
+[`CustomDataset`](../datasets/custom-dataset.md), where the user directly writes how to `read` and
+`get_item` from the dataset. Targets, when present, are part of the items returned by the `Dataset`;
+unsupervised datasets simply return `None` as the target.
 
 As it is mentioned, `DataManager` is capable of managing/configuring datasets/data-loaders based on the training plans
 that are going to be used for training. This configuration is necessary since each training plan requires different
@@ -78,8 +71,8 @@ types of data loader/batch iterator, but it is handled by the framework and requ
 
 ### Defining Training Data for PyTorch Based Training Plans
 
-In the following code snippet using the classical syntax, a PyTorch-based training plan
-returns a `DataManager` object instantiated with a `Dataset`, and `target` is unused (`None`)
+In the following code snippet, a PyTorch-based training plan
+returns a `DataManager` object instantiated with a `Dataset`.
 
 ```python
 from fedbiomed.common.training_plans import TorchTrainingPlan
@@ -101,76 +94,49 @@ class MyTrainingPlan(TorchTrainingPlan):
 
 ```
 
-In the following code snippet using backwards compatible syntax,
-`training_data` of PyTorch-based training plan returns a `DataManager` object instantiated
-with `dataset` and `target` as `pd.Series`. Since PyTorch-based training requires a PyTorch `DataLoader`, `DataManager`
-converts `pd.Series` to a proper `torch.utils.data.Dataset` object and create a PyTorch `DataLoader` to pass it to the
-training loop on the node side.
+To load data from disk, define a [`CustomDataset`](../datasets/custom-dataset.md) and use it in the
+`DataManager`.
 
 ```python
 import pandas as pd
-from fedbiomed.common.training_plans import TorchTrainingPlan
-from fedbiomed.common.datamanager import DataManager
-
-class MyTrainingPlan(TorchTrainingPlan):
-    def init_model(self):
-        # ....
-    def init_dependencies(self):
-        # ....
-    def init_optimizer(self):
-        # ....
-
-    def training_data(self):
-        feature_cols = self.model_args()["feature_cols"]
-        dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
-        X = dataset.iloc[:,0:feature_cols].values
-        y = dataset.iloc[:,feature_cols]
-        return DataManager(dataset=X, target=y.values, )
-```
-
-It is also possible to define a custom PyTorch `Dataset` and use it in the `DataManager` without declaring the argument
-`target`.
-
-```python
-import pandas as pd
-from torch.utils.data import Dataset
+import torch
 from fedbiomed.common.training_plans import TorchTrainingPlan
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import CustomDataset
 
 class MyTrainingPlan(TorchTrainingPlan):
 
-    class CelebaDataset(CustomDataset):
-        """Any custom dataset should inherit from the CustomDataset class"""
+    class CSVDataset(CustomDataset):
+        """Any custom dataset should inherit from the CustomDataset class.
 
-        # we dont load the full data of the images, we retrieve the image with the get item.
-        # in our case, each image is 218*178 * 3colors. there is 67533 images. this take at least 7G of ram
-        # loading images when needed takes more time during training but it won't impact the ram usage as much as loading everything
+        Do not override `__init__`; read the data in `read`, using the `path`
+        attribute that points to the dataset location on the node.
+        """
 
         def read(self):
-            self.input_file = pd.read_csv(dataset_path,sep=',',index_col=False)
-            x_train = self.input_file.iloc[:,0:features].values
-            y_train = self.input_file.iloc[:,features].values
+            df = pd.read_csv(self.path, sep=',', index_col=False)
+            x_train = df.iloc[:, :-1].values
+            y_train = df.iloc[:, -1].values
             self.X_train = torch.from_numpy(x_train).float()
             self.Y_train = torch.from_numpy(y_train).float()
 
         def get_item(self, index):
-            return self.X_train[idx], self.Y_train[idx]
+            return self.X_train[index], self.Y_train[index]
 
         def __len__(self):
             return len(self.Y_train)
 
     def init_dependencies(self):
         """Custom dataset and other dependencies"""
-        deps = [
-            "from fedbiomed.common.dataset import CustomDataset"
+        return [
+            "import pandas as pd",
+            "import torch",
+            "from fedbiomed.common.dataset import CustomDataset",
         ]
-        return deps
 
     def training_data(self):
-        feature_cols = self.model_args()["feature_cols"]
-        dataset = self.CSVDataset(self.dataset_path, feature_cols)
-        loader_kwargs = {'batch_size': batch_size, 'shuffle': True}
+        dataset = self.CSVDataset()
+        loader_kwargs = {'batch_size': 32, 'shuffle': True}
         return DataManager(dataset=dataset, **loader_kwargs)
 
 ```
@@ -181,8 +147,8 @@ PyTorch `DataLoader`.
 
 The operations in the `training_data` for SkLearn based training plans are not much different than`TorchTrainingPlan`.
 
-In the following code snippet using the classical syntax, a SkLearn-based training plan
-returns a `DataManager` object instantiated with a `Dataset`, and `target` is unused (`None`)
+In the following code snippet, a SkLearn-based training plan
+returns a `DataManager` object instantiated with a `Dataset`.
 
 ```python
 from fedbiomed.common.training_plans import FedPerceptron
@@ -201,26 +167,34 @@ class SkLearnClassifierTrainingPlan(FedPerceptron):
         return DataManager(dataset=dataset, shuffle=False)
 ```
 
-In the following code snippet using backwards compatible syntax,
-`training_data` of SkLearn training plan returns a `DataManager` object instantiated
-with `dataset` and `target` as `pd.Series`.
+To load data from a CSV file on disk, define a [`CustomDataset`](../datasets/custom-dataset.md)
+that reads the file from its `path` attribute and returns `(data, target)` items.
 
 ```python
 import pandas as pd
 from fedbiomed.common.training_plans import FedPerceptron
 from fedbiomed.common.datamanager import DataManager
+from fedbiomed.common.dataset import CustomDataset
 
 class SGDRegressorTrainingPlan(FedPerceptron):
+
+    class CSVDataset(CustomDataset):
+        def read(self):
+            df = pd.read_csv(self.path, header=None, delimiter=',')
+            self.X = df.iloc[:, 0:-1].values
+            self.y = df.iloc[:, -1].values
+
+        def get_item(self, idx):
+            return self.X[idx], self.y[idx]
+
+        def __len__(self):
+            return len(self.y)
+
     def init_dependencies(self):
-        # ....
+        return ["from fedbiomed.common.dataset import CustomDataset"]
 
     def training_data(self):
-        num_cols = self.model_args()["number_cols"]
-        dataset = pd.read_csv(self.dataset_path, header=None, delimiter=',')
-        X = dataset.iloc[:,0:num_cols].values
-        y = dataset.iloc[:,num_cols]
-        return DataManager(dataset=X, target=y.values, batch_size)
-
+        return DataManager(dataset=self.CSVDataset())
 ```
 
 ## Preprocessing for Data

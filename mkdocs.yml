@@ -75,7 +75,6 @@ nav:
           - "Tabular Datasets": "./user-guide/datasets/tabular-dataset.md"
           - "Medical Datasets": "./user-guide/datasets/medical-folder-dataset.md"
           - "Adding your Custom Dataset": "./user-guide/datasets/custom-dataset.md"
-          - "Adding a Native Dataset": "./user-guide/datasets/native-dataset.md"
           - "Applying Transformations": "./user-guide/datasets/applying-transformations.md"
           - "Federated Analytics": "./user-guide/datasets/federated-analytics.md"
           

@@ -62,7 +62,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             a batch-wise (set of) metric(s)
 
     Attributes:
-        dataset_path: The path that indicates where dataset has been stored
         pre_processes: Preprocess functions that will be applied to the
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
@@ -81,7 +80,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
-        self.dataset_path: Union[str, None] = None
         self.pre_processes: Dict[str, PreProcessDict] = OrderedDict()
         self.training_data_loader: Union[DataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, None] = None
@@ -207,16 +205,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         for val in dep:
             if val not in self._dependencies:
                 self._dependencies.append(val)
-
-    def set_dataset_path(self, dataset_path: str) -> None:
-        """Dataset path setter for TrainingPlan
-
-        Args:
-            dataset_path: The path where data is saved on the node.
-                This method is called by the node that executes the training.
-        """
-        self.dataset_path = dataset_path
-        logger.debug(f"Dataset path has been set as {self.dataset_path}")
 
     def set_data_loaders(
         self,

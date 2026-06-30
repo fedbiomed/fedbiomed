@@ -1025,9 +1025,6 @@ class Round:
         arguments.
         """
 
-        # Set requested data path for model training and validation
-        self.training_plan.set_dataset_path(self.dataset_entry["path"])
-
         # Get validation parameters
         test_ratio = self.testing_arguments.get("test_ratio", 0)
         self.is_test_data_shuffled = self.testing_arguments.get(
@@ -1072,8 +1069,8 @@ class Round:
     def _split_train_and_test_data(self, test_ratio: float = 0) -> DataManager:
         # FIXME: incorrect type output
         """
-        Method for splitting training and validation data based on training plan type. It sets
-        `dataset_path` for training plan and calls `training_data` method of training plan.
+        Method for splitting training and validation data based on training plan type. It
+        calls the `training_data` method of training plan.
 
         Args:
             test_ratio: The ratio that represent validating partition. Default is 0, means that

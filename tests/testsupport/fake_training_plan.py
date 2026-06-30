@@ -125,15 +125,6 @@ class FakeModel(BaseTrainingPlan):
         """
         super().save_code(path, from_code=from_code)
 
-    def set_dataset_path(self, path: str):
-        """Fakes `set_dataset` method of TrainingPlan classes. Originally
-        used for setting dataset path. Passed arguments are unused.
-
-        Args:
-            path (str): originally, path where the node dataset are stored.
-            Unused in this method.
-        """
-
     def training_routine(self, **kwargs):
         """Fakes `training_routine` method of TrainingPlan classes. Originally
         used for training the model. Passed arguments are unused.
