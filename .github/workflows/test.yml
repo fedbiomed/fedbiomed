@@ -24,6 +24,9 @@ jobs:
             python-version: "3.11"
             
         - name: Test
+          env:
+            FBM_GITLAB_TOKEN: ${{ secrets.FBM_GITLAB_TOKEN }}
+            FBM_DATASET_IXI_DOWNLOAD_URL: ${{ secrets.FBM_DATASET_IXI_DOWNLOAD_URL }}
           run: |
             pip install requests
             pip install tqdm
