@@ -1,12 +1,11 @@
 ---
-name: Fed-BioMed VPN Docker Image and Container Test
-run-name: fedbiomed-docker-container-test
+name: Test download script
+run-name: test-download-script
 
 on:
   push:
     branches:
       - "feature/fix_e2e_tests"
-
 
 jobs:
   unit-test:
@@ -14,8 +13,7 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
-    runs-on: ${{ matrix.os }}
-
+    runs-on: 'ubuntu-latest'
     steps:
         - name: Checkout to commit
           uses: actions/checkout@v4
