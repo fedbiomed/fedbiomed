@@ -26,3 +26,4 @@ jobs:
         - name: Test
           run: |
             python tests/end2end/test.py
+          shell: bash -l {0}
