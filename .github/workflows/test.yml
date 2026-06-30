@@ -26,5 +26,6 @@ jobs:
         - name: Test
           run: |
             pip install requests
+            pip install tqdm
             python tests/end2end/test.py
           shell: bash -l {0}
