@@ -1178,6 +1178,29 @@ class TestFilterOutput:
         assert result_str == result_list
         assert result_str == {"demo": {"col1": {"mean": 1.0, "count": 10}}}
 
+    # ---- _filter_output: dict-form schema ----
+
+    def test_dict_form_schema_applies_child_selection(self):
+        """Dict-form schema ({key: child}) filters the child instead of copying the subtree."""
+        output = {
+            "demographics": {
+                "AGE": {"mean": 49.9, "count": 434},
+                "HEIGHT": {"mean": 161.8, "count": 435},
+            }
+        }
+        expected = {"demographics": {"AGE": {"mean": 49.9, "count": 434}}}
+        assert FAResult._filter_output(output, {"demographics": "AGE"}) == expected
+        assert FAResult._filter_output(output, {"demographics": ["AGE"]}) == expected
+
+    def test_dict_form_schema_none_child_keeps_subtree(self):
+        """A dict-form key mapped to None keeps that whole subtree (and drops others)."""
+        output = {
+            "demographics": {"AGE": {"mean": 49.9, "count": 434}},
+            "imaging": {"T1": {"mean": 1.0, "count": 10}},
+        }
+        result = FAResult._filter_output(output, {"demographics": None})
+        assert result == {"demographics": {"AGE": {"mean": 49.9, "count": 434}}}
+
     # ---- _filter_output: None / error cases ----
 
     def test_dict_item_non_dict_value_with_child_returns_none(self):

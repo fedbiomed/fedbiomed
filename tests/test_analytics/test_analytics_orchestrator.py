@@ -224,6 +224,18 @@ def test_handle_dict_subschema_as_dict(orchestrator):
         assert spec_c in called_first_args
 
 
+def test_handle_dict_stats_args_only_selects_named_keys(orchestrator):
+    """stats_args-only (no subschema) selects its named keys (variance/std round 2)."""
+    schema = {"a": RowSpec(columns=["x"]), "b": RowSpec(columns=["y"])}
+    config = orchestrator._handle_dict(
+        schema,
+        subschema=None,
+        stats=None,
+        stats_args={"a": {"x": {"sum_sq_centered": {"mean": 1.0}}}},
+    )
+    assert set(config["children"].keys()) == {"a"}
+
+
 def test_handle_dict_subschema_as_dict_invalid_keys(orchestrator):
     schema = {"a": ImageSpec()}
     with pytest.raises(FedbiomedError, match="Invalid keys in subschema"):
@@ -366,6 +378,27 @@ def test_handle_sequence_subschema_already_nested_not_rewrapped(orchestrator):
 
     # [["c1", "c2"]] — subschema[0] is a list (a container), so no wrapping occurs
     assert mock_bvc.call_args[0][1] == ["c1", "c2"]
+
+
+def test_handle_sequence_dict_subschema_wraps_for_single_active(orchestrator):
+    """Dict subschema accepted (wrapped) for a single-active (dict, None) schema (MedicalFolderDataset)."""
+    schema = ({"demographics": RowSpec(columns=["AGE", "HEIGHT"])}, None)
+    config = orchestrator._build_and_validate_config(
+        schema, {"demographics": "AGE"}, ["mean"], None
+    )
+    assert len(config["children"]) == 1  # only the active (non-None) element
+    assert set(config["children"][0]["children"]["demographics"]["conf"].keys()) == {
+        "AGE"
+    }
+
+
+def test_handle_sequence_dict_subschema_errors_for_multiple_active(orchestrator):
+    """A bare dict subschema is ambiguous when the sequence has >1 active element."""
+    schema = [RowSpec(columns=["c1"]), RowSpec(columns=["c2"])]
+    with pytest.raises(FedbiomedError, match="Subschema for sequence must be list"):
+        orchestrator._handle_sequence(
+            schema, subschema={"c1": None}, stats=None, stats_args=None
+        )
 
 
 def test_handle_sequence_subschema_errors(orchestrator):
@@ -614,14 +647,32 @@ def test_handle_row_validation_errors(orchestrator):
     with pytest.raises(FedbiomedError, match="Subschema for ROW must be a list"):
         orchestrator._handle_row(schema, 123, None, None)
 
-    with pytest.raises(FedbiomedError, match="Subschema for ROW must be a list"):
-        orchestrator._handle_row(schema, "c1", None, None)
-
     with pytest.raises(FedbiomedError, match="Args for ROW must be a dict"):
         orchestrator._handle_row(schema, None, None, stats_args=["not", "a", "dict"])
 
     with pytest.raises(FedbiomedError, match="Invalid columns in args"):
         orchestrator._handle_row(schema, None, None, stats_args={"z": {}})
+
+
+def test_handle_row_stats_args_only_selects_named_columns(orchestrator):
+    """stats_args-only (no subschema) selects its named columns (variance/std round 2)."""
+    schema = RowSpec(columns=["A", "B", "C"])
+    config = orchestrator._handle_row(
+        schema, None, None, {"A": {"sum_sq_centered": {"mean": 5.0}}}
+    )
+    assert set(config["conf"].keys()) == {"A"}
+
+
+def test_build_config_dict_form_schema_selects_single_column(orchestrator):
+    """Dict-form dataset_schema {key: column} (bare-string or list child) selects only that column."""
+    schema = {"demographics": RowSpec(columns=["AGE", "HEIGHT", "WEIGHT"])}
+    for subschema in ({"demographics": "AGE"}, {"demographics": ["AGE"]}):
+        config = orchestrator._build_and_validate_config(
+            schema, subschema, ["mean"], None
+        )
+        assert set(config["children"]["demographics"]["conf"].keys()) == {"AGE"}, (
+            subschema
+        )
 
 
 # ── _handle_image ────────────────────────────────────────────────────────────

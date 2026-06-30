@@ -86,8 +86,14 @@ class FAResult:
         return next(iter(self._data.values()))
 
     @staticmethod
-    def _filter_output(output: Any, schema: list) -> Optional[Any]:
+    def _filter_output(output: Any, schema: list | dict) -> Optional[Any]:
         """Return a filtered copy of *output* keeping only keys listed in *schema*.
+
+        Accepts both the list form (``["a", {"b": ["c"]}]``) and the dict form
+        (``{"a": None, "b": ["c"]}``), mirroring the node-side orchestrator. A
+        dict schema is normalised to ``[{key: child_sub}]`` so the same per-item
+        logic applies; a bare-string child (``{"b": "c"}``) is normalised to
+        ``["c"]``.
 
         Returns ``None`` if *output* is not a filterable dict, a key is absent, a child
         schema is given for a non-dict value, or a schema item type is unsupported.
@@ -95,6 +101,9 @@ class FAResult:
         # Stat-leaves are terminal values, not filterable structural dicts.
         if not isinstance(output, dict) or FAResult._is_stat_leaf(output):
             return None
+        # Normalise a dict-form subschema ({key: child_sub}) to the list-of-items form.
+        if isinstance(schema, dict):
+            schema = [{k: v} for k, v in schema.items()]
         result: dict = {}
         for item in schema:
             if isinstance(item, str):
@@ -113,8 +122,8 @@ class FAResult:
                 )  # no sub-schema: copy subtree as-is
             elif not isinstance(output[key], dict):
                 return None  # child schema given but value is not a filterable dict
-            elif isinstance(child_sub, (list, tuple)):
-                child = FAResult._filter_output(output[key], list(child_sub))
+            elif isinstance(child_sub, (list, tuple, dict)):
+                child = FAResult._filter_output(output[key], child_sub)
                 if child is None:
                     return None
                 result[key] = child
@@ -122,7 +131,7 @@ class FAResult:
                 return None  # child_sub is an unexpected type
         return result
 
-    def _filtered_copy(self, schema: list) -> Optional["FAResult"]:
+    def _filtered_copy(self, schema: list | dict) -> Optional["FAResult"]:
         """Return a copy filtered to *schema*, or ``None`` if any node output cannot be filtered."""
         filtered_data: dict[str, Any] = {}
         for node_id, output in self._data.items():
