@@ -107,7 +107,7 @@ dependencies = [
 	"pyarrow>=21.0.0",
 ]
 
-requires-python = "<3.12,>=3.10"
+requires-python = "<3.15,>=3.10"
 readme = "README.md"
 license = {text = "Apache 2.0"}
 

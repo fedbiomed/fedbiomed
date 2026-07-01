@@ -3,6 +3,9 @@ name: Dependency Environment Probe
 run-name: dependency-environment-probe
 
 on:
+  push:
+    branches:
+      - 'poc/dependency-management-tests'
   workflow_dispatch:
     inputs:
       python-version:
@@ -32,8 +35,8 @@ permissions:
 
 jobs:
   probe:
-    name: Probe dependencies on Python ${{ inputs.python-version }}
-    runs-on: ${{ inputs.os }}
+    name: Probe dependencies on Python ${{ inputs.python-version || '3.12' }}
+    runs-on: ${{ inputs.os || 'ubuntu-latest' }}
     defaults:
       run:
         shell: bash -l {0}
@@ -45,7 +48,7 @@ jobs:
       - name: Setup Fed-BioMed Test Environment
         uses: ./.github/actions/setup-fbm-env
         with:
-          python-version: ${{ inputs.python-version }}
+          python-version: ${{ inputs.python-version || '3.12' }}
 
       - name: Create dependency requirements
         run: |
@@ -68,12 +71,12 @@ jobs:
           dependency_groups = data.get("dependency-groups", {})
           requested_optional_groups = [
               group.strip()
-              for group in "${{ inputs.optional-groups }}".split(",")
+              for group in "${{ inputs.optional-groups || 'researcher' }}".split(",")
               if group.strip()
           ]
           requested_dependency_groups = [
               group.strip()
-              for group in "${{ inputs.dependency-groups }}".split(",")
+              for group in "${{ inputs.dependency-groups || 'test' }}".split(",")
               if group.strip()
           ]
 
@@ -140,7 +143,7 @@ jobs:
           exit 0
 
       - name: Try project install without dependencies
-        if: ${{ inputs.attempt-project-install }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.attempt-project-install }}
         run: |
           set +e
           python -m pip install --no-deps . \
@@ -164,10 +167,10 @@ jobs:
           {
             echo "## Dependency Environment Probe"
             echo
-            echo "- Python: \`${{ inputs.python-version }}\`"
-            echo "- OS: \`${{ inputs.os }}\`"
-            echo "- Optional groups: \`${{ inputs.optional-groups }}\`"
-            echo "- Dependency groups: \`${{ inputs.dependency-groups }}\`"
+            echo "- Python: \`${{ inputs.python-version || '3.12' }}\`"
+            echo "- OS: \`${{ inputs.os || 'ubuntu-latest' }}\`"
+            echo "- Optional groups: \`${{ inputs.optional-groups || 'researcher' }}\`"
+            echo "- Dependency groups: \`${{ inputs.dependency-groups || 'test' }}\`"
             echo
             echo "### Install status"
             echo
@@ -194,6 +197,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dependency-env-probe-${{ inputs.os }}-py${{ inputs.python-version }}
+          name: dependency-env-probe-${{ inputs.os || 'ubuntu-latest' }}-py${{ inputs.python-version || '3.12' }}
           path: env-probe/
           if-no-files-found: error
