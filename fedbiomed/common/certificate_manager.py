@@ -210,7 +210,6 @@ class CertificateManager:
         try:
             with open(path, "w", encoding="UTF-8") as file:
                 file.write(certificate)
-                file.close()
         except Exception as e:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Can not write certificate file {path}. "
@@ -299,7 +298,6 @@ class CertificateManager:
         try:
             with open(key_file, "wb") as f:
                 f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
-                f.close()
         except Exception as e:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Can not write public key: {e}"
@@ -308,10 +306,9 @@ class CertificateManager:
         try:
             with open(pem_file, "wb") as f:
                 f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, x509))
-                f.close()
         except Exception as e:
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Can not write public key: {e}"
+                f"{ErrorNumbers.FB619.value}: Can not write certificate: {e}"
             ) from e
 
         return key_file, pem_file
