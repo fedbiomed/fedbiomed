@@ -67,11 +67,10 @@ def download_and_extract_ixi_sample(root_folder):
     extracted_folder = os.path.join(data_folder, "7kd5wj7v7p-3", "IXI_sample")
     url = "https://data.mendeley.com/public-api/zip/7kd5wj7v7p/download/3"
 
-    d_url = os.getenv("FBM_DATASET_IXI_DOWNLOAD_URL", None)
     token = os.getenv("FBM_GITLAB_TOKEN", None)
     headers = None
-    if token and d_url:
-        url = d_url
+    if token:
+        url = "https://gitlab.inria.fr/api/v4/projects/70069/repository/blobs/e5aa86c60fab9230a4dd2b4a1818596ed130b624/raw"
         headers = {"PRIVATE-TOKEN": token}
 
     # Extract if ZIP exists but not folder
