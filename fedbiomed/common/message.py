@@ -228,11 +228,9 @@ class Message:
                     {field.name: args[0].from_proto(getattr(proto, field.name))}
                 )
 
-            # Detects the types that are declared as `optional`
-            # NOTE: In proto3 all fields are labeled as `LABEL_OPTIONAL` by default.
-            # However, if the field is labeled as `optional` explicitly, it will have
-            # presence, otherwise, `has_presence` returns False
-            elif field.has_presence and not field.is_required:
+            # Singular fields declared as explicit `optional`: only these report
+            # `has_presence` in proto3. Repeated/required are handled below.
+            elif field.has_presence and not field.is_repeated and not field.is_required:
                 # If proto has the field it means that the value is not None
                 if proto.HasField(field.name):
                     dict_.update({field.name: getattr(proto, field.name)})
