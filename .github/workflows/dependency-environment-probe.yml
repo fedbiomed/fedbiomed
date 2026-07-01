@@ -35,8 +35,13 @@ permissions:
 
 jobs:
   probe:
-    name: Probe dependencies on Python ${{ inputs.python-version || '3.12' }}
-    runs-on: ${{ inputs.os || 'ubuntu-latest' }}
+    name: Probe dependencies on Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.python-version) || '["3.12","3.13","3.14"]') }}
+        os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && format('["{0}"]', inputs.os) || '["ubuntu-latest"]') }}
     defaults:
       run:
         shell: bash -l {0}
@@ -48,7 +53,7 @@ jobs:
       - name: Setup Fed-BioMed Test Environment
         uses: ./.github/actions/setup-fbm-env
         with:
-          python-version: ${{ inputs.python-version || '3.12' }}
+          python-version: ${{ matrix.python-version }}
 
       - name: Create dependency requirements
         run: |
@@ -167,8 +172,8 @@ jobs:
           {
             echo "## Dependency Environment Probe"
             echo
-            echo "- Python: \`${{ inputs.python-version || '3.12' }}\`"
-            echo "- OS: \`${{ inputs.os || 'ubuntu-latest' }}\`"
+            echo "- Python: \`${{ matrix.python-version }}\`"
+            echo "- OS: \`${{ matrix.os }}\`"
             echo "- Optional groups: \`${{ inputs.optional-groups || 'researcher' }}\`"
             echo "- Dependency groups: \`${{ inputs.dependency-groups || 'test' }}\`"
             echo
@@ -197,6 +202,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dependency-env-probe-${{ inputs.os || 'ubuntu-latest' }}-py${{ inputs.python-version || '3.12' }}
+          name: dependency-env-probe-${{ matrix.os }}-py${{ matrix.python-version }}
           path: env-probe/
           if-no-files-found: error
