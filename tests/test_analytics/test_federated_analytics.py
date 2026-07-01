@@ -1178,6 +1178,29 @@ class TestFilterOutput:
         assert result_str == result_list
         assert result_str == {"demo": {"col1": {"mean": 1.0, "count": 10}}}
 
+    # ---- _filter_output: dict-form schema ----
+
+    def test_dict_form_schema_applies_child_selection(self):
+        """Dict-form schema ({key: child}) filters the child instead of copying the subtree."""
+        output = {
+            "demographics": {
+                "AGE": {"mean": 49.9, "count": 434},
+                "HEIGHT": {"mean": 161.8, "count": 435},
+            }
+        }
+        expected = {"demographics": {"AGE": {"mean": 49.9, "count": 434}}}
+        assert FAResult._filter_output(output, {"demographics": "AGE"}) == expected
+        assert FAResult._filter_output(output, {"demographics": ["AGE"]}) == expected
+
+    def test_dict_form_schema_none_child_keeps_subtree(self):
+        """A dict-form key mapped to None keeps that whole subtree (and drops others)."""
+        output = {
+            "demographics": {"AGE": {"mean": 49.9, "count": 434}},
+            "imaging": {"T1": {"mean": 1.0, "count": 10}},
+        }
+        result = FAResult._filter_output(output, {"demographics": None})
+        assert result == {"demographics": {"AGE": {"mean": 49.9, "count": 434}}}
+
     # ---- _filter_output: None / error cases ----
 
     def test_dict_item_non_dict_value_with_child_returns_none(self):
@@ -1485,6 +1508,30 @@ class TestCacheFallback:
         )  # filtered_copy fails → new request
         assert mock_fa_job_cls.call_count == 2
 
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_fallback_skipped_when_node_set_differs(
+        self, mock_fa_job_cls, base_fa, mock_fds
+    ):
+        """A cached result from a different node set must not be reused."""
+        replies_two = {
+            "node-1": _make_reply({"age": {"mean": 40.0, "count": 100}}),
+            "node-2": _make_reply({"age": {"mean": 45.0, "count": 80}}),
+        }
+        replies_three = {
+            **replies_two,
+            "node-3": _make_reply({"age": {"mean": 50.0, "count": 60}}),
+        }
+        mock_fa_job_cls.return_value.execute.side_effect = [replies_two, replies_three]
+
+        base_fa.fetch_stats("mean")  # cache result for {node-1, node-2}
+        assert mock_fa_job_cls.call_count == 1
+
+        # A node joins; a schema request must NOT recover the two-node result.
+        mock_fds.node_ids.return_value = ["node-1", "node-2", "node-3"]
+        result = base_fa.fetch_stats("mean", dataset_schema=["age"])
+        assert mock_fa_job_cls.call_count == 2  # new request, fallback skipped
+        assert sorted(result.node_ids) == ["node-1", "node-2", "node-3"]
+
 
 # ---------------------------------------------------------------------------
 # TestSecaggIntegration — encrypted-path tests for FederatedAnalytics
@@ -1672,8 +1719,10 @@ class TestSecaggIntegration:
     ):
         """_secagg_setup calls secagg.setup() with the node IDs from the federated dataset."""
         schema = [["x"]]
-        reply = _make_encrypted_reply([1], schema)
-        mock_fa_job_cls.return_value.execute.return_value = {"node-1": reply}
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([1], schema),
+            "node-2": _make_encrypted_reply([1], schema),
+        }
         mock_fds.node_ids.return_value = ["node-1", "node-2"]
         mock_secagg.aggregate.return_value = [5.0]
 
@@ -1691,7 +1740,8 @@ class TestSecaggIntegration:
         """fa_round injected into secagg_arguments increments with each FA request."""
         schema = [["x"]]
         mock_fa_job_cls.return_value.execute.return_value = {
-            "node-1": _make_encrypted_reply([1], schema)
+            "node-1": _make_encrypted_reply([1], schema),
+            "node-2": _make_encrypted_reply([1], schema),
         }
         mock_secagg.aggregate.return_value = [1.0]
 
@@ -1710,7 +1760,8 @@ class TestSecaggIntegration:
         """train_arguments() dict (plus fa_round) is passed verbatim to FARequestJob."""
         schema = [["x"]]
         mock_fa_job_cls.return_value.execute.return_value = {
-            "node-1": _make_encrypted_reply([1], schema)
+            "node-1": _make_encrypted_reply([1], schema),
+            "node-2": _make_encrypted_reply([1], schema),
         }
         mock_secagg.aggregate.return_value = [1.0]
 
@@ -1752,10 +1803,17 @@ class TestSecaggIntegration:
         """Two sequential encrypted requests merge their aggregate outputs in FAResult."""
         schema_count = [["x", "count"]]
         schema_sum = [["x", "sum"]]
-        replies_count = {"node-1": _make_encrypted_reply([100], schema_count)}
-        replies_sum = {"node-1": _make_encrypted_reply([500], schema_sum)}
+        replies_count = {
+            "node-1": _make_encrypted_reply([100], schema_count),
+            "node-2": _make_encrypted_reply([100], schema_count),
+        }
+        replies_sum = {
+            "node-1": _make_encrypted_reply([500], schema_sum),
+            "node-2": _make_encrypted_reply([500], schema_sum),
+        }
         mock_fa_job_cls.return_value.execute.side_effect = [replies_count, replies_sum]
-        mock_secagg.aggregate.side_effect = [[100.0], [500.0]]
+        # aggregate returns the cross-node mean; ×num_nodes (2) restores the sum.
+        mock_secagg.aggregate.side_effect = [[50.0], [250.0]]
 
         secagg_fa.fetch_stats("count")
         secagg_fa.fetch_stats("mean")  # mean requires sum + count
@@ -1805,3 +1863,18 @@ class TestSecaggIntegration:
             "global statistics" in call.args[0].lower()
             for call in mock_logger.info.call_args_list
         )
+
+    @patch("fedbiomed.researcher.federated_workflows._federated_analytics.FARequestJob")
+    def test_missing_node_reply_under_secagg_raises(
+        self, mock_fa_job_cls, secagg_fa, mock_secagg
+    ):
+        """A node that does not contribute breaks mask cancellation: secagg must reject it."""
+        schema = [["age", "sum"], ["age", "count"]]
+        # node-2 is expected (from the dataset) but only node-1 replied.
+        mock_fa_job_cls.return_value.execute.return_value = {
+            "node-1": _make_encrypted_reply([100, 200], schema),
+        }
+
+        with pytest.raises(FedbiomedError, match="all nodes to reply"):
+            secagg_fa.fetch_stats("mean")
+        mock_secagg.aggregate.assert_not_called()

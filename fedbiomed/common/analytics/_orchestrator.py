@@ -158,8 +158,13 @@ class AnalyticsOrchestrator:
         keys_map = {}
 
         if subschema is None:
-            # All keys, no subschema
-            for k in schema.keys():
+            # stats_args-only request encodes the key selection in its own structure.
+            keys = (
+                stats_args.keys()
+                if stats_args is not None and not stats
+                else schema.keys()
+            )
+            for k in keys:
                 keys_map[k] = None
         elif isinstance(subschema, (list, tuple)):
             for item in subschema:
@@ -220,9 +225,13 @@ class AnalyticsOrchestrator:
         # Validate Subschema
         if subschema is not None:
             if not isinstance(subschema, (list, tuple)):
-                raise FedbiomedError(
-                    f"Subschema for sequence must be list/tuple. Got {type(subschema)}."
-                )
+                # Single active element: accept and wrap an unwrapped subschema (e.g. a dict).
+                if len(active) == 1:
+                    subschema = [subschema]
+                else:
+                    raise FedbiomedError(
+                        f"Subschema for sequence must be list/tuple. Got {type(subschema)}."
+                    )
 
             # When the schema has exactly one active element, the child subschema may be
             # passed directly (e.g. ["col1"]) instead of wrapped (e.g. [["col1"]]).
@@ -296,12 +305,13 @@ class AnalyticsOrchestrator:
         """Validates and builds config for a ROW type leaf node."""
         # Validate Subschema
         if subschema is not None:
+            if isinstance(subschema, str):
+                subschema = [subschema]  # normalise a bare column name to a list
             if not isinstance(subschema, (list, tuple)):
                 raise FedbiomedError("Subschema for ROW must be a list of columns.")
             invalid = set(subschema) - set(schema.columns)
             if invalid:
                 raise FedbiomedError(f"Invalid columns in subschema: {invalid}")
-        selected_cols = subschema if subschema is not None else schema.columns
 
         # Validate Args
         if stats_args is not None:
@@ -310,6 +320,14 @@ class AnalyticsOrchestrator:
             invalid = set(stats_args.keys()) - set(schema.columns)
             if invalid:
                 raise FedbiomedError(f"Invalid columns in args: {invalid}")
+
+        # With no subschema and no flat stats list, stats_args names the selected columns.
+        if subschema is not None:
+            selected_cols = subschema
+        elif stats_args is not None and not stats:
+            selected_cols = list(stats_args.keys())
+        else:
+            selected_cols = schema.columns
 
         # Compile Config
         col_configs = {}
