@@ -48,6 +48,8 @@ jobs:
       - name: Clean
         if: always()
         run: |
+          # Fix possible permission issues
+          sudo chown -R $(whoami):$(whoami) envs/vpn/docker || true
           ./scripts/fedbiomed_vpn clean image
           docker system prune -af
         shell: bash -l {0}
