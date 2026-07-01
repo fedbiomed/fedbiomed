@@ -16,20 +16,20 @@ class TestTorchDataManager(unittest.TestCase):
 
         def __init__(self):
             self.X_train = [
-                torch.Tensor([1, 2, 3]),
-                torch.Tensor([4, 5, 6]),
-                torch.Tensor([7, 8, 9]),
-                torch.Tensor([10, 11, 12]),
-                torch.Tensor([13, 14, 15]),
-                torch.Tensor([16, 17, 18]),
+                torch.tensor([1.0, 2.0, 3.0]),
+                torch.tensor([4.0, 5.0, 6.0]),
+                torch.tensor([7.0, 8.0, 9.0]),
+                torch.tensor([10.0, 11.0, 12.0]),
+                torch.tensor([13.0, 14.0, 15.0]),
+                torch.tensor([16.0, 17.0, 18.0]),
             ]
             self.Y_train = [
-                torch.Tensor(1),
-                torch.Tensor(2),
-                torch.Tensor(3),
-                torch.Tensor(4),
-                torch.Tensor(5),
-                torch.Tensor(6),
+                torch.tensor(1.0),
+                torch.tensor(2.0),
+                torch.tensor(3.0),
+                torch.tensor(4.0),
+                torch.tensor(5.0),
+                torch.tensor(6.0),
             ]
 
         def load(self):
