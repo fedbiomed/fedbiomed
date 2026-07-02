@@ -85,6 +85,17 @@ def is_server_alive(host: str, port: str):
                 return True
 
 
+# gRPC reports TLS/pinning failures with the same UNAVAILABLE status as an
+# unreachable server; these markers in the error detail disambiguate them.
+_TLS_HANDSHAKE_ERROR_MARKERS = ("handshake", "certificate", "ssl", "tls")
+
+
+def _is_tls_handshake_error(exp: grpc.aio.AioRpcError) -> bool:
+    """Whether an UNAVAILABLE RPC error is really a TLS/pinning failure."""
+    detail = f"{exp.details()} {exp.debug_error_string()}".lower()
+    return any(m in detail for m in _TLS_HANDSHAKE_ERROR_MARKERS)
+
+
 class Channels:
     """Keeps gRPC server channels"""
 
@@ -109,6 +120,11 @@ class Channels:
 
         # lock for accessing channels and stubs
         self._channels_stubs_lock = asyncio.Lock()
+
+    @property
+    def mtls(self) -> bool:
+        """Whether the node connects to the researcher with mutual TLS."""
+        return self._researcher.mtls
 
     async def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
         """Get stub for a given stub type.
@@ -345,7 +361,7 @@ class GrpcClient:
                 # Connect to channels and create stubs
                 await self._channels.connect()
                 logger.info(
-                    f"Successfully connected to researcher server at "
+                    "Channel created to researcher server at "
                     f"{self._researcher.host}:{self._researcher.port}",
                     extra={"is_security": True},
                 )
@@ -487,15 +503,37 @@ class Listener:
                         await self._handle_after_process(ClientStatus.DISCONNECTED)
                     case grpc.StatusCode.UNAVAILABLE:
                         await self._on_status_change(ClientStatus.DISCONNECTED)
-                        logger.debug(
-                            f"Researcher server is not available to {self.__class__.__name__}, will retry connect in "
-                            f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
-                        )
+                        if self._channels.mtls and _is_tls_handshake_error(exp):
+                            logger.error(
+                                f"{ErrorNumbers.FB628.value}: Mutual-TLS handshake with "
+                                f"researcher failed in {self.__class__.__name__}: "
+                                f"{exp.details()}. Check pinned/registered certificates "
+                                "and possible MITM. Retrying.",
+                                extra={"is_security": True},
+                            )
+                        else:
+                            logger.debug(
+                                f"Researcher server is not available to {self.__class__.__name__}, will retry connect in "
+                                f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
+                            )
                         await self._handle_after_process(
                             ClientStatus.DISCONNECTED,
                             retry=self._retry_on_error,
                             reconnect=True,
                         )
+
+                    case grpc.StatusCode.UNAUTHENTICATED:
+                        # Identity rejected by researcher; static config, retry
+                        # cannot help: stop.
+                        await self._on_status_change(ClientStatus.FAILED)
+                        msg = (
+                            f"{ErrorNumbers.FB628.value}: Researcher rejected this "
+                            f"node's identity in {self.__class__.__name__}: "
+                            f"{exp.details()}. Declared node id does not match its "
+                            "certificate, or the certificate is not registered."
+                        )
+                        logger.error(msg, extra={"is_security": True})
+                        raise FedbiomedCommunicationError(msg) from exp
 
                     case grpc.StatusCode.UNKNOWN | _:
                         logger.error(
