@@ -311,6 +311,15 @@ class Config(metaclass=ABCMeta):
             )
             self._cfg["syslog"] = {"enable": "False"}
 
+            # Opt-in mutual TLS; `db` holds the trusted (pinned) certificates.
+            mtls_db = os.path.join(self.root, CERTS_FOLDER_NAME, "mtls.json")
+            self._cfg["mtls"] = {
+                "enabled": "False",
+                "db": os.path.relpath(
+                    mtls_db, os.path.join(self.root, CONFIG_FOLDER_NAME)
+                ),
+            }
+
             # Calls child class add_parameterss
             self.add_parameters()
 

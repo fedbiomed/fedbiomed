@@ -16,7 +16,16 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.constants import REQUEST_PREFIX, MessageType
+from fedbiomed.common.certificate_manager import (
+    CertificateManager,
+    is_mtls_enabled,
+    mtls_db_path,
+)
+from fedbiomed.common.constants import (
+    REQUEST_PREFIX,
+    ComponentType,
+    MessageType,
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     ApprovalRequest,
@@ -347,6 +356,21 @@ class Requests(metaclass=SingletonMeta):
         cert_priv = config.getpath("certificate", "private_key")
         cert_pub = config.getpath("certificate", "public_key")
 
+        # Bundle of registered node certificates to pin, when mutual TLS is on.
+        trusted_node_certificates = None
+        if is_mtls_enabled(config):
+            certificate_manager = CertificateManager(db_path=mtls_db_path(config))
+            node_certificates = certificate_manager.get_by_component(
+                ComponentType.NODE.name
+            )
+            if not node_certificates:
+                logger.warning(
+                    "Mutual TLS is enabled but no node certificate is registered. "
+                    "No node will be able to connect until certificates are registered "
+                    "with `fedbiomed researcher certificate register`."
+                )
+            trusted_node_certificates = "\n".join(node_certificates).encode("utf-8")
+
         # Creates grpc server and starts it
         self._researcher_id = config.get("default", "id")
         self._grpc_server = GrpcServer(
@@ -354,7 +378,11 @@ class Requests(metaclass=SingletonMeta):
             port=server_port,
             config=config,
             on_message=self.on_message,
-            ssl=SSLCredentials(key=cert_priv, cert=cert_pub),
+            ssl=SSLCredentials(
+                key=cert_priv,
+                cert=cert_pub,
+                trusted_node_certificates=trusted_node_certificates,
+            ),
         )
         self.start_messaging()
 
