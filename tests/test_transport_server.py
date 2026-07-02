@@ -49,6 +49,8 @@ class TestResearcherServicer(unittest.IsolatedAsyncioTestCase):
         self.request = TaskRequest(node="node-1", protocol_version="x")
 
         self.context = MagicMock()
+        # No client certificate presented (mutual TLS disabled)
+        self.context.auth_context.return_value = {}
 
         self.agent_store = MagicMock(spec=AgentStore)
         self.on_message = MagicMock()
@@ -140,6 +142,7 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
         ssl_credentials = MagicMock()
         type(ssl_credentials).private_key = PropertyMock(return_value=b"test")
         type(ssl_credentials).certificate = PropertyMock(return_value=b"test")
+        type(ssl_credentials).mtls = PropertyMock(return_value=False)
 
         self.server_patch = patch("fedbiomed.transport.server.grpc.aio.server")
         self.node_agent_patch = patch(
@@ -252,6 +255,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.ssl_credentials = MagicMock()
         type(self.ssl_credentials).private_key = PropertyMock(return_value=b"test")
         type(self.ssl_credentials).certificate = PropertyMock(return_value=b"test")
+        type(self.ssl_credentials).mtls = PropertyMock(return_value=False)
 
         self.async_server_patch = patch("fedbiomed.transport.server._GrpcAsyncServer")
         self.server_patch = patch("fedbiomed.transport.server.grpc.aio.server")

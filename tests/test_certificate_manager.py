@@ -76,6 +76,26 @@ class TestCertificateManager(unittest.TestCase):
             "Test-ID"
         )
 
+    def test_02_certificate_manager_get_by_component(self):
+        """Tests retrieving all certificates of a given component type"""
+        self.tiny_db_table_mock.return_value.search.return_value = [
+            {"certificate": "cert-1"},
+            {"certificate": "cert-2"},
+        ]
+
+        result = self.cm.get_by_component("NODE")
+
+        self.assertEqual(result, ["cert-1", "cert-2"])
+        self.tiny_db_table_mock.return_value.search.assert_called_once()
+        self.tiny_db_query_mock.return_value.component.__eq__.assert_called_once_with(
+            "NODE"
+        )
+
+    def test_02_certificate_manager_get_by_component_empty(self):
+        """Tests component lookup with no registered certificates"""
+        self.tiny_db_table_mock.return_value.search.return_value = []
+        self.assertEqual(self.cm.get_by_component("NODE"), [])
+
     def test_03_certificate_manager_insert(self):
         """Tests get method of certificate manager"""
 
