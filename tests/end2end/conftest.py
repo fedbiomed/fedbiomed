@@ -13,6 +13,7 @@ import pytest
 from helpers import (
     CONFIG_PREFIX,
     kill_process,
+    stop_researcher_server,
 )
 
 _PORT = 50151
@@ -50,6 +51,7 @@ def post_session(request, data):
 
     yield
 
+    stop_researcher_server()
     print("#### Killing e2e processes after the tests -----")
     kill_e2e_test_processes()
     print("#### Killing is completed")

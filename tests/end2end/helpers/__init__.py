@@ -23,6 +23,7 @@ from ._helpers import (
     execute_script,
     get_data_folder,
     start_nodes,
+    stop_researcher_server,
     training_plan_operation,
 )
 from .constants import CONFIG_PREFIX
@@ -48,6 +49,7 @@ __all__ = [
     "execute_script",
     "get_data_folder",
     "start_nodes",
+    "stop_researcher_server",
     "training_plan_operation",
     "CONFIG_PREFIX",
 ]
