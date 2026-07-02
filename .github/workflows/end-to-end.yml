@@ -4,7 +4,7 @@ run-name: fedbiomed-e2e-tests
 permissions: write-all
 on:
   schedule:
-    - cron: '0 1 * * *'  # Run every day at 1 am on default branch: develop
+    - cron: '0 20 * * *'  # Run every day at 8pm on default branch: develop
   workflow_dispatch:
     inputs:
       python-version:
