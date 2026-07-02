@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import grpc
+from cryptography import x509
 
 from fedbiomed.common.constants import MAX_RETRIEVE_ERROR_RETRIES, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
@@ -749,6 +750,90 @@ class TestChannels(unittest.IsolatedAsyncioTestCase):
 
         # test non existing stub
         self.assertEqual(await self.channels.stub("dummy"), None)
+
+    @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
+    async def test_channels_03_create_without_mtls(self, ssl_channel_credentials):
+        """Without mutual TLS only the server certificate is pinned."""
+        r = ResearcherCredentials(
+            host="localhost", port="50051", certificate=b"server-cert"
+        )
+        channels = Channels(researcher=r)
+
+        channels._create()
+
+        # Server certificate pinned, no client identity, no target-name override
+        ssl_channel_credentials.assert_called_once_with(b"server-cert")
+        _, kwargs = self.create_channel_mock.call_args
+        self.assertIsNone(kwargs["target_name_override"])
+        self.assertEqual(kwargs["certificate"], ssl_channel_credentials.return_value)
+
+    @patch("fedbiomed.transport.client.certificate_subject_field")
+    @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
+    async def test_channels_04_create_with_mtls(
+        self, ssl_channel_credentials, subject_field
+    ):
+        """With mutual TLS the node presents its identity and pins the CN."""
+        subject_field.return_value = "researcher-cn"
+        r = ResearcherCredentials(
+            host="localhost",
+            port="50051",
+            certificate=b"server-cert",
+            private_key=b"node-key",
+            certificate_chain=b"node-cert",
+            mtls=True,
+        )
+        channels = Channels(researcher=r)
+
+        channels._create()
+
+        ssl_channel_credentials.assert_called_once_with(
+            root_certificates=b"server-cert",
+            private_key=b"node-key",
+            certificate_chain=b"node-cert",
+        )
+        subject_field.assert_called_once_with(
+            b"server-cert", x509.oid.NameOID.COMMON_NAME
+        )
+        _, kwargs = self.create_channel_mock.call_args
+        self.assertEqual(kwargs["target_name_override"], "researcher-cn")
+
+    async def test_channels_05_create_channel_adds_target_name_override(self):
+        """`target_name_override` is forwarded as a gRPC channel option."""
+        self.create_channel_patch.stop()
+        try:
+            with patch(
+                "fedbiomed.transport.client.grpc.aio.secure_channel"
+            ) as secure_channel:
+                Channels._create_channel(
+                    port="50051",
+                    host="localhost",
+                    certificate=MagicMock(),
+                    target_name_override="researcher-cn",
+                )
+            options = dict(secure_channel.call_args.kwargs["options"])
+            self.assertEqual(
+                options.get("grpc.ssl_target_name_override"), "researcher-cn"
+            )
+        finally:
+            self.create_channel_mock = self.create_channel_patch.start()
+
+    async def test_channels_06_create_channel_omits_override_when_absent(self):
+        """No override option is set when `target_name_override` is None."""
+        self.create_channel_patch.stop()
+        try:
+            with patch(
+                "fedbiomed.transport.client.grpc.aio.secure_channel"
+            ) as secure_channel:
+                Channels._create_channel(
+                    port="50051",
+                    host="localhost",
+                    certificate=MagicMock(),
+                    target_name_override=None,
+                )
+            options = dict(secure_channel.call_args.kwargs["options"])
+            self.assertNotIn("grpc.ssl_target_name_override", options)
+        finally:
+            self.create_channel_mock = self.create_channel_patch.start()
 
 
 if __name__ == "__main__":  # pragma: no cover

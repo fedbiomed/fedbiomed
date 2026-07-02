@@ -19,6 +19,8 @@ class TestCommonCLI(unittest.TestCase):
         self.mock_certificate_manager = self.patch_certificate_manager.start()
         self.mock_set_db = self.patch_set_db.start()
         self.config = MagicMock()
+        # Certificate commands target the mTLS store; enable it by default.
+        self.config.getbool.return_value = True
         self.cli = CommonCLI()
         self.cli.config = self.config
 
@@ -223,6 +225,8 @@ class TestCommonCLI(unittest.TestCase):
 
         self.cli._register_certificate(args)
 
+        # Registration targets the `[mtls]` db, not the main component database.
+        self.config.get.assert_any_call("mtls", "db", fallback=None)
         mock_register_certificate.assert_called_once_with(
             certificate_path="path/to/key",
             party_id="party-id-1",
@@ -233,6 +237,21 @@ class TestCommonCLI(unittest.TestCase):
         mock_register_certificate.side_effect = FedbiomedError
         with self.assertRaises(SystemExit):
             self.cli._register_certificate(args)
+
+    @patch("builtins.print")
+    def test_08_bis_certificate_command_aborts_when_mtls_disabled(self, mock_print):
+        # Disabled: `db` is never requested and the command aborts (sys.exit).
+        self.config.getbool.return_value = False
+        self.cli.initialize_certificate_parser()
+        args = self.cli.parser.parse_args(
+            ["certificate", "register", "--party-id", "p", "--public-key", "k"]
+        )
+
+        with self.assertRaises(SystemExit):
+            self.cli._register_certificate(args)
+
+        self.mock_set_db.assert_not_called()
+        self.config.get.assert_not_called()  # db path never requested
 
     @patch("fedbiomed.common.cli.CertificateManager.list")
     @patch("builtins.open")

@@ -1,4 +1,5 @@
 import configparser
+import os
 import shutil
 import unittest
 from unittest.mock import patch
@@ -282,6 +283,14 @@ class TestNodeConfig(BaseConfigTest):
         self.assertTrue("default" in sections)
         self.assertTrue("security" in sections)
         self.assertTrue("certificate" in sections)
+        self.assertTrue("mtls" in sections)
+
+    def test_02_node_config_mtls_section_defaults(self):
+        config = NodeConfig(root="test")
+
+        # Opt-in: disabled by default, db under the component `certs` folder.
+        self.assertFalse(config.getbool("mtls", "enabled"))
+        self.assertEqual(config.get("mtls", "db"), os.path.join("certs", "mtls.json"))
 
     def test_03_node_config_migrate_old(self):
         config = NodeConfig(root="test")

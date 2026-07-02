@@ -13,6 +13,7 @@ from typing import Awaitable, Callable, Iterable, List, Optional
 import grpc
 from cryptography import x509
 
+from fedbiomed.common.certificate_manager import certificate_subject_field
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
     MAX_RETRIEVE_ERROR_RETRIES,
@@ -30,7 +31,11 @@ from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceS
 class ResearcherCredentials:
     port: str
     host: str
-    certificate: Optional[str] = None
+    certificate: Optional[bytes] = None
+    # Node identity presented to the researcher when mutual TLS is enabled
+    private_key: Optional[bytes] = None
+    certificate_chain: Optional[bytes] = None
+    mtls: bool = False
 
 
 class ClientStatus(Enum):
@@ -141,22 +146,41 @@ class Channels:
 
     def _create(self):
         """Creates new channel"""
+        if self._researcher.mtls:
+            credentials = grpc.ssl_channel_credentials(
+                root_certificates=self._researcher.certificate,
+                private_key=self._researcher.private_key,
+                certificate_chain=self._researcher.certificate_chain,
+            )
+            target_name_override = certificate_subject_field(
+                self._researcher.certificate, x509.oid.NameOID.COMMON_NAME
+            )
+        else:
+            credentials = grpc.ssl_channel_credentials(self._researcher.certificate)
+            target_name_override = None
+
         return self._create_channel(
             port=self._researcher.port,
             host=self._researcher.host,
-            certificate=grpc.ssl_channel_credentials(self._researcher.certificate),
+            certificate=credentials,
+            target_name_override=target_name_override,
         )
 
     @staticmethod
     def _create_channel(
-        port: str, host: str, certificate: Optional[str] = None
+        port: str,
+        host: str,
+        certificate: Optional[grpc.ChannelCredentials] = None,
+        target_name_override: Optional[str] = None,
     ) -> grpc.Channel:
         """Create gRPC channel
 
         Args:
             ip: IP address of the channel
             port: TCP port of the channel
-            certificate: certificate for secure channel, or None for insecure channel
+            certificate: channel credentials for secure channel, or None for insecure channel
+            target_name_override: expected server name to verify against the pinned
+                certificate, used when the connect host differs from the cert CN
 
         Returns:
             gRPC connection channel
@@ -186,6 +210,11 @@ class Channels:
             ("grpc.enable_retries", 1),
             # ("grpc.service_config", service_config)
         ]
+
+        if target_name_override is not None:
+            channel_options.append(
+                ("grpc.ssl_target_name_override", target_name_override)
+            )
 
         if certificate is None:
             channel = grpc.aio.insecure_channel(
@@ -289,37 +318,29 @@ class GrpcClient:
         while True:
             time_before = time.perf_counter()
             if is_server_alive(self._researcher.host, self._researcher.port):
-                # Gets server certificate before creating the channel
-                # This implementation assumes that the provided IP and PORT trusted
-                # == OK for honest but curious researcher and nodes (parties in the
-                # network instance) but subject to attack by malicious MITM at each
-                # connection to server
-                #
-                # TODO: implement configurable policy instead of hardcoded current version
-                # in the future
-                self._researcher.certificate = bytes(
-                    ssl.get_server_certificate(
-                        (self._researcher.host, self._researcher.port)
-                    ),
-                    "utf-8",
-                )
-                logger.info(
-                    "Retrieved server certificate, ready to communicate with server."
-                )
+                if not self._researcher.mtls:
+                    # Gets server certificate before creating the channel
+                    # This implementation assumes that the provided IP and PORT trusted
+                    # == OK for honest but curious researcher and nodes (parties in the
+                    # network instance) but subject to attack by malicious MITM at each
+                    # connection to server.
+                    # Skipped under mutual TLS, where the cert is pinned, not fetched.
+                    self._researcher.certificate = bytes(
+                        ssl.get_server_certificate(
+                            (self._researcher.host, self._researcher.port)
+                        ),
+                        "utf-8",
+                    )
+                    logger.info(
+                        "Retrieved server certificate, ready to communicate with server."
+                    )
 
                 if self._id is None:
-                    # early auto-detect researcher_id from peer certificate if not set yet
-                    try:
-                        self._id = (
-                            x509.load_pem_x509_certificate(self._researcher.certificate)
-                            .subject.get_attributes_for_oid(
-                                x509.oid.NameOID.ORGANIZATION_NAME
-                            )[0]
-                            .value
-                        )
-                    except AttributeError:
-                        # handle case of certificate without a researcher_id in subject O=... field
-                        pass
+                    # auto-detect researcher_id from the peer certificate O= field
+                    self._id = certificate_subject_field(
+                        self._researcher.certificate,
+                        x509.oid.NameOID.ORGANIZATION_NAME,
+                    )
 
                 # Connect to channels and create stubs
                 await self._channels.connect()

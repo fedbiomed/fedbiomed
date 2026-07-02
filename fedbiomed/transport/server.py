@@ -8,9 +8,11 @@ import time
 from typing import Any, Callable, Coroutine, Iterable, List, Optional
 
 import grpc
+from cryptography import x509
 from google.protobuf.message import Message as ProtoBufMessage
 
 import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
+from fedbiomed.common.certificate_manager import certificate_subject_field
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
@@ -49,17 +51,52 @@ MAX_GRPC_SERVER_SETUP_TIMEOUT = 20 * server_setup_timeout
 class SSLCredentials:
     """Contains credentials for SSL certificate of the gRPC server"""
 
-    def __init__(self, key: str, cert: str):
+    def __init__(
+        self,
+        key: str,
+        cert: str,
+        trusted_node_certificates: Optional[bytes] = None,
+    ):
         """Reads private key and cert file
 
         Args:
             key: path to private key
             cert: path to certificate
+            trusted_node_certificates: PEM bundle of registered node certificates
+                used to verify node identity when mutual TLS is enabled. If None,
+                node identity is not verified (server-auth TLS only).
         """
         with open(key, "rb") as f:
             self.private_key = f.read()
         with open(cert, "rb") as f:
             self.certificate = f.read()
+        self.trusted_node_certificates = trusted_node_certificates
+
+    @property
+    def mtls(self) -> bool:
+        """Whether mutual TLS (node certificate verification) is enabled."""
+        return self.trusted_node_certificates is not None
+
+
+def _peer_node_id(context: grpc.aio.ServicerContext) -> Optional[str]:
+    """Extracts the node id (cert `O=` field) from the peer client certificate.
+
+    Args:
+        context: RPC peer context.
+
+    Returns:
+        The organization value of the presented client certificate, or None when
+        no client certificate was presented (mutual TLS disabled).
+    """
+    pem = context.auth_context().get("x509_pem_cert")
+    if not pem:
+        return None
+
+    certificate = pem[0]
+    if not isinstance(certificate, bytes):
+        certificate = certificate.encode("utf-8")
+
+    return certificate_subject_field(certificate, x509.oid.NameOID.ORGANIZATION_NAME)
 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
@@ -87,6 +124,16 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         """
         task_request = TaskRequest.from_proto(request).get_dict()
         logger.debug(f"Node: {task_request.get('node')} polling for the tasks")
+
+        peer_node_id = _peer_node_id(context)
+        if peer_node_id is not None and peer_node_id != task_request["node"]:
+            msg = (
+                f"{ErrorNumbers.FB628.value}: Suspected malicious node activity ! "
+                f"Declared node id `{task_request['node']}` does not match the "
+                f"client certificate identity `{peer_node_id}`."
+            )
+            logger.error(msg, extra={"is_security": True})
+            await context.abort(grpc.StatusCode.UNAUTHENTICATED, msg)
 
         node_agent = await self._agent_store.retrieve(node_id=task_request["node"])
 
@@ -380,12 +427,18 @@ class _GrpcAsyncServer:
             server=self._server,
         )
 
-        # TODO: current version does not require or check client certificate
-        # In other words: hardcoded policy that researcher does not check node identity yet.
-        # To be extended in a future version.
-        server_credentials = grpc.ssl_server_credentials(
-            ((self._ssl.private_key, self._ssl.certificate),)
-        )
+        # Under mutual TLS, require and pin node client certificates against the
+        # registered bundle; otherwise server-auth only.
+        if self._ssl.mtls:
+            server_credentials = grpc.ssl_server_credentials(
+                ((self._ssl.private_key, self._ssl.certificate),),
+                root_certificates=self._ssl.trusted_node_certificates,
+                require_client_auth=True,
+            )
+        else:
+            server_credentials = grpc.ssl_server_credentials(
+                ((self._ssl.private_key, self._ssl.certificate),)
+            )
 
         self._server.add_secure_port(
             self._host + ":" + str(self._port), server_credentials
