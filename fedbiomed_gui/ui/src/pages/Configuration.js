@@ -175,6 +175,8 @@ const Configuration = ({
     resetNodeConfigMessages,
     executeNodeAction,
     fetchNodeProcessState,
+    fetchProcessStateOnMount = true,
+    embedded = false,
 }) => {
     const [activeSection, setActiveSection] = React.useState(null)
     // Draft values are the current form values. They may differ from config.ini
@@ -205,8 +207,10 @@ const Configuration = ({
 
     React.useEffect(() => {
         fetchNodeConfig()
-        fetchNodeProcessState()
-    }, [fetchNodeConfig, fetchNodeProcessState])
+        if (fetchProcessStateOnMount) {
+            fetchNodeProcessState()
+        }
+    }, [fetchNodeConfig, fetchNodeProcessState, fetchProcessStateOnMount])
 
     React.useEffect(() => {
         if (!activeSection && sectionNames.length) {
@@ -343,7 +347,7 @@ const Configuration = ({
     )
 
     return (
-        <div className="node-management-page">
+        <div className={embedded ? 'node-config-page' : 'node-management-page'}>
             <section className="node-management-card node-management-header">
                 <div className="node-management-header-top">
                     <div className="node-management-heading">

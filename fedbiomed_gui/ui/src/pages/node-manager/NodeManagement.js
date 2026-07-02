@@ -2,26 +2,19 @@ import React from 'react'
 import {connect} from 'react-redux'
 import {
     EuiButton,
-    EuiButtonEmpty,
     EuiFieldNumber,
     EuiFlexGroup,
     EuiFlexItem,
     EuiFormRow,
     EuiIcon,
-    EuiModal,
-    EuiModalBody,
-    EuiModalFooter,
-    EuiModalHeader,
-    EuiModalHeaderTitle,
-    EuiSelect,
-    EuiSpacer,
     EuiSwitch,
     EuiTab,
     EuiTabs,
-    EuiText,
-    EuiToolTip,
 } from '@elastic/eui'
 
+import ApplicationLogs from './ApplicationLogs'
+import ProcessDetails from './ProcessDetails'
+import Configuration from '../Configuration'
 import {
     downloadNodeLogFile,
     executeNodeAction,
@@ -63,6 +56,11 @@ const areNodeArgsEqual = (firstNodeArgs, secondNodeArgs) => {
 const nodeManagementTabs = {
     process: 'process',
     logs: 'logs',
+}
+
+const mainTabs = {
+    management: 'management',
+    configuration: 'configuration',
 }
 
 const applicationLogBasename = 'application.log'
@@ -230,6 +228,7 @@ const NodeManagement = ({
     const [now, setNow] = React.useState(new Date())
     const [nodeArgs, setNodeArgs] = React.useState(defaultNodeArgs)
     const [isActorModalVisible, setIsActorModalVisible] = React.useState(false)
+    const [activeMainTab, setActiveMainTab] = React.useState(mainTabs.management)
     const [activeTab, setActiveTab] = React.useState(nodeManagementTabs.process)
     const [logFileName, setLogFileName] = React.useState(applicationLogBasename)
     const [logPageSize, setLogPageSize] = React.useState(100)
@@ -295,21 +294,36 @@ const NodeManagement = ({
         }
     }, [loadOlderNodeLogs])
 
+    const handleLogFileChange = (fileName) => {
+        preserveLogScrollRef.current = null
+        setLogFileName(fileName)
+    }
+
+    const handleLogPageSizeChange = (pageSize) => {
+        setLogPageSize(pageSize)
+    }
+
     React.useEffect(() => {
-        if (activeTab !== nodeManagementTabs.logs) {
+        if (
+            activeMainTab !== mainTabs.management
+            || activeTab !== nodeManagementTabs.logs
+        ) {
             return
         }
 
         fetchNodeLogFiles()
-    }, [activeTab, fetchNodeLogFiles])
+    }, [activeMainTab, activeTab, fetchNodeLogFiles])
 
     React.useEffect(() => {
-        if (activeTab !== nodeManagementTabs.logs) {
+        if (
+            activeMainTab !== mainTabs.management
+            || activeTab !== nodeManagementTabs.logs
+        ) {
             return
         }
 
         loadLatestNodeLogs()
-    }, [activeTab, loadLatestNodeLogs])
+    }, [activeMainTab, activeTab, loadLatestNodeLogs])
 
     React.useEffect(() => {
         if (!logFiles.length) {
@@ -408,6 +422,30 @@ const NodeManagement = ({
 
     return (
         <div className="node-management-page">
+            <section className="node-management-card node-management-tabs-card">
+                <EuiTabs>
+                    <EuiTab
+                        isSelected={activeMainTab === mainTabs.management}
+                        onClick={() => setActiveMainTab(mainTabs.management)}
+                    >
+                        Node Management
+                    </EuiTab>
+                    <EuiTab
+                        isSelected={activeMainTab === mainTabs.configuration}
+                        onClick={() => setActiveMainTab(mainTabs.configuration)}
+                    >
+                        Configuration
+                    </EuiTab>
+                </EuiTabs>
+            </section>
+
+            {activeMainTab === mainTabs.configuration ? (
+                <Configuration
+                    fetchProcessStateOnMount={false}
+                    embedded
+                />
+            ) : (
+                <>
             <section className="node-management-card node-management-header">
                 <div className="node-management-header-top">
                     <div className="node-management-heading">
@@ -602,384 +640,50 @@ const NodeManagement = ({
             </section>
 
             {activeTab === nodeManagementTabs.process ? (
-            <section className="node-management-card node-management-process">
-                <div className="node-management-section-header">
-                    <div className="node-management-section-heading">
-                        <span className="node-management-section-icon">
-                            <EuiIcon type="stats" size="l" />
-                        </span>
-                        <div>
-                            <h2>Process Details</h2>
-                            <p>Current process information and status</p>
-                        </div>
-                    </div>
-                    <div className="node-management-process-header-actions">
-                        <EuiToolTip
-                            position="bottom"
-                            title="Last Action Actor"
-                            content={(
-                                <div className="node-management-actor-tooltip">
-                                    <span>
-                                        <strong>Name:</strong>{' '}
-                                        {formatValue(
-                                            actorName || actor.local_username
-                                        )}
-                                    </span>
-                                    <span>
-                                        <strong>Email:</strong>{' '}
-                                        {formatValue(actor.email)}
-                                    </span>
-                                    <span>
-                                        <strong>Role:</strong>{' '}
-                                        {formatValue(actor.role)}
-                                    </span>
-                                    <span>
-                                        <strong>Source:</strong>{' '}
-                                        {formatValue(actor.source)}
-                                    </span>
-                                    <span>
-                                        <strong>User ID:</strong>{' '}
-                                        {formatValue(actor.user_id)}
-                                    </span>
-                                </div>
-                            )}
-                        >
-                            <EuiButton
-                                size="s"
-                                iconType="user"
-                                onClick={() => setIsActorModalVisible(true)}
-                            >
-                                View actor
-                            </EuiButton>
-                        </EuiToolTip>
-                        <StatusPill state={currentState} />
-                    </div>
-                </div>
-
-                <div className="node-management-process-content">
-                    <aside className="node-management-summary">
-                        <SummaryCard
-                            className="uptime"
-                            label="Uptime"
-                            value={runningFor}
-                            description="Running for"
-                        />
-                        <SummaryCard
-                            className="pid"
-                            label="PID"
-                            value={processState?.pid}
-                            description="Process ID"
-                        />
-                    </aside>
-
-                    <div className="node-management-details-grid">
-                        <DetailItem
-                            icon="tokenKey"
-                            label="Node ID"
-                            value={processState?.node_id}
-                        />
-                        <DetailItem
-                            icon="calendar"
-                            label="Started At"
-                            value={formatDateTime(processState?.started_at)}
-                        />
-                        <DetailItem
-                            icon="user"
-                            label="Node Name"
-                            value={processState?.node_name}
-                        />
-                        <DetailItem
-                            icon="refresh"
-                            label="Last Refresh"
-                            value={formatDateTime(lastRefresh)}
-                        />
-                        <DetailItem
-                            icon="iInCircle"
-                            label="State"
-                            valueContent={<StatusPill state={currentState} />}
-                        />
-                        <DetailItem
-                            icon="calendar"
-                            label="Updated At"
-                            value={formatDateTime(processState?.updated_at)}
-                        />
-                        <DetailItem
-                            icon="clock"
-                            label="Running For"
-                            value={runningFor}
-                        />
-                        <DetailItem
-                            icon="clock"
-                            label="Stopped At"
-                            value={formatDateTime(processState?.stopped_at)}
-                        />
-                        <DetailItem
-                            icon="play"
-                            label="Action"
-                            value={processState?.action}
-                        />
-                        <DetailItem
-                            icon="console"
-                            label="Exit Code"
-                            value={processState?.exit_code}
-                        />
-                        <DetailItem
-                            icon="flag"
-                            label="Reason"
-                            value={processState?.reason}
-                        />
-                        <DetailItem
-                            icon="compute"
-                            label="GPU"
-                            value={processState?.node_args?.gpu}
-                        />
-                        <DetailItem
-                            icon="number"
-                            label="GPU Number"
-                            value={processState?.node_args?.gpu_num}
-                        />
-                        <DetailItem
-                            icon="check"
-                            label="GPU Only"
-                            value={processState?.node_args?.gpu_only}
-                        />
-                        <DetailItem
-                            icon="bug"
-                            label="Debug"
-                            value={processState?.node_args?.debug}
-                        />
-                        <DetailItem
-                            icon="desktop"
-                            label="Background"
-                            value={processState?.background}
-                        />
-                    </div>
-                </div>
-
-                <div className={`node-management-status-banner ${
-                    stateTone(currentState)
-                }`}>
-                    <span className="node-management-status-banner-icon">
-                        <EuiIcon type="iInCircle" size="l" />
-                    </span>
-                    <div>
-                        <strong>Process Status</strong>
-                        <p>{statusMessage}</p>
-                    </div>
-                </div>
-            </section>
+                <ProcessDetails
+                    actor={actor}
+                    actorName={actorName}
+                    currentState={currentState}
+                    DetailItem={DetailItem}
+                    formatDateTime={formatDateTime}
+                    formatValue={formatValue}
+                    isActorModalVisible={isActorModalVisible}
+                    lastRefresh={lastRefresh}
+                    onCloseActorModal={() => setIsActorModalVisible(false)}
+                    onShowActorModal={() => setIsActorModalVisible(true)}
+                    processState={processState}
+                    runningFor={runningFor}
+                    stateTone={stateTone}
+                    statusMessage={statusMessage}
+                    StatusPill={StatusPill}
+                    SummaryCard={SummaryCard}
+                />
             ) : (
-            <section className="node-management-card node-management-logs">
-                <div className="node-management-section-header">
-                    <div className="node-management-section-heading">
-                        <span className="node-management-section-icon">
-                            <EuiIcon type="console" size="l" />
-                        </span>
-                        <div>
-                            <h2>Application Logs</h2>
-                            <p>Node runtime log entries from application.log</p>
-                        </div>
-                    </div>
-                    <div className="node-management-process-header-actions">
-                        <EuiButton
-                            size="s"
-                            iconType="download"
-                            onClick={() => downloadNodeLogFile(logFileName)}
-                        >
-                            Download raw log
-                        </EuiButton>
-                        <EuiButton
-                            size="s"
-                            iconType="refresh"
-                            onClick={() => loadLatestNodeLogs()}
-                            isLoading={logLoading}
-                        >
-                            Refresh
-                        </EuiButton>
-                    </div>
-                </div>
-
-                {logError ? (
-                    <div className="node-management-alert error">
-                        <EuiIcon type="alert" />
-                        <span>{logError}</span>
-                    </div>
-                ) : null}
-
-                {logFilesError ? (
-                    <div className="node-management-alert error">
-                        <EuiIcon type="alert" />
-                        <span>{logFilesError}</span>
-                    </div>
-                ) : null}
-
-                <div className="node-management-log-controls">
-                    <EuiFlexGroup gutterSize="m" alignItems="center" wrap>
-                        <EuiFlexItem grow={false}>
-                            <EuiFormRow label="Log file">
-                                <EuiSelect
-                                    value={logFileName}
-                                    options={logFileOptions}
-                                    isDisabled={logFilesLoading}
-                                    onChange={(event) => {
-                                        preserveLogScrollRef.current = null
-                                        setLogFileName(event.target.value)
-                                    }}
-                                />
-                            </EuiFormRow>
-                        </EuiFlexItem>
-                        <EuiFlexItem grow={false}>
-                            <EuiFormRow label="Lines per load">
-                                <EuiSelect
-                                    value={String(logPageSize)}
-                                    options={[50, 100, 200, 500].map((value) => ({
-                                        value: String(value),
-                                        text: String(value),
-                                    }))}
-                                    onChange={(event) => {
-                                        setLogPageSize(
-                                            Number.parseInt(
-                                                event.target.value,
-                                                10
-                                            )
-                                        )
-                                    }}
-                                />
-                            </EuiFormRow>
-                        </EuiFlexItem>
-                        <EuiFlexItem grow={false}>
-                            <EuiText size="s">
-                                <span>
-                                    Loaded lines: {logItems.length}
-                                    {' | '}
-                                    File size: {formatValue(logFileSize)} bytes
-                                </span>
-                            </EuiText>
-                        </EuiFlexItem>
-                    </EuiFlexGroup>
-                </div>
-
-                <EuiSpacer size="m" />
-
-                <EuiFlexGroup
-                    justifyContent="spaceBetween"
-                    alignItems="center"
-                    gutterSize="m"
-                    wrap
-                >
-                    <EuiFlexItem grow={false}>
-                        <EuiText size="s">
-                            <span>
-                                Last refresh: {formatDateTime(logLastRefresh)}
-                            </span>
-                        </EuiText>
-                    </EuiFlexItem>
-                    <EuiFlexItem grow={false}>
-                        <EuiText size="s">
-                            <span>
-                                {logHasMore
-                                    ? 'Scroll up to load older logs'
-                                    : 'Start of log file reached'}
-                            </span>
-                        </EuiText>
-                    </EuiFlexItem>
-                </EuiFlexGroup>
-
-                <EuiSpacer size="m" />
-
-                <div
-                    className="node-management-log-viewer"
-                    ref={logScrollRef}
-                    onScroll={handleLogScroll}
-                >
-                    <div className="node-management-log-load-more">
-                        {logHasMore ? (
-                            <EuiButtonEmpty
-                                size="xs"
-                                onClick={() => loadOlderNodeLogs()}
-                                isLoading={logLoading}
-                            >
-                                Load older logs
-                            </EuiButtonEmpty>
-                        ) : (
-                            <span>Start of log file</span>
-                        )}
-                    </div>
-                    {logItems.length ? (
-                        logItems.map((item) => (
-                            <div
-                                className="node-management-log-row"
-                                key={item.id || item.offset}
-                            >
-                                <span className="node-management-log-timestamp">
-                                    {formatValue(item.timestamp)}
-                                </span>
-                                <span className="node-management-log-line">
-                                    {formatValue(item.raw)}
-                                </span>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="node-management-log-empty">
-                            {logLoading ? 'Loading logs...' : 'No logs found'}
-                        </div>
-                    )}
-                </div>
-            </section>
+                <ApplicationLogs
+                    downloadNodeLogFile={downloadNodeLogFile}
+                    formatDateTime={formatDateTime}
+                    formatValue={formatValue}
+                    handleLogScroll={handleLogScroll}
+                    loadLatestNodeLogs={loadLatestNodeLogs}
+                    loadOlderNodeLogs={loadOlderNodeLogs}
+                    logError={logError}
+                    logFileName={logFileName}
+                    logFileOptions={logFileOptions}
+                    logFileSize={logFileSize}
+                    logFilesError={logFilesError}
+                    logFilesLoading={logFilesLoading}
+                    logHasMore={logHasMore}
+                    logItems={logItems}
+                    logLastRefresh={logLastRefresh}
+                    logLoading={logLoading}
+                    logPageSize={logPageSize}
+                    logScrollRef={logScrollRef}
+                    onLogFileChange={handleLogFileChange}
+                    onLogPageSizeChange={handleLogPageSizeChange}
+                />
             )}
-
-            {isActorModalVisible ? (
-                <EuiModal
-                    className="node-management-actor-modal"
-                    onClose={() => setIsActorModalVisible(false)}
-                >
-                    <EuiModalHeader>
-                        <EuiModalHeaderTitle>
-                            Last Action Actor
-                        </EuiModalHeaderTitle>
-                    </EuiModalHeader>
-                    <EuiModalBody>
-                        <p className="node-management-actor-description">
-                            User or process responsible for the latest action
-                        </p>
-                        <div className="node-management-actor-grid">
-                            <DetailItem
-                                icon="user"
-                                label="Name"
-                                value={actorName || actor.local_username}
-                            />
-                            <DetailItem
-                                icon="email"
-                                label="Email"
-                                value={actor.email}
-                            />
-                            <DetailItem
-                                icon="users"
-                                label="Role"
-                                value={actor.role}
-                            />
-                            <DetailItem
-                                icon="inputOutput"
-                                label="Source"
-                                value={actor.source}
-                            />
-                            <DetailItem
-                                icon="tokenKey"
-                                label="User ID"
-                                value={actor.user_id}
-                            />
-                        </div>
-                    </EuiModalBody>
-                    <EuiModalFooter>
-                        <EuiButton
-                            fill
-                            onClick={() => setIsActorModalVisible(false)}
-                        >
-                            Close
-                        </EuiButton>
-                    </EuiModalFooter>
-                </EuiModal>
-            ) : null}
+                </>
+            )}
         </div>
     )
 }

@@ -202,21 +202,28 @@ def _node_config_response_payload() -> Dict[str, Any]:
 
 def _config_updates_from_request(
     payload: Any,
-) -> tuple[str, Dict[str, bool | int | str], Dict[str, bool | int | str], bool]:
+) -> tuple[
+    str,
+    Dict[str, bool | int | str],
+    Optional[Dict[str, bool | int | str]],
+    bool,
+]:
     """Validate and normalize a node configuration PATCH request body.
+    (Parses the request body and returns the section, updates, base values, and force flag.)
 
-    The request must target one section and provide every editable value in
-    that section. Unless `force` is true, the request must also include
-    matching `base_values`, which are the values that were last shown to the
-    user. Those base values are later compared against the current file values
-    to detect concurrent edits.
+    The request must target one section and provide at least one editable
+    value. `base_values` are optional: the GUI sends them to enable optimistic
+    conflict detection, while direct API callers may omit them and write only
+    their requested updates. When `base_values` are present and `force` is
+    false, they must cover at least the keys in `values` and are later compared
+    against the current file values to detect concurrent edits.
 
     Args:
         payload: Parsed JSON request body.
 
     Returns:
         Tuple containing the target section, normalized requested updates,
-        normalized base values, and the overwrite flag.
+        normalized base values when supplied, and the overwrite flag.
 
     Raises:
         ValueError: If the payload shape is invalid, the section/key is
@@ -247,39 +254,25 @@ def _config_updates_from_request(
         if field.get("editable", True)
     }
     value_keys = set(values.keys())
-    if value_keys != editable_keys:
-        missing = sorted(editable_keys - value_keys)
-        unsupported = sorted(value_keys - editable_keys)
-        message_parts = []
-        if missing:
-            message_parts.append(
-                f"Missing configuration value(s): {', '.join(missing)}"
-            )
-        if unsupported:
-            message_parts.append(
-                f"Unsupported or read-only configuration value(s): "
-                f"{', '.join(unsupported)}"
-            )
-        raise ValueError("; ".join(message_parts))
+    unsupported = sorted(value_keys - editable_keys)
+    if unsupported:
+        raise ValueError(
+            "Unsupported or read-only configuration value(s): " + ", ".join(unsupported)
+        )
 
     base_values = payload.get("base_values")
     force = bool(payload.get("force", False))
-    if not force and not isinstance(base_values, dict):
+    has_base_values = base_values is not None
+    if has_base_values and not isinstance(base_values, dict):
         raise ValueError("'base_values' must be an object")
-    if not force and set(base_values.keys()) != editable_keys:
-        missing = sorted(editable_keys - set(base_values.keys()))
-        unsupported = sorted(set(base_values.keys()) - editable_keys)
-        message_parts = []
+    if has_base_values and not force:
+        base_keys = set(base_values.keys())
+        missing = sorted(value_keys - base_keys)
         if missing:
-            message_parts.append(f"Missing base value(s): {', '.join(missing)}")
-        if unsupported:
-            message_parts.append(
-                f"Unsupported or read-only base value(s): {', '.join(unsupported)}"
-            )
-        raise ValueError("; ".join(message_parts))
+            raise ValueError(f"Missing base value(s): {', '.join(missing)}")
 
     updates = {}
-    normalized_base_values = {}
+    normalized_base_values = {} if has_base_values and not force else None
     for key, value in values.items():
         field = _config_field_schema(section, key, schema)
         if not field.get("editable", True):
@@ -288,9 +281,7 @@ def _config_updates_from_request(
             )
 
         updates[key] = _normalize_config_value(section, key, value, schema)
-        if not force:
-            if key not in base_values:
-                raise ValueError(f"Missing base value for '{key}'")
+        if normalized_base_values is not None:
             normalized_base_values[key] = _normalize_config_value(
                 section,
                 key,
@@ -311,7 +302,9 @@ def _config_update_conflicts(
     Conflict detection prevents silently overwriting edits made directly in
     `config.ini` or by another GUI session after the current user loaded the
     form. A field conflicts when its current file value differs from the
-    `base_values` submitted by the frontend.
+    matching `base_values` submitted by the caller. The GUI submits all
+    editable values in a section, while direct API callers can omit
+    `base_values` entirely to skip this optimistic check.
 
     Args:
         section: Target config section.
@@ -320,8 +313,8 @@ def _config_update_conflicts(
 
     Returns:
         A tuple containing conflict details and current file values for all
-        editable keys in the section. Conflict details include the base value,
-        current file value, and requested value for each conflicted key.
+        requested keys. Conflict details include the base value, current file
+        value, and requested value for each conflicted key.
     """
 
     schema = get_config_sections_schema(config.node_config)
@@ -505,14 +498,15 @@ def get_node_config():
 @api.route("/node/config", methods=["PATCH"])
 @admin_required
 def update_node_config():
-    """Write GUI-submitted node configuration changes to `config.ini`.
+    """Write node configuration changes to `config.ini`.
 
-    The route accepts one section per request. Before writing, it re-reads the
-    file and compares the current file values with the `base_values` submitted
-    by the frontend. If the file changed since the user loaded the form, the
-    route returns a conflict instead of overwriting those external edits. A
-    request with `force` set to true bypasses that conflict check and writes
-    the requested values.
+    The route accepts one section per request. When callers provide
+    `base_values`, it re-reads the file and compares current file values with
+    those base values before writing. If the file changed since the caller
+    loaded the values, the route returns a conflict instead of overwriting
+    external edits. Direct API callers can omit `base_values` to write only
+    the requested updates without this optimistic conflict check. A request
+    with `force` set to true also bypasses conflict detection.
 
     Returns:
         HTTP 200 with the written fields and restart metadata, HTTP 400 for
@@ -531,7 +525,7 @@ def update_node_config():
         return error(f"Could not update node configuration: {e}"), 500
 
     try:
-        if not force:
+        if base_values is not None and not force:
             conflicts, current_values = _config_update_conflicts(
                 section,
                 updates,
