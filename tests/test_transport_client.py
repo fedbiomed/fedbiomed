@@ -21,6 +21,7 @@ from fedbiomed.transport.client import (
     ResearcherCredentials,
     Sender,
     TaskListener,
+    _is_tls_handshake_error,
     _StubType,
 )
 from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
@@ -372,6 +373,138 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
                 sleep.reset_mock()
                 log_error.reset_mock()
             self.task_listener._post_handle_raise.reset_mock()
+
+    @staticmethod
+    def _rpc_error(code, details):
+        return grpc.aio.AioRpcError(
+            code=code,
+            trailing_metadata=grpc.aio.Metadata(("test", "test")),
+            initial_metadata=grpc.aio.Metadata(("test", "test")),
+            details=details,
+        )
+
+    @patch("fedbiomed.transport.client.logger._logger.error")
+    @patch("fedbiomed.transport.client.asyncio.sleep")
+    async def test_task_listener_04_unauthenticated_stops(self, sleep, log_error):
+        """A researcher identity rejection (UNAUTHENTICATED) is fatal, not retried."""
+        request_stub = MagicMock()
+        self.channels.stub = AsyncMock()
+        self.channels.stub.return_value = request_stub
+        self.channels.connect.reset_mock()
+
+        request_stub.GetTaskUnary.side_effect = [
+            self._rpc_error(
+                grpc.StatusCode.UNAUTHENTICATED,
+                "declared node id does not match certificate",
+            ),
+        ]
+
+        task = self.task_listener.listen(self.callback)
+        with self.assertRaises(FedbiomedCommunicationError):
+            await task
+
+        # Identity rejection is permanent: no reconnect, no retry sleep, no re-poll
+        self.channels.connect.assert_not_called()
+        sleep.assert_not_called()
+        self.assertEqual(request_stub.GetTaskUnary.call_count, 1)
+        # Node is marked failed
+        self.on_status_change.assert_awaited_with(ClientStatus.FAILED)
+        # Security-flagged FB628 error
+        log_error.assert_called_once()
+        log_args, log_kwargs = log_error.call_args
+        self.assertIn("FB628", log_args[0])
+        self.assertTrue(log_kwargs["extra"].get("is_security"))
+
+        task.cancel()
+
+    @patch("fedbiomed.transport.client.logger._logger.error")
+    @patch("fedbiomed.transport.client.asyncio.sleep")
+    async def test_task_listener_05_unavailable_mtls_handshake_logs_security(
+        self, sleep, log_error
+    ):
+        """Under mTLS, a handshake/pinning failure is logged loudly but still retried."""
+        request_stub = MagicMock()
+        self.channels.stub = AsyncMock()
+        self.channels.stub.return_value = request_stub
+        self.channels.mtls = True
+
+        request_stub.GetTaskUnary.side_effect = [
+            self._rpc_error(
+                grpc.StatusCode.UNAVAILABLE,
+                "Ssl handshake failed: certificate verify failed",
+            ),
+            asyncio.CancelledError,
+        ]
+
+        task = self.task_listener.listen(self.callback)
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+
+        # Surfaced as a security error (not a silent debug), and still reconnects
+        log_error.assert_called_once()
+        log_args, log_kwargs = log_error.call_args
+        self.assertIn("FB628", log_args[0])
+        self.assertTrue(log_kwargs["extra"].get("is_security"))
+        sleep.assert_called_once()
+        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
+
+        task.cancel()
+
+    @patch("fedbiomed.transport.client.logger._logger.error")
+    @patch("fedbiomed.transport.client.asyncio.sleep")
+    async def test_task_listener_06_unavailable_plain_stays_debug(
+        self, sleep, log_error
+    ):
+        """Ordinary unavailability keeps the quiet debug-and-retry behaviour."""
+        request_stub = MagicMock()
+        self.channels.stub = AsyncMock()
+        self.channels.stub.return_value = request_stub
+        self.channels.mtls = False
+
+        request_stub.GetTaskUnary.side_effect = [
+            self._rpc_error(
+                grpc.StatusCode.UNAVAILABLE,
+                "failed to connect to all addresses",
+            ),
+            asyncio.CancelledError,
+        ]
+
+        task = self.task_listener.listen(self.callback)
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+
+        # No security error, normal retry
+        log_error.assert_not_called()
+        sleep.assert_called_once()
+        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
+
+        task.cancel()
+
+
+class TestTlsHandshakeErrorDetection(unittest.TestCase):
+    """Unit tests for the TLS/pinning failure discriminator."""
+
+    @staticmethod
+    def _error(details):
+        return grpc.aio.AioRpcError(
+            code=grpc.StatusCode.UNAVAILABLE,
+            trailing_metadata=grpc.aio.Metadata(),
+            initial_metadata=grpc.aio.Metadata(),
+            details=details,
+        )
+
+    def test_detects_handshake_failures(self):
+        for details in (
+            "Ssl handshake failed",
+            "CERTIFICATE_VERIFY_FAILED",
+            "TLS peer did not return a certificate",
+        ):
+            self.assertTrue(_is_tls_handshake_error(self._error(details)))
+
+    def test_ignores_ordinary_unavailability(self):
+        self.assertFalse(
+            _is_tls_handshake_error(self._error("failed to connect to all addresses"))
+        )
 
 
 class TestSender(unittest.IsolatedAsyncioTestCase):
