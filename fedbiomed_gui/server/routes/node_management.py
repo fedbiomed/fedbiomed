@@ -200,7 +200,7 @@ def _node_config_response_payload() -> Dict[str, Any]:
     }
 
 
-def _config_updates_from_request(
+def _parse_config_update_request(
     payload: Any,
 ) -> tuple[
     str,
@@ -212,10 +212,10 @@ def _config_updates_from_request(
     (Parses the request body and returns the section, updates, base values, and force flag.)
 
     The request must target one section and provide at least one editable
-    value. `base_values` are optional: the GUI sends them to enable optimistic
+    update. `base_values` are optional: the GUI sends them to enable optimistic
     conflict detection, while direct API callers may omit them and write only
     their requested updates. When `base_values` are present and `force` is
-    false, they must cover at least the keys in `values` and are later compared
+    false, they must cover at least the update keys and are later compared
     against the current file values to detect concurrent edits.
 
     Args:
@@ -241,11 +241,11 @@ def _config_updates_from_request(
     if section not in schema:
         raise ValueError(f"Unsupported node configuration section '{section}'")
 
-    values = payload.get("values")
-    if not isinstance(values, dict):
+    updates = payload.get("values")
+    if not isinstance(updates, dict):
         raise ValueError("'values' must be an object")
 
-    if not values:
+    if not updates:
         raise ValueError("No configuration values provided")
 
     editable_keys = {
@@ -253,8 +253,8 @@ def _config_updates_from_request(
         for key, field in schema[section]["fields"].items()
         if field.get("editable", True)
     }
-    value_keys = set(values.keys())
-    unsupported = sorted(value_keys - editable_keys)
+    update_keys = set(updates.keys())
+    unsupported = sorted(update_keys - editable_keys)
     if unsupported:
         raise ValueError(
             "Unsupported or read-only configuration value(s): " + ", ".join(unsupported)
@@ -267,20 +267,25 @@ def _config_updates_from_request(
         raise ValueError("'base_values' must be an object")
     if has_base_values and not force:
         base_keys = set(base_values.keys())
-        missing = sorted(value_keys - base_keys)
+        missing = sorted(update_keys - base_keys)
         if missing:
             raise ValueError(f"Missing base value(s): {', '.join(missing)}")
 
-    updates = {}
+    normalized_updates = {}
     normalized_base_values = {} if has_base_values and not force else None
-    for key, value in values.items():
+    for key, value in updates.items():
         field = _config_field_schema(section, key, schema)
         if not field.get("editable", True):
             raise ValueError(
                 f"Node configuration key '{key}' in section '{section}' is read-only"
             )
 
-        updates[key] = _normalize_config_value(section, key, value, schema)
+        normalized_updates[key] = _normalize_config_value(
+            section,
+            key,
+            value,
+            schema,
+        )
         if normalized_base_values is not None:
             normalized_base_values[key] = _normalize_config_value(
                 section,
@@ -289,10 +294,10 @@ def _config_updates_from_request(
                 schema,
             )
 
-    return section, updates, normalized_base_values, force
+    return section, normalized_updates, normalized_base_values, force
 
 
-def _config_update_conflicts(
+def _config_detect_conflicts(
     section: str,
     updates: Dict[str, bool | int | str],
     base_values: Dict[str, bool | int | str],
@@ -518,7 +523,7 @@ def update_node_config():
 
     try:
         config.node_config.read()
-        section, updates, base_values, force = _config_updates_from_request(req)
+        section, updates, base_values, force = _parse_config_update_request(req)
     except ValueError as e:
         return error(str(e)), 400
     except Exception as e:
@@ -526,7 +531,7 @@ def update_node_config():
 
     try:
         if base_values is not None and not force:
-            conflicts, current_values = _config_update_conflicts(
+            conflicts, current_values = _config_detect_conflicts(
                 section,
                 updates,
                 base_values,
