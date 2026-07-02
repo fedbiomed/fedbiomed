@@ -11,6 +11,7 @@ from fedbiomed.node.node_pm import NodeProcessManager
 
 from ..config import config
 from ..helpers.auth_helpers import admin_required
+from ..helpers.config_schema import get_config_sections_schema
 from ..utils import error, response
 from .api import api
 
@@ -50,12 +51,12 @@ def _config_field_schema(
     key: str,
     schema: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Return the GUI schema for a single node configuration field.
+    """Return the schema for a single node configuration field.
 
     Args:
         section: Name of the `config.ini` section that owns the field.
         key: Name of the option inside the section.
-        schema: GUI configuration descriptor returned by `get_gui_config_sections()`.
+        schema: Configuration descriptor returned by `get_config_sections_schema()`.
 
     Returns:
         The field descriptor used for validation, normalization, and UI
@@ -63,8 +64,8 @@ def _config_field_schema(
         `options`, and `min` when they apply.
 
     Raises:
-        ValueError: If the section or key is not present in the GUI
-            configuration descriptor.
+        ValueError: If the section or key is not present in the configuration
+            descriptor.
     """
 
     if section not in schema:
@@ -96,7 +97,7 @@ def _normalize_config_value(
         section: Name of the `config.ini` section that owns the value.
         key: Name of the option inside the section.
         value: Raw value from the request body or current config file.
-        schema: GUI configuration descriptor returned by `get_gui_config_sections()`.
+        schema: Configuration descriptor returned by `get_config_sections_schema()`.
 
     Returns:
         A normalized boolean, integer, or string value.
@@ -158,8 +159,8 @@ def _node_config_response_payload() -> Dict[str, Any]:
 
     The payload is intentionally derived from the latest on-disk config after
     `config.node_config.read()` has been called by the route. Each field is
-    returned with its GUI descriptor and normalized current value so the
-    frontend can render sections dynamically without hardcoded key lists.
+    returned with its descriptor and normalized current value so the frontend
+    can render sections dynamically without hardcoded key lists.
 
     Returns:
         Dictionary containing all node configuration sections, their fields,
@@ -167,7 +168,7 @@ def _node_config_response_payload() -> Dict[str, Any]:
         state.
     """
 
-    schema = config.node_config.get_gui_config_sections()
+    schema = get_config_sections_schema(config.node_config)
 
     modification_status = _config_modification_status()
 
@@ -226,7 +227,7 @@ def _config_updates_from_request(
     if not isinstance(payload, dict):
         raise ValueError("Request body must be an object")
 
-    schema = config.node_config.get_gui_config_sections()
+    schema = get_config_sections_schema(config.node_config)
     section = payload.get("section")
     if not isinstance(section, str) or not section:
         raise ValueError("'section' must be a non-empty string")
@@ -323,7 +324,7 @@ def _config_update_conflicts(
         current file value, and requested value for each conflicted key.
     """
 
-    schema = config.node_config.get_gui_config_sections()
+    schema = get_config_sections_schema(config.node_config)
     conflicts = {}
     current_values = {}
 

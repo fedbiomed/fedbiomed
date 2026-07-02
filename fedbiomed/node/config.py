@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Component, Config
@@ -66,32 +66,6 @@ NODE_CONFIG_SECURITY_FIELDS = {
         "min": 0,
     },
 }
-NODE_CONFIG_READ_ONLY_FIELDS = {
-    ("default", "id"),
-    ("default", "db"),
-}
-NODE_CONFIG_READ_ONLY_SECTIONS = {
-    "certificate",
-}
-NODE_CONFIG_SKIPPED_SECTIONS = set()
-NODE_CONFIG_FIELD_SCHEMAS = {
-    NODE_CONFIG_SECURITY_SECTION: NODE_CONFIG_SECURITY_FIELDS,
-    "researcher": {
-        "port": {
-            "type": "integer",
-            "min": 0,
-        },
-    },
-    "syslog": {
-        "enable": {
-            "type": "boolean",
-        },
-        "port": {
-            "type": "integer",
-            "min": 0,
-        },
-    },
-}
 
 
 class NodeConfig(Config):
@@ -139,71 +113,6 @@ class NodeConfig(Config):
             "ip": os.getenv("FBM_RESEARCHER_IP", "localhost"),
             "port": os.getenv("FBM_RESEARCHER_PORT", "50051"),
         }
-
-    @staticmethod
-    def _infer_gui_field_type(value: str) -> str:
-        """Infer a GUI field type for config values without explicit schema.
-
-        Args:
-            value: Raw string value read from `config.ini`.
-
-        Returns:
-            Best-effort field type for GUI rendering. Boolean-like strings are
-            exposed as `boolean`, integer-like strings are exposed as
-            `integer`, and all other values are exposed as `string`.
-        """
-
-        normalized = value.strip().lower()
-        if normalized in {"true", "false", "1", "0", "yes", "no"}:
-            return "boolean"
-
-        try:
-            int(value)
-            return "integer"
-        except ValueError:
-            return "string"
-
-    def get_gui_config_sections(self) -> Dict[str, Dict[str, Any]]:
-        """Return current config sections and field descriptors for the GUI.
-
-        This method is the single owner of GUI-editable node config metadata.
-        It derives sections and keys from the loaded `ConfigParser` instance,
-        skips sections that should not be edited from the GUI, applies explicit
-        schema hints where the node config has known types or constraints, and
-        marks immutable fields as read-only.
-
-        Returns:
-            Mapping of section names to section descriptors. Each descriptor
-            contains a human-readable label and a `fields` mapping. Each field
-            descriptor contains the field type, label, editability flag, and
-            optional validation metadata such as enum options or integer
-            minimum value.
-        """
-
-        sections = {}
-        for section in self.sections():
-            if section in NODE_CONFIG_SKIPPED_SECTIONS:
-                continue
-
-            fields = {}
-            for key in self._cfg.options(section):
-                value = self.get(section, key)
-                schema = dict(NODE_CONFIG_FIELD_SCHEMAS.get(section, {}).get(key, {}))
-                schema.setdefault("type", self._infer_gui_field_type(value))
-                schema.setdefault("label", key.replace("_", " ").title())
-                schema["editable"] = (
-                    section not in NODE_CONFIG_READ_ONLY_SECTIONS
-                    and (section != "default" or key == "name")
-                    and (section, key) not in NODE_CONFIG_READ_ONLY_FIELDS
-                )
-                fields[key] = schema
-
-            sections[section] = {
-                "label": section.replace("_", " ").title(),
-                "fields": fields,
-            }
-
-        return sections
 
     def migrate(self):
         """Please add migrated parameters for the new version.
