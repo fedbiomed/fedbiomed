@@ -11,8 +11,18 @@ import traceback
 from typing import Callable, Optional, Union
 
 from fedbiomed import __version__
+<<<<<<< HEAD
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
+=======
+from fedbiomed.common.certificate_manager import (
+    CertificateManager,
+    is_mtls_enabled,
+    mtls_db_path,
+)
+from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ComponentType, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
+>>>>>>> 6e64ecc6f (implement mTLS)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     AdditiveSSSetupRequest,
@@ -37,6 +47,7 @@ from fedbiomed.common.message import (
 )
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.utils import read_file
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -130,12 +141,7 @@ class Node:
 
         self._grpc_client = GrpcController(
             node_id=self._node_id,
-            researchers=[
-                ResearcherCredentials(
-                    port=self.config.get("researcher", "port"),
-                    host=self.config.get("researcher", "ip"),
-                )
-            ],
+            researchers=[self._researcher_credentials()],
             on_message=self.on_message,
         )
 
@@ -166,6 +172,54 @@ class Node:
             node_name=self._node_name,
             config_path=self.config.root,
         )
+
+    def _researcher_credentials(self) -> ResearcherCredentials:
+        """Builds the researcher connection credentials.
+
+        When mutual TLS is enabled through the `[mtls]` config section, the node
+        loads its own certificate/key and pins the registered researcher
+        certificate. Otherwise the legacy auto-trust behaviour is kept.
+
+        Returns:
+            Credentials used to connect to the researcher gRPC server.
+
+        Raises:
+            FedbiomedCertificateError: mutual TLS is enabled but required
+                certificates are missing.
+        """
+        credentials = ResearcherCredentials(
+            port=self._config.get("researcher", "port"),
+            host=self._config.get("researcher", "ip"),
+            certificate=self._config.get("researcher", "certificate", fallback=None),
+        )
+
+        if not is_mtls_enabled(self._config):
+            return credentials
+
+        etc = os.path.join(self._config.root, CONFIG_FOLDER_NAME)
+        private_key = read_file(
+            os.path.join(etc, self._config.get("certificate", "private_key"))
+        )
+        certificate_chain = read_file(
+            os.path.join(etc, self._config.get("certificate", "public_key"))
+        )
+
+        certificate_manager = CertificateManager(db_path=mtls_db_path(self._config))
+        researcher_certificates = certificate_manager.get_by_component(
+            ComponentType.RESEARCHER.name
+        )
+        if not researcher_certificates:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but no researcher "
+                "certificate is registered. Please register the researcher certificate "
+                "with `fedbiomed node certificate register`."
+            )
+
+        credentials.mtls = True
+        credentials.private_key = private_key.encode("utf-8")
+        credentials.certificate_chain = certificate_chain.encode("utf-8")
+        credentials.certificate = researcher_certificates[0].encode("utf-8")
+        return credentials
 
     @property
     def node_id(self):

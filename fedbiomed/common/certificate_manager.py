@@ -7,6 +7,7 @@ import os
 import random
 from typing import Dict, List, Optional, Tuple, Union
 
+from cryptography import x509
 from OpenSSL import crypto
 from tabulate import tabulate
 from tinydb import Query, TinyDB
@@ -14,6 +15,7 @@ from tinydb.table import Document, Table
 
 from fedbiomed.common.constants import (
     CERTS_FOLDER_NAME,
+    CONFIG_FOLDER_NAME,
     NODE_PREFIX,
     ComponentType,
     ErrorNumbers,
@@ -21,6 +23,68 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.utils import read_file
+
+
+def certificate_subject_field(
+    certificate: bytes, oid: x509.ObjectIdentifier
+) -> Optional[str]:
+    """Extracts a subject field (e.g. `O=` or `CN=`) from a PEM certificate.
+
+    Args:
+        certificate: PEM encoded certificate.
+        oid: Subject attribute OID, e.g. `x509.oid.NameOID.ORGANIZATION_NAME`.
+
+    Returns:
+        The field value, or None if absent or unparsable.
+    """
+    try:
+        return (
+            x509.load_pem_x509_certificate(certificate)
+            .subject.get_attributes_for_oid(oid)[0]
+            .value
+        )
+    except (IndexError, AttributeError, ValueError):
+        return None
+
+
+def is_mtls_enabled(config) -> bool:
+    """Whether mutual TLS is enabled in the `[mtls]` config section.
+
+    A missing section or `enabled` entry means disabled (legacy workflow).
+
+    Args:
+        config: Component configuration object.
+
+    Returns:
+        True if mutual TLS with certificate pinning is enabled.
+    """
+    return config.getbool("mtls", "enabled", fallback="False")
+
+
+def mtls_db_path(config) -> str:
+    """Absolute path of the TinyDB database of mTLS trusted certificates.
+
+    Read from the `db` entry of the `[mtls]` section (relative to the component
+    `etc` folder). Only called when mutual TLS is enabled, so a missing entry is
+    a configuration error.
+
+    Args:
+        config: Component configuration object.
+
+    Returns:
+        Absolute path of the mutual-TLS certificate database.
+
+    Raises:
+        FedbiomedCertificateError: mutual TLS is enabled but no `db` path is set.
+    """
+    db = config.get("mtls", "db", fallback=None)
+    if not db:
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but no certificate "
+            "database path is configured. Please set `db` in the `[mtls]` section "
+            "of the component configuration."
+        )
+    return os.path.join(config.root, CONFIG_FOLDER_NAME, db)
 
 
 class CertificateManager:
@@ -120,6 +184,20 @@ class CertificateManager:
 
         v = self._table.get(self._query.party_id == party_id)
         return v
+
+    def get_by_component(self, component: str) -> List[str]:
+        """Gets certificates of all parties of a given component type.
+
+        Args:
+            component: Component type name, e.g. `ComponentType.NODE.name`.
+
+        Returns:
+            List of certificate contents (PEM strings).
+        """
+        return [
+            doc["certificate"]
+            for doc in self._table.search(self._query.component == component)
+        ]
 
     def delete(self, party_id) -> List[int]:
         """Deletes given party from table
