@@ -173,6 +173,17 @@ jobs:
           echo "unit_tests_exit=${UNIT_TESTS_EXIT}" | tee env-probe/unit-tests-status.env
           exit ${UNIT_TESTS_EXIT}
 
+      - name: Run MNIST e2e test
+        if: always()
+        run: |
+          set +e
+          export FEDBIOMED_E2E_DATA_PATH="${FEDBIOMED_E2E_DATA_PATH:-$HOME/Data/fedbiomed}"
+          python -m pytest -rfp -s -v tests/end2end/e2e_mnist_pytorch.py \
+            > env-probe/e2e-mnist.log 2>&1
+          E2E_MNIST_EXIT=$?
+          echo "e2e_mnist_exit=${E2E_MNIST_EXIT}" | tee env-probe/e2e-mnist-status.env
+          exit ${E2E_MNIST_EXIT}
+
       - name: Record final Python environment
         if: always()
         run: |
@@ -242,8 +253,16 @@ jobs:
               echo "- unit tests did not run"
             fi
             echo
+            echo "### MNIST e2e status"
+            echo
+            if [ -f env-probe/e2e-mnist-status.env ]; then
+              sed 's/^/- /' env-probe/e2e-mnist-status.env
+            else
+              echo "- MNIST e2e did not run"
+            fi
+            echo
             echo "Download the uploaded \`dependency-env-probe-*\` artifact for full"
-            echo "pip reports, install logs, unit test logs, \`pip freeze\`,"
+            echo "pip reports, install logs, unit/e2e logs, \`pip freeze\`,"
             echo "\`pip list\`, and \`pip check\` output."
           } >> "$GITHUB_STEP_SUMMARY"
 
