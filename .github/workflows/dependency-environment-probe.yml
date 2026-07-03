@@ -156,6 +156,23 @@ jobs:
           echo "project_install_exit=$?" | tee env-probe/project-install-status.env
           exit 0
 
+      - name: Run unit tests
+        run: |
+          set +e
+          python -m pytest -s -vv \
+            --maxfail=0 \
+            --continue-on-collection-errors \
+            --cov=fedbiomed \
+            --cov-append \
+            --cov-report=term-missing \
+            --cov-report=xml:env-probe/coverage.xml \
+            --junitxml=env-probe/unit-tests-junit.xml \
+            tests \
+            > env-probe/unit-tests.log 2>&1
+          UNIT_TESTS_EXIT=$?
+          echo "unit_tests_exit=${UNIT_TESTS_EXIT}" | tee env-probe/unit-tests-status.env
+          exit ${UNIT_TESTS_EXIT}
+
       - name: Record final Python environment
         if: always()
         run: |
@@ -164,6 +181,30 @@ jobs:
           python -m pip list --format=json > env-probe/pip-list-final.json
           python -m pip check > env-probe/pip-check.txt 2>&1
           echo "pip_check_exit=$?" | tee env-probe/pip-check-status.env
+          python - <<'PY' > env-probe/wheel-tag-diagnostics.txt
+          from importlib import metadata
+
+          lines = []
+          for distribution in sorted(
+              metadata.distributions(),
+              key=lambda item: (item.metadata.get("Name") or "").lower(),
+          ):
+              name = distribution.metadata.get("Name", "<unknown>")
+              version = distribution.version
+              wheel = distribution.read_text("WHEEL")
+              if wheel is None:
+                  continue
+              for line in wheel.splitlines():
+                  if not line.startswith("Tag: "):
+                      continue
+                  tag = line.removeprefix("Tag: ")
+                  if len(tag.split("-")) != 3:
+                      lines.append(f"{name}=={version}: invalid wheel tag {tag!r}")
+
+          if not lines:
+              lines.append("No malformed wheel tags found.")
+          print("\n".join(lines))
+          PY
           exit 0
 
       - name: Write summary
@@ -193,9 +234,17 @@ jobs:
               echo "- project install was skipped or did not run"
             fi
             echo
+            echo "### Unit test status"
+            echo
+            if [ -f env-probe/unit-tests-status.env ]; then
+              sed 's/^/- /' env-probe/unit-tests-status.env
+            else
+              echo "- unit tests did not run"
+            fi
+            echo
             echo "Download the uploaded \`dependency-env-probe-*\` artifact for full"
-            echo "pip reports, install logs, \`pip freeze\`, \`pip list\`, and"
-            echo "\`pip check\` output."
+            echo "pip reports, install logs, unit test logs, \`pip freeze\`,"
+            echo "\`pip list\`, and \`pip check\` output."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload environment probe artifact
