@@ -178,6 +178,7 @@ class TestJob(unittest.TestCase):
                     }
                     with patch("time.perf_counter") as mock_perf_counter:
                         mock_perf_counter.return_value = 0
+                        self.request_mock.send.reset_mock()
                         training_replies, aux_vars = job.execute()
 
                     # Following line tests if aux_vars from training replies extracted correctly
@@ -193,28 +194,12 @@ class TestJob(unittest.TestCase):
                     else:
                         self.assertEqual(aux_vars, {})
 
-                    self.request_mock.send.called_once_with(
-                        [
-                            (
-                                {
-                                    "alice": self._get_train_request(
-                                        mock_tp,
-                                        {},
-                                        "alice",
-                                        fake_node_state_ids,
-                                        self.fds.data(),
-                                    ),
-                                    "bob": self._get_train_request(
-                                        mock_tp,
-                                        {},
-                                        "bob",
-                                        fake_node_state_ids,
-                                        self.fds.data(),
-                                    ),
-                                },
-                                ["alice", "bob"],
-                            )
-                        ]
+                    self._assert_train_request_sent(
+                        mock_tp=mock_tp,
+                        nodes_state_ids=fake_node_state_ids,
+                        data=self.fds.data(),
+                        do_training=do_training,
+                        optim_aux_var=optim_aux_var,
                     )
 
                     # populate expected replies
@@ -346,6 +331,7 @@ class TestJob(unittest.TestCase):
                     # Execute the payload
                     with patch("time.perf_counter") as mock_perf_counter:
                         mock_perf_counter.return_value = 0
+                        self.request_mock.send.reset_mock()
                         training_replies, aux_vars = job.execute()
 
                     # Following line tests if aux_vars from training replies extracted correctly
@@ -356,28 +342,12 @@ class TestJob(unittest.TestCase):
                             expected_aux_vars[node] = aux_var_return[node]
                     self.assertDictEqual(aux_vars, expected_aux_vars)
 
-                    self.request_mock.send.called_once_with(
-                        [
-                            (
-                                {
-                                    "alice": self._get_train_request(
-                                        mock_tp,
-                                        {},
-                                        "alice",
-                                        fake_node_state_ids,
-                                        self.fds.data(),
-                                    ),
-                                    "bob": self._get_train_request(
-                                        mock_tp,
-                                        {},
-                                        "bob",
-                                        fake_node_state_ids,
-                                        self.fds.data(),
-                                    ),
-                                },
-                                ["alice", "bob"],
-                            )
-                        ]
+                    self._assert_train_request_sent(
+                        mock_tp=mock_tp,
+                        nodes_state_ids=fake_node_state_ids,
+                        data=self.fds.data(),
+                        do_training=True,
+                        optim_aux_var={},
                     )
 
                     # populate expected replies
@@ -445,6 +415,7 @@ class TestJob(unittest.TestCase):
                 )
 
                 # prepare mocked node answers
+                self.request_mock.training_plan_approve.reset_mock()
                 self.request_mock.training_plan_approve.return_value = success_status
 
                 # execute the tested payload
@@ -453,8 +424,11 @@ class TestJob(unittest.TestCase):
                     approval_replies = job.execute()
 
                 # check call of message sending to nodes
-                self.request_mock.training_plan_approve.called_once_with(
-                    [(mock_tp, "any arbitrary message", ["alice", "bob"], None)]
+                self.request_mock.training_plan_approve.assert_called_once_with(
+                    mock_tp,
+                    "my test TP",
+                    ["alice", "bob"],
+                    job._policies,
                 )
 
                 # check received the expected answers
@@ -559,23 +533,13 @@ class TestJob(unittest.TestCase):
                                 # execute tested payload
                                 with patch("time.perf_counter") as mock_perf_counter:
                                     mock_perf_counter.return_value = 0
+                                    self.request_mock.send.reset_mock()
                                     check_replies = job.execute()
 
                                 # checks
-                                self.request_mock.send.called_once_with(
-                                    [
-                                        (
-                                            {
-                                                "alice": self._get_status_request(
-                                                    mock_tp
-                                                ),
-                                                "bob": self._get_status_request(
-                                                    mock_tp
-                                                ),
-                                            },
-                                            ["alice", "bob"],
-                                        )
-                                    ]
+                                self._assert_training_plan_status_request_sent(
+                                    mock_tp=mock_tp,
+                                    policies=job._policies,
                                 )
 
                                 self.assertDictEqual(
@@ -788,26 +752,54 @@ class TestJob(unittest.TestCase):
         self.federated_request_mock.errors.assert_return_value = errors
         self.federated_request_mock.reset_mock()
 
-    def _get_train_request(self, mock_tp, secagg_arguments, node_id, state_ids, data):
-        return {
-            "request_id": "this_request",
+    def _assert_train_request_sent(
+        self,
+        mock_tp,
+        nodes_state_ids,
+        data,
+        do_training,
+        optim_aux_var,
+    ):
+        self.request_mock.send.assert_called_once()
+        messages, nodes, policies = self.request_mock.send.call_args.args
+
+        self.assertEqual(["alice", "bob"], nodes)
+        self.assertEqual([], policies)
+        self.assertEqual({"alice", "bob"}, set(messages.keys()))
+
+        for node_id in ["alice", "bob"]:
+            message = messages[node_id].get_dict()
+            for key, value in {
+                "researcher_id": "test-id",
+                "experiment_id": "some_id",
+                "training": do_training,
+                "model_args": {},
+                "round": 1,
+                "training_plan": mock_tp.source(),
+                "training_plan_class": mock_tp.__class__.__name__,
+                "params": mock_tp.get_model_params.return_value,
+                "secagg_arguments": {},
+                "aggregator_args": {},
+                "optim_aux_var": optim_aux_var,
+                "state_id": nodes_state_ids[node_id],
+                "dataset_id": data[node_id]["dataset_id"],
+            }.items():
+                self.assertIn(key, message)
+                self.assertEqual(value, message[key])
+
+    def _assert_training_plan_status_request_sent(self, mock_tp, policies):
+        self.request_mock.send.assert_called_once()
+        message, nodes = self.request_mock.send.call_args.args
+
+        self.assertEqual(["alice", "bob"], nodes)
+        self.assertEqual(policies, self.request_mock.send.call_args.kwargs["policies"])
+        for key, value in {
             "researcher_id": "test-id",
-            "experiment_id": "some_id",
-            "training_args": {},
-            "training": True,
-            "model_args": {},
-            "round": 1,
+            "experiment_id": "any_unused_id",
             "training_plan": mock_tp.source(),
-            "training_plan_class": mock_tp.__class__.__name__,
-            "params": mock_tp.get_model_params(),
-            "secagg_servkey_id": secagg_arguments.get("secagg_servkey_id"),
-            "secagg_random": secagg_arguments.get("secagg_random"),
-            "secagg_clipping_range": secagg_arguments.get("secagg_clipping_range"),
-            "aggregator_args": {},
-            "aux_vars": [{}, "node-specific"],
-            "state_id": state_ids[node_id],
-            "dataset_id": data[node_id]["dataset_id"],
-        }
+        }.items():
+            self.assertIn(key, message.get_dict())
+            self.assertEqual(value, message.get_dict()[key])
 
     def _get_train_reply(self, node_id, dataset_id, optim_aux_var, success=True):
         return {
@@ -837,17 +829,6 @@ class TestJob(unittest.TestCase):
             "node_name": "test-node",
             "errnum": "a dummy error",
             "extra_msg": "a dummy message",
-        }
-
-    def _get_status_request(
-        self,
-        mock_tp,
-    ):
-        return {
-            "request_id": "this_request",
-            "researcher_id": "test-id",
-            "experiment_id": "some_id",
-            "training_plan": mock_tp.source(),
         }
 
     def _get_status_reply(

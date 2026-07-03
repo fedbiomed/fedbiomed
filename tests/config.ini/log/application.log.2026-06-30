@@ -1,0 +1,25 @@
+2026-06-30 17:19:28,788 fedbiomed INFO - Syslog configuration is disabled or not found in configuration. Disabling syslog logging.
+2026-06-30 17:19:28,790 fedbiomed INFO - <NonCallableMagicMock name='Node()' spec='Node' id='137791951833888'>
+2026-06-30 17:19:28,792 fedbiomed INFO - Node name: <MagicMock name='Node().config.get()' id='137791949521440'>
+2026-06-30 17:19:28,793 fedbiomed INFO - Launching node...
+2026-06-30 17:19:28,795 fedbiomed INFO - Loading default training plans
+2026-06-30 17:19:28,797 fedbiomed INFO - Starting communication channel with network
+2026-06-30 17:19:28,798 fedbiomed INFO - Starting node to node router
+2026-06-30 17:19:28,800 fedbiomed INFO - Starting task manager
+2026-06-30 17:19:28,831 fedbiomed INFO - Syslog configuration is disabled or not found in configuration. Disabling syslog logging.
+2026-06-30 17:19:28,879 fedbiomed INFO - Syslog configuration is disabled or not found in configuration. Disabling syslog logging.
+2026-06-30 17:19:28,955 fedbiomed INFO - Syslog configuration is disabled or not found in configuration. Disabling syslog logging.
+2026-06-30 17:19:28,957 fedbiomed INFO - <MagicMock name='Node()' id='137791947274128'>
+2026-06-30 17:19:28,959 fedbiomed INFO - Node name: <MagicMock name='Node().config.get()' id='137791488078176'>
+2026-06-30 17:19:28,960 fedbiomed INFO [node_pm._start_node_process:123] - Launching node...
+2026-06-30 17:19:28,962 fedbiomed INFO [node_pm._start_node_process:128] - Loading default training plans
+2026-06-30 17:19:28,963 fedbiomed INFO [node_pm._start_node_process:136] - Starting communication channel with network
+2026-06-30 17:19:28,965 fedbiomed INFO [node_pm._start_node_process:139] - Starting node to node router
+2026-06-30 17:19:28,967 fedbiomed INFO [node_pm._start_node_process:141] - Starting task manager
+2026-06-30 17:19:29,111 fedbiomed INFO - Syslog configuration is disabled or not found in configuration. Disabling syslog logging.
+2026-06-30 17:19:29,113 fedbiomed INFO - <MagicMock name='Node()' id='137791947665616'>
+2026-06-30 17:19:29,115 fedbiomed INFO - Node name: <MagicMock name='Node().config.get()' id='137791949426448'>
+2026-06-30 17:19:29,117 fedbiomed INFO [node_pm._start_node_process:123] - Launching node...
+2026-06-30 17:19:29,118 fedbiomed INFO [node_pm._start_node_process:136] - Starting communication channel with network
+2026-06-30 17:19:29,119 fedbiomed INFO [node_pm._start_node_process:139] - Starting node to node router
+2026-06-30 17:19:29,121 fedbiomed INFO [node_pm._start_node_process:141] - Starting task manager
