@@ -96,6 +96,35 @@ def _is_tls_handshake_error(exp: grpc.aio.AioRpcError) -> bool:
     return any(m in detail for m in _TLS_HANDSHAKE_ERROR_MARKERS)
 
 
+def _researcher_requires_client_auth(host: str, port: str) -> bool:
+    """Whether the researcher's TLS server demands a client certificate.
+
+    gRPC hides from the client whether its certificate was requested, so this
+    probes with a raw TLS handshake presenting none: a server enforcing mutual
+    TLS rejects it, a server-auth-only researcher accepts it.
+
+    Args:
+        host: The host/ip of the researcher server.
+        port: Port number of the researcher server.
+
+    Returns:
+        True if a client certificate is required, False if an anonymous client
+        is accepted.
+    """
+    context = ssl.create_default_context()
+    # Testing the client-auth requirement only, not the server certificate.
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    try:
+        with socket.create_connection(
+            (host, int(port)), timeout=GRPC_CLIENT_CONN_RETRY_TIMEOUT
+        ) as sock:
+            with context.wrap_socket(sock, server_hostname=host):
+                return False
+    except ssl.SSLError:
+        return True
+
+
 class Channels:
     """Keeps gRPC server channels"""
 
@@ -349,6 +378,16 @@ class GrpcClient:
                     )
                     logger.info(
                         "Retrieved server certificate, ready to communicate with server."
+                    )
+                elif not _researcher_requires_client_auth(
+                    self._researcher.host, self._researcher.port
+                ):
+                    logger.warning(
+                        f"{ErrorNumbers.FB628.value}: This node is configured for "
+                        "mutual TLS but the researcher does not require client "
+                        "certificates. Node identity will NOT be verified by the "
+                        "researcher - mutual TLS is not enforced.",
+                        extra={"is_security": True},
                     )
 
                 if self._id is None:
