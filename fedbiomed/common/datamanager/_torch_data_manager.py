@@ -48,6 +48,8 @@ class _DatasetWrapper(TorchDataset):
             dataset: Fed-BioMed dataset to wrap
         """
         self._d = dataset
+        # Latched from the first sample: whether the dataset provides a target.
+        self._has_target: Optional[bool] = None
 
     def __len__(self) -> int:
         """Gets number of samples in dataset
@@ -107,7 +109,18 @@ class _DatasetWrapper(TorchDataset):
                 f"not: {self._more_info(data)}"
             )
 
-        if isinstance(target, torch.Tensor):
+        # First sample fixes whether this dataset provides a target.
+        if self._has_target is None:
+            self._has_target = target is not None
+
+        if not self._has_target:
+            if target is not None:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Inconsistent target for dataset "
+                    f"{self._d.__class__.__name__} (index={index}). Expected `None` as in the "
+                    f"first sample, got {type(target).__name__}"
+                )
+        elif isinstance(target, torch.Tensor):
             pass
         elif isinstance(target, dict) and all(
             isinstance(v, torch.Tensor) for v in target.values()

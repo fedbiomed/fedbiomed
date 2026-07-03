@@ -387,16 +387,38 @@ def test_get_item_exception_is_wrapped(tmp_path):
         )
 
 
-def test_get_item_must_return_tuple_of_len_2(tmp_path):
-    class DSWrongTuple(CustomDataset):
+def test_get_item_data_only_is_treated_as_none_target(tmp_path):
+    """get_item may return data alone; target is then treated as None."""
+
+    class DSDataOnly(CustomDataset):
+        def read(self):
+            self.data = np.random.randn(10, 5).astype(np.float32)
+
+        def get_item(self, idx):
+            return self.data[idx]  # data only, no target
+
+        def __len__(self):
+            return 10
+
+    ds = DSDataOnly()
+    ds.load(root=str(tmp_path), to_format=DataReturnFormat.SKLEARN)
+    data, target = ds.__getitem__(0)
+    assert isinstance(data, np.ndarray)
+    assert target is None
+
+
+def test_get_item_wrong_type_data_only_still_fails(tmp_path):
+    """A data-only return of an unsupported type still fails the type check."""
+
+    class DSWrongType(CustomDataset):
         def read(self): ...
         def get_item(self, idx):
-            return [1, 2, 3]  # not a (data, target) tuple
+            return [1, 2, 3]  # unsupported type
 
         def __len__(self):
             return 1
 
-    ds = DSWrongTuple()
+    ds = DSWrongType()
     with pytest.raises(FedbiomedError):
         ds.load(
             root=str(tmp_path),

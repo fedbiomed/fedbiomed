@@ -72,7 +72,10 @@ class CustomDataset(Dataset):
 
     @abstractmethod
     def get_item(self, index):
-        """Return a (data, target) tuple for the given index.
+        """Return the sample for the given index.
+
+        May return either ``data`` alone, or a ``(data, target)`` tuple. When
+        only ``data`` is returned, the target is treated as ``None``.
 
         Args:
             index (int): Index of the sample to retrieve.
@@ -130,14 +133,7 @@ class CustomDataset(Dataset):
                 f"from dataset using get_item method. Please see error: {e}"
             ) from e
 
-        if not isinstance(sample, tuple) or len(sample) != 2:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: get_item method must return a tuple of two elements"
-                f" (data, target), but got {type(sample).__name__} with"
-                f" length {len(sample) if isinstance(sample, (list, tuple)) else 'N/A'}"
-            )
-
-        data, target = sample
+        data, target = self._split_sample(sample)
         target = self._normalize_target(target)
         self._composed: dict[str, Union[bool, None]] = {
             "data": None,
@@ -146,6 +142,16 @@ class CustomDataset(Dataset):
         self._check_type(data, "data")
         if target is not None:
             self._check_type(target, "target")
+
+    def _split_sample(self, sample: Any) -> Tuple[Any, Any]:
+        """Split a ``get_item`` return into ``(data, target)``.
+
+        A 2-element tuple is read as ``(data, target)``; anything else is
+        treated as ``data`` with a ``None`` target.
+        """
+        if isinstance(sample, tuple) and len(sample) == 2:
+            return sample
+        return sample, None
 
     def _normalize_target(self, target: Any) -> Any:
         """Coerce a numpy scalar `target` to a 0-d ``np.ndarray`` (scikit-learn only).
@@ -218,7 +224,7 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx) -> Tuple[Any, Any]:
         """Retrieves a sample and its target by index."""
-        data, target = self.get_item(idx)
+        data, target = self._split_sample(self.get_item(idx))
         target = self._normalize_target(target)
 
         self._check_type(data, "data")
