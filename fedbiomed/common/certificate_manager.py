@@ -5,6 +5,7 @@ import copy
 import ipaddress
 import os
 import random
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Union
 
 from cryptography import x509
@@ -44,6 +45,16 @@ def certificate_subject_field(
             .value
         )
     except (IndexError, AttributeError, ValueError):
+        return None
+
+
+def certificate_expiry(certificate: Union[bytes, str]) -> Optional[datetime]:
+    """Expiry date (`notAfter`, UTC) of a PEM certificate, or None if unparsable."""
+    if isinstance(certificate, str):
+        certificate = certificate.encode("utf-8")
+    try:
+        return x509.load_pem_x509_certificate(certificate).not_valid_after
+    except (TypeError, ValueError):
         return None
 
 
@@ -225,11 +236,27 @@ class CertificateManager:
         if verbose:
             to_print = copy.deepcopy(certificates)
             for doc in to_print:
-                doc.pop("certificate")
+                expiry = certificate_expiry(doc.pop("certificate"))
+                doc["expires"] = expiry.strftime("%Y-%m-%d") if expiry else "unknown"
 
             print(tabulate(to_print, headers="keys"))
 
         return certificates
+
+    def expiring_certificates(
+        self, within_days: int, component: Optional[str] = None
+    ) -> List[Tuple[str, datetime]]:
+        """`(party_id, expiry)` for certs expiring within `within_days` (or expired),
+        optionally restricted to a `component` type."""
+        threshold = datetime.utcnow() + timedelta(days=within_days)
+        expiring = []
+        for doc in self._table.all():
+            if component is not None and doc.get("component") != component:
+                continue
+            expiry = certificate_expiry(doc["certificate"])
+            if expiry is not None and expiry <= threshold:
+                expiring.append((doc["party_id"], expiry))
+        return expiring
 
     def register_certificate(
         self,
