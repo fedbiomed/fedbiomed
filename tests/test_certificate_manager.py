@@ -1,9 +1,14 @@
 import copy
 import os
+import tempfile
 import unittest
+from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
-from fedbiomed.common.certificate_manager import CertificateManager
+from fedbiomed.common.certificate_manager import (
+    CertificateManager,
+    certificate_expiry,
+)
 from fedbiomed.common.exceptions import FedbiomedCertificateError
 
 
@@ -300,6 +305,75 @@ class TestCertificateManager(unittest.TestCase):
                     certificate_name="certificate",
                     component_id="component-id",
                 )
+
+
+class TestCertificateExpiry(unittest.TestCase):
+    """Tests certificate expiry helpers (`notAfter` parsing + reporting)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+            certificate_folder=self._tmp.name,
+            certificate_name="cert",
+            component_id="node_1",
+            subject={"CommonName": "localhost", "OrganizationName": "node_1"},
+        )
+        with open(pem_file, "rb") as f:
+            self.cert = f.read()
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_certificate_expiry_returns_future_date(self):
+        expiry = certificate_expiry(self.cert)
+        self.assertIsInstance(expiry, datetime)
+        self.assertGreater(expiry, datetime.utcnow())
+
+    def test_certificate_expiry_none_for_unparsable(self):
+        self.assertIsNone(certificate_expiry(b"not a certificate"))
+
+    def test_expiring_certificates_filters_by_threshold_and_component(self):
+        cm = CertificateManager()
+        docs = [
+            {
+                "certificate": self.cert.decode(),
+                "party_id": "node_1",
+                "component": "NODE",
+            },
+            {
+                "certificate": self.cert.decode(),
+                "party_id": "res_1",
+                "component": "RESEARCHER",
+            },
+        ]
+        cm._db = MagicMock()
+        cm._db.all.return_value = docs
+
+        # Generated cert lasts ~5 years: a wide window catches it, a tight one doesn't
+        wide = cm.expiring_certificates(within_days=10000, component="NODE")
+        self.assertEqual([p for p, _ in wide], ["node_1"])
+        self.assertEqual(cm.expiring_certificates(within_days=1, component="NODE"), [])
+        # Component filter excludes the researcher entry
+        self.assertEqual(
+            [p for p, _ in cm.expiring_certificates(within_days=10000)],
+            ["node_1", "res_1"],
+        )
+
+    def test_list_verbose_adds_expires_column(self):
+        cm = CertificateManager()
+        cm._db = MagicMock()
+        cm._db.all.return_value = [
+            {
+                "certificate": self.cert.decode(),
+                "party_id": "node_1",
+                "component": "NODE",
+            }
+        ]
+        with patch("fedbiomed.common.certificate_manager.tabulate") as tabulate:
+            cm.list(verbose=True)
+        rows = tabulate.call_args.args[0]
+        self.assertIn("expires", rows[0])
+        self.assertNotIn("certificate", rows[0])
 
 
 if __name__ == "__main__":  # pragma: no cover

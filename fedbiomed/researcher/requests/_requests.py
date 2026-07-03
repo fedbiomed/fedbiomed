@@ -369,6 +369,13 @@ class Requests(metaclass=SingletonMeta):
                     "No node will be able to connect until certificates are registered "
                     "with `fedbiomed researcher certificate register`."
                 )
+            for party_id, expiry in certificate_manager.expiring_certificates(
+                30, ComponentType.NODE.name
+            ):
+                logger.warning(
+                    f"Node certificate `{party_id}` expires on {expiry:%Y-%m-%d}; "
+                    "register an updated certificate to avoid connection failures."
+                )
             trusted_node_certificates = "\n".join(node_certificates).encode("utf-8")
 
         # Creates grpc server and starts it

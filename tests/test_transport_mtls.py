@@ -17,7 +17,7 @@ import asyncio
 import os
 import tempfile
 import time
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import grpc
 import pytest
@@ -294,6 +294,47 @@ async def test_get_task_proceeds_without_client_certificate():
     context.abort.assert_not_awaited()
     agent_store.retrieve.assert_called_once_with(node_id="node-1")
     assert len(responses) == 1
+
+
+def _security_info_calls(info_mock):
+    return [
+        c
+        for c in info_mock.call_args_list
+        if c.kwargs.get("extra", {}).get("is_security")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_get_task_audits_first_authentication_only(certs):
+    """The first authenticated poll logs one audit line; later polls stay quiet."""
+    servicer, _, _ = _servicer_with_agent()
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+    request = TaskRequest(node="node_1", protocol_version="x")
+
+    with patch("fedbiomed.transport.server.logger.info") as info:
+        for _ in range(2):
+            async for _r in servicer.GetTaskUnary(request=request, context=context):
+                pass
+
+    audit = _security_info_calls(info)
+    assert len(audit) == 1
+    assert "node_1" in audit[0].args[0]
+
+
+@pytest.mark.asyncio
+async def test_get_task_no_audit_without_client_certificate():
+    """Server-auth-only connections (no client cert) produce no audit line."""
+    servicer, _, _ = _servicer_with_agent()
+    context = _context_with_cert(None)
+    context.abort = AsyncMock(side_effect=_Aborted)
+    request = TaskRequest(node="node-1", protocol_version="x")
+
+    with patch("fedbiomed.transport.server.logger.info") as info:
+        async for _r in servicer.GetTaskUnary(request=request, context=context):
+            pass
+
+    assert _security_info_calls(info) == []
 
 
 # ---------------------------------------------------------------------------

@@ -112,6 +112,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         super().__init__()
         self._agent_store = agent_store
         self._on_message = on_message
+        self._authenticated_nodes: set = set()
 
     async def GetTaskUnary(
         self, request: ProtoBufMessage, context: grpc.aio.ServicerContext
@@ -134,6 +135,13 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             )
             logger.error(msg, extra={"is_security": True})
             await context.abort(grpc.StatusCode.UNAUTHENTICATED, msg)
+
+        if peer_node_id is not None and peer_node_id not in self._authenticated_nodes:
+            self._authenticated_nodes.add(peer_node_id)
+            logger.info(
+                f"Node `{peer_node_id}` authenticated via mutual TLS.",
+                extra={"is_security": True},
+            )
 
         node_agent = await self._agent_store.retrieve(node_id=task_request["node"])
 
