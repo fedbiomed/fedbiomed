@@ -35,7 +35,6 @@ su -l -c "export FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS=\"${FBM_SECURITY_ALLOW_F
       export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && \
       FBM_SECURITY_TRAINING_PLAN_APPROVAL=\"${FBM_SECURITY_TRAINING_PLAN_APPROVAL:-True}\" \
       FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=\"${FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS:-False}\" \
-      FBM_SECURITY_ALLOW_PREPROC=\"${FBM_SECURITY_ALLOW_PREPROC:-False}\" \ 
       fedbiomed component create --component NODE --path /fbm-node --exist-ok" $CONTAINER_USER
 
 # Overwrite node options file if re-launching container
@@ -43,7 +42,7 @@ su -l -c "export FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS=\"${FBM_SECURITY_ALLOW_F
 su -l -c "echo \"$FBM_NODE_START_OPTIONS\" >/fbm-node/FBM_NODE_START_OPTIONS" $CONTAINER_USER
 
 # Launch node using node options
-su -l -c "fedbiomed node start $FBM_NODE_START_OPTIONS &" $CONTAINER_USER
+su -l -c "fedbiomed node --path /fbm-node start $FBM_NODE_START_OPTIONS &" $CONTAINER_USER
 
 echo "Node container is ready"
 sleep infinity &
