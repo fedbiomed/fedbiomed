@@ -13,6 +13,7 @@ from fedbiomed import __version__
 from fedbiomed.common.constants import (
     CERTS_FOLDER_NAME,
     CONFIG_FOLDER_NAME,
+    DB_MTLS_BASENAME,
     DB_PREFIX,
     VAR_FOLDER_NAME,
     ErrorNumbers,
@@ -303,21 +304,19 @@ class Config(metaclass=ABCMeta):
                 "version": str(self._CONFIG_VERSION),
             }
 
+            config_dir = os.path.join(self.root, CONFIG_FOLDER_NAME)
             db_path = os.path.join(
                 self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json"
             )
-            self._cfg["default"]["db"] = os.path.relpath(
-                db_path, os.path.join(self.root, CONFIG_FOLDER_NAME)
+            mtls_db_path = os.path.join(
+                self.root, CERTS_FOLDER_NAME, f"{DB_MTLS_BASENAME}.json"
             )
-            self._cfg["syslog"] = {"enable": "False"}
 
-            # Opt-in mutual TLS; `db` holds the trusted (pinned) certificates.
-            mtls_db = os.path.join(self.root, CERTS_FOLDER_NAME, "mtls.json")
+            self._cfg["default"]["db"] = os.path.relpath(db_path, config_dir)
+            self._cfg["syslog"] = {"enable": "False"}
             self._cfg["mtls"] = {
                 "enabled": "False",
-                "db": os.path.relpath(
-                    mtls_db, os.path.join(self.root, CONFIG_FOLDER_NAME)
-                ),
+                "db": os.path.relpath(mtls_db_path, config_dir),
             }
 
             # Calls child class add_parameterss

@@ -154,9 +154,11 @@ def test_is_mtls_enabled_false_when_section_absent():
 
 
 def test_mtls_db_path_resolved_relative_to_etc():
-    config = _FakeConfig("/root", {("mtls", "db"): os.path.join("certs", "mtls.json")})
+    config = _FakeConfig(
+        "/root", {("mtls", "db"): os.path.join("certs", "trusted_certs.json")}
+    )
     assert mtls_db_path(config) == os.path.join(
-        "/root", CONFIG_FOLDER_NAME, "certs", "mtls.json"
+        "/root", CONFIG_FOLDER_NAME, "certs", "trusted_certs.json"
     )
 
 
