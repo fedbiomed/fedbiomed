@@ -4,12 +4,13 @@
 import copy
 import ipaddress
 import os
-import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Union
 
 from cryptography import x509
-from OpenSSL import crypto
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 from tabulate import tabulate
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
@@ -361,40 +362,39 @@ class CertificateManager:
                 f"{ErrorNumbers.FB619.value}: Certificate path is not valid: {certificate_folder}"
             )
 
-        pkey = crypto.PKey()
-        pkey.generate_key(crypto.TYPE_RSA, 2048)
+        pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
         cn = subject.get("CommonName", "*")
         on = subject.get("OrganizationName", component_id)
 
-        x509 = crypto.X509()
-        x509_subject = x509.get_subject()
-        x509_subject.commonName = cn
-        x509_subject.organizationName = on
-        x509.set_issuer(x509_subject)
+        name = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COMMON_NAME, cn),
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, on),
+            ]
+        )
 
-        extensions = []
+        builder = (
+            x509.CertificateBuilder()
+            .subject_name(name)
+            .issuer_name(name)
+            .public_key(pkey.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(datetime.now(timezone.utc))
+            .not_valid_after(datetime.now(timezone.utc) + timedelta(days=5 * 365))
+        )
+
+        san: Optional[x509.GeneralName]
         try:
-            if ipaddress.ip_address(cn):
-                extensions.append(
-                    # TODO: X509Extension is deprecated, update with newer version
-                    crypto.X509Extension(
-                        type_name=b"subjectAltName",
-                        critical=False,
-                        value=f"IP:{cn}".encode("ASCII"),
-                    )
-                )
+            san = x509.IPAddress(ipaddress.ip_address(cn))
         except ValueError:
-            pass
-        if extensions:
-            x509.add_extensions(extensions)
+            san = x509.DNSName(cn) if cn and cn != "*" else None
+        if san is not None:
+            builder = builder.add_extension(
+                x509.SubjectAlternativeName([san]), critical=False
+            )
 
-        x509.gmtime_adj_notBefore(0)
-        x509.gmtime_adj_notAfter(5 * 365 * 24 * 60 * 60)
-        x509.set_pubkey(pkey)
-        x509.set_serial_number(random.randrange(100000))
-        x509.set_version(2)
-        x509.sign(pkey, "SHA256")
+        certificate = builder.sign(private_key=pkey, algorithm=hashes.SHA256())
 
         # Certificate names
         key_file = os.path.join(certificate_folder, f"{certificate_name}.key")
@@ -402,7 +402,13 @@ class CertificateManager:
 
         try:
             with open(key_file, "wb") as f:
-                f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
+                f.write(
+                    pkey.private_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PrivateFormat.TraditionalOpenSSL,
+                        encryption_algorithm=serialization.NoEncryption(),
+                    )
+                )
         except Exception as e:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Can not write public key: {e}"
@@ -410,7 +416,7 @@ class CertificateManager:
 
         try:
             with open(pem_file, "wb") as f:
-                f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, x509))
+                f.write(certificate.public_bytes(serialization.Encoding.PEM))
         except Exception as e:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Can not write certificate: {e}"
