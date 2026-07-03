@@ -290,7 +290,9 @@ class TestNodeConfig(BaseConfigTest):
 
         # Opt-in: disabled by default, db under the component `certs` folder.
         self.assertFalse(config.getbool("mtls", "enabled"))
-        self.assertEqual(config.get("mtls", "db"), os.path.join("certs", "mtls.json"))
+        self.assertEqual(
+            config.get("mtls", "db"), os.path.join("certs", "trusted_certs.json")
+        )
 
     def test_03_node_config_migrate_old(self):
         config = NodeConfig(root="test")
