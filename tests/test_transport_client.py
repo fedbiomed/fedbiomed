@@ -1,4 +1,5 @@
 import asyncio
+import ssl
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -22,6 +23,7 @@ from fedbiomed.transport.client import (
     Sender,
     TaskListener,
     _is_tls_handshake_error,
+    _researcher_requires_client_auth,
     _StubType,
 )
 from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
@@ -127,6 +129,40 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(len(security_calls), 1)
         self.assertTrue(security_calls[0].args[0])
+
+    @patch("fedbiomed.transport.client.logger._logger.warning")
+    @patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
+    @patch("fedbiomed.transport.client.certificate_subject_field", autospec=True)
+    @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+    async def test_grpc_client_07__connect_mtls_warns_only_when_not_enforced(
+        self, is_server_alive, subject_field, requires_client_auth, log_warning
+    ):
+        is_server_alive.return_value = True
+        subject_field.return_value = "test-researcher"
+
+        # Warn iff the researcher does not require the node's client certificate
+        for requires_auth, expected_warnings in ((False, 1), (True, 0)):
+            with self.subTest(requires_auth=requires_auth):
+                requires_client_auth.return_value = requires_auth
+                log_warning.reset_mock()
+
+                client = GrpcClient(
+                    node_id="test-node-id",
+                    researcher=ResearcherCredentials(
+                        port="50051", host="localhost", certificate=b"CERT", mtls=True
+                    ),
+                    update_id_map=self.update_id_map,
+                )
+                client._channels.connect = AsyncMock()
+
+                await client._connect()
+
+                security_warnings = [
+                    c
+                    for c in log_warning.call_args_list
+                    if c.kwargs.get("extra", {}).get("is_security") is True
+                ]
+                self.assertEqual(len(security_warnings), expected_warnings)
 
 
 class TestTaskListener(unittest.IsolatedAsyncioTestCase):
@@ -505,6 +541,24 @@ class TestTlsHandshakeErrorDetection(unittest.TestCase):
         self.assertFalse(
             _is_tls_handshake_error(self._error("failed to connect to all addresses"))
         )
+
+
+class TestResearcherRequiresClientAuth(unittest.TestCase):
+    """Unit tests for the mutual-TLS client-auth probe."""
+
+    @patch("fedbiomed.transport.client.socket.create_connection")
+    @patch("fedbiomed.transport.client.ssl.create_default_context")
+    def test_false_when_anonymous_client_accepted(self, context, create_connection):
+        # Handshake without a client cert succeeds -> mutual TLS not enforced
+        self.assertFalse(_researcher_requires_client_auth("localhost", "50051"))
+
+    @patch("fedbiomed.transport.client.socket.create_connection")
+    @patch("fedbiomed.transport.client.ssl.create_default_context")
+    def test_true_when_client_cert_required(self, context, create_connection):
+        context.return_value.wrap_socket.side_effect = ssl.SSLError(
+            "peer did not return a certificate"
+        )
+        self.assertTrue(_researcher_requires_client_auth("localhost", "50051"))
 
 
 class TestSender(unittest.IsolatedAsyncioTestCase):
