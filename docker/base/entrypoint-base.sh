@@ -54,6 +54,7 @@ validate_ids() {
     return 0
 }
 
+user_configuration(){
 # Only perform root operations if running as root
 if [ "$(id -u)" = "0" ]; then
     log "Running as root - performing initialization..."
@@ -175,6 +176,10 @@ else
         exec sleep infinity
     fi
 fi
+
+}
+
+user_configuration
 
 # Should never reach here
 log "ERROR: Failed to execute user entrypoint"

@@ -151,3 +151,187 @@ SSL certificate can also be set through proxy server (e.g. [Nginx](https://www.n
     Fed-BioMed provides a ready-to-deploy Node GUI container in VPN/containers deployment mode, that is configured to use [Nginx](https://www.nginx.com/) as a
     proxy server and [Gunicorn](https://gunicorn.org/) as an application server. This also allows for setting custom SSL certificates.
     Please refer to the  [VPN deployment](../deployment/deployment-vpn.md) documentation.
+
+
+## User Accounts
+
+The GUI enforces authentication for all pages except the login and registration screens. There are two roles:
+
+| Role | Description |
+|---|---|
+| **Admin** | Full access including user management, registration approval, and security logs |
+| **User** | Access to datasets, training plans, node management, and file repository |
+
+### Default Admin Account
+
+On first startup, the GUI creates an admin account automatically using the credentials from the `[init_admin]` section of `config_gui.ini`. The defaults are:
+
+- **Email:** `admin@fedbiomed.gui`
+- **Password:** `admin`
+
+!!! warning "Change the default credentials"
+    Update the email and password in `config_gui.ini` **before** the first startup. Once the admin is created, the email can only be changed directly in the GUI database file (`<node-root>/var/gui_db_<NODE_ID>.json`).
+
+### Password Requirements
+
+All passwords (for both self-registration and admin-created accounts) must satisfy:
+
+- At least 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one digit
+
+
+### Creating a User Account (Admin)
+
+Admins can create accounts that are immediately active — no approval step required.
+
+1. Log in as an admin.
+2. Navigate to **User Account → User Management**.
+3. Click **Create new account**.
+4. Fill in name, surname, email, and password, then submit.
+
+The new user can log in straight away.
+
+Additional actions available from the same page:
+
+| Action | Description |
+|---|---|
+| **Reset password** | Generates a random 12-character password and displays it once |
+| **Change role** | Promote a user to Admin or demote to User |
+| **Delete user** | Permanently removes the account (admins cannot delete their own account) |
+
+
+## Registration
+
+Users who do not have an account can request one through the self-registration form at `/register/`. The request is held in a pending state until an admin approves or rejects it.
+
+### Submitting a Registration Request
+
+1. Open the GUI in a browser and click **Register** on the login page (or navigate to `/register/`).
+2. Fill in name, surname, email, and password.
+3. Submit the form.
+
+The server creates a pending request. The user **cannot log in** until an admin approves the request. A confirmation message is displayed: *"A request has been sent to the administrator for account creation."*
+
+### Approving or Rejecting Requests (Admin)
+
+1. Log in as an admin.
+2. Navigate to **User Account → Account Requests**.
+3. The table lists all pending and rejected requests with the requester's name, email, and submission date.
+
+| Button | Effect |
+|---|---|
+| **Approve** | Moves the request to the Users table — the user can log in immediately with the password they set during registration |
+| **Reject** | Marks the request as Rejected — the record remains visible and can still be approved later |
+
+
+## Pages Overview
+
+### Home
+
+**Route:** `/`
+
+The landing page after login. Displays quick-link cards for the main sections: Documentation, List Files, Dataset Management, Load Datasets, and Configuration.
+
+---
+
+### List Data Files (Repository)
+
+**Route:** `/repository/`
+
+A file browser for the node's data directory. Supports column view and list view. Use this page to navigate the folder structure of the configured data path and identify files before registering them as datasets.
+
+---
+
+### Training Plans
+
+**Route:** `/training-plans/`
+
+Lists all training plans (models) that have been submitted to the node. Each entry shows the plan name and its current approval status: **Pending**, **Approved**, or **Rejected**.
+
+Click on a training plan to open its detail view (`/training-plans/preview/:id`), where you can:
+
+- Read the full model source code
+- **Approve** — allow the node to execute this plan in federated rounds
+- **Reject** — prevent execution
+- **Delete** — remove the plan from the node
+
+Training plan approval is part of the node's security model. Only approved plans can be used in experiments. See [Training Plan Security Manager](training-plan-security-manager.md) for more details.
+
+---
+
+### Datasets
+
+**Route:** `/datasets/`
+
+Lists all datasets currently registered on the node. Supports keyword search and dataset removal. An **Add MNIST Dataset** shortcut is available for quick testing.
+
+Click on a dataset to open its preview (`/datasets/preview/:id`), which shows:
+
+- Metadata: name, description, tags, data type, shape
+- A preview of the data (first rows of a CSV, or folder listing for image/medical datasets)
+
+#### Adding a Dataset
+
+**Route:** `/datasets/add-dataset/`
+
+A multi-step wizard for registering a new dataset. The first step asks you to choose a dataset type:
+
+| Type | Description |
+|---|---|
+| **CSV** | Tabular data from a `.csv` file |
+| **Images** | A folder of image files |
+| **Medical Folder** | A structured folder following the Medical Folder Dataset convention (subjects × modalities) |
+
+For **Medical Folder datasets**, the wizard walks through additional steps: validating the root directory, selecting a reference CSV, mapping subject modalities, and optionally defining a DataLoadingPlan.
+
+---
+
+### Node Management
+
+**Route:** `/node-management/`
+
+Controls the Fed-BioMed node process and provides access to application logs. Two tabs:
+
+**Process Details**
+
+- Start, stop, or restart the node process directly from the browser
+- View current status (running / stopped / stopping), PID, uptime, and GPU configuration
+- Set GPU options (CUDA device index, disable GPU) before starting
+
+**Application Logs**
+
+- Browse log files produced by the node
+- Paginated, cursor-based backwards log viewer
+- Download raw log files
+
+---
+
+### Node Configuration
+
+**Route:** `/configuration/`
+
+Read-only view of the node's configuration. Displays:
+
+- Node ID and name
+- Database path
+- Training plan approval mode (auto-approve or manual review required)
+- Whether default training plans are allowed
+- Hashing algorithm in use
+
+---
+
+### User Account
+
+**Route:** `/user-account/`
+
+Personal and administrative account settings, organized as tabs:
+
+| Tab | Access | Description |
+|---|---|---|
+| **My Info** | All users | Displays your name, email, and role |
+| **Change Password** | All users | Update your own password (current password required) |
+| **User Management** | Admin only | Create, delete, reset password, or change role for any user |
+| **Account Requests** | Admin only | Review, approve, or reject pending registration requests |
+| **Security Logs** | Admin only | Filterable audit log of security-relevant events (login attempts, training plan actions, etc.). Supports filtering by operation type, status, researcher ID, date range, and keyword search |
