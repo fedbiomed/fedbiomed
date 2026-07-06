@@ -295,7 +295,7 @@ def test_read_initial_dataset_values(monkeypatch, fedcombat_jobs):
                 (torch.tensor([2.0]), torch.tensor([20.0])),
             ]
 
-        def complete_initialization(self, **_kwargs):
+        def load(self, **_kwargs):
             return None
 
         def __len__(self):
@@ -312,9 +312,27 @@ def test_read_initial_dataset_values(monkeypatch, fedcombat_jobs):
     assert phe.shape == (2, 1)
 
 
-def test_delete_temporary_dataset(fedcombat_jobs):
+def test_delete_temporary_dataset(monkeypatch, fedcombat_jobs):
+    class DummyPath:
+        unlinked_names = []
+
+        def __init__(self, path):
+            self._path = str(path)
+            self.name = self._path.split("/")[-1]
+
+        def exists(self):
+            return True
+
+        def unlink(self):
+            DummyPath.unlinked_names.append(self.name)
+
+    fedcombat_jobs._dataset_manager.last_add_kwargs["path"] = "/tmp/to_delete.csv"
+    monkeypatch.setattr(module, "Path", DummyPath)
+
     fedcombat_jobs._delete_temporary_dataset("to_delete")
+
     assert fedcombat_jobs._dataset_manager.deleted == ["to_delete"]
+    assert DummyPath.unlinked_names == ["to_delete.csv"]
 
 
 @pytest.mark.parametrize("is_harmonization", [True, False])
