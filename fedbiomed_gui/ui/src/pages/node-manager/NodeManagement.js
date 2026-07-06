@@ -14,7 +14,7 @@ import {
 
 import ApplicationLogs from './ApplicationLogs'
 import ProcessDetails from './ProcessDetails'
-import Configuration from '../Configuration'
+import Configuration from './Configuration'
 import {
     downloadNodeLogFile,
     executeNodeAction,

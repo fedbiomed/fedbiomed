@@ -22,11 +22,11 @@ import {
     fetchNodeConfig,
     resetNodeConfigMessages,
     writeNodeConfigSection,
-} from '../store/actions/nodeConfigActions'
+} from '../../store/actions/nodeConfigActions'
 import {
     executeNodeAction,
     fetchNodeProcessState,
-} from '../store/actions/nodeManagementActions'
+} from '../../store/actions/nodeManagementActions'
 
 const labelFor = (key) => key
     .split('_')
