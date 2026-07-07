@@ -51,7 +51,7 @@ from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-from fedbiomed.transport.client import ResearcherCredentials
+from fedbiomed.transport.client import NodeClientIdentity, ResearcherCredentials
 from fedbiomed.transport.controller import GrpcController
 
 
@@ -171,7 +171,7 @@ class Node:
         """Builds the researcher connection credentials.
 
         When mutual TLS is enabled through the `[mtls]` config section, the node
-        loads its own certificate/key and pins the registered researcher
+        attaches its own client identity and pins the registered researcher
         certificate. Otherwise the legacy auto-trust behaviour is kept.
 
         Returns:
@@ -181,23 +181,60 @@ class Node:
             FedbiomedCertificateError: mutual TLS is enabled but required
                 certificates are missing.
         """
+        certificate = self._config.get("researcher", "certificate", fallback=None)
         credentials = ResearcherCredentials(
             port=self._config.get("researcher", "port"),
             host=self._config.get("researcher", "ip"),
-            certificate=self._config.get("researcher", "certificate", fallback=None),
+            certificate=certificate.encode("utf-8") if certificate else None,
         )
 
         if not is_mtls_enabled(self._config):
             return credentials
 
+        credentials.mtls = True
+        credentials.node_identity = self._node_identity()
+        credentials.certificate = self._pinned_researcher_certificate()
+        return credentials
+
+    def _node_identity(self) -> NodeClientIdentity:
+        """Loads the node's own mutual-TLS client identity.
+
+        Returns:
+            The node's client identity (private key and certificate chain)
+            presented to the researcher under mutual TLS.
+
+        Raises:
+            FedbiomedCertificateError: the node's certificate or private key
+                could not be read.
+        """
         etc = os.path.join(self._config.root, CONFIG_FOLDER_NAME)
-        private_key = read_file(
-            os.path.join(etc, self._config.get("certificate", "private_key"))
-        )
-        certificate_chain = read_file(
-            os.path.join(etc, self._config.get("certificate", "public_key"))
+        try:
+            private_key = read_file(
+                os.path.join(etc, self._config.get("certificate", "private_key"))
+            )
+            certificate_chain = read_file(
+                os.path.join(etc, self._config.get("certificate", "public_key"))
+            )
+        except FedbiomedError as exp:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but this node's "
+                f"certificate or private key could not be read: {exp}"
+            ) from exp
+
+        return NodeClientIdentity(
+            private_key=private_key.encode("utf-8"),
+            certificate_chain=certificate_chain.encode("utf-8"),
         )
 
+    def _pinned_researcher_certificate(self) -> bytes:
+        """Resolves the registered researcher server certificate to pin.
+
+        Returns:
+            The researcher's public server certificate, pinned under mutual TLS.
+
+        Raises:
+            FedbiomedCertificateError: no researcher certificate is registered.
+        """
         certificate_manager = CertificateManager(db_path=self._config.db_path)
         researcher_certificates = certificate_manager.get_by_component(
             ComponentType.RESEARCHER.name
@@ -209,11 +246,7 @@ class Node:
                 "with `fedbiomed node certificate register`."
             )
 
-        credentials.mtls = True
-        credentials.private_key = private_key.encode("utf-8")
-        credentials.certificate_chain = certificate_chain.encode("utf-8")
-        credentials.certificate = researcher_certificates[0].encode("utf-8")
-        return credentials
+        return researcher_certificates[0].encode("utf-8")
 
     @property
     def node_id(self):

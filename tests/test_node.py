@@ -10,7 +10,7 @@ from fedbiomed.common.constants import (
     Stats,
     __messaging_protocol_version__,
 )
-from fedbiomed.common.exceptions import FedbiomedCertificateError
+from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.message import (
     ApprovalRequest,
     ErrorMessage,
@@ -248,12 +248,14 @@ class TestNode(unittest.TestCase):
         credentials = self.n1._researcher_credentials()
 
         self.assertTrue(credentials.mtls)
-        self.assertEqual(credentials.private_key, b"NODE_KEY")
-        self.assertEqual(credentials.certificate_chain, b"NODE_CERT")
+        self.assertEqual(credentials.node_identity.private_key, b"NODE_KEY")
+        self.assertEqual(credentials.node_identity.certificate_chain, b"NODE_CERT")
         self.assertEqual(credentials.certificate, b"RES_CERT")
         certificate_manager.return_value.get_by_component.assert_called_once_with(
             ComponentType.RESEARCHER.name
         )
+        # The node private key must not leak through the credentials repr.
+        self.assertNotIn("NODE_KEY", repr(credentials))
 
     @patch("fedbiomed.node.node.CertificateManager")
     @patch("fedbiomed.node.node.read_file")
@@ -265,6 +267,22 @@ class TestNode(unittest.TestCase):
         is_mtls_enabled.return_value = True
         read_file.side_effect = ["NODE_KEY", "NODE_CERT"]
         certificate_manager.return_value.get_by_component.return_value = []
+        self.n1._config._cfg["certificate"] = {
+            "private_key": "node.key",
+            "public_key": "node.pem",
+        }
+
+        with self.assertRaises(FedbiomedCertificateError):
+            self.n1._researcher_credentials()
+
+    @patch("fedbiomed.node.node.read_file")
+    @patch("fedbiomed.node.node.is_mtls_enabled")
+    def test_node_00_researcher_credentials_mtls_unreadable_node_cert(
+        self, is_mtls_enabled, read_file
+    ):
+        """A missing/unreadable node key or cert surfaces as FedbiomedCertificateError."""
+        is_mtls_enabled.return_value = True
+        read_file.side_effect = FedbiomedError("cannot read file")
         self.n1._config._cfg["certificate"] = {
             "private_key": "node.key",
             "public_key": "node.pem",

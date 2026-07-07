@@ -6,7 +6,7 @@ import asyncio
 import socket
 import ssl
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Awaitable, Callable, Iterable, List, Optional
 
@@ -28,14 +28,34 @@ from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceS
 
 
 @dataclass
+class NodeClientIdentity:
+    """The node's own mutual-TLS client identity, presented to the researcher.
+
+    Owned by the node, not the researcher. Only populated when mutual TLS is
+    enabled.
+    """
+
+    # `private_key` is secret and kept out of repr to avoid leaking into logs.
+    private_key: Optional[bytes] = field(default=None, repr=False)
+    certificate_chain: Optional[bytes] = None
+
+
+@dataclass
 class ResearcherCredentials:
+    """Connection details and pinned server certificate of a researcher.
+
+    Identifies the researcher endpoint (`host`/`port`) and pins its public
+    server `certificate`. Under mutual TLS the node additionally presents its
+    own client identity, carried separately in `node_identity`.
+    """
+
     port: str
     host: str
+    # Researcher server certificate to pin (public).
     certificate: Optional[bytes] = None
-    # Node identity presented to the researcher when mutual TLS is enabled
-    private_key: Optional[bytes] = None
-    certificate_chain: Optional[bytes] = None
     mtls: bool = False
+    # Node's own client identity, presented to the researcher under mutual TLS.
+    node_identity: Optional[NodeClientIdentity] = None
 
 
 class ClientStatus(Enum):
@@ -121,7 +141,11 @@ def _researcher_requires_client_auth(host: str, port: str) -> bool:
         ) as sock:
             with context.wrap_socket(sock, server_hostname=host):
                 return False
-    except ssl.SSLError:
+    except (ssl.SSLError, OSError):
+        # A server enforcing client auth rejects the anonymous handshake with a
+        # TLS alert (SSLError) or by resetting the connection (OSError). Any
+        # transient socket failure is also treated conservatively as "required"
+        # so this diagnostic probe never propagates and crashes the connect loop.
         return True
 
 
@@ -192,10 +216,11 @@ class Channels:
     def _create(self):
         """Creates new channel"""
         if self._researcher.mtls:
+            node_identity = self._researcher.node_identity
             credentials = grpc.ssl_channel_credentials(
                 root_certificates=self._researcher.certificate,
-                private_key=self._researcher.private_key,
-                certificate_chain=self._researcher.certificate_chain,
+                private_key=node_identity.private_key,
+                certificate_chain=node_identity.certificate_chain,
             )
             target_name_override = certificate_subject_field(
                 self._researcher.certificate, x509.oid.NameOID.COMMON_NAME
