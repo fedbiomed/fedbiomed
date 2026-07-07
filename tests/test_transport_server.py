@@ -186,6 +186,43 @@ class TestGrpcAsyncServer(unittest.IsolatedAsyncioTestCase):
         self.server_mock.return_value.start.assert_called_once()
         self.server_mock.return_value.wait_for_termination.assert_called_once()
 
+    async def test_grpc_async_server_01_bis_server_auth_only_credentials(self):
+        # mtls disabled -> server-auth only, no client cert required
+        with patch(
+            "fedbiomed.transport.server.grpc.ssl_server_credentials"
+        ) as credentials:
+            await self.grpc_server.start()
+        credentials.assert_called_once_with(((b"test", b"test"),))
+
+    async def test_grpc_async_server_01_ter_mtls_requires_client_auth(self):
+        # mtls enabled -> node client certs required and pinned to the bundle
+        ssl_credentials = MagicMock()
+        type(ssl_credentials).private_key = PropertyMock(return_value=b"key")
+        type(ssl_credentials).certificate = PropertyMock(return_value=b"cert")
+        type(ssl_credentials).mtls = PropertyMock(return_value=True)
+        type(ssl_credentials).trusted_node_certificates = PropertyMock(
+            return_value=b"bundle"
+        )
+        server = _GrpcAsyncServer(
+            host="localhost",
+            port="50051",
+            ssl=ssl_credentials,
+            config=self.config_mock,
+            on_message=self.on_message,
+            debug=False,
+        )
+
+        with patch(
+            "fedbiomed.transport.server.grpc.ssl_server_credentials"
+        ) as credentials:
+            await server.start()
+
+        credentials.assert_called_once_with(
+            ((b"key", b"cert"),),
+            root_certificates=b"bundle",
+            require_client_auth=True,
+        )
+
     async def test_grpc_async_server_02_send(self):
         agent = AsyncMock(spec=NodeAgent)
         self.agent_store_mock.return_value.get.return_value = agent
