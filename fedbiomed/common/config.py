@@ -13,7 +13,6 @@ from fedbiomed import __version__
 from fedbiomed.common.constants import (
     CERTS_FOLDER_NAME,
     CONFIG_FOLDER_NAME,
-    DB_MTLS_BASENAME,
     DB_PREFIX,
     VAR_FOLDER_NAME,
     ErrorNumbers,
@@ -205,6 +204,11 @@ class Config(metaclass=ABCMeta):
                 f"{ErrorNumbers.FB600.value}: cannot read config file:  {self.config_path}"
             ) from e
 
+    @property
+    def db_path(self) -> str:
+        """Absolute path of the component's main TinyDB database."""
+        return os.path.join(self.root, CONFIG_FOLDER_NAME, self.get("default", "db"))
+
     def get(self, section, key, **kwargs) -> str:
         """Returns value for given key and section"""
 
@@ -308,16 +312,10 @@ class Config(metaclass=ABCMeta):
             db_path = os.path.join(
                 self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json"
             )
-            mtls_db_path = os.path.join(
-                self.root, CERTS_FOLDER_NAME, f"{DB_MTLS_BASENAME}.json"
-            )
 
             self._cfg["default"]["db"] = os.path.relpath(db_path, config_dir)
             self._cfg["syslog"] = {"enable": "False"}
-            self._cfg["mtls"] = {
-                "enabled": "False",
-                "db": os.path.relpath(mtls_db_path, config_dir),
-            }
+            self._cfg["mtls"] = {"enabled": "False"}
 
             # Calls child class add_parameterss
             self.add_parameters()

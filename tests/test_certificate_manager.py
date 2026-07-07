@@ -1,9 +1,12 @@
 import copy
+import ipaddress
 import os
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock, patch
+
+from cryptography import x509
 
 from fedbiomed.common.certificate_manager import (
     CertificateManager,
@@ -327,7 +330,7 @@ class TestCertificateExpiry(unittest.TestCase):
     def test_certificate_expiry_returns_future_date(self):
         expiry = certificate_expiry(self.cert)
         self.assertIsInstance(expiry, datetime)
-        self.assertGreater(expiry, datetime.utcnow())
+        self.assertGreater(expiry, datetime.now(timezone.utc))
 
     def test_certificate_expiry_none_for_unparsable(self):
         self.assertIsNone(certificate_expiry(b"not a certificate"))
@@ -374,6 +377,56 @@ class TestCertificateExpiry(unittest.TestCase):
         rows = tabulate.call_args.args[0]
         self.assertIn("expires", rows[0])
         self.assertNotIn("certificate", rows[0])
+
+
+class TestGenerateSelfSignedCertificate(unittest.TestCase):
+    """Tests the `cryptography`-based self-signed certificate generation."""
+
+    def _generate(self, cn, org="node_1"):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+            certificate_folder=tmp.name,
+            certificate_name="cert",
+            component_id=org,
+            subject={"CommonName": cn, "OrganizationName": org},
+        )
+        with open(pem_file, "rb") as f:
+            return x509.load_pem_x509_certificate(f.read())
+
+    def _san(self, cert):
+        return cert.extensions.get_extension_for_class(
+            x509.SubjectAlternativeName
+        ).value
+
+    def test_subject_carries_common_and_organization_name(self):
+        cert = self._generate("localhost", org="node_1")
+        self.assertEqual(
+            cert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)[0].value,
+            "localhost",
+        )
+        self.assertEqual(
+            cert.subject.get_attributes_for_oid(x509.oid.NameOID.ORGANIZATION_NAME)[
+                0
+            ].value,
+            "node_1",
+        )
+
+    def test_hostname_common_name_produces_dns_san(self):
+        san = self._san(self._generate("localhost"))
+        self.assertEqual(san.get_values_for_type(x509.DNSName), ["localhost"])
+
+    def test_ip_common_name_produces_ip_san(self):
+        san = self._san(self._generate("10.0.0.5"))
+        self.assertEqual(
+            san.get_values_for_type(x509.IPAddress),
+            [ipaddress.ip_address("10.0.0.5")],
+        )
+
+    def test_wildcard_common_name_has_no_san(self):
+        # `*` is neither a resolvable host nor an IP -> no SubjectAlternativeName
+        with self.assertRaises(x509.ExtensionNotFound):
+            self._san(self._generate("*"))
 
 
 if __name__ == "__main__":  # pragma: no cover
