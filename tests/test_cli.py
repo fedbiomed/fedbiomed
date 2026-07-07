@@ -1,15 +1,11 @@
 import argparse
-import configparser
 import io
 import json
 import os
-import shutil
 import signal
 import sys
-import tempfile
 import unittest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -29,7 +25,6 @@ from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
     get_map_modalities2folders_from_cli,
 )
-from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.node_pm import _node_signal_trigger_term, _start_node_process
 
 # ============================================================================
@@ -39,19 +34,8 @@ from fedbiomed.node.node_pm import _node_signal_trigger_term, _start_node_proces
 
 @pytest.fixture
 def temp_medical_data():
-    """Fixture to create temporary test data."""
-    temp_dir = tempfile.mkdtemp()
-    test_path = Path(temp_dir) / "medical_data"
-    test_path.mkdir()
-
-    # Create a mock CSV file path
-    csv_path = Path(temp_dir) / "demographics.csv"
-    csv_path.touch()
-
-    yield temp_dir, str(test_path), str(csv_path)
-
-    # Cleanup
-    shutil.rmtree(temp_dir)
+    """Fixture to provide fake test data paths."""
+    return "/fake/tmp", "/fake/medical_data", "/fake/demographics.csv"
 
 
 @pytest.fixture
@@ -259,10 +243,8 @@ class TestDatasetArgumentParser(unittest.TestCase):
             "tags": "#test",
             "name": "TestData",
         }
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(dataset_json, f)
-            json_path = f.name
-        try:
+        json_path = "/fake/dataset.json"
+        with patch("builtins.open", mock_open(read_data=json.dumps(dataset_json))):
             with patch.object(fedbiomed.node.cli, "add_database") as m:
                 self.dataset_arg_pars._add_dataset_from_file(path=json_path)
                 m.assert_called_once_with(
@@ -275,8 +257,6 @@ class TestDatasetArgumentParser(unittest.TestCase):
                     name="TestData",
                     dataset_parameters=None,
                 )
-        finally:
-            os.unlink(json_path)
 
     def test_08_add_dataset_from_file_relative_path(self):
         """Tests _add_dataset_from_file prepends config.root for relative paths."""
@@ -289,17 +269,13 @@ class TestDatasetArgumentParser(unittest.TestCase):
             "tags": "#test",
             "name": "RelData",
         }
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(dataset_json, f)
-            json_path = f.name
-        try:
+        json_path = "/fake/dataset.json"
+        with patch("builtins.open", mock_open(read_data=json.dumps(dataset_json))):
             with patch.object(fedbiomed.node.cli, "add_database") as m:
                 self.dataset_arg_pars._add_dataset_from_file(path=json_path)
                 call_kwargs = m.call_args[1]
                 self.assertIn("/test/root", call_kwargs["path"])
                 self.assertIn("relative", call_kwargs["path"])
-        finally:
-            os.unlink(json_path)
 
     def test_09_add_dataset_from_file_env_var_path(self):
         """Tests _add_dataset_from_file expands environment variable in path."""
@@ -311,29 +287,21 @@ class TestDatasetArgumentParser(unittest.TestCase):
             "tags": "#test",
             "name": "EnvData",
         }
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(dataset_json, f)
-            json_path = f.name
-        try:
+        json_path = "/fake/dataset.json"
+        with patch("builtins.open", mock_open(read_data=json.dumps(dataset_json))):
             with patch.dict(os.environ, {"FBM_TEST_DATA": "/env/path"}):
                 with patch.object(fedbiomed.node.cli, "add_database") as m:
                     self.dataset_arg_pars._add_dataset_from_file(path=json_path)
                     call_kwargs = m.call_args[1]
                     self.assertIn("/env/path", call_kwargs["path"])
-        finally:
-            os.unlink(json_path)
 
     def test_10_add_dataset_from_file_invalid_json(self):
         """Tests _add_dataset_from_file exits when the file is not valid JSON."""
         self.dataset_arg_pars.initialize()
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            f.write("not valid json {{{")
-            json_path = f.name
-        try:
+        json_path = "/fake/dataset.json"
+        with patch("builtins.open", mock_open(read_data="not valid json {{{")):
             with self.assertRaises(SystemExit):
                 self.dataset_arg_pars._add_dataset_from_file(path=json_path)
-        finally:
-            os.unlink(json_path)
 
 
 class TestNodeControl(unittest.TestCase):
@@ -361,36 +329,28 @@ class TestNodeControl(unittest.TestCase):
             "--gpu" in self.subparsers.choices["start"]._option_string_actions
         )  # noqa
 
+    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
     @patch("fedbiomed.node.node_pm.Node", autospec=True)
-    def test_03_node_control__start(self, mock_node):
+    def test_03_node_control__start(self, mock_node, mock_node_config):
         """Tests node start"""
-
-        cfg = configparser.ConfigParser()
-        cfg["security"] = {
-            "training_plan_approval": "true",
-            "allow_default_training_plan": "true",
-        }
-        cfg["default"] = {"id": "test-id"}
-
+        mock_node_config.return_value = MagicMock()
+        mock_node.return_value.config.get.return_value = "test-node"
+        mock_node.return_value.config.getbool.return_value = False
         mock_node.return_value.tp_security_manager = MagicMock()
 
-        with tempfile.TemporaryDirectory() as temp_:
-            config = NodeConfig(temp_)
-            config._cfg = cfg
-            args = {"gpu": False}
-            config._cfg["security"]["training_plan_approval"] = "false"
+        args = {"gpu": False}
+        _start_node_process("config.ini", args)
+        mock_node.return_value.task_manager.assert_called_once()
+
+        with patch("fedbiomed.node.node_pm.logger") as logger:
+            mock_node.return_value.task_manager.side_effect = FedbiomedError
             _start_node_process("config.ini", args)
-            mock_node.return_value.task_manager.assert_called_once()
+            logger.critical.assert_called_once()
+            logger.critical.reset_mock()
 
-            with patch("fedbiomed.node.node_pm.logger") as logger:
-                mock_node.return_value.task_manager.side_effect = FedbiomedError
-                _start_node_process("config.ini", args)
-                logger.critical.assert_called_once()
-                logger.critical.reset_mock()
-
-                mock_node.return_value.task_manager.side_effect = Exception
-                _start_node_process("config.ini", args)
-                logger.critical.assert_called_once()
+            mock_node.return_value.task_manager.side_effect = Exception
+            _start_node_process("config.ini", args)
+            logger.critical.assert_called_once()
 
 
 class TestGUIControl(unittest.TestCase):
@@ -544,9 +504,13 @@ class TestGUIControl(unittest.TestCase):
 class TestStartNodeProcess(unittest.TestCase):
     """Tests for the _start_node_process function."""
 
+    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
     @patch("fedbiomed.node.node_pm.Node")
-    def test_01_start_node_training_plan_approval_with_default_plans(self, mock_node):
+    def test_01_start_node_training_plan_approval_with_default_plans(
+        self, mock_node, mock_node_config
+    ):
         """Tests tp_security_manager methods are called when approval + default plans are enabled."""
+        mock_node_config.return_value = MagicMock()
         mock_node.return_value.config.getbool.return_value = True
 
         _start_node_process("config.ini", {"gpu": False})
@@ -554,9 +518,13 @@ class TestStartNodeProcess(unittest.TestCase):
         mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
         mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_called_once()
 
+    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
     @patch("fedbiomed.node.node_pm.Node")
-    def test_02_start_node_training_plan_approval_no_default_plans(self, mock_node):
+    def test_02_start_node_training_plan_approval_no_default_plans(
+        self, mock_node, mock_node_config
+    ):
         """Tests register_update_default_training_plans is NOT called when allow_default_training_plans is False."""
+        mock_node_config.return_value = MagicMock()
 
         def _getbool(section, key):
             return key == "training_plan_approval"
@@ -572,20 +540,25 @@ class TestStartNodeProcess(unittest.TestCase):
 class TestNodeCLI(unittest.TestCase):
     """Tests main NodeCLI"""
 
+    @patch("fedbiomed.node.cli.Node")
+    @patch("fedbiomed.node.cli.node_component.initiate")
     @patch("builtins.input")
-    def test_01_node_cli_init(self, input_patch):
+    def test_01_node_cli_init(self, input_patch, mock_initiate, mock_node):
         """Tests initialization"""
         input_patch.return_value = "y"
-        # import sys
-        # sys.argv.append('-y')
-        # remove any `fbm-node` folder already existing
-        shutil.rmtree("fbm-node", ignore_errors=True)
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            self.node_cli = NodeCLI()
-            self.node_cli.parse_args(
-                ["--path", os.path.join(str(tmpdirname), "fbm-node"), "dataset", "list"]
-            )
-        # sys.argv.remove('-y')
+        mock_config = MagicMock()
+        mock_config.get.return_value = "test-node-id"
+        mock_initiate.return_value = mock_config
+        mock_node.return_value.dataset_manager.list_my_datasets.return_value = []
+
+        self.node_cli = NodeCLI()
+        self.node_cli.parse_args(["--path", "/fake/fbm-node", "dataset", "list"])
+
+        mock_initiate.assert_called_once_with(root=os.path.abspath("/fake/fbm-node"))
+        mock_node.assert_called_once_with(mock_config)
+        mock_node.return_value.dataset_manager.list_my_datasets.assert_called_once_with(
+            verbose=True
+        )
 
 
 # ============================================================================

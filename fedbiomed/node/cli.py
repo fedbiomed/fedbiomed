@@ -715,7 +715,7 @@ class NodeCLI(CommonCLI):
 
         super().initialize()
 
-        self._parser.add_argument(
+        self._path_action = self._parser.add_argument(
             "--path",
             "-p",
             nargs="?",
