@@ -2,9 +2,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, Stats
+from fedbiomed.common.constants import (
+    DatasetTypes,
+    ErrorNumbers,
+    SAParameters,
+    Stats,
+)
 from fedbiomed.common.dataset_types import DataReturnFormat
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedSecureAggregationError
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
 from fedbiomed.node.jobs._fa_job import FAJob, _InternalJobError
 
@@ -117,7 +122,7 @@ def test_build_error_msg_default_errnum(fa_job):
     [
         (
             DatasetTypes.TABULAR,
-            {"dtypes": {"col1": "int", "col2": "float"}},
+            {"dtypes": {"col1": "Int64", "col2": "Float64"}},
             {"input_columns": ["col1", "col2"]},
         ),
         (
@@ -137,6 +142,41 @@ def test_build_args_for_dataset(fa_job, dtype_enum, entry_extra, expected):
         return_value=dtype_enum,
     ):
         assert fa_job._build_args_for_dataset(entry) == expected
+
+
+@pytest.mark.parametrize(
+    "dtypes,expected_columns",
+    [
+        # All numerical
+        (
+            {"a": "Int8", "b": "Int16", "c": "Int32", "d": "Int64", "e": "Int128"},
+            ["a", "b", "c", "d", "e"],
+        ),
+        (
+            {"a": "UInt8", "b": "UInt16", "c": "UInt32", "d": "UInt64"},
+            ["a", "b", "c", "d"],
+        ),
+        ({"a": "Float32", "b": "Float64"}, ["a", "b"]),
+        # Mixed: only numerical columns returned
+        ({"num": "Int64", "text": "String", "flag": "Boolean", "dt": "Date"}, ["num"]),
+        ({"x": "Float32", "label": "String"}, ["x"]),
+        # All non-numerical: empty list
+        ({"a": "String", "b": "Boolean", "c": "Date"}, []),
+        # Empty dtypes: empty list
+        ({}, []),
+    ],
+)
+def test_build_args_for_dataset_tabular_numerical_filter(
+    fa_job, dtypes, expected_columns
+):
+    """Only columns with numerical polars dtypes are included in input_columns."""
+    entry = {"data_type": DatasetTypes.TABULAR.value, "dtypes": dtypes}
+    with patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
+        return_value=DatasetTypes.TABULAR,
+    ):
+        result = fa_job._build_args_for_dataset(entry)
+    assert result["input_columns"] == expected_columns
 
 
 def test_build_args_for_dataset_custom_raises(fa_job):
@@ -164,19 +204,19 @@ def test_build_args_for_dataset_unknown_type_raises(fa_job):
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
 def test_build_dataset_success(mock_registry, fa_job, mock_dm, mock_dataset_cls):
-    """Happy path: correct dataset returned and complete_initialization called."""
+    """Happy path: correct dataset returned and load called."""
     instance, cls = mock_dataset_cls
     fa_job._dataset_manager = mock_dm
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     assert dataset is instance
-    instance.complete_initialization.assert_called_once()
-    call_args = instance.complete_initialization.call_args
-    assert call_args[0][0]["root"] == "/path/to/data"
-    assert call_args[0][1] == DataReturnFormat.SKLEARN
+    instance.load.assert_called_once()
+    call_args = instance.load.call_args
+    assert call_args.kwargs["root"] == "/path/to/data"
+    assert call_args.kwargs["to_format"] == DataReturnFormat.SKLEARN
 
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
@@ -193,11 +233,11 @@ def test_build_dataset_forwards_dataset_parameters(
     }
     fa_job._dataset_manager = dm
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
-    call_kwargs = instance.complete_initialization.call_args[0][0]
+    call_kwargs = instance.load.call_args.kwargs
     assert call_kwargs.get("tabular_file") == "labels.csv"
 
 
@@ -238,12 +278,12 @@ def test_build_dataset_with_dlp(
     mock_dlp = mock_dlp_cls.return_value
     mock_dlp.deserialize.return_value = mock_dlp
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     assert dataset is instance
-    assert instance.complete_initialization.call_args[0][0]["dlp"] == mock_dlp
+    assert instance.load.call_args.kwargs["dlp"] == mock_dlp
 
 
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
@@ -271,7 +311,7 @@ def test_build_dataset_initialization_error(mock_registry, fa_job, mock_dm):
     fa_job._dataset_manager = mock_dm
     broken_cls = MagicMock(side_effect=FedbiomedError("Init Error"))
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, broken_cls)
+    mock_registry.__getitem__.return_value = (None, broken_cls)
 
     with pytest.raises(
         _InternalJobError, match="Cannot initialize dataset.*Init Error"
@@ -288,7 +328,7 @@ def test_build_dataset_below_minimum_samples_raises(
     mock_dm.validate_samples.side_effect = FedbiomedError("below minimum")
     fa_job._dataset_manager = mock_dm
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     with pytest.raises(
         _InternalJobError, match="does not meet minimum sample requirement"
@@ -304,7 +344,7 @@ def test_build_dataset_validate_samples_called(
     _, cls = mock_dataset_cls
     fa_job._dataset_manager = mock_dm
     mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, None, cls)
+    mock_registry.__getitem__.return_value = (None, cls)
 
     fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
@@ -406,11 +446,12 @@ def test_run_passes_correct_kwargs_to_compute_stats(fa_job):
 
 
 def test_run_multiple_stats(fa_job_args, request_args):
-    stats_list = [Stats.MEAN.value, Stats.VARIANCE.value]
+    stats_list = [Stats.MEAN.value, Stats.SUM.value]
     req = FARequest(**{**request_args, "stats": stats_list})
     job = FAJob(**{**fa_job_args, "request": req})
     mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": {"mean": 1, "variance": 0.1}}
+    # A [mean, sum] request yields the count+sum primitives (mean -> count+sum).
+    mock_dataset.compute_stats.return_value = {"col1": {"count": 6, "sum": 6}}
 
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = job.run()
@@ -418,3 +459,290 @@ def test_run_multiple_stats(fa_job_args, request_args):
     assert isinstance(reply, FAReply)
     assert reply.stats == stats_list
     assert mock_dataset.compute_stats.call_args[1]["stats"] == stats_list
+
+
+# ----------------------------- run() — secagg paths -----------------
+
+
+@pytest.fixture
+def secagg_args():
+    """Minimal secagg_arguments dict for a JLS FA round."""
+    from fedbiomed.common.constants import SecureAggregationSchemes
+
+    return {
+        "secagg_scheme": SecureAggregationSchemes.JOYE_LIBERT,
+        "secagg_servkey_id": "serv-id",
+        "secagg_random": 0.5,
+        "parties": ["researcher-1", "node-1", "node-2"],
+        "fa_round": 2,
+    }
+
+
+def _make_fa_job(
+    fa_job_args,
+    fa_request,
+    secagg_active=False,
+    force_secagg=False,
+    secagg_arguments=None,
+):
+    """Helper: build FAJob with secagg parameters."""
+    return FAJob(
+        **{
+            **fa_job_args,
+            "request": fa_request,
+            "db": "/tmp/test.json",
+            "secagg_active": secagg_active,
+            "force_secagg": force_secagg,
+            "secagg_arguments": secagg_arguments,
+        }
+    )
+
+
+def test_run_secagg_force_without_args_returns_error(fa_job_args, fa_request):
+    """force_secagg=True + no secagg_arguments → ErrorMessage (node policy violated)."""
+    job = _make_fa_job(
+        fa_job_args,
+        fa_request,
+        secagg_active=True,
+        force_secagg=True,
+        secagg_arguments=None,
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"col1": 1.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
+def test_run_secagg_request_with_clipping_range_ignored(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """A request carrying secagg_clipping_range is not rejected; the node ignores it and uses FA_CLIPPING_RANGE."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg.scheme.encrypt.return_value = [1]
+    mock_secagg_cls.return_value = mock_secagg
+
+    secagg_args["secagg_clipping_range"] = 3
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"x": 1.0}  # within FA_CLIPPING_RANGE
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert not isinstance(reply, ErrorMessage)
+    # The request value (3) is ignored in favour of the fixed node-side constant.
+    call_args = mock_secagg.scheme.encrypt.call_args
+    assert call_args.kwargs["clipping_range"] == SAParameters.FA_CLIPPING_RANGE
+
+
+def test_run_secagg_not_active_returns_error(fa_job_args, fa_request, secagg_args):
+    """secagg_arguments provided + secagg_active=False → ErrorMessage."""
+    job = _make_fa_job(
+        fa_job_args,
+        fa_request,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_arguments=secagg_args,
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"col1": 1.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
+def test_run_encrypted_path_returns_fa_reply(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """When use_secagg is True, run() returns encrypted FAReply."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg.scheme.encrypt.return_value = [100, 200, 300]
+    mock_secagg_cls.return_value = mock_secagg
+
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"a": 1.0, "b": 2.0, "c": 3.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, FAReply)
+    assert reply.encrypted is True
+    assert reply.params_encrypted == [100, 200, 300]
+    assert reply.output is None
+    assert reply.output_schema is not None
+    assert mock_secagg.scheme.encrypt.call_count == 1
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
+def test_run_encrypted_path_rejects_out_of_clipping_range(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """A statistic beyond the clipping range yields an ErrorMessage, not encryption."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg_cls.return_value = mock_secagg
+
+    # a statistic above the fixed node-side clipping range is rejected
+    over = SAParameters.FA_CLIPPING_RANGE + 1
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {
+        "age": {"sum": 1.0, "count": 2},
+        "income": {"sum": over, "count": 2},  # exceeds FA_CLIPPING_RANGE; 'age' is fine
+    }
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    mock_secagg.scheme.encrypt.assert_not_called()
+    # The message names the offending column/stat to help the user...
+    assert "income.sum" in reply.extra_msg
+    # ...but never echoes the offending value (would leak an unencrypted statistic).
+    assert str(over) not in reply.extra_msg
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
+def test_run_encrypted_path_rejects_out_of_clipping_range_unnamed(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """A bare-scalar leaf has no key-path: the error still fires, without a name."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg_cls.return_value = mock_secagg
+
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    # scalar → empty key-path; exceeds the fixed FA_CLIPPING_RANGE constant
+    mock_dataset.compute_stats.return_value = float(SAParameters.FA_CLIPPING_RANGE + 1)
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    mock_secagg.scheme.encrypt.assert_not_called()
+    # No name available → no "Offending statistic(s)" clause, just the generic error.
+    assert "Offending statistic(s)" not in reply.extra_msg
+    assert "exceed the secure aggregation clipping range" in reply.extra_msg
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
+def test_run_encrypted_path_uses_fa_round_from_args(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """encrypt() is called with the fa_round from secagg_arguments."""
+    mock_secagg = MagicMock()
+    mock_secagg.use_secagg = True
+    mock_secagg.scheme.encrypt.return_value = [1]
+    mock_secagg_cls.return_value = mock_secagg
+
+    secagg_args["fa_round"] = 7
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"x": 1.0}  # within FA_CLIPPING_RANGE
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        job.run()
+
+    call_args = mock_secagg.scheme.encrypt.call_args
+    assert call_args.kwargs["current_round"] == 7
+    # FA clipping range is the fixed node-side constant, not the request value
+    assert call_args.kwargs["clipping_range"] == SAParameters.FA_CLIPPING_RANGE
+
+
+@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
+def test_run_secagg_round_error_returns_error_message(
+    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+):
+    """FedbiomedSecureAggregationError from SecaggRound → ErrorMessage."""
+    mock_secagg_cls.side_effect = FedbiomedSecureAggregationError("context missing")
+
+    job = _make_fa_job(
+        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
+    )
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"a": 1.0}
+
+    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
+        reply = job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    assert "context missing" in reply.extra_msg
+
+
+# ----------------------------- _check_clipping_overflow -------------
+
+
+@pytest.mark.parametrize(
+    "flat,schema,clip",
+    [
+        ([], [], 3),  # no values
+        ([3, -3, 0], [["a"], ["b"], ["c"]], 3),  # exactly on the bounds is allowed
+        ([1.5, -2.0], [["a", "sum"], ["b"]], 3),  # strictly inside
+    ],
+)
+def test_check_clipping_overflow_within_range_returns_none(fa_job, flat, schema, clip):
+    """Values in [-clip, clip] (bounds inclusive) produce no error."""
+    assert fa_job._check_clipping_overflow(flat, schema, clip) is None
+
+
+def test_check_clipping_overflow_over_upper_bound(fa_job):
+    """A value above clip is reported by its key-path, count is 1."""
+    err = fa_job._check_clipping_overflow([1.0, 99.0], [["age"], ["income", "sum"]], 3)
+    assert isinstance(err, ErrorMessage)
+    assert err.errnum == ErrorNumbers.FB325.value
+    assert "1 computed analytics value(s)" in err.extra_msg
+    assert "income.sum" in err.extra_msg
+    assert "99" not in err.extra_msg  # never echo the unencrypted value
+
+
+def test_check_clipping_overflow_below_lower_bound(fa_job):
+    """A value below -clip is also caught."""
+    err = fa_job._check_clipping_overflow([-99.0], [["loss"]], 3)
+    assert isinstance(err, ErrorMessage)
+    assert "loss" in err.extra_msg
+
+
+def test_check_clipping_overflow_unnamed_offender(fa_job):
+    """A bare scalar (empty key-path) fires the error without a name clause."""
+    err = fa_job._check_clipping_overflow([99.0], [[]], 3)
+    assert isinstance(err, ErrorMessage)
+    assert "Offending statistic(s)" not in err.extra_msg
+    assert "exceed the secure aggregation clipping range" in err.extra_msg
+
+
+def test_check_clipping_overflow_multiple_offenders_named_and_unnamed(fa_job):
+    """Count tallies every offender; only those with a key-path are named."""
+    err = fa_job._check_clipping_overflow(
+        [99.0, 1.0, -50.0, 99.0],
+        [["a", "sum"], ["b"], [], ["c"]],
+        3,
+    )
+    assert "3 computed analytics value(s)" in err.extra_msg
+    assert "a.sum" in err.extra_msg and "c" in err.extra_msg
+    assert "b" not in err.extra_msg.split("Offending statistic(s):")[1]

@@ -208,6 +208,8 @@ class TestNode(unittest.TestCase):
             "allow_preproc": "True",
             "allow_federated_analytics": "True",
             "minimum_samples": "0",
+            "secure_aggregation": "False",
+            "force_secure_aggregation": "False",
         }
 
         self.node_config._cfg = self.config
@@ -476,7 +478,7 @@ class TestNode(unittest.TestCase):
             model_kwargs=dict_msg_1_dataset["model_args"],
             training_kwargs=dict_msg_1_dataset["training_args"],
             training=True,
-            dataset=self.database_id,
+            dataset_entry=self.database_id,
             params=dict_msg_1_dataset["params"],
             experiment_id=dict_msg_1_dataset["experiment_id"],
             researcher_id=dict_msg_1_dataset["researcher_id"],
@@ -539,7 +541,7 @@ class TestNode(unittest.TestCase):
             training_kwargs=dict_msg_1_dataset["training_args"],
             tp_security_manager=ANY,
             training=True,
-            dataset=self.database_id,
+            dataset_entry=self.database_id,
             params=dict_msg_1_dataset["params"],
             experiment_id=dict_msg_1_dataset["experiment_id"],
             researcher_id=dict_msg_1_dataset["researcher_id"],

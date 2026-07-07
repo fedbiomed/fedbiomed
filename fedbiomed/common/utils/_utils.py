@@ -29,7 +29,6 @@ def read_file(path):
     try:
         with open(path, "r", encoding="UTF-8") as file:
             content = file.read()
-            file.close()
     except Exception as e:
         raise FedbiomedError(
             f"{ErrorNumbers.FB627.value}: Can not read file {path}. Error: {e}"
@@ -73,14 +72,27 @@ def get_class_source(cls: Callable) -> str:
             f"{ErrorNumbers.FB627.value}: Could not read source file of the class {cls.__name__}"
         )
 
-    file = get_ipython_class_file(cls)
-    codes = "".join(inspect.linecache.getlines(file))
+    extract_symbols = importlib.import_module(
+        "IPython.core.magics.code"
+    ).extract_symbols
 
-    # Import only on IPython interface
-    module = importlib.import_module("IPython.core.magics.code")
-    extract_symbols = module.extract_symbols
-    class_code = extract_symbols(codes, cls.__name__)[0][0]
-    return class_code
+    # `get_ipython_class_file` may return the module file which lacks the class
+    files = [get_ipython_class_file(cls)] + [
+        inspect.getfile(m)
+        for _, m in inspect.getmembers(cls, inspect.isfunction)
+        if m.__qualname__ == f"{cls.__qualname__}.{m.__name__}"
+    ]
+    for file in dict.fromkeys(f for f in files if f):
+        blocks, _ = extract_symbols(
+            "".join(inspect.linecache.getlines(file)), cls.__name__
+        )
+        if blocks:
+            return blocks[0]
+
+    raise FedbiomedError(
+        f"{ErrorNumbers.FB627.value}: Could not extract source of class {cls.__name__} "
+        "from the IPython session; restart the kernel and re-run the cell defining it."
+    )
 
 
 def import_class_object_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]:
@@ -135,7 +147,7 @@ def import_object(module: str, obj_name: str) -> Any:
         obj_ = getattr(module, obj_name)
     except AttributeError as exp:
         raise FedbiomedError(
-            f"{ErrorNumbers.FB627}, Attribute error while loading the class "
+            f"{ErrorNumbers.FB627.value}, Attribute error while loading the class "
             f"{obj_name} from {module}. Error: {exp}"
         ) from exp
 
@@ -158,7 +170,7 @@ def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]
     """
     if not os.path.isfile(module_path):
         raise FedbiomedError(
-            f"{ErrorNumbers.FB627}: Given path for importing {class_name} is not existing"
+            f"{ErrorNumbers.FB627.value}: Given path for importing {class_name} is not existing"
         )
 
     module_base_name = os.path.basename(module_path)
@@ -166,7 +178,7 @@ def import_class_from_file(module_path: str, class_name: str) -> Tuple[Any, Any]
 
     match = pattern.match(module_base_name)
     if not match:
-        raise FedbiomedError(f"{ErrorNumbers.FB627}: File is not a python file.")
+        raise FedbiomedError(f"{ErrorNumbers.FB627.value}: File is not a python file.")
 
     module = match.group(1)
     sys.path.insert(0, os.path.dirname(module_path))

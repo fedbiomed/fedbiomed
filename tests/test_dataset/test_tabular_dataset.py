@@ -3,14 +3,14 @@ import numpy as np
 import polars as pl
 import pytest
 
-from fedbiomed.common.dataset._tabular_dataset import TabularDataset
+from fedbiomed.common.dataset._tabular_dataset import TabularDataset, _polars_to_torch
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
-# ---------- complete_initialization wiring ----------
+# ---------- load wiring ----------
 
 
-def test_complete_initialization_wires_controller_and_validates(mocker):
+def test_load_wires_controller_and_validates(mocker):
     df = pl.DataFrame({"data": [1], "target": [2]})
 
     # Stub a controller that returns a sample
@@ -33,15 +33,15 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
         input_columns=["data"], target_columns=["target"], transform=None
     )
 
-    def fake_init_controller(*, controller_kwargs):
-        captured_kwargs.update(controller_kwargs)
+    def fake_init_controller(**kwargs):
+        captured_kwargs.update(kwargs)
         ds._controller = StubController()
 
     # Patch instance methods
     mocker.patch.object(ds, "_init_controller", side_effect=fake_init_controller)
 
-    ds.complete_initialization(
-        controller_kwargs={"root": "/path"},
+    ds.load(
+        root="/path",
         to_format=DataReturnFormat.SKLEARN,
     )
 
@@ -59,22 +59,22 @@ def test_complete_initialization_wires_controller_and_validates(mocker):
         input_columns=["data", "target"], target_columns=["target"], transform=None
     )
 
-    def fake_init_controller(*, controller_kwargs):
-        captured_kwargs.update(controller_kwargs)
+    def fake_init_controller(**kwargs):
+        captured_kwargs.update(kwargs)
         ds._controller = StubController()
 
     # Patch instance methods
     mocker.patch.object(ds, "_init_controller", side_effect=fake_init_controller)
 
-    ds.complete_initialization(
-        controller_kwargs={"root": "/path"},
+    ds.load(
+        root="/path",
         to_format=DataReturnFormat.SKLEARN,
     )
 
     mock_logger_warning.assert_called_once()
 
 
-def test_complete_initialization_raises_if_sample_multiline(mocker):
+def test_load_raises_if_sample_multiline(mocker):
     # Sample with multiple rows (instead of single-row)
     df = pl.DataFrame({"col1": [1, 2], "col2": [2, 3], "col3": [3, 4]})
 
@@ -91,18 +91,14 @@ def test_complete_initialization_raises_if_sample_multiline(mocker):
     mocker.patch.object(
         ds,
         "_init_controller",
-        side_effect=lambda controller_kwargs: setattr(
-            ds, "_controller", StubController()
-        ),
+        side_effect=lambda **kwargs: setattr(ds, "_controller", StubController()),
     )
 
     # Patch validation to avoid unrelated errors if it were called
     mocker.patch.object(ds, "_validate_format_and_transformations")
 
     with pytest.raises(FedbiomedError) as exc:
-        ds.complete_initialization(
-            controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
-        )
+        ds.load("dummy", to_format=DataReturnFormat.SKLEARN)
     assert "TabularDataset currently only supports row-wise samples" in str(exc.value)
 
 
@@ -122,6 +118,29 @@ def test_get_format_conversion_callable_returns_torch_callable():
     ds.to_format = DataReturnFormat.TORCH
     fn = ds._get_format_conversion_callable()
     assert fn is TabularDataset._native_to_framework[DataReturnFormat.TORCH]
+
+
+def test_polars_to_torch_numeric_passes():
+    import torch
+
+    result = _polars_to_torch(pl.DataFrame({"a": [1], "b": [2.5]}))
+    assert isinstance(result, torch.Tensor) and result.shape == (2,)
+
+
+def test_polars_to_torch_string_column_raises_naming_the_column():
+    with pytest.raises(FedbiomedError, match="name"):
+        _polars_to_torch(pl.DataFrame({"a": [1], "name": ["Alice"]}))
+
+
+def test_polars_to_torch_unused_string_columns_do_not_raise():
+    """Only selected (already-filtered) columns are checked; unselected strings are irrelevant."""
+    import torch
+
+    full_df = pl.DataFrame({"age": [30], "name": ["Alice"], "score": [0.95]})
+    ds = TabularDataset(input_columns=["age", "score"])
+    selected = ds._get_item_from_sample(full_df, ["age", "score"])
+    result = _polars_to_torch(selected)
+    assert isinstance(result, torch.Tensor)
 
 
 def test_get_format_conversion_callable_raises_for_unknown_format():
@@ -462,6 +481,87 @@ def test_apply_transforms_error_cases(mocker):
         ds.apply_transforms(sample)
 
     assert "Failed to apply default training plan types to `target`" in str(exc4.value)
+
+
+# ---------- _get_item_from_sample: numeric validation ----------
+
+
+def test_get_item_from_sample_numeric_passes_non_numeric_raises():
+    ds = TabularDataset(input_columns=["a"])
+    df = pl.DataFrame({"a": [1], "b": [2.5], "name": ["Alice"], "city": ["NYC"]})
+
+    # None → None
+    assert ds._get_item_from_sample(df, None) is None
+
+    # All-numeric selection passes and returns the right columns
+    result = ds._get_item_from_sample(df, ["a", "b"])
+    assert isinstance(result, pl.DataFrame) and result.columns == ["a", "b"]
+
+    # Single string column → raises with that column name
+    with pytest.raises(FedbiomedError, match="name"):
+        ds._get_item_from_sample(df, ["a", "name"])
+
+    # Multiple non-numeric → all listed, numeric columns not mentioned
+    with pytest.raises(FedbiomedError) as exc:
+        ds._get_item_from_sample(df, ["name", "city", "a"])
+    msg = str(exc.value)
+    assert "name" in msg and "city" in msg and "age" not in msg
+
+
+@pytest.mark.parametrize("fmt", [DataReturnFormat.SKLEARN, DataReturnFormat.TORCH])
+@pytest.mark.parametrize(
+    "input_cols, target_cols, df_data, bad_col",
+    [
+        (["feature"], ["target"], {"feature": ["txt"], "target": [1]}, "feature"),
+        (["feature"], ["label"], {"feature": [1.0], "label": ["cat"]}, "label"),
+    ],
+)
+def test_load_raises_for_non_numeric_column(
+    mocker, fmt, input_cols, target_cols, df_data, bad_col
+):
+    df = pl.DataFrame(df_data)
+
+    class StubController:
+        def get_sample(self, idx):
+            return df
+
+        def normalize_columns(self, cols):
+            return cols
+
+    ds = TabularDataset(input_columns=input_cols, target_columns=target_cols)
+    mocker.patch.object(
+        ds,
+        "_init_controller",
+        side_effect=lambda **kwargs: setattr(ds, "_controller", StubController()),
+    )
+    with pytest.raises(FedbiomedError, match=bad_col):
+        ds.load("dummy", to_format=fmt)
+
+
+@pytest.mark.parametrize(
+    "input_cols, target_cols, df_data, bad_col",
+    [
+        (["feature"], ["label"], {"feature": ["txt"], "label": [1]}, "feature"),
+        (["feature"], ["label"], {"feature": [1.0], "label": ["cat"]}, "label"),
+    ],
+)
+def test_getitem_raises_for_non_numeric_column(
+    input_cols, target_cols, df_data, bad_col
+):
+    ds = TabularDataset(input_columns=input_cols, target_columns=target_cols)
+    df = pl.DataFrame(df_data)
+
+    class StubController:
+        def get_sample(self, idx):
+            return df
+
+    ds._controller = StubController()
+    ds._input_columns = input_cols
+    ds._target_columns = target_cols
+    ds._to_format = DataReturnFormat.SKLEARN
+
+    with pytest.raises(FedbiomedError, match=bad_col):
+        _ = ds[0]
 
 
 # ---------- analytics ----------

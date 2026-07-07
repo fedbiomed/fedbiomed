@@ -55,13 +55,22 @@ export const EP_CHANGE_USER_ROLE        = '/api/admin/users/change-role'
 // Security logs (admin)
 export const EP_SECURITY_LOGS          = '/api/admin/security/logs'
 
-
 //Models
 export const EP_LIST_TRAINING_PLANS     = '/api/training-plan/list'
 export const EP_APPROVE_TRAINING_PLAN   = '/api/training-plan/approve'
 export const EP_REJECT_TRAINING_PLAN    = '/api/training-plan/reject'
 export const EP_DELETE_TRAINING_PLAN    = '/api/training-plan/delete'
 export const EP_PREVIEW_TRAINING_PLAN   = '/api/training-plan/preview'
+
+// Node Management
+export const EP_NODE_STATUS = "/api/node/status";
+export const EP_NODE_PROCESS_STATE = "/api/node/process-state";
+export const EP_NODE_START = "/api/node/start";
+export const EP_NODE_STOP = "/api/node/stop";
+export const EP_NODE_RESTART = "/api/node/restart";
+export const EP_NODE_LOGS = "/api/node/logs";
+export const EP_NODE_LOG_FILES = "/api/node/logs/files";
+export const EP_NODE_LOGS_DOWNLOAD = "/api/node/logs/download";
 
 // Messages
 export const DATA_NOTFOUND = 'There is no data found for the dataset. It might be deleted'

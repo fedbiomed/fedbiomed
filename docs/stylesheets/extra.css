@@ -2053,3 +2053,8 @@ body.fbm-search-active .md-search__inner {
     height: 50px !important;
   }
 }
+
+
+.highlight pre {
+  padding:10px;
+} 

@@ -12,7 +12,7 @@ class SimpleDataset(Dataset):
     def __init__(self, length=5):
         self._length = length
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -34,7 +34,7 @@ class DictDataset(Dataset):
     def __init__(self, length=4):
         self._length = length
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -55,7 +55,7 @@ class BadModalityDataset(Dataset):
     def __init__(self):
         self._length = 1
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -80,7 +80,7 @@ class InconsistentShapeDataset(Dataset):
     def __init__(self):
         self._length = 2
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -104,7 +104,7 @@ class BadTargetDictDataset(Dataset):
     def __init__(self):
         self._length = 2
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -130,7 +130,7 @@ class FailingGetItemDataset(Dataset):
     def __init__(self):
         self._length = 3
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -149,7 +149,7 @@ class NoTargetDataset(Dataset):
     def __init__(self):
         self._length = 1
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -168,7 +168,7 @@ class BadTargetModalityDataset(Dataset):
     def __init__(self):
         self._length = 1
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -189,7 +189,7 @@ class BadDataGeometryDataset(Dataset):
     def __init__(self):
         self._length = 2
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -213,7 +213,7 @@ class InconsistentTargetShapeDataset(Dataset):
     def __init__(self):
         self._length = 2
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):

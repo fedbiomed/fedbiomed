@@ -20,7 +20,7 @@ class TestDataset(Dataset):
     def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
         return self._data[idx], np.array(self._target[idx])
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
 

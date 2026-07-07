@@ -70,7 +70,7 @@ def test_init_and_getitem(
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -164,7 +164,7 @@ def test_getitem_transform_types(
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -205,7 +205,7 @@ def test_getitem_transform_error(monkeypatch, sample_dict, bad_transform):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -228,7 +228,7 @@ def test_demographics_transform(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -255,7 +255,7 @@ def test_demographics_transform_error(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -355,12 +355,12 @@ def test_validate_format_and_transformations_transform_error(sample_dict):
         )
 
 
-def test_complete_initialization(monkeypatch, sample_dict):
-    """Test the complete_initialization method"""
+def test_load(monkeypatch, sample_dict):
+    """Test the load method"""
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -372,7 +372,7 @@ def test_complete_initialization(monkeypatch, sample_dict):
     )
 
     # Test successful initialization
-    ds.complete_initialization(controller_kwargs={}, to_format=DataReturnFormat.SKLEARN)
+    ds.load("dummy", to_format=DataReturnFormat.SKLEARN)
 
     assert ds.to_format == DataReturnFormat.SKLEARN
     assert ds._controller is not None
@@ -413,7 +413,7 @@ def test_process_sample_data(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -453,7 +453,7 @@ def test_process_sample_data_transform_error(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -595,7 +595,7 @@ def test_whole_dict_transforms(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -631,7 +631,7 @@ def test_process_sample_data_with_target(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -665,7 +665,7 @@ def test_process_sample_data_whole_dict_transform_error(monkeypatch, sample_dict
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -694,7 +694,7 @@ def test_torch_format_conversion(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -729,7 +729,7 @@ def test_analytics_schema(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyControllerWithDemographics(sample_dict)
         ),
     )
@@ -742,7 +742,7 @@ def test_analytics_schema(monkeypatch, sample_dict):
     )
 
     # Init controller
-    ds.complete_initialization({}, DataReturnFormat.SKLEARN)
+    ds.load("dummy", to_format=DataReturnFormat.SKLEARN)
 
     schema, _ = ds.analytics_schema()
 
@@ -773,7 +773,7 @@ def test_process_sample_data_default_types_error(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -807,7 +807,7 @@ def test_process_sample_data_whole_dict_default_types_error(monkeypatch, sample_
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -1007,15 +1007,15 @@ def test_iter(sample_dict):
         assert "label" in target
 
 
-# === complete_initialization edge cases ===
+# === load edge cases ===
 
 
-def test_complete_initialization_no_target(monkeypatch, sample_dict):
-    """complete_initialization with target_modalities=None sets format and controller."""
+def test_load_no_target(monkeypatch, sample_dict):
+    """load with target_modalities=None sets format and controller."""
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", DummyController(sample_dict)
         ),
     )
@@ -1025,7 +1025,7 @@ def test_complete_initialization_no_target(monkeypatch, sample_dict):
         transform=None,
         target_transform=None,
     )
-    ds.complete_initialization(controller_kwargs={}, to_format=DataReturnFormat.TORCH)
+    ds.load("dummy", to_format=DataReturnFormat.TORCH)
 
     assert ds.to_format == DataReturnFormat.TORCH
     assert ds._controller is not None
@@ -1044,7 +1044,7 @@ def test_analytics_schema_no_demographics(monkeypatch, sample_dict):
     monkeypatch.setattr(
         MedicalFolderDataset,
         "_init_controller",
-        lambda self, controller_kwargs: setattr(
+        lambda self, **kwargs: setattr(
             self, "_controller", ControllerWithoutDemographics(sample_dict)
         ),
     )
@@ -1054,7 +1054,7 @@ def test_analytics_schema_no_demographics(monkeypatch, sample_dict):
         transform=None,
         target_transform=None,
     )
-    ds.complete_initialization({}, DataReturnFormat.SKLEARN)
+    ds.load("dummy", to_format=DataReturnFormat.SKLEARN)
 
     schema, second = ds.analytics_schema()
 

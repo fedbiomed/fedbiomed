@@ -56,7 +56,7 @@ class Round:
         model_kwargs: dict,
         training_kwargs: dict,
         training: bool,
-        dataset: dict,
+        dataset_entry: dict,
         params: str,
         experiment_id: str,
         researcher_id: str,
@@ -80,7 +80,7 @@ class Round:
             model_kwargs: contains model args. Defaults to None.
             training_kwargs: contains training arguments. Defaults to None.
             training: whether to perform a model training or just to perform a validation check (model inferring)
-            dataset: dataset details to use in this round. It contains the dataset name, dataset's id,
+            dataset_entry: dataset details to use in this round. It contains the dataset name, dataset's id,
                 data path, its shape, its description... . Defaults to None.
             params: parameters of the model
             experiment_id: experiment id
@@ -104,7 +104,7 @@ class Round:
         self._db = db
         self._dir = root_dir
 
-        self.dataset = dataset
+        self.dataset_entry = dataset_entry
         self.training_plan_source = training_plan
         self.training_plan_class = training_plan_class
         self.params = params
@@ -213,7 +213,9 @@ class Round:
             Returns the corresponding node message, training reply instance
         """
         dataset_id = (
-            self.dataset.get("dataset_id") if isinstance(self.dataset, dict) else None
+            self.dataset_entry.get("dataset_id")
+            if isinstance(self.dataset_entry, dict)
+            else None
         )
         dp_active = (
             self.training_arguments.get("dp_args") is not None
@@ -325,6 +327,7 @@ class Round:
                 training_args=self.training_arguments,
                 aggregator_args=self.aggregator_args,
                 node_id=self._node_id,
+                round=self._round,
             )
             logger.debug(
                 f"Training plan initialized for round: experiment={self.experiment_id} "
@@ -430,7 +433,7 @@ class Round:
                     )
                 except FedbiomedError as e:
                     logger.error(
-                        f"{ErrorNumbers.FB314}: During the validation phase on global parameter updates; "
+                        f"{ErrorNumbers.FB314.value}: During the validation phase on global parameter updates; "
                         f"{repr(e)}",
                         researcher_id=self.researcher_id,
                     )
@@ -448,7 +451,7 @@ class Round:
                     )
             else:
                 logger.error(
-                    f"{ErrorNumbers.FB314}: Can not execute validation routine due to missing testing dataset"
+                    f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing dataset"
                     f"Please make sure that `test_ratio` has been set correctly",
                     researcher_id=self.researcher_id,
                 )
@@ -615,7 +618,7 @@ class Round:
             # Only for validation
             logger.debug(
                 f"Skipping training execution for round: experiment={self.experiment_id} "
-                f"round={self._round} dataset={self.dataset.get('dataset_id')} reason=training_disabled"
+                f"round={self._round} dataset={self.dataset_entry.get('dataset_id')} reason=training_disabled"
             )
             return self._send_round_reply(success=True)
 
@@ -743,7 +746,7 @@ class Round:
                 "state_id": self._node_state_manager.state_id,
                 "researcher_id": self.researcher_id,
                 "success": success,
-                "dataset_id": self.dataset["dataset_id"] if success else "",
+                "dataset_id": self.dataset_entry["dataset_id"] if success else "",
                 "msg": message,
                 "timing": timing,
                 **extend_with,
@@ -1022,9 +1025,6 @@ class Round:
         arguments.
         """
 
-        # Set requested data path for model training and validation
-        self.training_plan.set_dataset_path(self.dataset["path"])
-
         # Get validation parameters
         test_ratio = self.testing_arguments.get("test_ratio", 0)
         self.is_test_data_shuffled = self.testing_arguments.get(
@@ -1069,8 +1069,8 @@ class Round:
     def _split_train_and_test_data(self, test_ratio: float = 0) -> DataManager:
         # FIXME: incorrect type output
         """
-        Method for splitting training and validation data based on training plan type. It sets
-        `dataset_path` for training plan and calls `training_data` method of training plan.
+        Method for splitting training and validation data based on training plan type. It
+        calls the `training_data` method of training plan.
 
         Args:
             test_ratio: The ratio that represent validating partition. Default is 0, means that
@@ -1125,20 +1125,18 @@ class Round:
                 f"{ErrorNumbers.FB314.value}: Error while loading data manager; {repr(e)}"
             ) from e
 
-        # Info: controller_kwargs not yet implemented in DatasetManager
-        # so they are empty for now
-        controller_kwargs = self.dataset.get("controller_kwargs", {})
-        controller_kwargs["root"] = self.dataset.get("path")
-
-        controller_kwargs |= self.dataset.get("dataset_parameters", {})
-
+        # `root` is in both `dataset_parameters` and `path`; they must be the same.
+        controller_kwargs = {
+            **self.dataset_entry.get("dataset_parameters", {}),
+            "root": self.dataset_entry.get("path"),
+        }
         if self._dlp_and_loading_block_metadata is not None:
             controller_kwargs["dlp"] = DataLoadingPlan().deserialize(
                 *self._dlp_and_loading_block_metadata
             )
 
         try:
-            data_manager.complete_dataset_initialization(controller_kwargs)
+            data_manager.load_dataset(**controller_kwargs)
         except FedbiomedError as e:
             raise e
         except Exception as e:

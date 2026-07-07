@@ -1,0 +1,47 @@
+cff-version: 1.2.0
+title: Fed-BioMed
+type: software
+authors:
+  - given-names: Sergen
+    family-names: Cansiz
+    orcid: https://orcid.org/0009-0004-0951-9279
+  - given-names: Lucie
+    family-names: Chambon
+    orcid: https://orcid.org/0009-0007-7850-7695
+  - given-names: Francesco
+    family-names: Cremonesi
+    orcid: https://orcid.org/0000-0003-1027-485X
+  - given-names: Ali Tolga
+    family-names: Dinçer
+  - given-names: Marco
+    family-names: Lorenzi
+    orcid: https://orcid.org/0000-0003-0521-2881
+  - given-names: Jhonatan
+    family-names: Torres
+  - given-names: Marc
+    family-names: Vesin
+    orcid: https://orcid.org/0009-0009-0940-083X
+identifiers:
+  - type: doi
+    value: 10.1007/978-3-031-78841-3_2
+repository-code: "https://github.com/fedbiomed/fedbiomed"
+url: "https://fedbiomed.org"
+abstract: >-
+  Open-Source Platform for Secure Collaborative Health Data
+  Programs
+keywords:
+  - learning
+  - security
+  - data-science
+  - privacy
+  - ai
+  - analytics
+  - clinical
+  - healthcare
+  - dataset
+  - collaborative
+  - federated
+  - biomedical
+  - multicentric
+license: Apache-2.0
+version: v6.3.2

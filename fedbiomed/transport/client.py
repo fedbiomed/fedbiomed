@@ -363,7 +363,7 @@ class GrpcClient:
         """
         if self._id is not None and self._id != id_:
             msg = (
-                f"{ErrorNumbers.FB628}: Suspected malicious researcher activity ! "
+                f"{ErrorNumbers.FB628.value}: Suspected malicious researcher activity ! "
                 f"Researcher ID changed for {self._researcher.host}:{self._researcher.port} from "
                 f"`{self._id}` to `{id_}`"
             )
@@ -428,7 +428,7 @@ class Listener:
             exp: Base exception to use
         """
         raise FedbiomedCommunicationError(
-            f"{ErrorNumbers.FB628}: {self.__class__.__name__} has stopped due to unknown reason: "
+            f"{ErrorNumbers.FB628.value}: {self.__class__.__name__} has stopped due to unknown reason: "
             f"{type(exp).__name__} : {exp}"
         ) from exp
 

@@ -15,9 +15,9 @@ import time
 
 import pytest
 from experiments.training_plans.sklearn import (
-    NativePerceptronTraining,
-    NativeSGDClassifierTrainingPlan,
-    NativeSGDRegressorTrainingPlan,
+    CustomPerceptronTraining,
+    CustomSGDClassifierTrainingPlan,
+    CustomSGDRegressorTrainingPlan,
     PerceptronTraining,
     SGDClassifierTrainingPlan,
     SGDRegressorTrainingPlan,
@@ -185,7 +185,7 @@ def test_01_sklearn_perceptron():
     exp2 = Experiment(
         tags=["#csv-dataset-classification"],
         model_args=per_model_args,
-        training_plan_class=NativePerceptronTraining,
+        training_plan_class=CustomPerceptronTraining,
         training_args=per_training_args,
         round_limit=2,
         aggregator=FedAverage(),
@@ -262,7 +262,7 @@ def test_03_sklearn_sgdregressor():
     exp2 = Experiment(
         tags=tags,
         model_args=regressor_model_args,
-        training_plan_class=NativeSGDRegressorTrainingPlan,
+        training_plan_class=CustomSGDRegressorTrainingPlan,
         training_args=training_args,
         round_limit=rounds,
         aggregator=FedAverage(),
@@ -315,7 +315,7 @@ def test_04_sklearn_sgdclassfier():
     exp2 = Experiment(
         tags=tags,
         model_args=model_args,
-        training_plan_class=NativeSGDClassifierTrainingPlan,
+        training_plan_class=CustomSGDClassifierTrainingPlan,
         training_args=training_args,
         round_limit=rounds,
         aggregator=FedAverage(),

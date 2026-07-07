@@ -1,3 +1,32 @@
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll("clipboard-copy").forEach(function (btn) {
+    btn.addEventListener("click", function (e) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+
+      // Find the associated <pre> in the same cell container
+      const container = btn.closest(".jp-CodeMirrorEditor, .CodeMirror");
+      const pre = container
+        ? container.querySelector("pre")
+        : document.querySelector('pre'); // fallback
+
+      if (!pre) return;
+
+      // Extract text from the <pre> — preserves indentation and newlines
+      const code = pre.innerText;
+
+      navigator.clipboard.writeText(code).then(function () {
+        const notice = btn.querySelector(".notice");
+        if (notice) {
+          notice.hidden = false;
+          setTimeout(() => (notice.hidden = true), 2000);
+        }
+      });
+    }, true); // capture phase — fires before clipboard-copy's own handler
+  });
+});
+
+
 let pathname = window.location.pathname;
 let url      = window.location.href;
 let origin   = window.location.origin;

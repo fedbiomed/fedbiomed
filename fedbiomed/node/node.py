@@ -486,7 +486,7 @@ class Node:
             model_kwargs=msg.get_param("model_args") or {},
             training_kwargs=msg.get_param("training_args") or {},
             training=msg.get_param("training") or False,
-            dataset=data,
+            dataset_entry=data,
             params=msg.get_param("params"),
             experiment_id=msg.get_param("experiment_id"),
             researcher_id=msg.get_param("researcher_id"),
@@ -560,7 +560,7 @@ class Node:
                                 logger.security_event(
                                     operation="training_round_start",
                                     status="initiated",
-                                    dataset_id=round_.dataset.get("dataset_id"),
+                                    dataset_id=round_.dataset_entry.get("dataset_id"),
                                     training_plan_id=item.get_param(
                                         "training_plan_class"
                                     ),
@@ -571,7 +571,7 @@ class Node:
                                     item.request_id,
                                     item.experiment_id,
                                     item.round,
-                                    round_.dataset.get("dataset_id"),
+                                    round_.dataset_entry.get("dataset_id"),
                                     item.get_param("training_plan_class"),
                                 )
                                 msg = round_.run_model_training(
@@ -599,7 +599,7 @@ class Node:
                                 logger.security_event(
                                     operation="training_round_complete",
                                     status="success",
-                                    dataset_id=round_.dataset.get("dataset_id"),
+                                    dataset_id=round_.dataset_entry.get("dataset_id"),
                                     training_plan_id=item.get_param(
                                         "training_plan_class"
                                     ),
@@ -646,6 +646,14 @@ class Node:
                                 allow_fa=self.config.getbool(
                                     "security", "allow_federated_analytics"
                                 ),
+                                db=self._db_path,
+                                secagg_active=self._config.getbool(
+                                    "security", "secure_aggregation"
+                                ),
+                                force_secagg=self._config.getbool(
+                                    "security", "force_secure_aggregation"
+                                ),
+                                secagg_arguments=item.get_param("secagg_arguments"),
                             )
                             response = fa_job.run()
                             self._grpc_client.send(response)

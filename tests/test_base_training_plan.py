@@ -64,15 +64,6 @@ class TestBaseTrainingPlan(unittest.TestCase):
             expected, self.tp._dependencies, "Can not set dependency properly"
         )
 
-    def test_base_training_plan_02_set_dataset_path(self):
-        """Test setting dataset path"""
-
-        expected = "/path/to/my/data.csv"
-        self.tp.set_dataset_path(expected)
-        self.assertEqual(
-            expected, self.tp.dataset_path, "Can not set `dataset_path` properly"
-        )
-
     def test_base_training_plan_03_save_code(self):
         """Testing the method save_code of BaseTrainingPlan"""
         expected_filepath = "path/to/model.py"
@@ -145,7 +136,14 @@ class TestBaseTrainingPlan(unittest.TestCase):
         self.assertListEqual(self.tp.training_data_loader, train_data_loader)
         self.assertListEqual(self.tp.testing_data_loader, test_data_loader)
 
-    def test_base_training_plan_06__create_metric_result(self):
+    def test_base_training_plan_06_round(self):
+        """Test setting and retrieving the current training round."""
+
+        self.assertIsNone(self.tp.round())
+        self.tp._set_round(3)
+        self.assertEqual(self.tp.round(), 3)
+
+    def test_base_training_plan_07__create_metric_result(self):
         """
         Testing private method create metric result dict
 
@@ -353,7 +351,7 @@ class TestBaseTrainingPlan(unittest.TestCase):
                     np.array(np.random.randint(0, 2)) for _ in range(nb_samples)
                 ]
 
-            def complete_initialization(self, *args, **kwargs) -> None:
+            def load(self, *args, **kwargs) -> None:
                 pass
 
             def __getitem__(self, idx: int):

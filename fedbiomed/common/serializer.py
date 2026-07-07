@@ -52,7 +52,6 @@ class Serializer:
         if write_to:
             with open(write_to, "wb") as file:
                 file.write(ser)
-                file.close()
 
         return ser
 

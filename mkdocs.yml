@@ -13,6 +13,7 @@ theme:
   logo: assets/img/fedbiomed-logo.png
   favicon: assets/favicon.png
   features:
+    - content.code.copy
     - navigation.top
     - search.suggest
     - search.highlight
@@ -74,11 +75,12 @@ nav:
           - "Tabular Datasets": "./user-guide/datasets/tabular-dataset.md"
           - "Medical Datasets": "./user-guide/datasets/medical-folder-dataset.md"
           - "Adding your Custom Dataset": "./user-guide/datasets/custom-dataset.md"
-          - "Adding a Native Dataset": "./user-guide/datasets/native-dataset.md"
           - "Applying Transformations": "./user-guide/datasets/applying-transformations.md"
           - "Federated Analytics": "./user-guide/datasets/federated-analytics.md"
+          
       - Deployment:
           - "Introduction": "./user-guide/deployment/deployment.md"
+          - "Docker Image & Containers": "./user-guide/deployment/docker.md"
           - "VPN Deployment": "./user-guide/deployment/deployment-vpn.md"
           - "Network matrix": "./user-guide/deployment/matrix.md"
           - "Security model": "./user-guide/deployment/security-model.md"
@@ -176,6 +178,7 @@ nav:
       - "Testing in Fed-BioMed": "./developer/testing-in-fedbiomed.md"
       - "RPC Protocol and Messages": "./developer/messaging.md"
       - "Federated Analytics": "./developer/federated-analytics.md"
+      - "Managing Nodes": "./developer/managing_nodes.md"
   - "FAQ & Troubleshooting": "./support/troubleshooting.md"
 
 extra:
@@ -345,7 +348,6 @@ plugins:
   - mkdocs-jupyter:
       include_source: True
   - mkdocstrings:
-      custom_templates: docs/.templates
       default_handler: python
       handlers:
         python:
@@ -378,10 +380,9 @@ plugins:
 
 extra_javascript:
   - https://cdnjs.cloudflare.com/ajax/libs/tablesort/5.2.1/tablesort.min.js
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
   - assets/javascript/lunr.js
-  - assets/javascript/theme.js
+  - assets/javascript/theme.js   
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 extra_css:

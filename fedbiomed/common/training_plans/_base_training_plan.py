@@ -62,7 +62,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             a batch-wise (set of) metric(s)
 
     Attributes:
-        dataset_path: The path that indicates where dataset has been stored
         pre_processes: Preprocess functions that will be applied to the
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
@@ -81,7 +80,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
     def __init__(self) -> None:
         """Construct the base training plan."""
         self._dependencies: List[str] = []
-        self.dataset_path: Union[str, None] = None
         self.pre_processes: Dict[str, PreProcessDict] = OrderedDict()
         self.training_data_loader: Union[DataLoader, None] = None
         self.testing_data_loader: Union[DataLoader, None] = None
@@ -93,6 +91,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._loader_args: Dict[str, Any] = None
         self._training_args: Dict[str, Any] = None
         self._node_id: Optional[str] = None
+        self._round: Optional[int] = None
         self._local_params: Optional[List[str]] = None
 
         self._error_msg_import_model: str = (
@@ -152,6 +151,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
         node_id: Optional[str] = None,
+        round: Optional[int] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -164,6 +164,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
                 researcher-side aggregator.
             initialize_optimizer: whether to initialize the optimizer or not. Defaults
                 to True.
+            node_id: the ID of the node executing the training plan, if applicable.
+            round: the current round of training, if applicable.
         """
 
         # Store various arguments provided by the researcher
@@ -173,7 +175,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         self._loader_args = training_args.loader_arguments() or {}
         self._training_args = training_args.pure_training_arguments()
         self._node_id = node_id
-
+        self._set_round(round)
         # Set random seed: the seed can be either None or an int provided by the researcher.
         # when it is None, both random.seed and np.random.seed rely on the OS to generate a random seed.
         rseed = training_args.get("random_seed")
@@ -203,16 +205,6 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         for val in dep:
             if val not in self._dependencies:
                 self._dependencies.append(val)
-
-    def set_dataset_path(self, dataset_path: str) -> None:
-        """Dataset path setter for TrainingPlan
-
-        Args:
-            dataset_path: The path where data is saved on the node.
-                This method is called by the node that executes the training.
-        """
-        self.dataset_path = dataset_path
-        logger.debug(f"Dataset path has been set as {self.dataset_path}")
 
     def set_data_loaders(
         self,
@@ -248,14 +240,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         init_dep_spec = get_method_spec(self.init_dependencies)
         if len(init_dep_spec.keys()) > 0:
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: `init_dependencies` should not take any argument. "
+                f"{ErrorNumbers.FB605.value}: `init_dependencies` should not take any argument. "
                 f"Unexpected arguments: {list(init_dep_spec.keys())}"
             )
         dependencies = self.init_dependencies()
         if not isinstance(dependencies, (list, tuple)):
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: Expected dependencies are a list or "
-                "tuple of str, but got {type(dependencies)}"
+                f"{ErrorNumbers.FB605.value}: Expected dependencies are a list or "
+                f"tuple of str, but got {type(dependencies)}"
             )
         self._add_dependency(dependencies)
 
@@ -289,8 +281,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         else:
             if not isinstance(from_code, str):
                 raise FedbiomedTrainingPlanError(
-                    f"{ErrorNumbers.FB605}: Expected type str for `from_code`, "
-                    "got: {type(from_code)}"
+                    f"{ErrorNumbers.FB605.value}: Expected type str for `from_code`, "
+                    f"got: {type(from_code)}"
                 )
             content = from_code
 
@@ -745,14 +737,14 @@ class BaseTrainingPlan(metaclass=ABCMeta):
         """
         if not isinstance(tags, set):
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: tag_parameters must return a set, "
+                f"{ErrorNumbers.FB605.value}: tag_parameters must return a set, "
                 f"got: {type(tags)} for parameter '{name}'"
             )
 
         invalid_tags = tags - self._allowed_tags
         if invalid_tags:
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: Invalid tags {invalid_tags} for parameter '{name}'. "
+                f"{ErrorNumbers.FB605.value}: Invalid tags {invalid_tags} for parameter '{name}'. "
                 f"Allowed tags are {self._allowed_tags}"
             )
 
@@ -793,7 +785,7 @@ class BaseTrainingPlan(metaclass=ABCMeta):
 
         if not isinstance(required_tags, set) or not isinstance(forbidden_tags, set):
             raise FedbiomedTrainingPlanError(
-                f"{ErrorNumbers.FB605}: required_tags and forbidden_tags must be sets"
+                f"{ErrorNumbers.FB605.value}: required_tags and forbidden_tags must be sets"
             )
 
         for name, value in params.items():
@@ -974,6 +966,22 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             Node id
         """
         return self._node_id
+
+    def round(self) -> Optional[int]:
+        """Retrieve the current federated training round.
+
+        Returns:
+            Current round number, or None if not running on a node.
+        """
+        return self._round
+
+    def _set_round(self, round_: int) -> None:
+        """Set the current federated training round.
+
+        Args:
+            round_: Current round number.
+        """
+        self._round = round_
 
     @property
     def local_params(self) -> Optional[List[str]]:

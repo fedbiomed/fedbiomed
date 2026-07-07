@@ -1,12 +1,14 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, Optional, Union
 
 import pandas as pd
 import torch
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.dataset_types import (
     DataReturnFormat,
@@ -173,7 +175,7 @@ class MedicalFolderDataset(Dataset):
         transform: Transform,
         is_target: bool = False,
     ) -> Dict[str, Callable]:
-        """Called once per `transform` from `complete_initialization`
+        """Called once per `transform` from `load`
 
         Args:
             data: from `self._controller.get_sample`
@@ -217,19 +219,30 @@ class MedicalFolderDataset(Dataset):
                     f"{'target_transform' if is_target else 'transform'} to entire data dict"
                 ) from e
 
-    def complete_initialization(
+    def load(
         self,
-        controller_kwargs: Dict[str, Any],
+        root: Union[str, Path],
         to_format: DataReturnFormat,
+        tabular_file: Optional[str] = None,
+        index_col: Optional[str] = None,
+        dlp: Optional[DataLoadingPlan] = None,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
         Args:
-            controller_kwargs: arguments to create controller
+            root: path to the dataset root
             to_format: format associated to expected return format
+            tabular_file: path to the CSV file holding the demographic information
+            index_col: column in the tabular file holding the subject names
+            dlp: data loading plan to apply
         """
         self.to_format = to_format
-        self._init_controller(controller_kwargs=controller_kwargs)
+        self._init_controller(
+            root=root,
+            tabular_file=tabular_file,
+            index_col=index_col,
+            dlp=dlp,
+        )
 
         # Recover sample and validate consistency of transforms
         sample = self._controller.get_sample(0)

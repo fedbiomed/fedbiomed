@@ -1,28 +1,55 @@
-from .constants import CONFIG_PREFIX
-
-from ._datasets import generate_sklearn_classification_dataset
-
+from ._datasets import (
+    generate_controlled_analytics_dataset,
+    generate_sklearn_classification_dataset,
+)
+from ._execution import (
+    collect,
+    execute_in_paralel,
+    fedbiomed_run,
+    kill_process,
+    kill_subprocesses,
+    shell_process,
+)
 from ._helpers import (
-    create_component,
     add_dataset_to_node,
     clear_component_data,
-    start_nodes,
     clear_experiment_data,
-    execute_script,
-    execute_python,
-    execute_ipython,
-    training_plan_operation,
-    create_researcher,
-    create_node,
-    get_data_folder,
+    create_component,
     create_multiple_nodes,
+    create_node,
+    create_researcher,
+    execute_ipython,
+    execute_python,
+    execute_script,
+    get_data_folder,
+    start_nodes,
+    stop_researcher_server,
+    training_plan_operation,
 )
+from .constants import CONFIG_PREFIX
 
-from ._execution import (
-    fedbiomed_run,
-    execute_in_paralel,
-    shell_process,
-    collect,
-    kill_subprocesses,
-    kill_process,
-)
+__all__ = [
+    "generate_controlled_analytics_dataset",
+    "generate_sklearn_classification_dataset",
+    "collect",
+    "execute_in_paralel",
+    "fedbiomed_run",
+    "kill_process",
+    "kill_subprocesses",
+    "shell_process",
+    "add_dataset_to_node",
+    "clear_component_data",
+    "clear_experiment_data",
+    "create_component",
+    "create_multiple_nodes",
+    "create_node",
+    "create_researcher",
+    "execute_ipython",
+    "execute_python",
+    "execute_script",
+    "get_data_folder",
+    "start_nodes",
+    "stop_researcher_server",
+    "training_plan_operation",
+    "CONFIG_PREFIX",
+]

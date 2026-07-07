@@ -3,7 +3,7 @@
 
 import functools
 import inspect
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List, Union, cast
 
 import numpy as np
 
@@ -57,134 +57,136 @@ def aggregator(stat: str):
 
 @aggregator("count")
 def aggregate_count(
-    count: List[Union[int, Dict[str, int]]],
+    count: List[Union[int, float, Dict[str, Union[int, float]]]],
 ) -> Union[int, Dict[str, int]]:
     """Aggregates count values.
 
+    Counts are conceptually non-negative integers, but secure aggregation
+    encodes them as floats. Such values are rounded to the nearest integer
+    before the non-negativity check, so values within ±0.5 clamp to zero.
+
     Args:
         count: List of counts from nodes. Each element is either a non-negative
-            integer or a dict mapping category labels to non-negative integer counts.
+            number or a dict mapping category labels to non-negative counts.
+            Values may be ints or floats (the latter coming from secagg).
 
     Returns:
         The total count as an int, or a dict of summed counts.
     """
-    if all(isinstance(c, (int, np.integer)) for c in count):
-        if not all(c >= 0 for c in count):
+    if all(isinstance(c, (int, float, np.number)) for c in count):
+        num_counts = cast(List[Union[int, float]], count)
+        rounded_counts = [int(round(c)) for c in num_counts]
+        if not all(c >= 0 for c in rounded_counts):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB633.value}: All count values must be non-negative integers."
+                f"{ErrorNumbers.FB633.value}: All count values must be non-negative."
             )
-        return int(np.sum(count))
+        return int(np.sum(rounded_counts))
 
     if all(isinstance(c, dict) for c in count):
         result: Dict[str, int] = {}
-        for c in count:
+        for c in cast(List[Dict[str, Union[int, float]]], count):
             for k, v in c.items():
-                if not isinstance(v, (int, np.integer)) or v < 0:
+                if not isinstance(v, (int, float, np.number)):
                     raise FedbiomedError(
-                        f"{ErrorNumbers.FB633.value}: All count dict values must be non-negative integers."
+                        f"{ErrorNumbers.FB633.value}: All count dict values must be numeric."
                     )
-                result[k] = result.get(k, 0) + int(v)
+                rounded_v = int(round(v))
+                if rounded_v < 0:
+                    raise FedbiomedError(
+                        f"{ErrorNumbers.FB633.value}: All count dict values must be non-negative."
+                    )
+                result[k] = result.get(k, 0) + rounded_v
         return result
 
     raise FedbiomedError(
-        f"{ErrorNumbers.FB633.value}: count must be a list of ints or a list of dicts."
+        f"{ErrorNumbers.FB633.value}: count must be a list of numbers or a list of dicts."
     )
 
 
 @aggregator("sum")
-def aggregate_sum(mean: List[float], count: List[Union[int, np.integer]]) -> float:
-    """Aggregates sum values using means and counts.
+def aggregate_sum(sum: List[float]) -> float:
+    """Aggregates the summable ``sum`` wire primitive across nodes.
 
     Args:
-        mean: List of means from nodes.
-        count: List of counts from nodes.
+        sum: List of per-node sums (Σ x per node).
 
     Returns:
-        The total sum.
+        The global sum.
     """
-    try:
-        total_sum = sum(m * c for m, c in zip(mean, count, strict=True))
-    except ValueError as e:
+    if not all(isinstance(s, (int, float, np.number)) for s in sum):
         raise FedbiomedError(
-            f"{ErrorNumbers.FB633.value}: mean and count lists must have the same length."
-        ) from e
-    return total_sum
+            f"{ErrorNumbers.FB633.value}: sum must be a list of numeric values."
+        )
+    return float(np.sum(sum))
+
+
+@aggregator("sum_sq_centered")
+def aggregate_sum_sq_centered(sum_sq_centered: List[float]) -> float:
+    """Aggregates the summable ``sum_sq_centered`` wire primitive across nodes.
+
+    Each node contributes Σ (x - μ)² where μ is the *global* mean. Summing these per-node
+    centered second moments yields the total M2 from which variance and std are derived.
+
+    Args:
+        sum_sq_centered: List of per-node centered sums of squares (Σ (x - μ)²).
+
+    Returns:
+        The global centered sum of squares (total M2 about the global mean).
+    """
+    if not all(isinstance(s, (int, float, np.number)) for s in sum_sq_centered):
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB633.value}: sum_sq_centered must be a list of numeric values."
+        )
+    return float(np.sum(sum_sq_centered))
 
 
 @aggregator("mean")
-def aggregate_mean(mean: List[float], count: List[Union[int, np.integer]]) -> float:
-    """Aggregates mean values using counts as weights.
+def aggregate_mean(sum: List[float], count: List[Union[int, np.integer]]) -> float:
+    """Aggregates global mean from sufficient statistics.
 
     Args:
-        mean: List of means from nodes.
-        count: List of counts from nodes.
+        sum: List of per-node sums (Σ x per node).
+        count: List of per-node counts.
 
     Returns:
         The global mean.
     """
-    total_count = aggregate_count(count)
-    if total_count == 0:
+    if (total_count := aggregate_count(count)) == 0:
         return np.nan
-    try:
-        total_sum = sum(m * c for m, c in zip(mean, count, strict=True))
-    except ValueError as e:
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB633.value}: mean and count lists must have the same length."
-        ) from e
+    total_sum = aggregate_sum(sum)
     return total_sum / total_count
 
 
 @aggregator("variance")
-def aggregate_variance(
-    mean: List[float], variance: List[float], count: List[int]
-) -> float:
-    """Aggregates variance using means, variances, and counts.
-    Assumes variance are sample variances (ddof=1).
-    Returns sample variance.
+def aggregate_variance(sum_sq_centered: List[float], count: List[int]) -> float:
+    """Aggregates global sample variance from centered sufficient statistics.
+
+    Uses the numerically stable centered form: variance = Σ (x - μ)² / (N - 1)
 
     Args:
-        mean: List of means from nodes.
-        variance: List of variances from nodes.
-        count: List of counts from nodes.
+        sum_sq_centered: List of per-node centered sums of squares (Σ (x - μ)²).
+        count: List of per-node counts.
 
     Returns:
-        The global sample variance.
+        The global sample variance (ddof=1), or ``nan`` when N ≤ 1.
     """
-    if len(mean) != len(variance) or len(mean) != len(count):
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB633.value}: Mean, variance, and count lists must have the same length."
-        )
-
-    total_count = aggregate_count(count)
-    if total_count <= 1:
+    if (total_count := aggregate_count(count)) <= 1:
         return np.nan
-
-    # Calculate combined variance (sum( SS_within + SS_between ) / (N-1))
-    # SS_within = sum( (n_i - 1) * s_i^2 )
-    # SS_between = sum( n_i * (mean_i - global_mean)^2 )
-    global_mean = aggregate_mean(mean, count)
-    ss_within = sum((c - 1) * v for c, v in zip(count, variance, strict=True))
-    ss_between = sum(
-        c * ((m - global_mean) ** 2) for m, c in zip(mean, count, strict=True)
-    )
-
-    return (ss_within + ss_between) / (total_count - 1)
+    return aggregate_sum_sq_centered(sum_sq_centered) / (total_count - 1)
 
 
 @aggregator("std")
-def aggregate_std(mean: List[float], variance: List[float], count: List[int]) -> float:
-    """Aggregates standard deviation using means, variances, and counts.
+def aggregate_std(sum_sq_centered: List[float], count: List[int]) -> float:
+    """Aggregates global sample standard deviation from centered statistics.
 
     Args:
-        mean: List of means from nodes.
-        variance: List of variances from nodes.
-        count: List of counts from nodes.
+        sum_sq_centered: List of per-node centered sums of squares (Σ (x - μ)²).
+        count: List of per-node counts.
 
     Returns:
         The global sample standard deviation.
     """
-    var = aggregate_variance(mean, variance, count)
-    return np.sqrt(var)
+    return float(np.sqrt(aggregate_variance(sum_sq_centered, count)))
 
 
 @aggregator("histogram")
