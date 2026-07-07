@@ -19,6 +19,7 @@ from fedbiomed.transport.client import (
     Channels,
     ClientStatus,
     GrpcClient,
+    NodeClientIdentity,
     ResearcherCredentials,
     Sender,
     TaskListener,
@@ -965,9 +966,11 @@ class TestChannels(unittest.IsolatedAsyncioTestCase):
             host="localhost",
             port="50051",
             certificate=b"server-cert",
-            private_key=b"node-key",
-            certificate_chain=b"node-cert",
             mtls=True,
+            node_identity=NodeClientIdentity(
+                private_key=b"node-key",
+                certificate_chain=b"node-cert",
+            ),
         )
         channels = Channels(researcher=r)
 
