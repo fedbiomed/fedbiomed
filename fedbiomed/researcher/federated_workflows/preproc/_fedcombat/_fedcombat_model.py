@@ -181,6 +181,52 @@ class _FedCombatTrainModel:
 
         self._training_plan_class = _FedCombatTrainingPlan
 
+    def _instantiate_experiment(self) -> ExperimentFactory:
+        """Instantiate an Experiment object for Fed-ComBat harmonization.
+
+        Returns:
+            An instance of the Experiment class for Fed-ComBat harmonization.
+        """
+        return self._experiment_class(
+            # aggregator=None,  # Use default aggregator
+            # agg_optimizer=None,  # Use default aggregator optimizer
+            # node_selection_strategy=None,  # Use default strategy
+            round_limit=self._rounds,
+            # tensorboard=False,  # Don't use tensorboard graphs
+            retain_full_history=False,  # Don't retain intermediate results
+            training_plan_class=self._training_plan_class,
+            training_args=self._training_args,
+            model_args=self._model_args,
+            # tags=None,  # Don't search data through tags
+            nodes=self._nodes,
+            # OK to instantiate a distinct FederatedDataSet for a distinct Experiment
+            training_data=self._fds.data(),
+            experimentation_folder=self._experimentation_folder,
+            # secagg=False # Don't use secure aggregation
+            # save_breakpoints=False,  # Don't save breakpoints
+            # config_path=None,  # Use default config path
+        )
+
+    def approve(self, description: str) -> dict:
+        """Request approval for the training plan for Fed-ComBat harmonization.
+
+        Args:
+            description: Description of the training plan for Fed-ComBat harmonization.
+
+        Returns:
+            a dictionary of pairs (node_id: status), where status indicates to the researcher
+            that the training plan has been correctly downloaded on the node side.
+            Warning: status does not mean that the training plan is approved, only that it has been added
+            to the "approval queue" on the node side.
+        """
+        experiment = self._instantiate_experiment()
+        logger.info(
+            "Sending Fed-ComBat training plan approval request for experiment "
+            f"{experiment.id} to nodes {experiment.filtered_federation_nodes()}"
+        )
+
+        return experiment.training_plan_approve(description)
+
     def execute(self) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tensor]]:
         """Execute harmonization model training.
 
@@ -193,25 +239,7 @@ class _FedCombatTrainModel:
 
         logger.setPrefix(" \033[1m[Fed-ComBat]\033[0m")
         try:
-            experiment = self._experiment_class(
-                # aggregator=None,  # Use default aggregator
-                # agg_optimizer=None,  # Use default aggregator optimizer
-                # node_selection_strategy=None,  # Use default strategy
-                round_limit=self._rounds,
-                # tensorboard=False,  # Don't use tensorboard graphs
-                retain_full_history=False,  # Don't retain intermediate results
-                training_plan_class=self._training_plan_class,
-                training_args=self._training_args,
-                model_args=self._model_args,
-                # tags=None,  # Don't search data through tags
-                nodes=self._nodes,
-                # OK to instantiate a distinct FederatedDataSet for a distinct Experiment
-                training_data=self._fds.data(),
-                experimentation_folder=self._experimentation_folder,
-                # secagg=False # Don't use secure aggregation
-                # save_breakpoints=False,  # Don't save breakpoints
-                # config_path=None,  # Use default config path
-            )
+            experiment = self._instantiate_experiment()
         except FedbiomedError:
             logger.setPrefix("")
             raise

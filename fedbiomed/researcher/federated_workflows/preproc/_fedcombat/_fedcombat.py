@@ -13,7 +13,7 @@ from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.requests import Requests
 
 from ...jobs import PreprocRequestJob
-from ._fedcombat_model import ExperimentFactory
+from ._fedcombat_model import ExperimentFactory, _FedCombatTrainModel
 from ._fedcombat_parameters import _FedCombatParameters
 
 _fedcombat_steps = {
@@ -166,6 +166,43 @@ class FedCombatPreproc:
             nodes: List of node IDs or None to include all nodes in the federated dataset.
         """
         self._nodes = nodes
+
+    def approve(
+        self,
+        description: str = "FedComBat pre-processing biological and bias models training",
+    ) -> dict:
+        """Send training plan from FedComBat biological and bias models to node(s), and request approval
+        to train using the training plan.
+
+        The training plan needs to be approved by the node(s) before FedCombat pre-processing
+        is performed.
+
+        If the set of nodes changes before pre-processing is performed, the training plan needs
+        to be approved by the new nodes from the set of current nodes.
+
+        Args:
+            description: Description for training plan approve request
+
+        Returns:
+            a dictionary of pairs (node_id: status), where status indicates to the researcher
+            that the training plan has been correctly downloaded on the node side.
+            Warning: status does not mean that the training plan is approved, only that it has been added
+            to the "approval queue" on the node side.
+        """
+        # Note: could use dummy values instead of real preproc arguments for approval
+        # as long as we approve the TP and not the arguments
+        fc_model = _FedCombatTrainModel(
+            experiment_class=self._experiment_class,
+            fds=self._fds,
+            nodes=self._nodes or [],
+            experimentation_folder=self._experimentation_folder,
+            covariates=self._preproc_args.get("covariates"),
+            phenotypes=self._preproc_args.get("phenotypes"),
+            training_args=self._preproc_args.get("training_args"),
+            model_args=self._preproc_args.get("model_args"),
+            rounds=self._preproc_args.get("rounds"),
+        )
+        return fc_model.approve(description=description)
 
     def execute(self, force: bool = False) -> bool:
         """Execute Fed-ComBat harmonization across the federated dataset for this experiment.

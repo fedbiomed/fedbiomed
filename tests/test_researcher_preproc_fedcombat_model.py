@@ -154,6 +154,31 @@ def test_fedcombat_tm_init_bad_arguments(base_preproc_tm_factory):
     )
 
 
+def test_fedcombat_tm_approve(base_preproc_tm, mocker):
+    """Test _FedCombatTrainModel.approve delegates to training_plan_approve."""
+
+    MockExperiment = mocker.MagicMock()
+    mock_instance = mocker.MagicMock()
+    mock_instance.id = "exp-test"
+    mock_instance.filtered_federation_nodes.return_value = ["n1", "n2"]
+    mock_instance.training_plan_approve.return_value = {"n1": True, "n2": True}
+    MockExperiment.return_value = mock_instance
+
+    # mock_instantiate = mocker.patch.object(
+    #    base_preproc_tm,
+    #    "_instantiate_experiment",
+    #    return_value=mock_experiment,
+    # )
+
+    base_preproc_tm._experiment_class = MockExperiment
+
+    out = base_preproc_tm.approve("approve-description")
+
+    MockExperiment.assert_called_once()
+    mock_instance.training_plan_approve.assert_called_once_with("approve-description")
+    assert out == {"n1": True, "n2": True}
+
+
 def test_fedcombat_tm_execute(base_preproc_tm, mocker):
     """Test execution of _FedCombatTrainModel with mocked training plan."""
 

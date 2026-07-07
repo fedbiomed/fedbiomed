@@ -58,6 +58,25 @@ def mock_experiment_class():
 
 
 @pytest.fixture
+def mock_fedcombat_train_model(monkeypatch):
+    captured = {}
+
+    class DummyFedCombatTrainModel:
+        def __init__(self, **kwargs):
+            captured["kwargs"] = kwargs
+
+        def approve(self, description):
+            captured["description"] = description
+            return {"n1": True, "n2": True}
+
+    monkeypatch.setattr(
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat._FedCombatTrainModel",
+        DummyFedCombatTrainModel,
+    )
+    return captured
+
+
+@pytest.fixture
 def base_preproc(
     mock_fds, mock_reqs, tmp_path, mock_fedcombat_param, mock_experiment_class
 ):
@@ -112,6 +131,14 @@ def test_check_fds_missing_data_type_raises(
             nodes=["n1", "n2"],
             experimentation_folder=str(tmp_path),
         )
+
+
+def test_approve_success(monkeypatch, base_preproc, mock_fedcombat_train_model):
+    out = base_preproc.approve(description="approve-test")
+
+    assert out == {"n1": True, "n2": True}
+    assert mock_fedcombat_train_model["description"] == "approve-test"
+    assert mock_fedcombat_train_model["kwargs"]["nodes"] == ["n1", "n2"]
 
 
 def test_execute_success(monkeypatch, base_preproc, mock_fds, mock_fedcombat_param):
