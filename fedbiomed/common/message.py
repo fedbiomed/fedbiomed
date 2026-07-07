@@ -232,12 +232,12 @@ class Message:
             # NOTE: In proto3 all fields are labeled as `LABEL_OPTIONAL` by default.
             # However, if the field is labeled as `optional` explicitly, it will have
             # presence, otherwise, `has_presence` returns False
-            elif field.has_presence and field.label == FieldDescriptor.LABEL_OPTIONAL:
+            elif field.has_presence and not field.is_required:
                 # If proto has the field it means that the value is not None
                 if proto.HasField(field.name):
                     dict_.update({field.name: getattr(proto, field.name)})
 
-            elif field.label == FieldDescriptor.LABEL_REPEATED:
+            elif field.is_repeated:
                 if field.type == FieldDescriptor.TYPE_MESSAGE:
                     dict_.update({field.name: dict(getattr(proto, field.name))})
                 else:
