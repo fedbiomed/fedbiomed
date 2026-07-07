@@ -1,5 +1,10 @@
 # Fed-BioMed changelog
 
+## 2026-07-07 version 6.3.3
+
+- Upgrade grpcio and grpc-tools. 
+- Removes deprecated object calls in transport layer.
+
 ## 2026-05-18 version 6.3.2
 
 - New documentation template and deployment workflow integrated. 
