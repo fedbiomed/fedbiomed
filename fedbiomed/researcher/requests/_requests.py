@@ -19,7 +19,6 @@ from python_minifier import minify
 from fedbiomed.common.certificate_manager import (
     CertificateManager,
     is_mtls_enabled,
-    mtls_db_path,
 )
 from fedbiomed.common.constants import (
     REQUEST_PREFIX,
@@ -359,7 +358,7 @@ class Requests(metaclass=SingletonMeta):
         # Bundle of registered node certificates to pin, when mutual TLS is on.
         trusted_node_certificates = None
         if is_mtls_enabled(config):
-            certificate_manager = CertificateManager(db_path=mtls_db_path(config))
+            certificate_manager = CertificateManager(db_path=config.db_path)
             node_certificates = certificate_manager.get_by_component(
                 ComponentType.NODE.name
             )
