@@ -11,18 +11,12 @@ import traceback
 from typing import Callable, Optional, Union
 
 from fedbiomed import __version__
-<<<<<<< HEAD
-from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError
-=======
 from fedbiomed.common.certificate_manager import (
     CertificateManager,
     is_mtls_enabled,
-    mtls_db_path,
 )
 from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
->>>>>>> 6e64ecc6f (implement mTLS)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     AdditiveSSSetupRequest,
@@ -204,7 +198,7 @@ class Node:
             os.path.join(etc, self._config.get("certificate", "public_key"))
         )
 
-        certificate_manager = CertificateManager(db_path=mtls_db_path(self._config))
+        certificate_manager = CertificateManager(db_path=self._config.db_path)
         researcher_certificates = certificate_manager.get_by_component(
             ComponentType.RESEARCHER.name
         )

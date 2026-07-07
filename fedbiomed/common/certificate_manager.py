@@ -17,7 +17,6 @@ from tinydb.table import Document, Table
 
 from fedbiomed.common.constants import (
     CERTS_FOLDER_NAME,
-    CONFIG_FOLDER_NAME,
     NODE_PREFIX,
     ComponentType,
     ErrorNumbers,
@@ -54,7 +53,7 @@ def certificate_expiry(certificate: Union[bytes, str]) -> Optional[datetime]:
     if isinstance(certificate, str):
         certificate = certificate.encode("utf-8")
     try:
-        return x509.load_pem_x509_certificate(certificate).not_valid_after
+        return x509.load_pem_x509_certificate(certificate).not_valid_after_utc
     except (TypeError, ValueError):
         return None
 
@@ -71,32 +70,6 @@ def is_mtls_enabled(config) -> bool:
         True if mutual TLS with certificate pinning is enabled.
     """
     return config.getbool("mtls", "enabled", fallback="False")
-
-
-def mtls_db_path(config) -> str:
-    """Absolute path of the TinyDB database of mTLS trusted certificates.
-
-    Read from the `db` entry of the `[mtls]` section (relative to the component
-    `etc` folder). Only called when mutual TLS is enabled, so a missing entry is
-    a configuration error.
-
-    Args:
-        config: Component configuration object.
-
-    Returns:
-        Absolute path of the mutual-TLS certificate database.
-
-    Raises:
-        FedbiomedCertificateError: mutual TLS is enabled but no `db` path is set.
-    """
-    db = config.get("mtls", "db", fallback=None)
-    if not db:
-        raise FedbiomedCertificateError(
-            f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but no certificate "
-            "database path is configured. Please set `db` in the `[mtls]` section "
-            "of the component configuration."
-        )
-    return os.path.join(config.root, CONFIG_FOLDER_NAME, db)
 
 
 class CertificateManager:
@@ -249,7 +222,7 @@ class CertificateManager:
     ) -> List[Tuple[str, datetime]]:
         """`(party_id, expiry)` for certs expiring within `within_days` (or expired),
         optionally restricted to a `component` type."""
-        threshold = datetime.utcnow() + timedelta(days=within_days)
+        threshold = datetime.now(timezone.utc) + timedelta(days=within_days)
         expiring = []
         for doc in self._table.all():
             if component is not None and doc.get("component") != component:
@@ -257,7 +230,7 @@ class CertificateManager:
             expiry = certificate_expiry(doc["certificate"])
             if expiry is not None and expiry <= threshold:
                 expiring.append((doc["party_id"], expiry))
-        return expiring
+        return sorted(expiring, key=lambda item: item[1])
 
     def register_certificate(
         self,

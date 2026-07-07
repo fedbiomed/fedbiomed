@@ -78,9 +78,6 @@ DEFAULT_RESEARCHER_NAME = "fbm-researcher"
 CERTS_FOLDER_NAME = os.path.join(CONFIG_FOLDER_NAME, "certs")
 """FOLDER name for Certs directory"""
 
-DB_MTLS_BASENAME = "trusted_certs"
-"""Basename for file containing certificates for mTLS authentication in Certs folder"""
-
 TRACEBACK_LIMIT = 20
 
 DEFAULT_CERT_NAME = "FBM_certificate"

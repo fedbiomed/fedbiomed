@@ -6,7 +6,7 @@
 Covers the mutual-TLS feature end to end:
 
 * the certificate/config helpers in ``fedbiomed.common.certificate_manager``
-  (``certificate_subject_field``, ``is_mtls_enabled``, ``mtls_db_path``),
+  (``certificate_subject_field``, ``is_mtls_enabled``),
 * the server side wiring (``SSLCredentials.mtls``, ``_peer_node_id``) and the
   node-identity spoofing enforcement in ``ResearcherServicer.GetTaskUnary``,
 * a real gRPC handshake matrix validating certificate pinning, required client
@@ -14,7 +14,6 @@ Covers the mutual-TLS feature end to end:
 """
 
 import asyncio
-import os
 import tempfile
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -27,10 +26,8 @@ from fedbiomed.common.certificate_manager import (
     CertificateManager,
     certificate_subject_field,
     is_mtls_enabled,
-    mtls_db_path,
 )
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedCertificateError
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.message import SearchRequest
 from fedbiomed.transport.node_agent import AgentStore
 from fedbiomed.transport.protocols.researcher_pb2 import TaskRequest
@@ -112,7 +109,7 @@ def test_subject_field_returns_none_for_absent_oid(certs):
 
 
 # ---------------------------------------------------------------------------
-# is_mtls_enabled / mtls_db_path (config `[mtls]` section)
+# is_mtls_enabled (config `[mtls]` section)
 # ---------------------------------------------------------------------------
 
 
@@ -151,21 +148,6 @@ def test_is_mtls_enabled_false_when_flag_unset():
 def test_is_mtls_enabled_false_when_section_absent():
     # No `[mtls]` section at all -> legacy workflow, disabled
     assert is_mtls_enabled(_FakeConfig("/root")) is False
-
-
-def test_mtls_db_path_resolved_relative_to_etc():
-    config = _FakeConfig(
-        "/root", {("mtls", "db"): os.path.join("certs", "trusted_certs.json")}
-    )
-    assert mtls_db_path(config) == os.path.join(
-        "/root", CONFIG_FOLDER_NAME, "certs", "trusted_certs.json"
-    )
-
-
-def test_mtls_db_path_raises_when_db_not_configured():
-    # mTLS enabled but no `db` entry -> configuration error, no synthesized path
-    with pytest.raises(FedbiomedCertificateError):
-        mtls_db_path(_FakeConfig("/root"))
 
 
 # ---------------------------------------------------------------------------

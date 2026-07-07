@@ -14,11 +14,7 @@ import sys
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
-from fedbiomed.common.certificate_manager import (
-    CertificateManager,
-    is_mtls_enabled,
-    mtls_db_path,
-)
+from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
     DB_FOLDER_NAME,
@@ -428,20 +424,6 @@ class CommonCLI:
             f"{BOLD}Since the certificate is renewed please ask other parties "
             f"to register your new certificate.{NC}\n"
         )
-
-    def _mtls_certificate_db(self) -> str:
-        """Returns the mTLS certificate database path.
-
-        Certificate management operates on the mutual-TLS certificate store, so
-        the `db` value is only requested when mutual TLS is enabled. When it is
-        disabled the command is aborted with a clear message.
-        """
-        if not is_mtls_enabled(self.config):
-            CommonCLI.error(
-                "Mutual TLS is disabled. Enable it and set `db` in the `[mtls]` "
-                "section of the component configuration before managing certificates."
-            )
-        return mtls_db_path(self.config)
 
     def _register_certificate(self, args: argparse.Namespace):
         """Registers certificate with given parameters
