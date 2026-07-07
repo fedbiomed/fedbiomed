@@ -372,15 +372,17 @@ class MedicalFolderController(Controller):
         """
         samples = []
         subject_groups = dict(tuple(df_dir.groupby("subject")))
-        subjects = set(subject_groups.keys())
 
         if demographics is not None:
-            subjects = subjects.intersection(demographics.index.values)
+            demographics_subjects = set(demographics.index.values)
+            subjects = [s for s in subject_groups.keys() if s in demographics_subjects]
             if not subjects:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Selected column from demographics as "
                     "subject reference does not match any subject in folder structure"
                 )
+        else:
+            subjects = list(subject_groups.keys())
 
         for subject in subjects:
             sample = (
@@ -393,7 +395,7 @@ class MedicalFolderController(Controller):
             samples.append(sample)
 
         logger.info(f"{len(samples)} complete samples successfully identified")
-        return list(subjects), samples
+        return subjects, samples
 
     def validate(self) -> None:
         # Filter subjects to contain all modalities
