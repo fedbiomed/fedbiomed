@@ -23,6 +23,7 @@ from fedbiomed.researcher.aggregators.aggregator import Aggregator
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.federated_workflows.jobs import TrainingJob
+from fedbiomed.researcher.federated_workflows.preproc import FedCombatPreproc
 from fedbiomed.researcher.monitor import Monitor
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
 from fedbiomed.researcher.secagg._secure_aggregation import _SecureAggregation
@@ -562,12 +563,21 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         strat_bkpt = {"strategy": "bkpt"}
         _strategy.save_state_breakpoint.return_value = strat_bkpt
 
+        _preproc = MagicMock(
+            spec=fedbiomed.researcher.federated_workflows.preproc.FedCombatPreproc
+        )
+        preproc_bkpt = {"preproc": "bkpt_preproc"}
+        _preproc.save_state_breakpoint.return_value = preproc_bkpt
+
         exp = Experiment(
             round_limit=5,
             aggregator=_aggregator,
             agg_optimizer=_agg_optim,
             node_selection_strategy=_strategy,
         )
+
+        # Test with preprocessing
+        exp._fed_preproc = _preproc
 
         # Test if current round is less than 1 meaning that there is no round ran
         with self.assertRaises(FedbiomedExperimentError):
@@ -597,6 +607,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
                 "node_selection_strategy": strat_bkpt,
                 "aggregated_params": {"agg_params": "bkpt"},
                 "training_replies": {"replies": "bkpt"},
+                "preprocessing": preproc_bkpt,
             },
             2,
         )
@@ -616,19 +627,22 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         mock_serializer,
         mock_super_load,
     ):
+        breakpoint_json = {
+            "round_current": 2,
+            "round_limit": 5,
+            "aggregator": {"agg": "bkpt"},
+            "agg_optimizer": "/bkpt-path/optimizer_UUID.mpk",
+            "node_selection_strategy": {"strategy": "bkpt"},
+            "aggregated_params": {0: {"params_path": "bkpt"}},
+            "training_replies": {
+                0: {"node1": {"params_path": "bkpt", "other": "reply-data"}}
+            },
+            "preprocessing": None,
+        }
+
         mock_super_load.return_value = (
             Experiment(),
-            {
-                "round_current": 2,
-                "round_limit": 5,
-                "aggregator": {"agg": "bkpt"},
-                "agg_optimizer": "/bkpt-path/optimizer_UUID.mpk",
-                "node_selection_strategy": {"strategy": "bkpt"},
-                "aggregated_params": {0: {"params_path": "bkpt"}},
-                "training_replies": {
-                    0: {"node1": {"params_path": "bkpt", "other": "reply-data"}}
-                },
-            },
+            breakpoint_json,
             "some-exp-tempo-id",
         )
 
@@ -651,6 +665,30 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             Experiment, "_create_object", new=create_strategy_then_aggregator
         ):
             Experiment.load_breakpoint()
+
+        # 2. Test with preprocessing
+        breakpoint_json["preprocessing"] = {
+            "arguments": {"preproc_args": {"some": "args"}},
+            "attributes": {
+                "_preproc_id": "preproc-id",
+                "_harmonized": False,
+                "_harmonized_datasets": {"node1": "dataset-id-1"},
+            },
+        }
+
+        with patch.object(
+            Experiment, "_create_object", new=create_strategy_then_aggregator
+        ):
+            # exp, saved_state, exp_tempo_id = Experiment.load_breakpoint()
+            exp = Experiment.load_breakpoint()
+
+        self.assertIsNotNone(exp.preprocessing)
+        self.assertEqual(exp.preprocessing._preproc_id, "preproc-id")
+        self.assertFalse(exp.preprocessing._harmonized)
+        self.assertDictEqual(
+            exp.preprocessing._harmonized_datasets, {"node1": "dataset-id-1"}
+        )
+        self.assertIsInstance(exp.id, str)
 
     def test_experiment_11_testing_args(self):
         """Tests training arguments setter and getter"""
@@ -772,6 +810,50 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # Tests setting invalid type
         with self.assertRaises(FedbiomedTypeError):
             exp.set_retain_full_history("invalid_type")
+
+    def test_federated_experiment_16bis_set_nodes(self):
+        exp = Experiment()
+
+        # Valid arguments
+        exp.set_nodes(None)
+
+        self.assertIsNone(exp.nodes())
+        exp.set_nodes(["first", "second"])
+        self.assertEqual(exp.nodes(), ["first", "second"])
+
+        # Valid arguments + preprocessing
+        exp.set_preprocessing(PreprocType.FEDCOMBAT, {})
+        exp.set_nodes(["node-1", "node-2"])
+        self.assertEqual(exp.nodes(), ["node-1", "node-2"])
+
+        # Invalid arguments
+        with self.assertRaises(FedbiomedTypeError):
+            exp.set_nodes(["node-1", "node-2", 15])
+
+        with self.assertRaises(FedbiomedTypeError):
+            exp.set_nodes("invalid_type")
+
+    def test_experiment_16ter_set_preprocessing(self):
+        exp = Experiment()
+        preproc_args = {"arg1": "value1", "arg2": 2}
+
+        # Fed-Combat
+        exp.set_preprocessing(PreprocType.FEDCOMBAT, preproc_args)
+        self.assertTrue(isinstance(exp.preprocessing, FedCombatPreproc))
+        self.assertEqual(exp.preprocessing._preproc_args, preproc_args)
+
+        # No preprocessing
+        for val in [None, False, PreprocType.NONE]:
+            exp.set_preprocessing(val)
+            self.assertIsNone(exp.preprocessing)
+
+        # Invalid type
+        with self.assertRaises(FedbiomedTypeError):
+            exp.set_preprocessing("invalid-type", preproc_args)
+
+        # Invalid args
+        with self.assertRaises(FedbiomedTypeError):
+            exp.set_preprocessing(PreprocType.FEDCOMBAT, "invalid-args")
 
     def test_experiment_17_commit_experiment_history(self):
         """Tests commit experiment history"""

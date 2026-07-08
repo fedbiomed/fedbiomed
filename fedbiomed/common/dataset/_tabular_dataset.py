@@ -162,7 +162,7 @@ class TabularDataset(Dataset):
             FedbiomedError: if dataset has not completed initialization
 
         Returns:
-            A dictionary with keys "data" and "target" containing the respective items
+            A tuple of input and target
         """
         if self._controller is None:
             raise FedbiomedError(

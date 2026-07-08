@@ -21,7 +21,6 @@ from fedbiomed.common.constants import (
     EXPERIMENT_PREFIX,
     TENSORBOARD_FOLDER_NAME,
     ErrorNumbers,
-    PreprocType,
     SecureAggregationSchemes,
     __breakpoints_version__,
 )
@@ -52,7 +51,6 @@ from fedbiomed.researcher.secagg import (
 )
 
 from ._federated_analytics import FederatedAnalytics
-from .preproc import FedCombatPreproc
 
 TFederatedWorkflow = TypeVar(
     "TFederatedWorkflow", bound="FederatedWorkflow"
@@ -227,7 +225,6 @@ class FederatedWorkflow(ABC):
         self._experiment_id: str = EXPERIMENT_PREFIX + str(
             uuid.uuid4()
         )  # creating a unique experiment id
-        self._fed_preproc: Optional[FedCombatPreproc] = None
 
         # set internal members from constructor arguments
         self.set_secagg(secagg)
@@ -253,9 +250,6 @@ class FederatedWorkflow(ABC):
         self._node_state_agent = NodeStateAgent(federated_dataset=self._fds)
 
         self._build_analytics()
-
-        # no preprocessing by default
-        self.set_preprocessing(PreprocType.NONE)
 
     def _build_analytics(self) -> FederatedAnalytics:
         """Creates the `FederatedAnalytics` companion using the current workflow state.
@@ -298,15 +292,6 @@ class FederatedWorkflow(ABC):
             Secure aggregation object.
         """
         return self._secagg
-
-    @property
-    def preprocessing(self) -> Union[FedCombatPreproc, None]:
-        """Retrieves the object for the federated pre-processing associated to the experiment.
-
-        Returns:
-            Federated pre-processing object. `None` if it isn't set.
-        """
-        return self._fed_preproc
 
     @exp_exceptions
     def tags(self) -> Union[List[str], None]:
@@ -618,10 +603,6 @@ class FederatedWorkflow(ABC):
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
 
-        # Inform preprocessing object of node filter change
-        if self._fed_preproc is not None:
-            self._fed_preproc.set_nodes(self.filtered_federation_nodes())
-
         return self._nodes_filter
 
     @exp_exceptions
@@ -709,55 +690,6 @@ class FederatedWorkflow(ABC):
 
         # return the new value
         return self._fds
-
-    @exp_exceptions
-    def set_preprocessing(
-        self,
-        preproc_type: Optional[Union[PreprocType, bool]],
-        preproc_args: Optional[Dict] = None,
-    ) -> Optional[FedCombatPreproc]:
-        """Sets preprocessing to be applied before training.
-
-        Args:
-            preproc_type: Type of preprocessing to apply, or None or False for no preprocessing
-            preproc_args: Arguments for the preprocessing
-
-        Returns:
-            Preprocessing object if `preproc_type` is not `PreprocType.NONE`, None otherwise
-
-        Raises:
-            FedbiomedTypeError: bad argument type
-        """
-        if preproc_type is None or preproc_type is False:
-            preproc_type = PreprocType.NONE
-
-        if not isinstance(preproc_type, PreprocType):
-            raise FedbiomedTypeError(
-                f"{ErrorNumbers.FB410.value} `preproc_type` has incorrect type: "
-                f"{type(preproc_type).__name__} but expected a PreprocType or None/False"
-            )
-
-        preproc_args = preproc_args or {}
-        if not isinstance(preproc_args, dict):
-            raise FedbiomedTypeError(
-                f"{ErrorNumbers.FB410.value} `preproc_args` has incorrect type: "
-                f"{type(preproc_args).__name__} but expected a dict or None"
-            )
-
-        if preproc_type == PreprocType.NONE:
-            self._fed_preproc = None
-        else:
-            self._fed_preproc = FedCombatPreproc(
-                self._fds,
-                self._experiment_id,
-                self._researcher_id,
-                self._reqs,
-                self.filtered_federation_nodes(),
-                self._experimentation_folder,
-                preproc_args,
-            )
-
-        return self._fed_preproc
 
     @exp_exceptions
     def set_experimentation_folder(
@@ -928,9 +860,6 @@ class FederatedWorkflow(ABC):
                 "nodes": self._nodes_filter,
                 "secagg": self._secagg.save_state_breakpoint(),
                 "node_state": self._node_state_agent.save_state_breakpoint(),
-                "preprocessing": self._fed_preproc.save_state_breakpoint()
-                if self._fed_preproc
-                else None,
             }
         )
 
@@ -1049,22 +978,6 @@ class FederatedWorkflow(ABC):
             saved_state.get("node_state")
         )
         loaded_exp.set_save_breakpoints(True)
-
-        preproc_state = saved_state.get("preprocessing")
-        if isinstance(preproc_state, dict):
-            preproc_state["arguments"].update(
-                {
-                    "fds": loaded_exp.training_data(),
-                    "experiment_id": loaded_exp.id,
-                    "researcher_id": loaded_exp.researcher_id,
-                    "reqs": loaded_exp.requests,
-                    "nodes": loaded_exp.filtered_federation_nodes(),
-                    "experimentation_folder": loaded_exp.experimentation_folder(),
-                }
-            )
-            loaded_exp._fed_preproc = FedCombatPreproc.load_state_breakpoint(
-                preproc_state
-            )
 
         return loaded_exp, saved_state, tempo_id
 

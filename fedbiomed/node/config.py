@@ -11,6 +11,7 @@ from fedbiomed.common.constants import (
     DEFAULT_NODE_ALIAS,
     DEFAULT_NODE_NAME,
     NODE_DATA_FOLDER,
+    NODE_DYNAMIC_DATA_FOLDER,
     HashingAlgorithms,
     __node_config_version__,
 )
@@ -166,6 +167,8 @@ class NodeComponent(Component):
         config.write()
         node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
         os.makedirs(node_data_path, exist_ok=True)
+        node_dynamic_data_path = os.path.join(config.root, NODE_DYNAMIC_DATA_FOLDER)
+        os.makedirs(node_dynamic_data_path, exist_ok=True)
         return config
 
 

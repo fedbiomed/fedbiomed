@@ -56,11 +56,14 @@ def fa_job(fa_job_args):
 def mock_dm():
     """Minimal mocked DatasetManager with a valid dataset entry and no validate_samples side-effect."""
     dm = MagicMock()
-    dm.dataset_table.get_by_id.return_value = {
-        "data_type": "csv",
-        "path": "/path/to/data",
-        "dataset_parameters": {},
-    }
+    dm.get_dataset_entry_by_id.return_value = (
+        {
+            "data_type": "csv",
+            "path": "/path/to/data",
+            "dataset_parameters": {},
+        },
+        "dummy_table_name",
+    )
     return dm
 
 
@@ -226,11 +229,14 @@ def test_build_dataset_forwards_dataset_parameters(
     """dataset_parameters from the DB entry are merged into controller kwargs."""
     instance, cls = mock_dataset_cls
     dm = MagicMock()
-    dm.dataset_table.get_by_id.return_value = {
-        "data_type": "csv",
-        "path": "/data",
-        "dataset_parameters": {"tabular_file": "labels.csv"},
-    }
+    dm.get_dataset_entry_by_id.return_value = (
+        {
+            "data_type": "csv",
+            "path": "/data",
+            "dataset_parameters": {"tabular_file": "labels.csv"},
+        },
+        "dummy_table_name",
+    )
     fa_job._dataset_manager = dm
     mock_registry.__contains__.return_value = True
     mock_registry.__getitem__.return_value = (None, cls)
@@ -243,7 +249,7 @@ def test_build_dataset_forwards_dataset_parameters(
 
 def test_build_dataset_not_found(fa_job, mock_dm):
     """_build_dataset raises when dataset_id is absent from the DB."""
-    mock_dm.dataset_table.get_by_id.return_value = None
+    mock_dm.get_dataset_entry_by_id.return_value = (None, "dummy_table_name")
     fa_job._dataset_manager = mock_dm
 
     with pytest.raises(_InternalJobError, match="Cannot find requested dataset"):
@@ -253,7 +259,10 @@ def test_build_dataset_not_found(fa_job, mock_dm):
 @patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS", {})
 def test_build_dataset_unsupported_type(fa_job, mock_dm):
     """_build_dataset raises when data_type is not in REGISTRY_CONTROLLERS."""
-    mock_dm.dataset_table.get_by_id.return_value = {"data_type": "unknown_type"}
+    mock_dm.get_dataset_entry_by_id.return_value = (
+        {"data_type": "unknown_type"},
+        "dummy_table_name",
+    )
     fa_job._dataset_manager = mock_dm
 
     with pytest.raises(_InternalJobError, match="not supported"):
@@ -267,11 +276,14 @@ def test_build_dataset_with_dlp(
 ):
     """DLP is deserialised and passed as 'dlp' in controller kwargs."""
     instance, cls = mock_dataset_cls
-    mock_dm.dataset_table.get_by_id.return_value = {
-        "data_type": "csv",
-        "path": "/path",
-        "dlp_id": "dlp_1",
-    }
+    mock_dm.get_dataset_entry_by_id.return_value = (
+        {
+            "data_type": "csv",
+            "path": "/path",
+            "dlp_id": "dlp_1",
+        },
+        "dummy_table_name",
+    )
     mock_dm.get_dlp_by_id.return_value = ["dlp_content"]
     fa_job._dataset_manager = mock_dm
 
@@ -292,10 +304,13 @@ def test_build_dataset_dlp_deserialisation_error(
     mock_dlp_cls, mock_registry, fa_job, mock_dm
 ):
     """Failed DLP deserialisation is wrapped as _InternalJobError."""
-    mock_dm.dataset_table.get_by_id.return_value = {
-        "data_type": "csv",
-        "dlp_id": "dlp_1",
-    }
+    mock_dm.get_dataset_entry_by_id.return_value = (
+        {
+            "data_type": "csv",
+            "dlp_id": "dlp_1",
+        },
+        "dummy_table_name",
+    )
     mock_dm.get_dlp_by_id.return_value = ["dlp_content"]
     fa_job._dataset_manager = mock_dm
     mock_dlp_cls.return_value.deserialize.side_effect = FedbiomedError("DLP Error")

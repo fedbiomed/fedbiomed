@@ -444,7 +444,7 @@ class Node:
             send=self._grpc_client.send,
         )
         dataset_id = msg.get_param("dataset_id")
-        data = self.dataset_manager.dataset_table.get_by_id(dataset_id)
+        data, _ = self.dataset_manager.get_dataset_entry_by_id(dataset_id)
 
         if data is None:
             return self.send_error(
@@ -662,6 +662,7 @@ class Node:
                                 operation="federated_analytics_complete",
                                 status="success",
                             )
+                            del fa_job
                         case PreprocRequest.__name__:
                             # Log preprocessing start
                             logger.security_event(
@@ -674,17 +675,20 @@ class Node:
                                 node_id=self._node_id,
                                 node_name=self._node_name,
                                 request=item,
+                                db=self._db_path,
                                 allow_preproc=self.config.getbool(
                                     "security", "allow_preproc"
                                 ),
                             )
                             response = preproc_job.run()
                             self._grpc_client.send(response)
+
                             # Log preprocessing complete
                             logger.security_event(
                                 operation="preprocessing_complete",
                                 status="success",
                             )
+                            del preproc_job
                         case _:
                             errmess = (
                                 f"{ErrorNumbers.FB319.value}: Undefined request message"

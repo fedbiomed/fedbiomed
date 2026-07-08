@@ -3,12 +3,12 @@
 import pytest
 import torch
 
-import fedbiomed.researcher.federated_workflows as fw
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.dataset import TabularDataset
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.common.training_args import TrainingArgs
 from fedbiomed.researcher.datasets import FederatedDataset
+from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_model import (
     _FedCombatTrainingPlan,
     _FedCombatTrainModel,
@@ -31,6 +31,7 @@ def mock_fds(mocker):
 @pytest.fixture
 def base_preproc_tm(mock_fds, exp_folder):
     return _FedCombatTrainModel(
+        experiment_class=Experiment,
         fds=mock_fds,
         nodes=["n1", "n2"],
         experimentation_folder=exp_folder,
@@ -46,6 +47,7 @@ def base_preproc_tm(mock_fds, exp_folder):
 def base_preproc_tm_factory(mock_fds, exp_folder):
     def _factory(**preproc_args):
         return _FedCombatTrainModel(
+            experiment_class=Experiment,
             fds=mock_fds,
             nodes=preproc_args.get("nodes", mock_fds.node_ids()),
             experimentation_folder=exp_folder,
@@ -152,16 +154,39 @@ def test_fedcombat_tm_init_bad_arguments(base_preproc_tm_factory):
     )
 
 
-def test_fedcombat_tm_execute(base_preproc_tm, mocker, monkeypatch):
+def test_fedcombat_tm_approve(base_preproc_tm, mocker):
+    """Test _FedCombatTrainModel.approve delegates to training_plan_approve."""
+
+    MockExperiment = mocker.MagicMock()
+    mock_instance = mocker.MagicMock()
+    mock_instance.id = "exp-test"
+    mock_instance.filtered_federation_nodes.return_value = ["n1", "n2"]
+    mock_instance.training_plan_approve.return_value = {"n1": True, "n2": True}
+    MockExperiment.return_value = mock_instance
+
+    # mock_instantiate = mocker.patch.object(
+    #    base_preproc_tm,
+    #    "_instantiate_experiment",
+    #    return_value=mock_experiment,
+    # )
+
+    base_preproc_tm._experiment_class = MockExperiment
+
+    out = base_preproc_tm.approve("approve-description")
+
+    MockExperiment.assert_called_once()
+    mock_instance.training_plan_approve.assert_called_once_with("approve-description")
+    assert out == {"n1": True, "n2": True}
+
+
+def test_fedcombat_tm_execute(base_preproc_tm, mocker):
     """Test execution of _FedCombatTrainModel with mocked training plan."""
 
     # prepare mock Experiment class returning an instance whose .run() we can assert
     MockExperiment = mocker.MagicMock()
     mock_instance = mocker.MagicMock()
     MockExperiment.return_value = mock_instance
-
-    # patch package attribute so local import inside execute() uses it
-    monkeypatch.setattr(fw, "Experiment", MockExperiment, raising=False)
+    base_preproc_tm._experiment_class = MockExperiment
 
     # 1. execute successfully
 

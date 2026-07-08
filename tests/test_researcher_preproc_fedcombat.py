@@ -10,6 +10,7 @@ import fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedExperimentError
 from fedbiomed.researcher.datasets import FederatedDataset
+from fedbiomed.researcher.experiment import Experiment
 from fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat import (
     FedCombatPreproc,
 )
@@ -21,12 +22,15 @@ from fedbiomed.researcher.requests import Requests
 
 @pytest.fixture
 def mock_fds():
+    def _set_federated_dataset(datasets: dict) -> None:
+        fds.data.return_value = {
+            "n1": {"dataset_id": datasets.get("n1"), "data_type": "csv"},
+            "n2": {"dataset_id": datasets.get("n2"), "data_type": "csv"},
+        }
+
     fds = MagicMock(spec=FederatedDataset)
-    fds.data.return_value = {
-        "n1": {"dataset_id": "ds1", "data_type": "csv"},
-        "n2": {"dataset_id": "ds2", "data_type": "csv"},
-    }
-    fds.node_ids.return_value = ["n1", "n2"]
+    fds.set_federated_dataset.side_effect = _set_federated_dataset
+    _set_federated_dataset({"n1": "initial1", "n2": "initial2"})
     return fds
 
 
@@ -38,6 +42,8 @@ def mock_reqs():
 @pytest.fixture
 def mock_fedcombat_param(monkeypatch: MonkeyPatch):
     mock_param_instance = MagicMock(spec=_FedCombatParameters)
+    mock_param_instance.return_value = ({"dict1": 1}, {"dict2": 2})
+
     monkeypatch.setattr(
         fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat,
         "_FedCombatParameters",
@@ -47,12 +53,39 @@ def mock_fedcombat_param(monkeypatch: MonkeyPatch):
 
 
 @pytest.fixture
-def base_preproc(mock_fds, mock_reqs, tmp_path, mock_fedcombat_param):
+def mock_experiment_class():
+    return MagicMock(spec=Experiment)
+
+
+@pytest.fixture
+def mock_fedcombat_train_model(monkeypatch):
+    captured = {}
+
+    class DummyFedCombatTrainModel:
+        def __init__(self, **kwargs):
+            captured["kwargs"] = kwargs
+
+        def approve(self, description):
+            captured["description"] = description
+            return {"n1": True, "n2": True}
+
+    monkeypatch.setattr(
+        "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat._FedCombatTrainModel",
+        DummyFedCombatTrainModel,
+    )
+    return captured
+
+
+@pytest.fixture
+def base_preproc(
+    mock_fds, mock_reqs, tmp_path, mock_fedcombat_param, mock_experiment_class
+):
     return FedCombatPreproc(
         fds=mock_fds,
         experiment_id="exp1",
         researcher_id="r1",
         reqs=mock_reqs,
+        experiment_class=mock_experiment_class,
         nodes=["n1", "n2"],
         experimentation_folder=str(tmp_path),
         preproc_args={
@@ -62,7 +95,9 @@ def base_preproc(mock_fds, mock_reqs, tmp_path, mock_fedcombat_param):
     )
 
 
-def test_check_fds__failed_raises(mock_fds, mock_reqs, tmp_path, mock_fedcombat_param):
+def test_check_fds__failed_raises(
+    mock_fds, mock_reqs, tmp_path, mock_fedcombat_param, mock_experiment_class
+):
     mock_fds.data.side_effect = FedbiomedExperimentError("data retrieval failed")
 
     with pytest.raises(FedbiomedExperimentError):
@@ -71,13 +106,14 @@ def test_check_fds__failed_raises(mock_fds, mock_reqs, tmp_path, mock_fedcombat_
             experiment_id="e_chk2",
             researcher_id="r_chk",
             reqs=mock_reqs,
+            experiment_class=mock_experiment_class,
             nodes=["n1", "n2"],
             experimentation_folder=str(tmp_path),
         )
 
 
 def test_check_fds_missing_data_type_raises(
-    mock_fds, mock_reqs, tmp_path, mock_fedcombat_param
+    mock_fds, mock_reqs, tmp_path, mock_fedcombat_param, mock_experiment_class
 ):
     # n2 is missing 'data_type'
     mock_fds.data.return_value = {
@@ -91,9 +127,18 @@ def test_check_fds_missing_data_type_raises(
             experiment_id="e_chk2",
             researcher_id="r_chk",
             reqs=mock_reqs,
+            experiment_class=mock_experiment_class,
             nodes=["n1", "n2"],
             experimentation_folder=str(tmp_path),
         )
+
+
+def test_approve_success(monkeypatch, base_preproc, mock_fedcombat_train_model):
+    out = base_preproc.approve(description="approve-test")
+
+    assert out == {"n1": True, "n2": True}
+    assert mock_fedcombat_train_model["description"] == "approve-test"
+    assert mock_fedcombat_train_model["kwargs"]["nodes"] == ["n1", "n2"]
 
 
 def test_execute_success(monkeypatch, base_preproc, mock_fds, mock_fedcombat_param):
@@ -103,7 +148,16 @@ def test_execute_success(monkeypatch, base_preproc, mock_fds, mock_fedcombat_par
             self._nodes = kwargs.get("nodes", [])
 
         def execute(self):
-            return {n: MagicMock(preproc_output=f"r_{n}") for n in self._nodes}
+            return {
+                n: MagicMock(
+                    preproc_output={
+                        f"key_{n}": f"value_{n}",
+                        "standardized_dataset": f"std_fds_{n}",
+                        "harmonized_dataset": f"ds_{n}",
+                    }
+                )
+                for n in self._nodes
+            }
 
     monkeypatch.setattr(
         "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat.PreprocRequestJob",
@@ -117,11 +171,15 @@ def test_execute_success(monkeypatch, base_preproc, mock_fds, mock_fedcombat_par
     result = preproc.execute()
     assert result is True
     assert preproc._needs_harmonization() is False
-    assert preproc._harmonized_datasets == {"n1": "ds1", "n2": "ds2"}
+    assert preproc._harmonized_datasets == {"n1": "ds_n1", "n2": "ds_n2"}
 
 
 def test_execute_fedcombat_parameters_exception(
-    monkeypatch, mock_fds, mock_reqs, tmp_path
+    monkeypatch,
+    mock_fds,
+    mock_reqs,
+    tmp_path,
+    mock_experiment_class,
 ):
     # Ensure the FedCombatPreproc class uses a mocked _FedCombatParameters that returns
     # an instance which raises when called: fedcombat_parameters = _FedCombatParameters(...);
@@ -146,6 +204,7 @@ def test_execute_fedcombat_parameters_exception(
         experiment_id="exp_fedcombat_params",
         researcher_id="r_fc",
         reqs=mock_reqs,
+        experiment_class=mock_experiment_class,
         nodes=["n1", "n2"],
         experimentation_folder=str(tmp_path),
         preproc_args={
@@ -160,7 +219,9 @@ def test_execute_fedcombat_parameters_exception(
     assert "fedcombat_parameters failure" in str(exc.value)
 
 
-def test_set_nodes_updates_nodes(base_preproc, mock_fedcombat_param):
+def test_set_nodes_updates_nodes(
+    base_preproc, mock_fedcombat_param, mock_experiment_class
+):
     preproc = base_preproc
     assert preproc._nodes == ["n1", "n2"]
 
@@ -168,31 +229,43 @@ def test_set_nodes_updates_nodes(base_preproc, mock_fedcombat_param):
     assert preproc._nodes == ["n3", "n4"]
 
 
-def test_execute_empty_nodes_raises(
-    mock_fds, mock_reqs, tmp_path, mock_fedcombat_param
+def test_execute_not_enough_nodes_raises(
+    mock_fds,
+    mock_reqs,
+    tmp_path,
+    mock_fedcombat_param,
+    mock_experiment_class,
 ):
-    preproc = FedCombatPreproc(
-        fds=mock_fds,
-        experiment_id="exp2",
-        researcher_id="r2",
-        reqs=mock_reqs,
-        nodes=[],
-        experimentation_folder=str(tmp_path),
-    )
+    for nodes in ([], ["n1"]):
+        preproc = FedCombatPreproc(
+            fds=mock_fds,
+            experiment_id="exp2",
+            researcher_id="r2",
+            reqs=mock_reqs,
+            experiment_class=mock_experiment_class,
+            nodes=nodes,
+            experimentation_folder=str(tmp_path),
+        )
 
-    with pytest.raises(FedbiomedExperimentError) as exc:
-        preproc.execute()
-    assert ErrorNumbers.FB420.value in str(exc.value)
+        with pytest.raises(FedbiomedExperimentError) as exc:
+            preproc.execute()
+        assert ErrorNumbers.FB420.value in str(exc.value)
 
 
 def test_needs_harmonization_true_nodes_changed(
-    monkeypatch, mock_fds, mock_reqs, tmp_path, mock_fedcombat_param
+    monkeypatch,
+    mock_fds,
+    mock_reqs,
+    tmp_path,
+    mock_fedcombat_param,
+    mock_experiment_class,
 ):
     preproc = FedCombatPreproc(
         fds=mock_fds,
         experiment_id="exp3",
         researcher_id="r3",
         reqs=mock_reqs,
+        experiment_class=mock_experiment_class,
         nodes=["n1", "n2"],
         experimentation_folder=str(tmp_path),
     )
@@ -208,26 +281,37 @@ def test_needs_harmonization_true_nodes_changed(
 
 
 def test_execute_not_needed_returns_false(
-    monkeypatch, mock_fds, mock_reqs, tmp_path, mock_fedcombat_param
+    monkeypatch,
+    mock_fds,
+    mock_reqs,
+    tmp_path,
+    mock_fedcombat_param,
+    mock_experiment_class,
 ):
     preproc = FedCombatPreproc(
         fds=mock_fds,
         experiment_id="exp3",
         researcher_id="r3",
         reqs=mock_reqs,
+        experiment_class=mock_experiment_class,
         nodes=["n1"],
         experimentation_folder=str(tmp_path),
     )
     # simulate previous harmonization with same dataset ids
     preproc._harmonized = True
-    preproc._harmonized_datasets = {"n1": "ds1"}
+    preproc._harmonized_datasets = {"n1": "initial1"}
 
     assert preproc._needs_harmonization() is False
     assert preproc.execute() is False
 
 
 def test_execute_missing_replies_raises(
-    monkeypatch, mock_fds, mock_reqs, tmp_path, mock_fedcombat_param
+    monkeypatch,
+    mock_fds,
+    mock_reqs,
+    tmp_path,
+    mock_fedcombat_param,
+    mock_experiment_class,
 ):
     # PreprocRequestJob that returns replies missing nodes
     class BadJob:
@@ -247,6 +331,7 @@ def test_execute_missing_replies_raises(
         experiment_id="exp4",
         researcher_id="r4",
         reqs=mock_reqs,
+        experiment_class=mock_experiment_class,
         nodes=["n1", "n2"],
         experimentation_folder=str(tmp_path),
     )
@@ -257,7 +342,11 @@ def test_execute_missing_replies_raises(
 
 
 def test_save_and_load_state_breakpoint(
-    mock_fds, mock_reqs, tmp_path, mock_fedcombat_param
+    mock_fds,
+    mock_reqs,
+    tmp_path,
+    mock_fedcombat_param,
+    mock_experiment_class,
 ):
     _prepoc_args = {"param1": 10, "param2": "value"}
     _experiment_id = "exp5"
@@ -267,6 +356,7 @@ def test_save_and_load_state_breakpoint(
         experiment_id=_experiment_id,
         researcher_id="r5",
         reqs=mock_reqs,
+        experiment_class=mock_experiment_class,
         nodes=["n1"],
         experimentation_folder=str(tmp_path),
         preproc_args=_prepoc_args,
@@ -285,6 +375,7 @@ def test_save_and_load_state_breakpoint(
             "experiment_id": _experiment_id,
             "researcher_id": "r5",
             "reqs": mock_reqs,
+            "experiment_class": mock_experiment_class,
             "nodes": ["n1"],
             "experimentation_folder": str(tmp_path),
         }

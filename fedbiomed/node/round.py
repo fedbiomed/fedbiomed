@@ -898,7 +898,9 @@ class Round:
         if optimizer_state is not None:
             # this condition was made so we dont save stateless optimizers
             optim_path = self._node_state_manager.generate_folder_and_create_file_name(
-                self.experiment_id, self._round, NodeStateFileName.OPTIMIZER
+                self.experiment_id,
+                self._round,
+                NodeStateFileName.OPTIMIZER,
             )
             Serializer.dump(optimizer_state, path=optim_path)
             logger.debug("Saving optim state")
@@ -949,7 +951,9 @@ class Round:
         if persistent_model_weights:
             model_weights_path = (
                 self._node_state_manager.generate_folder_and_create_file_name(
-                    self.experiment_id, self._round, NodeStateFileName.MODEL_WEIGHTS
+                    self.experiment_id,
+                    self._round,
+                    NodeStateFileName.MODEL_WEIGHTS,
                 )
             )
             Serializer.dump(persistent_model_weights, path=model_weights_path)

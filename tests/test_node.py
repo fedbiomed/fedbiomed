@@ -190,8 +190,8 @@ class TestNode(unittest.TestCase):
         self.mock_dataset_manager.return_value.obfuscate_private_information.side_effect = (
             lambda x: x
         )
-        self.mock_dataset_manager.return_value.dataset_table.get_by_id = MagicMock(
-            return_value=self.database_id
+        self.mock_dataset_manager.return_value.get_dataset_entry_by_id = MagicMock(
+            return_value=(self.database_id, "dummy_table_name")
         )
 
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -387,7 +387,9 @@ class TestNode(unittest.TestCase):
         round_init.return_value = None
 
         mock_dataset_manager = MagicMock()
-        mock_dataset_manager.dataset_table.get_by_id = MagicMock(return_value=None)
+        mock_dataset_manager.get_dataset_entry_by_id = MagicMock(
+            return_value=(None, None)
+        )
         self.n1.dataset_manager = mock_dataset_manager
         with patch("fedbiomed.node.node.logger.error") as logger_error:
             self.n1.parser_task_train(self.train_request)

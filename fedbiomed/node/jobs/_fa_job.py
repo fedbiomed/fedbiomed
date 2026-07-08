@@ -141,7 +141,9 @@ class FAJob(_BaseJob):
                 unsupported, the DLP cannot be deserialised, or initialisation fails.
         """
         # recover dataset entry
-        dataset_entry = self._dataset_manager.dataset_table.get_by_id(self._dataset_id)
+        dataset_entry, _ = self._dataset_manager.get_dataset_entry_by_id(
+            self._dataset_id
+        )
         if dataset_entry is None:
             raise _InternalJobError(
                 f"Cannot find requested dataset in local datasets: dataset_id='{self._dataset_id}' "
