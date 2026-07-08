@@ -105,5 +105,15 @@ class MedNistController(Controller):
             ) from e
         return {"data": data, "target": target}
 
+    def get_target(self, index: int) -> Any:
+        """Retrieve the target of a data sample without applying transforms"""
+        try:
+            return self._dataset.targets[index]
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to retrieve target "
+                f"at index {index}"
+            ) from e
+
     def __len__(self):
         return len(self._dataset)

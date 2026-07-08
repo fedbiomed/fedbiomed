@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import torch
 import torchvision.transforms as T
 from PIL import Image
@@ -93,6 +94,41 @@ class _ImageLabelDataset(Dataset):
     def analytics_schema(self):
         """Return schema associated with federated analytics."""
         return ImageSpec(), None
+
+    def get_attributes(self, columns: Optional[list[str]] = None) -> pd.DataFrame:
+        """Returns per-sample attributes indexed like __getitem__.
+
+        These attributes can be used for dataset splitting for example.
+        For ImageLabelDataset, the only attribute available is the "target" label.
+
+        Args:
+            columns: list of column names to return. If None, returns all available
+                attributes. For ImageLabelDataset, the only valid column is "target".
+
+        Raises:
+            FedbiomedError: if the dataset has not completed initialization, or
+                if requested columns are not available in the dataset attributes.
+        """
+
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
+            )
+        df = pd.DataFrame(
+            {"target": [self._controller.get_target(idx) for idx in range(len(self))]},
+            index=pd.RangeIndex(len(self)),
+        )
+
+        if columns is not None:
+            missing_cols = set(columns) - set(df.columns)
+            if missing_cols:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Requested columns {missing_cols} "
+                    "are not available in the dataset attributes."
+                )
+            df = df[columns]
+        return df
 
 
 class ImageFolderDataset(_ImageLabelDataset):

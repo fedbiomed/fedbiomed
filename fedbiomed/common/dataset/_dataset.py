@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
+import pandas as pd
 import torch
 
 from fedbiomed.common.analytics import AnalyticsOrchestrator
@@ -391,3 +392,26 @@ class Dataset(ABC):
         """Iterator to properly control iteration over dataset items."""
         for idx in range(len(self)):
             yield self[idx]
+
+    def get_attributes(self, columns: Optional[list[str]] = None) -> pd.DataFrame:
+        """Returns per-sample attributes indexed like __getitem__.
+
+        These attributes can be used for dataset splitting for example.
+
+        The returned DataFrame:
+        - has len(dataset) rows;
+        - is indexed like __getitem__;
+        - contains lightweight sample attributes;
+        - does not load the full samples themselves.
+
+        Args:
+            columns: list of column names to return. If None, returns all available
+                attributes.
+
+        Raises:
+            FedbiomedError: if the dataset does not expose attributes.
+        """
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB632.value}: {self.__class__.__name__} does not "
+            "provide sample attributes."
+        )

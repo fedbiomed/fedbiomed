@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Optional, Tuple, Union
 
 import numpy as np
+import pandas as pd
 import polars as pl
 import torch
 
@@ -182,3 +183,39 @@ class TabularDataset(Dataset):
     def analytics_schema(self):
         """Return schema for federated analytics"""
         return RowSpec(columns=self._input_columns), None
+
+    def get_attributes(self, columns: Optional[list[str]] = None) -> pd.DataFrame:
+        """Returns per-sample attributes indexed like __getitem__.
+
+        Exposes all columns of the underlying CSV/TSV file, indexed 0..len-1
+        in the same row order used by `get_sample`/`__getitem__` — not just
+        `input_columns`/`target_columns`. Can be used for dataset splitting.
+
+        Args:
+            columns: list of column names to return. If None, returns all
+                available columns.
+
+        Raises:
+            FedbiomedError: if the dataset has not completed initialization,
+                or if requested columns are not available in the dataset
+                attributes.
+        """
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
+            )
+
+        df = self._controller.to_pandas()
+        df.index = pd.RangeIndex(len(df))
+
+        if columns is not None:
+            missing_cols = set(columns) - set(df.columns)
+            if missing_cols:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Requested columns {missing_cols} "
+                    "are not available in the dataset attributes."
+                )
+            df = df[columns]
+
+        return df

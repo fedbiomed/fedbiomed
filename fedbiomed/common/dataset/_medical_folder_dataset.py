@@ -367,3 +367,51 @@ class MedicalFolderDataset(Dataset):
             }
         )
         return schema, None
+
+    def get_attributes(
+        self,
+        columns: Optional[list[str]] = None,
+    ) -> pd.DataFrame:
+        """Returns per-sample attributes indexed like __getitem__.
+
+        Exposes the demographics table, reordered and reindexed to match sample
+        order, for use in dataset splitting for example.
+        Available whenever a demographics file was provided.
+
+        Args:
+            columns: list of column names to return. If None, returns all
+                available demographics columns.
+
+        Raises:
+            FedbiomedError: if the dataset has not completed initialization,
+                if no demographics file was provided, or if requested columns
+                are not available.
+        """
+
+        if self._controller is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset object has not completed "
+                "initialization. It is not ready to use yet."
+            )
+
+        demographics = self._controller.demographics
+
+        if demographics is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: No attributes available because "
+                "no demographics file was provided."
+            )
+
+        # Reorder demographics according to dataset indexing
+        df = demographics.loc[self._controller.subjects].reset_index()
+
+        if columns is not None:
+            missing_cols = set(columns) - set(df.columns)
+            if missing_cols:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Requested columns {missing_cols} "
+                    "are not available in the dataset attributes."
+                )
+            df = df[columns]
+
+        return df

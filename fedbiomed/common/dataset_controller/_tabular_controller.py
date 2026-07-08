@@ -4,6 +4,7 @@
 from pathlib import Path
 from typing import Dict, Iterable, Union
 
+import pandas as pd
 import polars as pl
 
 from fedbiomed.common.constants import ErrorNumbers
@@ -68,3 +69,7 @@ class TabularController(Controller):
             col: dtype.__class__.__name__
             for col, dtype in self._reader.data.schema.items()
         }
+
+    def to_pandas(self) -> pd.DataFrame:
+        """Returns the data as a Pandas Dataframe."""
+        return self._reader.to_pandas()
