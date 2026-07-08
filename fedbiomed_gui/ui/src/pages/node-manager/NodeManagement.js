@@ -64,6 +64,33 @@ const mainTabs = {
 }
 
 const applicationLogBasename = 'application.log'
+const nodeManagementDisabledMessage = (
+    'Node management feature will be added in a future release'
+)
+
+const NodeManagement = () => (
+    <div className="node-management-page">
+        <section className="node-management-card node-management-header">
+            <div className="node-management-header-top">
+                <div className="node-management-heading">
+                    <span className="node-management-heading-icon">
+                        <EuiIcon type="node" size="xl" />
+                    </span>
+                    <div>
+                        <h1>Node Management</h1>
+                        <p>Monitor and manage node processes</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section className="node-management-card node-management-process">
+            <EuiText color="subdued">
+                <p>{nodeManagementDisabledMessage}</p>
+            </EuiText>
+        </section>
+    </div>
+)
 
 const formatValue = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -202,7 +229,7 @@ const DetailItem = ({icon, label, value, valueContent}) => (
     </div>
 )
 
-const NodeManagement = ({
+const NodeManagementContent = ({
     processState,
     loading,
     actionLoading,
@@ -725,4 +752,9 @@ const mapDispatchToProps = (dispatch) => {
     }
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(NodeManagement)
+export const NodeManagementEnabled = connect(
+    mapStateToProps,
+    mapDispatchToProps
+)(NodeManagementContent)
+
+export default NodeManagement
