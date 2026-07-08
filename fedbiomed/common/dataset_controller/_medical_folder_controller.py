@@ -356,7 +356,7 @@ class MedicalFolderController(Controller):
     def _make_dataset(
         demographics: Optional[pd.DataFrame],
         df_dir: pd.DataFrame,
-    ) -> tuple[list[str], list[str], list[Dict[str, Any]]]:
+    ) -> tuple[list[str], list[Dict[str, Any]]]:
         """Builds samples as `dict` with `modalities` and `demographics`
 
         Args:
