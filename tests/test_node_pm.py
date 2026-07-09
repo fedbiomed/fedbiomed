@@ -475,6 +475,39 @@ def test_node_pm_05_set_process_state_resets_started_at_after_stop(mocker, _mana
     assert "stopped_at" not in state_entry
 
 
+def test_node_pm_05_set_process_state_resets_started_at_for_forced_start(
+    mocker,
+    _manager,
+):
+    manager = _manager
+    manager._node_id = "node_id1"
+
+    state_table = manager._state_table
+    state_table.get_by_id.return_value = {
+        "state": NodeState.RUNNING.value,
+        "pid": 1234,
+        "started_at": "previous-start",
+    }
+
+    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value="forced-start")
+    mocker.patch.object(
+        NodeProcessManager, "_build_actor", return_value={"source": "cli"}
+    )
+
+    manager._set_process_state(
+        pid=5678,
+        state=NodeState.RUNNING,
+        action="start",
+        actor={"source": "cli"},
+        reason="start_requested",
+    )
+
+    state_entry = state_table.update_or_insert_by_id.call_args.args[1]
+    assert state_entry["pid"] == 5678
+    assert state_entry["state"] == NodeState.RUNNING.value
+    assert state_entry["started_at"] == "forced-start"
+
+
 def test_node_pm_06_start_process_already_started(mocker, _manager):
     manager = _manager
     manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING)
@@ -488,6 +521,42 @@ def test_node_pm_06_start_process_already_started(mocker, _manager):
         "Node process is already running. Ignoring start request."
     )
     mock_popen.assert_not_called()
+
+
+def test_node_pm_06_force_start_process_already_started(mocker, _manager):
+    manager = _manager
+    manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING)
+    manager._set_process_state = mocker.MagicMock()
+
+    process = mocker.MagicMock(pid=54321)
+    mock_popen = mocker.patch(
+        "fedbiomed.node.node_pm.subprocess.Popen",
+        return_value=process,
+    )
+    mock_logger = mocker.patch("fedbiomed.node.node_pm.logger")
+
+    manager.start(
+        node_args={"gpu": False},
+        background=True,
+        actor={"source": "cli"},
+        force=True,
+    )
+
+    mock_popen.assert_called_once()
+    manager._set_process_state.assert_called_once_with(
+        pid=54321,
+        state=NodeState.RUNNING,
+        action="start",
+        actor={"source": "cli"},
+        reason="start_requested",
+        node_args={"gpu": False},
+        background=True,
+    )
+    mock_logger.warning.assert_called_once_with(
+        "Forcing node startup while the database reports it as running. "
+        "The previous node process might not have closed properly; "
+        "this may cause a process leak."
+    )
 
 
 @pytest.mark.parametrize(

@@ -374,6 +374,15 @@ class NodeControl(CLIArgumentParser):
             help="Start the node in the background. Default is `False`",
         )
 
+        start.add_argument(
+            "--force",
+            action="store_true",
+            help=(
+                "Start a new node process even when the process-state database "
+                "reports that the node is already running."
+            ),
+        )
+
         stop = self._subparser.add_parser("stop", help="Stops the node")
         stop.set_defaults(func=self.stop)
 
@@ -462,6 +471,7 @@ class NodeControl(CLIArgumentParser):
                 node_args=node_args,
                 background=background,
                 actor={"source": "cli"},
+                force=args.force,
             )
         except KeyboardInterrupt:
             node_process_manager.stop(
