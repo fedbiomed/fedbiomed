@@ -1,14 +1,17 @@
 import os
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from flask import request, send_file
+from flask import jsonify, request, send_file
 from flask_jwt_extended import get_jwt
 
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.node_pm import NodeProcessManager
 
 from ..config import config
+from ..helpers.auth_helpers import admin_required
+from ..helpers.config_schema import get_config_sections_schema
 from ..utils import error, response
 from .api import api
 
@@ -19,10 +22,16 @@ _LOG_TIMESTAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})")
 
 
 def _actor_from_request() -> dict:
-    """Build GUI actor metadata without enforcing role authorization.
+    """Build audit metadata for the user or process that called the route.
+
+    The node process manager records this actor information for start, stop,
+    and restart requests. This helper only reads JWT claims already available
+    on the request; it does not enforce authorization. Route decorators remain
+    responsible for access control.
 
     Returns:
-        Dictionary containing actor metadata extracted from JWT claims.
+        Dictionary containing the GUI source marker and available identity
+        claims for the current request.
     """
 
     claims = get_jwt()
@@ -35,6 +44,398 @@ def _actor_from_request() -> dict:
         "name": claims.get("name"),
         "surname": claims.get("surname"),
     }
+
+
+def _config_field_schema(
+    section: str,
+    key: str,
+    schema: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Return the schema for a single node configuration field.
+
+    Args:
+        section: Name of the `config.ini` section that owns the field.
+        key: Name of the option inside the section.
+        schema: Configuration descriptor returned by `get_config_sections_schema()`.
+
+    Returns:
+        The field descriptor used for validation, normalization, and UI
+        rendering. The descriptor includes values such as `type`, `editable`,
+        `options`, and `min` when they apply.
+
+    Raises:
+        ValueError: If the section or key is not present in the configuration
+            descriptor.
+    """
+
+    if section not in schema:
+        raise ValueError(f"Unsupported node configuration section '{section}'")
+
+    fields = schema[section]["fields"]
+    if key not in fields:
+        raise ValueError(
+            f"Unsupported node configuration key '{key}' for section '{section}'"
+        )
+
+    return fields[key]
+
+
+def _normalize_config_value(
+    section: str,
+    key: str,
+    value: Any,
+    schema: Dict[str, Any],
+) -> bool | int | str:
+    """Normalize a raw request or file value according to the field schema.
+
+    The GUI and config file do not share the same runtime types: JSON requests
+    can contain booleans and numbers, while `config.ini` stores strings. This
+    function converts either representation into the typed value used by the
+    API response and conflict checks.
+
+    Args:
+        section: Name of the `config.ini` section that owns the value.
+        key: Name of the option inside the section.
+        value: Raw value from the request body or current config file.
+        schema: Configuration descriptor returned by `get_config_sections_schema()`.
+
+    Returns:
+        A normalized boolean, integer, or string value.
+
+    Raises:
+        ValueError: If the key is unsupported, the field type is unsupported,
+            or the value does not satisfy the field type constraints.
+    """
+
+    field = _config_field_schema(section, key, schema)
+    field_type = field["type"]
+
+    if field_type == "boolean":
+        if isinstance(value, bool):
+            return value
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes"}:
+                return True
+            if normalized in {"false", "0", "no"}:
+                return False
+
+        raise ValueError(f"Invalid boolean value for '{key}'")
+
+    if field_type == "integer":
+        if isinstance(value, bool):
+            raise ValueError(f"Invalid integer value for '{key}'")
+
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid integer value for '{key}'") from exc
+
+        min_value = field.get("min", 0)
+        if parsed < min_value:
+            raise ValueError(f"'{key}' must be greater than or equal to {min_value}")
+
+        return parsed
+
+    if field_type == "enum":
+        normalized = str(value).strip().upper()
+        options = field.get("options", [])
+        if normalized not in options:
+            raise ValueError(
+                f"Invalid value '{value}' for '{key}'. "
+                f"Expected one of: {', '.join(options)}"
+            )
+        return normalized
+
+    if field_type == "string":
+        return "" if value is None else str(value)
+
+    raise ValueError(f"Unsupported field type '{field_type}' for '{key}'")
+
+
+def _node_config_response_payload() -> Dict[str, Any]:
+    """Build the payload returned by `GET /api/node/config`.
+
+    The payload is intentionally derived from the latest on-disk config after
+    `config.node_config.read()` has been called by the route. Each field is
+    returned with its descriptor and normalized current value so the frontend
+    can render sections dynamically without hardcoded key lists.
+
+    Returns:
+        Dictionary containing all node configuration sections, their fields,
+        normalized field values, editability flags, and current node process
+        state.
+    """
+
+    schema = get_config_sections_schema(config.node_config)
+
+    modification_status = _config_modification_status()
+
+    return {
+        "sections": {
+            section: {
+                "label": section_schema.get("label"),
+                "fields": {
+                    key: {
+                        name: value
+                        for name, value in {
+                            **field_schema,
+                            "value": _normalize_config_value(
+                                section,
+                                key,
+                                config.node_config.get(section, key),
+                                schema,
+                            ),
+                        }.items()
+                        if name != "env"
+                    }
+                    for key, field_schema in section_schema["fields"].items()
+                },
+            }
+            for section, section_schema in schema.items()
+        },
+        "node_state": node_process_manager.get_status().value,
+        **modification_status,
+    }
+
+
+def _parse_config_update_request(
+    payload: Any,
+) -> tuple[
+    str,
+    Dict[str, bool | int | str],
+    Optional[Dict[str, bool | int | str]],
+    bool,
+]:
+    """Validate and normalize a node configuration PATCH request body.
+    (Parses the request body and returns the section, updates, base values, and force flag.)
+
+    The request must target one section and provide at least one editable
+    update. `base_values` are optional: the GUI sends them to enable optimistic
+    conflict detection, while direct API callers may omit them and write only
+    their requested updates. When `base_values` are present and `force` is
+    false, they must cover at least the update keys and are later compared
+    against the current file values to detect concurrent edits.
+
+    Args:
+        payload: Parsed JSON request body.
+
+    Returns:
+        Tuple containing the target section, normalized requested updates,
+        normalized base values when supplied, and the overwrite flag.
+
+    Raises:
+        ValueError: If the payload shape is invalid, the section/key is
+            unsupported, a read-only key is requested, or any value fails
+            type validation.
+    """
+
+    if not isinstance(payload, dict):
+        raise ValueError("Request body must be an object")
+
+    schema = get_config_sections_schema(config.node_config)
+    section = payload.get("section")
+    if not isinstance(section, str) or not section:
+        raise ValueError("'section' must be a non-empty string")
+    if section not in schema:
+        raise ValueError(f"Unsupported node configuration section '{section}'")
+
+    updates = payload.get("values")
+    if not isinstance(updates, dict):
+        raise ValueError("'values' must be an object")
+
+    if not updates:
+        raise ValueError("No configuration values provided")
+
+    editable_keys = {
+        key
+        for key, field in schema[section]["fields"].items()
+        if field.get("editable", True)
+    }
+    update_keys = set(updates.keys())
+    unsupported = sorted(update_keys - editable_keys)
+    if unsupported:
+        raise ValueError(
+            "Unsupported or read-only configuration value(s): " + ", ".join(unsupported)
+        )
+
+    base_values = payload.get("base_values")
+    force = bool(payload.get("force", False))
+    has_base_values = base_values is not None
+    if has_base_values and not isinstance(base_values, dict):
+        raise ValueError("'base_values' must be an object")
+    if has_base_values and not force:
+        base_keys = set(base_values.keys())
+        missing = sorted(update_keys - base_keys)
+        if missing:
+            raise ValueError(f"Missing base value(s): {', '.join(missing)}")
+
+    normalized_updates = {}
+    normalized_base_values = {} if has_base_values and not force else None
+    for key, value in updates.items():
+        field = _config_field_schema(section, key, schema)
+        if not field.get("editable", True):
+            raise ValueError(
+                f"Node configuration key '{key}' in section '{section}' is read-only"
+            )
+
+        normalized_updates[key] = _normalize_config_value(
+            section,
+            key,
+            value,
+            schema,
+        )
+        if normalized_base_values is not None:
+            normalized_base_values[key] = _normalize_config_value(
+                section,
+                key,
+                base_values[key],
+                schema,
+            )
+
+    return section, normalized_updates, normalized_base_values, force
+
+
+def _config_detect_conflicts(
+    section: str,
+    updates: Dict[str, bool | int | str],
+    base_values: Dict[str, bool | int | str],
+) -> tuple[Dict[str, Any], Dict[str, bool | int | str]]:
+    """Compare requested updates with the latest file values.
+
+    Conflict detection prevents silently overwriting edits made directly in
+    `config.ini` or by another GUI session after the current user loaded the
+    form. A field conflicts when its current file value differs from the
+    matching `base_values` submitted by the caller. The GUI submits all
+    editable values in a section, while direct API callers can omit
+    `base_values` entirely to skip this optimistic check.
+
+    Args:
+        section: Target config section.
+        updates: Normalized values requested by the user.
+        base_values: Normalized values last shown to the user.
+
+    Returns:
+        A tuple containing conflict details and current file values for all
+        requested keys. Conflict details include the base value, current file
+        value, and requested value for each conflicted key.
+    """
+
+    schema = get_config_sections_schema(config.node_config)
+    conflicts = {}
+    current_values = {}
+
+    for key, requested in updates.items():
+        current = _normalize_config_value(
+            section,
+            key,
+            config.node_config.get(section, key),
+            schema,
+        )
+        current_values[key] = current
+
+        if current != base_values.get(key):
+            conflicts[key] = {
+                "base": base_values.get(key),
+                "current": current,
+                "requested": requested,
+            }
+
+    return conflicts, current_values
+
+
+def _conflict_response(data: Dict[str, Any], message: str):
+    """Create a standard API error response for config write conflicts.
+
+    Args:
+        data: Conflict payload returned under the `result` key.
+        message: User-facing explanation of the conflict.
+
+    Returns:
+        Flask JSON response matching the GUI API error envelope.
+    """
+
+    return jsonify({"success": False, "result": data, "message": message})
+
+
+def _parse_process_timestamp(value: Optional[str]) -> Optional[datetime]:
+    """Parse a process-state timestamp as a timezone-aware UTC datetime.
+
+    Args:
+        value: Timestamp stored in the node process-state table.
+
+    Returns:
+        Parsed UTC datetime, or `None` when the timestamp is missing or invalid.
+    """
+
+    if not value:
+        return None
+
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc)
+
+
+def _config_modification_status(
+    process_state: Optional[Dict[str, Any]] = None,
+) -> Dict[str, bool | Optional[str]]:
+    """Check whether `config.ini` changed after the current node startup.
+
+    The check intentionally uses the simple file modification time approach:
+    compare the current `config.ini` mtime with the `started_at` timestamp of
+    the running node process. The warning is only meaningful for a running node,
+    because stopped nodes do not have currently effective in-memory values.
+
+    Args:
+        process_state: Optional process-state dictionary. When omitted, the
+            latest state is read from the node process manager.
+
+    Returns:
+        Dictionary containing the boolean modification status and an optional
+        message. The message is populated when the node is running but the
+        startup timestamp cannot be read or parsed.
+    """
+
+    try:
+        state = process_state or node_process_manager.get_process_state().to_dict()
+        if str(state.get("state", "")).lower() != "running":
+            return {
+                "config_modified_after_startup": False,
+                "config_startup_check_message": None,
+            }
+
+        started_at = _parse_process_timestamp(state.get("started_at"))
+        if started_at is None:
+            return {
+                "config_modified_after_startup": False,
+                "config_startup_check_message": (
+                    "Could not determine node startup time; cannot check whether "
+                    "config.ini was modified after node startup."
+                ),
+            }
+
+        config_mtime = datetime.fromtimestamp(
+            os.path.getmtime(config.node_config.config_path),
+            timezone.utc,
+        )
+        return {
+            "config_modified_after_startup": config_mtime > started_at,
+            "config_startup_check_message": None,
+        }
+    except Exception:
+        return {
+            "config_modified_after_startup": False,
+            "config_startup_check_message": (
+                "Could not check whether config.ini was modified after node startup."
+            ),
+        }
 
 
 def _node_args_from_request() -> tuple[dict, bool]:
@@ -76,6 +477,96 @@ def _node_args_from_request() -> tuple[dict, bool]:
     }
 
     return node_args, background
+
+
+@api.route("/node/config", methods=["GET"])
+def get_node_config():
+    """Return the latest node configuration fields editable from the GUI.
+
+    The route re-reads `config.ini` before building the response so manual file
+    edits are reflected when the user refreshes the page. Field descriptors and
+    current values are returned together to let the frontend render the form
+    dynamically for every supported section.
+
+    Returns:
+        HTTP 200 with the current section/field descriptors and node state, or
+        HTTP 500 if the configuration file cannot be read.
+    """
+
+    try:
+        config.node_config.read()
+        return response(_node_config_response_payload()), 200
+    except Exception as e:
+        return error(f"Could not get node configuration: {e}"), 500
+
+
+@api.route("/node/config", methods=["PATCH"])
+@admin_required
+def update_node_config():
+    """Write node configuration changes to `config.ini`.
+
+    The route accepts one section per request. When callers provide
+    `base_values`, it re-reads the file and compares current file values with
+    those base values before writing. If the file changed since the caller
+    loaded the values, the route returns a conflict instead of overwriting
+    external edits. Direct API callers can omit `base_values` to write only
+    the requested updates without this optimistic conflict check. A request
+    with `force` set to true also bypasses conflict detection.
+
+    Returns:
+        HTTP 200 with the written fields and restart metadata, HTTP 400 for
+        invalid request data, HTTP 409 for concurrent file edits, or HTTP 500
+        for unexpected read/write failures.
+    """
+
+    req = request.get_json(silent=True) or {}
+
+    try:
+        config.node_config.read()
+        section, updates, base_values, force = _parse_config_update_request(req)
+    except ValueError as e:
+        return error(str(e)), 400
+    except Exception as e:
+        return error(f"Could not update node configuration: {e}"), 500
+
+    try:
+        if base_values is not None and not force:
+            conflicts, current_values = _config_detect_conflicts(
+                section,
+                updates,
+                base_values,
+            )
+            if conflicts:
+                return _conflict_response(
+                    {
+                        "section": section,
+                        "conflicts": conflicts,
+                        "current_values": current_values,
+                    },
+                    (
+                        "Configuration file has been modified. Refresh the "
+                        "latest values or confirm overwrite."
+                    ),
+                ), 409
+
+        for key, value in updates.items():
+            config.node_config.set(section, key, str(value))
+        config.node_config.write()
+
+        node_state = node_process_manager.get_status().value
+        modification_status = _config_modification_status()
+        return response(
+            {
+                "section": section,
+                "values": updates,
+                "node_state": node_state,
+                "requires_restart": node_state == "running",
+                **modification_status,
+            },
+            "Node configuration has been updated.",
+        ), 200
+    except Exception as e:
+        return error(f"Could not update node configuration: {e}"), 500
 
 
 def _application_log_dir() -> str:
@@ -453,7 +944,9 @@ def node_status():
 def node_process_state():
     """Return current persisted node process state."""
     try:
-        return response(node_process_manager.get_process_state().to_dict()), 200
+        process_state = node_process_manager.get_process_state().to_dict()
+        process_state.update(_config_modification_status(process_state))
+        return response(process_state), 200
 
     except FedbiomedError as e:
         return error(f"Could not get node process state: {e}"), 500

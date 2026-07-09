@@ -10,7 +10,6 @@ import {
 } from "react-router-dom";
 
 import Home from './pages/Home'
-import Configuration from './pages/Configuration';
 import Repository from './pages/repository';
 import Datasets from './pages/datasets';
 import AddDataset from "./pages/datasets/AddDataset"
@@ -49,7 +48,6 @@ function App(props) {
                 <Route path="/register/" element={<Register/>} />
                 <Route path="/" element ={<LoginProtected/>} >
                   <Route path="/" element={<Home/>} />
-                  <Route path="/configuration/" element={<Configuration/>} />
                   <Route path="/user-account/" element={<UserAccount/>}>
                       <Route index element={<UserInfo/>} />
                       <Route path={"info"} element={<UserInfo/>} />

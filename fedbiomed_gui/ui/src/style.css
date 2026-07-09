@@ -960,6 +960,10 @@ a.fed-box-link{
   margin: 5px 0 0;
 }
 
+.node-management-section-heading p {
+  overflow-wrap: anywhere;
+}
+
 .node-management-heading-icon,
 .node-management-section-icon,
 .node-management-detail-icon,
@@ -1004,7 +1008,11 @@ a.fed-box-link{
 }
 
 .node-management-header-control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-top: 0;
+  padding: 10px 0 4px;
 }
 
 .node-management-status-pill {
@@ -1066,8 +1074,253 @@ a.fed-box-link{
   color: #1d4ed8;
 }
 
+.node-management-alert.warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
 .node-management-process {
   padding: 28px;
+}
+
+.node-config-layout {
+  align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+
+.node-config-section-nav {
+  background: #fff;
+  border: 1px solid var(--node-management-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.node-config-section-nav-item {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--node-management-muted);
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  min-height: 60px;
+  padding: 13px 14px;
+  text-align: left;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+  width: 100%;
+}
+
+.node-config-section-nav-item:hover {
+  background: #f8fafc;
+  border-color: var(--node-management-border);
+  color: var(--node-management-text);
+}
+
+.node-config-section-nav-item.active {
+  background: #eef3ff;
+  border-color: #d6e2ff;
+  color: var(--node-management-blue);
+}
+
+.node-config-section-nav-item.read-only:not(.active) {
+  opacity: 0.72;
+}
+
+.node-config-section-nav-item strong,
+.node-config-section-nav-item small {
+  display: block;
+}
+
+.node-config-section-nav-item strong {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.node-config-section-nav-item small {
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.25;
+  margin-top: 3px;
+  opacity: 0.72;
+}
+
+.node-config-section-mark {
+  align-items: center;
+  background: #eef2f7;
+  border-radius: 9px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 800;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.node-config-section-nav-item.active .node-config-section-mark {
+  background: #dbe7ff;
+}
+
+.node-config-panel {
+  padding: 28px 32px 32px;
+}
+
+.node-config-panel-header {
+  align-items: center;
+  border-bottom: 1px solid var(--node-management-border);
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding-bottom: 24px;
+}
+
+.node-config-status {
+  background: #fff4e7;
+  border-radius: 999px;
+  color: #7c3d00;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 8px 14px;
+}
+
+.node-config-form-area {
+  padding-top: 26px;
+}
+
+.node-config-form {
+  display: grid;
+  gap: 28px;
+}
+
+.node-config-fields-grid {
+  align-items: end;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(2, minmax(220px, 280px));
+}
+
+.node-config-form-row {
+  margin: 0;
+  min-width: 0;
+}
+
+.node-config-fields-grid .euiFormRow__labelWrapper {
+  align-items: flex-end;
+  display: flex;
+  min-height: 24px;
+}
+
+.node-config-fields-grid .euiFormControlLayout,
+.node-config-fields-grid .euiFormControlLayout__childrenWrapper {
+  width: 100%;
+}
+
+.node-config-input.euiFieldText,
+.node-config-input.euiFieldNumber,
+.node-config-input.euiSelect {
+  background: #f8f9fd;
+  border-radius: 9px;
+  min-height: 48px;
+  width: 100%;
+}
+
+.node-config-settings-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+}
+
+.node-config-setting {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--node-management-border);
+  border-radius: 14px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 16px;
+}
+
+.node-config-setting.disabled {
+  background: #f8fafc;
+}
+
+.node-config-setting-name {
+  color: var(--node-management-text);
+  font-weight: 750;
+  margin-bottom: 4px;
+}
+
+.node-config-setting-help {
+  color: var(--node-management-muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.node-config-segmented {
+  background: #f2f5fa;
+  border: 1px solid #cbd6e8;
+  border-radius: 12px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 1fr 1fr;
+  min-height: 50px;
+  padding: 4px;
+  width: 196px;
+}
+
+.node-config-segmented button {
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  color: #5b6678;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.node-config-segmented button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.node-config-segmented button.true:not(:disabled):hover {
+  background: #eaf8f1;
+  color: #16895a;
+}
+
+.node-config-segmented button.false:not(:disabled):hover {
+  background: #fff0f0;
+  color: #c74747;
+}
+
+.node-config-segmented button.true[aria-pressed="true"] {
+  background: #16895a;
+  box-shadow: 0 6px 16px rgba(22, 137, 90, 0.22);
+  color: #fff;
+}
+
+.node-config-segmented button.false[aria-pressed="true"] {
+  background: #c74747;
+  box-shadow: 0 6px 16px rgba(199, 71, 71, 0.22);
+  color: #fff;
+}
+
+.node-config-actions {
+  padding-top: 28px;
 }
 
 .node-management-section-header {
@@ -1318,6 +1571,18 @@ a.fed-box-link{
 }
 
 @media (max-width: 980px) {
+  .node-config-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .node-config-section-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .node-config-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
   .node-management-process-content {
     grid-template-columns: 1fr;
   }
@@ -1336,6 +1601,29 @@ a.fed-box-link{
 }
 
 @media (max-width: 680px) {
+  .node-config-panel {
+    padding: 20px;
+  }
+
+  .node-config-panel-header,
+  .node-config-setting {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .node-config-panel-header {
+    flex-direction: column;
+  }
+
+  .node-config-section-nav,
+  .node-config-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .node-config-segmented {
+    width: 100%;
+  }
+
   .node-management-card {
     padding: 18px;
   }

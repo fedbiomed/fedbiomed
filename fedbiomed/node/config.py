@@ -17,6 +17,56 @@ from fedbiomed.common.constants import (
 )
 from fedbiomed.common.logger import logger
 
+NODE_CONFIG_SECURITY_SECTION = "security"
+NODE_CONFIG_SECURITY_FIELDS = {
+    "hashing_algorithm": {
+        "type": "enum",
+        "default": HashingAlgorithms.SHA256.value,
+        "options": [algorithm.value for algorithm in HashingAlgorithms],
+    },
+    "allow_default_training_plans": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS",
+    },
+    "training_plan_approval": {
+        "type": "boolean",
+        "default": "False",
+        "env": "FBM_SECURITY_TRAINING_PLAN_APPROVAL",
+    },
+    "secure_aggregation": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_SECURE_AGGREGATION",
+    },
+    "force_secure_aggregation": {
+        "type": "boolean",
+        "default": "False",
+        "env": "FBM_SECURITY_FORCE_SECURE_AGGREGATION",
+    },
+    "secagg_insecure_validation": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_SECAGG_INSECURE_VALIDATION",
+    },
+    "allow_preproc": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_ALLOW_PREPROC",
+    },
+    "allow_federated_analytics": {
+        "type": "boolean",
+        "default": "True",
+        "env": "FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS",
+    },
+    "minimum_samples": {
+        "type": "integer",
+        "default": "0",
+        "env": "FBM_SECURITY_MINIMUM_SAMPLES",
+        "min": 0,
+    },
+}
+
 
 class NodeConfig(Config):
     _CONFIG_VERSION: str = __node_config_version__
@@ -42,26 +92,9 @@ class NodeConfig(Config):
         self._cfg["default"]["name"] = self._component_alias
 
         # Security variables
-        self._cfg["security"] = {
-            "hashing_algorithm": HashingAlgorithms.SHA256.value,
-            "allow_default_training_plans": os.getenv(
-                "FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS", "True"
-            ),
-            "training_plan_approval": os.getenv(
-                "FBM_SECURITY_TRAINING_PLAN_APPROVAL", "False"
-            ),
-            "secure_aggregation": os.getenv("FBM_SECURITY_SECURE_AGGREGATION", "True"),
-            "force_secure_aggregation": os.getenv(
-                "FBM_SECURITY_FORCE_SECURE_AGGREGATION", "False"
-            ),
-            "secagg_insecure_validation": os.getenv(
-                "FBM_SECURITY_SECAGG_INSECURE_VALIDATION", "True"
-            ),
-            "allow_preproc": os.getenv("FBM_SECURITY_ALLOW_PREPROC", "True"),
-            "allow_federated_analytics": os.getenv(
-                "FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS", "True"
-            ),
-            "minimum_samples": os.getenv("FBM_SECURITY_MINIMUM_SAMPLES", "0"),
+        self._cfg[NODE_CONFIG_SECURITY_SECTION] = {
+            key: os.getenv(field.get("env", ""), str(field["default"]))
+            for key, field in NODE_CONFIG_SECURITY_FIELDS.items()
         }
         # Generate self-signed certificates
         key_file, pem_file = generate_certificate(
