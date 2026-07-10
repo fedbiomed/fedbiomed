@@ -32,6 +32,7 @@ class NodeStateFileName(_BaseEnum):
 
     OPTIMIZER: str = "optim_state_%s_%s"
     MODEL_WEIGHTS: str = "persistent_model_weights_%s_%s"
+    DATASET_SPLITS: str = "dataset_splits_%s_%s"
 
 
 class NodeStateManager:

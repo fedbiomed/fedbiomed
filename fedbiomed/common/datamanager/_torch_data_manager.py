@@ -132,7 +132,7 @@ class TorchDataManager(FrameworkDataManager[TorchDataset]):
 
     # Better type hinting
     _subset_train: Optional[_TorchSubset] = None
-    _subset_test: Optional[_TorchSubset] = None
+    _subset_validation: Optional[_TorchSubset] = None
 
     def __init__(self, dataset: Dataset, **kwargs: dict):
         """Class constructor
@@ -153,14 +153,14 @@ class TorchDataManager(FrameworkDataManager[TorchDataset]):
         self._dataset.to_format = DataReturnFormat.TORCH
 
     # Nota: used only for unit tests
-    def subset_test(self) -> Optional[_TorchSubset]:
+    def subset_validation(self) -> Optional[_TorchSubset]:
         """Gets validation subset of the dataset.
 
         Returns:
             Validation subset
         """
 
-        return self._subset_test
+        return self._subset_validation
 
     # Nota: used only for unit tests
     def subset_train(self) -> Optional[_TorchSubset]:

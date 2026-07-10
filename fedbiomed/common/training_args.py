@@ -147,6 +147,14 @@ class TrainingArgs:
         ]
         return self._extract_args(keys)
 
+    def split_arguments(self) -> Dict:
+        """Extract splitting arguments from training arguments
+
+        Returns:
+            The dictionary of splitting arguments
+        """
+        return self["split_args"]
+
     def loader_arguments(self) -> Dict:
         """Extracts data loader arguments
 
@@ -327,6 +335,7 @@ class TrainingArgs:
         | -------- | ------- |
         | optimizer_args | supplemental arguments for initializing the optimizer |
         | loader_args | supplemental arguments passed to the data loader |
+        | split_args | supplemental arguments for initializing the dataset splitting strategy |
         | epochs | the number of epochs performed during local training on each node |
         | num_updates | the number of model updates performed during local training on each node. Supersedes epochs if both are specified |
         | use_gpu | toggle requesting the use of GPUs for local training on the node when available, propagates to `declearn's GPU |
@@ -349,6 +358,7 @@ class TrainingArgs:
         return {
             "optimizer_args": {"rules": [dict], "required": True, "default": {}},
             "loader_args": {"rules": [dict], "required": True, "default": {}},
+            "split_args": {"rules": [dict], "required": True, "default": {}},
             "epochs": {
                 "rules": [cls._nonnegative_integer_value_validator_hook("epochs")],
                 "required": True,

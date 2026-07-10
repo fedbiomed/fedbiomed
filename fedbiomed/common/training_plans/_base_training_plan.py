@@ -24,6 +24,7 @@ import torch
 from fedbiomed.common import utils
 from fedbiomed.common.constants import ErrorNumbers, ProcessTypes, TrainingPlans
 from fedbiomed.common.dataloader import DataLoader
+from fedbiomed.common.datamanager import SplitSpec
 from fedbiomed.common.exceptions import (
     FedbiomedError,
     FedbiomedModelError,
@@ -1003,3 +1004,56 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             Parameters tagged as local in the training plan
         """
         return self._local_params
+
+    def init_split_spec(self, dataset, split_args: Dict) -> Optional[SplitSpec]:
+        """Initializes dataset splitting specification.
+
+        This method can be overwritten by user-defined training plans to provide
+        custom dataset splitting logic.
+
+        Args:
+            dataset: a complete initialized dataset returned by `training_data()`.
+            split_args: A dictionary of additional arguments related to dataset splitting.
+
+        Returns:
+            A SplitSpec object describing the dataset partitioning, or None if
+            the default Fed-BioMed splitting strategy should be used.
+        """
+        return None
+
+    def _get_split_spec(self, dataset, split_args: Dict) -> Optional[SplitSpec]:
+        """Gets the dataset splitting specification by calling `init_split_spec`
+        and validating its output.
+
+        Args:
+            dataset: a complete initialized dataset returned by `training_data()`.
+            split_args: A dictionary of additional arguments related to dataset splitting.
+
+        Returns:
+            A SplitSpec object describing the dataset partitioning, or None if
+            the default Fed-BioMed splitting strategy should be used.
+
+        Raises:
+            FedbiomedTrainingPlanError: if `init_split_spec` returns an object that is not
+            an instance of `SplitSpec` or None, or if an error occurs while executing
+            `init_split_spec`.
+        """
+
+        try:
+            split_spec = self.init_split_spec(
+                dataset,
+                split_args=split_args,
+            )
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB605.value}: "
+                f"Error while executing init_split_spec: {e}"
+            ) from e
+
+        if split_spec is not None and not isinstance(split_spec, SplitSpec):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB605.value}: "
+                "init_split_spec must return a SplitSpec instance or None."
+            )
+
+        return split_spec

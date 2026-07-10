@@ -125,13 +125,10 @@ class Round:
         self.testing_arguments = None
         self.loader_arguments = None
         self.training_arguments = None
+        self.split_arguments = None
         self._secure_aggregation = None
         self.is_test_data_shuffled: bool = False
-        self._testing_indexes: Dict = {
-            "testing_index": [],
-            "training_index": [],
-            "test_ratio": None,
-        }
+        self._dataset_splitting: Dict = {}
         self._round = round_number
         self._node_state_manager: NodeStateManager = NodeStateManager(
             self._dir, self._node_id, self._db
@@ -157,6 +154,7 @@ class Round:
                 self.training_kwargs, only_required=False
             )
             self.testing_arguments = self.training_arguments.testing_arguments()
+            self.split_arguments = self.training_arguments.split_arguments()
             self.loader_arguments = self.training_arguments.loader_arguments()
         except FedbiomedUserInputError as e:
             return self._send_round_reply(success=False, message=repr(e))
@@ -451,7 +449,7 @@ class Round:
                     )
             else:
                 logger.error(
-                    f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing dataset"
+                    f"{ErrorNumbers.FB314.value}: Can not execute validation routine due to missing testing dataset. "
                     f"Please make sure that `test_ratio` has been set correctly",
                     researcher_id=self.researcher_id,
                 )
@@ -815,11 +813,15 @@ class Round:
     def _load_round_state(self, state_id: str) -> None:
         """Loads state of previous `Round`, given a `state_id`.
 
+        For optimizer state:
         Loads optimizer with default values if optimizer entry has not been found
         or if Optimizer type has changed between current and previous `Round`. Should
         be called at the beginning of a `Round`, before training a model.
         If loading fails, skip the loading part and loads `Optimizer` with default values.
-        Also load persistent parameters saved locally during the previous `Round`
+        For dataset splitting:
+        Loads dataset splitting if any, and sets the `_dataset_splitting` attribute.
+        For persistent parameters:
+        Load persistent parameters saved locally during the previous `Round`
 
         Args:
             state_id: state_id from which to recover `Node`'s state
@@ -856,8 +858,24 @@ class Round:
                 logger.debug(f" Error detail {repr(err)}")
 
         # load testing dataset if any
-        if state["testing_dataset"] and not self.is_test_data_shuffled:
-            self._testing_indexes = state["testing_dataset"]
+        if state["dataset_splitting"]:
+            dataset_splitting_path = state["dataset_splitting"].get("state_path")
+            try:
+                split_indices = Serializer.load(dataset_splitting_path)
+                self._dataset_splitting = {
+                    **state["dataset_splitting"],
+                    "split_indices": split_indices,
+                }
+                logger.debug(
+                    f"Dataset splitting specification loaded from state {state['dataset_splitting']}"
+                )
+                logger.info(f"Dataset splitting from state id {state_id} loaded")
+            except Exception as err:
+                logger.warning(
+                    f"Loading dataset splitting from state id {state_id} failed ... Resuming Experiment "
+                    "without loading dataset splitting."
+                )
+                logger.debug(f" Error detail {repr(err)}")
 
         ## load the persistent parameters
         if state["persistent_model_weights"]:
@@ -870,11 +888,11 @@ class Round:
         # add below other components that need to be reloaded from node state database
 
     def _save_round_state(self) -> Dict:
-        """Saves `Round` state (mainly Optimizer state, and persistent parameters) in database
-        through [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
+        """Saves `Round` state (mainly Optimizer state, dataset splitting and persistent parameters)
+        in database through [`NodeStateManager`][fedbiomed.node.node_state_manager.NodeStateManager].
 
-        Some piece of information such as Optimizer state and persistent parameters are also
-        saved in files
+        Some piece of information such as Optimizer state, dataset splitting indices and persistent
+        parameters are also saved in files
         (located under <fedbiomed-node>/var/node_state<node_id>/experiment_id_<experiment_id>/).
         Should be called at the end of a `Round`, once the model has been trained.
 
@@ -882,6 +900,10 @@ class Round:
         - optimizer_state:
             - optimizer_type (str)
             - state_path (str)
+        - dataset_splitting:
+            - state_path (str)
+            - split_args (dict)
+            - split_method (str)
         - persistent_model_weights:
             - state_path (str)
 
@@ -917,21 +939,39 @@ class Round:
             optimizer_state_entry = None
         state["optimizer_state"] = optimizer_state_entry
 
-        # save testing dataset
-        state["testing_dataset"] = None
+        # save dataset splitting
+        state["dataset_splitting"] = None
+        split_args = {**self._dataset_splitting["split_args"]}
+        split_method = self._dataset_splitting["split_method"]
+        test_ratio = split_args.get("test_ratio", 0.0)
 
-        test_ratio = self._testing_indexes.get("test_ratio")
-        test_ratio = (
-            test_ratio
-            if not self.testing_arguments
-            else self.testing_arguments.get("test_ratio", None)
-        )
-        if not self.is_test_data_shuffled and test_ratio:
-            self._testing_indexes["test_ratio"] = test_ratio
-            state["testing_dataset"] = self._testing_indexes
-            logger.info("testing dataset saved in database")
+        # Case 1: user defined split via init_split_spec function in training plan
+        if split_method == "custom":
+            logger.info("Saving custom dataset splitting specification in database")
+        # Case 2: random / ratio-based split
+        elif split_method == "default" and 0.0 < test_ratio < 1.0:
+            logger.info("Saving default dataset splitting specification in database")
         else:
-            logger.info("testing data will be reshuffled next rounds")
+            split_method = None
+            logger.info(
+                "No dataset splitting specification retrieved. "
+                "Saving dataset splitting specification in database skipped..."
+            )
+        # Save splits
+        if split_method is not None:
+            dataset_splitting_path = (
+                self._node_state_manager.generate_folder_and_create_file_name(
+                    self.experiment_id, self._round, NodeStateFileName.DATASET_SPLITS
+                )
+            )
+            Serializer.dump(
+                self._dataset_splitting["split_indices"], path=dataset_splitting_path
+            )
+            state["dataset_splitting"] = {
+                "state_path": dataset_splitting_path,
+                "split_args": split_args,
+                "split_method": split_method,
+            }
 
         # save model weights with "persistent" tag
         state["persistent_model_weights"] = None
@@ -1028,56 +1068,19 @@ class Round:
         # Set requested data path for model training and validation
         self.training_plan.set_dataset_path(self.dataset_entry["path"])
 
-        # Get validation parameters
-        test_ratio = self.testing_arguments.get("test_ratio", 0)
-        self.is_test_data_shuffled = self.testing_arguments.get(
-            "shuffle_testing_dataset", False
-        )
-        test_global_updates = self.testing_arguments.get(
-            "test_on_global_updates", False
-        )
-        test_local_updates = self.testing_arguments.get("test_on_local_updates", False)
+        # Setting validation and train subsets
+        training_data_loader, testing_data_loader = self._split_train_and_test_data()
 
-        # Inform user about mismatch arguments settings
-        if (
-            test_ratio != 0
-            and test_local_updates is False
-            and test_global_updates is False
-        ):
-            logger.warning(
-                "Validation will not be performed for the round, since there is no validation activated. "
-                "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
-                "experiment.",
-                researcher_id=self.researcher_id,
-            )
-
-        if test_ratio == 0 and (
-            test_local_updates is True or test_global_updates is True
-        ):
-            logger.warning(
-                "Validation is activated but `test_ratio` is 0. Please change `test_ratio`. "
-                "No validation will be performed. Splitting dataset for validation will be ignored",
-                researcher_id=self.researcher_id,
-            )
-
-        # Setting validation and train subsets based on test_ratio
-        training_data_loader, testing_data_loader = self._split_train_and_test_data(
-            test_ratio=test_ratio,
-        )
         # Set models validating and training parts for training plan
         self.training_plan.set_data_loaders(
             train_data_loader=training_data_loader, test_data_loader=testing_data_loader
         )
 
-    def _split_train_and_test_data(self, test_ratio: float = 0) -> DataManager:
+    def _split_train_and_test_data(self) -> DataManager:
         # FIXME: incorrect type output
         """
-        Method for splitting training and validation data based on training plan type. It sets
-        `dataset_path` for training plan and calls `training_data` method of training plan.
-
-        Args:
-            test_ratio: The ratio that represent validating partition. Default is 0, means that
-                            all the samples will be used for training.
+        Method for splitting training and validation data based on training plan type.
+        It calls `training_data` method of training plan.
 
         Raises:
 
@@ -1087,6 +1090,7 @@ class Round:
                                  - If the return value of `training_data` is not an instance of
                                    `fedbiomed.common.datamanager.DataManager`.
                                  - If `load` method of DataManager returns an error
+                                 - If `load_dataset` method of DataManager returns an error
         """
 
         training_plan_type = (
@@ -1147,7 +1151,10 @@ class Round:
                 f"{ErrorNumbers.FB314.value}: Error while initializing dataset; {repr(e)}"
             ) from e
 
-        # All Framework based data managers have the same methods
+        # Set training/testing splitting parameters
+        split_arguments = self._set_splitting_arguments(data_manager)
+
+        # In case of default splitting: all Framework based data managers have the same methods
         # If testing ratio is 0,
         # self.testing_data will be equal to None
         # self.training_data will be equal to all samples
@@ -1155,20 +1162,91 @@ class Round:
         # self.testing_data will be equal to all samples
         # self.training_data will be equal to None
 
-        # setting testing_index (if any)
-        data_manager.load_state(self._testing_indexes)
+        # loading splitting indexes (if any)
+        data_manager.load_state(self._dataset_splitting)
 
         # Split dataset as train and test
 
         training_loader, testing_loader = data_manager.split(
-            test_ratio=test_ratio,
+            split_arguments=split_arguments,
             test_batch_size=self.testing_arguments.get("test_batch_size"),
             is_shuffled_testing_dataset=self.is_test_data_shuffled,
         )
         # retrieve testing/training indexes
-        self._testing_indexes = data_manager.save_state()
+        self._dataset_splitting = data_manager.save_state()
 
         return training_loader, testing_loader
+
+    def _set_splitting_arguments(self, data_manager: DataManager) -> dict[str, Any]:
+        """
+        Method for setting and validating splitting arguments.
+
+        Args:
+            data_manager: DataManager instance.
+
+        Returns:
+            data_manager_split_args: Dictionary containing splitting arguments
+                for data manager.
+        """
+        # Instantiate a SplitSpec object if it exists
+        split_spec = self.training_plan._get_split_spec(
+            data_manager._dataset, self.split_arguments
+        )
+
+        # Get validation parameters from training arguments
+        test_ratio = self.testing_arguments.get("test_ratio", 0)
+        self.is_test_data_shuffled = self.testing_arguments.get(
+            "shuffle_testing_dataset", False
+        )
+        test_global_updates = self.testing_arguments.get(
+            "test_on_global_updates", False
+        )
+        test_local_updates = self.testing_arguments.get("test_on_local_updates", False)
+
+        if split_spec:
+            data_manager_split_args = {**self.split_arguments}
+            # Instantiate the split spec in data manager
+            data_manager.init_split_spec(split_spec)
+            logger.warning(
+                "DataManager has split spec, that will be used to split dataset for training and validation."
+                "In this case, the arguments `test_ratio` and `shuffle_testing_dataset` will be ignored."
+            )
+            # Inform user about mismatch arguments settings
+            if test_local_updates is False and test_global_updates is False:
+                # If not test specification are provided, no validation will be performed
+                logger.warning(
+                    "DataManager has custom split specifications, but validation will not be performed "
+                    "for the round, since there is no validation activated. "
+                    "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
+                    "experiment.",
+                    researcher_id=self.researcher_id,
+                )
+
+        else:
+            data_manager_split_args = {"test_ratio": test_ratio}
+            if (
+                test_ratio != 0
+                and test_local_updates is False
+                and test_global_updates is False
+            ):
+                logger.warning(
+                    "`test_ratio` is provided, but validation will not be performed for the round, since there is no validation activated. "
+                    "Please set `test_on_global_updates`, `test_on_local_updates`, or both in the "
+                    "experiment.",
+                    researcher_id=self.researcher_id,
+                )
+            if test_ratio == 0 and (
+                test_local_updates is True or test_global_updates is True
+            ):
+                logger.warning(
+                    "Default validation is activated but no splitting arguments are provided. "
+                    "Please change `test_ratio` to non-zero value to use default splitting, "
+                    "or provide `init_split_spec` method in training plan for custom splitting. "
+                    "Currently, no validation will be performed. Splitting dataset for validation will be ignored.",
+                    researcher_id=self.researcher_id,
+                )
+
+        return data_manager_split_args
 
     def _reconstruct_full_params(
         self,

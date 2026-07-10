@@ -82,7 +82,7 @@ class SkLearnDataManager(FrameworkDataManager[Dataset]):
     def _dataset_wrapper(dataset: Dataset) -> Dataset:
         return dataset
 
-    _subset_test: Optional[_SkLearnSubset] = None
+    _subset_validation: Optional[_SkLearnSubset] = None
     _subset_train: Optional[_SkLearnSubset] = None
 
     def __init__(self, dataset: Dataset, **kwargs: dict):
@@ -101,14 +101,14 @@ class SkLearnDataManager(FrameworkDataManager[Dataset]):
         self._dataset.to_format = DataReturnFormat.SKLEARN
 
     # Nota: used only for unit tests
-    def subset_test(self) -> Optional[_SkLearnSubset]:
+    def subset_validation(self) -> Optional[_SkLearnSubset]:
         """Gets validation subset of the dataset.
 
         Returns:
             Validation subset
         """
 
-        return self._subset_test
+        return self._subset_validation
 
     # Nota: used only for unit tests
     def subset_train(self) -> Optional[_SkLearnSubset]:

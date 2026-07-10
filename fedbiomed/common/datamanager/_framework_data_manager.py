@@ -26,6 +26,8 @@ from fedbiomed.common.dataset_types import DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
+from ._split_spec import SplitSpec
+
 # WrappedDatasetT is the framework-specific wrapped dataset type produced by _dataset_wrapper
 # (e.g. TorchDataset for Torch, fedbiomed Dataset for SkLearn).
 WrappedDatasetT = TypeVar("WrappedDatasetT")
@@ -79,12 +81,14 @@ class FrameworkDataManager(ABC, Generic[WrappedDatasetT]):
     _dataset: Dataset
     _subset_class: Type[FrameworkSubset[WrappedDatasetT]]
 
-    _subset_test: Optional[FrameworkSubset[WrappedDatasetT]] = None
+    _subset_validation: Optional[FrameworkSubset[WrappedDatasetT]] = None
     _subset_train: Optional[FrameworkSubset[WrappedDatasetT]] = None
 
-    _training_index: List[int] = []
-    _testing_index: List[int] = []
-    _test_ratio: Optional[float] = None
+    _training_indices: List[int] = []
+    _validation_indices: List[int] = []
+    _split_args: Dict[str, object] = {}
+    _split_method: Optional[str] = None
+    _split_spec: Optional[SplitSpec] = None
 
     @abstractmethod
     def __init__(self, dataset: Dataset, **kwargs: dict):
@@ -115,6 +119,39 @@ class FrameworkDataManager(ABC, Generic[WrappedDatasetT]):
         """
         return self._dataset
 
+    def init_split_spec(self, split_spec: Optional[SplitSpec]) -> None:
+        """Initializes the DataManager's split specification
+
+        Args:
+            split_spec: the split specification to initialize
+
+        Raises:
+            FedbiomedError: if `_split_spec` is already initialized
+        """
+        if self._split_spec is not None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Split specification is already initialized."
+            )
+        self._split_spec = split_spec
+
+    @property
+    def split_spec(self) -> Optional[SplitSpec]:
+        """Gets split_spec.
+
+        Returns:
+            SplitSpec instance
+        """
+        return self._split_spec
+
+    @property
+    def has_split_spec(self) -> bool:
+        """Check if _split_spec attribute exists
+
+        Returns:
+            A boolean set to True if _split_spec attribute is not None
+        """
+        return self._split_spec is not None
+
     @abstractmethod
     def _random_split(
         self, dataset: WrappedDatasetT, lengths: List[int]
@@ -131,17 +168,19 @@ class FrameworkDataManager(ABC, Generic[WrappedDatasetT]):
 
     def split(
         self,
-        test_ratio: float,
+        split_arguments: dict,
         test_batch_size: Optional[int],
         is_shuffled_testing_dataset: bool = False,
     ) -> Tuple[Optional[DataLoader], Optional[DataLoader]]:
-        """Split Dataset into train and validation dataloaders.
+        """Split Dataset into train and validation dataloaders. Either use specified split_spec
+        if provided by the user in training plan, or default splitting method.
 
         Args:
-            test_ratio: Split ratio for validation set ratio. Rest of the samples will be used for training
+            split_arguments: Dictionary containing splitting arguments.
             test_batch_size: Batch size to use for testing subset
             is_shuffled_testing_dataset: if True, randomly select different samples for the testing
-                subset at each execution. If False, reuse previous split when possible.
+                subset at each execution, in case of default splitting method.
+                If False, reuse previous split when possible.
         Raises:
             FedbiomedError: Arguments bad format
             FedbiomedError: Cannot get number of samples from dataset
@@ -157,20 +196,6 @@ class FrameworkDataManager(ABC, Generic[WrappedDatasetT]):
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: The argument `test_batch_size` should be "
                 f"type `int` or `None` not {type(test_batch_size)}"
-            )
-
-        # Check the argument `ratio` is of type `float`
-        if not isinstance(test_ratio, (float, int)):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: The argument `test_ratio` should be "
-                f"type `float` or `int` not {type(test_ratio)}"
-            )
-
-        # Check ratio is valid for splitting
-        if test_ratio < 0 or test_ratio > 1:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: The argument `test_ratio` should be "
-                f"equal or between 0 and 1, not {test_ratio}"
             )
 
         # WrappedDatasetTrap dataset in framework specific class if needed
@@ -189,66 +214,136 @@ class FrameworkDataManager(ABC, Generic[WrappedDatasetT]):
                 f"{str(self._dataset)}, {str(e)}"
             ) from e
 
-        if self._test_ratio != test_ratio and self._test_ratio is not None:
-            if not is_shuffled_testing_dataset:
-                logger.info(
-                    "`test_ratio` value has changed: this will change the testing dataset"
-                )
-            is_shuffled_testing_dataset = True
-
-        _is_loading_failed: bool = False
-        # Calculate number of samples for train and validation subsets
-        test_samples = math.floor(samples * test_ratio)
-        train_samples = samples - test_samples
-
-        if self._testing_index and not is_shuffled_testing_dataset:
-            try:
-                self._load_indexes(
-                    framework_dataset, self._training_index, self._testing_index
-                )
-                _is_loading_failed = False
-            except IndexError:
-                _is_loading_failed = True
-
-        need_new_split = (
-            not self._testing_index or is_shuffled_testing_dataset or _is_loading_failed
-        )
-
-        if need_new_split:
-            if self._loader_arguments.get("shuffle", True):
-                # Random split (shuffled)
-                self._subset_train, self._subset_test = self._random_split(
-                    framework_dataset,
-                    [train_samples, test_samples],
-                )
-            else:
-                # Deterministic split (no shuffle) — preserve original order
-                all_indices = list(range(samples))
-                train_indices = all_indices[:train_samples]
-                test_indices = all_indices[train_samples : train_samples + test_samples]
-
-                self._subset_train = self._subset_class(
-                    framework_dataset, train_indices
-                )
-                self._subset_test = (
-                    self._subset_class(framework_dataset, test_indices)
-                    if test_samples > 0
-                    else None
-                )
-
-            self._training_index = list(self._subset_train.indices)
-            self._testing_index = (
-                list(self._subset_test.indices) if self._subset_test is not None else []
+        # No safe way to recover the splits from previous rounds:
+        # it is not because split args are the same from one round to another
+        # that the splits are the same, due to some possible randomness in
+        # init_slit_spec function.
+        # If split specifications are provided, use these indices
+        if self.has_split_spec:
+            # If split specifications are provided, use them to create subsets
+            self._training_indices = self.split_spec.train_indices
+            self._validation_indices = self.split_spec.validation_indices
+            self._split_args = split_arguments
+            self._split_method = "custom"
+            self._subset_train = self._subset_class(
+                framework_dataset, self._training_indices
+            )
+            self._subset_validation = self._subset_class(
+                framework_dataset, self._validation_indices
             )
 
-        if not test_batch_size and self._subset_test is not None:
-            test_batch_size = len(self._subset_test)
+        # If split specifications are not provided, try default splitting behaviour
+        else:
+            # Get test ratio from saved state if available
+            test_ratio_from_state = None
+            # Avoid retrieving a `test_ratio` argument from a custom splitting method used in previous round.
+            if self._split_method == "default":
+                test_ratio_from_state = self._split_args.get("test_ratio", None)
 
-        self._test_ratio = test_ratio
+            # Get test_ratio from split_arguments
+            test_ratio = split_arguments.get("test_ratio")
+
+            # Check the argument `ratio` is of type `float`
+            if not isinstance(test_ratio, (float, int)):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: The argument `test_ratio` should be "
+                    f"type `float` or `int` not {type(test_ratio)}"
+                )
+
+            # Check ratio is valid for splitting
+            if test_ratio < 0 or test_ratio > 1:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: The argument `test_ratio` should be "
+                    f"equal or between 0 and 1, not {test_ratio}"
+                )
+
+            # Check if dataset splits must change from previous round due to change in
+            # test_ratio argument
+            if (
+                test_ratio_from_state != test_ratio
+                and test_ratio_from_state is not None
+            ):
+                if not is_shuffled_testing_dataset:
+                    logger.info(
+                        "The value of `test_ratio` argument for default dataset splitting "
+                        "has changed from previous round or has not been provided: the testing "
+                        "dataset will be reshuffled"
+                    )
+                is_shuffled_testing_dataset = True
+
+            _is_loading_failed: bool = False
+            # Calculate number of samples for train and validation subsets
+            test_samples = math.floor(samples * test_ratio)
+            train_samples = samples - test_samples
+
+            # Do not use validation_indices from previous round generated from custom splitting method
+            if (
+                self._split_method == "default"
+                and self._validation_indices
+                and not is_shuffled_testing_dataset
+            ):
+                try:
+                    self._load_indexes(
+                        framework_dataset,
+                        self._training_indices,
+                        self._validation_indices,
+                    )
+                    _is_loading_failed = False
+                except IndexError:
+                    _is_loading_failed = True
+
+            # Need new split if the previous round was not using a default splitting method
+            # or if the previous validation indices are empty
+            # or it is explicitly requested to shuffle the testing dataset
+            # or if loading the previous indices failed
+            need_new_split = (
+                self._split_method != "default"
+                or not self._validation_indices
+                or is_shuffled_testing_dataset
+                or _is_loading_failed
+            )
+
+            if need_new_split:
+                if self._loader_arguments.get("shuffle", True):
+                    # Random split (shuffled)
+                    self._subset_train, self._subset_validation = self._random_split(
+                        framework_dataset,
+                        [train_samples, test_samples],
+                    )
+                else:
+                    # Deterministic split (no shuffle) — preserve original order
+                    all_indices = list(range(samples))
+                    train_indices = all_indices[:train_samples]
+                    test_indices = all_indices[
+                        train_samples : train_samples + test_samples
+                    ]
+
+                    self._subset_train = self._subset_class(
+                        framework_dataset, train_indices
+                    )
+                    self._subset_validation = (
+                        self._subset_class(framework_dataset, test_indices)
+                        if test_samples > 0
+                        else None
+                    )
+
+                self._training_indices = list(self._subset_train.indices)
+                self._validation_indices = (
+                    list(self._subset_validation.indices)
+                    if self._subset_validation is not None
+                    else []
+                )
+
+            # Update split arguments
+            self._split_args = split_arguments
+            self._split_method = "default"
+
+        if not test_batch_size and self._subset_validation is not None:
+            test_batch_size = len(self._subset_validation)
 
         loaders = (
             self._subset_loader(self._subset_train, **self._loader_arguments),
-            self._subset_loader(self._subset_test, batch_size=test_batch_size),
+            self._subset_loader(self._subset_validation, batch_size=test_batch_size),
         )
 
         return loaders
@@ -256,45 +351,51 @@ class FrameworkDataManager(ABC, Generic[WrappedDatasetT]):
     def _load_indexes(
         self,
         dataset: WrappedDatasetT,
-        training_index: List[int],
-        testing_index: List[int],
+        training_indices: List[int],
+        validation_indices: List[int],
     ):
-        """Loads training and testing indexes to create subsets.
+        """Loads training and validation indices to create subsets.
 
         Args:
             dataset: Dataset to create subsets from
-            training_index: List of indexes for training subset
-            testing_index: List of indexes for testing subset
+            training_indices: List of indexes for training subset
+            validation_indices: List of indexes for validation subset
         """
         # Previous checks ensure indexes are valid and within range
-        self._subset_train = self._subset_class(dataset, training_index)
-        self._subset_test = self._subset_class(dataset, testing_index)
+        self._subset_train = self._subset_class(dataset, training_indices)
+        self._subset_validation = self._subset_class(dataset, validation_indices)
 
     def save_state(self) -> Dict:
-        """Gets state of the data loader.
+        """Gets state of the data loader (training and validation indices)
 
         Returns:
             A Dict containing data loader state.
         """
 
         data_manager_state: Dict[str, object] = {}
-        data_manager_state["training_index"] = self._training_index
-        data_manager_state["testing_index"] = self._testing_index
-        data_manager_state["test_ratio"] = self._test_ratio
+        data_manager_state["split_indices"] = {}
+        data_manager_state["split_indices"]["training_indices"] = self._training_indices
+        data_manager_state["split_indices"]["validation_indices"] = (
+            self._validation_indices
+        )
+        data_manager_state["split_args"] = self._split_args
+        data_manager_state["split_method"] = self._split_method
         return data_manager_state
 
     def load_state(self, state: Dict):
         """Loads state of the data loader
 
-        It currently keep only testing index, training index and test ratio
-        as state.
+        It currently keeps validation indices, training indices, split arguments,
+        and split method as state.
 
         Args:
             state: Object containing data loader state.
         """
-        self._testing_index = state.get("testing_index", [])
-        self._training_index = state.get("training_index", [])
-        self._test_ratio = state.get("test_ratio", None)
+        split_indices = state.get("split_indices", dict())
+        self._validation_indices = split_indices.get("validation_indices", [])
+        self._training_indices = split_indices.get("training_indices", [])
+        self._split_args = state.get("split_args", None)
+        self._split_method = state.get("split_method", None)
 
     @classmethod
     def _subset_loader(
