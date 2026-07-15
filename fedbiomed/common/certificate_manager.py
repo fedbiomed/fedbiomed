@@ -4,6 +4,7 @@
 import copy
 import ipaddress
 import os
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -17,13 +18,15 @@ from tinydb.table import Document, Table
 
 from fedbiomed.common.constants import (
     CERTS_FOLDER_NAME,
-    NODE_PREFIX,
     ComponentType,
     ErrorNumbers,
 )
 from fedbiomed.common.db import DBTable
-from fedbiomed.common.exceptions import FedbiomedCertificateError
+from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import read_file
+
+CERTIFICATE_EXPIRY_WARNING_DAYS = 30
 
 
 def certificate_subject_field(
@@ -70,6 +73,80 @@ def is_mtls_enabled(config) -> bool:
         True if mutual TLS with certificate pinning is enabled.
     """
     return config.getbool("mtls", "enabled", fallback="False")
+
+
+class TrustedCertificateBundle:
+    """Provider of a component's registered certificate bundle for mutual TLS.
+
+    Returns the PEM bundle of all certificates registered for a component type,
+    re-reading the certificate database when its file changes. Used as the
+    trusted-certificate source of the researcher's gRPC server so certificates
+    registered after startup are picked up on the next handshake, without a
+    restart. Thread-safe: called from gRPC handshake threads.
+
+    Certificates expiring within `CERTIFICATE_EXPIRY_WARNING_DAYS` are reported
+    whenever the bundle is re-read. Note that a re-read only happens when the
+    database changes, so a certificate crossing the threshold while the database
+    sits untouched is not reported until the next registration.
+    """
+
+    def __init__(self, db_path: str, component: str):
+        """
+        Args:
+            db_path: Path of the certificate database.
+            component: Component type name, e.g. `ComponentType.NODE.name`.
+        """
+        self._db_path = db_path
+        self._component = component
+        self._lock = threading.Lock()
+        self._state: Optional[Tuple[int, int]] = None
+        self._bundle: bytes = b""
+        self._warned: set = set()
+
+    def __call__(self) -> bytes:
+        """Current PEM bundle, refreshed when the database file has changed.
+
+        The database is written non-atomically by other processes registering
+        certificates, so a read may land on a partially written file. The last
+        known bundle is kept in that case and the read retried on the next call.
+        """
+        with self._lock:
+            try:
+                stat = os.stat(self._db_path)
+                state = (stat.st_mtime_ns, stat.st_size)
+                if state != self._state:
+                    certificate_manager = CertificateManager(db_path=self._db_path)
+                    certificates = certificate_manager.get_by_component(self._component)
+                    expiring = certificate_manager.expiring_certificates(
+                        CERTIFICATE_EXPIRY_WARNING_DAYS, self._component
+                    )
+                    self._bundle = "\n".join(certificates).encode("utf-8")
+                    self._state = state
+                    self._warn_expiring(expiring)
+            except (OSError, FedbiomedError) as e:
+                logger.warning(
+                    f"Could not read certificate database {self._db_path}: {e}. "
+                    "Keeping the previously loaded node certificates."
+                )
+            return self._bundle
+
+    def _warn_expiring(self, expiring: List[Tuple[str, datetime]]) -> None:
+        """Reports certificates expiring soon, once per certificate.
+
+        A renewed certificate has a new expiry date, so it is reported again while
+        it remains within the warning window.
+
+        Args:
+            expiring: `(party_id, expiry)` of certificates expiring soon.
+        """
+        for party_id, expiry in expiring:
+            if (party_id, expiry) not in self._warned:
+                logger.warning(
+                    f"{self._component} certificate `{party_id}` expires on "
+                    f"{expiry:%Y-%m-%d}; register an updated certificate to avoid "
+                    "connection failures."
+                )
+        self._warned = set(expiring)
 
 
 class CertificateManager:
@@ -261,10 +338,10 @@ class CertificateManager:
         # Read certificate content
         certificate_content = read_file(certificate_path)
 
-        # Save certificate in database
+        # Component ids are `<COMPONENT_TYPE>_<uuid>`; matched case-insensitively
         component = (
             ComponentType.NODE.name
-            if party_id.startswith(NODE_PREFIX)
+            if party_id.upper().startswith(f"{ComponentType.NODE.name}_")
             else ComponentType.RESEARCHER.name
         )
 
