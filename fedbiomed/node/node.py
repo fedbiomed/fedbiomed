@@ -229,11 +229,15 @@ class Node:
     def _pinned_researcher_certificate(self) -> bytes:
         """Resolves the registered researcher server certificate to pin.
 
+        The node connects to the single researcher declared in its `[researcher]`
+        config section, so exactly one researcher certificate must be registered.
+
         Returns:
             The researcher's public server certificate, pinned under mutual TLS.
 
         Raises:
-            FedbiomedCertificateError: no researcher certificate is registered.
+            FedbiomedCertificateError: no researcher certificate is registered, or
+                several are and the one to pin is ambiguous.
         """
         certificate_manager = CertificateManager(db_path=self._config.db_path)
         researcher_certificates = certificate_manager.get_by_component(
@@ -244,6 +248,16 @@ class Node:
                 f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but no researcher "
                 "certificate is registered. Please register the researcher certificate "
                 "with `fedbiomed node certificate register`."
+            )
+
+        if len(researcher_certificates) > 1:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but "
+                f"{len(researcher_certificates)} researcher certificates are "
+                "registered, so the certificate to pin for researcher "
+                f"`{self._config.get('researcher', 'ip')}` is ambiguous. Keep only "
+                "the certificate of that researcher, using `fedbiomed node "
+                "certificate list` and `fedbiomed node certificate delete`."
             )
 
         return researcher_certificates[0].encode("utf-8")

@@ -595,20 +595,40 @@ class TestTlsHandshakeErrorDetection(unittest.TestCase):
 
 
 class TestResearcherRequiresClientAuth(unittest.TestCase):
-    """Unit tests for the mutual-TLS client-auth probe."""
+    """Unit tests for the mutual-TLS client-auth probe.
+
+    The probe's real behaviour is covered against live gRPC servers in
+    `test_transport_mtls.py`; these only pin the conservative failure paths.
+    """
 
     @patch("fedbiomed.transport.client.socket.create_connection")
     @patch("fedbiomed.transport.client.ssl.create_default_context")
-    def test_false_when_anonymous_client_accepted(self, context, create_connection):
-        # Handshake without a client cert succeeds -> mutual TLS not enforced
+    def test_true_when_handshake_rejected(self, context, create_connection):
+        context.return_value.wrap_socket.side_effect = ssl.SSLError(
+            "peer did not return a certificate"
+        )
+        self.assertTrue(_researcher_requires_client_auth("localhost", "50051"))
+
+    @patch("fedbiomed.transport.client.socket.create_connection")
+    @patch("fedbiomed.transport.client.ssl.create_default_context")
+    def test_true_when_server_closes_without_replying(self, context, create_connection):
+        # An enforcing server under TLS 1.3 completes the handshake, then closes.
+        wrap_socket = context.return_value.wrap_socket.return_value
+        wrap_socket.__enter__.return_value.recv.return_value = b""
+        self.assertTrue(_researcher_requires_client_auth("localhost", "50051"))
+
+    @patch("fedbiomed.transport.client.socket.create_connection")
+    @patch("fedbiomed.transport.client.ssl.create_default_context")
+    def test_false_when_server_replies(self, context, create_connection):
+        wrap_socket = context.return_value.wrap_socket.return_value
+        wrap_socket.__enter__.return_value.recv.return_value = b"\x00"
         self.assertFalse(_researcher_requires_client_auth("localhost", "50051"))
 
     @patch("fedbiomed.transport.client.socket.create_connection")
     @patch("fedbiomed.transport.client.ssl.create_default_context")
-    def test_true_when_client_cert_required(self, context, create_connection):
-        context.return_value.wrap_socket.side_effect = ssl.SSLError(
-            "peer did not return a certificate"
-        )
+    def test_true_when_connection_times_out(self, context, create_connection):
+        wrap_socket = context.return_value.wrap_socket.return_value
+        wrap_socket.__enter__.return_value.recv.side_effect = TimeoutError()
         self.assertTrue(_researcher_requires_client_auth("localhost", "50051"))
 
 

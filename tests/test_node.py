@@ -275,6 +275,29 @@ class TestNode(unittest.TestCase):
         with self.assertRaises(FedbiomedCertificateError):
             self.n1._researcher_credentials()
 
+    @patch("fedbiomed.node.node.CertificateManager")
+    @patch("fedbiomed.node.node.read_file")
+    @patch("fedbiomed.node.node.is_mtls_enabled")
+    def test_node_00_researcher_credentials_mtls_ambiguous_researcher_cert(
+        self, is_mtls_enabled, read_file, certificate_manager
+    ):
+        """Several registered researcher certificates make the one to pin ambiguous."""
+        is_mtls_enabled.return_value = True
+        read_file.side_effect = ["NODE_KEY", "NODE_CERT"]
+        certificate_manager.return_value.get_by_component.return_value = [
+            "RES_CERT_1",
+            "RES_CERT_2",
+        ]
+        self.n1._config._cfg["certificate"] = {
+            "private_key": "node.key",
+            "public_key": "node.pem",
+        }
+
+        with self.assertRaises(FedbiomedCertificateError) as ctx:
+            self.n1._researcher_credentials()
+
+        self.assertIn("ambiguous", str(ctx.exception))
+
     @patch("fedbiomed.node.node.read_file")
     @patch("fedbiomed.node.node.is_mtls_enabled")
     def test_node_00_researcher_credentials_mtls_unreadable_node_cert(

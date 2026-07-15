@@ -55,16 +55,17 @@ class SSLCredentials:
         self,
         key: str,
         cert: str,
-        trusted_node_certificates: Optional[bytes] = None,
+        trusted_node_certificates: Optional[Callable[[], Optional[bytes]]] = None,
     ):
         """Reads private key and cert file
 
         Args:
             key: path to private key
             cert: path to certificate
-            trusted_node_certificates: PEM bundle of registered node certificates
-                used to verify node identity when mutual TLS is enabled. If None,
-                node identity is not verified (server-auth TLS only).
+            trusted_node_certificates: zero-argument callable returning the current
+                PEM bundle of registered node certificates, re-read on each mutual
+                TLS handshake so nodes registered after startup are trusted without a
+                restart. None disables node identity verification (server-auth only).
         """
         with open(key, "rb") as f:
             self.private_key = f.read()
@@ -376,6 +377,47 @@ class _GrpcAsyncServer:
         self._loop = None
         self._agent_store: Optional[AgentStore] = None
 
+    def _server_credentials(self) -> grpc.ServerCredentials:
+        """Builds the gRPC server credentials.
+
+        Under mutual TLS, node client certificates are required and pinned to the
+        registered bundle. The bundle is re-read per handshake, so nodes registered
+        after startup are trusted without a restart. Otherwise server-auth only.
+
+        Returns:
+            Credentials to serve the researcher endpoint with.
+
+        Raises:
+            FedbiomedCommunicationError: mutual TLS is enabled but no node
+                certificate is available to trust.
+        """
+        key_cert_pairs = ((self._ssl.private_key, self._ssl.certificate),)
+
+        if not self._ssl.mtls:
+            return grpc.ssl_server_credentials(key_cert_pairs)
+
+        # gRPC refuses to bind the port when the trust bundle is empty, so report
+        # the cause instead of an opaque binding failure.
+        if not self._ssl.trusted_node_certificates():
+            raise FedbiomedCommunicationError(
+                f"{ErrorNumbers.FB628.value}: mutual TLS is enabled but no node "
+                "certificate is available to trust, so the server cannot start. "
+                "Register at least one node certificate with `fedbiomed researcher "
+                "certificate register`."
+            )
+
+        def certificate_configuration():
+            return grpc.ssl_server_certificate_configuration(
+                key_cert_pairs,
+                root_certificates=self._ssl.trusted_node_certificates(),
+            )
+
+        return grpc.dynamic_ssl_server_credentials(
+            certificate_configuration(),
+            certificate_configuration,
+            require_client_authentication=True,
+        )
+
     async def start(self):
         """Starts gRPC server"""
 
@@ -435,21 +477,8 @@ class _GrpcAsyncServer:
             server=self._server,
         )
 
-        # Under mutual TLS, require and pin node client certificates against the
-        # registered bundle; otherwise server-auth only.
-        if self._ssl.mtls:
-            server_credentials = grpc.ssl_server_credentials(
-                ((self._ssl.private_key, self._ssl.certificate),),
-                root_certificates=self._ssl.trusted_node_certificates,
-                require_client_auth=True,
-            )
-        else:
-            server_credentials = grpc.ssl_server_credentials(
-                ((self._ssl.private_key, self._ssl.certificate),)
-            )
-
         self._server.add_secure_port(
-            self._host + ":" + str(self._port), server_credentials
+            self._host + ":" + str(self._port), self._server_credentials()
         )
         # self._server.add_insecure_port(self._host + ':' + str(self._port))
 
