@@ -98,6 +98,7 @@ nav:
           - "Aggregation": "./user-guide/researcher/aggregation.md"
           - "Listing Datasets and Selecting Nodes": "./user-guide/researcher/listing-datasets-and-selecting-nodes.md"
           - "Federated Analytics": "./user-guide/researcher/federated-analytics.md"
+          - "Federated Preprocessing": "./user-guide/researcher/federated-preproc.md"
           - "Model Validation on the Node Side": "./user-guide/researcher/model-testing-during-federated-training.md"
           - "Tensorboard": "./user-guide/researcher/tensorboard.md"
       - Optimization: "./user-guide/advanced-optimization.md"
