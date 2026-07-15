@@ -179,6 +179,11 @@ class Channels:
         """Whether the node connects to the researcher with mutual TLS."""
         return self._researcher.mtls
 
+    @property
+    def endpoint(self) -> str:
+        """Researcher server endpoint as `host:port`."""
+        return f"{self._researcher.host}:{self._researcher.port}"
+
     async def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
         """Get stub for a given stub type.
 
@@ -654,6 +659,7 @@ class TaskListener(Listener):
         self._on_status_change = on_status_change
         self._update_id = update_id
         self._retry_count = 0
+        self._communication_established = False
 
     async def _handle_after_process(
         self,
@@ -675,6 +681,9 @@ class TaskListener(Listener):
         """
         await self._on_status_change(status)
 
+        if retry or reconnect:
+            self._communication_established = False
+
         if retry and self._retry_count < MAX_RETRIEVE_ERROR_RETRIES:
             await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
             await self._channels.connect(_StubType.LISTENER_TASK_STUB)
@@ -689,8 +698,35 @@ class TaskListener(Listener):
                 # works only if args are provided
                 await post_noretry_function(*args)
 
+    def _announce_communication_established(self):
+        """Logs, once per connection, that the node reached the researcher.
+
+        Called from the first poll cycle that completes without a connection
+        error (a received task, or a deadline with no task queued), which proves
+        the TLS handshake succeeded and, under mutual TLS, that the researcher
+        accepted this node's identity.
+        """
+        if self._communication_established:
+            return
+        self._communication_established = True
+
+        if self._channels.mtls:
+            logger.info(
+                "Mutual-TLS communication established with researcher at "
+                f"{self._channels.endpoint}; node identity verified by the researcher.",
+                extra={"is_security": True},
+            )
+        else:
+            logger.info(
+                "Communication established with researcher at "
+                f"{self._channels.endpoint} over server-authenticated TLS "
+                "(node identity not verified).",
+                extra={"is_security": True},
+            )
+
     def _message_deadline_exceeded(self):
         """Task listener issues debug message when researcher does not submit task before deadline"""
+        self._announce_communication_established()
         logger.debug(
             "Task polling timed out: node=%s timeout_s=%s; sending a new task request",
             self._node_id,
@@ -736,6 +772,8 @@ class TaskListener(Listener):
                     len(reply),
                     self._retry_count,
                 )
+
+                self._announce_communication_established()
 
                 # Guess ID of connected researcher, for un-authenticated connection
                 await self._update_id(task["researcher_id"])
