@@ -9,7 +9,12 @@ from unittest.mock import ANY, MagicMock, PropertyMock, patch
 from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
 from testsupport.fake_training_plan import FakeTorchTrainingPlan2
 
-from fedbiomed.common.constants import MessageType
+from fedbiomed.common.certificate_manager import (
+    CertificateManager,
+    TrustedCertificateBundle,
+)
+from fedbiomed.common.constants import ComponentType, MessageType
+from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.message import (
     ApprovalReply,
     ErrorMessage,
@@ -44,13 +49,6 @@ class TrainingPlanGood(BaseFakeTrainingPlan):
 
 
 class TrainingPlanBad:
-    pass
-
-
-class TrainingPlanCannotInstanciate(BaseFakeTrainingPlan):
-    def __init__(self):
-        x = unknown_method()
-
     pass
 
 
@@ -201,7 +199,6 @@ class TestRequests(unittest.TestCase):
             "total_samples": 15,
             "batch_samples": 15,
             "num_batches": 15,
-            "iteration": 1,
             "epoch": 5,
             "iteration": 15,
         }
@@ -224,9 +221,13 @@ class TestRequests(unittest.TestCase):
         mock_logger_error.assert_called_once()
 
         # Test invalid `on_message calls`
-        with self.assertRaises(Exception):
+        with self.assertRaises(TypeError):
             self.requests.on_message()
+
+        with self.assertRaises(TypeError):
             self.requests.on_message(msg_monitor)
+
+        with self.assertRaises(TypeError):
             self.requests.on_message(type_=MessageType.SCALAR)
 
     @patch("fedbiomed.common.logger.logger.info")
@@ -734,6 +735,63 @@ class TestPolicyImplementations(unittest.TestCase):
         type(self.req).error = PropertyMock(return_value={"error": True})
         r = pol.continue_([self.req])
         self.assertEqual(r, PolicyStatus.STOPPED)
+
+
+class TestRequestsMutualTLS(unittest.TestCase):
+    """Trust bundle wiring of the researcher server under mutual TLS."""
+
+    def setUp(self):
+        self.grpc_server_patch = patch(
+            "fedbiomed.researcher.requests._requests.GrpcServer", autospec=True
+        )
+        self.mtls_patch = patch(
+            "fedbiomed.researcher.requests._requests.is_mtls_enabled",
+            return_value=True,
+        )
+        self.grpc_server_mock = self.grpc_server_patch.start()
+        self.mtls_patch.start()
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.config = MagicMock()
+        self.config.root = self.tmp.name
+        self.config.db_path = os.path.join(self.tmp.name, "certs.json")
+        self.config.config_path = os.path.join(self.tmp.name, "config.ini")
+        self.certificate_manager = CertificateManager(db_path=self.config.db_path)
+
+        if Requests in Requests._objects:
+            del Requests._objects[Requests]
+
+    def tearDown(self):
+        self.grpc_server_patch.stop()
+        self.mtls_patch.stop()
+        self.tmp.cleanup()
+        if Requests in Requests._objects:
+            del Requests._objects[Requests]
+
+    def test_mtls_without_registered_node_certificate_raises(self):
+        """gRPC cannot bind an empty trust bundle, so it must fail early."""
+        with self.assertRaises(FedbiomedCertificateError) as ctx:
+            Requests(config=self.config)
+
+        self.assertIn("certificate register", str(ctx.exception))
+        self.grpc_server_mock.assert_not_called()
+
+    def test_mtls_passes_trust_bundle_provider_to_server(self):
+        """The server receives a provider, not a static bundle."""
+        self.certificate_manager.insert(
+            certificate="PEM-1",
+            party_id="NODE_1",
+            component=ComponentType.NODE.name,
+        )
+
+        with patch(
+            "fedbiomed.researcher.requests._requests.SSLCredentials"
+        ) as ssl_credentials:
+            Requests(config=self.config)
+
+        bundle = ssl_credentials.call_args.kwargs["trusted_node_certificates"]
+        self.assertIsInstance(bundle, TrustedCertificateBundle)
+        self.assertEqual(bundle(), b"PEM-1")
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -3,15 +3,17 @@ import ipaddress
 import os
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 from cryptography import x509
 
 from fedbiomed.common.certificate_manager import (
     CertificateManager,
+    TrustedCertificateBundle,
     certificate_expiry,
 )
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedCertificateError
 
 
@@ -427,6 +429,231 @@ class TestGenerateSelfSignedCertificate(unittest.TestCase):
         # `*` is neither a resolvable host nor an IP -> no SubjectAlternativeName
         with self.assertRaises(x509.ExtensionNotFound):
             self._san(self._generate("*"))
+
+
+class TestRegisterCertificateComponent(unittest.TestCase):
+    """Component classification of registered certificates.
+
+    Component ids are `<COMPONENT_TYPE>_<uuid>` (see `Config.generate`), so these
+    use that real shape: classifying a node certificate as `RESEARCHER` leaves the
+    researcher's mutual-TLS trust bundle empty.
+    """
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.cm = CertificateManager(db_path=os.path.join(self._tmp.name, "certs.json"))
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _register(self, party_id):
+        _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+            certificate_folder=self._tmp.name,
+            certificate_name=party_id,
+            component_id=party_id,
+            subject={"CommonName": "localhost", "OrganizationName": party_id},
+        )
+        self.cm.register_certificate(certificate_path=pem_file, party_id=party_id)
+
+    def test_node_id_registers_as_node_component(self):
+        self._register(
+            f"{ComponentType.NODE.name}_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
+        )
+        self.assertEqual(len(self.cm.get_by_component(ComponentType.NODE.name)), 1)
+        self.assertEqual(
+            len(self.cm.get_by_component(ComponentType.RESEARCHER.name)), 0
+        )
+
+    def test_researcher_id_registers_as_researcher_component(self):
+        self._register(
+            f"{ComponentType.RESEARCHER.name}_9c2b1d70-1111-2222-3333-444455556666"
+        )
+        self.assertEqual(
+            len(self.cm.get_by_component(ComponentType.RESEARCHER.name)), 1
+        )
+        self.assertEqual(len(self.cm.get_by_component(ComponentType.NODE.name)), 0)
+
+    def test_lowercase_node_id_registers_as_node_component(self):
+        """Ids from older lowercase-prefixed deployments keep classifying as NODE."""
+        self._register("node_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44")
+        self.assertEqual(len(self.cm.get_by_component(ComponentType.NODE.name)), 1)
+
+    def test_unprefixed_id_registers_as_researcher_component(self):
+        self._register("some-other-party")
+        self.assertEqual(
+            len(self.cm.get_by_component(ComponentType.RESEARCHER.name)), 1
+        )
+
+
+class _TrustedCertificateBundleFixture:
+    """Certificate database fixture for the trusted-certificate provider tests."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.db_path = os.path.join(self._tmp.name, "certs.json")
+        self.cm = CertificateManager(db_path=self.db_path)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _register(self, party_id, pem, upsert=False):
+        self.cm.insert(
+            certificate=pem,
+            party_id=party_id,
+            component=ComponentType.NODE.name,
+            upsert=upsert,
+        )
+
+    def _real_certificate(self, party_id):
+        """A real (~5 year) certificate, so expiry parsing has something to read."""
+        _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+            certificate_folder=self._tmp.name,
+            certificate_name=party_id,
+            component_id=party_id,
+            subject={"CommonName": "localhost", "OrganizationName": party_id},
+        )
+        with open(pem_file) as file:
+            return file.read()
+
+
+class TestTrustedCertificateBundle(_TrustedCertificateBundleFixture, unittest.TestCase):
+    """Hot-add behaviour of the mutual-TLS trusted-certificate provider."""
+
+    def test_bundle_picks_up_hot_added_certificate(self):
+        provider = TrustedCertificateBundle(self.db_path, ComponentType.NODE.name)
+
+        self._register("node-1", "PEM-1")
+        first = provider()
+        self.assertIn(b"PEM-1", first)
+        self.assertEqual(first.count(b"PEM"), 1)
+
+        self._register("node-2", "PEM-2")
+        second = provider()
+        self.assertIn(b"PEM-1", second)
+        self.assertIn(b"PEM-2", second)
+        self.assertEqual(second.count(b"PEM"), 2)
+
+    def test_bundle_does_not_reread_when_unchanged(self):
+        self._register("node-1", "PEM-1")
+        provider = TrustedCertificateBundle(self.db_path, ComponentType.NODE.name)
+        provider()
+
+        with patch("fedbiomed.common.certificate_manager.CertificateManager") as cm_cls:
+            provider()
+            cm_cls.assert_not_called()
+
+    def test_bundle_kept_while_database_is_partially_written(self):
+        self._register("node-1", "PEM-1")
+        provider = TrustedCertificateBundle(self.db_path, ComponentType.NODE.name)
+        self.assertIn(b"PEM-1", provider())
+
+        # TinyDB writes in place, so a read concurrent with another process
+        # registering a certificate can observe a truncated file.
+        with open(self.db_path) as file:
+            content = file.read()
+        with open(self.db_path, "w") as file:
+            file.write(content[: len(content) // 2])
+
+        self.assertIn(b"PEM-1", provider())
+
+        with open(self.db_path, "w") as file:
+            file.write(content)
+        self._register("node-2", "PEM-2")
+        self.assertIn(b"PEM-2", provider())
+
+    def test_bundle_kept_when_database_is_missing(self):
+        self._register("node-1", "PEM-1")
+        provider = TrustedCertificateBundle(self.db_path, ComponentType.NODE.name)
+        self.assertIn(b"PEM-1", provider())
+
+        os.remove(self.db_path)
+        self.assertIn(b"PEM-1", provider())
+
+
+class TestTrustedCertificateBundleExpiry(
+    _TrustedCertificateBundleFixture, unittest.TestCase
+):
+    """Expiry reporting of the mutual-TLS trusted-certificate provider."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        # Generated certificates last ~5 years; widen the window so they register
+        # as expiring without having to forge an expiry date.
+        self.days_patch = patch(
+            "fedbiomed.common.certificate_manager.CERTIFICATE_EXPIRY_WARNING_DAYS",
+            10000,
+        )
+        self.days_patch.start()
+        self.addCleanup(self.days_patch.stop)
+
+        self.logger_patch = patch("fedbiomed.common.certificate_manager.logger")
+        self.logger = self.logger_patch.start()
+        self.addCleanup(self.logger_patch.stop)
+
+    def _warned_parties(self):
+        return [
+            call.args[0]
+            for call in self.logger.warning.call_args_list
+            if "expires on" in call.args[0]
+        ]
+
+    def test_expiring_certificate_is_reported_on_first_read(self):
+        self._register("node-1", self._real_certificate("node-1"))
+        provider = TrustedCertificateBundle(self.db_path, ComponentType.NODE.name)
+        provider()
+
+        warned = self._warned_parties()
+        self.assertEqual(len(warned), 1)
+        self.assertIn("NODE certificate `node-1`", warned[0])
+
+    def test_hot_added_certificate_is_reported_on_refresh(self):
+        """The gap this closes: a certificate registered after startup."""
+        self._register("node-1", self._real_certificate("node-1"))
+        provider = TrustedCertificateBundle(self.db_path, ComponentType.NODE.name)
+        provider()
+
+        self._register("node-2", self._real_certificate("node-2"))
+        provider()
+
+        self.assertEqual(len(self._warned_parties()), 2)
+
+    def test_certificate_is_not_reported_twice(self):
+        self._register("node-1", self._real_certificate("node-1"))
+        provider = TrustedCertificateBundle(self.db_path, ComponentType.NODE.name)
+        provider()
+
+        # A refresh triggered by an unrelated registration must not re-report node-1
+        self._register("node-2", "PEM-2")
+        provider()
+        provider()
+
+        warned = self._warned_parties()
+        self.assertEqual(len(warned), 1)
+        self.assertIn("node-1", warned[0])
+
+    def test_renewed_certificate_is_reported_again(self):
+        """A renewal has a new expiry, so it is reported while still expiring."""
+        self._register("node-1", self._real_certificate("node-1"))
+        provider = TrustedCertificateBundle(self.db_path, ComponentType.NODE.name)
+
+        # Certificates are generated with a fixed ~5 year validity, so a renewal
+        # cannot be given a distinct expiry date here; script the dates instead.
+        renewed = datetime.now(timezone.utc) + timedelta(days=20)
+        with patch.object(
+            CertificateManager,
+            "expiring_certificates",
+            side_effect=[
+                [("node-1", datetime.now(timezone.utc) + timedelta(days=10))],
+                [("node-1", renewed)],
+            ],
+        ):
+            provider()
+            self._register("node-1", self._real_certificate("node-1"), upsert=True)
+            provider()
+
+        warned = self._warned_parties()
+        self.assertEqual(len(warned), 2)
+        self.assertIn(f"{renewed:%Y-%m-%d}", warned[1])
 
 
 if __name__ == "__main__":  # pragma: no cover

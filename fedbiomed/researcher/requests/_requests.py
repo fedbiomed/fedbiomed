@@ -17,14 +17,16 @@ import tabulate
 from python_minifier import minify
 
 from fedbiomed.common.certificate_manager import (
-    CertificateManager,
+    TrustedCertificateBundle,
     is_mtls_enabled,
 )
 from fedbiomed.common.constants import (
     REQUEST_PREFIX,
     ComponentType,
+    ErrorNumbers,
     MessageType,
 )
+from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     ApprovalRequest,
@@ -358,24 +360,21 @@ class Requests(metaclass=SingletonMeta):
         # Bundle of registered node certificates to pin, when mutual TLS is on.
         trusted_node_certificates = None
         if is_mtls_enabled(config):
-            certificate_manager = CertificateManager(db_path=config.db_path)
-            node_certificates = certificate_manager.get_by_component(
-                ComponentType.NODE.name
+            trusted_node_certificates = TrustedCertificateBundle(
+                config.db_path, ComponentType.NODE.name
             )
-            if not node_certificates:
-                logger.warning(
-                    "Mutual TLS is enabled but no node certificate is registered. "
-                    "No node will be able to connect until certificates are registered "
-                    "with `fedbiomed researcher certificate register`."
+            # This first read also reports expiring certificates. gRPC cannot build
+            # server credentials from an empty bundle: it fails to bind the port
+            # rather than starting and rejecting nodes.
+            if not trusted_node_certificates():
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: mutual TLS is enabled but no node "
+                    "certificate is registered, so the researcher server cannot "
+                    "start. Register at least one node certificate with `fedbiomed "
+                    "researcher certificate register`, or disable mutual TLS by "
+                    "setting `enabled = False` in the `[mtls]` section of "
+                    f"{config.config_path}."
                 )
-            for party_id, expiry in certificate_manager.expiring_certificates(
-                30, ComponentType.NODE.name
-            ):
-                logger.warning(
-                    f"Node certificate `{party_id}` expires on {expiry:%Y-%m-%d}; "
-                    "register an updated certificate to avoid connection failures."
-                )
-            trusted_node_certificates = "\n".join(node_certificates).encode("utf-8")
 
         # Creates grpc server and starts it
         self._researcher_id = config.get("default", "id")
