@@ -28,12 +28,15 @@ from fedbiomed.common.certificate_manager import (
     is_mtls_enabled,
 )
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchRequest
+from fedbiomed.transport.client import _researcher_requires_client_auth
 from fedbiomed.transport.node_agent import AgentStore
 from fedbiomed.transport.protocols.researcher_pb2 import TaskRequest
 from fedbiomed.transport.server import (
     ResearcherServicer,
     SSLCredentials,
+    _GrpcAsyncServer,
     _peer_node_id,
 )
 
@@ -168,10 +171,10 @@ def test_ssl_credentials_mtls_enabled_with_bundle(certs):
     ssl = SSLCredentials(
         key=certs["researcher_key_file"],
         cert=certs["researcher_cert_file"],
-        trusted_node_certificates=certs["node_cert"],
+        trusted_node_certificates=lambda: certs["node_cert"],
     )
     assert ssl.mtls is True
-    assert ssl.trusted_node_certificates == certs["node_cert"]
+    assert ssl.trusted_node_certificates() == certs["node_cert"]
 
 
 # ---------------------------------------------------------------------------
@@ -326,15 +329,38 @@ async def test_get_task_no_audit_without_client_certificate():
 # ---------------------------------------------------------------------------
 
 
-async def _serve(certs, trusted_node_bundle):
-    """Starts a mutual-TLS gRPC server and returns (server, port)."""
-    server = grpc.aio.server()
-    credentials = grpc.ssl_server_credentials(
-        ((certs["researcher_key"], certs["researcher_cert"]),),
-        root_certificates=trusted_node_bundle,
-        require_client_auth=True,
+def _credentials(certs, trusted_node_bundle):
+    """Builds server credentials through the shipped `_GrpcAsyncServer` path.
+
+    `trusted_node_bundle` is a zero-argument callable returning the current
+    bundle, or None for a server-auth-only server.
+    """
+    ssl = SSLCredentials(
+        key=certs["researcher_key_file"],
+        cert=certs["researcher_cert_file"],
+        trusted_node_certificates=trusted_node_bundle,
     )
-    port = server.add_secure_port("127.0.0.1:0", credentials)
+    server = _GrpcAsyncServer(
+        host="127.0.0.1",
+        port="0",
+        on_message=MagicMock(),
+        config=MagicMock(),
+        ssl=ssl,
+    )
+    return server._server_credentials()
+
+
+async def _serve(certs, trusted_node_bundle):
+    """Starts a mutual-TLS gRPC server and returns (server, port).
+
+    Credentials come from the shipped code path, so the handshake matrix
+    exercises the dynamic, per-handshake trust bundle rather than a hand-rolled
+    static one.
+    """
+    server = grpc.aio.server()
+    port = server.add_secure_port(
+        "127.0.0.1:0", _credentials(certs, trusted_node_bundle)
+    )
     await server.start()
     return server, port
 
@@ -365,7 +391,7 @@ async def _can_connect(certs, port, present_client_cert, pinned_server_cert):
 
 @pytest.mark.asyncio
 async def test_registered_node_connects(certs):
-    server, port = await _serve(certs, certs["node_cert"])
+    server, port = await _serve(certs, lambda: certs["node_cert"])
     try:
         assert await _can_connect(certs, port, True, certs["researcher_cert"])
     finally:
@@ -374,7 +400,7 @@ async def test_registered_node_connects(certs):
 
 @pytest.mark.asyncio
 async def test_node_without_client_cert_is_rejected(certs):
-    server, port = await _serve(certs, certs["node_cert"])
+    server, port = await _serve(certs, lambda: certs["node_cert"])
     try:
         assert not await _can_connect(certs, port, False, certs["researcher_cert"])
     finally:
@@ -384,7 +410,7 @@ async def test_node_without_client_cert_is_rejected(certs):
 @pytest.mark.asyncio
 async def test_unregistered_node_is_rejected(certs):
     # Bundle contains only the researcher cert, so the node cert is untrusted
-    server, port = await _serve(certs, certs["researcher_cert"])
+    server, port = await _serve(certs, lambda: certs["researcher_cert"])
     try:
         assert not await _can_connect(certs, port, True, certs["researcher_cert"])
     finally:
@@ -394,8 +420,83 @@ async def test_unregistered_node_is_rejected(certs):
 @pytest.mark.asyncio
 async def test_wrong_pinned_server_cert_is_rejected(certs):
     # Node pins the wrong certificate (MITM simulation)
-    server, port = await _serve(certs, certs["node_cert"])
+    server, port = await _serve(certs, lambda: certs["node_cert"])
     try:
         assert not await _can_connect(certs, port, True, certs["node_cert"])
     finally:
         await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_node_registered_after_startup_connects_without_restart(certs):
+    """A certificate registered mid-session is trusted on the next handshake."""
+    bundle = {"pem": certs["researcher_cert"]}
+    server, port = await _serve(certs, lambda: bundle["pem"])
+    try:
+        assert not await _can_connect(certs, port, True, certs["researcher_cert"])
+
+        bundle["pem"] = certs["researcher_cert"] + b"\n" + certs["node_cert"]
+
+        assert await _can_connect(certs, port, True, certs["researcher_cert"])
+    finally:
+        await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_node_revoked_after_startup_is_rejected_without_restart(certs):
+    """Dropping a certificate from the bundle stops trusting it."""
+    bundle = {"pem": certs["node_cert"]}
+    server, port = await _serve(certs, lambda: bundle["pem"])
+    try:
+        assert await _can_connect(certs, port, True, certs["researcher_cert"])
+
+        bundle["pem"] = certs["researcher_cert"]
+
+        assert not await _can_connect(certs, port, True, certs["researcher_cert"])
+    finally:
+        await server.stop(0)
+
+
+def test_empty_trust_bundle_is_reported_before_binding(certs):
+    """An empty bundle fails with the cause, not an opaque port-binding error."""
+    with pytest.raises(FedbiomedCommunicationError, match="no node certificate"):
+        _credentials(certs, lambda: b"")
+
+
+async def _probe(port):
+    """Runs the blocking client-auth probe off the server's event loop."""
+    return await asyncio.get_running_loop().run_in_executor(
+        None, _researcher_requires_client_auth, "127.0.0.1", str(port)
+    )
+
+
+@pytest.mark.asyncio
+async def test_probe_detects_enforced_client_auth(certs):
+    """A researcher requiring client certificates is reported as enforcing.
+
+    Under TLS 1.3 the anonymous handshake itself completes, so this only holds
+    because the probe reads the server's reply.
+    """
+    server, port = await _serve(certs, lambda: certs["node_cert"])
+    try:
+        assert await _probe(port) is True
+    finally:
+        await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_probe_detects_server_auth_only(certs):
+    """A server-auth-only researcher is reported as not enforcing."""
+    server, port = await _serve(certs, None)
+    try:
+        assert await _probe(port) is False
+    finally:
+        await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_probe_reports_enforcing_when_server_unreachable(certs):
+    """An unreachable server never produces a spurious 'not enforced' warning."""
+    server, port = await _serve(certs, lambda: certs["node_cert"])
+    await server.stop(0)
+    assert await _probe(port) is True

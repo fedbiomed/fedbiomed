@@ -120,8 +120,14 @@ def _researcher_requires_client_auth(host: str, port: str) -> bool:
     """Whether the researcher's TLS server demands a client certificate.
 
     gRPC hides from the client whether its certificate was requested, so this
-    probes with a raw TLS handshake presenting none: a server enforcing mutual
-    TLS rejects it, a server-auth-only researcher accepts it.
+    probes with a raw TLS handshake presenting none, and reads the server's
+    first reply: a researcher accepting an anonymous client answers with its
+    HTTP/2 SETTINGS frame, one enforcing mutual TLS closes or aborts instead.
+
+    Completing the handshake is not evidence of acceptance. Under TLS 1.3 the
+    client's handshake completes before the server validates the client
+    certificate, so the rejection only shows up on the first read. Reading the
+    reply is what makes this work on both TLS 1.2 and TLS 1.3.
 
     Args:
         host: The host/ip of the researcher server.
@@ -135,17 +141,22 @@ def _researcher_requires_client_auth(host: str, port: str) -> bool:
     # Testing the client-auth requirement only, not the server certificate.
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
+    # gRPC serves HTTP/2 only over ALPN; without it the server drops any
+    # connection, which is indistinguishable from a client-auth rejection.
+    context.set_alpn_protocols(["h2"])
     try:
         with socket.create_connection(
             (host, int(port)), timeout=GRPC_CLIENT_CONN_RETRY_TIMEOUT
         ) as sock:
-            with context.wrap_socket(sock, server_hostname=host):
-                return False
+            with context.wrap_socket(sock, server_hostname=host) as ssock:
+                ssock.settimeout(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                # Empty read == closed without replying == identity demanded.
+                return not ssock.recv(1)
     except (ssl.SSLError, OSError):
-        # A server enforcing client auth rejects the anonymous handshake with a
-        # TLS alert (SSLError) or by resetting the connection (OSError). Any
-        # transient socket failure is also treated conservatively as "required"
-        # so this diagnostic probe never propagates and crashes the connect loop.
+        # A server enforcing client auth rejects the anonymous connection with a
+        # TLS alert (SSLError) or by resetting it (OSError). Any transient socket
+        # failure is also treated conservatively as "required", so this
+        # diagnostic probe never warns spuriously nor crashes the connect loop.
         return True
 
 
