@@ -517,6 +517,56 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
 
         task.cancel()
 
+    async def _drain(self, side_effects):
+        """Runs the listener over the given GetTaskUnary results until cancelled."""
+        request_stub = MagicMock()
+        self.channels.stub = AsyncMock(return_value=request_stub)
+        request_stub.GetTaskUnary.side_effect = [*side_effects, asyncio.CancelledError]
+        self.channels.endpoint = "localhost:50051"
+        task = self.task_listener.listen(self.callback)
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        task.cancel()
+
+    @patch("fedbiomed.transport.client.logger.info")
+    async def test_task_listener_07_announces_communication_once(self, log_info):
+        """A received task announces the server-auth channel, exactly once."""
+
+        async def one_task(bytes_):
+            yield TaskResponse(bytes_=bytes_, iteration=0, size=0)
+
+        self.channels.mtls = False
+        await self._drain([one_task(b"t1"), one_task(b"t2")])
+
+        msgs = [
+            c
+            for c in log_info.call_args_list
+            if "Communication established" in c.args[0]
+        ]
+        self.assertEqual(len(msgs), 1)
+        self.assertIn("server-authenticated TLS", msgs[0].args[0])
+        self.assertIn("localhost:50051", msgs[0].args[0])
+        self.assertTrue(msgs[0].kwargs["extra"].get("is_security"))
+
+    @patch("fedbiomed.transport.client.logger.info")
+    @patch("fedbiomed.transport.client.asyncio.sleep")
+    async def test_task_listener_08_mtls_announce_and_reannounce_on_reconnect(
+        self, sleep, log_info
+    ):
+        """An idle deadline confirms the mTLS channel; a reconnect re-announces it."""
+        self.channels.mtls = True
+        deadline = self._rpc_error(grpc.StatusCode.DEADLINE_EXCEEDED, "deadline")
+        unavailable = self._rpc_error(grpc.StatusCode.UNAVAILABLE, "connection reset")
+        await self._drain([deadline, unavailable, deadline])
+
+        msgs = [
+            c
+            for c in log_info.call_args_list
+            if "Mutual-TLS communication established" in c.args[0]
+        ]
+        self.assertEqual(len(msgs), 2)
+        self.assertTrue(msgs[0].kwargs["extra"].get("is_security"))
+
 
 class TestTlsHandshakeErrorDetection(unittest.TestCase):
     """Unit tests for the TLS/pinning failure discriminator."""
@@ -917,6 +967,9 @@ class TestChannels(unittest.IsolatedAsyncioTestCase):
         self.create_channel_patch.stop()
         self.stub_patch.stop()
         pass
+
+    def test_channels_01_endpoint(self):
+        self.assertEqual(self.channels.endpoint, "localhost:50051")
 
     async def test_channels_02_connect_and_stub(self):
         await self.channels.connect()
