@@ -5,6 +5,7 @@ import copy
 import ipaddress
 import os
 import threading
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -101,6 +102,23 @@ def _certificate_purpose(component_id: str, purpose: Optional[str]) -> Optional[
     if component_id.upper().startswith(f"{ComponentType.RESEARCHER.name}_"):
         return CERT_PURPOSE_SERVER
     return None
+
+
+def _party_id_component(party_id: str) -> Optional[str]:
+    """Component type of a party id, or None if it does not follow the pattern.
+
+    Party ids follow `<COMPONENT_TYPE>_<uuid4>` (see `Config.generate`); the
+    prefix is matched case-insensitively, as older deployments used lowercase.
+    """
+    prefix, _, identifier = party_id.partition("_")
+    component = prefix.upper()
+    try:
+        uuid.UUID(identifier)
+    except ValueError:
+        return None
+    if component not in (ComponentType.NODE.name, ComponentType.RESEARCHER.name):
+        return None
+    return component
 
 
 class TrustedCertificateBundle:
@@ -340,14 +358,24 @@ class CertificateManager:
     def register_certificate(
         self,
         certificate_path: str,
-        party_id: str,
+        party_id: Optional[str] = None,
         upsert: bool = False,
     ) -> Union[int, List[int]]:
         """Registers certificate
 
+        The party id may be recovered from the certificate's `O=`
+        (OrganizationName) field. A certificate identity counts only when it is
+        itself a valid party id (`<NODE|RESEARCHER>_<uuid>`):
+
+        - certificate carries a valid identity, `party_id` omitted: recovered;
+        - certificate carries no valid identity: `party_id` is required and must
+          follow the pattern;
+        - both present: they must be the same.
+
         Args:
             certificate_path: Path where certificate/key file stored
-            party_id: ID of the FL party which the certificate will be registered
+            party_id: ID of the FL party. Optional when the certificate embeds a
+                valid identity in `O=`; required otherwise.
             upsert: If `True` overwrites existing certificate for specified party.  If `False`
                 and the certificate for the specified party already existing it raises error.
 
@@ -355,7 +383,10 @@ class CertificateManager:
             The document ID of registered certificated.
 
         Raises:
-            FedbiomedCertificateError: If certificate file is not existing in file system
+            FedbiomedCertificateError: If the certificate file does not exist; if
+                `party_id` is neither given nor recoverable from the certificate;
+                if a given `party_id` conflicts with the certificate identity; or
+                if a given `party_id` does not follow `<NODE|RESEARCHER>_<uuid>`.
         """
 
         if not os.path.isfile(certificate_path):
@@ -366,12 +397,33 @@ class CertificateManager:
         # Read certificate content
         certificate_content = read_file(certificate_path)
 
-        # Component ids are `<COMPONENT_TYPE>_<uuid>`; matched case-insensitively
-        component = (
-            ComponentType.NODE.name
-            if party_id.upper().startswith(f"{ComponentType.NODE.name}_")
-            else ComponentType.RESEARCHER.name
+        certificate_id = certificate_subject_field(
+            certificate_content.encode("utf-8"), NameOID.ORGANIZATION_NAME
         )
+        # A certificate identity is usable only if it is itself a valid party id.
+        certificate_component = (
+            _party_id_component(certificate_id) if certificate_id is not None else None
+        )
+
+        if certificate_component is not None:
+            if party_id is not None and party_id != certificate_id:
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: Given party id `{party_id}` does not "
+                    f"match the certificate identity `{certificate_id}`."
+                )
+            party_id, component = certificate_id, certificate_component
+        else:
+            if party_id is None:
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: The certificate does not embed a valid "
+                    "party identity, so `party_id` must be provided to register it."
+                )
+            component = _party_id_component(party_id)
+            if component is None:
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: Party id `{party_id}` is invalid; it "
+                    "must follow `<NODE|RESEARCHER>_<uuid>`."
+                )
 
         return self.insert(
             certificate=certificate_content,
