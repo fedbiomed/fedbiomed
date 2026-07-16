@@ -485,7 +485,7 @@ class CertificateManager:
         """
         subject = subject or {}
 
-        if not os.path.abspath(certificate_folder):
+        if not os.path.isabs(certificate_folder):
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Certificate path should be absolute: "
                 f"{certificate_folder}"
@@ -610,7 +610,7 @@ def generate_certificate(
         pem_file: The path where public key file is saved
 
     Raises:
-        FedbiomedEnvironError: If certificate directory for the component has already
+        FedbiomedCertificateError: If certificate directory for the component has already
             `certificate.pem` or `certificate.key` files generated.
     """
 
@@ -620,9 +620,10 @@ def generate_certificate(
         os.path.isfile(os.path.join(certificate_path, "certificate.key"))
         or os.path.isfile(os.path.join(certificate_path, "certificate.pem"))
     ):
-        raise ValueError(
-            f"Certificate generation is aborted. Directory {certificate_path} has already "
-            f"certificates. Please remove those files to regenerate"
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: Certificate generation is aborted. Directory "
+            f"{certificate_path} has already certificates. Please remove those files to "
+            "regenerate"
         )
 
     os.makedirs(certificate_path, exist_ok=True)
