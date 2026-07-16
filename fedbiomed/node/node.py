@@ -240,9 +240,12 @@ class Node:
                 several are and the one to pin is ambiguous.
         """
         certificate_manager = CertificateManager(db_path=self._config.db_path)
-        researcher_certificates = certificate_manager.get_by_component(
-            ComponentType.RESEARCHER.name
-        )
+        try:
+            researcher_certificates = certificate_manager.get_by_component(
+                ComponentType.RESEARCHER.name
+            )
+        finally:
+            certificate_manager.close()
         if not researcher_certificates:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but no researcher "
