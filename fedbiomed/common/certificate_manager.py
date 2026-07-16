@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Union
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 from tabulate import tabulate
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
@@ -27,6 +27,10 @@ from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import read_file
 
 CERTIFICATE_EXPIRY_WARNING_DAYS = 30
+
+# TLS role a certificate is restricted to via Extended Key Usage.
+CERT_PURPOSE_SERVER = "server"
+CERT_PURPOSE_CLIENT = "client"
 
 
 def certificate_subject_field(
@@ -73,6 +77,30 @@ def is_mtls_enabled(config) -> bool:
         True if mutual TLS with certificate pinning is enabled.
     """
     return config.getbool("mtls", "enabled", fallback="False")
+
+
+def _certificate_purpose(component_id: str, purpose: Optional[str]) -> Optional[str]:
+    """Resolves the TLS role to restrict a certificate to.
+
+    An explicit `purpose` wins; otherwise the role is inferred from the component
+    id prefix (as in `register_certificate`). Ids matching neither prefix yield
+    None, allowing both roles so the handshake never breaks for such ids.
+
+    Raises:
+        FedbiomedCertificateError: `purpose` is an unknown value.
+    """
+    if purpose is not None:
+        if purpose not in (CERT_PURPOSE_SERVER, CERT_PURPOSE_CLIENT):
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Unknown certificate purpose `{purpose}`."
+            )
+        return purpose
+
+    if component_id.upper().startswith(f"{ComponentType.NODE.name}_"):
+        return CERT_PURPOSE_CLIENT
+    if component_id.upper().startswith(f"{ComponentType.RESEARCHER.name}_"):
+        return CERT_PURPOSE_SERVER
+    return None
 
 
 class TrustedCertificateBundle:
@@ -378,6 +406,7 @@ class CertificateManager:
         certificate_name: str = "FBM_",
         component_id: str = "unknown",
         subject: Optional[Dict[str, str]] = None,
+        purpose: Optional[str] = None,
     ) -> Tuple[str, str]:
         """Creates self-signed certificates
 
@@ -386,6 +415,9 @@ class CertificateManager:
                 will be saved. Path should be absolute.
             certificate_name: Name of the certificate file.
             component_id: ID of the component
+            purpose: `CERT_PURPOSE_SERVER` or `CERT_PURPOSE_CLIENT` to restrict the
+                certificate to a single TLS role via Extended Key Usage. When None
+                the role is inferred from `component_id`.
 
         Returns:
             private_key: Private key file
@@ -432,6 +464,41 @@ class CertificateManager:
             .serial_number(x509.random_serial_number())
             .not_valid_before(datetime.now(timezone.utc))
             .not_valid_after(datetime.now(timezone.utc) + timedelta(days=5 * 365))
+        )
+
+        resolved_purpose = _certificate_purpose(component_id, purpose)
+        if resolved_purpose == CERT_PURPOSE_SERVER:
+            extended_key_usages = [ExtendedKeyUsageOID.SERVER_AUTH]
+            key_encipherment = True
+        elif resolved_purpose == CERT_PURPOSE_CLIENT:
+            extended_key_usages = [ExtendedKeyUsageOID.CLIENT_AUTH]
+            key_encipherment = False
+        else:
+            extended_key_usages = [
+                ExtendedKeyUsageOID.SERVER_AUTH,
+                ExtendedKeyUsageOID.CLIENT_AUTH,
+            ]
+            key_encipherment = True
+
+        builder = (
+            builder.add_extension(
+                x509.BasicConstraints(ca=False, path_length=None), critical=True
+            )
+            .add_extension(
+                x509.KeyUsage(
+                    digital_signature=True,
+                    content_commitment=False,
+                    key_encipherment=key_encipherment,
+                    data_encipherment=False,
+                    key_agreement=False,
+                    key_cert_sign=False,
+                    crl_sign=False,
+                    encipher_only=False,
+                    decipher_only=False,
+                ),
+                critical=True,
+            )
+            .add_extension(x509.ExtendedKeyUsage(extended_key_usages), critical=False)
         )
 
         san: Optional[x509.GeneralName]
