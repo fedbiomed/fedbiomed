@@ -7,8 +7,10 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 from cryptography import x509
+from cryptography.x509.oid import ExtendedKeyUsageOID
 
 from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_SERVER,
     CertificateManager,
     TrustedCertificateBundle,
     certificate_expiry,
@@ -429,6 +431,63 @@ class TestGenerateSelfSignedCertificate(unittest.TestCase):
         # `*` is neither a resolvable host nor an IP -> no SubjectAlternativeName
         with self.assertRaises(x509.ExtensionNotFound):
             self._san(self._generate("*"))
+
+    def _extensions(self, cert):
+        eku = cert.extensions.get_extension_for_class(x509.ExtendedKeyUsage).value
+        key_usage = cert.extensions.get_extension_for_class(x509.KeyUsage).value
+        basic = cert.extensions.get_extension_for_class(x509.BasicConstraints).value
+        return eku, key_usage, basic
+
+    def _generate_with_purpose(self, component_id, purpose):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+            certificate_folder=tmp.name,
+            certificate_name="cert",
+            component_id=component_id,
+            subject={"CommonName": "localhost"},
+            purpose=purpose,
+        )
+        with open(pem_file, "rb") as f:
+            return x509.load_pem_x509_certificate(f.read())
+
+    def test_certificates_are_end_entity_not_ca(self):
+        _, _, basic = self._extensions(self._generate("localhost", org="node_1"))
+        self.assertFalse(basic.ca)
+
+    def test_researcher_id_gets_server_auth_only(self):
+        eku, key_usage, _ = self._extensions(
+            self._generate("localhost", org="RESEARCHER_1")
+        )
+        self.assertIn(ExtendedKeyUsageOID.SERVER_AUTH, eku)
+        self.assertNotIn(ExtendedKeyUsageOID.CLIENT_AUTH, eku)
+        self.assertTrue(key_usage.digital_signature)
+        self.assertTrue(key_usage.key_encipherment)
+
+    def test_node_id_gets_client_auth_only(self):
+        eku, key_usage, _ = self._extensions(self._generate("localhost", org="NODE_1"))
+        self.assertIn(ExtendedKeyUsageOID.CLIENT_AUTH, eku)
+        self.assertNotIn(ExtendedKeyUsageOID.SERVER_AUTH, eku)
+        self.assertTrue(key_usage.digital_signature)
+        self.assertFalse(key_usage.key_encipherment)
+
+    def test_unrecognized_id_gets_both_roles(self):
+        eku, _, _ = self._extensions(
+            self._generate("localhost", org="some-other-party")
+        )
+        self.assertIn(ExtendedKeyUsageOID.SERVER_AUTH, eku)
+        self.assertIn(ExtendedKeyUsageOID.CLIENT_AUTH, eku)
+
+    def test_explicit_purpose_overrides_component_id(self):
+        eku, _, _ = self._extensions(
+            self._generate_with_purpose("NODE_1", CERT_PURPOSE_SERVER)
+        )
+        self.assertIn(ExtendedKeyUsageOID.SERVER_AUTH, eku)
+        self.assertNotIn(ExtendedKeyUsageOID.CLIENT_AUTH, eku)
+
+    def test_unknown_purpose_raises(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self._generate_with_purpose("NODE_1", "bogus")
 
 
 class TestRegisterCertificateComponent(unittest.TestCase):
