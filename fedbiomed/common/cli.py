@@ -333,8 +333,10 @@ class CommonCLI:
             metavar="PUBLIC_ID",
             type=str,
             nargs="?",
-            required=True,
-            help="ID of the party to which the certificate is to be registered (component ID).",
+            required=False,
+            help="ID of the party to which the certificate is to be registered "
+            "(component ID). Optional when the certificate embeds its identity; "
+            "required otherwise.",
         )
 
         register_parser.add_argument(
@@ -443,10 +445,9 @@ class CommonCLI:
             print(exp)
             sys.exit(1)
         else:
+            party = f" for party: {args.party_id}" if args.party_id else ""
             print(f"{GRN}Success!{NC}")
-            print(
-                f"{BOLD}Certificate has been successfully created for party: {args.party_id}.{NC}"
-            )
+            print(f"{BOLD}Certificate has been successfully registered{party}.{NC}")
 
     def _list_certificates(self, args: argparse.Namespace):
         """Lists saved certificates"""

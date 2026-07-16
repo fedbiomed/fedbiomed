@@ -193,7 +193,7 @@ class TestCertificateManager(unittest.TestCase):
 
         arguments = {
             "certificate_path": "dummy/path",
-            "party_id": "node_party-id",
+            "party_id": "node_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44",
         }
 
         with patch("os.path.isfile") as mock_isfile:
@@ -227,7 +227,10 @@ class TestCertificateManager(unittest.TestCase):
                 )
                 cm_mock.reset_mock()
 
-                arguments_2 = {**arguments, "party_id": "xxx"}
+                arguments_2 = {
+                    **arguments,
+                    "party_id": "researcher_9c2b1d70-1111-2222-3333-444455556666",
+                }
                 args = copy.deepcopy(arguments_2)
                 args.pop("certificate_path")
                 self.cm.register_certificate(**arguments_2)
@@ -537,11 +540,73 @@ class TestRegisterCertificateComponent(unittest.TestCase):
         self._register("node_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44")
         self.assertEqual(len(self.cm.get_by_component(ComponentType.NODE.name)), 1)
 
-    def test_unprefixed_id_registers_as_researcher_component(self):
-        self._register("some-other-party")
-        self.assertEqual(
-            len(self.cm.get_by_component(ComponentType.RESEARCHER.name)), 1
+    def test_unprefixed_id_is_rejected(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self._register("some-other-party")
+
+    def test_non_uuid_id_is_rejected(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self._register("NODE_not-a-uuid")
+
+
+class TestRegisterCertificatePartyId(unittest.TestCase):
+    """`party_id` reconciliation against the certificate identity (`O=`).
+
+    A `O=` that is not a valid party id is treated as no usable identity, like an
+    absent one (the absent case is covered by `test_06`).
+    """
+
+    _NODE_A = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
+    _NODE_B = "NODE_9c2b1d70-1111-2222-3333-444455556666"
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.cm = CertificateManager(db_path=os.path.join(self._tmp.name, "certs.json"))
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _cert(self, org):
+        _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+            certificate_folder=self._tmp.name,
+            certificate_name=org.replace(" ", "_"),
+            component_id=org,
+            subject={"CommonName": "localhost", "OrganizationName": org},
         )
+        return pem_file
+
+    def test_recovers_party_id_from_certificate(self):
+        self.cm.register_certificate(certificate_path=self._cert(self._NODE_A))
+        self.assertIsNotNone(self.cm.get(self._NODE_A))
+        self.assertEqual(len(self.cm.get_by_component(ComponentType.NODE.name)), 1)
+
+    def test_matching_party_id_is_accepted(self):
+        self.cm.register_certificate(
+            certificate_path=self._cert(self._NODE_A), party_id=self._NODE_A
+        )
+        self.assertIsNotNone(self.cm.get(self._NODE_A))
+
+    def test_conflicting_party_id_raises(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert(self._NODE_A), party_id=self._NODE_B
+            )
+
+    def test_party_id_required_without_usable_identity(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(certificate_path=self._cert("Hospital A"))
+
+    def test_given_party_id_used_without_usable_identity(self):
+        self.cm.register_certificate(
+            certificate_path=self._cert("Hospital A"), party_id=self._NODE_A
+        )
+        self.assertIsNotNone(self.cm.get(self._NODE_A))
+
+    def test_given_party_id_must_follow_pattern(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert("Hospital A"), party_id="not-a-valid-id"
+            )
 
 
 class _TrustedCertificateBundleFixture:
