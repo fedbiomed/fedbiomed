@@ -65,18 +65,19 @@ def is_server_alive(host: str, port: str):
     port = int(port)
     address_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
     for family, socktype, protocol, _, address in address_info:
-        s = socket.socket(family, socktype, protocol)
-        # Need this timeout for the case where the server does not answer
-        # If not present, socket timeout increases and this function takes more
-        # than GRPC_CLIENT_CONN_RETRY_TIMEOUT to execute
-        s.settimeout(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-        try:
-            s.connect(address)
-        except socket.error:
-            return False
-        else:
-            s.close()
-            return True
+        # Use a context manager so the socket is always closed, even when
+        # connect() raises (previously the socket leaked on failure).
+        with socket.socket(family, socktype, protocol) as s:
+            # Need this timeout for the case where the server does not answer
+            # If not present, socket timeout increases and this function takes more
+            # than GRPC_CLIENT_CONN_RETRY_TIMEOUT to execute
+            s.settimeout(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+            try:
+                s.connect(address)
+            except socket.error:
+                return False
+            else:
+                return True
 
 
 class Channels:
