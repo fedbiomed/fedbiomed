@@ -36,13 +36,14 @@ class BaseTestCaseSecaggContext(unittest.TestCase, MockRequestModule):  # pylint
         self.mock_skmanager = MagicMock()
         self.patch_skmanager_s.return_value = self.mock_skmanager
 
-        temp_dir = tempfile.TemporaryDirectory()
+        self.temp_dir = tempfile.TemporaryDirectory()
         unittest.mock.MagicMock.tmp_dir = unittest.mock.PropertyMock(
-            return_value=temp_dir
+            return_value=self.temp_dir
         )
 
     def tearDown(self) -> None:
         self.patch_skmanager.stop()
+        self.temp_dir.cleanup()
         super().tearDown()
 
 
