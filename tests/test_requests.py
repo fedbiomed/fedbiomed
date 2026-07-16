@@ -764,6 +764,7 @@ class TestRequestsMutualTLS(unittest.TestCase):
     def tearDown(self):
         self.grpc_server_patch.stop()
         self.mtls_patch.stop()
+        self.certificate_manager.close()
         self.tmp.cleanup()
         if Requests in Requests._objects:
             del Requests._objects[Requests]

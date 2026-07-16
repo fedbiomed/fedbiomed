@@ -43,10 +43,14 @@ class TestCertificateManager(unittest.TestCase):
         self.tiny_db_table_patch = patch(
             "fedbiomed.common.certificate_manager.TinyDB.table"
         )
+        self.tiny_db_close_patch = patch(
+            "fedbiomed.common.certificate_manager.TinyDB.close"
+        )
 
         self.tiny_db_mock = self.tiny_db_patch.start()
         self.tiny_db_table_mock = self.tiny_db_table_patch.start()
         self.tiny_db_query_mock = self.tiny_db_query_patch.start()
+        self.tiny_db_close_mock = self.tiny_db_close_patch.start()
 
         self.tiny_db_table_patch.return_value = None
         self.cm = CertificateManager(db_path="test-db")
@@ -64,6 +68,7 @@ class TestCertificateManager(unittest.TestCase):
         self.tiny_db_patch.stop()
         self.tiny_db_table_patch.stop()
         self.tiny_db_query_patch.stop()
+        self.tiny_db_close_patch.stop()
 
         pass
 
@@ -527,6 +532,7 @@ class TestRegisterCertificateComponent(unittest.TestCase):
         self.cm = CertificateManager(db_path=os.path.join(self._tmp.name, "certs.json"))
 
     def tearDown(self) -> None:
+        self.cm.close()
         self._tmp.cleanup()
 
     def _register(self, party_id):
@@ -585,6 +591,7 @@ class TestRegisterCertificatePartyId(unittest.TestCase):
         self.cm = CertificateManager(db_path=os.path.join(self._tmp.name, "certs.json"))
 
     def tearDown(self) -> None:
+        self.cm.close()
         self._tmp.cleanup()
 
     def _cert(self, org):
@@ -639,6 +646,7 @@ class _TrustedCertificateBundleFixture:
         self.cm = CertificateManager(db_path=self.db_path)
 
     def tearDown(self) -> None:
+        self.cm.close()
         self._tmp.cleanup()
 
     def _register(self, party_id, pem, upsert=False):
