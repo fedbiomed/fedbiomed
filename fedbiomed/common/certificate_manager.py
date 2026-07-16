@@ -162,10 +162,15 @@ class TrustedCertificateBundle:
                 state = (stat.st_mtime_ns, stat.st_size)
                 if state != self._state:
                     certificate_manager = CertificateManager(db_path=self._db_path)
-                    certificates = certificate_manager.get_by_component(self._component)
-                    expiring = certificate_manager.expiring_certificates(
-                        CERTIFICATE_EXPIRY_WARNING_DAYS, self._component
-                    )
+                    try:
+                        certificates = certificate_manager.get_by_component(
+                            self._component
+                        )
+                        expiring = certificate_manager.expiring_certificates(
+                            CERTIFICATE_EXPIRY_WARNING_DAYS, self._component
+                        )
+                    finally:
+                        certificate_manager.close()
                     self._bundle = "\n".join(certificates).encode("utf-8")
                     self._state = state
                     self._warn_expiring(expiring)
@@ -209,6 +214,7 @@ class CertificateManager:
             db: The name of the DB file to connect through TinyDB
         """
 
+        self._tinydb: Optional[TinyDB] = None
         self._db: Optional[Table] = None
         self._query: Query = Query()
 
@@ -229,9 +235,18 @@ class CertificateManager:
         Args:
             db_path: The path of DB file where `Certificates` table are stored
         """
+        self.close()
         db = TinyDB(db_path)
         db.table_class = DBTable
+        self._tinydb = db
         self._db = db.table("Certificates")
+
+    def close(self) -> None:
+        """Closes the underlying TinyDB handle and releases the open file."""
+        if self._tinydb is not None:
+            self._tinydb.close()
+            self._tinydb = None
+            self._db = None
 
     def insert(
         self,
