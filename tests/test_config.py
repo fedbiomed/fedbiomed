@@ -262,7 +262,7 @@ class TestConfig(BaseConfigTest):
 
 class TestNodeConfig(BaseConfigTest):
     def test_01_node_config_generate(self):
-        config = NodeConfig(root="tests")
+        config = NodeConfig(root=os.path.abspath("tests"))
         print(config._cfg["default"])
 
         component = config.get("default", "component")
@@ -275,7 +275,7 @@ class TestNodeConfig(BaseConfigTest):
         self.assertTrue(r_port)
 
     def test_02_node_config_sections(self):
-        config = NodeConfig(root="test")
+        config = NodeConfig(root=os.path.abspath("test"))
 
         sections = config.sections()
 
@@ -286,13 +286,13 @@ class TestNodeConfig(BaseConfigTest):
         self.assertTrue("mtls" in sections)
 
     def test_02_node_config_mtls_section_defaults(self):
-        config = NodeConfig(root="test")
+        config = NodeConfig(root=os.path.abspath("test"))
 
         # Opt-in: disabled by default. Trusted certs live in the main component DB.
         self.assertFalse(config.getbool("mtls", "enabled"))
 
     def test_02_node_config_db_path(self):
-        config = NodeConfig(root="test")
+        config = NodeConfig(root=os.path.abspath("test"))
 
         # db_path points at the component's main DB (<root>/etc/<default.db>).
         self.assertEqual(
@@ -301,7 +301,7 @@ class TestNodeConfig(BaseConfigTest):
         )
 
     def test_03_node_config_migrate_old(self):
-        config = NodeConfig(root="test")
+        config = NodeConfig(root=os.path.abspath("test"))
 
         # Simulate old config by removing options
         if config._cfg.has_option("default", "name"):
@@ -322,7 +322,7 @@ class TestNodeConfig(BaseConfigTest):
         self.assertEqual(config._cfg.get("security", "minimum_samples"), "0")
 
     def test_04_node_config_migrate_new(self):
-        config = NodeConfig(root="test")
+        config = NodeConfig(root=os.path.abspath("test"))
 
         # Should not raise any warning
         with patch("fedbiomed.common.logger.logger.warning") as log_warn:
@@ -332,7 +332,7 @@ class TestNodeConfig(BaseConfigTest):
 
 class TestResearcherConfig(BaseConfigTest):
     def test_01_researcher_config_generate(self):
-        config = ResearcherConfig(root="tests")
+        config = ResearcherConfig(root=os.path.abspath("tests"))
 
         component = config.get("default", "component")
         self.assertEqual("researcher", component.lower())
@@ -348,7 +348,7 @@ class TestResearcherConfig(BaseConfigTest):
         self.assertTrue(r_key)
 
     def test_02_researcher_config_sections(self):
-        config = ResearcherConfig(root="test")
+        config = ResearcherConfig(root=os.path.abspath("test"))
         sections = config.sections()
 
         self.assertTrue("server" in sections)

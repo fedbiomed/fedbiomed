@@ -19,8 +19,6 @@ class TestCommonCLI(unittest.TestCase):
         self.mock_certificate_manager = self.patch_certificate_manager.start()
         self.mock_set_db = self.patch_set_db.start()
         self.config = MagicMock()
-        # Certificate commands target the mTLS store; enable it by default.
-        self.config.getbool.return_value = True
         self.cli = CommonCLI()
         self.cli.config = self.config
 
