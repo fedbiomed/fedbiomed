@@ -14,8 +14,9 @@ from fedbiomed.common.certificate_manager import (
     CertificateManager,
     TrustedCertificateBundle,
     certificate_expiry,
+    generate_certificate,
 )
-from fedbiomed.common.constants import ComponentType
+from fedbiomed.common.constants import CERTS_FOLDER_NAME, ComponentType
 from fedbiomed.common.exceptions import FedbiomedCertificateError
 
 
@@ -174,7 +175,8 @@ class TestCertificateManager(unittest.TestCase):
             "Test-ID"
         )
 
-    def test_05_certificate_manager_delete(self):
+    def test_05_certificate_manager_list(self):
+        """Tests list method of certificate manager"""
         dummy_result = [{"certificate": "xxxx", "party_id": "xxxx"}]
         self.tiny_db_table_mock.return_value.all.return_value = dummy_result
 
@@ -255,66 +257,58 @@ class TestCertificateManager(unittest.TestCase):
             with self.assertRaises(FedbiomedCertificateError):
                 self.cm._write_certificate_file("dummy/path", "Certificate")
 
-    @patch("os.path.abspath")
-    def test_10_certificate_generate_self_signed_ssl_certificate(self, mock_abspath):
-        """Tests method to generate self-signed ssl certificate"""
+    def test_09_operations_require_initialized_database(self):
+        """Using the manager before `set_db` is a clear error, not an AttributeError."""
+        with self.assertRaises(FedbiomedCertificateError):
+            CertificateManager().get("NODE_1")
 
-        certificate_folder = "test-dir"
+    def _generate(self, certificate_folder):
+        return self.cm.generate_self_signed_ssl_certificate(
+            certificate_folder=certificate_folder,
+            certificate_name="certificate",
+            component_id="component-id",
+        )
+
+    def test_10_generate_writes_key_and_certificate_files(self):
+        # Production always passes an absolute path (component roots are
+        # absolutized before reaching certificate generation).
+        folder = os.path.abspath("test-dir")
+        self.mock_isdir.return_value = True
         with patch("fedbiomed.common.certificate_manager.open") as mock_open:
-            self.mock_isdir.return_value = True
-            self.cm.generate_self_signed_ssl_certificate(
-                certificate_folder=certificate_folder,
-                certificate_name="certificate",
-                component_id="component-id",
-            )
+            self._generate(folder)
             self.assertEqual(
                 mock_open.call_args_list[0][0],
-                (os.path.join(certificate_folder, "certificate.key"), "wb"),
+                (os.path.join(folder, "certificate.key"), "wb"),
             )
             self.assertEqual(
                 mock_open.call_args_list[1][0],
-                (os.path.join(certificate_folder, "certificate.pem"), "wb"),
+                (os.path.join(folder, "certificate.pem"), "wb"),
             )
-
             self.assertEqual(
                 mock_open.return_value.__enter__.return_value.write.call_count, 2
             )
 
-            mock_open.side_effect = Exception
-            with self.assertRaises(FedbiomedCertificateError):
-                self.cm.generate_self_signed_ssl_certificate(
-                    certificate_folder=certificate_folder,
-                    certificate_name="certificate",
-                    component_id="component-id",
-                )
+    def test_11_generate_raises_when_a_file_cannot_be_written(self):
+        self.mock_isdir.return_value = True
+        # Failing on the key file write, then on the certificate file write.
+        for side_effect in (Exception, [MagicMock(), Exception]):
+            with self.subTest(side_effect=side_effect):
+                with patch(
+                    "fedbiomed.common.certificate_manager.open",
+                    side_effect=side_effect,
+                ):
+                    with self.assertRaises(FedbiomedCertificateError):
+                        self._generate(os.path.abspath("test-dir"))
 
-            # It didn't work: raising exception for the second call of `open`
-            mock_open.side_effect = [MagicMock(), Exception]
-            mock_abspath.return_value = True
-            self.mock_isdir.return_value = True
-            with self.assertRaises(FedbiomedCertificateError):
-                self.cm.generate_self_signed_ssl_certificate(
-                    certificate_folder=certificate_folder,
-                    certificate_name="certificate",
-                    component_id="component-id",
-                )
+    def test_12_generate_raises_for_non_existing_folder(self):
+        self.mock_isdir.return_value = False
+        with self.assertRaises(FedbiomedCertificateError):
+            self._generate(os.path.abspath("test-dir"))
 
-            mock_abspath.return_value = False
-            with self.assertRaises(FedbiomedCertificateError):
-                self.cm.generate_self_signed_ssl_certificate(
-                    certificate_folder=certificate_folder,
-                    certificate_name="certificate",
-                    component_id="component-id",
-                )
-
-            mock_abspath.return_value = True
-            self.mock_isdir.return_value = False
-            with self.assertRaises(FedbiomedCertificateError):
-                self.cm.generate_self_signed_ssl_certificate(
-                    certificate_folder=os.path.join(certificate_folder, "no-exisintg"),
-                    certificate_name="certificate",
-                    component_id="component-id",
-                )
+    def test_13_generate_rejects_relative_path(self):
+        # Absoluteness is checked before the folder is used, so no mocking needed.
+        with self.assertRaises(FedbiomedCertificateError):
+            self._generate("relative-dir")
 
 
 class TestCertificateExpiry(unittest.TestCase):
@@ -491,6 +485,33 @@ class TestGenerateSelfSignedCertificate(unittest.TestCase):
     def test_unknown_purpose_raises(self):
         with self.assertRaises(FedbiomedCertificateError):
             self._generate_with_purpose("NODE_1", "bogus")
+
+
+class TestGenerateCertificate(unittest.TestCase):
+    """The module-level `generate_certificate` wrapper."""
+
+    _NODE_ID = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+
+    def test_writes_certificate_files_under_root(self):
+        key_file, pem_file = generate_certificate(
+            root=self._tmp.name, component_id=self._NODE_ID
+        )
+        certs_dir = os.path.join(self._tmp.name, CERTS_FOLDER_NAME)
+        self.assertTrue(os.path.isfile(key_file))
+        self.assertTrue(os.path.isfile(pem_file))
+        self.assertEqual(os.path.dirname(pem_file), certs_dir)
+
+    def test_aborts_when_certificates_already_exist(self):
+        certs_dir = os.path.join(self._tmp.name, CERTS_FOLDER_NAME)
+        os.makedirs(certs_dir)
+        with open(os.path.join(certs_dir, "certificate.pem"), "w"):
+            pass
+        with self.assertRaises(FedbiomedCertificateError):
+            generate_certificate(root=self._tmp.name, component_id=self._NODE_ID)
 
 
 class TestRegisterCertificateComponent(unittest.TestCase):
