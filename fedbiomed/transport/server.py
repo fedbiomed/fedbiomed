@@ -552,7 +552,7 @@ class GrpcServer(_GrpcAsyncServer):
         """
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`"
+                f"{ErrorNumbers.FB628.value}: bad argument type for message, expected `Message`, got `{type(message)}`"
             )
 
         if not self._is_started.is_set():
@@ -575,12 +575,12 @@ class GrpcServer(_GrpcAsyncServer):
         """
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`"
+                f"{ErrorNumbers.FB628.value}: bad argument type for message, expected `Message`, got `{type(message)}`"
             )
 
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Can not broadcast given message. "
+                f"{ErrorNumbers.FB628.value}: Can not broadcast given message. "
                 "Communication client is not initialized."
             )
 
@@ -597,7 +597,7 @@ class GrpcServer(_GrpcAsyncServer):
         """
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Error while getting all nodes "
+                f"{ErrorNumbers.FB628.value}: Error while getting all nodes "
                 "connected:  Communication client is not initialized."
             )
 
@@ -617,7 +617,7 @@ class GrpcServer(_GrpcAsyncServer):
         """
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Error while getting node '{node_id}':"
+                f"{ErrorNumbers.FB628.value}: Error while getting node '{node_id}':"
                 "Communication client is not initialized."
             )
 
@@ -636,7 +636,7 @@ class GrpcServer(_GrpcAsyncServer):
         """
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Can not check if thread is alive."
+                f"{ErrorNumbers.FB628.value}: Can not check if thread is alive."
                 "Communication client is not initialized."
             )
 

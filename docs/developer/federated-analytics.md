@@ -100,6 +100,15 @@ Once all nodes have replied, `FAResult` calls `AGGREGATORS_MAP` to combine per-n
 | `histogram` | element-wise count sum (bin edges must match across nodes) | Under validation |
 | `quantile` | linear interpolation on the aggregated histogram | Under validation |
 
+### Secure aggregation path
+
+When the experiment runs with `secagg=True`, the per-node summaries are encrypted rather than returned in plaintext:
+
+- **Node side** (`_fa_job.py`): the stat output tree is flattened to a vector (`flatten_fa_output`, quantized, and encrypted with the active scheme. The `FAReply` then carries `params_encrypted` and `output_schema` instead of `output`.
+- **Researcher side** (`_federated_analytics.py`): the encrypted vectors are summed and decrypted via `SecureAggregation.aggregate`, unflattened back into a stat tree (`unflatten_fa_output`), and stored under a single virtual node `__secagg__`. The usual `AGGREGATORS_MAP` then derives the global stats from those combined primitives. The real participating node IDs are kept separately so `FAResult.node_ids` still reports them (not the `__secagg__` sentinel); `node_stats()` has no per-node values to return and falls back to `global_stats()`.
+
+Only the summed primitives are ever recovered — never any individual node's values. See [Secure Aggregation](../user-guide/secagg/introduction.md).
+
 ---
 
 ## Component Responsibilities
@@ -117,6 +126,7 @@ Once all nodes have replied, `FAResult` calls `AGGREGATORS_MAP` to combine per-n
 | `fedbiomed/common/analytics/accumulators/_row.py` | Vectorised accumulator for tabular / row data |
 | `fedbiomed/common/analytics/accumulators/_image.py` | Accumulator for N-D array data — **not yet supported**; image datasets are not covered by FA |
 | `fedbiomed/common/analytics/accumulators/_base.py` | `Accumulator` abstract base class |
+| `fedbiomed/common/utils/_fa_secagg_utils.py` | `flatten_fa_output` / `unflatten_fa_output` — vector (de)serialisation for the secure-aggregation path (sorted, node-aligned) |
 
 ### Node layer
 
@@ -168,5 +178,6 @@ Once all nodes have replied, `FAResult` calls `AGGREGATORS_MAP` to combine per-n
 ## Related Documentation
 
 - User guide: [Federated Analytics](../user-guide/datasets/federated-analytics.md)
+- Secure aggregation: [Secure Aggregation](../user-guide/secagg/introduction.md)
 - Notebook tutorial: `notebooks/federated_analytics.ipynb`
 - API reference: [Common Analytics](api/common/analytics.md) · [Node Jobs](api/node/jobs.md) · [Researcher Federated Workflows](api/researcher/federated_workflows.md)

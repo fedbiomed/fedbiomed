@@ -444,7 +444,7 @@ class Node:
             send=self._grpc_client.send,
         )
         dataset_id = msg.get_param("dataset_id")
-        data = self.dataset_manager.dataset_table.get_by_id(dataset_id)
+        data, _ = self.dataset_manager.get_dataset_entry_by_id(dataset_id)
 
         if data is None:
             return self.send_error(
@@ -486,7 +486,7 @@ class Node:
             model_kwargs=msg.get_param("model_args") or {},
             training_kwargs=msg.get_param("training_args") or {},
             training=msg.get_param("training") or False,
-            dataset=data,
+            dataset_entry=data,
             params=msg.get_param("params"),
             experiment_id=msg.get_param("experiment_id"),
             researcher_id=msg.get_param("researcher_id"),
@@ -560,7 +560,7 @@ class Node:
                                 logger.security_event(
                                     operation="training_round_start",
                                     status="initiated",
-                                    dataset_id=round_.dataset.get("dataset_id"),
+                                    dataset_id=round_.dataset_entry.get("dataset_id"),
                                     training_plan_id=item.get_param(
                                         "training_plan_class"
                                     ),
@@ -571,7 +571,7 @@ class Node:
                                     item.request_id,
                                     item.experiment_id,
                                     item.round,
-                                    round_.dataset.get("dataset_id"),
+                                    round_.dataset_entry.get("dataset_id"),
                                     item.get_param("training_plan_class"),
                                 )
                                 msg = round_.run_model_training(
@@ -599,7 +599,7 @@ class Node:
                                 logger.security_event(
                                     operation="training_round_complete",
                                     status="success",
-                                    dataset_id=round_.dataset.get("dataset_id"),
+                                    dataset_id=round_.dataset_entry.get("dataset_id"),
                                     training_plan_id=item.get_param(
                                         "training_plan_class"
                                     ),
@@ -646,6 +646,14 @@ class Node:
                                 allow_fa=self.config.getbool(
                                     "security", "allow_federated_analytics"
                                 ),
+                                db=self._db_path,
+                                secagg_active=self._config.getbool(
+                                    "security", "secure_aggregation"
+                                ),
+                                force_secagg=self._config.getbool(
+                                    "security", "force_secure_aggregation"
+                                ),
+                                secagg_arguments=item.get_param("secagg_arguments"),
                             )
                             response = fa_job.run()
                             self._grpc_client.send(response)
@@ -654,6 +662,7 @@ class Node:
                                 operation="federated_analytics_complete",
                                 status="success",
                             )
+                            del fa_job
                         case PreprocRequest.__name__:
                             # Log preprocessing start
                             logger.security_event(
@@ -666,17 +675,20 @@ class Node:
                                 node_id=self._node_id,
                                 node_name=self._node_name,
                                 request=item,
+                                db=self._db_path,
                                 allow_preproc=self.config.getbool(
                                     "security", "allow_preproc"
                                 ),
                             )
                             response = preproc_job.run()
                             self._grpc_client.send(response)
+
                             # Log preprocessing complete
                             logger.security_event(
                                 operation="preprocessing_complete",
                                 status="success",
                             )
+                            del preproc_job
                         case _:
                             errmess = (
                                 f"{ErrorNumbers.FB319.value}: Undefined request message"

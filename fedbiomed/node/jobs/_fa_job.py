@@ -5,15 +5,26 @@
 Implementation of Federated Analytics Job class of the node component
 """
 
-from typing import Dict
+from typing import Dict, Optional
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers, FedbiomedError, Stats
+import polars as pl
+
+from fedbiomed.common.constants import (
+    DatasetTypes,
+    ErrorNumbers,
+    FedbiomedError,
+    SAParameters,
+    Stats,
+)
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import REGISTRY_CONTROLLERS, Dataset
 from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.exceptions import FedbiomedSecureAggregationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, FAReply, FARequest
+from fedbiomed.common.utils import flatten_fa_output
 from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.secagg import SecaggRound
 
 from ._base_job import _BaseJob, _InternalJobError
 
@@ -31,6 +42,10 @@ class FAJob(_BaseJob):
         node_name: str,
         request: FARequest,
         allow_fa: bool,
+        db: str = "",
+        secagg_active: bool = False,
+        force_secagg: bool = False,
+        secagg_arguments: Optional[Dict] = None,
     ) -> None:
         """Constructor of the class
 
@@ -41,6 +56,12 @@ class FAJob(_BaseJob):
             node_name: Node name (Hospital name)
             request: FARequest message object containing all information about the FA task
             allow_fa: True if federated analytics is allowed on this node, False otherwise
+            db: Path to the node database file; required when secagg is active.
+            secagg_active: True if secure aggregation is enabled in node config.
+            force_secagg: True if the node mandates secure aggregation; an FA request
+                without secagg_arguments is then rejected.
+            secagg_arguments: Secure aggregation arguments forwarded from the FARequest;
+                None means the researcher did not request encryption.
         """
         super().__init__(root_dir, dataset_manager, node_id, node_name, request)
 
@@ -51,6 +72,10 @@ class FAJob(_BaseJob):
         self._stats_args = request.stats_args
         self._dataset_schema = request.dataset_schema
         self._allow_fa = allow_fa
+        self._db = db
+        self._secagg_active = secagg_active
+        self._force_secagg = force_secagg
+        self._secagg_arguments = secagg_arguments
 
     def _build_args_for_dataset(self, dataset_entry: dict) -> dict:
         """Extract dataset constructor arguments from a dataset registry entry.
@@ -79,8 +104,15 @@ class FAJob(_BaseJob):
                     f"Dataset entry contains unsupported dataset type '{data_type}'."
                 )
             case DatasetTypes.TABULAR:
-                # Take keys in 'dtypes' and pass them as ``input_columns`` to the dataset constructor
-                return {"input_columns": list(dataset_entry.get("dtypes", {}))}
+                # Keep only columns whose dtype produces a numerical numpy array via to_numpy()
+                return {
+                    "input_columns": [
+                        col
+                        for col, dtype_name in dataset_entry.get("dtypes", {}).items()
+                        if (cls := getattr(pl, dtype_name, None)) is not None
+                        and cls().is_numeric()
+                    ]
+                }
             case DatasetTypes.IMAGES | DatasetTypes.DEFAULT | DatasetTypes.MEDNIST:
                 # For image datasets, no dataset arguments are passed by default
                 return {}
@@ -109,7 +141,9 @@ class FAJob(_BaseJob):
                 unsupported, the DLP cannot be deserialised, or initialisation fails.
         """
         # recover dataset entry
-        dataset_entry = self._dataset_manager.dataset_table.get_by_id(self._dataset_id)
+        dataset_entry, _ = self._dataset_manager.get_dataset_entry_by_id(
+            self._dataset_id
+        )
         if dataset_entry is None:
             raise _InternalJobError(
                 f"Cannot find requested dataset in local datasets: dataset_id='{self._dataset_id}' "
@@ -126,9 +160,10 @@ class FAJob(_BaseJob):
             )
 
         # get controller parameters
+        # `root` is in both `dataset_parameters` and `path`; they must be the same.
         controller_kwargs = {
-            "root": dataset_entry.get("path"),
             **dataset_entry.get("dataset_parameters", {}),
+            "root": dataset_entry.get("path"),
         }
 
         # recover dlp if any
@@ -141,13 +176,13 @@ class FAJob(_BaseJob):
                     f"Cannot recover dlp on node={self._node_id}: {repr(e)}"
                 ) from e
 
-        # REGISTRY_CONTROLLERS maps dataset_type -> (controller_cls, loader_cls, dataset_cls)
-        _, _, dataset_cls = REGISTRY_CONTROLLERS[dataset_type]
+        # REGISTRY_CONTROLLERS maps dataset_type -> (controller_cls, dataset_cls)
+        _, dataset_cls = REGISTRY_CONTROLLERS[dataset_type]
 
         try:
             # build with type-specific args then attach controller config and output format
             dataset = dataset_cls(**self._build_args_for_dataset(dataset_entry))
-            dataset.complete_initialization(controller_kwargs, return_type)
+            dataset.load(to_format=return_type, **controller_kwargs)
         except FedbiomedError as e:
             raise _InternalJobError(
                 f"Cannot initialize dataset on node='{self._node_id}': {repr(e)}"
@@ -161,6 +196,41 @@ class FAJob(_BaseJob):
             ) from e
 
         return dataset
+
+    def _check_clipping_overflow(
+        self, flat: list, schema: list, clip: float
+    ) -> Optional[ErrorMessage]:
+        """Reject statistics outside [-clip, clip]; encrypting them corrupts the aggregate.
+
+        Args:
+            flat: Flattened computed analytics values.
+            schema: Per-value key-paths (parallel to `flat`); empty path = bare scalar.
+            clip: Symmetric clipping bound.
+
+        Returns:
+            An ErrorMessage naming the offenders, or None if all values fit.
+        """
+        named = []
+        n_over = 0
+        for value, key_path in zip(flat, schema, strict=True):
+            if value > clip or value < -clip:
+                n_over += 1
+                path = ".".join(str(k) for k in key_path)
+                if path:  # bare scalars have no key-path → no name to report
+                    named.append(path)
+
+        if not n_over:
+            return None
+
+        where = f" Offending statistic(s): {', '.join(named)}." if named else ""
+        return self._build_error_msg(
+            msg=(
+                f"{n_over} computed analytics value(s) exceed the secure "
+                f"aggregation clipping range; encrypting would "
+                f"corrupt the result.{where} Restrict the request."
+            ),
+            errnum=ErrorNumbers.FB325.value,
+        )
 
     def run(self) -> FAReply | ErrorMessage:
         """Run FA job and return FAReply message or ErrorMessage in case of failure."""
@@ -214,6 +284,47 @@ class FAJob(_BaseJob):
                     f"on node='{self._node_id}': {repr(e)}"
                 ),
                 errnum=ErrorNumbers.FB325.value,
+            )
+
+        try:
+            secagg_round = SecaggRound(
+                db=self._db,
+                node_id=self._node_id,
+                secagg_arguments=self._secagg_arguments,
+                secagg_active=self._secagg_active,
+                force_secagg=self._force_secagg,
+                experiment_id=self._experiment_id,
+            )
+        except FedbiomedSecureAggregationError as e:
+            return self._build_error_msg(msg=repr(e), errnum=ErrorNumbers.FB325.value)
+
+        if secagg_round.use_secagg:
+            # FA uses fixed ranges, never recovered from the request.
+            flat, schema = flatten_fa_output(output)
+            clip_error = self._check_clipping_overflow(
+                flat, schema, clip=SAParameters.FA_CLIPPING_RANGE
+            )
+            if clip_error is not None:
+                return clip_error
+            encrypted_params = secagg_round.scheme.encrypt(
+                flat,
+                current_round=self._secagg_arguments.get("fa_round", 1),
+                weight=1,
+                target_range=SAParameters.FA_TARGET_RANGE,
+                clipping_range=SAParameters.FA_CLIPPING_RANGE,
+            )
+
+            return FAReply(
+                request_id=self._request_id,
+                researcher_id=self._researcher_id,
+                experiment_id=self._experiment_id,
+                fa_id=self._fa_id,
+                stats=self._stats,
+                node_id=self._node_id,
+                node_name=self._node_name,
+                encrypted=True,
+                params_encrypted=encrypted_params,
+                output_schema=schema,
             )
 
         return FAReply(

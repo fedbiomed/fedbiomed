@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
@@ -24,12 +25,20 @@ class CustomBuildHook(BuildHookInterface):
             )
 
         os.chdir("fedbiomed_gui/ui")
-        try:
-            logger.info(
-                "### Yarn: Installation front-end dependencies to prepare build.\n"
-            )
-            subprocess.run([yarn, "install"], check=True)
-            logger.info("\n### Yarn: Building front-end application run.\n")
-            subprocess.run([yarn, "build"], check=True)
-        finally:
-            os.chdir("../../")
+        for attempt in range(3):
+            try:
+                logger.info(
+                    "### Yarn: Installation front-end dependencies to prepare build.\n"
+                )
+                subprocess.run([yarn, "install"], check=True)
+                logger.info("\n### Yarn: Building front-end application run.\n")
+                subprocess.run([yarn, "build"], check=True)
+            except subprocess.CalledProcessError:
+                if attempt < 2:
+                    time.sleep(5)
+                else:
+                    raise
+            else:
+                break
+
+        os.chdir("../../")

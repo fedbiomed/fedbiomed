@@ -50,9 +50,12 @@ class FakeModel(BaseTrainingPlan):
         training_args: Dict[str, Any],
         aggregator_args: Optional[Dict[str, Any]] = None,
         node_id: Optional[str] = None,
+        round: Optional[int] = None,
     ) -> None:
         """Fake 'post_init', that does not make use of input arguments."""
-        super().post_init(model_args, training_args, aggregator_args, node_id=node_id)
+        super().post_init(
+            model_args, training_args, aggregator_args, node_id=node_id, round=round
+        )
 
     def model(self):
         return self._model
@@ -121,15 +124,6 @@ class FakeModel(BaseTrainingPlan):
             path (str): saving path
         """
         super().save_code(path, from_code=from_code)
-
-    def set_dataset_path(self, path: str):
-        """Fakes `set_dataset` method of TrainingPlan classes. Originally
-        used for setting dataset path. Passed arguments are unused.
-
-        Args:
-            path (str): originally, path where the node dataset are stored.
-            Unused in this method.
-        """
 
     def training_routine(self, **kwargs):
         """Fakes `training_routine` method of TrainingPlan classes. Originally

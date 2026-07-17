@@ -25,7 +25,7 @@ class _SecaggSchemeRound(ABC):
 
         Args:
             node_id: Id of the active node.
-            secagg_arguments:  secure aggregation arguments from train request
+            secagg_arguments:  secure aggregation arguments from the request
             experiment_id: Experiment identifier that secure aggregation round
                 will be performed for.
         """
@@ -35,7 +35,7 @@ class _SecaggSchemeRound(ABC):
             secagg_clipping_range, int
         ):
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB318.value}: Bad secagg clipping range type in train "
+                f"{ErrorNumbers.FB318.value}: Bad secagg clipping range type in "
                 f"request: {type(secagg_clipping_range)}"
             )
 
@@ -48,7 +48,7 @@ class _SecaggSchemeRound(ABC):
 
         if len(self._parties) < self._min_num_parties:
             raise FedbiomedSecureAggregationError(
-                f"{ErrorNumbers.FB318.value}: Bad parties list in train request: {self._parties}"
+                f"{ErrorNumbers.FB318.value}: Bad parties list in request: {self._parties}"
             )
 
     @property
@@ -62,7 +62,12 @@ class _SecaggSchemeRound(ABC):
 
     @abstractmethod
     def encrypt(
-        self, params: List[float], current_round: int, weight: Optional[int] = None
+        self,
+        params: List[float],
+        current_round: int,
+        weight: Optional[int] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> request value (training)
     ) -> List[int]:
         """Encrypts model parameters after local training.
 
@@ -89,7 +94,7 @@ class _JLSRound(_SecaggSchemeRound):
         Args:
             db: Path to database file.
             node_id: ID of the active node.
-            secagg_arguments:  secure aggregation arguments from train request
+            secagg_arguments:  secure aggregation arguments from the request
             experiment_id: unique ID of experiment
 
         Raises:
@@ -107,7 +112,7 @@ class _JLSRound(_SecaggSchemeRound):
         if self._secagg_servkey is None:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Server-key/user-key share for "
-                f"secagg: {secagg_servkey_id} is not existing. Aborting train request."
+                f"secagg: {secagg_servkey_id} is not existing. Aborting request."
             )
 
         if not matching_parties_servkey(self._secagg_servkey, self._parties):
@@ -117,7 +122,12 @@ class _JLSRound(_SecaggSchemeRound):
             )
 
     def encrypt(
-        self, params: List[float], current_round: int, weight: Optional[int] = None
+        self,
+        params: List[float],
+        current_round: int,
+        weight: Optional[int] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> request value (training)
     ) -> List[int]:
         """Encrypts model parameters with Joye-Libert after local training.
 
@@ -137,8 +147,13 @@ class _JLSRound(_SecaggSchemeRound):
             params=params,
             key=self._secagg_servkey["context"]["server_key"],
             biprime=self._secagg_servkey["context"]["biprime"],
-            clipping_range=self._secagg_clipping_range,
+            clipping_range=(
+                clipping_range
+                if clipping_range is not None
+                else self._secagg_clipping_range
+            ),
             weight=weight,
+            target_range=target_range,
         )
 
 
@@ -153,7 +168,7 @@ class _LomRound(_SecaggSchemeRound):
         Args:
             db: Path to database file.
             node_id: ID of the active node.
-            secagg_arguments:  secure aggregation arguments from train request
+            secagg_arguments:  secure aggregation arguments from the request
             experiment_id: unique ID of experiment
 
         Raises:
@@ -172,7 +187,7 @@ class _LomRound(_SecaggSchemeRound):
         if self._secagg_dh is None:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Diffie Hellman context for "
-                f"secagg: {secagg_dh_id} is not existing. Aborting train request."
+                f"secagg: {secagg_dh_id} is not existing. Aborting request."
             )
 
         if not matching_parties_dh(self._secagg_dh, self._parties):
@@ -184,7 +199,12 @@ class _LomRound(_SecaggSchemeRound):
         self.crypter = SecaggLomCrypter(nonce=self._secagg_id)
 
     def encrypt(
-        self, params: List[float], current_round: int, weight: Optional[int] = None
+        self,
+        params: List[float],
+        current_round: int,
+        weight: Optional[int] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> request value (training)
     ) -> List[int]:
         """Encrypts model parameters with LOM after local training.
 
@@ -202,8 +222,13 @@ class _LomRound(_SecaggSchemeRound):
             current_round=current_round,
             params=params,
             pairwise_secrets=self._secagg_dh["context"],
-            clipping_range=self._secagg_clipping_range,
+            clipping_range=(
+                clipping_range
+                if clipping_range is not None
+                else self._secagg_clipping_range
+            ),
             weight=weight,
+            target_range=target_range,
         )
 
 
@@ -241,7 +266,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
         if not secagg_arguments and self._force_secagg:
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB318.value}: Node requires to apply secure aggregation but "
-                f"training request does not define it."
+                f"request does not define it."
             )
 
         if secagg_arguments:
@@ -262,7 +287,7 @@ class SecaggRound:  # pylint: disable=too-few-public-methods
                 _scheme = SecureAggregationSchemes(sn)
             except ValueError as e:
                 raise FedbiomedSecureAggregationError(
-                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in train request: {sn}"
+                    f"{ErrorNumbers.FB318.value}: Bad secagg scheme value in request: {sn}"
                 ) from e
 
             self.scheme = SecaggRound.element2class[_scheme.value](

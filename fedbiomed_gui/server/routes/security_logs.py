@@ -258,6 +258,14 @@ def _item_to_search_text(item: Dict[str, Any]) -> str:
 
 
 def _matches_filters(item: Dict[str, Any], filters: Dict[str, FilterValue]) -> bool:
+    """Check if a log item matches the provided filters.
+
+    Args:
+        item: A dictionary representing a log entry.
+        filters: A dictionary of filter criteria.
+    Returns:
+        True if the item matches all filters, False otherwise.
+    """
     operation = filters.get("operation")
     if operation and str(item.get("operation")) != operation:
         return False

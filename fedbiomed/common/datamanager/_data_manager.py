@@ -5,11 +5,10 @@
 Data Management factory class
 """
 
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional
 
 from fedbiomed.common.constants import ErrorNumbers, TrainingPlans
 from fedbiomed.common.dataset import Dataset
-from fedbiomed.common.dataset._native_dataset import NativeDataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -33,41 +32,31 @@ class DataManager(object):
 
     Data loader type is based on the framework of the training plan.
 
-    If `dataset` is not yet a `Dataset`, it also wraps it in a `NativeDataset` object.
+    Expects a structured `Dataset` (e.g. `CustomDataset`, `TabularDataset`).
     """
 
     _loader_arguments: Dict
     _dataset: Dataset
     _data_manager_instance: Optional[FrameworkDataManager] = None
 
-    def __init__(
-        self, dataset: Union[Dataset, Any], target: Optional[Any] = None, **kwargs: dict
-    ) -> None:
+    def __init__(self, dataset: Dataset, **kwargs: dict) -> None:
         """Constructor of DataManager,
 
         Args:
-            dataset: Either an already structured `Dataset` or the data component of
-                unformatted dataset
-            target: Target component of unformatted dataset, or `None` for an already
-                structured dataset
+            dataset: An already structured `Dataset`
             **kwargs: Additional parameters that are going to be used for data loader
 
         Raises:
-            FedbiomedError: using targets with structured dataset
-            FedbiomedError: cannot create a native dataset from unformatted data
+            FedbiomedError: if `dataset` is not a `Dataset` instance
         """
         # no type check needed, kwargs are dict
         self._loader_arguments = kwargs
 
-        if isinstance(dataset, Dataset):
-            if target is not None:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: cannot use `target` argument "
-                    f"when using a formatted dataset. Targets are already part of the "
-                    f"`Dataset` argument"
-                )
-        else:
-            dataset = NativeDataset(dataset, target)
+        if not isinstance(dataset, Dataset):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: `dataset` must be a `Dataset` instance "
+                f"(e.g. `CustomDataset`), got {type(dataset).__name__}."
+            )
 
         self._dataset = dataset
 
@@ -111,13 +100,11 @@ class DataManager(object):
                 "cannot instantiate data manager."
             )
 
-    def complete_dataset_initialization(
-        self, controller_kwargs: Dict[str, Any]
-    ) -> None:
+    def load_dataset(self, **kwargs: Any) -> None:
         """Finalizes initialization of the DataManager's dataset controller
 
         Args:
-            controller_kwargs: arguments for the controller
+            **kwargs: arguments for the controller
 
         Raises:
             FedbiomedError: if `_data_manager_instance` is not initialized
@@ -130,9 +117,9 @@ class DataManager(object):
             )
 
         try:
-            self._dataset.complete_initialization(
-                controller_kwargs,
-                _dm_to_format[self._data_manager_instance.__class__],
+            self._dataset.load(
+                **kwargs,
+                to_format=_dm_to_format[self._data_manager_instance.__class__],
             )
         except FedbiomedError as e:
             raise e

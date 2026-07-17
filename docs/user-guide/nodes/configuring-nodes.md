@@ -66,6 +66,35 @@ fbm-node
 
 Please see section [Using non-default Fed-BioMed node](#using-non-default-Fed-BioMed-node) to select different node installations.
 
+## Managing the Node after Startup
+
+After running the command `fedbiomed node start` in the previous section to start the node, you can follow the status of the node from another terminal.
+
+To see the node status, run:
+
+```bash
+fedbiomed node status
+```
+
+You can also similarly stop or restart the node as well:
+
+```bash
+fedbiomed node stop
+fedbiomed node restart
+```
+
+If you don't want to use another terminal, running the node in the background is also possible using the `--background` option. This way, you can run the start/stop/restart commands from the same terminal.
+
+```bash
+fedbiomed node start --background
+
+# Later, if we decided to restart the node on debug mode for example.
+fedbiomed node restart --background --debug 
+```
+
+!!! note "Note"
+    When the background option is used, logs are going to be logged in "NODE_DIR/log/node_process.log" file, instead of the terminal.
+
 ### Configuration file: config.ini
 
 A configuration file is an `ini` file that is located in the component directory. Each configuration file is unique to one node.

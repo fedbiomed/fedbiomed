@@ -146,7 +146,7 @@ class NodeToNodeController:
         """
 
         logger.error(
-            f"{ErrorNumbers.FB324}: Failed processing overlay message, unknown inner command "
+            f"{ErrorNumbers.FB324.value}: Failed processing overlay message, unknown inner command "
             f"{inner_msg.__class__.__name__}. Do nothing."
         )
 
@@ -203,7 +203,7 @@ class NodeToNodeController:
             inner_msg.request_id,
         ):
             logger.warning(
-                f"{ErrorNumbers.FB324}: Received channel key of unregistered "
+                f"{ErrorNumbers.FB324.value}: Received channel key of unregistered "
                 f"peer node {inner_msg.node_id} "
                 f"or reply to non existing request {inner_msg.request_id}. "
                 f"Distant node may be confused or it may be an attack."

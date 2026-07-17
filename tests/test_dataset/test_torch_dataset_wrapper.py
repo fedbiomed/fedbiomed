@@ -14,7 +14,7 @@ class NoneDataDataset(Dataset):
     def __getitem__(self, idx):
         return None, torch.tensor([1.0])
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -28,7 +28,7 @@ class NonTensorDataDataset(Dataset):
     def __getitem__(self, idx):
         return np.array([1.0, 2.0]), torch.tensor([1.0])
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -42,7 +42,7 @@ class DictNonTensorValuesDataset(Dataset):
     def __getitem__(self, idx):
         return {"a": np.array([1.0]), "b": np.array([2.0])}, torch.tensor([1.0])
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -56,7 +56,7 @@ class NoneTargetDataset(Dataset):
     def __getitem__(self, idx):
         return torch.tensor([1.0]), None
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -70,7 +70,7 @@ class InvalidTargetTypeDataset(Dataset):
     def __getitem__(self, idx):
         return torch.tensor([1.0]), 999
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -84,7 +84,7 @@ class ValidDictTensorDataset(Dataset):
     def __getitem__(self, idx):
         return {"x": torch.tensor([1.0, 2.0])}, {"x": torch.tensor([1.0])}
 
-    def complete_initialization(self):
+    def load(self):
         pass
 
     def _apply_transforms(self, sample):
@@ -122,8 +122,9 @@ def test_getitem_dict_non_tensor_values():
 
 def test_getitem_none_target():
     w = _DatasetWrapper(NoneTargetDataset())
-    with pytest.raises(FedbiomedError):
-        w[0]
+    data, target = w[0]
+    assert isinstance(data, torch.Tensor)
+    assert target is None
 
 
 def test_getitem_invalid_target_type():

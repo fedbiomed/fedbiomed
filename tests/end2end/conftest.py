@@ -3,16 +3,25 @@ Module for global PyTest configuration and fixtures
 
 """
 
+import atexit
 import os
 import re
 import shutil
 import tempfile
+
+# Redirect the researcher component created on `fedbiomed.researcher.config`
+# import to a temp dir, so tests never write it into the repository.
+if "FBM_RESEARCHER_COMPONENT_ROOT" not in os.environ:
+    _researcher_root = tempfile.mkdtemp(prefix="fbm-researcher-e2e-")
+    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = _researcher_root
+    atexit.register(shutil.rmtree, _researcher_root, ignore_errors=True)
 
 import psutil
 import pytest
 from helpers import (
     CONFIG_PREFIX,
     kill_process,
+    stop_researcher_server,
 )
 
 _PORT = 50151
@@ -50,6 +59,7 @@ def post_session(request, data):
 
     yield
 
+    stop_researcher_server()
     print("#### Killing e2e processes after the tests -----")
     kill_e2e_test_processes()
     print("#### Killing is completed")

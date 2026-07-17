@@ -71,15 +71,15 @@ class PRF:
             algorithms.ChaCha20(seed, self._nonce), mode=None, backend=default_backend()
         ).encryptor()
 
-        # TODO: Better handling limits for secure aggregation
-        if not (input_size + _MAX_ROUND) <= 2**32:
+        if not (input_size + _MAX_ROUND) <= 2**61:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB417.value}: Can not perform encryiton due to large input vector. input_size "
-                f"({input_size}) + MAX_ROUND ({_MAX_ROUND}) allowed is greater than 2**32"
+                f"({input_size}) + MAX_ROUND ({_MAX_ROUND}) allowed is greater than 2**61 "
             )
 
         # create a list of indices from 0 to input_size where each element is concatenated with tau
-        taus = b"".join([(i + tau).to_bytes(4, "big") for i in range(input_size)])
+        taus = b"".join([(i + tau).to_bytes(8, "big") for i in range(input_size)])
+
         return encryptor.update(taus) + encryptor.finalize()
 
 
@@ -97,7 +97,7 @@ class LOM:
             nonce = secrets.token_bytes(16)
 
         self._prf: PRF = PRF(nonce)
-        self._vector_dtype: str = "uint32"
+        self._vector_dtype: str = "uint64"
         self._values_bit = np.iinfo(
             np.dtype(self._vector_dtype)
         ).bits  # should be equal to 32 bit
@@ -122,8 +122,8 @@ class LOM:
 
         Raises:
             FedBioMedError: raises if the input vector `x_u_tau` contains any
-                values that exceed  `32 - log_2(numner_of_nodes)`, where `32` is
-                the number of bit for each value (`uint32`). Not respecting the above condition
+                values that exceed  `64 - log_2(numner_of_nodes)`, where `64` is
+                the number of bit for each value (`uint64`). Not respecting the above condition
                 can lead to computation overflow.
 
         Returns:
@@ -134,13 +134,19 @@ class LOM:
         _max_param_bits = max(val.bit_length() for val in x_u_tau)
         _node_bits = math.ceil(math.log2(num_nodes))
 
-        if _max_param_bits > self._values_bit - _node_bits:
+        if _max_param_bits >= self._values_bit - _node_bits:
             _max_nodes = 2 ** (self._values_bit - _max_param_bits)
             _missing_bits = _max_param_bits + _node_bits - self._values_bit
             raise FedbiomedSecaggError(
-                f"{ErrorNumbers.FB417.value}: Computation overflow using LOM secagg "
-                f"with current settings. Cannot use more than {_max_nodes} nodes or need to "
-                f"reduce sample number on this node to use {_missing_bits} bit(s) less."
+                f"{ErrorNumbers.FB417.value}: Secure aggregation overflow detected.\n\n"
+                f"Your value requires {_max_param_bits} bits, but only {self._values_bit - _node_bits} bits "
+                f"are available ({self._values_bit}-bit dtype minus {_node_bits} bits reserved for {num_nodes} nodes).\n\n"
+                f"To fix this, choose one of the following:\n"
+                f"  1) Reduce the number of nodes to at most {_max_nodes} (currently {num_nodes}).\n"
+                f"  2) Reduce your values by at least {_missing_bits} bit(s) "
+                f"(i.e. divide them by at least {2**_missing_bits}).\n"
+                f"  3) If you are quantizing model weights, use a lower quantization range "
+                f"so that individual values fit within {self._values_bit - _node_bits} bits."
             )
 
         x_u_tau = np.array(x_u_tau, dtype=self._vector_dtype)
@@ -158,9 +164,7 @@ class LOM:
             pairwise_vector = self._prf.eval_vector(
                 seed=pairwise_seed, tau=tau, input_size=len(x_u_tau)
             )
-
             pairwise_vector = np.frombuffer(pairwise_vector, dtype=self._vector_dtype)
-
             if pair_id < node_id:
                 mask += pairwise_vector
             else:
@@ -182,7 +186,7 @@ class LOM:
         """
         list_y_u_tau = np.array(list_y_u_tau, dtype=self._vector_dtype)
         decrypted_vector = np.sum(list_y_u_tau, axis=0)
-        decrypted_vector = decrypted_vector.astype(np.uint32)
+        decrypted_vector = decrypted_vector.astype(np.uint64)
         decrypted_vector = decrypted_vector.tolist()
 
         return decrypted_vector

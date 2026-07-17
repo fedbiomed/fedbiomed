@@ -17,6 +17,8 @@
 
 To create your own dataset class, inherit from `CustomDataset`. The `CustomDataset` provides a `path` attribute, which points to either a folder or a specific file. This makes it easy to use the path as the root location for datasets that include multiple types of data (multi-modality), such as images and text.
 
+The `path` value is set by the **node** from its dataset registry, and is **read-only**: it cannot be reassigned from your subclass. Always load your data relative to `self.path` — do not hardcode absolute paths.
+
 !!! note "Real-World Deployment"
     In real-world use with Fed-BioMed, if you want to use a dataset type that isn’t already supported, you’ll need to know whether the `path` refers to a file or a folder. This information is included in the dataset description, which you can retrieve using the `list` or `search` methods of the `Experiment` class.
 
@@ -33,7 +35,9 @@ To create your own dataset class, inherit from `CustomDataset`. The `CustomDatas
 - `__len__(self)` should returns the number of samples in the dataset.
 
 !!! important "Special methods"
-    In order to avoid unexpected errors, do not override `__getitem__` or `__init__` directly
+    In order to avoid unexpected errors, do not override `__getitem__` or `__init__` directly.
+    The `load` and `path` members are reserved as well: they are provided by the
+    node and overriding them in a subclass raises an error at class-definition time.
 
 ### Example: CSV Dataset
 
@@ -67,6 +71,26 @@ If you do not implement the required methods (`read`, `get_item`, `__len__`), or
 
 - Use the `path` attribute to specify the dataset location.
 - Validate your data types to match the expected format.
+
+## Data Access and Security
+
+!!! warning "Not safe for deployment without Training Plan approval"
+    A `CustomDataset` executes arbitrary researcher-supplied code on the node, so it is **not
+    safe to deploy without review**. Be particularly careful.
+
+A `CustomDataset` subclass runs researcher-written code **on the node**. The read-only `path`
+attribute makes the data location explicit and prevents accidental reassignment, but it is
+**not** a sandbox — `read` is ordinary Python and could access files outside `path`. Limiting a
+training plan to its declared data is therefore a node-level concern:
+
+- **Training-plan approval** — by default a node only runs training plans approved by an
+  administrator (see [Training with Approved Training Plans](../../tutorials/security/training-with-approved-training-plans.ipynb));
+  reviewers should confirm `read` loads only from `self.path`.
+- **Deployment isolation** — run the node so it can only see the data it serves (e.g. a
+  container mounting just the dataset directory, read-only).
+
+!!! important "Read from `self.path`"
+    Always read from `self.path` and never hardcode absolute paths, so your dataset works on any node.
 
 ## Transformation
 Transformations can be implemented in either the `read` or `get_item` methods. Unlike Fed-BioMed's provided dataset classes, custom datasets **do not accept** `transform` or `target_transform` arguments.

@@ -46,7 +46,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
       based on `self.train_data_loader` (which is a `SkLearnDataLoader`).
 
     Attributes:
-        dataset_path: The path that indicates where dataset has been stored
         pre_processes: Preprocess functions that will be applied to the
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
@@ -68,7 +67,6 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         self._training_args = {}  # type: Dict[str, Any]
         self._type = TrainingPlans.SkLearnTrainingPlan
         self._batch_maxnum = 0
-        self.dataset_path: Optional[str] = None
         self._optimizer: Optional[BaseOptimizer] = None
         self._add_dependency(
             [
@@ -91,6 +89,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
         node_id: Optional[str] = None,
+        round: Optional[int] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -102,9 +101,13 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
             aggregator_args: Arguments managed by and shared with the
                 researcher-side aggregator.
             initialize_optimizer: Unused.
+            node_id: the ID of the node executing the training plan, if applicable.
+            round: the current round of training, if applicable.
         """
         model_args.setdefault("verbose", 1)
-        super().post_init(model_args, training_args, aggregator_args, node_id=node_id)
+        super().post_init(
+            model_args, training_args, aggregator_args, node_id=node_id, round=round
+        )
         self._model = SkLearnModel(self._model_cls)
         self._batch_maxnum = self._training_args.get("batch_maxnum", self._batch_maxnum)
         self._warn_about_training_args()

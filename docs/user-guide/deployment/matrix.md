@@ -106,3 +106,39 @@ On the researcher component (`researcher`):
 | in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |
 | in  | *localhost*    | researcher          | TCP/6006         | HTTP      | user     | optional  | Tensorboard |
 
+
+## Running with Docker containers (without VPN)
+
+This section describes the communication matrix for running Fed-BioMed using Docker containers **without a VPN**. This configuration is suitable for extending the base Docker image and containers with customized deployment scenarios (e.g. wrapping Fed-BioMed inside an existing infrastructure, adding a custom VPN layer, or integrating with third-party services) as well as for development, testing, and experimentation.
+
+For deployments involving sensitive or patient data, the [VPN/containers scenario](#running-with-vpncontainers) is recommended as it comes ready to use with built-in VPN authentication.
+
+In this setup all containers are attached to a shared user-defined Docker bridge network (e.g. `fedbiomed-net`). Container-to-container communication uses Docker's internal DNS — containers address each other by container name. Ports are published from the container to the host machine to allow user access from *localhost* (or, in a cross-host setup, from the public internet).
+
+* The direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)
+* Type of communication is either *backend* (between the application components) or *user* (user access to a component GUI). Command line user access to a component from *localhost* is not noted here. GUI access is noted, though the recommended default is to restrict it to *localhost*
+* The status is either *mandatory* (needed to run Fed-BioMed) or *optional* (a Fed-BioMed experiment can run without this part)
+
+On the node component (`node` + `gui`):
+
+| dir | source              | destination          | destination port | service  | type    | status    | comment                                               |
+| --  | ------------------- | -------------------- | ---------------- | -------- | ------- | --------- | ----------------------------------------------------- |
+| out | node container      | researcher container | TCP/50051        | gRPC     | backend | mandatory | via Docker bridge network, using researcher container name |
+| in  | *localhost* (host)  | node container       | TCP/8484         | HTTP     | user    | optional  | Node GUI (published to host)                          |
+
+* `node` and `gui` containers share a Docker volume and are typically co-located on the same host.
+* When running multiple node containers on the same host, each must publish its GUI on a distinct host port (e.g. `8484`, `8485`, …).
+
+<br>
+
+On the researcher component (`researcher`):
+
+| dir | source              | destination          | destination port | service  | type    | status    | comment                                                                        |
+| --  | ------------------- | -------------------- | ---------------- | -------- | ------- | --------- | ------------------------------------------------------------------------------ |
+| in  | node containers     | researcher container | TCP/50051        | gRPC     | backend | mandatory | inbound from any node on the Docker network (or from a remote host in cross-network setups) |
+| in  | *localhost* (host)  | researcher container | TCP/8888         | HTTP     | user    | optional  | Jupyter notebook (published to host)                                           |
+| in  | *localhost* (host)  | researcher container | TCP/6007         | HTTP     | user    | optional  | TensorBoard (published to host via socat proxy; TensorBoard listens internally on TCP/6006) |
+
+* The TensorBoard port published to the host is **6007**, not the native 6006. Inside the researcher container a `socat` process forwards `container:6007 → localhost:6006`. TensorBoard must be started manually on port 6006 before the proxy can serve traffic.
+* In a **cross-network / public IP setup**, the researcher's host port `50051` is reachable from the internet and nodes on remote machines connect to it directly using the researcher's public IP. No additional port needs to be published on the node side as nodes always initiate the connection. See the [Docker deployment guide](./docker.md#connecting-fed-biomed-instances-across-different-networks) for configuration details.
+

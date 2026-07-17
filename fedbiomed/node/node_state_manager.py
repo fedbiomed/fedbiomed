@@ -32,14 +32,12 @@ class NodeStateFileName(_BaseEnum):
 
     OPTIMIZER: str = "optim_state_%s_%s"
     MODEL_WEIGHTS: str = "persistent_model_weights_%s_%s"
+    PREPROC: str = "preproc_%s_%s"
 
 
 class NodeStateManager:
     """Node state saving facility: Handles saving and loading Node states from previous `Rounds`,
     given a `state_id`. `NodeStateManager` ensures that states are not reset from one `Round` to another.
-    Currently a state is composed of the Optimizer state - only for
-    [`DeclearnOptimizer`][fedbiomed.common.optimizers.DeclearnOptimizer],
-    but it will be extended in the future with other components - such as model layers, validation dataset, ...
 
     Interfaces with database use to save and load Node State entries.
 
@@ -222,6 +220,9 @@ class NodeStateManager:
         Args:
             previous_state_id: state_id from previous Round, from which to reload a Node state
             testing: only doing testing, not training
+
+        Raises:
+            FedbiomedNodeStateManagerError: raised if needed directories cannot be created
         """
 
         self._previous_state_id = previous_state_id
@@ -253,14 +254,14 @@ class NodeStateManager:
         return self._node_state_base_dir
 
     def generate_folder_and_create_file_name(
-        self, experiment_id: str, round_nb: int, element: NodeStateFileName
+        self, experiment_id: str, sequence_nb: int, element: NodeStateFileName
     ) -> str:
         """Creates folders and file name for each content (Optimizer, model, ...) that composes
         a Node State.
 
         Args:
             experiment_id: experiment_id
-            round_nb: current Round number
+            sequence_nb: current Round number ou Step Number
             element: a NodeStateFileName object used to create specific file names. For instance,
                 could be a NodeStateFileName.OPTIMIZER
 
@@ -292,11 +293,11 @@ class NodeStateManager:
                 f"{ErrorNumbers.FB323.value}: Failing to create directories {base_dir}"
             ) from e
         # TODO catch exception here
-        file_name = element.value % (round_nb, self._state_id)
+        file_name = element.value % (sequence_nb, self._state_id)
         path = os.path.join(base_dir, file_name)
         logger.debug(
             f"Generated node state file path: experiment_id={experiment_id} "
-            f"round={round_nb} element={getattr(element, 'name', repr(element))} path={path}"
+            f"round={sequence_nb} element={getattr(element, 'name', repr(element))} path={path}"
         )
         return path
 

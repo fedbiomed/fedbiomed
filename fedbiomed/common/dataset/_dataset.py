@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 import numpy as np
@@ -12,6 +13,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_controller import Controller
 from fedbiomed.common.dataset_types import DataReturnFormat, DatasetDataItem
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
+from fedbiomed.common.logger import logger
 
 
 class Dataset(ABC):
@@ -45,10 +47,11 @@ class Dataset(ABC):
 
     # === Abstract functions ===
     @abstractmethod
-    def complete_initialization(
+    def load(
         self,
-        controller_kwargs: Dict[str, Any],
+        root: Union[str, Path],
         to_format: DataReturnFormat,
+        **kwargs: Any,
     ) -> None:
         """Finalize initialization of object to be able to recover items"""
         # Recover sample and validate consistency of transforms
@@ -57,6 +60,24 @@ class Dataset(ABC):
     @abstractmethod
     def __getitem__(self, idx: int) -> tuple[DatasetDataItem, DatasetDataItem]:
         pass
+
+    def complete_initialization(
+        self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
+    ) -> None:
+        """Deprecated alias for `load`.
+
+        Preserves the legacy signature where ``root`` was passed inside the
+        ``controller_kwargs`` dict; it is unpacked so it binds to the ``root``
+        parameter of `load`.
+
+        .. deprecated::
+            Use `load` instead. This method will be removed in a future Fed-BioMed release.
+        """
+        logger.warning(
+            "`complete_initialization` is deprecated and will be removed in future "
+            "Fed-BioMed releases; use `load` instead."
+        )
+        return self.load(to_format=to_format, **controller_kwargs)
 
     def _get_format_conversion_callable(self) -> Callable:
         """Gets conversion function from data to expected format
@@ -125,7 +146,11 @@ class Dataset(ABC):
         elif np.issubdtype(x.dtype, np.integer):
             return x.astype(np.int64, copy=False)
         else:
-            return x
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Expected numeric dtype (floating or integer) "
+                f"for sklearn format, got '{x.dtype}'. Ensure all selected columns "
+                "contain numeric data."
+            )
 
     def _get_default_types_callable(self) -> Callable:
         """Gets function to set default types according to expected format
@@ -257,25 +282,18 @@ class Dataset(ABC):
         return data
 
     # === Functions ===
-    def _init_controller(self, controller_kwargs: Dict[str, Any]) -> None:
+    def _init_controller(self, **kwargs: Any) -> None:
         """Initializes self._controller
 
         Args:
-            controller_kwargs: arguments necessary to initialize the controller
+            **kwargs: arguments necessary to initialize the controller
 
         Raises:
-            FedbiomedError: if `controller_kwargs` is not a `dict`
             FedbiomedError: if there is a problem instantiating `_controller`
         """
-        if not isinstance(controller_kwargs, dict):
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Expected `controller_kwargs` to be a "
-                f"`dict`, got {type(controller_kwargs).__name__}"
-            )
-
         try:
             # Instantiate controller
-            self._controller = self._controller_cls(**controller_kwargs)
+            self._controller = self._controller_cls(**kwargs)
         except Exception as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Failed to create Controller. {e}"

@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional, Tuple
 from unittest.mock import MagicMock, PropertyMock, call, create_autospec, patch
 
 import numpy as np
-import pandas as pd
 import pytest
 import torch
 from testsupport import fake_training_plan
@@ -133,7 +132,7 @@ class TestRound(unittest.TestCase):
             model_kwargs={},
             researcher_id="researcher-id",
             history_monitor=history_monitor,
-            dataset={"path": "ssss"},
+            dataset_entry={"path": "ssss"},
             experiment_id="experiment_id",
             training=True,
             node_args={},
@@ -141,7 +140,7 @@ class TestRound(unittest.TestCase):
         )
 
         params = {"path": "my/dataset/path", "dataset_id": "id_1234"}
-        self.r1.dataset = params
+        self.r1.dataset_entry = params
         self.r1.experiment_id = "1234"
         self.r1.researcher_id = "1234"
         dummy_monitor = MagicMock()
@@ -160,13 +159,13 @@ class TestRound(unittest.TestCase):
             model_kwargs={},
             researcher_id="researcher-id",
             history_monitor=history_monitor,
-            dataset={"path": "ssss"},
+            dataset_entry={"path": "ssss"},
             experiment_id="experiment_id",
             training=True,
             node_args={},
             aggregator_args={},
         )
-        self.r2.dataset = params
+        self.r2.dataset_entry = params
         self.r2.history_monitor = dummy_monitor
 
     def tearDown(self):
@@ -251,7 +250,6 @@ class TestRound(unittest.TestCase):
         #  - model.save
         #  - model.training_routine
         #  - model.after_training_params
-        #  - model.set_dataset_path
 
         FakeModel.SLEEPING_TIME = 0
         MODEL_PARAMS = {"coef": [1, 2, 3, 4]}
@@ -264,14 +262,14 @@ class TestRound(unittest.TestCase):
         import_module_patch.return_value = FakeModule
 
         self.r1.training_kwargs = {}
-        self.r1.dataset = {"path": "my/dataset/path", "dataset_id": "id_1234"}
+        self.r1.dataset_entry = {"path": "my/dataset/path", "dataset_id": "id_1234"}
 
         # define context managers for each model method
         # we are mocking every methods of our dummy model FakeModel,
         # and we will check if there are called when running
         # `run_model_training`
         with (
-            patch.object(FakeModel, "set_dataset_path"),
+            patch.object(FakeModel, "_set_round") as mock_set_round,
             patch.object(FakeModel, "training_routine") as mock_training_routine,
             patch.object(
                 self.r1, "_split_train_and_test_data"
@@ -292,8 +290,9 @@ class TestRound(unittest.TestCase):
 
             # Check set train and test data split function is called
             # Set dataset is called in set_train_and_test_data
-            # mock_set_dataset.assert_called_once_with(self.r1.dataset.get('path'))
+            # mock_set_dataset.assert_called_once_with(self.r1.dataset_entry.get('path'))
             mock_split_train_and_test_data.assert_called_once()
+            mock_set_round.assert_called_once_with(self.r1._round)
 
             # Since set training data return None, training_routine should be called as None
             mock_training_routine.assert_called_once_with(
@@ -437,7 +436,7 @@ class TestRound(unittest.TestCase):
                 == (
                     f"Starting round execution: node_id={self.r1._node_id} "
                     f"experiment={self.r1.experiment_id} round={self.r1._round} "
-                    f"training={self.r1.training} dataset={self.r1.dataset.get('dataset_id')} "
+                    f"training={self.r1.training} dataset={self.r1.dataset_entry.get('dataset_id')} "
                     "secagg_active=False force_secagg=False "
                     "dp_active=False secagg_args_keys=[]"
                 )
@@ -464,7 +463,7 @@ class TestRound(unittest.TestCase):
             )
 
         self.assertTrue(reply.success)
-        self.assertEqual(reply.dataset_id, self.r1.dataset["dataset_id"])
+        self.assertEqual(reply.dataset_id, self.r1.dataset_entry["dataset_id"])
         self.assertTrue(
             any(
                 call.args[0]
@@ -495,7 +494,7 @@ class TestRound(unittest.TestCase):
                     reply.__class__.__name__,
                     True,
                     True,
-                    self.r1.dataset["dataset_id"],
+                    self.r1.dataset_entry["dataset_id"],
                 )
                 for call in logger_debug.call_args_list
             )
@@ -684,12 +683,12 @@ class TestRound(unittest.TestCase):
             def get_dataset_type() -> DatasetTypes:
                 return DatasetTypes.TEST
 
-        def complete_dataset_initialization_side_effect(controller_kwargs):
+        def load_dataset_side_effect(**kwargs):
             """
-            Mimic what the real DataManager.complete_dataset_initialization() would do in this test:
+            Mimic what the real DataManager.load_dataset() would do in this test:
             Attach the deserialized DLP to the dataset.
             """
-            dlp = controller_kwargs.get("dlp")
+            dlp = kwargs.get("dlp")
             if dlp is not None:
                 # MyDataset inherits DataLoadingPlanMixin, which uses self._dlp internally
                 # in apply_dlb(). Setting this is enough for the test.
@@ -706,9 +705,7 @@ class TestRound(unittest.TestCase):
         data_manager_mock.split.return_value = (data_loader_mock, None)
         data_manager_mock.dataset = my_dataset
 
-        data_manager_mock.complete_dataset_initialization.side_effect = (
-            complete_dataset_initialization_side_effect
-        )
+        data_manager_mock.load_dataset.side_effect = load_dataset_side_effect
 
         data_manager_mock.save_state = MagicMock()
         data_manager_mock.load_state = MagicMock()
@@ -853,7 +850,7 @@ class TestRound(unittest.TestCase):
             DeclearnAuxVarModel(),
         )
         self.r1.training_plan_class = "DeclearnAuxVarModel"
-        self.r1.dataset = {
+        self.r1.dataset_entry = {
             "dataset_id": "dataset_id_1234",
             "path": os.path.join("path", "to", "my", "dataset"),
         }
@@ -1448,9 +1445,7 @@ class TestRound(unittest.TestCase):
             def __getitem__(self, idx):
                 return self.X_train[idx], self.Y_train[idx]
 
-            def complete_initialization(
-                self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
-            ):
+            def load(self, root, to_format: DataReturnFormat, **kwargs):
                 pass
 
         # for pytorch: mimicking the process of saving and re-loading testing
@@ -1469,6 +1464,11 @@ class TestRound(unittest.TestCase):
         )
         self.r1.training_plan = training_plan_mock
         self.r1.testing_arguments = {}
+        self.r1.dataset_entry = {
+            "path": "my/dataset/path",
+            "dataset_id": "id_1234",
+            "dataset_parameters": {"root": "my/dataset/path"},
+        }
         test_ratio = 0.66
 
         train_loader, test_loader = self.r1._split_train_and_test_data(test_ratio)
@@ -1485,14 +1485,6 @@ class TestRound(unittest.TestCase):
         print(state)
 
         # for sklearn
-        data_manager = DataManager(
-            dataset=pd.DataFrame(
-                [[1, 2, 3], [0.1, 0.2, 0.3], [0.11, 0.22, 0.33], [0.32, 0.11, 0.12]]
-            ),
-            target=pd.Series([1, 2, 1, 2]),
-        )
-        data_manager.load(tp_type=TrainingPlans.SkLearnTrainingPlan)
-
         data_manager = DataManager(dataset=TestDataset())
         training_plan_mock.training_data = MagicMock(return_value=data_manager)
         training_plan_mock.type = MagicMock(
