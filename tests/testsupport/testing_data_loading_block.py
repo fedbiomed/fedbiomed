@@ -1,6 +1,7 @@
 from enum import Enum
-from fedbiomed.common.dataloadingplan import DataLoadingBlock
+
 from fedbiomed.common.constants import DataLoadingBlockTypes
+from fedbiomed.common.dataloadingplan import DataLoadingBlock
 
 
 class LoadingBlockTypesForTesting(DataLoadingBlockTypes, Enum):
@@ -43,5 +44,7 @@ class ModifyGetItemDP(DataLoadingBlock):
 
 # class for cheating the ABC into running the abstract methods
 class TestAbstractsBlock(DataLoadingBlock):
+    __test__ = False  # fixture, not a test: don't collect
+
     def apply(self, *args, **kwargs):
         super(TestAbstractsBlock, self).apply(*args, *kwargs)
