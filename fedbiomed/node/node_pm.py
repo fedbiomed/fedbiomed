@@ -339,7 +339,11 @@ class NodeProcessManager:
                     }
                     entry.started_at = (
                         existing.get("started_at")
-                        if is_existing_process_active and existing.get("started_at")
+                        if (
+                            action != "start"
+                            and is_existing_process_active
+                            and existing.get("started_at")
+                        )
                         else now
                     )
                     entry.stopped_at = None
@@ -371,6 +375,7 @@ class NodeProcessManager:
         background: bool = False,
         actor: Optional[Dict[str, Any]] = None,
         reason: Optional[str] = "start_requested",
+        force: bool = False,
     ) -> None:
         """Spawn a node subprocess.
 
@@ -379,13 +384,20 @@ class NodeProcessManager:
             background: If True, the node will be started in the background.
             actor: Optional user/source metadata for process state attribution.
             reason: Optional reason for starting the process, default is "start_requested".
+            force: Start a new process and replace its database state even when
+                the node is currently reported as running.
         """
 
-        # Start should raise an error if the user is trying to start/restart an existing node process.
         status = self.get_status()
-        if status == NodeState.RUNNING:
+        if status == NodeState.RUNNING and not force:
             logger.warning("Node process is already running. Ignoring start request.")
             return
+        if status == NodeState.RUNNING:
+            logger.warning(
+                "Forcing node startup while the database reports it as running. "
+                "The previous node process might not have closed properly; "
+                "this may cause a process leak."
+            )
 
         logger.info(f"Starting node subprocess with python={sys.executable}")
         logger.info(f"Node subprocess config root={self._config.root}")

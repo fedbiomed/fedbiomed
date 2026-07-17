@@ -840,6 +840,15 @@ def test_node_signal_trigger_term():
             },
         ),
         (
+            ["start", "--force"],
+            {
+                "gpu": False,
+                "gpu_num": 1,
+                "gpu_only": False,
+                "debug": False,
+            },
+        ),
+        (
             ["start", "--gpu", "--gpu-num", "2", "--debug"],
             {
                 "gpu": True,
@@ -908,6 +917,7 @@ def test_node_control_start_builds_node_args_and_waits(
         node_args=expected_node_args,
         background=args.background,
         actor={"source": "cli"},
+        force=args.force,
     )
 
     mock_node_process_manager.stop.assert_not_called()
@@ -950,6 +960,7 @@ def test_node_control_start_keyboard_interrupt_stops_node(mocker):
         },
         background=False,
         actor={"source": "cli"},
+        force=False,
     )
 
     mock_node_process_manager.stop.assert_called_once_with(
