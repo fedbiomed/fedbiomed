@@ -194,8 +194,8 @@ def create_unique_file_link(breakpoint_folder_path: str, file_path: str) -> str:
         raise
 
     # heuristic : assume limited set of characters in filename postfix
-    re_src_prefix = re.search("(.+)\.[a-zA-Z]+$", os.path.basename(file_path))
-    re_src_postfix = re.search(".+(\.[a-zA-Z]+)$", os.path.basename(file_path))
+    re_src_prefix = re.search(r"(.+)\.[a-zA-Z]+$", os.path.basename(file_path))
+    re_src_postfix = re.search(r".+(\.[a-zA-Z]+)$", os.path.basename(file_path))
     if not re_src_prefix or not re_src_postfix:
         error_message = (
             f"Saving breakpoint error, bad filename {file_path} gives "
