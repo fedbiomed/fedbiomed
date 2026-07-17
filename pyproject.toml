@@ -125,6 +125,7 @@ node = [
 researcher = [
 	"pathvalidate ~=3.0.0",
 	"matplotlib >=3.8.0",
+	"setuptools <81",
 	"tensorboard ~=2.18.0",
 	"jupyter",
 	"ipython"
