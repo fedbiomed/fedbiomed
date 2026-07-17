@@ -125,7 +125,7 @@ jobs:
       - name: Install declared dependencies
         run: |
           set +e
-          python -m pip install --upgrade pip setuptools wheel \
+          python -m pip install --upgrade pip 'setuptools<81' wheel \
             > env-probe/bootstrap.log 2>&1
           BOOTSTRAP_EXIT=$?
 
