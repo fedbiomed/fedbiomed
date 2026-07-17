@@ -38,6 +38,11 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
         self.channel_manager_mock = self.channel_manager_patch.start()
         self.asyncio_waitfor_mock = self.asyncio_waitfor_patch.start()
 
+        # `asyncio.wait_for` is mocked and so never awaits its argument; make the
+        # mocked `Event.wait()` return a plain value instead of a coroutine so it
+        # is not reported as an un-awaited coroutine.
+        self.asyncio_event_mock.return_value.wait = MagicMock()
+
         self.grpc_controller_mock = MagicMock(spec=GrpcController)
 
         self.inner_message = InnerMessage(

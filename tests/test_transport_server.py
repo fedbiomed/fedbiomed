@@ -263,6 +263,19 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         )
         self.asyncio_patch = patch("fedbiomed.transport.server.asyncio")
 
+        # Replace the async methods that GrpcServer's sync wrappers invoke via
+        # super() with sync mocks, so they don't create un-awaited coroutines when
+        # asyncio is mocked out. Started before async_server_patch so the name still
+        # resolves to the real class the wrappers reach through super().
+        self.async_methods_patch = patch.multiple(
+            "fedbiomed.transport.server._GrpcAsyncServer",
+            send=MagicMock(),
+            broadcast=MagicMock(),
+            get_node=MagicMock(),
+            get_all_nodes=MagicMock(),
+        )
+        self.async_methods_patch.start()
+
         self.async_server = self.async_server_patch.start()
 
         self.server_mock = self.server_patch.start()
@@ -291,6 +304,7 @@ class TestGrpcServer(unittest.IsolatedAsyncioTestCase):
         self.agent_store_patch.stop()
         self.asyncio_patch.stop()
         self.async_server_patch.stop()
+        self.async_methods_patch.stop()
 
         return super().tearDown()
 
