@@ -63,6 +63,12 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
         task = self.client.start(on_task=on_task)
         self.assertIsInstance(task, asyncio.Future)
 
+        # Cancel the background task before it runs so it never opens a real
+        # connection socket (would otherwise leak as a ResourceWarning).
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+
     async def test_grpc_client_02_send(self):
         message = {"test": "test"}
         await self.client.send(message)

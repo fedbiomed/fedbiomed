@@ -225,7 +225,7 @@ def test_fedcombat_tm_instantiate_training_plan(mocker):
         "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_model.nn.MSELoss",
         new=mocker.MagicMock(),
     )
-    mock_loss.return_value = lambda x, y: float(torch.mean((x - y) ** 2))
+    mock_loss.return_value = lambda x, y: float(torch.mean((x - y) ** 2).detach())
     mocker.patch(
         "fedbiomed.researcher.federated_workflows.preproc._fedcombat._fedcombat_model.TabularDataset",
         mocker.MagicMock(spec=TabularDataset),

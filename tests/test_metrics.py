@@ -1,9 +1,10 @@
 import unittest
-import numpy as np
 from unittest.mock import patch
 
-from fedbiomed.common.metrics import Metrics, MetricTypes, _MetricCategory  # noqa
+import numpy as np
+
 from fedbiomed.common.exceptions import FedbiomedMetricError
+from fedbiomed.common.metrics import Metrics, MetricTypes, _MetricCategory  # noqa
 
 
 class TestMetrics(unittest.TestCase):
@@ -291,12 +292,16 @@ class TestMetrics(unittest.TestCase):
 
         y_true = [12, 12, 12, 12]
         y_pred = [12.5, 12.5, 12.5, 12.5]
-        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+        r = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.PRECISION, zero_division=0
+        )
         self.assertEqual(r, 0)
 
         y_true = [12.5, 12.5, 12.5, 12.5]
         y_pred = [12, 12, 12, 12]
-        r = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.PRECISION)
+        r = self.metrics.evaluate(
+            y_true, y_pred, metric=MetricTypes.PRECISION, zero_division=0
+        )
         self.assertEqual(r, 0)
 
         y_true = [12.5, 12.5, 12.5, 12.5]
@@ -488,7 +493,7 @@ class TestMetrics(unittest.TestCase):
         y_true = [[0, 1], [0, 1], [0, 1], [0, 1]]
         y_pred = [[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0]]
         with self.assertRaises(FedbiomedMetricError):
-            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
 
         y_true = [
             [0, 1],
@@ -496,12 +501,12 @@ class TestMetrics(unittest.TestCase):
         ]
         y_pred = [[[0, 1], [0, 1]], [[0, 1], [0, 1]]]
         with self.assertRaises(FedbiomedMetricError):
-            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
 
         y_true = [[[0, 1], [0, 1]], [[0, 1], [0, 1]]]
         y_pred = [[0, 1], [0, 1]]
         with self.assertRaises(FedbiomedMetricError):
-            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
 
         y_true = [[0, 1], [0, 1], [0, 1], [0, 1]]
         y_pred = [[0, 1], [0, 1]]
@@ -516,7 +521,7 @@ class TestMetrics(unittest.TestCase):
         y_true = ["0", "1", "2", "1"]
         y_pred = [0, 1, 2, 1]
         with self.assertRaises(FedbiomedMetricError):
-            result = self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
+            self.metrics.evaluate(y_true, y_pred, metric=MetricTypes.ACCURACY)
 
     @patch("fedbiomed.common.metrics.metrics.accuracy_score")
     @patch("fedbiomed.common.metrics.metrics.precision_score")

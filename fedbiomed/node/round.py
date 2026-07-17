@@ -6,6 +6,7 @@ implementation of Round class of the node component
 """
 
 import os
+import shutil
 import tempfile
 import time
 import traceback
@@ -136,14 +137,14 @@ class Round:
         self._node_state_manager: NodeStateManager = NodeStateManager(
             self._dir, self._node_id, self._db
         )
-        self._temp_dir = tempfile.TemporaryDirectory()
-        self._keep_files_dir = self._temp_dir.name
+        self._keep_files_dir = tempfile.mkdtemp()
         self._persistent_model_weights = None
 
     def __del__(self):
-        """Class destructor"""
-        # remove temporary files directory
-        self._temp_dir.cleanup()
+        """Removes the round's temporary files directory."""
+        keep_files_dir = getattr(self, "_keep_files_dir", None)
+        if keep_files_dir is not None:
+            shutil.rmtree(keep_files_dir, ignore_errors=True)
 
     def _initialize_validate_training_arguments(self) -> Optional[Dict[str, Any]]:
         """Initialize and validate requested experiment/training arguments.

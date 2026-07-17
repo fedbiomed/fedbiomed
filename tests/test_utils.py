@@ -10,6 +10,8 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 # Dummy Class for testing its source --------------------
 class TestClass:
+    __test__ = False  # fixture, not a test: don't collect
+
     def __init__(self):
         pass
 

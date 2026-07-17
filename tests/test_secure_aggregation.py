@@ -344,14 +344,14 @@ class TestSecureAggregationWrapper(unittest.TestCase):
         ):
             sa = SecureAggregation(scheme=scheme)
             state = sa.__getattr__("save_state_breakpoint")()
-            self.assertDictContainsSubset(
+            self.assertLessEqual(
                 {
                     "attributes": {},
                     "class": "SecureAggregation",
                     "module": "fedbiomed.researcher.secagg._secure_aggregation",
                     "arguments": {"scheme": scheme.value},
-                },
-                state,
+                }.items(),
+                state.items(),
             )
             eval(f'exec("from {state["module"]} import {state["class"]}")')
             loaded_sa = SecureAggregation.load_state_breakpoint(state)

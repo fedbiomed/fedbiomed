@@ -897,7 +897,7 @@ class TestTorchnn(unittest.TestCase):
             nn.Conv1d(1, 1, 2),
             nn.ReLU(),
             nn.Linear(4, 5),
-            nn.utils.weight_norm(nn.Linear(5, 2)),
+            nn.utils.parametrizations.weight_norm(nn.Linear(5, 2)),
             torch.nn.InstanceNorm1d(1),
             nn.Softmax(dim=0),
         )
@@ -1012,7 +1012,7 @@ class TestTorchnn(unittest.TestCase):
                 nn.Conv1d(1, 1, 2),
                 nn.ReLU(),
                 nn.Linear(4, 5),
-                nn.utils.weight_norm(nn.Linear(5, 2)),
+                nn.utils.parametrizations.weight_norm(nn.Linear(5, 2)),
                 torch.nn.InstanceNorm1d(1),
                 nn.Softmax(dim=0),
             )

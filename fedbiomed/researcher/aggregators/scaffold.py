@@ -22,7 +22,7 @@ from fedbiomed.researcher.datasets import FederatedDataset
 
 
 class Scaffold(Aggregator):
-    """
+    r"""
     Defines the Scaffold strategy
 
     Despite being an algorithm of choice for federated learning, it is observed that FedAvg

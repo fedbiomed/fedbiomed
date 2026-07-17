@@ -10,6 +10,8 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 
 class TestDataset(Dataset):
+    __test__ = False  # fixture, not a test: don't collect
+
     def __init__(self) -> None:
         self._data = np.array([[1, 4, 3, 7], [4, 6, 3, 1], [1, 5, 3, 7], [8, 2, 6, 9]])
         self._target = np.array([5, 5, 1, 4])
@@ -170,8 +172,9 @@ class TestSkLearnDataManager(unittest.TestCase):
 
     def test_sklearn_data_manager_05_save_load_state(self):
         init_state = self.sklearn_data_manager.save_state()
-        self.assertDictContainsSubset(
-            {"testing_index": [], "training_index": [], "test_ratio": None}, init_state
+        self.assertLessEqual(
+            {"testing_index": [], "training_index": [], "test_ratio": None}.items(),
+            init_state.items(),
         )
 
         ratio = 0.5
