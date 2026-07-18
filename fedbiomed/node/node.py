@@ -50,6 +50,48 @@ from fedbiomed.transport.client import ResearcherCredentials
 from fedbiomed.transport.controller import GrpcController
 
 
+class NodeContext:
+    """What a node command acts on: the node's local state.
+
+    Holds what the node keeps on disk -- its configuration, datasets and
+    training plans -- and nothing else: what the user typed belongs to
+    `NodeCLI`, running a node to `node_pm`.
+
+    Acting on this state needs neither a running node nor the means to run
+    one, so commands get this rather than a `Node`. A running node holds one
+    of these too, as the local state it operates on.
+
+    The managers are public so callers can swap them, notably for testing.
+    """
+
+    dataset_manager: DatasetManager
+    tp_security_manager: TrainingPlanSecurityManager
+
+    def __init__(self, config: NodeConfig) -> None:
+        """Constructor of the class.
+
+        Args:
+            config: Configuration of the node the commands act on.
+        """
+        self._config = config
+        self.dataset_manager = DatasetManager(
+            path=self.config.getpath("default", "db"),
+            min_samples=self.config.getint("security", "minimum_samples"),
+        )
+        self.tp_security_manager = TrainingPlanSecurityManager(
+            db=self.config.getpath("default", "db"),
+            node_id=self.config.get("default", "id"),
+            node_name=self.config.get("default", "name"),
+            hashing=self.config.get("security", "hashing_algorithm"),
+            tp_approval=self.config.getbool("security", "training_plan_approval"),
+        )
+
+    @property
+    def config(self) -> NodeConfig:
+        """Configuration of the node the commands act on."""
+        return self._config
+
+
 class Node:
     """Core code of the node component.
 
@@ -57,10 +99,9 @@ class Node:
     with the researcher through the `Messaging`, parsing messages from the researcher,
     either treating them instantly or queuing them,
     executing tasks requested by researcher stored in the queue.
-    """
 
-    tp_security_manager: TrainingPlanSecurityManager
-    dataset_manager: DatasetManager
+    Owns a `NodeContext`: the local state it operates on.
+    """
 
     def __init__(
         self,
@@ -78,54 +119,38 @@ class Node:
             "FBM_DEBUG", ""
         ).lower() in ("1", "true", "yes")
 
-        self._config = config
-        self._node_id = self._config.get("default", "id")
-        self._node_name = self._config.get("default", "name")
+        self._context = NodeContext(config)
+        self._node_id = self.config.get("default", "id")
+        self._node_name = self.config.get("default", "name")
 
         self._tasks_queue = TasksQueue(
-            os.path.join(self._config.root, "var", f"queue_{self._node_id}"),
-            str(os.path.join(self._config.root, "var", "tmp")),
+            os.path.join(self.config.root, "var", f"queue_{self._node_id}"),
+            str(os.path.join(self.config.root, "var", "tmp")),
         )
 
         self._grpc_client = GrpcController(
             node_id=self._node_id,
             researchers=[
                 ResearcherCredentials(
-                    port=self._config.get("researcher", "port"),
-                    host=self._config.get("researcher", "ip"),
-                    certificate=self._config.get(
-                        "researcher", "certificate", fallback=None
-                    ),
+                    port=self.config.get("researcher", "port"),
+                    host=self.config.get("researcher", "ip"),
                 )
             ],
             on_message=self.on_message,
         )
-        self._db_path = self._config.getpath("default", "db")
 
         self._pending_requests = EventWaitExchange(remove_delivered=True)
         self._controller_data = EventWaitExchange(remove_delivered=False)
         self._n2n_router = NodeToNodeRouter(
             self._node_id,
-            self._db_path,
+            self.config.getpath("default", "db"),
             self._grpc_client,
             self._pending_requests,
             self._controller_data,
         )
 
-        self.dataset_manager = DatasetManager(
-            path=self._db_path,
-            min_samples=self._config.getint("security", "minimum_samples"),
-        )
-        self.tp_security_manager = TrainingPlanSecurityManager(
-            db=self._db_path,
-            node_id=self._node_id,
-            node_name=self._node_name,
-            hashing=self._config.get("security", "hashing_algorithm"),
-            tp_approval=self._config.getbool("security", "training_plan_approval"),
-        )
-
         # Initialize security audit logging
-        logger.set_security_logs(root_path=self._config.root)
+        logger.set_security_logs(root_path=self.config.root)
 
         logger.configure_security(
             component_id=self._node_id,
@@ -139,7 +164,7 @@ class Node:
             status="success",
             researcher_id=None,
             node_name=self._node_name,
-            config_path=self._config.root,
+            config_path=self.config.root,
         )
 
     @property
@@ -155,7 +180,25 @@ class Node:
     @property
     def config(self):
         """Return node config"""
-        return self._config
+        return self._context.config
+
+    @property
+    def dataset_manager(self) -> DatasetManager:
+        """Manager of the node's datasets, held by its context."""
+        return self._context.dataset_manager
+
+    @dataset_manager.setter
+    def dataset_manager(self, manager: DatasetManager) -> None:
+        self._context.dataset_manager = manager
+
+    @property
+    def tp_security_manager(self) -> TrainingPlanSecurityManager:
+        """Manager of the node's training plans, held by its context."""
+        return self._context.tp_security_manager
+
+    @tp_security_manager.setter
+    def tp_security_manager(self, manager: TrainingPlanSecurityManager) -> None:
+        self._context.tp_security_manager = manager
 
     def add_task(self, task: dict):
         """Adds a task to the pending tasks queue.
@@ -350,7 +393,7 @@ class Node:
         }
 
         secagg_manager = SecaggManager(
-            db=self._db_path, element=msg.get_param("element")
+            db=self.config.getpath("default", "db"), element=msg.get_param("element")
         )()
 
         status = secagg_manager.remove(
@@ -387,7 +430,7 @@ class Node:
         # Needed when using node to node communications
         setup_arguments.update(
             {
-                "db": self._db_path,
+                "db": self.config.getpath("default", "db"),
                 "node_id": self._node_id,
                 "node_name": self._node_name,
                 "n2n_router": self._n2n_router,
@@ -473,8 +516,8 @@ class Node:
             logger.debug("No data loading plan metadata for dataset=%s", dataset_id)
 
         round_ = Round(
-            root_dir=self._config.root,
-            db=self._db_path,
+            root_dir=self.config.root,
+            db=self.config.getpath("default", "db"),
             node_id=self._node_id,
             node_name=self._node_name,
             training_plan=msg.get_param("training_plan"),
@@ -571,16 +614,16 @@ class Node:
                                     item.get_param("training_plan_class"),
                                 )
                                 msg = round_.run_model_training(
-                                    tp_approval=self._config.getbool(
+                                    tp_approval=self.config.getbool(
                                         "security", "training_plan_approval"
                                     ),
-                                    secagg_insecure_validation=self._config.getbool(
+                                    secagg_insecure_validation=self.config.getbool(
                                         "security", "secagg_insecure_validation"
                                     ),
-                                    secagg_active=self._config.getbool(
+                                    secagg_active=self.config.getbool(
                                         "security", "secure_aggregation"
                                     ),
-                                    force_secagg=self._config.getbool(
+                                    force_secagg=self.config.getbool(
                                         "security", "force_secure_aggregation"
                                     ),
                                     secagg_arguments=item.get_param("secagg_arguments"),
@@ -634,7 +677,7 @@ class Node:
                                 status="initiated",
                             )
                             fa_job = FAJob(
-                                root_dir=self._config.root,
+                                root_dir=self.config.root,
                                 dataset_manager=self.dataset_manager,
                                 node_id=self._node_id,
                                 node_name=self._node_name,
@@ -642,11 +685,11 @@ class Node:
                                 allow_fa=self.config.getbool(
                                     "security", "allow_federated_analytics"
                                 ),
-                                db=self._db_path,
-                                secagg_active=self._config.getbool(
+                                db=self.config.getpath("default", "db"),
+                                secagg_active=self.config.getbool(
                                     "security", "secure_aggregation"
                                 ),
-                                force_secagg=self._config.getbool(
+                                force_secagg=self.config.getbool(
                                     "security", "force_secure_aggregation"
                                 ),
                                 secagg_arguments=item.get_param("secagg_arguments"),
@@ -666,12 +709,12 @@ class Node:
                                 status="initiated",
                             )
                             preproc_job = PreprocJob(
-                                root_dir=self._config.root,
+                                root_dir=self.config.root,
                                 dataset_manager=self.dataset_manager,
                                 node_id=self._node_id,
                                 node_name=self._node_name,
                                 request=item,
-                                db=self._db_path,
+                                db=self.config.getpath("default", "db"),
                                 allow_preproc=self.config.getbool(
                                     "security", "allow_preproc"
                                 ),
@@ -748,8 +791,8 @@ class Node:
                 regardless of specific researcher.
             request_id: Optional request i to reply as error to a request.
         """
-        researcher_host = self._config.get("researcher", "ip")
-        researcher_port = self._config.get("researcher", "port")
+        researcher_host = self.config.get("researcher", "ip")
+        researcher_port = self.config.get("researcher", "port")
         try:
             connected = self.is_connected()
         except Exception:
