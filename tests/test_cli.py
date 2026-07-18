@@ -655,7 +655,7 @@ def test_add_medical_folder_dataset_no_demographics(
     assert result_dlp is None
 
     # Verify mocks were called correctly
-    mock_validated_path.assert_called_once_with(type="dir")
+    mock_validated_path.assert_called_once_with(type="dir", initialdir=None)
     mock_controller_class.assert_called_once_with(test_path)
     mock_input.assert_called_once_with(
         "\nWould you like to select a demographics csv file? [y/N]\n"

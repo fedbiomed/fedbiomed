@@ -145,15 +145,11 @@ class DatasetArgumentParser(CLIArgumentParser):
             return self._add_dataset_from_file(path=args.file)
 
         # All operation is handled by CLI utils add_database
-<<<<<<< Updated upstream
-        return add_database(self._context.dataset_manager)
-=======
         return add_database(
             self._context.dataset_manager,
             initialdir=os.path.join(self._context.config.root, NODE_DATA_FOLDER),
         )
->>>>>>> Stashed changes
-
+    
     def list(self, unused_args):
         """List datasets
 
