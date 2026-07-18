@@ -11,7 +11,7 @@ import traceback
 from typing import Callable, Optional, Union
 
 from fedbiomed import __version__
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ComponentType, ErrorNumbers
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
@@ -100,11 +100,7 @@ class Node:
             ],
             on_message=self.on_message,
         )
-        self._db_path = os.path.abspath(
-            os.path.join(
-                self._config.root, CONFIG_FOLDER_NAME, self._config.get("default", "db")
-            )
-        )
+        self._db_path = self._config.getpath("default", "db")
 
         self._pending_requests = EventWaitExchange(remove_delivered=True)
         self._controller_data = EventWaitExchange(remove_delivered=False)

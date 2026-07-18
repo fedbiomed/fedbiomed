@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional, Union
 
 import psutil
 
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import DEFAULT_APPLICATION_LOG_FILE, logger
 from fedbiomed.node.config import NodeConfig
@@ -188,25 +188,11 @@ class NodeProcessManager:
 
     def _get_state_table(self) -> NodeProcessStateTable:
         """Get the state table instance."""
-        db_path = os.path.abspath(
-            os.path.join(
-                self._config.root,
-                CONFIG_FOLDER_NAME,
-                self._config.get("default", "db"),
-            )
-        )
-        return NodeProcessStateTable(db_path)
+        return NodeProcessStateTable(self._config.getpath("default", "db"))
 
     def _get_history_table(self) -> NodeProcessStateHistoryTable:
         """Get the history table instance."""
-        db_path = os.path.abspath(
-            os.path.join(
-                self._config.root,
-                CONFIG_FOLDER_NAME,
-                self._config.get("default", "db"),
-            )
-        )
-        return NodeProcessStateHistoryTable(db_path)
+        return NodeProcessStateHistoryTable(self._config.getpath("default", "db"))
 
     def _cleanup_process_state_history(self, days: int = 30) -> None:
         """Remove process-state history entries older than the given number of days.
