@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, REQUEST_PREFIX, MessageType
+from fedbiomed.common.constants import REQUEST_PREFIX, MessageType
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     ApprovalRequest,
@@ -344,12 +344,8 @@ class Requests(metaclass=SingletonMeta):
 
         server_host = config.get("server", "host")
         server_port = config.get("server", "port")
-        cert_priv = os.path.join(
-            config.root, CONFIG_FOLDER_NAME, config.get("certificate", "private_key")
-        )
-        cert_pub = os.path.join(
-            config.root, CONFIG_FOLDER_NAME, config.get("certificate", "public_key")
-        )
+        cert_priv = config.getpath("certificate", "private_key")
+        cert_pub = config.getpath("certificate", "public_key")
 
         # Creates grpc server and starts it
         self._researcher_id = config.get("default", "id")

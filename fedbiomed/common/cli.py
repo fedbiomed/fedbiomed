@@ -17,7 +17,6 @@ from typing import Dict, List
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
-    CONFIG_FOLDER_NAME,
     DB_FOLDER_NAME,
     ComponentType,
     __version__,
@@ -432,11 +431,7 @@ class CommonCLI:
         Args:
             args: Parser arguments
         """
-        self._certificate_manager.set_db(
-            db_path=os.path.join(
-                self.config.root, "etc", self.config.get("default", "db")
-            )
-        )
+        self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
 
         try:
             self._certificate_manager.register_certificate(
@@ -457,19 +452,11 @@ class CommonCLI:
         """Lists saved certificates"""
         print(f"{GRN}Listing registered certificates...{NC}")
 
-        self._certificate_manager.set_db(
-            db_path=os.path.join(
-                self.config.root, "etc", self.config.get("default", "db")
-            )
-        )
+        self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
         self._certificate_manager.list(verbose=True)
 
     def _delete_certificate(self, args: argparse.Namespace):
-        self._certificate_manager.set_db(
-            db_path=os.path.join(
-                self.config.root, "etc", self.config.get("default", "db")
-            )
-        )
+        self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
         certificates = self._certificate_manager.list(verbose=False)
         options = [d["party_id"] for d in certificates]
         msg = "Select the certificate to delete:\n"
@@ -493,13 +480,7 @@ class CommonCLI:
     def _prepare_certificate_for_registration(self, args: argparse.Namespace):
         """Prints instruction to registration of the certificate by the other parties"""
 
-        certificate = read_file(
-            os.path.join(
-                self.config.root,
-                CONFIG_FOLDER_NAME,
-                self.config.get("certificate", "public_key"),
-            )
-        )
+        certificate = read_file(self.config.getpath("certificate", "public_key"))
 
         print("Hi There! \n\n")
         print("Please find following certificate to register \n")
