@@ -24,7 +24,7 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.experiment import Experiment
 
 
-def download_file(url, filename, retries=2, headers=None):
+def download_file(url, filename, retries=2, headers=None, timeout=180):
     """
     Helper method handling downloading large files.
     """
@@ -32,7 +32,7 @@ def download_file(url, filename, retries=2, headers=None):
     for attempt in range(retries):
         try:
             r = requests.get(
-                url, headers=headers if headers else {}, stream=True, timeout=60
+                url, headers=headers if headers else {}, stream=True, timeout=timeout
             )
             r.raise_for_status()
             total = r.headers.get("Content-Length")
@@ -49,8 +49,11 @@ def download_file(url, filename, retries=2, headers=None):
             # Never print `url` directly if it could ever contain a token as a query param.
             # Here the token is only in headers, so this is safe, but we still avoid
             # printing headers or any request object that might expose it.
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            status_msg = f" status={status}" if status is not None else ""
             print(
-                f"Download attempt {attempt + 1}/{retries} failed for {filename}: {type(e).__name__}"
+                f"Download attempt {attempt + 1}/{retries} failed for {filename}: "
+                f"{type(e).__name__}{status_msg} message={e}"
             )
             if attempt == retries - 1:
                 raise requests.RequestException(

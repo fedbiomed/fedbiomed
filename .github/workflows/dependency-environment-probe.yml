@@ -24,6 +24,10 @@ on:
         description: "Comma-separated dependency groups from pyproject.toml"
         required: false
         default: "test"
+      e2e-target:
+        description: "Pytest target for the e2e step"
+        required: false
+        default: "tests/end2end"
       attempt-project-install:
         description: "Also try installing the project with --no-deps"
         required: false
@@ -176,10 +180,12 @@ jobs:
 
       - name: Run e2e tests
         if: always()
+        env:
+          E2E_TARGET: ${{ inputs.e2e-target || 'tests/end2end' }}
         run: |
           set +e
           export FEDBIOMED_E2E_DATA_PATH="${FEDBIOMED_E2E_DATA_PATH:-$HOME/Data/fedbiomed}"
-          python -m pytest -rfp -s -v tests/end2end \
+          python -m pytest -rfp -s -v "${E2E_TARGET}" \
             --ignore-glob='tests/end2end/endurance_*.py' \
             2>&1 | tee env-probe/e2e-tests.log
           E2E_TESTS_EXIT=${PIPESTATUS[0]}
