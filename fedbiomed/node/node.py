@@ -15,7 +15,7 @@ from fedbiomed.common.certificate_manager import (
     CertificateManager,
     is_mtls_enabled,
 )
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ComponentType, ErrorNumbers
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
@@ -181,14 +181,12 @@ class Node:
             FedbiomedCertificateError: mutual TLS is enabled but required
                 certificates are missing.
         """
-        certificate = self._config.get("researcher", "certificate", fallback=None)
         credentials = ResearcherCredentials(
-            port=self._config.get("researcher", "port"),
-            host=self._config.get("researcher", "ip"),
-            certificate=certificate.encode("utf-8") if certificate else None,
+            port=self.config.get("researcher", "port"),
+            host=self.config.get("researcher", "ip"),
         )
 
-        if not is_mtls_enabled(self._config):
+        if not is_mtls_enabled(self.config):
             return credentials
 
         credentials.mtls = True
@@ -207,13 +205,10 @@ class Node:
             FedbiomedCertificateError: the node's certificate or private key
                 could not be read.
         """
-        etc = os.path.join(self._config.root, CONFIG_FOLDER_NAME)
         try:
-            private_key = read_file(
-                os.path.join(etc, self._config.get("certificate", "private_key"))
-            )
+            private_key = read_file(self.config.getpath("certificate", "private_key"))
             certificate_chain = read_file(
-                os.path.join(etc, self._config.get("certificate", "public_key"))
+                self.config.getpath("certificate", "public_key")
             )
         except FedbiomedError as exp:
             raise FedbiomedCertificateError(
@@ -239,7 +234,9 @@ class Node:
             FedbiomedCertificateError: no researcher certificate is registered, or
                 several are and the one to pin is ambiguous.
         """
-        certificate_manager = CertificateManager(db_path=self._config.db_path)
+        certificate_manager = CertificateManager(
+            db_path=self.config.getpath("default", "db")
+        )
         try:
             researcher_certificates = certificate_manager.get_by_component(
                 ComponentType.RESEARCHER.name
@@ -258,7 +255,7 @@ class Node:
                 f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but "
                 f"{len(researcher_certificates)} researcher certificates are "
                 "registered, so the certificate to pin for researcher "
-                f"`{self._config.get('researcher', 'ip')}` is ambiguous. Keep only "
+                f"`{self.config.get('researcher', 'ip')}` is ambiguous. Keep only "
                 "the certificate of that researcher, using `fedbiomed node "
                 "certificate list` and `fedbiomed node certificate delete`."
             )

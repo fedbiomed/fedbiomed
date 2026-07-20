@@ -204,11 +204,6 @@ class Config(metaclass=ABCMeta):
                 f"{ErrorNumbers.FB600.value}: cannot read config file:  {self.config_path}"
             ) from e
 
-    @property
-    def db_path(self) -> str:
-        """Absolute path of the component's main TinyDB database."""
-        return os.path.join(self.root, CONFIG_FOLDER_NAME, self.get("default", "db"))
-
     def get(self, section, key, **kwargs) -> str:
         """Returns value for given key and section"""
 

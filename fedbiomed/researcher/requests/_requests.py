@@ -361,7 +361,7 @@ class Requests(metaclass=SingletonMeta):
         trusted_node_certificates = None
         if is_mtls_enabled(config):
             trusted_node_certificates = TrustedCertificateBundle(
-                config.db_path, ComponentType.NODE.name
+                config.getpath("default", "db"), ComponentType.NODE.name
             )
             # This first read also reports expiring certificates. gRPC cannot build
             # server credentials from an empty bundle: it fails to bind the port

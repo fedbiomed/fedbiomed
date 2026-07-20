@@ -8,7 +8,7 @@ import pytest
 from packaging.version import Version
 
 from fedbiomed.common.config import Config
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import (
     FedbiomedConfigurationError,
 )
@@ -290,15 +290,6 @@ class TestNodeConfig(BaseConfigTest):
 
         # Opt-in: disabled by default. Trusted certs live in the main component DB.
         self.assertFalse(config.getbool("mtls", "enabled"))
-
-    def test_02_node_config_db_path(self):
-        config = NodeConfig(root=os.path.abspath("test"))
-
-        # db_path points at the component's main DB (<root>/etc/<default.db>).
-        self.assertEqual(
-            config.db_path,
-            os.path.join(config.root, CONFIG_FOLDER_NAME, config.get("default", "db")),
-        )
 
     def test_03_node_config_migrate_old(self):
         config = NodeConfig(root=os.path.abspath("test"))
