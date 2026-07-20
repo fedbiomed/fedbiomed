@@ -224,7 +224,9 @@ class TestCommonCLI(unittest.TestCase):
         self.cli._register_certificate(args)
 
         # Registration targets the component's main database.
-        self.mock_set_db.assert_called_once_with(db_path=self.config.db_path)
+        self.mock_set_db.assert_called_once_with(
+            db_path=self.config.getpath("default", "db")
+        )
         mock_register_certificate.assert_called_once_with(
             certificate_path="path/to/key",
             party_id="party-id-1",

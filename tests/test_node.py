@@ -240,7 +240,7 @@ class TestNode(unittest.TestCase):
         is_mtls_enabled.return_value = True
         read_file.side_effect = ["NODE_KEY", "NODE_CERT"]
         certificate_manager.return_value.get_by_component.return_value = ["RES_CERT"]
-        self.n1._config._cfg["certificate"] = {
+        self.n1.config._cfg["certificate"] = {
             "private_key": "node.key",
             "public_key": "node.pem",
         }
@@ -267,7 +267,7 @@ class TestNode(unittest.TestCase):
         is_mtls_enabled.return_value = True
         read_file.side_effect = ["NODE_KEY", "NODE_CERT"]
         certificate_manager.return_value.get_by_component.return_value = []
-        self.n1._config._cfg["certificate"] = {
+        self.n1.config._cfg["certificate"] = {
             "private_key": "node.key",
             "public_key": "node.pem",
         }
@@ -288,7 +288,7 @@ class TestNode(unittest.TestCase):
             "RES_CERT_1",
             "RES_CERT_2",
         ]
-        self.n1._config._cfg["certificate"] = {
+        self.n1.config._cfg["certificate"] = {
             "private_key": "node.key",
             "public_key": "node.pem",
         }
@@ -306,7 +306,7 @@ class TestNode(unittest.TestCase):
         """A missing/unreadable node key or cert surfaces as FedbiomedCertificateError."""
         is_mtls_enabled.return_value = True
         read_file.side_effect = FedbiomedError("cannot read file")
-        self.n1._config._cfg["certificate"] = {
+        self.n1.config._cfg["certificate"] = {
             "private_key": "node.key",
             "public_key": "node.pem",
         }

@@ -754,9 +754,10 @@ class TestRequestsMutualTLS(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.config = MagicMock()
         self.config.root = self.tmp.name
-        self.config.db_path = os.path.join(self.tmp.name, "certs.json")
+        self.db_path = os.path.join(self.tmp.name, "certs.json")
+        self.config.getpath.return_value = self.db_path
         self.config.config_path = os.path.join(self.tmp.name, "config.ini")
-        self.certificate_manager = CertificateManager(db_path=self.config.db_path)
+        self.certificate_manager = CertificateManager(db_path=self.db_path)
 
         if Requests in Requests._objects:
             del Requests._objects[Requests]
