@@ -724,15 +724,13 @@ class TaskListener(Listener):
         if self._channels.mtls:
             logger.info(
                 "Mutual-TLS communication established with researcher at "
-                f"{self._channels.endpoint}; node identity verified by the researcher.",
-                extra={"is_security": True},
+                f"{self._channels.endpoint}; node identity verified by the researcher."
             )
         else:
             logger.info(
                 "Communication established with researcher at "
                 f"{self._channels.endpoint} over server-authenticated TLS "
-                "(node identity not verified).",
-                extra={"is_security": True},
+                "(node identity not verified)."
             )
 
     def _message_deadline_exceeded(self):
