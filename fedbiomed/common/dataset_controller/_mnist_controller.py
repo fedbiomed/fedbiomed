@@ -53,11 +53,8 @@ class MnistController(Controller):
                 f"Failed to instantiate MnistDataset object. {e}"
             ) from e
 
-        self._controller_kwargs = {
-            "root": str(self.root),
-            "train": train,
-            "download": False,
-        }
+        # `train`/`download` are runtime-only and intentionally not persisted
+        self._controller_kwargs = {"root": str(self.root)}
 
     def get_sample(self, index: int) -> Dict[str, Any]:
         """Retrieve a data sample without applying transforms"""
