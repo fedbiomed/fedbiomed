@@ -578,6 +578,10 @@ class TestRegisterCertificateComponent(unittest.TestCase):
         with self.assertRaises(FedbiomedCertificateError):
             self._register("NODE_not-a-uuid")
 
+    def test_unknown_component_prefix_is_rejected(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self._register("ADMIN_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44")
+
 
 class TestRegisterCertificatePartyId(unittest.TestCase):
     """`party_id` reconciliation against the certificate identity (`O=`).
@@ -633,6 +637,17 @@ class TestRegisterCertificatePartyId(unittest.TestCase):
         )
         self.assertIsNotNone(self.cm.get(self._NODE_A))
 
+    def test_near_miss_identity_treated_as_third_party(self):
+        # An `O=` resembling a party id but failing the pattern is no usable
+        # identity: the certificate registers as third-party under the given
+        # party id instead of being rejected for a mismatch.
+        self.cm.register_certificate(
+            certificate_path=self._cert("NODE_not-a-uuid"), party_id=self._NODE_A
+        )
+        self.assertEqual(
+            self.cm.get(self._NODE_A)["component"], ComponentType.NODE.name
+        )
+
     def test_given_party_id_must_follow_pattern(self):
         with self.assertRaises(FedbiomedCertificateError):
             self.cm.register_certificate(
@@ -664,11 +679,14 @@ class TestRegisterCertificateRegisteringComponent(unittest.TestCase):
     certificate is rejected when the party id it registers under or a
     single-role EKU identifies it as the registrar's own type; a missing
     identity or EKU constrains nothing, as does omitting the registering
-    component.
+    component. A node additionally keeps a single registered certificate —
+    its researcher's.
     """
 
     _NODE = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
+    _NODE_B = "NODE_0a1b2c3d-aaaa-bbbb-cccc-ddddeeeeffff"
     _RESEARCHER = "RESEARCHER_9c2b1d70-1111-2222-3333-444455556666"
+    _RESEARCHER_B = "RESEARCHER_7e6d5c40-9999-8888-7777-666655554444"
 
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
@@ -778,6 +796,44 @@ class TestRegisterCertificateRegisteringComponent(unittest.TestCase):
             registering_component=ComponentType.RESEARCHER.name,
         )
         self.assertIsNotNone(self.cm.get(self._NODE))
+
+    def test_node_registering_second_certificate_rejected(self):
+        # A node communicates with a single researcher: once a certificate is
+        # registered, one for another party is rejected and the database keeps
+        # holding exactly one.
+        self.cm.register_certificate(
+            certificate_path=self._cert(self._RESEARCHER),
+            registering_component=ComponentType.NODE.name,
+        )
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert(self._RESEARCHER_B),
+                registering_component=ComponentType.NODE.name,
+            )
+        self.assertEqual(len(self.cm.list()), 1)
+
+    def test_node_reregistering_same_party_upserts(self):
+        # Same party id is not a second certificate: the usual upsert flow applies.
+        self.cm.register_certificate(
+            certificate_path=self._cert(self._RESEARCHER),
+            registering_component=ComponentType.NODE.name,
+        )
+        self.cm.register_certificate(
+            certificate_path=self._cert(self._RESEARCHER),
+            registering_component=ComponentType.NODE.name,
+            upsert=True,
+        )
+        self.assertEqual(len(self.cm.list()), 1)
+
+    def test_researcher_registering_multiple_node_certificates_accepted(self):
+        # The single-certificate constraint is the node's; a researcher registers
+        # a certificate per node.
+        for node in (self._NODE, self._NODE_B):
+            self.cm.register_certificate(
+                certificate_path=self._cert(node),
+                registering_component=ComponentType.RESEARCHER.name,
+            )
+        self.assertEqual(len(self.cm.list()), 2)
 
     def test_omitted_registering_component_skips_checks(self):
         # Direct API use without a registering component keeps the permissive
