@@ -471,7 +471,8 @@ class CertificateManager:
                 (`ComponentType.NODE.name` or `ComponentType.RESEARCHER.name`).
                 When given, certificates identified as that component's own kind
                 are rejected: parties register each other's certificates, never
-                their own type. None skips these checks.
+                their own type. A node additionally keeps a single registered
+                certificate — its researcher's. None skips these checks.
 
         Returns:
             The document ID of registered certificated.
@@ -483,7 +484,8 @@ class CertificateManager:
                 a given `party_id` does not follow `<NODE|RESEARCHER>_<uuid>`; or,
                 when `registering_component` is given, if the certificate is
                 identified — by the party id it is registered under or by a
-                single-role EKU — as one of the registering component's own kind.
+                single-role EKU — as one of the registering component's own kind,
+                or if a node already holds a certificate for another party.
         """
 
         if not os.path.isfile(certificate_path):
@@ -534,6 +536,21 @@ class CertificateManager:
             _validate_registering_component(
                 certificate_content, component, registering_component
             )
+
+        # A node communicates with a single researcher, so its database holds at
+        # most one certificate: registering under a second party id is rejected
+        # (re-registering the same party goes through the usual upsert flow).
+        if registering_component == ComponentType.NODE.name:
+            others = [
+                doc["party_id"] for doc in self.list() if doc["party_id"] != party_id
+            ]
+            if others:
+                registered = ", ".join(f"`{o}`" for o in others)
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: A node registers at most one "
+                    f"certificate. Cannot register `{party_id}` while other "
+                    f"certificates are registered: {registered}. Delete them first."
+                )
 
         return self.insert(
             certificate=certificate_content,
