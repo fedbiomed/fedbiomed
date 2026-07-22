@@ -1,3 +1,4 @@
+import importlib
 import logging
 import unittest
 from unittest.mock import patch
@@ -40,20 +41,16 @@ class TestDataLoadingBlock(unittest.TestCase):
         self.dlb2.deserialize(serialized)
         self.assertDictEqual(self.dlb1.data, self.dlb2.data)
 
-        exec(f"import {serialized['loading_block_module']}")
-        dlb3 = eval(
-            f"{serialized['loading_block_module']}.{serialized['loading_block_class']}()"
-        )
+        module = importlib.import_module(serialized["loading_block_module"])
+        dlb3 = getattr(module, serialized["loading_block_class"])()
         dlb3.deserialize(serialized)
         self.assertDictEqual(self.dlb1.data, dlb3.data)
 
         dlb4 = MapperBlock()
         dlb4.map = {"test": 1, 1: "test"}
         serialized = dlb4.serialize()
-        exec(f"import {serialized['loading_block_module']}")
-        dlb5 = eval(
-            f"{serialized['loading_block_module']}.{serialized['loading_block_class']}()"
-        )
+        module = importlib.import_module(serialized["loading_block_module"])
+        dlb5 = getattr(module, serialized["loading_block_class"])()
         dlb5.deserialize(serialized)
         self.assertEqual(dlb4.get_serialization_id(), dlb5.get_serialization_id())
         self.assertDictEqual(dlb4.map, dlb5.map)
@@ -236,7 +233,7 @@ class TestDataLoadingPlan(unittest.TestCase):
         dlp2_values = dlp2[
             LoadingBlockTypesForTesting.LOADING_BLOCK_FOR_TESTING
         ].apply()
-        for v1, v2 in zip(dlp_values, dlp2_values):
+        for v1, v2 in zip(dlp_values, dlp2_values, strict=True):
             self.assertEqual(v1, v2)
 
         with self.assertRaises(FedbiomedLoadingBlockError):

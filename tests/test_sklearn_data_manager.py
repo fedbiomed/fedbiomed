@@ -172,10 +172,13 @@ class TestSkLearnDataManager(unittest.TestCase):
 
     def test_sklearn_data_manager_05_save_load_state(self):
         init_state = self.sklearn_data_manager.save_state()
-        self.assertLessEqual(
-            {"testing_index": [], "training_index": [], "test_ratio": None}.items(),
-            init_state.items(),
-        )
+        for key, value in {
+            "testing_index": [],
+            "training_index": [],
+            "test_ratio": None,
+        }.items():
+            self.assertIn(key, init_state)
+            self.assertEqual(value, init_state[key])
 
         ratio = 0.5
         # n_samples = len(self.sklearn_data_manager.dataset()[0])

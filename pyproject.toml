@@ -77,7 +77,6 @@ classifiers = [
 
 dependencies = [
 	"tinydb ~=4.7.1",
-	"validators >=0.20.0,<0.21.0",
 	"tabulate >=0.9.0,<0.10.0",
 	"psutil ~=6.0.0",
 	"requests  ~=2.29",
@@ -96,9 +95,9 @@ dependencies = [
 	"persist-queue  >=0.5.1,<0.6.0",
 	"pandas  >=2.0.1",
 	"polars ~=1.32.0",
-	"python-minifier  ~=2.11",
+	"python-minifier  >=2.11,<=3.2.0",
 	"declearn[torch]  >=2.0,<2.9",
-	"gmpy2  >=2.1.2,<2.2",
+	"gmpy2  >=2.1.2,<=2.3.1",
 	"grpcio  ~=1.82.0",
 	"grpcio-tools  ~=1.82.0",
 	"unet  >=0.7.7,<0.8.0",
@@ -107,7 +106,7 @@ dependencies = [
 	"pyarrow>=21.0.0",
 ]
 
-requires-python = "<3.12,>=3.10"
+requires-python = "<3.15,>=3.10"
 readme = "README.md"
 license = {text = "Apache 2.0"}
 
@@ -126,6 +125,7 @@ node = [
 researcher = [
 	"pathvalidate ~=3.0.0",
 	"matplotlib >=3.8.0",
+	"setuptools <81",
 	"tensorboard ~=2.18.0",
 	"jupyter",
 	"ipython"
