@@ -26,6 +26,14 @@ from fedbiomed.common.message import FeedbackMessage, Message, TaskRequest, Task
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
 
+# UNAVAILABLE error-detail markers of a TLS/pinning failure (gRPC reports it
+# with the same status as an unreachable server).
+_TLS_HANDSHAKE_ERROR_MARKERS = ("handshake", "certificate", "ssl", "tls")
+
+# UNAVAILABLE error-detail markers of a connection closed by the peer, the only
+# trace of a server rejecting the client certificate mid-handshake.
+_CONNECTION_CLOSED_ERROR_MARKERS = ("socket closed", "connection reset", "broken pipe")
+
 
 @dataclass
 class NodeClientIdentity:
@@ -56,6 +64,8 @@ class ResearcherCredentials:
     mtls: bool = False
     # Node's own client identity, presented to the researcher under mutual TLS.
     node_identity: Optional[NodeClientIdentity] = None
+    # Whether the researcher was observed to demand certificates. None until probed.
+    client_auth_enforced: Optional[bool] = None
 
 
 class ClientStatus(Enum):
@@ -105,15 +115,16 @@ def is_server_alive(host: str, port: str):
                 return True
 
 
-# gRPC reports TLS/pinning failures with the same UNAVAILABLE status as an
-# unreachable server; these markers in the error detail disambiguate them.
-_TLS_HANDSHAKE_ERROR_MARKERS = ("handshake", "certificate", "ssl", "tls")
-
-
 def _is_tls_handshake_error(exp: grpc.aio.AioRpcError) -> bool:
     """Whether an UNAVAILABLE RPC error is really a TLS/pinning failure."""
     detail = f"{exp.details()} {exp.debug_error_string()}".lower()
     return any(m in detail for m in _TLS_HANDSHAKE_ERROR_MARKERS)
+
+
+def _is_connection_closed_error(exp: grpc.aio.AioRpcError) -> bool:
+    """Whether an UNAVAILABLE RPC error is a connection closed by the peer."""
+    detail = f"{exp.details()} {exp.debug_error_string()}".lower()
+    return any(m in detail for m in _CONNECTION_CLOSED_ERROR_MARKERS)
 
 
 def _researcher_requires_client_auth(host: str, port: str) -> bool:
@@ -194,6 +205,21 @@ class Channels:
     def endpoint(self) -> str:
         """Researcher server endpoint as `host:port`."""
         return f"{self._researcher.host}:{self._researcher.port}"
+
+    @property
+    def host(self) -> str:
+        """Researcher server host."""
+        return self._researcher.host
+
+    @property
+    def port(self) -> str:
+        """Researcher server port."""
+        return self._researcher.port
+
+    @property
+    def client_auth_enforced(self) -> Optional[bool]:
+        """Whether the researcher was observed to demand client certificates."""
+        return self._researcher.client_auth_enforced
 
     async def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
         """Get stub for a given stub type.
@@ -350,6 +376,8 @@ class GrpcClient:
 
         self._update_id_map = update_id_map
         self._tasks = []
+        # Report the repeating connect-loop mTLS mismatch once.
+        self._auth_mismatch_logged = False
 
     @property
     def tasks(self) -> List[asyncio.Task]:
@@ -405,6 +433,19 @@ class GrpcClient:
             time_before = time.perf_counter()
             if is_server_alive(self._researcher.host, self._researcher.port):
                 if not self._researcher.mtls:
+                    if _researcher_requires_client_auth(
+                        self._researcher.host, self._researcher.port
+                    ):
+                        # A researcher enforcing mutual TLS would reject this node
+                        self._log_auth_mismatch_once(
+                            f"{ErrorNumbers.FB628.value}: The researcher requires "
+                            "mutual-TLS client authentication but mutual-TLS is "
+                            "disabled on this node. Enable it in the node `[mtls]` "
+                            "configuration, register the researcher certificate and "
+                            "ask the researcher to register this  node's certificate."
+                        )
+                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+                        continue
                     # Gets server certificate before creating the channel
                     # This implementation assumes that the provided IP and PORT trusted
                     # == OK for honest but curious researcher and nodes (parties in the
@@ -417,19 +458,26 @@ class GrpcClient:
                         ),
                         "utf-8",
                     )
-                    logger.info(
-                        "Retrieved server certificate, ready to communicate with server."
+                    logger.info("Retrieved server certificate, connecting to server.")
+                else:
+                    self._researcher.client_auth_enforced = (
+                        _researcher_requires_client_auth(
+                            self._researcher.host, self._researcher.port
+                        )
                     )
-                elif not _researcher_requires_client_auth(
-                    self._researcher.host, self._researcher.port
-                ):
-                    logger.warning(
-                        f"{ErrorNumbers.FB628.value}: This node is configured for "
-                        "mutual TLS but the researcher does not require client "
-                        "certificates. Node identity will NOT be verified by the "
-                        "researcher - mutual TLS is not enforced.",
-                        extra={"is_security": True},
-                    )
+                    if not self._researcher.client_auth_enforced:
+                        msg = (
+                            "This node is configured for mutual-TLS but the "
+                            "researcher does not require client certificates: "
+                            "node identity will NOT be verified. Connecting "
+                            "anyway with the researcher certificate registered."
+                        )
+                        logger.warning(msg)
+                        logger.security_event(
+                            operation="mtls_not_enforced_by_researcher",
+                            status="failure",
+                            detail=msg,
+                        )
 
                 if self._id is None:
                     # auto-detect researcher_id from the peer certificate O= field
@@ -460,6 +508,20 @@ class GrpcClient:
                         + time_before,
                     )
                 )
+
+    def _log_auth_mismatch_once(self, message: str) -> None:
+        """Logs an mTLS configuration mismatch at error level with a security
+        audit event, once; the connect loop repeats it at debug only."""
+        if self._auth_mismatch_logged:
+            logger.debug(message)
+            return
+        self._auth_mismatch_logged = True
+        logger.error(message)
+        logger.security_event(
+            operation="mtls_configuration_mismatch",
+            status="failure",
+            detail=message,
+        )
 
     async def _on_status_change(self, status: ClientStatus) -> None:
         """Callback awaitable to change the researcher status
@@ -505,6 +567,8 @@ class Listener:
         """
         self._channels = channels
         self._retry_on_error = False
+        # Report the repeating TLS failure once until the connection recovers.
+        self._tls_failure_logged = False
 
     @abc.abstractmethod
     async def _handle_after_process(
@@ -536,6 +600,28 @@ class Listener:
         Args:
             callback: Callback to execute once a task is submitted
         """
+
+    def _server_reachable(self) -> bool:
+        """Whether the researcher endpoint accepts TCP connections; resolution
+        failures count as unreachable."""
+        try:
+            return is_server_alive(self._channels.host, self._channels.port)
+        except OSError:
+            return False
+
+    def _log_tls_failure_once(self, message: str) -> None:
+        """Logs a TLS failure at error level with a security audit event, once
+        per disconnection; the retry loop repeats it at debug only."""
+        if self._tls_failure_logged:
+            logger.debug(message)
+            return
+        self._tls_failure_logged = True
+        logger.error(message)
+        logger.security_event(
+            operation="mtls_handshake_failure",
+            status="failure",
+            detail=message,
+        )
 
     async def _post_handle_raise(self, exp: BaseException):
         """Raise a transformed exception from a base exception.
@@ -584,12 +670,43 @@ class Listener:
                     case grpc.StatusCode.UNAVAILABLE:
                         await self._on_status_change(ClientStatus.DISCONNECTED)
                         if self._channels.mtls and _is_tls_handshake_error(exp):
-                            logger.error(
+                            self._log_tls_failure_once(
                                 f"{ErrorNumbers.FB628.value}: Mutual-TLS handshake with "
                                 f"researcher failed in {self.__class__.__name__}: "
                                 f"{exp.details()}. Check pinned/registered certificates "
-                                "and possible MITM. Retrying.",
-                                extra={"is_security": True},
+                                "and possible MITM. Retrying silently."
+                            )
+                        elif (
+                            self._channels.mtls
+                            and _is_connection_closed_error(exp)
+                            and self._server_reachable()
+                        ):
+                            # Reachable but closing during the handshake: the
+                            # researcher does not trust this node's certificate.
+                            self._log_tls_failure_once(
+                                f"{ErrorNumbers.FB628.value}: The researcher at "
+                                f"{self._channels.endpoint} is reachable but closes "
+                                "the connection during the TLS handshake: it likely "
+                                "does not recognize this node's certificate. Ask "
+                                "the researcher to register it."
+                            )
+                        elif (
+                            not self._channels.mtls
+                            and (
+                                _is_connection_closed_error(exp)
+                                or _is_tls_handshake_error(exp)
+                            )
+                            and self._server_reachable()
+                            and _researcher_requires_client_auth(
+                                self._channels.host, self._channels.port
+                            )
+                        ):
+                            self._log_tls_failure_once(
+                                f"{ErrorNumbers.FB628.value}: The researcher requires "
+                                "mutual-TLS client authentication but mutual-TLS is "
+                                "disabled on this node. Enable it in the node `[mtls]` "
+                                "configuration, register the researcher certificate and "
+                                "ask the researcher to register this  node's certificate."
                             )
                         else:
                             logger.debug(
@@ -612,7 +729,12 @@ class Listener:
                             f"{exp.details()}. Declared node id does not match its "
                             "certificate, or the certificate is not registered."
                         )
-                        logger.error(msg, extra={"is_security": True})
+                        logger.error(msg)
+                        logger.security_event(
+                            operation="mtls_identity_rejected",
+                            status="failure",
+                            detail=msg,
+                        )
                         raise FedbiomedCommunicationError(msg) from exp
 
                     case grpc.StatusCode.UNKNOWN | _:
@@ -643,6 +765,7 @@ class Listener:
                     ClientStatus.FAILED, True, False, self._post_handle_raise, exp
                 )
             else:
+                self._tls_failure_logged = False
                 await self._handle_after_process(ClientStatus.CONNECTED)
 
 
@@ -721,10 +844,18 @@ class TaskListener(Listener):
             return
         self._communication_established = True
 
-        if self._channels.mtls:
+        if self._channels.mtls and self._channels.client_auth_enforced is not False:
             logger.info(
                 "Mutual-TLS communication established with researcher at "
                 f"{self._channels.endpoint}; node identity verified by the researcher."
+            )
+        elif self._channels.mtls:
+            # The connect probe saw the researcher accept anonymous clients.
+            logger.info(
+                "Communication established with researcher at "
+                f"{self._channels.endpoint} over TLS with pinned researcher "
+                "certificate; node identity NOT verified by the researcher "
+                "(mutual TLS not enforced)."
             )
         else:
             logger.info(

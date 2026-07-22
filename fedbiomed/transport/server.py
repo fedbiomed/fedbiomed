@@ -482,6 +482,13 @@ class _GrpcAsyncServer:
         )
         # self._server.add_insecure_port(self._host + ':' + str(self._port))
 
+        if self._ssl.mtls:
+            # Rejections happen inside the TLS handshake, out of reach of this process
+            logger.info(
+                "Mutual TLS is enabled: nodes whose certificate is not registered "
+                "are rejected during the TLS handshake, without further logs."
+            )
+
         # Starts async gRPC server
         await self._server.start()
 
