@@ -66,24 +66,15 @@ def certificate_expiry(certificate: Union[bytes, str]) -> Optional[datetime]:
         return None
 
 
-# Component a certificate is restricted to by each single-role EKU: a node
-# certificate acts as a TLS client, a researcher certificate as a TLS server.
-_EKU_COMPONENT = {
-    ExtendedKeyUsageOID.CLIENT_AUTH: ComponentType.NODE.name,
-    ExtendedKeyUsageOID.SERVER_AUTH: ComponentType.RESEARCHER.name,
-}
-
-
 def certificate_expected_component(certificate: bytes) -> Optional[str]:
     """Component a certificate's Extended Key Usage restricts it to.
 
     A client-only certificate is a node's, a server-only one a researcher's.
 
     Returns:
-        `ComponentType.NODE.name` or `ComponentType.RESEARCHER.name`, or None when
-        the EKU is absent or allows both roles, leaving the component
-        unconstrained (third-party certificates need not carry a role-restricting
-        EKU).
+        `ComponentType.NODE.name` or `ComponentType.RESEARCHER.name`, or None
+        when the certificate is unparsable or its EKU does not restrict it to a
+        single role (third-party certificates need not carry one).
     """
     try:
         usages = (
@@ -93,8 +84,11 @@ def certificate_expected_component(certificate: bytes) -> Optional[str]:
         )
     except (ValueError, x509.ExtensionNotFound):
         return None
-    components = {_EKU_COMPONENT[usage] for usage in usages if usage in _EKU_COMPONENT}
-    return components.pop() if len(components) == 1 else None
+    client = ExtendedKeyUsageOID.CLIENT_AUTH in usages
+    server = ExtendedKeyUsageOID.SERVER_AUTH in usages
+    if client == server:  # both roles or neither: component unconstrained
+        return None
+    return ComponentType.NODE.name if client else ComponentType.RESEARCHER.name
 
 
 def _validate_registering_component(
