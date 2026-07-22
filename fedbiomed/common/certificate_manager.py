@@ -66,6 +66,79 @@ def certificate_expiry(certificate: Union[bytes, str]) -> Optional[datetime]:
         return None
 
 
+# Component a certificate is restricted to by each single-role EKU: a node
+# certificate acts as a TLS client, a researcher certificate as a TLS server.
+_EKU_COMPONENT = {
+    ExtendedKeyUsageOID.CLIENT_AUTH: ComponentType.NODE.name,
+    ExtendedKeyUsageOID.SERVER_AUTH: ComponentType.RESEARCHER.name,
+}
+
+
+def certificate_expected_component(certificate: bytes) -> Optional[str]:
+    """Component a certificate's Extended Key Usage restricts it to.
+
+    A client-only certificate is a node's, a server-only one a researcher's.
+
+    Returns:
+        `ComponentType.NODE.name` or `ComponentType.RESEARCHER.name`, or None when
+        the EKU is absent or allows both roles, leaving the component
+        unconstrained (third-party certificates need not carry a role-restricting
+        EKU).
+    """
+    try:
+        usages = (
+            x509.load_pem_x509_certificate(certificate)
+            .extensions.get_extension_for_class(x509.ExtendedKeyUsage)
+            .value
+        )
+    except (ValueError, x509.ExtensionNotFound):
+        return None
+    components = {_EKU_COMPONENT[usage] for usage in usages if usage in _EKU_COMPONENT}
+    return components.pop() if len(components) == 1 else None
+
+
+def _validate_registering_component(
+    certificate: str, component: str, registering_component: str
+) -> None:
+    """Checks a certificate is not of the registering component's own kind.
+
+    Parties register the certificates of the components they talk to, never of
+    their own type: a node registers researcher certificates and a researcher
+    node ones. Two independent checks, each restrictive only for information
+    actually present:
+
+    - the component the certificate is registered as must differ from the
+      registering component;
+    - when the Extended Key Usage restricts the certificate to a single TLS
+      role, that role must not be the registering component's own (a node acts
+      as a TLS client, a researcher as a TLS server). An absent or dual-role
+      EKU constrains nothing.
+
+    Raises:
+        FedbiomedCertificateError: the certificate is identified as belonging
+            to the registering component's own type.
+    """
+    if component == registering_component:
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: Cannot register a {component} certificate "
+            f"on a {registering_component}: a component registers the certificates "
+            "of the parties it communicates with, not of its own type."
+        )
+    eku_component = certificate_expected_component(certificate.encode("utf-8"))
+    if eku_component == registering_component:
+        role = (
+            CERT_PURPOSE_CLIENT
+            if eku_component == ComponentType.NODE.name
+            else CERT_PURPOSE_SERVER
+        )
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: The certificate's Extended Key Usage "
+            f"restricts it to a TLS {role} certificate — the "
+            f"{registering_component}'s own role, not that of the parties it "
+            "registers."
+        )
+
+
 def is_mtls_enabled(config) -> bool:
     """Whether mutual TLS is enabled in the `[mtls]` config section.
 
@@ -375,6 +448,7 @@ class CertificateManager:
         certificate_path: str,
         party_id: Optional[str] = None,
         upsert: bool = False,
+        registering_component: Optional[str] = None,
     ) -> Union[int, List[int]]:
         """Registers certificate
 
@@ -393,6 +467,11 @@ class CertificateManager:
                 valid identity in `O=`; required otherwise.
             upsert: If `True` overwrites existing certificate for specified party.  If `False`
                 and the certificate for the specified party already existing it raises error.
+            registering_component: Component type performing the registration
+                (`ComponentType.NODE.name` or `ComponentType.RESEARCHER.name`).
+                When given, certificates identified as that component's own kind
+                are rejected: parties register each other's certificates, never
+                their own type. None skips these checks.
 
         Returns:
             The document ID of registered certificated.
@@ -400,8 +479,11 @@ class CertificateManager:
         Raises:
             FedbiomedCertificateError: If the certificate file does not exist; if
                 `party_id` is neither given nor recoverable from the certificate;
-                if a given `party_id` conflicts with the certificate identity; or
-                if a given `party_id` does not follow `<NODE|RESEARCHER>_<uuid>`.
+                if a given `party_id` conflicts with the certificate identity; if
+                a given `party_id` does not follow `<NODE|RESEARCHER>_<uuid>`; or,
+                when `registering_component` is given, if the certificate is
+                identified — by the party id it is registered under or by a
+                single-role EKU — as one of the registering component's own kind.
         """
 
         if not os.path.isfile(certificate_path):
@@ -420,6 +502,17 @@ class CertificateManager:
             _party_id_component(certificate_id) if certificate_id is not None else None
         )
 
+        # A provided party id must always follow the expected pattern, whether it
+        # is later used as-is or reconciled against the certificate identity.
+        given_component = (
+            _party_id_component(party_id) if party_id is not None else None
+        )
+        if party_id is not None and given_component is None:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Party id `{party_id}` is invalid; it "
+                "must follow `<NODE|RESEARCHER>_<uuid>`."
+            )
+
         if certificate_component is not None:
             if party_id is not None and party_id != certificate_id:
                 raise FedbiomedCertificateError(
@@ -427,18 +520,20 @@ class CertificateManager:
                     f"match the certificate identity `{certificate_id}`."
                 )
             party_id, component = certificate_id, certificate_component
+        elif given_component is not None:
+            # Third-party certificate: an arbitrary `O=`, registered under the
+            # given `party_id`.
+            component = given_component
         else:
-            if party_id is None:
-                raise FedbiomedCertificateError(
-                    f"{ErrorNumbers.FB619.value}: The certificate does not embed a valid "
-                    "party identity, so `party_id` must be provided to register it."
-                )
-            component = _party_id_component(party_id)
-            if component is None:
-                raise FedbiomedCertificateError(
-                    f"{ErrorNumbers.FB619.value}: Party id `{party_id}` is invalid; it "
-                    "must follow `<NODE|RESEARCHER>_<uuid>`."
-                )
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: The certificate does not embed a valid "
+                "party identity, so `party_id` must be provided to register it."
+            )
+
+        if registering_component is not None:
+            _validate_registering_component(
+                certificate_content, component, registering_component
+            )
 
         return self.insert(
             certificate=certificate_content,

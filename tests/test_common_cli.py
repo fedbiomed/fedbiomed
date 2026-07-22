@@ -209,6 +209,7 @@ class TestCommonCLI(unittest.TestCase):
         self, mock_print, mock_open, mock_register_certificate
     ):
         self.cli.initialize_certificate_parser()
+        self.config.COMPONENT_TYPE = "NODE"
         args = self.cli.parser.parse_args(
             [
                 "certificate",
@@ -227,10 +228,13 @@ class TestCommonCLI(unittest.TestCase):
         self.mock_set_db.assert_called_once_with(
             db_path=self.config.getpath("default", "db")
         )
+        # The registering component is passed along so certificates of the
+        # component's own kind are rejected.
         mock_register_certificate.assert_called_once_with(
             certificate_path="path/to/key",
             party_id="party-id-1",
             upsert=True,
+            registering_component="NODE",
         )
         self.assertEqual(mock_print.call_count, 2)
 

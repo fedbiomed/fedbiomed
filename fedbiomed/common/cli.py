@@ -440,6 +440,7 @@ class CommonCLI:
                 certificate_path=args.public_key,
                 party_id=args.party_id,
                 upsert=args.upsert,
+                registering_component=self.config.COMPONENT_TYPE,
             )
         except FedbiomedError as exp:
             print(exp)

@@ -7,9 +7,12 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 from cryptography import x509
-from cryptography.x509.oid import ExtendedKeyUsageOID
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_CLIENT,
     CERT_PURPOSE_SERVER,
     CertificateManager,
     TrustedCertificateBundle,
@@ -635,6 +638,152 @@ class TestRegisterCertificatePartyId(unittest.TestCase):
             self.cm.register_certificate(
                 certificate_path=self._cert("Hospital A"), party_id="not-a-valid-id"
             )
+
+    def test_malformed_party_id_rejected_even_with_certificate_identity(self):
+        # The certificate embeds a valid identity, but a provided party id must
+        # still follow the expected pattern rather than pass unchecked.
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert(self._NODE_A), party_id="NODE_garbage"
+            )
+
+    def test_wrong_component_party_id_rejected(self):
+        # Valid pattern but the wrong component: a researcher party id given for a
+        # node certificate must not be reconciled.
+        researcher = "RESEARCHER_" + self._NODE_A.split("_", 1)[1]
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert(self._NODE_A), party_id=researcher
+            )
+
+
+class TestRegisterCertificateRegisteringComponent(unittest.TestCase):
+    """Rejection of certificates of the registering component's own kind.
+
+    A node registers researcher certificates and a researcher node ones. A
+    certificate is rejected when the party id it registers under or a
+    single-role EKU identifies it as the registrar's own type; a missing
+    identity or EKU constrains nothing, as does omitting the registering
+    component.
+    """
+
+    _NODE = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
+    _RESEARCHER = "RESEARCHER_9c2b1d70-1111-2222-3333-444455556666"
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.cm = CertificateManager(db_path=os.path.join(self._tmp.name, "certs.json"))
+
+    def tearDown(self) -> None:
+        self.cm.close()
+        self._tmp.cleanup()
+
+    def _cert(self, org, purpose=None):
+        # A party-id `org` gets the matching single-role EKU inferred; any other
+        # `org` yields a dual-role EKU unless `purpose` restricts it.
+        _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+            certificate_folder=self._tmp.name,
+            certificate_name="cert",
+            component_id=org,
+            subject={"CommonName": "localhost", "OrganizationName": org},
+            purpose=purpose,
+        )
+        return pem_file
+
+    def test_node_registering_researcher_certificate_accepted(self):
+        self.cm.register_certificate(
+            certificate_path=self._cert(self._RESEARCHER),
+            registering_component=ComponentType.NODE.name,
+        )
+        self.assertIsNotNone(self.cm.get(self._RESEARCHER))
+
+    def test_researcher_registering_node_certificate_accepted(self):
+        self.cm.register_certificate(
+            certificate_path=self._cert(self._NODE),
+            registering_component=ComponentType.RESEARCHER.name,
+        )
+        self.assertIsNotNone(self.cm.get(self._NODE))
+
+    def test_node_registering_node_certificate_rejected(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert(self._NODE),
+                registering_component=ComponentType.NODE.name,
+            )
+
+    def test_researcher_registering_researcher_certificate_rejected(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert(self._RESEARCHER),
+                registering_component=ComponentType.RESEARCHER.name,
+            )
+
+    def test_given_party_id_of_own_type_rejected(self):
+        # The party id is user-given for a third-party certificate (arbitrary
+        # `O=`, dual-role EKU): it goes through the same protection.
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert("Hospital A"),
+                party_id=self._NODE,
+                registering_component=ComponentType.NODE.name,
+            )
+
+    def test_researcher_registering_server_only_third_party_rejected(self):
+        # EKU restricts the certificate to the researcher's own role (server),
+        # even though `O=` carries no party id.
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert("Hospital_x", CERT_PURPOSE_SERVER),
+                party_id=self._NODE,
+                registering_component=ComponentType.RESEARCHER.name,
+            )
+
+    def test_node_registering_client_only_third_party_rejected(self):
+        with self.assertRaises(FedbiomedCertificateError):
+            self.cm.register_certificate(
+                certificate_path=self._cert("Hospital_x", CERT_PURPOSE_CLIENT),
+                party_id=self._RESEARCHER,
+                registering_component=ComponentType.NODE.name,
+            )
+
+    def test_dual_role_third_party_accepted(self):
+        # A dual-role EKU does not identify a component, so it constrains nothing.
+        self.cm.register_certificate(
+            certificate_path=self._cert("Hospital A"),
+            party_id=self._NODE,
+            registering_component=ComponentType.RESEARCHER.name,
+        )
+        self.assertIsNotNone(self.cm.get(self._NODE))
+
+    def test_missing_eku_constrains_nothing(self):
+        # A certificate without any EKU carries no role to check against.
+        pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        name = x509.Name([x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Hospital_x")])
+        certificate = (
+            x509.CertificateBuilder()
+            .subject_name(name)
+            .issuer_name(name)
+            .public_key(pkey.public_key())
+            .serial_number(x509.random_serial_number())
+            .not_valid_before(datetime.now(timezone.utc))
+            .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+            .sign(private_key=pkey, algorithm=hashes.SHA256())
+        )
+        pem_file = os.path.join(self._tmp.name, "no_eku.pem")
+        with open(pem_file, "wb") as file:
+            file.write(certificate.public_bytes(serialization.Encoding.PEM))
+        self.cm.register_certificate(
+            certificate_path=pem_file,
+            party_id=self._NODE,
+            registering_component=ComponentType.RESEARCHER.name,
+        )
+        self.assertIsNotNone(self.cm.get(self._NODE))
+
+    def test_omitted_registering_component_skips_checks(self):
+        # Direct API use without a registering component keeps the permissive
+        # behavior: a node certificate registers fine.
+        self.cm.register_certificate(certificate_path=self._cert(self._NODE))
+        self.assertIsNotNone(self.cm.get(self._NODE))
 
 
 class _TrustedCertificateBundleFixture:
