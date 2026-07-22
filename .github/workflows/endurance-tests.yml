@@ -6,9 +6,6 @@ on:
   schedule:
     - cron: "0 1 * * 6"  # Run every Saturday at 1 am on default branch: develop
   workflow_dispatch:
-  push:
-    branches:
-      - 'master'
 
 jobs:
   endurance-test:

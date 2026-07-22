@@ -232,7 +232,7 @@ jobs:
         run: tox -r -e py${{ matrix.python-version }}-unit
 
       - name: Record unit-test dependencies
-        if: always()
+        if: failure()
         run: |
           tox exec -e py${{ matrix.python-version }}-unit -- \
             python -m pip freeze --all > dependency-freeze.txt || \
@@ -248,7 +248,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Upload unit-test diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: unit-${{ matrix.os }}-py${{ matrix.python-version }}
@@ -293,14 +293,14 @@ jobs:
         run: tox -r -e py${{ matrix.python-version }}-e2e-mnist
 
       - name: Record MNIST dependencies
-        if: always()
+        if: failure()
         run: |
           tox exec -e py${{ matrix.python-version }}-e2e-mnist -- \
             python -m pip freeze --all > dependency-freeze.txt || \
             python -m pip freeze --all > dependency-freeze.txt
 
       - name: Upload MNIST diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: mnist-${{ matrix.os }}-py${{ matrix.python-version }}
@@ -345,14 +345,14 @@ jobs:
         run: tox -r -e py${{ matrix.python-version }}-e2e
 
       - name: Record end-to-end dependencies
-        if: always()
+        if: failure()
         run: |
           tox exec -e py${{ matrix.python-version }}-e2e -- \
             python -m pip freeze --all > dependency-freeze.txt || \
             python -m pip freeze --all > dependency-freeze.txt
 
       - name: Upload end-to-end diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-${{ matrix.os }}-py${{ matrix.python-version }}
