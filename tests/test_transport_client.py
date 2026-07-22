@@ -95,6 +95,10 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
 
         pass
 
+    @patch(
+        "fedbiomed.transport.client._researcher_requires_client_auth",
+        return_value=False,
+    )
     @patch("fedbiomed.transport.client.logger._logger.info")
     @patch("fedbiomed.transport.client.x509.load_pem_x509_certificate", autospec=True)
     @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
@@ -105,6 +109,7 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
         get_server_certificate,
         load_pem_x509_certificate,
         log_info,
+        requires_client_auth,
     ):
         is_server_alive.return_value = True
         get_server_certificate.return_value = "DUMMY-CERT"
@@ -130,6 +135,40 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertEqual(len(security_calls), 1)
         self.assertTrue(security_calls[0].args[0])
+
+    @patch(
+        "fedbiomed.transport.client._researcher_requires_client_auth",
+        return_value=True,
+    )
+    @patch("fedbiomed.transport.client.logger._logger.error")
+    @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
+    @patch("fedbiomed.transport.client.asyncio.sleep")
+    @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+    async def test_grpc_client_08__connect_refuses_in_band_cert_from_mtls_researcher(
+        self,
+        is_server_alive,
+        sleep,
+        get_server_certificate,
+        log_error,
+        requires_client_auth,
+    ):
+        """A non-mTLS node facing an mTLS-enforcing researcher never adopts an
+        in-band certificate: it reports the mismatch and keeps waiting."""
+        is_server_alive.return_value = True
+        # Break out of the connect loop after two retry sleeps
+        sleep.side_effect = [None, asyncio.CancelledError]
+        self.client._channels.connect = AsyncMock()  # no spec
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.client._connect()
+
+        # No in-band certificate fetch, no channel creation
+        get_server_certificate.assert_not_called()
+        self.client._channels.connect.assert_not_called()
+        # One console-visible error despite two detections
+        errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+        self.assertEqual(len(errors), 1)
+        self.assertIn("mutual TLS is disabled on this node", errors[0].args[0])
 
     @patch("fedbiomed.transport.client.logger._logger.warning")
     @patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
@@ -158,12 +197,14 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
 
                 await client._connect()
 
-                security_warnings = [
+                # Console-visible warning (no security flag: flagged records
+                # are diverted to the security file)
+                warnings = [
                     c
                     for c in log_warning.call_args_list
-                    if c.kwargs.get("extra", {}).get("is_security") is True
+                    if "node identity will NOT be verified" in c.args[0]
                 ]
-                self.assertEqual(len(security_warnings), expected_warnings)
+                self.assertEqual(len(warnings), expected_warnings)
 
 
 class TestTaskListener(unittest.IsolatedAsyncioTestCase):
@@ -182,6 +223,10 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         # Deterministic placeholders for assertions on logged message content
         self.channels._channels = "CHANNELS"
         self.channels._stubs = "STUBS"
+        # Real values: the listener probes this endpoint on connection-closed
+        # errors under mTLS (port 1 is reliably closed).
+        self.channels.host = "localhost"
+        self.channels.port = "1"
         self.channels.connect = AsyncMock()
         self.task_listener = TaskListener(
             channels=self.channels,
@@ -446,11 +491,12 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(request_stub.GetTaskUnary.call_count, 1)
         # Node is marked failed
         self.on_status_change.assert_awaited_with(ClientStatus.FAILED)
-        # Security-flagged FB628 error
+        # Console-visible FB628 error (no security flag: flagged records are
+        # diverted to the security file and would not reach the user)
         log_error.assert_called_once()
         log_args, log_kwargs = log_error.call_args
         self.assertIn("FB628", log_args[0])
-        self.assertTrue(log_kwargs["extra"].get("is_security"))
+        self.assertFalse(log_kwargs.get("extra", {}).get("is_security"))
 
         task.cancel()
 
@@ -477,11 +523,12 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(asyncio.CancelledError):
             await task
 
-        # Surfaced as a security error (not a silent debug), and still reconnects
+        # Surfaced as a console-visible error (not a silent debug), and still
+        # reconnects
         log_error.assert_called_once()
         log_args, log_kwargs = log_error.call_args
         self.assertIn("FB628", log_args[0])
-        self.assertTrue(log_kwargs["extra"].get("is_security"))
+        self.assertFalse(log_kwargs.get("extra", {}).get("is_security"))
         sleep.assert_called_once()
         self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
 
@@ -546,7 +593,6 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(msgs), 1)
         self.assertIn("server-authenticated TLS", msgs[0].args[0])
         self.assertIn("localhost:50051", msgs[0].args[0])
-        self.assertTrue(msgs[0].kwargs["extra"].get("is_security"))
 
     @patch("fedbiomed.transport.client.logger.info")
     @patch("fedbiomed.transport.client.asyncio.sleep")
@@ -565,7 +611,77 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
             if "Mutual-TLS communication established" in c.args[0]
         ]
         self.assertEqual(len(msgs), 2)
-        self.assertTrue(msgs[0].kwargs["extra"].get("is_security"))
+
+    @patch("fedbiomed.transport.client.is_server_alive", return_value=True)
+    @patch("fedbiomed.transport.client.logger._logger.error")
+    @patch("fedbiomed.transport.client.logger._logger.debug")
+    @patch("fedbiomed.transport.client.asyncio.sleep")
+    async def test_task_listener_09_mtls_rejection_logged_once(
+        self, sleep, log_debug, log_error, alive
+    ):
+        """A reachable researcher closing the connection under mTLS is reported
+        once as a suspected certificate rejection, then demoted to debug."""
+        self.channels.mtls = True
+        closed = lambda: self._rpc_error(  # noqa: E731
+            grpc.StatusCode.UNAVAILABLE, "ipv4:127.0.0.1:50051: Socket closed"
+        )
+        await self._drain([closed(), closed()])
+
+        # One actionable console-visible error despite two identical failures
+        errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+        self.assertEqual(len(errors), 1)
+        self.assertIn("certificate register", errors[0].args[0])
+        # The repeat went to debug with the same explanation
+        self.assertTrue(
+            any("TLS handshake" in c.args[0] for c in log_debug.call_args_list)
+        )
+
+    @patch(
+        "fedbiomed.transport.client._researcher_requires_client_auth",
+        return_value=True,
+    )
+    @patch("fedbiomed.transport.client.is_server_alive", return_value=True)
+    @patch("fedbiomed.transport.client.logger._logger.error")
+    @patch("fedbiomed.transport.client.asyncio.sleep")
+    async def test_task_listener_10_non_mtls_node_against_mtls_researcher(
+        self, sleep, log_error, alive, requires_auth
+    ):
+        """A non-mTLS node rejected by a researcher enforcing client
+        authentication is told to enable mutual TLS."""
+        self.channels.mtls = False
+        await self._drain(
+            [
+                self._rpc_error(
+                    grpc.StatusCode.UNAVAILABLE, "ipv4:127.0.0.1:50051: Socket closed"
+                )
+            ]
+        )
+
+        errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+        self.assertEqual(len(errors), 1)
+        self.assertIn("mutual TLS is disabled on this node", errors[0].args[0])
+        self.assertIn("restart the node", errors[0].args[0])
+
+    @patch("fedbiomed.transport.client.logger.info")
+    async def test_task_listener_11_announce_honest_when_not_enforced(self, log_info):
+        """When the researcher accepts anonymous clients, the announce does not
+        claim the node identity was verified."""
+        self.channels.mtls = True
+        self.channels.client_auth_enforced = False
+
+        async def one_task(bytes_):
+            yield TaskResponse(bytes_=bytes_, iteration=0, size=0)
+
+        await self._drain([one_task(b"t1")])
+
+        msgs = [
+            c
+            for c in log_info.call_args_list
+            if "Communication established" in c.args[0]
+        ]
+        self.assertEqual(len(msgs), 1)
+        self.assertIn("NOT verified", msgs[0].args[0])
+        self.assertNotIn("Mutual-TLS communication established", msgs[0].args[0])
 
 
 class TestTlsHandshakeErrorDetection(unittest.TestCase):
