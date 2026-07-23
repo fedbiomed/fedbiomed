@@ -105,22 +105,20 @@ def read_config_file(filepath: str) -> dict:
             variable value (item value)
     """
 
-    try:    
-        f = open(filepath, 'r')
+    try:
+        with open(filepath, 'r') as f:
+            peer_config = {}
+            for line in f:
+                if not line.startswith('#') and not line == '' and not line.isspace():
+                    t = tuple(line.strip(" \n").removeprefix('export').lstrip().split('=', 1))
+                    if not len(t) == 2 or not isinstance(t[0], str) or \
+                            not isinstance(t[1], str):
+                        print(f"CRITICAL: bad variable in config file {filepath} : {t}")
+                        exit(1)
+                    peer_config[t[0]] = t[1]
     except Exception as e:
         print(f"CRITICAL: cannot open config file {filepath} : {e}")
         exit(1)
-
-    peer_config = {}
-    for line in f:
-        if not line.startswith('#') and not line == '' and not line.isspace():
-            t = tuple(line.strip(" \n").removeprefix('export').lstrip().split('=', 1))
-            if not len(t) == 2 or not isinstance(t[0], str) or \
-                    not isinstance(t[1], str):
-                print(f"CRITICAL: bad variable in config file {filepath} : {t}")
-                exit(1)
-            peer_config[t[0]] = t[1]      
-    f.close()
 
     for variable in peer_config.items():
         if not len(variable) == 2 or not isinstance(variable[0], str) or \
@@ -153,16 +151,19 @@ def save_config_file(peer_type: str, peer_id: str, mapping: dict) -> None:
     run_drop_priv(os.mkdir, outpath)
 
     filepath = os.path.join(outpath, config_file)
-    f_config = run_drop_priv(open, filepath, 'w')
 
     try:
-        f_template = open(template_file % peer_type, 'r')
+        with open(template_file % peer_type, 'r') as f_template:
+            template_content = f_template.read()
     except Exception as e:
-        print(f"CRITICAL: cannot open template file {f_template} % {peer_type} : {e}")
+        print(f"CRITICAL: cannot open template file {template_file % peer_type} : {e}")
         exit(1)
 
-    f_config.write(Template(f_template.read()).substitute(mapping))
-    f_config.close()
+    f_config = run_drop_priv(open, filepath, 'w')
+    try:
+        f_config.write(Template(template_content).substitute(mapping))
+    finally:
+        f_config.close()
 
     print(f"info: configuration for {peer_type}/{peer_id} saved in {filepath}")
 
