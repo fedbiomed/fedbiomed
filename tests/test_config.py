@@ -1,6 +1,4 @@
 import configparser
-import os
-import shutil
 from unittest.mock import patch
 
 import pytest
@@ -191,27 +189,30 @@ def test_add_syslog_from_config_rejects_invalid_values(
 
 
 @pytest.fixture()
-def config_env():
-    """Patches filesystem side effects of config generation, cleans leftovers."""
+def config_env(tmp_path):
+    """Gives a fresh config root, patches filesystem side effects of config
+    generation, and restores the class-level `Config.vars` shared with any
+    already existing config instance (e.g. the researcher config singleton)."""
+    saved_vars = dict(Config.vars)
     with (
         patch("fedbiomed.common.config.create_fedbiomed_setup_folders"),
         patch("builtins.open"),
     ):
-        yield
-    shutil.rmtree("dummy-root", ignore_errors=True)
-    shutil.rmtree("etc", ignore_errors=True)
+        yield tmp_path
+    Config.vars.clear()
+    Config.vars.update(saved_vars)
 
 
 @pytest.fixture()
 def concrete_config(config_env):
-    """Makes the abstract Config instantiable."""
+    """Makes the abstract Config instantiable; yields the config root."""
     with patch.multiple("fedbiomed.common.config.Config", __abstractmethods__=set()):
-        yield
+        yield config_env
 
 
 @patch("fedbiomed.common.config.configparser.ConfigParser")
 def test_config_read(config_parser, concrete_config):
-    config = Config(root="dummy-root")
+    config = Config(root=str(concrete_config))
     config._CONFIG_VERSION = "0.99"
 
     with pytest.raises(FedbiomedConfigurationError):
@@ -221,17 +222,17 @@ def test_config_read(config_parser, concrete_config):
 
     # With autogenereate
     with patch("fedbiomed.common.config.Config.generate") as gen:
-        config = Config(root="dummy-root")
+        config = Config(root=str(concrete_config))
         gen.assert_called_once()
 
 
 def test_config_is_config_existing(concrete_config):
-    config = Config(root="test")
+    config = Config(root=str(concrete_config))
     assert not config.is_config_existing()
 
 
 def test_node_config_generate(config_env):
-    config = NodeConfig(root=os.path.abspath("dummy-root"))
+    config = NodeConfig(root=str(config_env))
 
     component = config.get("default", "component")
     assert component.lower() == "node"
@@ -241,7 +242,7 @@ def test_node_config_generate(config_env):
 
 
 def test_node_config_sections(config_env):
-    config = NodeConfig(root=os.path.abspath("dummy-root"))
+    config = NodeConfig(root=str(config_env))
 
     sections = config.sections()
 
@@ -253,14 +254,14 @@ def test_node_config_sections(config_env):
 
 
 def test_node_config_mtls_section_defaults(config_env):
-    config = NodeConfig(root=os.path.abspath("dummy-root"))
+    config = NodeConfig(root=str(config_env))
 
     # Opt-in: disabled by default. Trusted certs live in the main component DB.
     assert not config.getbool("mtls", "enabled")
 
 
 def test_node_config_migrate_old(config_env):
-    config = NodeConfig(root=os.path.abspath("dummy-root"))
+    config = NodeConfig(root=str(config_env))
 
     # Simulate old config by removing options
     if config._cfg.has_option("default", "name"):
@@ -282,7 +283,7 @@ def test_node_config_migrate_old(config_env):
 
 
 def test_node_config_migrate_new(config_env):
-    config = NodeConfig(root=os.path.abspath("dummy-root"))
+    config = NodeConfig(root=str(config_env))
 
     # Should not raise any warning
     with patch("fedbiomed.common.logger.logger.warning") as log_warn:
@@ -291,7 +292,7 @@ def test_node_config_migrate_new(config_env):
 
 
 def test_researcher_config_generate(config_env):
-    config = ResearcherConfig(root=os.path.abspath("dummy-root"))
+    config = ResearcherConfig(root=str(config_env))
 
     component = config.get("default", "component")
     assert component.lower() == "researcher"
@@ -303,7 +304,7 @@ def test_researcher_config_generate(config_env):
 
 
 def test_researcher_config_sections(config_env):
-    config = ResearcherConfig(root=os.path.abspath("dummy-root"))
+    config = ResearcherConfig(root=str(config_env))
     sections = config.sections()
 
     assert "server" in sections
