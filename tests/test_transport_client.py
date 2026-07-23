@@ -1,9 +1,10 @@
 import asyncio
 import ssl
-import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import grpc
+import pytest
 from cryptography import x509
 
 from fedbiomed.common.constants import MAX_RETRIEVE_ERROR_RETRIES, MAX_SEND_RETRIES
@@ -31,225 +32,363 @@ from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
 
 
-class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
-    def setUp(self):
-        # Create patches
-        self.stub_patch = patch(
-            "fedbiomed.transport.client.ResearcherServiceStub", autospec=True
-        )
-        self.sender_patch = patch("fedbiomed.transport.client.Sender", autospec=True)
-
-        # Start patched
-        self.task_listener_patch = patch(
-            "fedbiomed.transport.client.TaskListener", autospec=True
-        )
-        self.stub_mock = self.stub_patch.start()
-        self.sender_mock = self.sender_patch.start()
-        self.task_listener_mock = self.task_listener_patch.start()
-
-        self.update_id_map = AsyncMock()
-
-        credentials = ResearcherCredentials(port="50051", host="localhost")
-
-        self.client = GrpcClient(
-            node_id="test-node-id",
-            researcher=credentials,
-            update_id_map=self.update_id_map,
-        )
-
-    def tearDown(self):
-        self.stub_patch.stop()
-        self.sender_patch.stop()
-        self.task_listener_patch.stop()
-        pass
-
-    async def test_grpc_client_01_start(self):
-        on_task = MagicMock()
-        task = self.client.start(on_task=on_task)
-        self.assertIsInstance(task, asyncio.Future)
-
-        # Cancel the background task before it runs so it never opens a real
-        # connection socket (would otherwise leak as a ResourceWarning).
-        task.cancel()
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-
-    async def test_grpc_client_02_send(self):
-        message = {"test": "test"}
-        await self.client.send(message)
-        self.sender_mock.return_value.send.assert_called_once_with(message)
-
-    async def test_grpc_client_03_on_status_change(self):
-        await self.client._on_status_change(ClientStatus.CONNECTED)
-        self.assertEqual(self.client._status, ClientStatus.CONNECTED)
-
-    async def test_grpc_client_05__update_id(self):
-        await self.client._update_id(id_="test")
-        self.assertEqual(self.client._id, "test")
-        self.update_id_map.assert_called_once_with(
-            f"{self.client._researcher.host}:{self.client._researcher.port}", "test"
-        )
-
-        with self.assertRaises(FedbiomedCommunicationError):
-            await self.client._update_id(id_="test-malicious")
-
-        pass
-
-    @patch(
-        "fedbiomed.transport.client._researcher_requires_client_auth",
-        return_value=False,
+def _rpc_error(code, details=None):
+    return grpc.aio.AioRpcError(
+        code=code,
+        trailing_metadata=grpc.aio.Metadata(("test", "test")),
+        initial_metadata=grpc.aio.Metadata(("test", "test")),
+        details=details,
     )
-    @patch("fedbiomed.transport.client.logger._logger.info")
-    @patch("fedbiomed.transport.client.x509.load_pem_x509_certificate", autospec=True)
-    @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
-    @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
-    async def test_grpc_client_06__connect_security_log(
-        self,
-        is_server_alive,
-        get_server_certificate,
-        load_pem_x509_certificate,
-        log_info,
-        requires_client_auth,
-    ):
-        is_server_alive.return_value = True
-        get_server_certificate.return_value = "DUMMY-CERT"
 
-        load_pem_x509_certificate.return_value = MagicMock(
-            subject=MagicMock(
-                get_attributes_for_oid=MagicMock(
-                    return_value=[MagicMock(value="test-researcher")]
-                )
+
+async def _async_iterator(items):
+    for item in items:
+        yield item
+
+
+async def _one_task(bytes_):
+    yield TaskResponse(bytes_=bytes_, iteration=0, size=0)
+
+
+# -----------------------------------------------------------------------------
+# GrpcClient
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def grpc_client():
+    with (
+        patch("fedbiomed.transport.client.ResearcherServiceStub", autospec=True),
+        patch("fedbiomed.transport.client.Sender", autospec=True) as sender,
+        patch("fedbiomed.transport.client.TaskListener", autospec=True),
+    ):
+        update_id_map = AsyncMock()
+        yield SimpleNamespace(
+            client=GrpcClient(
+                node_id="test-node-id",
+                researcher=ResearcherCredentials(port="50051", host="localhost"),
+                update_id_map=update_id_map,
+            ),
+            sender=sender,
+            update_id_map=update_id_map,
+        )
+
+
+@pytest.mark.asyncio
+async def test_grpc_client_start(grpc_client):
+    task = grpc_client.client.start(on_task=MagicMock())
+    assert isinstance(task, asyncio.Future)
+
+    # Cancel the background task before it runs so it never opens a real
+    # connection socket (would otherwise leak as a ResourceWarning).
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+
+@pytest.mark.asyncio
+async def test_grpc_client_send(grpc_client):
+    message = {"test": "test"}
+    await grpc_client.client.send(message)
+    grpc_client.sender.return_value.send.assert_called_once_with(message)
+
+
+@pytest.mark.asyncio
+async def test_grpc_client_on_status_change(grpc_client):
+    await grpc_client.client._on_status_change(ClientStatus.CONNECTED)
+    assert grpc_client.client._status == ClientStatus.CONNECTED
+
+
+@pytest.mark.asyncio
+async def test_grpc_client_update_id(grpc_client):
+    client = grpc_client.client
+    await client._update_id(id_="test")
+    assert client._id == "test"
+    grpc_client.update_id_map.assert_called_once_with(
+        f"{client._researcher.host}:{client._researcher.port}", "test"
+    )
+
+    with pytest.raises(FedbiomedCommunicationError):
+        await client._update_id(id_="test-malicious")
+
+
+@pytest.mark.asyncio
+@patch(
+    "fedbiomed.transport.client._researcher_requires_client_auth", return_value=False
+)
+@patch("fedbiomed.transport.client.logger._logger.info")
+@patch("fedbiomed.transport.client.x509.load_pem_x509_certificate", autospec=True)
+@patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_connect_security_log(
+    is_server_alive,
+    get_server_certificate,
+    load_pem_x509_certificate,
+    log_info,
+    requires_client_auth,
+    grpc_client,
+):
+    is_server_alive.return_value = True
+    get_server_certificate.return_value = "DUMMY-CERT"
+
+    load_pem_x509_certificate.return_value = MagicMock(
+        subject=MagicMock(
+            get_attributes_for_oid=MagicMock(
+                return_value=[MagicMock(value="test-researcher")]
             )
         )
-
-        # Avoid creating real grpc channels
-        self.client._channels.connect = AsyncMock()  # no spec
-
-        await self.client._connect()
-
-        self.client._channels.connect.assert_called_once()
-        security_calls = [
-            c
-            for c in log_info.call_args_list
-            if c.kwargs.get("extra", {}).get("is_security") is True
-        ]
-        self.assertEqual(len(security_calls), 1)
-        self.assertTrue(security_calls[0].args[0])
-
-    @patch(
-        "fedbiomed.transport.client._researcher_requires_client_auth",
-        return_value=True,
     )
-    @patch("fedbiomed.transport.client.logger._logger.error")
-    @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
-    async def test_grpc_client_08__connect_refuses_in_band_cert_from_mtls_researcher(
-        self,
-        is_server_alive,
-        sleep,
-        get_server_certificate,
-        log_error,
-        requires_client_auth,
-    ):
-        """A non-mTLS node facing an mTLS-enforcing researcher never adopts an
-        in-band certificate: it reports the mismatch and keeps waiting."""
-        is_server_alive.return_value = True
-        # Break out of the connect loop after two retry sleeps
-        sleep.side_effect = [None, asyncio.CancelledError]
-        self.client._channels.connect = AsyncMock()  # no spec
 
-        with self.assertRaises(asyncio.CancelledError):
-            await self.client._connect()
+    # Avoid creating real grpc channels
+    grpc_client.client._channels.connect = AsyncMock()  # no spec
 
-        # No in-band certificate fetch, no channel creation
-        get_server_certificate.assert_not_called()
-        self.client._channels.connect.assert_not_called()
-        # One console-visible error despite two detections
-        errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
-        self.assertEqual(len(errors), 1)
-        self.assertIn("mutual-TLS is disabled on this node", errors[0].args[0])
+    await grpc_client.client._connect()
 
-    @patch("fedbiomed.transport.client.logger._logger.warning")
-    @patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
-    @patch("fedbiomed.transport.client.certificate_subject_field", autospec=True)
-    @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
-    async def test_grpc_client_07__connect_mtls_warns_only_when_not_enforced(
-        self, is_server_alive, subject_field, requires_client_auth, log_warning
-    ):
-        is_server_alive.return_value = True
-        subject_field.return_value = "test-researcher"
-
-        # Warn iff the researcher does not require the node's client certificate
-        for requires_auth, expected_warnings in ((False, 1), (True, 0)):
-            with self.subTest(requires_auth=requires_auth):
-                requires_client_auth.return_value = requires_auth
-                log_warning.reset_mock()
-
-                client = GrpcClient(
-                    node_id="test-node-id",
-                    researcher=ResearcherCredentials(
-                        port="50051", host="localhost", certificate=b"CERT", mtls=True
-                    ),
-                    update_id_map=self.update_id_map,
-                )
-                client._channels.connect = AsyncMock()
-
-                await client._connect()
-
-                # Console-visible warning (no security flag: flagged records
-                # are diverted to the security file)
-                warnings = [
-                    c
-                    for c in log_warning.call_args_list
-                    if "node identity will NOT be verified" in c.args[0]
-                ]
-                self.assertEqual(len(warnings), expected_warnings)
+    grpc_client.client._channels.connect.assert_called_once()
+    security_calls = [
+        c
+        for c in log_info.call_args_list
+        if c.kwargs.get("extra", {}).get("is_security") is True
+    ]
+    assert len(security_calls) == 1
+    assert security_calls[0].args[0]
 
 
-class TestTaskListener(unittest.IsolatedAsyncioTestCase):
-    def setUp(self):
-        self.serializer_patch = patch("fedbiomed.transport.client.Serializer")
-        self.serializer_mock = self.serializer_patch.start()
-        self.serializer_mock.loads.return_value = SearchRequest(
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client._researcher_requires_client_auth", return_value=True)
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
+@patch("fedbiomed.transport.client.asyncio.sleep")
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_connect_refuses_in_band_cert_from_mtls_researcher(
+    is_server_alive,
+    sleep,
+    get_server_certificate,
+    log_error,
+    requires_client_auth,
+    grpc_client,
+):
+    """A non-mTLS node facing an mTLS-enforcing researcher never adopts an
+    in-band certificate: it reports the mismatch and keeps waiting."""
+    is_server_alive.return_value = True
+    # Break out of the connect loop after two retry sleeps
+    sleep.side_effect = [None, asyncio.CancelledError]
+    grpc_client.client._channels.connect = AsyncMock()  # no spec
+
+    with pytest.raises(asyncio.CancelledError):
+        await grpc_client.client._connect()
+
+    # No in-band certificate fetch, no channel creation
+    get_server_certificate.assert_not_called()
+    grpc_client.client._channels.connect.assert_not_called()
+    # One console-visible error despite two detections
+    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+    assert len(errors) == 1
+    assert "mutual-TLS is disabled on this node" in errors[0].args[0]
+
+
+# Warn iff the researcher does not require the node's client certificate
+@pytest.mark.asyncio
+@pytest.mark.parametrize("requires_auth,expected_warnings", [(False, 1), (True, 0)])
+@patch("fedbiomed.transport.client.logger._logger.warning")
+@patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
+@patch("fedbiomed.transport.client.certificate_subject_field", autospec=True)
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_connect_mtls_warns_only_when_not_enforced(
+    is_server_alive,
+    subject_field,
+    requires_client_auth,
+    log_warning,
+    grpc_client,
+    requires_auth,
+    expected_warnings,
+):
+    is_server_alive.return_value = True
+    subject_field.return_value = "test-researcher"
+    requires_client_auth.return_value = requires_auth
+
+    client = GrpcClient(
+        node_id="test-node-id",
+        researcher=ResearcherCredentials(
+            port="50051", host="localhost", certificate=b"CERT", mtls=True
+        ),
+        update_id_map=grpc_client.update_id_map,
+    )
+    client._channels.connect = AsyncMock()
+
+    await client._connect()
+
+    # Console-visible warning (no security flag: flagged records are diverted
+    # to the security file)
+    warnings = [
+        c
+        for c in log_warning.call_args_list
+        if "node identity will NOT be verified" in c.args[0]
+    ]
+    assert len(warnings) == expected_warnings
+
+
+# -----------------------------------------------------------------------------
+# TaskListener
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def listener_env():
+    with patch("fedbiomed.transport.client.Serializer") as serializer:
+        serializer.loads.return_value = SearchRequest(
             researcher_id="test-researcher-id",
             tags=["test"],
         ).to_dict()
-        self.node_id = "test-node-id"
-        self.on_status_change = AsyncMock()
-        self.update_id = AsyncMock()
-        self.callback = MagicMock()
-        self.channels = MagicMock()
+        channels = MagicMock()
         # Deterministic placeholders for assertions on logged message content
-        self.channels._channels = "CHANNELS"
-        self.channels._stubs = "STUBS"
+        channels._channels = "CHANNELS"
+        channels._stubs = "STUBS"
         # Real values: the listener probes this endpoint on connection-closed
         # errors under mTLS (port 1 is reliably closed).
-        self.channels.host = "localhost"
-        self.channels.port = "1"
-        self.channels.connect = AsyncMock()
-        self.task_listener = TaskListener(
-            channels=self.channels,
-            node_id=self.node_id,
-            on_status_change=self.on_status_change,
-            update_id=self.update_id,
+        channels.host = "localhost"
+        channels.port = "1"
+        channels.connect = AsyncMock()
+
+        env = SimpleNamespace(
+            serializer=serializer,
+            channels=channels,
+            on_status_change=AsyncMock(),
+            update_id=AsyncMock(),
+            callback=MagicMock(),
+        )
+        env.listener = TaskListener(
+            channels=channels,
+            node_id="test-node-id",
+            on_status_change=env.on_status_change,
+            update_id=env.update_id,
         )
 
-    def tearDown(self) -> None:
-        self.serializer_patch.stop()
-        pass
+        async def drain(side_effects):
+            """Runs the listener over the given GetTaskUnary results until
+            cancelled."""
+            request_stub = MagicMock()
+            channels.stub = AsyncMock(return_value=request_stub)
+            request_stub.GetTaskUnary.side_effect = [
+                *side_effects,
+                asyncio.CancelledError,
+            ]
+            channels.endpoint = "localhost:50051"
+            task = env.listener.listen(env.callback)
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            task.cancel()
+            return request_stub
 
-    async def test_task_listener_01_listen(self):
-        async def async_iterator(items):
-            for item in items:
-                yield item
+        env.drain = drain
+        yield env
 
-        request_stub = MagicMock()
-        self.channels.stub = AsyncMock()
-        self.channels.stub.return_value = request_stub
-        # Run with cancel to be able to stop the loop ---------------------
+
+@pytest.mark.asyncio
+async def test_task_listener_listen(listener_env):
+    with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
+        request_stub = await listener_env.drain(
+            [
+                _async_iterator(
+                    [
+                        TaskResponse(bytes_=b"test-1", iteration=0, size=1),
+                        TaskResponse(bytes_=b"test-2", iteration=1, size=1),
+                    ]
+                )
+            ]
+        )
+
+    listener_env.callback.assert_called_once()
+    listener_env.serializer.loads.assert_called_once()
+    assert request_stub.GetTaskUnary.call_count == 2
+    listener_env.update_id.assert_called_once()
+    debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+    assert any("Polling researcher for task" in msg for msg in debug_messages)
+    assert any("[WIRE][S->N][RX]" in msg for msg in debug_messages)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "code,sleeps,logs_error",
+    [
+        (grpc.StatusCode.DEADLINE_EXCEEDED, 0, False),
+        (grpc.StatusCode.UNAVAILABLE, 1, False),
+        (grpc.StatusCode.UNKNOWN, 1, True),
+        (grpc.StatusCode.ABORTED, 1, True),
+    ],
+)
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_listen_grpc_exceptions(
+    sleep, log_error, listener_env, code, sleeps, logs_error
+):
+    request_stub = await listener_env.drain([_rpc_error(code)])
+
+    assert request_stub.GetTaskUnary.call_count == 2
+    assert sleep.call_count == sleeps
+    if logs_error:
+        # Logged with channel/stub details as a security record
+        log_error.assert_called_once()
+        log_args, log_kwargs = log_error.call_args
+        assert "CHANNELS" in log_args[0]
+        assert "STUBS" in log_args[0]
+        assert log_kwargs["extra"].get("is_security")
+    else:
+        log_error.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("exception", [RuntimeError, Exception, GeneratorExit])
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_listen_non_grpc_exceptions(
+    sleep, log_error, listener_env, exception
+):
+    """Retries are capped: beyond MAX_RETRIEVE_ERROR_RETRIES the listener stops
+    with FedbiomedCommunicationError; a successful poll resets the counter."""
+    request_stub = MagicMock()
+    listener_env.channels.stub = AsyncMock(return_value=request_stub)
+
+    # Wrap to count calls
+    listener_env.listener._post_handle_raise = MagicMock(
+        wraps=listener_env.listener._post_handle_raise
+    )
+
+    # Increasing number of errors until over the maximum authorized (MAX + 4)
+    for nb_errors in range(1, MAX_RETRIEVE_ERROR_RETRIES + 5):
+        request_stub.GetTaskUnary.side_effect = [exception] * nb_errors + [
+            asyncio.CancelledError
+        ]
+
+        task = listener_env.listener.listen(listener_env.callback)
+        if nb_errors <= MAX_RETRIEVE_ERROR_RETRIES:
+            signal = asyncio.CancelledError
+        else:
+            signal = FedbiomedCommunicationError
+        with pytest.raises(signal):
+            await task
+
+        # Logging assertions: security + exc_info + includes channel/stub details
+        assert log_error.call_count >= 1
+        log_args, log_kwargs = log_error.call_args
+        assert "CHANNELS" in log_args[0]
+        assert "STUBS" in log_args[0]
+        assert log_kwargs.get("exc_info")
+        assert log_kwargs["extra"].get("is_security")
+
+        assert sleep.call_count == min(nb_errors, MAX_RETRIEVE_ERROR_RETRIES)
+        assert request_stub.GetTaskUnary.call_count == min(
+            nb_errors + 1, MAX_RETRIEVE_ERROR_RETRIES + 1
+        )
+        assert listener_env.listener._post_handle_raise.call_count == max(
+            0, nb_errors - MAX_RETRIEVE_ERROR_RETRIES
+        )
+
+        task.cancel()
+
+        # Need a successful task retrieve to reset the retry counters
         request_stub.GetTaskUnary.side_effect = [
-            async_iterator(
+            _async_iterator(
                 [
                     TaskResponse(bytes_=b"test-1", iteration=0, size=1),
                     TaskResponse(bytes_=b"test-2", iteration=1, size=1),
@@ -257,901 +396,561 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
             ),
             asyncio.CancelledError,
         ]
-        with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
-            task = self.task_listener.listen(self.callback)
-
-            with self.assertRaises(asyncio.CancelledError):
-                await task
-
-        self.callback.assert_called_once()
-        self.serializer_mock.loads.assert_called_once()
-        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
-        self.update_id.assert_called_once()
-        debug_messages = [call.args[0] for call in logger_debug.call_args_list]
-        self.assertTrue(
-            any("Polling researcher for task" in msg for msg in debug_messages)
-        )
-        self.assertTrue(any("[WIRE][S->N][RX]" in msg for msg in debug_messages))
-
-        # Cancel the task for next test
-        task.cancel()
-
-    @patch("fedbiomed.transport.client.logger._logger.error")
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_02_listen_grpc_exceptions(self, sleep, log_error):
-        request_stub = MagicMock()
-        self.channels.stub = AsyncMock()
-        self.channels.stub.return_value = request_stub
-
-        # deadline exceeded
-        request_stub.GetTaskUnary.side_effect = [
-            grpc.aio.AioRpcError(
-                code=grpc.StatusCode.DEADLINE_EXCEEDED,
-                trailing_metadata=grpc.aio.Metadata(("test", "test")),
-                initial_metadata=grpc.aio.Metadata(("test", "test")),
-            ),
-            asyncio.CancelledError,
-        ]
-
-        task = self.task_listener.listen(self.callback)
-        with self.assertRaises(asyncio.CancelledError):
+        task = listener_env.listener.listen(listener_env.callback)
+        with pytest.raises(asyncio.CancelledError):
             await task
-        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
-        # Cancel and reset the task for next test
-        task.cancel()
-        request_stub.reset_mock()
 
-        # unavailable
-        request_stub.GetTaskUnary.side_effect = [
-            grpc.aio.AioRpcError(
-                code=grpc.StatusCode.UNAVAILABLE,
-                trailing_metadata=grpc.aio.Metadata(("test", "test")),
-                initial_metadata=grpc.aio.Metadata(("test", "test")),
-            ),
-            asyncio.CancelledError,
-        ]
-
-        task = self.task_listener.listen(self.callback)
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-        sleep.assert_called_once()
-        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
-        # Cancel and reset the task for next test
-        task.cancel()
-        request_stub.reset_mock()
-        sleep.reset_mock()
-
-        # unknown
-        request_stub.GetTaskUnary.side_effect = [
-            grpc.aio.AioRpcError(
-                code=grpc.StatusCode.UNKNOWN,
-                trailing_metadata=grpc.aio.Metadata(("test", "test")),
-                initial_metadata=grpc.aio.Metadata(("test", "test")),
-            ),
-            asyncio.CancelledError,
-        ]
-
-        task = self.task_listener.listen(self.callback)
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-        sleep.assert_called_once()
-        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
-        log_error.assert_called_once()
-        log_args, log_kwargs = log_error.call_args
-        self.assertEqual(len(log_args), 1)
-        self.assertIn("CHANNELS", log_args[0])
-        self.assertIn("STUBS", log_args[0])
-        self.assertIn("extra", log_kwargs)
-        self.assertTrue(log_kwargs["extra"].get("is_security"))
-        # Cancel and reset the task for next test
         task.cancel()
         request_stub.reset_mock()
         sleep.reset_mock()
         log_error.reset_mock()
 
-        # For all others gRPC errors
-        request_stub.GetTaskUnary.side_effect = [
-            grpc.aio.AioRpcError(
-                code=grpc.StatusCode.ABORTED,
-                trailing_metadata=grpc.aio.Metadata(("test", "test")),
-                initial_metadata=grpc.aio.Metadata(("test", "test")),
-            ),
-            asyncio.CancelledError,
-        ]
 
-        task = self.task_listener.listen(self.callback)
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-        sleep.assert_called_once()
-        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
-        log_error.assert_called_once()
-        log_args, log_kwargs = log_error.call_args
-        self.assertEqual(len(log_args), 1)
-        self.assertIn("CHANNELS", log_args[0])
-        self.assertIn("STUBS", log_args[0])
-        self.assertIn("extra", log_kwargs)
-        self.assertTrue(log_kwargs["extra"].get("is_security"))
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_unauthenticated_stops(sleep, log_error, listener_env):
+    """A researcher identity rejection (UNAUTHENTICATED) is fatal, not retried."""
+    request_stub = MagicMock()
+    listener_env.channels.stub = AsyncMock(return_value=request_stub)
+    listener_env.channels.connect.reset_mock()
 
-        # Cancel and reset the task for next test
-        task.cancel()
-        request_stub.reset_mock()
-        sleep.reset_mock()
-        log_error.reset_mock()
+    request_stub.GetTaskUnary.side_effect = [
+        _rpc_error(
+            grpc.StatusCode.UNAUTHENTICATED,
+            "declared node id does not match certificate",
+        ),
+    ]
 
-    @patch("fedbiomed.transport.client.logger._logger.error")
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_03_listen_non_grpc_exceptions(self, sleep, log_error):
-        request_stub = MagicMock()
-        self.channels.stub = AsyncMock()
-        self.channels.stub.return_value = request_stub
+    task = listener_env.listener.listen(listener_env.callback)
+    with pytest.raises(FedbiomedCommunicationError):
+        await task
 
-        async def async_iterator(items):
-            for item in items:
-                yield item
+    # Identity rejection is permanent: no reconnect, no retry sleep, no re-poll
+    listener_env.channels.connect.assert_not_called()
+    sleep.assert_not_called()
+    assert request_stub.GetTaskUnary.call_count == 1
+    # Node is marked failed
+    listener_env.on_status_change.assert_awaited_with(ClientStatus.FAILED)
+    # Console-visible FB628 error (no security flag: flagged records are
+    # diverted to the security file and would not reach the user)
+    log_error.assert_called_once()
+    log_args, log_kwargs = log_error.call_args
+    assert "FB628" in log_args[0]
+    assert not log_kwargs.get("extra", {}).get("is_security")
 
-        # Wrap to count calls
-        self.task_listener._post_handle_raise = MagicMock(
-            wraps=self.task_listener._post_handle_raise
-        )
+    task.cancel()
 
-        # Test with increasing number of error until over the maximum authorized (MAX + 3 to test more cases)
-        for exception in [RuntimeError, Exception, GeneratorExit]:
-            for nb_errors in range(1, MAX_RETRIEVE_ERROR_RETRIES + 5):
-                request_stub.GetTaskUnary.side_effect = [exception] * nb_errors + [
-                    asyncio.CancelledError
-                ]
 
-                task = self.task_listener.listen(self.callback)
-                if nb_errors <= MAX_RETRIEVE_ERROR_RETRIES:
-                    signal = asyncio.CancelledError
-                else:
-                    signal = FedbiomedCommunicationError
-                with self.assertRaises(signal):
-                    await task
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_unavailable_mtls_handshake_logs_error(
+    sleep, log_error, listener_env
+):
+    """Under mTLS, a handshake/pinning failure is logged loudly but still retried."""
+    listener_env.channels.mtls = True
 
-                # Logging assertions: security + exc_info + includes channel/stub details
-                self.assertGreaterEqual(log_error.call_count, 1)
-                log_args, log_kwargs = log_error.call_args
-                self.assertEqual(len(log_args), 1)
-                self.assertIn("CHANNELS", log_args[0])
-                self.assertIn("STUBS", log_args[0])
-                self.assertTrue(log_kwargs.get("exc_info"))
-                self.assertIn("extra", log_kwargs)
-                self.assertTrue(log_kwargs["extra"].get("is_security"))
-
-                self.assertEqual(
-                    sleep.call_count, min(nb_errors, MAX_RETRIEVE_ERROR_RETRIES)
-                )
-                self.assertEqual(
-                    request_stub.GetTaskUnary.call_count,
-                    min(nb_errors + 1, MAX_RETRIEVE_ERROR_RETRIES + 1),
-                )
-                self.assertEqual(
-                    self.task_listener._post_handle_raise.call_count,
-                    max(0, nb_errors - MAX_RETRIEVE_ERROR_RETRIES),
-                )
-
-                # Cancel the task
-                task.cancel()
-
-                # Need a successful task retrieve to reset the retry counters
-                request_stub.GetTaskUnary.side_effect = [
-                    async_iterator(
-                        [
-                            TaskResponse(bytes_=b"test-1", iteration=0, size=1),
-                            TaskResponse(bytes_=b"test-2", iteration=1, size=1),
-                        ]
-                    ),
-                    asyncio.CancelledError,
-                ]
-                task = self.task_listener.listen(self.callback)
-
-                with self.assertRaises(asyncio.CancelledError):
-                    await task
-
-                # Cancel the task and reset for next test
-                task.cancel()
-                request_stub.reset_mock()
-                sleep.reset_mock()
-                log_error.reset_mock()
-            self.task_listener._post_handle_raise.reset_mock()
-
-    @staticmethod
-    def _rpc_error(code, details):
-        return grpc.aio.AioRpcError(
-            code=code,
-            trailing_metadata=grpc.aio.Metadata(("test", "test")),
-            initial_metadata=grpc.aio.Metadata(("test", "test")),
-            details=details,
-        )
-
-    @patch("fedbiomed.transport.client.logger._logger.error")
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_04_unauthenticated_stops(self, sleep, log_error):
-        """A researcher identity rejection (UNAUTHENTICATED) is fatal, not retried."""
-        request_stub = MagicMock()
-        self.channels.stub = AsyncMock()
-        self.channels.stub.return_value = request_stub
-        self.channels.connect.reset_mock()
-
-        request_stub.GetTaskUnary.side_effect = [
-            self._rpc_error(
-                grpc.StatusCode.UNAUTHENTICATED,
-                "declared node id does not match certificate",
-            ),
-        ]
-
-        task = self.task_listener.listen(self.callback)
-        with self.assertRaises(FedbiomedCommunicationError):
-            await task
-
-        # Identity rejection is permanent: no reconnect, no retry sleep, no re-poll
-        self.channels.connect.assert_not_called()
-        sleep.assert_not_called()
-        self.assertEqual(request_stub.GetTaskUnary.call_count, 1)
-        # Node is marked failed
-        self.on_status_change.assert_awaited_with(ClientStatus.FAILED)
-        # Console-visible FB628 error (no security flag: flagged records are
-        # diverted to the security file and would not reach the user)
-        log_error.assert_called_once()
-        log_args, log_kwargs = log_error.call_args
-        self.assertIn("FB628", log_args[0])
-        self.assertFalse(log_kwargs.get("extra", {}).get("is_security"))
-
-        task.cancel()
-
-    @patch("fedbiomed.transport.client.logger._logger.error")
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_05_unavailable_mtls_handshake_logs_security(
-        self, sleep, log_error
-    ):
-        """Under mTLS, a handshake/pinning failure is logged loudly but still retried."""
-        request_stub = MagicMock()
-        self.channels.stub = AsyncMock()
-        self.channels.stub.return_value = request_stub
-        self.channels.mtls = True
-
-        request_stub.GetTaskUnary.side_effect = [
-            self._rpc_error(
+    request_stub = await listener_env.drain(
+        [
+            _rpc_error(
                 grpc.StatusCode.UNAVAILABLE,
                 "Ssl handshake failed: certificate verify failed",
-            ),
-            asyncio.CancelledError,
-        ]
-
-        task = self.task_listener.listen(self.callback)
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-
-        # Surfaced as a console-visible error (not a silent debug), and still
-        # reconnects
-        log_error.assert_called_once()
-        log_args, log_kwargs = log_error.call_args
-        self.assertIn("FB628", log_args[0])
-        self.assertFalse(log_kwargs.get("extra", {}).get("is_security"))
-        sleep.assert_called_once()
-        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
-
-        task.cancel()
-
-    @patch("fedbiomed.transport.client.logger._logger.error")
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_06_unavailable_plain_stays_debug(
-        self, sleep, log_error
-    ):
-        """Ordinary unavailability keeps the quiet debug-and-retry behaviour."""
-        request_stub = MagicMock()
-        self.channels.stub = AsyncMock()
-        self.channels.stub.return_value = request_stub
-        self.channels.mtls = False
-
-        request_stub.GetTaskUnary.side_effect = [
-            self._rpc_error(
-                grpc.StatusCode.UNAVAILABLE,
-                "failed to connect to all addresses",
-            ),
-            asyncio.CancelledError,
-        ]
-
-        task = self.task_listener.listen(self.callback)
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-
-        # No security error, normal retry
-        log_error.assert_not_called()
-        sleep.assert_called_once()
-        self.assertEqual(request_stub.GetTaskUnary.call_count, 2)
-
-        task.cancel()
-
-    async def _drain(self, side_effects):
-        """Runs the listener over the given GetTaskUnary results until cancelled."""
-        request_stub = MagicMock()
-        self.channels.stub = AsyncMock(return_value=request_stub)
-        request_stub.GetTaskUnary.side_effect = [*side_effects, asyncio.CancelledError]
-        self.channels.endpoint = "localhost:50051"
-        task = self.task_listener.listen(self.callback)
-        with self.assertRaises(asyncio.CancelledError):
-            await task
-        task.cancel()
-
-    @patch("fedbiomed.transport.client.logger.info")
-    async def test_task_listener_07_announces_communication_once(self, log_info):
-        """A received task announces the server-auth channel, exactly once."""
-
-        async def one_task(bytes_):
-            yield TaskResponse(bytes_=bytes_, iteration=0, size=0)
-
-        self.channels.mtls = False
-        await self._drain([one_task(b"t1"), one_task(b"t2")])
-
-        msgs = [
-            c
-            for c in log_info.call_args_list
-            if "Communication established" in c.args[0]
-        ]
-        self.assertEqual(len(msgs), 1)
-        self.assertIn("server-authenticated TLS", msgs[0].args[0])
-        self.assertIn("localhost:50051", msgs[0].args[0])
-
-    @patch("fedbiomed.transport.client.logger.info")
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_08_mtls_announce_and_reannounce_on_reconnect(
-        self, sleep, log_info
-    ):
-        """An idle deadline confirms the mTLS channel; a reconnect re-announces it."""
-        self.channels.mtls = True
-        deadline = self._rpc_error(grpc.StatusCode.DEADLINE_EXCEEDED, "deadline")
-        unavailable = self._rpc_error(grpc.StatusCode.UNAVAILABLE, "connection reset")
-        await self._drain([deadline, unavailable, deadline])
-
-        msgs = [
-            c
-            for c in log_info.call_args_list
-            if "Mutual-TLS communication established" in c.args[0]
-        ]
-        self.assertEqual(len(msgs), 2)
-
-    @patch("fedbiomed.transport.client.is_server_alive", return_value=True)
-    @patch("fedbiomed.transport.client.logger._logger.error")
-    @patch("fedbiomed.transport.client.logger._logger.debug")
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_09_mtls_rejection_logged_once(
-        self, sleep, log_debug, log_error, alive
-    ):
-        """A reachable researcher closing the connection under mTLS is reported
-        once as a suspected certificate rejection, then demoted to debug."""
-        self.channels.mtls = True
-        closed = lambda: self._rpc_error(  # noqa: E731
-            grpc.StatusCode.UNAVAILABLE, "ipv4:127.0.0.1:50051: Socket closed"
-        )
-        await self._drain([closed(), closed()])
-
-        # One actionable console-visible error despite two identical failures
-        errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
-        self.assertEqual(len(errors), 1)
-        self.assertIn("Ask the researcher to register it", errors[0].args[0])
-        # The repeat went to debug with the same explanation
-        self.assertTrue(
-            any("TLS handshake" in c.args[0] for c in log_debug.call_args_list)
-        )
-
-    @patch(
-        "fedbiomed.transport.client._researcher_requires_client_auth",
-        return_value=True,
-    )
-    @patch("fedbiomed.transport.client.is_server_alive", return_value=True)
-    @patch("fedbiomed.transport.client.logger._logger.error")
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_task_listener_10_non_mtls_node_against_mtls_researcher(
-        self, sleep, log_error, alive, requires_auth
-    ):
-        """A non-mTLS node rejected by a researcher enforcing client
-        authentication is told to enable mutual TLS."""
-        self.channels.mtls = False
-        await self._drain(
-            [
-                self._rpc_error(
-                    grpc.StatusCode.UNAVAILABLE, "ipv4:127.0.0.1:50051: Socket closed"
-                )
-            ]
-        )
-
-        errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
-        self.assertEqual(len(errors), 1)
-        self.assertIn("mutual-TLS is disabled on this node", errors[0].args[0])
-        self.assertIn("register the researcher certificate", errors[0].args[0])
-
-    @patch("fedbiomed.transport.client.logger.info")
-    async def test_task_listener_11_announce_honest_when_not_enforced(self, log_info):
-        """When the researcher accepts anonymous clients, the announce does not
-        claim the node identity was verified."""
-        self.channels.mtls = True
-        self.channels.client_auth_enforced = False
-
-        async def one_task(bytes_):
-            yield TaskResponse(bytes_=bytes_, iteration=0, size=0)
-
-        await self._drain([one_task(b"t1")])
-
-        msgs = [
-            c
-            for c in log_info.call_args_list
-            if "Communication established" in c.args[0]
-        ]
-        self.assertEqual(len(msgs), 1)
-        self.assertIn("NOT verified", msgs[0].args[0])
-        self.assertNotIn("Mutual-TLS communication established", msgs[0].args[0])
-
-
-class TestTlsHandshakeErrorDetection(unittest.TestCase):
-    """Unit tests for the TLS/pinning failure discriminator."""
-
-    @staticmethod
-    def _error(details):
-        return grpc.aio.AioRpcError(
-            code=grpc.StatusCode.UNAVAILABLE,
-            trailing_metadata=grpc.aio.Metadata(),
-            initial_metadata=grpc.aio.Metadata(),
-            details=details,
-        )
-
-    def test_detects_handshake_failures(self):
-        for details in (
-            "Ssl handshake failed",
-            "CERTIFICATE_VERIFY_FAILED",
-            "TLS peer did not return a certificate",
-        ):
-            self.assertTrue(_is_tls_handshake_error(self._error(details)))
-
-    def test_ignores_ordinary_unavailability(self):
-        self.assertFalse(
-            _is_tls_handshake_error(self._error("failed to connect to all addresses"))
-        )
-
-
-class TestResearcherRequiresClientAuth(unittest.TestCase):
-    """Unit tests for the mutual-TLS client-auth probe.
-
-    The probe's real behaviour is covered against live gRPC servers in
-    `test_transport_mtls.py`; these only pin the conservative failure paths.
-    """
-
-    @patch("fedbiomed.transport.client.socket.create_connection")
-    @patch("fedbiomed.transport.client.ssl.create_default_context")
-    def test_true_when_handshake_rejected(self, context, create_connection):
-        context.return_value.wrap_socket.side_effect = ssl.SSLError(
-            "peer did not return a certificate"
-        )
-        self.assertTrue(_researcher_requires_client_auth("localhost", "50051"))
-
-    @patch("fedbiomed.transport.client.socket.create_connection")
-    @patch("fedbiomed.transport.client.ssl.create_default_context")
-    def test_true_when_server_closes_without_replying(self, context, create_connection):
-        # An enforcing server under TLS 1.3 completes the handshake, then closes.
-        wrap_socket = context.return_value.wrap_socket.return_value
-        wrap_socket.__enter__.return_value.recv.return_value = b""
-        self.assertTrue(_researcher_requires_client_auth("localhost", "50051"))
-
-    @patch("fedbiomed.transport.client.socket.create_connection")
-    @patch("fedbiomed.transport.client.ssl.create_default_context")
-    def test_false_when_server_replies(self, context, create_connection):
-        wrap_socket = context.return_value.wrap_socket.return_value
-        wrap_socket.__enter__.return_value.recv.return_value = b"\x00"
-        self.assertFalse(_researcher_requires_client_auth("localhost", "50051"))
-
-    @patch("fedbiomed.transport.client.socket.create_connection")
-    @patch("fedbiomed.transport.client.ssl.create_default_context")
-    def test_true_when_connection_times_out(self, context, create_connection):
-        wrap_socket = context.return_value.wrap_socket.return_value
-        wrap_socket.__enter__.return_value.recv.side_effect = TimeoutError()
-        self.assertTrue(_researcher_requires_client_auth("localhost", "50051"))
-
-
-class TestSender(unittest.IsolatedAsyncioTestCase):
-    message_search = SearchReply(
-        researcher_id="test",
-        databases=[],
-        node_id="node-id",
-        node_name="node-name",
-        count=1,
-    )
-
-    message_log = FeedbackMessage(
-        researcher_id="test",
-        log=Log(node_id="test", level="DEBUG", msg="Error message"),
-    )
-
-    message_scalar = FeedbackMessage(
-        researcher_id="test",
-        scalar=Scalar(
-            node_id="test",
-            node_name="test-name",
-            experiment_id="my_exp",
-            train=True,
-            test=False,
-            test_on_local_updates=False,
-            test_on_global_updates=False,
-            metric={},
-            total_samples=3,
-            batch_samples=2,
-            num_batches=1,
-            iteration=1,
-            epoch=2,
-            num_samples_trained=3,
-        ),
-    )
-
-    def setUp(self):
-        self.serializer_patch = patch("fedbiomed.transport.client.Serializer")
-        self.serializer_mock = self.serializer_patch.start()
-        self.channels = MagicMock()
-        self.channels.stub = AsyncMock()
-        self.channels.connect = AsyncMock()
-        self.channels.feedback_stub.Feedback = MagicMock(
-            spec=grpc.aio.UnaryUnaryMultiCallable
-        )
-        self.channels.task_stub.ReplyTask = MagicMock(
-            spec=grpc.aio.StreamUnaryMultiCallable
-        )
-        self.on_status_change = AsyncMock()
-        self.sender = Sender(
-            channels=self.channels, on_status_change=self.on_status_change
-        )
-
-    def tearDown(self) -> None:
-        self.serializer_patch.stop()
-        pass
-
-    async def test_sender_01_send(self):
-        await self.sender.send(message=self.message_search)
-        item = await self.sender._queue.get()
-        self.assertEqual(
-            item, {"stub": _StubType.SENDER_TASK_STUB, "message": self.message_search}
-        )
-
-        await self.sender.send(message=self.message_log)
-        item = await self.sender._queue.get()
-        self.assertEqual(
-            item, {"stub": _StubType.SENDER_FEEDBACK_STUB, "message": self.message_log}
-        )
-
-        await self.sender.send(message=self.message_scalar)
-        item = await self.sender._queue.get()
-        self.assertEqual(
-            item,
-            {"stub": _StubType.SENDER_FEEDBACK_STUB, "message": self.message_scalar},
-        )
-
-    async def test_sender_02_listen(self):
-        self.serializer_patch.stop()
-
-        future = asyncio.Future()
-        future.set_result("x")
-
-        self.channels.feedback_stub.Feedback.side_effect = [
-            future,
-            asyncio.CancelledError,
-        ]
-        self.channels.stub.return_value = self.channels.feedback_stub
-        await self.sender.send(message=self.message_log)
-        await self.sender.send(message=self.message_log)
-
-        with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
-            task = self.sender.listen()
-            with self.assertRaises(asyncio.CancelledError):
-                await task
-        self.assertEqual(self.channels.feedback_stub.Feedback.call_count, 2)
-        self.assertTrue(
-            any(
-                "[WIRE][N->S][TX]" in call.args[0]
-                for call in logger_debug.call_args_list
             )
+        ]
+    )
+
+    # Surfaced as a console-visible error (not a silent debug), still reconnects
+    log_error.assert_called_once()
+    log_args, log_kwargs = log_error.call_args
+    assert "FB628" in log_args[0]
+    assert not log_kwargs.get("extra", {}).get("is_security")
+    sleep.assert_called_once()
+    assert request_stub.GetTaskUnary.call_count == 2
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_unavailable_plain_stays_debug(
+    sleep, log_error, listener_env
+):
+    """Ordinary unavailability keeps the quiet debug-and-retry behaviour."""
+    listener_env.channels.mtls = False
+
+    request_stub = await listener_env.drain(
+        [_rpc_error(grpc.StatusCode.UNAVAILABLE, "failed to connect to all addresses")]
+    )
+
+    # No security error, normal retry
+    log_error.assert_not_called()
+    sleep.assert_called_once()
+    assert request_stub.GetTaskUnary.call_count == 2
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.info")
+async def test_task_listener_announces_communication_once(log_info, listener_env):
+    """A received task announces the server-auth channel, exactly once."""
+    listener_env.channels.mtls = False
+    await listener_env.drain([_one_task(b"t1"), _one_task(b"t2")])
+
+    msgs = [
+        c for c in log_info.call_args_list if "Communication established" in c.args[0]
+    ]
+    assert len(msgs) == 1
+    assert "server-authenticated TLS" in msgs[0].args[0]
+    assert "localhost:50051" in msgs[0].args[0]
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.info")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_mtls_announce_and_reannounce_on_reconnect(
+    sleep, log_info, listener_env
+):
+    """An idle deadline confirms the mTLS channel; a reconnect re-announces it."""
+    listener_env.channels.mtls = True
+    await listener_env.drain(
+        [
+            _rpc_error(grpc.StatusCode.DEADLINE_EXCEEDED, "deadline"),
+            _rpc_error(grpc.StatusCode.UNAVAILABLE, "connection reset"),
+            _rpc_error(grpc.StatusCode.DEADLINE_EXCEEDED, "deadline"),
+        ]
+    )
+
+    msgs = [
+        c
+        for c in log_info.call_args_list
+        if "Mutual-TLS communication established" in c.args[0]
+    ]
+    assert len(msgs) == 2
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.is_server_alive", return_value=True)
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.logger._logger.debug")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_mtls_rejection_logged_once(
+    sleep, log_debug, log_error, alive, listener_env
+):
+    """A reachable researcher closing the connection under mTLS is reported
+    once as a suspected certificate rejection, then demoted to debug."""
+    listener_env.channels.mtls = True
+    closed = "ipv4:127.0.0.1:50051: Socket closed"
+    await listener_env.drain(
+        [
+            _rpc_error(grpc.StatusCode.UNAVAILABLE, closed),
+            _rpc_error(grpc.StatusCode.UNAVAILABLE, closed),
+        ]
+    )
+
+    # One actionable console-visible error despite two identical failures
+    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+    assert len(errors) == 1
+    assert "Ask the researcher to register it" in errors[0].args[0]
+    # The repeat went to debug with the same explanation
+    assert any("TLS handshake" in c.args[0] for c in log_debug.call_args_list)
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client._researcher_requires_client_auth", return_value=True)
+@patch("fedbiomed.transport.client.is_server_alive", return_value=True)
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_non_mtls_node_against_mtls_researcher(
+    sleep, log_error, alive, requires_auth, listener_env
+):
+    """A non-mTLS node rejected by a researcher enforcing client authentication
+    is told to enable mutual TLS."""
+    listener_env.channels.mtls = False
+    await listener_env.drain(
+        [_rpc_error(grpc.StatusCode.UNAVAILABLE, "ipv4:127.0.0.1:50051: Socket closed")]
+    )
+
+    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+    assert len(errors) == 1
+    assert "mutual-TLS is disabled on this node" in errors[0].args[0]
+    assert "register the researcher certificate" in errors[0].args[0]
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.info")
+async def test_task_listener_announce_honest_when_not_enforced(log_info, listener_env):
+    """When the researcher accepts anonymous clients, the announce does not
+    claim the node identity was verified."""
+    listener_env.channels.mtls = True
+    listener_env.channels.client_auth_enforced = False
+
+    await listener_env.drain([_one_task(b"t1")])
+
+    msgs = [
+        c for c in log_info.call_args_list if "Communication established" in c.args[0]
+    ]
+    assert len(msgs) == 1
+    assert "NOT verified" in msgs[0].args[0]
+    assert "Mutual-TLS communication established" not in msgs[0].args[0]
+
+
+# -----------------------------------------------------------------------------
+# TLS/pinning failure discriminator
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "details",
+    [
+        "Ssl handshake failed",
+        "CERTIFICATE_VERIFY_FAILED",
+        "TLS peer did not return a certificate",
+    ],
+)
+def test_detects_handshake_failures(details):
+    error = _rpc_error(grpc.StatusCode.UNAVAILABLE, details)
+    assert _is_tls_handshake_error(error)
+
+
+def test_ignores_ordinary_unavailability():
+    error = _rpc_error(
+        grpc.StatusCode.UNAVAILABLE, "failed to connect to all addresses"
+    )
+    assert not _is_tls_handshake_error(error)
+
+
+# -----------------------------------------------------------------------------
+# Mutual-TLS client-auth probe
+#
+# The probe's real behaviour is covered against live gRPC servers in
+# `test_transport_mtls.py`; these only pin the conservative failure paths.
+# -----------------------------------------------------------------------------
+
+
+@patch("fedbiomed.transport.client.socket.create_connection")
+@patch("fedbiomed.transport.client.ssl.create_default_context")
+def test_probe_true_when_handshake_rejected(context, create_connection):
+    context.return_value.wrap_socket.side_effect = ssl.SSLError(
+        "peer did not return a certificate"
+    )
+    assert _researcher_requires_client_auth("localhost", "50051")
+
+
+@patch("fedbiomed.transport.client.socket.create_connection")
+@patch("fedbiomed.transport.client.ssl.create_default_context")
+def test_probe_true_when_server_closes_without_replying(context, create_connection):
+    # An enforcing server under TLS 1.3 completes the handshake, then closes.
+    wrap_socket = context.return_value.wrap_socket.return_value
+    wrap_socket.__enter__.return_value.recv.return_value = b""
+    assert _researcher_requires_client_auth("localhost", "50051")
+
+
+@patch("fedbiomed.transport.client.socket.create_connection")
+@patch("fedbiomed.transport.client.ssl.create_default_context")
+def test_probe_false_when_server_replies(context, create_connection):
+    wrap_socket = context.return_value.wrap_socket.return_value
+    wrap_socket.__enter__.return_value.recv.return_value = b"\x00"
+    assert not _researcher_requires_client_auth("localhost", "50051")
+
+
+@patch("fedbiomed.transport.client.socket.create_connection")
+@patch("fedbiomed.transport.client.ssl.create_default_context")
+def test_probe_true_when_connection_times_out(context, create_connection):
+    wrap_socket = context.return_value.wrap_socket.return_value
+    wrap_socket.__enter__.return_value.recv.side_effect = TimeoutError()
+    assert _researcher_requires_client_auth("localhost", "50051")
+
+
+# -----------------------------------------------------------------------------
+# Sender
+# -----------------------------------------------------------------------------
+
+message_search = SearchReply(
+    researcher_id="test",
+    databases=[],
+    node_id="node-id",
+    node_name="node-name",
+    count=1,
+)
+
+message_log = FeedbackMessage(
+    researcher_id="test",
+    log=Log(node_id="test", level="DEBUG", msg="Error message"),
+)
+
+message_scalar = FeedbackMessage(
+    researcher_id="test",
+    scalar=Scalar(
+        node_id="test",
+        node_name="test-name",
+        experiment_id="my_exp",
+        train=True,
+        test=False,
+        test_on_local_updates=False,
+        test_on_global_updates=False,
+        metric={},
+        total_samples=3,
+        batch_samples=2,
+        num_batches=1,
+        iteration=1,
+        epoch=2,
+        num_samples_trained=3,
+    ),
+)
+
+
+@pytest.fixture
+def sender_env(request):
+    serializer_patch = patch("fedbiomed.transport.client.Serializer")
+    serializer_patch.start()
+    request.addfinalizer(serializer_patch.stop)
+
+    channels = MagicMock()
+    channels.stub = AsyncMock()
+    channels.connect = AsyncMock()
+    channels.feedback_stub.Feedback = MagicMock(spec=grpc.aio.UnaryUnaryMultiCallable)
+    channels.task_stub.ReplyTask = MagicMock(spec=grpc.aio.StreamUnaryMultiCallable)
+    return SimpleNamespace(
+        serializer_patch=serializer_patch,
+        channels=channels,
+        sender=Sender(channels=channels, on_status_change=AsyncMock()),
+    )
+
+
+async def _sender_feedback_cycle(env, message, side_effects):
+    """Queues `message` twice and runs the sender over the given Feedback results."""
+    env.channels.stub.return_value = env.channels.feedback_stub
+    env.channels.feedback_stub.Feedback.side_effect = side_effects
+    await env.sender.send(message=message)
+    await env.sender.send(message=message)
+    return env.sender.listen()
+
+
+async def _sender_reset(env, message):
+    """A successful send cycle, resetting the sender retry counters."""
+    future = asyncio.Future()
+    future.set_result("x")
+    task = await _sender_feedback_cycle(env, message, [future, asyncio.CancelledError])
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    task.cancel()
+    env.channels.feedback_stub.reset_mock()
+
+
+@pytest.mark.asyncio
+async def test_sender_send(sender_env):
+    await sender_env.sender.send(message=message_search)
+    item = await sender_env.sender._queue.get()
+    assert item == {"stub": _StubType.SENDER_TASK_STUB, "message": message_search}
+
+    await sender_env.sender.send(message=message_log)
+    item = await sender_env.sender._queue.get()
+    assert item == {"stub": _StubType.SENDER_FEEDBACK_STUB, "message": message_log}
+
+    await sender_env.sender.send(message=message_scalar)
+    item = await sender_env.sender._queue.get()
+    assert item == {"stub": _StubType.SENDER_FEEDBACK_STUB, "message": message_scalar}
+
+
+@pytest.mark.asyncio
+async def test_sender_listen(sender_env):
+    sender_env.serializer_patch.stop()
+
+    future = asyncio.Future()
+    future.set_result("x")
+
+    task = await _sender_feedback_cycle(
+        sender_env, message_log, [future, asyncio.CancelledError]
+    )
+    with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert sender_env.channels.feedback_stub.Feedback.call_count == 2
+    assert any(
+        "[WIRE][N->S][TX]" in call.args[0] for call in logger_debug.call_args_list
+    )
+
+    task.cancel()
+
+    stream_call = AsyncMock()
+    sender_env.channels.task_stub.ReplyTask.side_effect = [
+        stream_call,
+        asyncio.CancelledError,
+    ]
+    sender_env.channels.stub.return_value = sender_env.channels.task_stub
+    await sender_env.sender.send(message=message_search)
+    await sender_env.sender.send(message=message_search)
+
+    with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
+        task = sender_env.sender.listen()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    task.cancel()
+    assert sender_env.channels.task_stub.ReplyTask.call_count == 2
+    stream_call.write.assert_called_once()
+    stream_call.done_writing.assert_called_once()
+    assert any(
+        "[WIRE][N->S][TX]" in call.args[0] for call in logger_debug.call_args_list
+    )
+
+    # Restart for the fixture finalizer's stop
+    sender_env.serializer_patch.start()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("message", [message_log, message_scalar])
+@pytest.mark.parametrize(
+    "code",
+    [grpc.StatusCode.UNKNOWN, grpc.StatusCode.ABORTED, grpc.StatusCode.UNAVAILABLE],
+)
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_sender_listen_retryable_grpc_errors(sleep, sender_env, message, code):
+    """Retryable gRPC errors re-send after a pause; a success resets counters."""
+    for retry in range(1, MAX_SEND_RETRIES + 5):
+        task = await _sender_feedback_cycle(
+            sender_env, message, [_rpc_error(code)] * retry + [asyncio.CancelledError]
         )
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert sender_env.channels.feedback_stub.Feedback.call_count == retry + 1
+        assert sleep.call_count == retry - int((retry - 1) / MAX_SEND_RETRIES)
 
         task.cancel()
+        await _sender_reset(sender_env, message)
+        sleep.reset_mock()
 
-        stream_call = AsyncMock()
-        self.channels.task_stub.ReplyTask.side_effect = [
-            stream_call,
-            asyncio.CancelledError,
-        ]
-        self.channels.stub.return_value = self.channels.task_stub
-        await self.sender.send(message=self.message_search)
-        await self.sender.send(message=self.message_search)
 
-        with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
-            task = self.sender.listen()
-            with self.assertRaises(asyncio.CancelledError):
-                await task
+@pytest.mark.asyncio
+@pytest.mark.parametrize("message", [message_log, message_scalar])
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_sender_listen_deadline_consumes_message_without_sleep(
+    sleep, sender_env, message
+):
+    """A deadline consumes the current message and re-sends the next
+    immediately, without pausing."""
+    deadlines = 3
+    sender_env.channels.stub.return_value = sender_env.channels.feedback_stub
+    sender_env.channels.feedback_stub.Feedback.side_effect = [
+        _rpc_error(grpc.StatusCode.DEADLINE_EXCEEDED)
+    ] * deadlines + [asyncio.CancelledError]
+    # One message per deadline, plus one carrying the terminating error
+    for _ in range(deadlines + 1):
+        await sender_env.sender.send(message=message)
+
+    task = sender_env.sender.listen()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    task.cancel()
+
+    assert sender_env.channels.feedback_stub.Feedback.call_count == deadlines + 1
+    sleep.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("message", [message_log, message_scalar])
+@pytest.mark.parametrize("exception", [RuntimeError, Exception, GeneratorExit])
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_sender_listen_non_grpc_exceptions(sleep, sender_env, message, exception):
+    """Non-gRPC errors are capped: beyond MAX_SEND_RETRIES the sender stops
+    with FedbiomedCommunicationError; a success resets the counter."""
+    for retry in range(1, MAX_SEND_RETRIES + 5):
+        task = await _sender_feedback_cycle(
+            sender_env, message, [exception] * retry + [asyncio.CancelledError]
+        )
+        if retry <= MAX_SEND_RETRIES:
+            signal = asyncio.CancelledError
+        else:
+            signal = FedbiomedCommunicationError
+
+        with pytest.raises(signal):
+            await task
+        assert sender_env.channels.feedback_stub.Feedback.call_count == min(
+            retry + 1, MAX_SEND_RETRIES + 1
+        )
+        assert sleep.call_count == min(retry, MAX_SEND_RETRIES)
 
         task.cancel()
-        self.assertEqual(self.channels.task_stub.ReplyTask.call_count, 2)
-        stream_call.write.assert_called_once()
-        stream_call.done_writing.assert_called_once()
-        self.assertTrue(
-            any(
-                "[WIRE][N->S][TX]" in call.args[0]
-                for call in logger_debug.call_args_list
-            )
-        )
-
-    @patch("fedbiomed.transport.client.asyncio.sleep")
-    async def test_sender_02_listen_exceptions(self, sleep):
-        # Unknown error
-        codes = [
-            grpc.aio.AioRpcError(
-                code=grpc.StatusCode.UNKNOWN,
-                trailing_metadata=grpc.aio.Metadata(("test", "test")),
-                initial_metadata=grpc.aio.Metadata(("test", "test")),
-            ),
-            grpc.aio.AioRpcError(
-                code=grpc.StatusCode.ABORTED,
-                trailing_metadata=grpc.aio.Metadata(("test", "test")),
-                initial_metadata=grpc.aio.Metadata(("test", "test")),
-            ),
-        ]
-        for message in [self.message_log, self.message_scalar]:
-            for code in codes:
-                for retry in range(1, MAX_SEND_RETRIES + 5):
-                    self.channels.stub.return_value = self.channels.feedback_stub
-                    self.channels.feedback_stub.Feedback.side_effect = [
-                        code
-                    ] * retry + [asyncio.CancelledError]
-
-                    await self.sender.send(message=message)
-                    await self.sender.send(message=message)
-                    task = self.sender.listen()
-
-                    with self.assertRaises(asyncio.CancelledError):
-                        await task
-                    self.assertEqual(
-                        self.channels.feedback_stub.Feedback.call_count, retry + 1
-                    )
-                    self.assertEqual(
-                        sleep.call_count, retry - int((retry - 1) / MAX_SEND_RETRIES)
-                    )
-
-                    # Cancel the task
-                    task.cancel()
-
-                    # Need a successful task retrieve to reset the retry counters
-                    future = asyncio.Future()
-                    future.set_result("x")
-                    self.channels.feedback_stub.Feedback.side_effect = [
-                        future,
-                        asyncio.CancelledError,
-                    ]
-                    self.channels.stub.return_value = self.channels.feedback_stub
-                    await self.sender.send(message=message)
-                    await self.sender.send(message=message)
-                    task = self.sender.listen()
-                    with self.assertRaises(asyncio.CancelledError):
-                        await task
-
-                    # Cancel and reset the task for next test
-                    task.cancel()
-                    self.channels.feedback_stub.reset_mock()
-                    sleep.reset_mock()
-
-        # Unavailable
-        for message in [self.message_log, self.message_scalar]:
-            for retry in range(1, MAX_SEND_RETRIES + 5):
-                self.channels.stub.return_value = self.channels.feedback_stub
-                self.channels.feedback_stub.Feedback.side_effect = [
-                    grpc.aio.AioRpcError(
-                        code=grpc.StatusCode.UNAVAILABLE,
-                        trailing_metadata=grpc.aio.Metadata(("test", "test")),
-                        initial_metadata=grpc.aio.Metadata(("test", "test")),
-                    )
-                ] * retry + [asyncio.CancelledError]
-
-                await self.sender.send(message=message)
-                await self.sender.send(message=message)
-                task = self.sender.listen()
-
-                with self.assertRaises(asyncio.CancelledError):
-                    await task
-                self.assertEqual(
-                    self.channels.feedback_stub.Feedback.call_count, retry + 1
-                )
-                self.assertEqual(
-                    sleep.call_count, retry - int((retry - 1) / MAX_SEND_RETRIES)
-                )
-
-                # Cancel the task
-                task.cancel()
-
-                # Need a successful task retrieve to reset the retry counters
-                future = asyncio.Future()
-                future.set_result("x")
-                self.channels.feedback_stub.Feedback.side_effect = [
-                    future,
-                    asyncio.CancelledError,
-                ]
-                self.channels.stub.return_value = self.channels.feedback_stub
-                await self.sender.send(message=message)
-                await self.sender.send(message=message)
-                task = self.sender.listen()
-                with self.assertRaises(asyncio.CancelledError):
-                    await task
-
-                # Cancel the task
-                task.cancel()
-                self.channels.feedback_stub.reset_mock()
-                sleep.reset_mock()
-
-        # Deadline
-        for message in [self.message_log, self.message_scalar]:
-            for retry in range(1, MAX_SEND_RETRIES + 5):
-                self.channels.stub.return_value = self.channels.feedback_stub
-                self.channels.feedback_stub.Feedback.side_effect = [
-                    grpc.aio.AioRpcError(
-                        code=grpc.StatusCode.DEADLINE_EXCEEDED,
-                        trailing_metadata=grpc.aio.Metadata(("test", "test")),
-                        initial_metadata=grpc.aio.Metadata(("test", "test")),
-                    )
-                ] * retry + [asyncio.CancelledError]
-
-                await self.sender.send(message=message)
-                await self.sender.send(message=message)
-                task = self.sender.listen()
-
-                with self.assertRaises(asyncio.CancelledError):
-                    await task
-                self.assertEqual(
-                    self.channels.feedback_stub.Feedback.call_count, retry + 1
-                )
-                sleep.assert_not_called()
-
-                # Cancel the task
-                task.cancel()
-
-                # Need a successful task retrieve to reset the retry counters
-                future = asyncio.Future()
-                future.set_result("x")
-                self.channels.feedback_stub.Feedback.side_effect = [
-                    future,
-                    asyncio.CancelledError,
-                ]
-                self.channels.stub.return_value = self.channels.feedback_stub
-                await self.sender.send(message=message)
-                await self.sender.send(message=message)
-                task = self.sender.listen()
-                with self.assertRaises(asyncio.CancelledError):
-                    await task
-
-                task.cancel()
-                self.channels.feedback_stub.reset_mock()
-                sleep.reset_mock()
-
-        # Other exceptions
-        codes = [
-            RuntimeError,
-            Exception,
-            GeneratorExit,
-        ]
-        for message in [self.message_log, self.message_scalar]:
-            for code in codes:
-                for retry in range(1, MAX_SEND_RETRIES + 5):
-                    self.channels.stub.return_value = self.channels.feedback_stub
-                    self.channels.feedback_stub.Feedback.side_effect = [
-                        code
-                    ] * retry + [asyncio.CancelledError]
-
-                    await self.sender.send(message=message)
-                    await self.sender.send(message=message)
-                    task = self.sender.listen()
-                    if retry <= MAX_SEND_RETRIES:
-                        signal = asyncio.CancelledError
-                    else:
-                        signal = FedbiomedCommunicationError
-
-                    with self.assertRaises(signal):
-                        await task
-                    self.assertEqual(
-                        self.channels.feedback_stub.Feedback.call_count,
-                        min(retry + 1, MAX_SEND_RETRIES + 1),
-                    )
-                    self.assertEqual(sleep.call_count, min(retry, MAX_SEND_RETRIES))
-
-                    # Cancel the task
-                    task.cancel()
-
-                    # Need a successful task retrieve to reset the retry counters
-                    future = asyncio.Future()
-                    future.set_result("x")
-                    self.channels.feedback_stub.Feedback.side_effect = [
-                        future,
-                        asyncio.CancelledError,
-                    ]
-                    self.channels.stub.return_value = self.channels.feedback_stub
-                    await self.sender.send(message=message)
-                    await self.sender.send(message=message)
-                    task = self.sender.listen()
-                    with self.assertRaises(asyncio.CancelledError):
-                        await task
-
-                    # Cancel and reset the task for next test
-                    task.cancel()
-                    self.channels.feedback_stub.reset_mock()
-                    sleep.reset_mock()
+        await _sender_reset(sender_env, message)
+        sleep.reset_mock()
 
 
-class TestChannels(unittest.IsolatedAsyncioTestCase):
-    def setUp(self):
-        self.create_channel_patch = patch(
+# -----------------------------------------------------------------------------
+# Channels
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def channels_env():
+    with (
+        patch(
             "fedbiomed.transport.client.Channels._create_channel", autospec=True
+        ) as create_channel,
+        patch("fedbiomed.transport.client.ResearcherServiceStub", autospec=True),
+    ):
+        create_channel.return_value.close = AsyncMock()
+        yield SimpleNamespace(
+            create_channel=create_channel,
+            channels=Channels(
+                researcher=ResearcherCredentials(
+                    host="localhost", port="50051", certificate=b"test"
+                )
+            ),
         )
-        self.stub_patch = patch(
-            "fedbiomed.transport.client.ResearcherServiceStub", autospec=True
-        )
 
-        self.create_channel_mock = self.create_channel_patch.start()
 
-        self.create_channel_mock.return_value.close = AsyncMock()
+def test_channels_endpoint(channels_env):
+    assert channels_env.channels.endpoint == "localhost:50051"
 
-        self.stub_mock = self.stub_patch.start()
 
-        r = ResearcherCredentials(host="localhost", port="50051", certificate=b"test")
+@pytest.mark.asyncio
+async def test_channels_connect_and_stub(channels_env):
+    stubs = [
+        _StubType.LISTENER_TASK_STUB,
+        _StubType.SENDER_TASK_STUB,
+        _StubType.SENDER_FEEDBACK_STUB,
+    ]
+    await channels_env.channels.connect()
+    for stub in stubs:
+        assert isinstance(await channels_env.channels.stub(stub), ResearcherServiceStub)
 
-        self.channels = Channels(researcher=r)
+    # Recall connect
+    await channels_env.channels.connect()
+    for stub in stubs:
+        assert isinstance(await channels_env.channels.stub(stub), ResearcherServiceStub)
 
-        pass
+    # test non existing stub
+    assert await channels_env.channels.stub("dummy") is None
 
-    def tearDown(self):
-        self.create_channel_patch.stop()
-        self.stub_patch.stop()
-        pass
 
-    def test_channels_01_endpoint(self):
-        self.assertEqual(self.channels.endpoint, "localhost:50051")
-
-    async def test_channels_02_connect_and_stub(self):
-        await self.channels.connect()
-        for stub in [
-            _StubType.LISTENER_TASK_STUB,
-            _StubType.SENDER_TASK_STUB,
-            _StubType.SENDER_FEEDBACK_STUB,
-        ]:
-            self.assertIsInstance(await self.channels.stub(stub), ResearcherServiceStub)
-
-        # Recall connect
-        await self.channels.connect()
-        for stub in [
-            _StubType.LISTENER_TASK_STUB,
-            _StubType.SENDER_TASK_STUB,
-            _StubType.SENDER_FEEDBACK_STUB,
-        ]:
-            self.assertIsInstance(await self.channels.stub(stub), ResearcherServiceStub)
-
-        # test non existing stub
-        self.assertEqual(await self.channels.stub("dummy"), None)
-
-    @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
-    async def test_channels_03_create_without_mtls(self, ssl_channel_credentials):
-        """Without mutual TLS only the server certificate is pinned."""
-        r = ResearcherCredentials(
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
+async def test_channels_create_without_mtls(ssl_channel_credentials, channels_env):
+    """Without mutual TLS only the server certificate is pinned."""
+    channels = Channels(
+        researcher=ResearcherCredentials(
             host="localhost", port="50051", certificate=b"server-cert"
         )
-        channels = Channels(researcher=r)
+    )
 
-        channels._create()
+    channels._create()
 
-        # Server certificate pinned, no client identity, no target-name override
-        ssl_channel_credentials.assert_called_once_with(b"server-cert")
-        _, kwargs = self.create_channel_mock.call_args
-        self.assertIsNone(kwargs["target_name_override"])
-        self.assertEqual(kwargs["certificate"], ssl_channel_credentials.return_value)
+    # Server certificate pinned, no client identity, no target-name override
+    ssl_channel_credentials.assert_called_once_with(b"server-cert")
+    _, kwargs = channels_env.create_channel.call_args
+    assert kwargs["target_name_override"] is None
+    assert kwargs["certificate"] == ssl_channel_credentials.return_value
 
-    @patch("fedbiomed.transport.client.certificate_subject_field")
-    @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
-    async def test_channels_04_create_with_mtls(
-        self, ssl_channel_credentials, subject_field
-    ):
-        """With mutual TLS the node presents its identity and pins the CN."""
-        subject_field.return_value = "researcher-cn"
-        r = ResearcherCredentials(
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.certificate_subject_field")
+@patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
+async def test_channels_create_with_mtls(
+    ssl_channel_credentials, subject_field, channels_env
+):
+    """With mutual TLS the node presents its identity and pins the CN."""
+    subject_field.return_value = "researcher-cn"
+    channels = Channels(
+        researcher=ResearcherCredentials(
             host="localhost",
             port="50051",
             certificate=b"server-cert",
@@ -1161,59 +960,41 @@ class TestChannels(unittest.IsolatedAsyncioTestCase):
                 certificate_chain=b"node-cert",
             ),
         )
-        channels = Channels(researcher=r)
+    )
 
-        channels._create()
+    channels._create()
 
-        ssl_channel_credentials.assert_called_once_with(
-            root_certificates=b"server-cert",
-            private_key=b"node-key",
-            certificate_chain=b"node-cert",
+    ssl_channel_credentials.assert_called_once_with(
+        root_certificates=b"server-cert",
+        private_key=b"node-key",
+        certificate_chain=b"node-cert",
+    )
+    subject_field.assert_called_once_with(b"server-cert", x509.oid.NameOID.COMMON_NAME)
+    _, kwargs = channels_env.create_channel.call_args
+    assert kwargs["target_name_override"] == "researcher-cn"
+
+
+def test_channels_create_channel_adds_target_name_override():
+    """`target_name_override` is forwarded as a gRPC channel option."""
+    with patch("fedbiomed.transport.client.grpc.aio.secure_channel") as secure_channel:
+        Channels._create_channel(
+            port="50051",
+            host="localhost",
+            certificate=MagicMock(),
+            target_name_override="researcher-cn",
         )
-        subject_field.assert_called_once_with(
-            b"server-cert", x509.oid.NameOID.COMMON_NAME
+    options = dict(secure_channel.call_args.kwargs["options"])
+    assert options.get("grpc.ssl_target_name_override") == "researcher-cn"
+
+
+def test_channels_create_channel_omits_override_when_absent():
+    """No override option is set when `target_name_override` is None."""
+    with patch("fedbiomed.transport.client.grpc.aio.secure_channel") as secure_channel:
+        Channels._create_channel(
+            port="50051",
+            host="localhost",
+            certificate=MagicMock(),
+            target_name_override=None,
         )
-        _, kwargs = self.create_channel_mock.call_args
-        self.assertEqual(kwargs["target_name_override"], "researcher-cn")
-
-    async def test_channels_05_create_channel_adds_target_name_override(self):
-        """`target_name_override` is forwarded as a gRPC channel option."""
-        self.create_channel_patch.stop()
-        try:
-            with patch(
-                "fedbiomed.transport.client.grpc.aio.secure_channel"
-            ) as secure_channel:
-                Channels._create_channel(
-                    port="50051",
-                    host="localhost",
-                    certificate=MagicMock(),
-                    target_name_override="researcher-cn",
-                )
-            options = dict(secure_channel.call_args.kwargs["options"])
-            self.assertEqual(
-                options.get("grpc.ssl_target_name_override"), "researcher-cn"
-            )
-        finally:
-            self.create_channel_mock = self.create_channel_patch.start()
-
-    async def test_channels_06_create_channel_omits_override_when_absent(self):
-        """No override option is set when `target_name_override` is None."""
-        self.create_channel_patch.stop()
-        try:
-            with patch(
-                "fedbiomed.transport.client.grpc.aio.secure_channel"
-            ) as secure_channel:
-                Channels._create_channel(
-                    port="50051",
-                    host="localhost",
-                    certificate=MagicMock(),
-                    target_name_override=None,
-                )
-            options = dict(secure_channel.call_args.kwargs["options"])
-            self.assertNotIn("grpc.ssl_target_name_override", options)
-        finally:
-            self.create_channel_mock = self.create_channel_patch.start()
-
-
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+    options = dict(secure_channel.call_args.kwargs["options"])
+    assert "grpc.ssl_target_name_override" not in options
