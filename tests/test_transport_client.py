@@ -168,7 +168,7 @@ class TestGrpcClient(unittest.IsolatedAsyncioTestCase):
         # One console-visible error despite two detections
         errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
         self.assertEqual(len(errors), 1)
-        self.assertIn("mutual TLS is disabled on this node", errors[0].args[0])
+        self.assertIn("mutual-TLS is disabled on this node", errors[0].args[0])
 
     @patch("fedbiomed.transport.client.logger._logger.warning")
     @patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
@@ -630,7 +630,7 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
         # One actionable console-visible error despite two identical failures
         errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
         self.assertEqual(len(errors), 1)
-        self.assertIn("certificate register", errors[0].args[0])
+        self.assertIn("Ask the researcher to register it", errors[0].args[0])
         # The repeat went to debug with the same explanation
         self.assertTrue(
             any("TLS handshake" in c.args[0] for c in log_debug.call_args_list)
@@ -659,8 +659,8 @@ class TestTaskListener(unittest.IsolatedAsyncioTestCase):
 
         errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
         self.assertEqual(len(errors), 1)
-        self.assertIn("mutual TLS is disabled on this node", errors[0].args[0])
-        self.assertIn("restart the node", errors[0].args[0])
+        self.assertIn("mutual-TLS is disabled on this node", errors[0].args[0])
+        self.assertIn("register the researcher certificate", errors[0].args[0])
 
     @patch("fedbiomed.transport.client.logger.info")
     async def test_task_listener_11_announce_honest_when_not_enforced(self, log_info):
