@@ -1,7 +1,6 @@
 import configparser
 import os
 import shutil
-import unittest
 from unittest.mock import patch
 
 import pytest
@@ -45,19 +44,6 @@ def DummyConfig():
             return
 
     return _DummyConfig
-
-
-@pytest.fixture()
-def patch_cert_generation(mocker, tmp_path):
-    """Avoid crypto/fs side effects for Node/Researcher configs."""
-    mocker.patch(
-        "fedbiomed.node.config.generate_certificate",
-        lambda **kwargs: (str(tmp_path / "k.key"), str(tmp_path / "c.pem")),
-    )
-    mocker.patch(
-        "fedbiomed.researcher.config.generate_certificate",
-        lambda **kwargs: (str(tmp_path / "k.key"), str(tmp_path / "c.pem")),
-    )
 
 
 ###################################
@@ -204,147 +190,121 @@ def test_add_syslog_from_config_rejects_invalid_values(
     assert str(exc_info.value) == f"{ErrorNumbers.FB600.value}: {error_suffix}"
 
 
-class BaseConfigTest(unittest.TestCase):
-    def setUp(self):
-        self.patch_fed_folders = patch(
-            "fedbiomed.common.config.create_fedbiomed_setup_folders"
-        )
-        self.patch_open = patch("builtins.open")
-
-        self.open_mock = self.patch_open.start()
-        self.create_fed_folders_mock = self.patch_fed_folders.start()
-
-    def tearDown(self):
-        self.patch_open.stop()
-        self.patch_fed_folders.stop()
-
-        # Clean up any created folders
-        shutil.rmtree("dummy-root", ignore_errors=True)
-        shutil.rmtree("etc", ignore_errors=True)
-        return super().tearDown()
+@pytest.fixture()
+def config_env():
+    """Patches filesystem side effects of config generation, cleans leftovers."""
+    with (
+        patch("fedbiomed.common.config.create_fedbiomed_setup_folders"),
+        patch("builtins.open"),
+    ):
+        yield
+    shutil.rmtree("dummy-root", ignore_errors=True)
+    shutil.rmtree("etc", ignore_errors=True)
 
 
-class TestConfig(BaseConfigTest):
-    """Tests base methods of Config class"""
+@pytest.fixture()
+def concrete_config(config_env):
+    """Makes the abstract Config instantiable."""
+    with patch.multiple("fedbiomed.common.config.Config", __abstractmethods__=set()):
+        yield
 
-    def setUp(self):
-        self.patch_ = patch.multiple(
-            "fedbiomed.common.config.Config", __abstractmethods__=set()
-        )
-        self.patch_.start()
 
-        return super().setUp()
+@patch("fedbiomed.common.config.configparser.ConfigParser")
+def test_config_read(config_parser, concrete_config):
+    config = Config(root="dummy-root")
+    config._CONFIG_VERSION = "0.99"
 
-    def tearDown(self):
-        self.patch_.stop()
-        return super().tearDown()
+    with pytest.raises(FedbiomedConfigurationError):
+        config.read()
 
-    @patch("fedbiomed.common.config.configparser.ConfigParser")
-    def test_01_read(self, config_parser):
+    config_parser.return_value.read.assert_called_once()
+
+    # With autogenereate
+    with patch("fedbiomed.common.config.Config.generate") as gen:
         config = Config(root="dummy-root")
-        config._CONFIG_VERSION = "0.99"
-
-        with self.assertRaises(FedbiomedConfigurationError):
-            config.read()
-
-        config_parser.return_value.read.assert_called_once()
-
-        # With autogenereate
-        with patch("fedbiomed.common.config.Config.generate") as gen:
-            config = Config(root="dummy-root")
-            gen.assert_called_once()
-
-    def test_03_is_config_existing(self):
-        config = Config(root="test")
-        r = config.is_config_existing()
-        self.assertFalse(r)
+        gen.assert_called_once()
 
 
-class TestNodeConfig(BaseConfigTest):
-    def test_01_node_config_generate(self):
-        config = NodeConfig(root=os.path.abspath("tests"))
-        print(config._cfg["default"])
+def test_config_is_config_existing(concrete_config):
+    config = Config(root="test")
+    assert not config.is_config_existing()
 
-        component = config.get("default", "component")
-        self.assertEqual("node", component.lower())
 
-        r_ip = config.get("researcher", "ip")
-        r_port = config.get("researcher", "port")
+def test_node_config_generate(config_env):
+    config = NodeConfig(root=os.path.abspath("dummy-root"))
 
-        self.assertTrue(r_ip)
-        self.assertTrue(r_port)
+    component = config.get("default", "component")
+    assert component.lower() == "node"
 
-    def test_02_node_config_sections(self):
-        config = NodeConfig(root=os.path.abspath("test"))
+    assert config.get("researcher", "ip")
+    assert config.get("researcher", "port")
 
-        sections = config.sections()
 
-        self.assertTrue("researcher" in sections)
-        self.assertTrue("default" in sections)
-        self.assertTrue("security" in sections)
-        self.assertTrue("certificate" in sections)
-        self.assertTrue("mtls" in sections)
+def test_node_config_sections(config_env):
+    config = NodeConfig(root=os.path.abspath("dummy-root"))
 
-    def test_02_node_config_mtls_section_defaults(self):
-        config = NodeConfig(root=os.path.abspath("test"))
+    sections = config.sections()
 
-        # Opt-in: disabled by default. Trusted certs live in the main component DB.
-        self.assertFalse(config.getbool("mtls", "enabled"))
+    assert "researcher" in sections
+    assert "default" in sections
+    assert "security" in sections
+    assert "certificate" in sections
+    assert "mtls" in sections
 
-    def test_03_node_config_migrate_old(self):
-        config = NodeConfig(root=os.path.abspath("test"))
 
-        # Simulate old config by removing options
-        if config._cfg.has_option("default", "name"):
-            config._cfg.remove_option("default", "name")
-        if config._cfg.has_option("security", "allow_preproc"):
-            config._cfg.remove_option("security", "allow_preproc")
-        if config._cfg.has_option("security", "allow_federated_analytics"):
-            config._cfg.remove_option("security", "allow_federated_analytics")
-        if config._cfg.has_option("security", "minimum_samples"):
-            config._cfg.remove_option("security", "minimum_samples")
+def test_node_config_mtls_section_defaults(config_env):
+    config = NodeConfig(root=os.path.abspath("dummy-root"))
 
+    # Opt-in: disabled by default. Trusted certs live in the main component DB.
+    assert not config.getbool("mtls", "enabled")
+
+
+def test_node_config_migrate_old(config_env):
+    config = NodeConfig(root=os.path.abspath("dummy-root"))
+
+    # Simulate old config by removing options
+    if config._cfg.has_option("default", "name"):
+        config._cfg.remove_option("default", "name")
+    if config._cfg.has_option("security", "allow_preproc"):
+        config._cfg.remove_option("security", "allow_preproc")
+    if config._cfg.has_option("security", "allow_federated_analytics"):
+        config._cfg.remove_option("security", "allow_federated_analytics")
+    if config._cfg.has_option("security", "minimum_samples"):
+        config._cfg.remove_option("security", "minimum_samples")
+
+    config.migrate()
+
+    assert config._cfg.has_option("default", "name")
+    assert config._cfg.has_option("security", "allow_preproc")
+    assert config._cfg.has_option("security", "allow_federated_analytics")
+    assert config._cfg.has_option("security", "minimum_samples")
+    assert config._cfg.get("security", "minimum_samples") == "0"
+
+
+def test_node_config_migrate_new(config_env):
+    config = NodeConfig(root=os.path.abspath("dummy-root"))
+
+    # Should not raise any warning
+    with patch("fedbiomed.common.logger.logger.warning") as log_warn:
         config.migrate()
-
-        self.assertTrue(config._cfg.has_option("default", "name"))
-        self.assertTrue(config._cfg.has_option("security", "allow_preproc"))
-        self.assertTrue(config._cfg.has_option("security", "allow_federated_analytics"))
-        self.assertTrue(config._cfg.has_option("security", "minimum_samples"))
-        self.assertEqual(config._cfg.get("security", "minimum_samples"), "0")
-
-    def test_04_node_config_migrate_new(self):
-        config = NodeConfig(root=os.path.abspath("test"))
-
-        # Should not raise any warning
-        with patch("fedbiomed.common.logger.logger.warning") as log_warn:
-            config.migrate()
-            log_warn.assert_not_called()
+        log_warn.assert_not_called()
 
 
-class TestResearcherConfig(BaseConfigTest):
-    def test_01_researcher_config_generate(self):
-        config = ResearcherConfig(root=os.path.abspath("tests"))
+def test_researcher_config_generate(config_env):
+    config = ResearcherConfig(root=os.path.abspath("dummy-root"))
 
-        component = config.get("default", "component")
-        self.assertEqual("researcher", component.lower())
+    component = config.get("default", "component")
+    assert component.lower() == "researcher"
 
-        r_ip = config.get("server", "host")
-        r_port = config.get("server", "port")
-        r_pem = config.get("certificate", "private_key")
-        r_key = config.get("certificate", "public_key")
-
-        self.assertTrue(r_ip)
-        self.assertTrue(r_port)
-        self.assertTrue(r_pem)
-        self.assertTrue(r_key)
-
-    def test_02_researcher_config_sections(self):
-        config = ResearcherConfig(root=os.path.abspath("test"))
-        sections = config.sections()
-
-        self.assertTrue("server" in sections)
-        self.assertTrue("default" in sections)
+    assert config.get("server", "host")
+    assert config.get("server", "port")
+    assert config.get("certificate", "private_key")
+    assert config.get("certificate", "public_key")
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_researcher_config_sections(config_env):
+    config = ResearcherConfig(root=os.path.abspath("dummy-root"))
+    sections = config.sections()
+
+    assert "server" in sections
+    assert "default" in sections
