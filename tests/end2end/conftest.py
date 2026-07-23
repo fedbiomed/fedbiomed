@@ -16,36 +16,29 @@ if "FBM_RESEARCHER_COMPONENT_ROOT" not in os.environ:
     os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = _researcher_root
     atexit.register(shutil.rmtree, _researcher_root, ignore_errors=True)
 
-import psutil
 import pytest
-from helpers import (
-    CONFIG_PREFIX,
-    kill_process,
-    stop_researcher_server,
-)
-
-_PORT = 50151
+from helpers import kill_registered_subprocesses, stop_researcher_server
 
 os.environ["FBM_DEBUG"] = "1"
 
 
 @pytest.fixture(scope="module")
-def port():
-    """Increases and return port for researcher server"""
-    global _PORT
-
-    _PORT += 1
-    return str(_PORT)
+def port(unused_tcp_port_factory):
+    """Return an available port shared by the researcher and nodes."""
+    return str(unused_tcp_port_factory())
 
 
 @pytest.fixture(scope="module", autouse=True)
 def data():
     """Create and expose the shared temporary directory for the test module."""
-    home_dir = os.path.expanduser("~")
-    tmp_dir = os.path.join(home_dir, "_tmp")
-    os.makedirs(tmp_dir, exist_ok=True)
-    print(f"##### FBM: Setting temporary test directory to {tmp_dir}")
-    pytest.temporary_test_directory = tempfile.TemporaryDirectory(dir=tmp_dir)
+    run_id = os.environ.get("FBM_E2E_RUN_ID", f"local-{os.getpid()}")
+    run_id = re.sub(r"[^A-Za-z0-9_.-]", "-", run_id)
+    tmp_dir = os.environ.get("RUNNER_TEMP", tempfile.gettempdir())
+    print(f"##### FBM: Setting temporary test directory under {tmp_dir}")
+    pytest.temporary_test_directory = tempfile.TemporaryDirectory(
+        prefix=f"fedbiomed-e2e-{run_id}-",
+        dir=tmp_dir,
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -57,33 +50,27 @@ def post_session(request, data):
     print("#### Killing is completed --------")
     print(f"\n#######  Running test {request.node}:{request.node.name} --------")
 
-    yield
-
-    stop_researcher_server()
-    print("#### Killing e2e processes after the tests -----")
-    kill_e2e_test_processes()
-    print("#### Killing is completed")
-    print("\n###### Cleaning temporary directory: started -----\n")
-    print(f"Directory: {pytest.temporary_test_directory}")
-    pytest.temporary_test_directory.cleanup()
-    tmp_dir = os.path.join(os.path.expanduser("~"), "_tmp")
-    shutil.rmtree(tmp_dir, ignore_errors=True)
-    print("\n###### Cleaning temporary directory: finished  -----\n\n")
-    print(
-        f"#### Module tests have finished {request.node}:{request.node.name} --------"
-    )
+    try:
+        yield
+    finally:
+        try:
+            stop_researcher_server()
+        finally:
+            print("#### Killing e2e processes after the tests -----")
+            try:
+                kill_e2e_test_processes()
+                print("#### Killing is completed")
+            finally:
+                print("\n###### Cleaning temporary directory: started -----\n")
+                print(f"Directory: {pytest.temporary_test_directory}")
+                pytest.temporary_test_directory.cleanup()
+                print("\n###### Cleaning temporary directory: finished  -----\n\n")
+                print(
+                    "#### Module tests have finished "
+                    f"{request.node}:{request.node.name} --------"
+                )
 
 
 def kill_e2e_test_processes():
     """Kills end2end processes if any existing"""
-
-    for process in psutil.process_iter():
-        try:
-            cmdline = process.cmdline()
-        except psutil.Error as e:
-            print(f"\n #####: FBM: PSUTIL ERROR: {e}")
-            continue
-        else:
-            if any([re.search(rf"^{CONFIG_PREFIX}.*\.ini$", cmd) for cmd in cmdline]):
-                print(f'#####: FBM: Found a processes not killed: "{cmdline}"')
-                kill_process(process)
+    kill_registered_subprocesses()

@@ -2,16 +2,32 @@
 
 import multiprocessing
 import subprocess
+import threading
 from typing import Callable, List, Optional
 
 import psutil
 import pytest
+
+_processes = {}
+_processes_lock = threading.Lock()
 
 
 # TODO: When it is raised should exit from
 # subprocess and parent process
 class End2EndErrorExit(SystemExit):
     pass
+
+
+def register_process(process: subprocess.Popen) -> None:
+    """Register a subprocess created by the current E2E test process."""
+    with _processes_lock:
+        _processes[process.pid] = process
+
+
+def unregister_process(process) -> None:
+    """Remove a subprocess from the current E2E process registry."""
+    with _processes_lock:
+        _processes.pop(process.pid, None)
 
 
 def collect(process, on_failure: Optional[Callable] = None) -> bool:
@@ -23,21 +39,25 @@ def collect(process, on_failure: Optional[Callable] = None) -> bool:
     """
 
     try:
-        returncode = process.wait()
-    except Exception as e:
-        print(f"Error raised while waiting for the process to finish: {e}")
-    else:
-        # -9 is for killing the process Ctrl-z or psutil.kill
-        # 137: Process finished with exit code 137
-        # (interrupted by signal 9: SIGKILL) mostly on ubuntu slave
-        if returncode not in [0, -9, 137]:
-            if on_failure:
-                on_failure(process)
-            # Other exceptions are caught by pytest
-            pytest.exit(
-                f"Error: Processes failed {process}. Args: {process.args} "
-                "Please check the outputs."
-            )
+        try:
+            returncode = process.wait()
+        except Exception as e:
+            print(f"Error raised while waiting for the process to finish: {e}")
+        else:
+            # -9 is for killing the process Ctrl-z or psutil.kill
+            # 137: Process finished with exit code 137
+            # (interrupted by signal 9: SIGKILL) mostly on ubuntu slave
+            if returncode not in [0, -9, 137]:
+                if on_failure:
+                    on_failure(process)
+                # Other exceptions are caught by pytest
+                pytest.exit(
+                    f"Error: Processes failed {process}. Args: {process.args} "
+                    "Please check the outputs."
+                )
+    finally:
+        if process.poll() is not None:
+            unregister_process(process)
 
     return True
 
@@ -73,33 +93,60 @@ def kill_subprocesses(processes):
     Args:
         processes: List of subprocesses to kill
     """
+    errors = []
     for p in processes:
         print(f"\n ##### Killing subprocess: {p}")
-        kill_process(p)
+        try:
+            kill_process(p)
+        except Exception as e:
+            errors.append(f"PID {p.pid}: {e}")
+
+    if errors:
+        raise End2EndErrorExit(
+            f"Failed to kill {len(errors)} E2E subprocess(es): {errors}"
+        )
+
+
+def kill_registered_subprocesses() -> None:
+    """Kill subprocesses started by the current E2E test process."""
+    with _processes_lock:
+        processes = list(_processes.values())
+
+    kill_subprocesses(processes)
 
 
 def kill_process(process):
     """Kills single process"""
 
-    if not psutil.pid_exists(process.pid):
-        cmdl = process.cmdline() if hasattr(process, "cmdline") else process
-        print(f"\n ###### Process is no longer available {cmdl}")
-        return
-
-    parent = psutil.Process(process.pid)
-    print(f'\n ##### Checking child process of parent "{parent.cmdline()}"')
-    for child in parent.children(recursive=True):
-        print(f"\n ##### Killing child process {child.cmdline()}")
-        child.kill()
-
     try:
-        parent.kill()
-    except psutil.ZombieProcess:
-        print(
-            "\n Parent process has became zombie process after killing child processes"
-        )
-    except psutil.NoSuchProcess:
-        print("\n Parent process no longer existing after killing child processes")
+        if isinstance(process, subprocess.Popen) and process.poll() is not None:
+            print(f"\n ###### Process is no longer available {process}")
+            return
+
+        if not psutil.pid_exists(process.pid):
+            cmdl = process.cmdline() if hasattr(process, "cmdline") else process
+            print(f"\n ###### Process is no longer available {cmdl}")
+            return
+
+        parent = psutil.Process(process.pid)
+        print(f'\n ##### Checking child process of parent "{parent.cmdline()}"')
+        for child in parent.children(recursive=True):
+            try:
+                print(f"\n ##### Killing child process {child.cmdline()}")
+                child.kill()
+            except (psutil.NoSuchProcess, psutil.ZombieProcess):
+                print(f"\n ##### Child process {child.pid} is no longer available")
+
+        try:
+            parent.kill()
+        except psutil.ZombieProcess:
+            print(
+                "\n Parent process has became zombie process after killing child processes"
+            )
+        except psutil.NoSuchProcess:
+            print("\n Parent process no longer existing after killing child processes")
+    finally:
+        unregister_process(process)
 
 
 def shell_process(
@@ -137,6 +184,7 @@ def shell_process(
         close_fds=True,
         universal_newlines=True,
     )
+    register_process(process)
 
     if wait:
         return collect(process, on_failure)
