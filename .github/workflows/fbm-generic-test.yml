@@ -314,9 +314,10 @@ jobs:
           retention-days: 14
 
   e2e-test:
-    name: E2E / Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    name: E2E / ${{ matrix.e2e-file }} / Python ${{ matrix.python-version }} / ${{ matrix.os }}
     if: ${{ inputs.run-e2e }}
     needs: prepare-matrix
+    timeout-minutes: 180
     defaults:
       run:
         shell: bash -l {0}
@@ -325,6 +326,16 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.prepare-matrix.outputs.os_list) }}
         python-version: ${{ fromJSON(needs.prepare-matrix.outputs.python_versions) }}
+        e2e-file:
+          - e2e_analytics.py
+          - e2e_declearn_modules.py
+          - e2e_declearn_modules_sklearn.py
+          - e2e_image_folder_pytorch.py
+          - e2e_ixi_brain_segmentation.py
+          - e2e_mnist_pytorch.py
+          - e2e_secure_aggregation.py
+          - e2e_sklearn.py
+          - e2e_training_plan_approval.py
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
@@ -339,27 +350,33 @@ jobs:
         run: tox --showconfig -e py${{ matrix.python-version }}-e2e
 
       - name: Run ordinary end-to-end tests
+        timeout-minutes: 135
         env:
           FBM_GITLAB_TOKEN: ${{ secrets.FBM_GITLAB_TOKEN }}
-          FEDBIOMED_E2E_DATA_PATH: ${{ runner.temp }}/fedbiomed-e2e-data
-        run: tox -r -e py${{ matrix.python-version }}-e2e
+          FBM_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.e2e-file }}
+          FEDBIOMED_E2E_DATA_PATH: ${{ runner.temp }}/fedbiomed-e2e-data-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-version }}-${{ matrix.e2e-file }}
+        run: |
+          set -o pipefail
+          tox -r -e py${{ matrix.python-version }}-e2e -- \
+            --maxfail=1 ${{ matrix.e2e-file }} 2>&1 | tee e2e-output.log
 
       - name: Record end-to-end dependencies
-        if: failure()
+        if: always()
         run: |
           tox exec -e py${{ matrix.python-version }}-e2e -- \
             python -m pip freeze --all > dependency-freeze.txt || \
             python -m pip freeze --all > dependency-freeze.txt
 
       - name: Upload end-to-end diagnostics
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: e2e-${{ matrix.e2e-file }}-${{ matrix.os }}-py${{ matrix.python-version }}
           path: |
             .tox/*-junit.xml
             .tox/**/*.log
             tests/end2end/**/*.log
+            e2e-output.log
             dependency-freeze.txt
           include-hidden-files: true
           if-no-files-found: ignore

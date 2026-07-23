@@ -7,6 +7,7 @@ from ._execution import (
     execute_in_paralel,
     fedbiomed_run,
     kill_process,
+    kill_registered_subprocesses,
     kill_subprocesses,
     shell_process,
 )
@@ -35,6 +36,7 @@ __all__ = [
     "execute_in_paralel",
     "fedbiomed_run",
     "kill_process",
+    "kill_registered_subprocesses",
     "kill_subprocesses",
     "shell_process",
     "add_dataset_to_node",
