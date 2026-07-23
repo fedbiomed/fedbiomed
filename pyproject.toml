@@ -82,8 +82,7 @@ dependencies = [
 	"psutil ~=6.0.0",
 	"requests  ~=2.29",
 	"packaging   ~=24.1",
-	"cryptography ~=40.0",
-	"pyopenssl ~=23.1.1",
+	"cryptography ~=42.0",
 	"joblib  ~=1.2",
 	"itk  !=5.4.4,>=5.3.0",
 	"scipy  >=1.10.0",
@@ -180,6 +179,7 @@ test = [
 	"pytest",
 	"pytest-cov",
 	"pytest-mock",
+	"pytest-asyncio",
 	"tox",
 	"pre-commit>=4.2.0",
 ]
@@ -210,6 +210,7 @@ fedbiomed = "fedbiomed.cli:run"
 [tool.pytest.ini_options]
 pythonpath = ["tests", "tests/end2end"]
 testpaths = ["tests"]
+asyncio_mode = "strict"
 addopts = [
     "--import-mode=importlib",
 ]

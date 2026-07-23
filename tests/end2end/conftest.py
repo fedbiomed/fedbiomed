@@ -66,8 +66,12 @@ def post_session(request, data):
     print("\n###### Cleaning temporary directory: started -----\n")
     print(f"Directory: {pytest.temporary_test_directory}")
     pytest.temporary_test_directory.cleanup()
+    # Remove ~/_tmp only if empty: it may hold data not owned by the tests
     tmp_dir = os.path.join(os.path.expanduser("~"), "_tmp")
-    shutil.rmtree(tmp_dir, ignore_errors=True)
+    try:
+        os.rmdir(tmp_dir)
+    except OSError:
+        pass
     print("\n###### Cleaning temporary directory: finished  -----\n\n")
     print(
         f"#### Module tests have finished {request.node}:{request.node.name} --------"

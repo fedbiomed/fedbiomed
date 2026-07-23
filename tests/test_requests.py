@@ -1,15 +1,19 @@
-import inspect
 import os.path
 import tempfile
 import time
-import unittest
 from threading import Semaphore
+from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, PropertyMock, patch
 
-from testsupport.base_fake_training_plan import BaseFakeTrainingPlan
+import pytest
 from testsupport.fake_training_plan import FakeTorchTrainingPlan2
 
-from fedbiomed.common.constants import MessageType
+from fedbiomed.common.certificate_manager import (
+    CertificateManager,
+    TrustedCertificateBundle,
+)
+from fedbiomed.common.constants import ComponentType, MessageType
+from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.message import (
     ApprovalReply,
     ErrorMessage,
@@ -38,703 +42,695 @@ from fedbiomed.researcher.requests import (
 from fedbiomed.transport.node_agent import NodeActiveStatus, NodeAgent
 
 
-# for test_request_13_model_approve
-class TrainingPlanGood(BaseFakeTrainingPlan):
-    pass
-
-
+# for test_request_training_plan_approve
 class TrainingPlanBad:
     pass
 
 
-class TrainingPlanCannotInstanciate(BaseFakeTrainingPlan):
-    def __init__(self):
-        x = unknown_method()
+def _search_reply(node_id, node_name, count):
+    database = {
+        "data_type": "csv",
+        "tags": ["ss", "ss"],
+        "shape": [1, 2],
+        "name": "data",
+    }
+    return SearchReply(
+        node_id=node_id,
+        node_name=node_name,
+        researcher_id="r-xxx",
+        databases=[database] * count,
+        count=count,
+    )
 
-    pass
+
+def _error_message(node_id, node_name):
+    return ErrorMessage(
+        researcher_id="r",
+        node_id=node_id,
+        node_name=node_name,
+        errnum="x",
+        extra_msg="x",
+    )
 
 
-class TrainingPlanCannotSave(BaseFakeTrainingPlan):
-    def save_code(self, path: str):
-        raise OSError
+# -----------------------------------------------------------------------------
+# Requests
+# -----------------------------------------------------------------------------
 
 
-class TestRequests(unittest.TestCase):
-    """Test class for Request class"""
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-
-    def setUp(self):
-        """Setup Requests and patches for testing"""
-
-        self.tp_abstract_patcher = patch.multiple(
-            TorchTrainingPlan, __abstractmethods__=set()
-        )
-
-        self.ssl_credentials_patch = patch(
-            "fedbiomed.researcher.requests._requests.SSLCredentials"
-        )
-
-        self.grpc_server_patcher1 = patch(
-            "fedbiomed.transport.server.GrpcServer.__init__", autospec=True
-        )
-        self.grpc_server_patcher2 = patch(
-            "fedbiomed.transport.server.GrpcServer.start", autospec=True
-        )
-        self.grpc_server_patcher3 = patch(
-            "fedbiomed.transport.server.GrpcServer.send", autospec=True
-        )
-        self.grpc_server_patcher4 = patch(
-            "fedbiomed.transport.server.GrpcServer.broadcast", autospec=True
-        )
-        self.grpc_server_patcher5 = patch(
+@pytest.fixture
+def requests_env():
+    """Requests singleton with the gRPC server stack patched out."""
+    with (
+        patch.multiple(TorchTrainingPlan, __abstractmethods__=set()),
+        patch("fedbiomed.researcher.requests._requests.SSLCredentials"),
+        patch(
+            "fedbiomed.transport.server.GrpcServer.__init__",
+            autospec=True,
+            return_value=None,
+        ),
+        patch(
+            "fedbiomed.transport.server.GrpcServer.start",
+            autospec=True,
+            return_value=None,
+        ),
+        patch(
+            "fedbiomed.transport.server.GrpcServer.send",
+            autospec=True,
+            return_value=None,
+        ),
+        patch("fedbiomed.transport.server.GrpcServer.broadcast", autospec=True),
+        patch(
             "fedbiomed.transport.server.GrpcServer.get_node", autospec=True
-        )
-        self.grpc_server_patcher6 = patch(
+        ) as grpc_server_get_node,
+        patch(
             "fedbiomed.transport.server.GrpcServer.get_all_nodes", autospec=True
-        )
-        self.fed_req_enter_patcher1 = patch(
+        ) as grpc_server_get_all_nodes,
+        patch(
             "fedbiomed.researcher.requests.FederatedRequest.__enter__", autospec=True
-        )
-        self.req_patcher4 = patch("fedbiomed.common.tasks_queue.TasksQueue.__init__")
-
-        self.tp_abstract_patcher.start()
-
-        self.ssl_credentials_mock = self.ssl_credentials_patch.start()
-        self.grpc_server_init = self.grpc_server_patcher1.start()
-        self.grpc_server_start = self.grpc_server_patcher2.start()
-        self.grpc_server_send = self.grpc_server_patcher3.start()
-        self.grpc_server_broadcast = self.grpc_server_patcher4.start()
-        self.grpc_server_get_node = self.grpc_server_patcher5.start()
-        self.grpc_server_get_all_nodes = self.grpc_server_patcher6.start()
-        self.fed_req_enter = self.fed_req_enter_patcher1.start()
-        self.task_queue_init = self.req_patcher4.start()
-
-        self.grpc_server_init.return_value = None
-        self.grpc_server_start.return_value = None
-        self.grpc_server_send.return_value = None
-        self.task_queue_init.return_value = None
-
-        # current directory
-        self.cwd = os.path.dirname(
-            os.path.abspath(inspect.getfile(inspect.currentframe()))
-        )
-
-        # Remove singleton object and create fresh Request.
-        # This is required to avoid attribute errors when there are
-        # mocked Requests classes that come from other tests when running
-        # tests on parallel with nosetests (did not worked in `tearDown`)
+        ) as fed_req_enter,
+        patch("fedbiomed.common.tasks_queue.TasksQueue.__init__", return_value=None),
+    ):
+        # Remove singleton object and create fresh Request, to avoid attribute
+        # errors from mocked Requests instances leaked by other test modules.
         if Requests in Requests._objects:
             del Requests._objects[Requests]
 
-        self.temp_dir = tempfile.TemporaryDirectory()
-        config.load(root=self.temp_dir.name)
-        self.requests = Requests(config=config)
-
-    def tearDown(self):
-        self.ssl_credentials_patch.stop()
-        self.tp_abstract_patcher.stop()
-        self.grpc_server_patcher1.stop()
-        self.grpc_server_patcher2.stop()
-        self.grpc_server_patcher3.stop()
-        self.grpc_server_patcher4.stop()
-        self.grpc_server_patcher5.stop()
-        self.grpc_server_patcher6.stop()
-        self.fed_req_enter_patcher1.stop()
-        self.req_patcher4.stop()
-        self.temp_dir.cleanup()
-
-        pass
-
-    def test_request_01_constructor(self):
-        """Testing Request constructor"""
-
-        # Remove previous singleton instance
-        if Requests in Requests._objects:
-            del Requests._objects[Requests]
-
-        req_1 = Requests(config)
-        self.assertEqual(
-            {}, req_1._monitor_message_callbacks, "Request is not properly initialized"
+        temp_dir = tempfile.TemporaryDirectory()
+        config.load(root=temp_dir.name)
+        yield SimpleNamespace(
+            requests=Requests(config=config),
+            grpc_server_get_node=grpc_server_get_node,
+            grpc_server_get_all_nodes=grpc_server_get_all_nodes,
+            fed_req_enter=fed_req_enter,
+            temp_dir=temp_dir,
         )
+        temp_dir.cleanup()
 
-        # Remove previous singleton instance
-        if Requests in Requests._objects:
-            del Requests._objects[Requests]
 
-        # Build new fresh requests
-        req_2 = Requests(config)
-        self.assertEqual(
-            {}, req_2._monitor_message_callbacks, "Request is not properly initialized"
+def test_request_constructor(requests_env):
+    """A fresh Requests singleton after deletion is properly initialized"""
+
+    # Remove previous singleton instance
+    if Requests in Requests._objects:
+        del Requests._objects[Requests]
+
+    req = Requests(config)
+    assert req._monitor_message_callbacks == {}, "Request is not properly initialized"
+
+
+@patch("fedbiomed.researcher.requests.Requests.print_node_log_message")
+@patch("fedbiomed.common.logger.logger.error")
+def test_request_on_message(
+    mock_logger_error, mock_print_node_log_message, requests_env
+):
+    """Testing on_message method"""
+    requests = requests_env.requests
+
+    msg_logger = {
+        "node_id": "DummyNodeID",
+        "level": "critical",
+        "msg": '{"message" : "Dummy Message"}',
+    }
+    msg_logger = Log(**msg_logger)
+
+    requests.on_message(msg_logger, type_=MessageType.LOG)
+    # Check the method has been called
+    mock_print_node_log_message.assert_called_once_with(msg_logger.get_dict())
+
+    experiment_id = "DummyExperimentID"
+    msg_monitor = {
+        "node_id": "DummyNodeID",
+        "node_name": "DummyNodeName",
+        "experiment_id": experiment_id,
+        "metric": {"loss": 12},
+        "train": True,
+        "test": False,
+        "test_on_local_updates": True,
+        "test_on_global_updates": False,
+        "total_samples": 15,
+        "batch_samples": 15,
+        "num_batches": 15,
+        "epoch": 5,
+        "iteration": 15,
+    }
+
+    msg_monitor = Scalar(**msg_monitor)
+    monitor_callback = MagicMock(return_value=None)
+    # Add callback for monitoring
+    requests.add_monitor_callback(experiment_id, monitor_callback)
+    requests.on_message(msg_monitor, type_=MessageType.SCALAR)
+    monitor_callback.assert_called_once_with(msg_monitor.get_dict())
+
+    # Test with other experiment id, the callback should not be called
+    monitor_callback.reset_mock()
+    msg_monitor.experiment_id = "AnotherExperimentID"
+    requests.on_message(msg_monitor, type_=MessageType.SCALAR)
+    monitor_callback.assert_not_called()
+
+    # Test when the topic is unknown, it should call logger to log error
+    requests.on_message(msg_monitor, type_="unknown/topic")
+    mock_logger_error.assert_called_once()
+
+    # Test invalid `on_message calls`
+    with pytest.raises(TypeError):
+        requests.on_message()
+
+    with pytest.raises(TypeError):
+        requests.on_message(msg_monitor)
+
+    with pytest.raises(TypeError):
+        requests.on_message(type_=MessageType.SCALAR)
+
+
+@patch("fedbiomed.common.logger.logger.info")
+def test_request_print_node_log_message(mock_logger_info, requests_env):
+    """Testing printing log messages that comes from node"""
+
+    msg_logger = {
+        "researcher_id": "DummyID",
+        "node_id": "DummyNodeID",
+        "level": "critical",
+        "msg": '{"message" : "Dummy Message"}',
+    }
+    requests_env.requests.print_node_log_message(msg_logger)
+    mock_logger_info.assert_called_once()
+
+    with pytest.raises(TypeError):
+        # testing what is happening when no argument are provided
+        requests_env.requests.print_node_log_message()
+
+
+def test_request_send(requests_env):
+    """Testing send message method of Request"""
+
+    sr = SearchRequest(researcher_id="researcher-id", tags=["x"])
+
+    request_1 = requests_env.requests.send(sr, None)
+    requests_env.grpc_server_get_all_nodes.assert_called_once()
+    assert isinstance(request_1, FederatedRequest)
+
+    request_2 = requests_env.requests.send({}, ["node-1"])
+    requests_env.grpc_server_get_node.assert_called_once_with(ANY, "node-1")
+    assert isinstance(request_2, FederatedRequest)
+
+
+def test_request_ping_nodes(requests_env):
+    """Testing ping method"""
+
+    requests_env.requests.ping_nodes()
+    requests_env.fed_req_enter.assert_called_once()
+
+
+@patch("fedbiomed.researcher.requests.Requests.send")
+def test_request_search(send, requests_env):
+    """Testing search request"""
+
+    fed_req = MagicMock()
+    fed_req.replies.return_value = {
+        "node-1": _search_reply("node-1", "test-node1", count=2),
+        "node-2": _search_reply("node-2", "test-node2", count=2),
+    }
+    fed_req.errors.return_value = {"node-3": _error_message("node-3", "test-node3")}
+
+    send.return_value.__enter__.return_value = fed_req
+
+    # Test with single node without providing node ids
+    search_result = requests_env.requests.search(tags=["test"])
+    assert "node-2" in search_result.keys()
+    assert "node-1" in search_result.keys()
+
+
+@patch("tabulate.tabulate")
+@patch("fedbiomed.researcher.requests.Requests.send")
+def test_request_list(send, mock_tabulate, requests_env):
+    """Testing list request"""
+
+    mock_tabulate.return_value = "Test"
+
+    fed_req = MagicMock()
+    # One node with databases, one without
+    fed_req.replies.return_value = {
+        "node-1": _search_reply("node-1", "test-node1", count=2),
+        "node-2": _search_reply("node-2", "test-node2", count=0),
+    }
+    fed_req.errors.return_value = {"node-3": _error_message("node-3", "test-node-3")}
+
+    send.return_value.__enter__.return_value = fed_req
+    r = requests_env.requests.list()
+    assert "node-1" in r
+
+
+@patch("fedbiomed.researcher.monitor.Monitor.__init__")
+@patch("fedbiomed.researcher.monitor.Monitor.on_message_handler")
+def test_request_add_monitor_callback(
+    mock_monitor_message_handler, mock_monitor_init, requests_env
+):
+    """Test adding monitor message callbacks"""
+    mock_monitor_init.return_value = None
+    mock_monitor_message_handler.return_value = None
+    monitor = Monitor(results_dir=requests_env.temp_dir.name)
+    experiment_id = "dummy-experiment-id"
+
+    # Test adding monitor callback
+    requests_env.requests.add_monitor_callback(
+        experiment_id, monitor.on_message_handler
+    )
+    assert list(requests_env.requests._monitor_message_callbacks.keys()) == [
+        experiment_id
+    ]
+
+    # Test adding monitor callback again
+    requests_env.requests.add_monitor_callback(
+        experiment_id, monitor.on_message_handler
+    )
+    assert list(requests_env.requests._monitor_message_callbacks.keys()) == [
+        experiment_id
+    ]
+
+
+@patch("fedbiomed.researcher.monitor.Monitor.__init__")
+@patch("fedbiomed.researcher.monitor.Monitor.on_message_handler")
+def test_request_remove_monitor_callback(
+    mock_monitor_message_handler, mock_monitor_init, requests_env
+):
+    """Test removing monitor message callback"""
+
+    mock_monitor_init.return_value = None
+    mock_monitor_message_handler.return_value = None
+    monitor = Monitor(results_dir=requests_env.temp_dir.name)
+    experiment_id = "dummy-experiment-id"
+
+    requests_env.requests.add_monitor_callback(
+        experiment_id, monitor.on_message_handler
+    )
+    requests_env.requests.remove_monitor_callback(experiment_id)
+    assert requests_env.requests._monitor_message_callbacks == {}, (
+        "Monitor callback hasn't been removed"
+    )
+
+
+@patch("fedbiomed.researcher.requests.Requests.send")
+@patch("fedbiomed.researcher.requests._requests.import_class_object_from_file")
+@patch("fedbiomed.researcher.requests._requests.minify", return_value="hello")
+def test_request_training_plan_approve(mock_minify, mock_import, send, requests_env):
+    """Testing training_plan_approve method"""
+
+    # model is not a TrainingPlan
+    result = requests_env.requests.training_plan_approve(
+        TrainingPlanBad, "not a training plan !!"
+    )
+    assert result == {}
+
+    fed_req = MagicMock()
+    send.return_value.__enter__.return_value = fed_req
+    fed_req.errors.return_value = {"node-3": _error_message("node-3", "test-node-3")}
+
+    fed_req.replies.return_value = {
+        "dummy-id-1": ApprovalReply(
+            **{
+                "node_id": "dummy-id-1",
+                "node_name": "test-node-1",
+                "success": True,
+                "training_plan_id": "id-xx",
+                "message": "hello",
+                "researcher_id": "id",
+                "status": True,
+            }
         )
+    }
 
-    @patch("fedbiomed.researcher.requests.Requests.print_node_log_message")
-    @patch("fedbiomed.common.logger.logger.error")
-    def test_request_02_on_message(
-        self, mock_logger_error, mock_print_node_log_message
-    ):
-        """Testing on_message method"""
+    tp = MagicMock(spec=FakeTorchTrainingPlan2)
+    tp.source.return_value = "TP"
 
-        msg_logger = {
-            "node_id": "DummyNodeID",
-            "level": "critical",
-            "msg": '{"message" : "Dummy Message"}',
-        }
-        msg_logger = Log(**msg_logger)
+    mock_import.return_value = ("dummy", tp)
+    result = requests_env.requests.training_plan_approve(
+        tp, "test-training-plan-1", nodes=["dummy-id-1"]
+    )
 
-        self.requests.on_message(msg_logger, type_=MessageType.LOG)
-        # Check the method has been called
-        mock_print_node_log_message.assert_called_once_with(msg_logger.get_dict())
-
-        experiment_id = "DummyExperimentID"
-        msg_monitor = {
-            "node_id": "DummyNodeID",
-            "node_name": "DummyNodeName",
-            "experiment_id": experiment_id,
-            "metric": {"loss": 12},
-            "train": True,
-            "test": False,
-            "test_on_local_updates": True,
-            "test_on_global_updates": False,
-            "total_samples": 15,
-            "batch_samples": 15,
-            "num_batches": 15,
-            "iteration": 1,
-            "epoch": 5,
-            "iteration": 15,
-        }
-
-        msg_monitor = Scalar(**msg_monitor)
-        monitor_callback = MagicMock(return_value=None)
-        # Add callback for monitoring
-        self.requests.add_monitor_callback(experiment_id, monitor_callback)
-        self.requests.on_message(msg_monitor, type_=MessageType.SCALAR)
-        monitor_callback.assert_called_once_with(msg_monitor.get_dict())
-
-        # Test with other experiment id, the callback should not be called
-        monitor_callback.reset_mock()
-        msg_monitor.experiment_id = "AnotherExperimentID"
-        self.requests.on_message(msg_monitor, type_=MessageType.SCALAR)
-        monitor_callback.assert_not_called()
-
-        # Test when the topic is unknown, it should call logger to log error
-        self.requests.on_message(msg_monitor, type_="unknown/topic")
-        mock_logger_error.assert_called_once()
-
-        # Test invalid `on_message calls`
-        with self.assertRaises(Exception):
-            self.requests.on_message()
-            self.requests.on_message(msg_monitor)
-            self.requests.on_message(type_=MessageType.SCALAR)
-
-    @patch("fedbiomed.common.logger.logger.info")
-    def test_request_03_print_node_log_message(self, mock_logger_info):
-        """Testing printing log messages that comes from node"""
-
-        msg_logger = {
-            "researcher_id": "DummyID",
-            "node_id": "DummyNodeID",
-            "level": "critical",
-            "msg": '{"message" : "Dummy Message"}',
-        }
-        self.requests.print_node_log_message(msg_logger)
-        mock_logger_info.assert_called_once()
-
-        with self.assertRaises(TypeError):
-            # testing what is happening when no argument are provided
-            self.requests.print_node_log_message()
-
-    def test_request_04_send(self):
-        """Testing send message method of Request"""
-
-        sr = SearchRequest(researcher_id="researcher-id", tags=["x"])
-
-        request_1 = self.requests.send(sr, None)
-        self.grpc_server_get_all_nodes.assert_called_once()
-        self.assertIsInstance(request_1, FederatedRequest)
-
-        request_2 = self.requests.send({}, ["node-1"])
-        self.grpc_server_get_node.assert_called_once_with(ANY, "node-1")
-        self.assertIsInstance(request_2, FederatedRequest)
-
-    def test_request_08_ping_nodes(self):
-        """Testing ping method"""
-
-        self.requests.ping_nodes()
-        self.fed_req_enter.assert_called_once()
-
-    @patch("fedbiomed.researcher.requests.Requests.send")
-    def test_request_09_search(self, send):
-        """Testing search request"""
-
-        replies = {
-            "node-1": SearchReply(
-                **{
-                    "node_id": "node-1",
-                    "node_name": "test-node1",
-                    "researcher_id": "r-xxx",
-                    "databases": [
-                        {
-                            "data_type": "csv",
-                            "tags": ["ss", "ss"],
-                            "shape": [1, 2],
-                            "name": "data",
-                        },
-                        {
-                            "data_type": "csv",
-                            "tags": ["ss", "ss"],
-                            "shape": [1, 2],
-                            "name": "data",
-                        },
-                    ],
-                    "count": 2,
-                }
-            ),
-            "node-2": SearchReply(
-                **{
-                    "node_id": "node-2",
-                    "node_name": "test-node2",
-                    "researcher_id": "r-xxx",
-                    "databases": [
-                        {
-                            "data_type": "csv",
-                            "tags": ["ss", "ss"],
-                            "shape": [1, 2],
-                            "name": "data",
-                        },
-                        {
-                            "data_type": "csv",
-                            "tags": ["ss", "ss"],
-                            "shape": [1, 2],
-                            "name": "data",
-                        },
-                    ],
-                    "count": 2,
-                }
-            ),
-        }
-
-        fed_req = MagicMock()
-        fed_req.replies.return_value = replies
-        fed_req.errors.return_value = {
-            "node-3": ErrorMessage(
-                researcher_id="r",
-                node_id="node-3",
-                node_name="test-node3",
-                errnum="x",
-                extra_msg="x",
-            )
-        }
-
-        send.return_value.__enter__.return_value = fed_req
-        tags = ["test"]
-
-        # Test with single node without providing node ids
-        search_result = self.requests.search(tags=tags)
-        self.assertTrue("node-2" in search_result.keys())
-        self.assertTrue("node-1" in search_result.keys())
-
-    @patch("tabulate.tabulate")
-    @patch("fedbiomed.researcher.requests.Requests.send")
-    def test_request_10_list(self, send, mock_tabulate):
-        """Testing list request"""
-
-        mock_tabulate.return_value = "Test"
-
-        # Test with single response database
-
-        replies = {
-            "node-1": SearchReply(
-                **{
-                    "node_id": "node-1",
-                    "node_name": "test-node1",
-                    "researcher_id": "r-xxx",
-                    "databases": [
-                        {
-                            "data_type": "csv",
-                            "tags": ["ss", "ss"],
-                            "shape": [1, 2],
-                            "name": "data",
-                        },
-                        {
-                            "data_type": "csv",
-                            "tags": ["ss", "ss"],
-                            "shape": [1, 2],
-                            "name": "data",
-                        },
-                    ],
-                    "count": 2,
-                }
-            ),
-            "node-2": SearchReply(
-                **{
-                    "node_id": "node-2",
-                    "node_name": "test-node2",
-                    "researcher_id": "r-xxx",
-                    "databases": [],
-                    "count": 0,
-                }
-            ),
-        }
-
-        fed_req = MagicMock()
-        fed_req.replies.return_value = replies
-        fed_req.errors.return_value = {
-            "node-3": ErrorMessage(
-                researcher_id="r",
-                node_id="node-3",
-                node_name="test-node-3",
-                errnum="x",
-                extra_msg="x",
-            )
-        }
-
-        send.return_value.__enter__.return_value = fed_req
-        r = self.requests.list()
-        self.assertTrue("node-1" in r)
-
-    @patch("fedbiomed.researcher.monitor.Monitor.__init__")
-    @patch("fedbiomed.researcher.monitor.Monitor.on_message_handler")
-    def test_request_11_add_monitor_callback(
-        self, mock_monitor_message_handler, mock_monitor_init
-    ):
-        """Test adding monitor message callbacks"""
-        mock_monitor_init.return_value = None
-        mock_monitor_message_handler.return_value = None
-        monitor = Monitor(results_dir=self.temp_dir.name)
-        experiment_id = "dummy-experiment-id"
-
-        # Test adding monitor callback
-        self.requests.add_monitor_callback(experiment_id, monitor.on_message_handler)
-        self.assertEqual(
-            [experiment_id], list(self.requests._monitor_message_callbacks.keys())
-        )
-
-        # Test adding monitor callback again
-        self.requests.add_monitor_callback(experiment_id, monitor.on_message_handler)
-        self.assertEqual(
-            [experiment_id], list(self.requests._monitor_message_callbacks.keys())
-        )
-
-    @patch("fedbiomed.researcher.monitor.Monitor.__init__")
-    @patch("fedbiomed.researcher.monitor.Monitor.on_message_handler")
-    def test_request_12_remove_monitor_callback(
-        self, mock_monitor_message_handler, mock_monitor_init
-    ):
-        """Test removing monitor message callback"""
-
-        mock_monitor_init.return_value = None
-        mock_monitor_message_handler.return_value = None
-        monitor = Monitor(results_dir=self.temp_dir.name)
-        experiment_id = "dummy-experiment-id"
-
-        self.requests.add_monitor_callback(experiment_id, monitor.on_message_handler)
-        self.requests.remove_monitor_callback(experiment_id)
-        self.assertEqual(
-            self.requests._monitor_message_callbacks,
-            {},
-            "Monitor callback hasn't been removed",
-        )
-
-    @patch("fedbiomed.researcher.requests.Requests.send")
-    @patch("fedbiomed.researcher.requests._requests.import_class_object_from_file")
-    @patch("fedbiomed.researcher.requests._requests.minify", return_value="hello")
-    def test_request_13_training_plan_approve(self, mock_minify, mock_import, send):
-        """Testing training_plan_approve method"""
-
-        # model is not a TrainingPlan
-        result = self.requests.training_plan_approve(
-            TrainingPlanBad, "not a training plan !!"
-        )
-        self.assertDictEqual(result, {})
-
-        fed_req = MagicMock()
-        send.return_value.__enter__.return_value = fed_req
-        fed_req.errors.return_value = {
-            "node-3": ErrorMessage(
-                researcher_id="r",
-                node_id="node-3",
-                node_name="test-node-3",
-                errnum="x",
-                extra_msg="x",
-            )
-        }
-
-        fed_req.replies.return_value = {
-            "dummy-id-1": ApprovalReply(
-                **{
-                    "node_id": "dummy-id-1",
-                    "node_name": "test-node-1",
-                    "success": True,
-                    "training_plan_id": "id-xx",
-                    "message": "hello",
-                    "researcher_id": "id",
-                    "status": True,
-                }
-            )
-        }
-
-        tp = MagicMock(spec=FakeTorchTrainingPlan2)
-        tp.source.return_value = "TP"
-
-        mock_import.return_value = ("dummy", tp)
-        result = self.requests.training_plan_approve(
-            tp, "test-training-plan-1", nodes=["dummy-id-1"]
-        )
-
-        keys = list(result.keys())
-        self.assertTrue(len(keys), 1)
-        self.assertTrue(result[keys[0]])
+    keys = list(result.keys())
+    assert len(keys) == 1
+    assert result[keys[0]]
 
 
-class TestRequest(unittest.TestCase):
-    def setUp(self):
-        self.message = MagicMock(spec=SearchRequest)
-        self.node = MagicMock(spec=NodeAgent)
-        self.sem_pending = MagicMock(spec=Semaphore)
+# -----------------------------------------------------------------------------
+# Request
+# -----------------------------------------------------------------------------
 
-        self.request = Request(
-            message=self.message,
-            node=self.node,
+
+@pytest.fixture
+def request_env():
+    message = MagicMock(spec=SearchRequest)
+    node = MagicMock(spec=NodeAgent)
+    return SimpleNamespace(
+        message=message,
+        node=node,
+        request=Request(
+            message=message,
+            node=node,
             request_id="test-request-id",
-            sem_pending=self.sem_pending,
-        )
-
-        pass
-
-    def test_01_request_send(self):
-        # Test getter
-        node = self.request.node
-        self.assertEqual(node, self.request._node)
-
-        self.request.send()
-        self.node.send.assert_called_once_with(self.message, self.request.on_reply)
-        self.assertEqual(self.request.status, RequestStatus.NO_REPLY_YET)
-
-    def test_02_request_flush(self):
-        self.request.flush(stopped=True)
-        self.node.flush.assert_called_once_with(self.request._request_id, True)
-
-    def test_03_request_on_reply(self):
-        self.request.on_reply(self.message)
-        self.assertEqual(self.request.reply, self.message)
-
-        err_message = MagicMock(spec=ErrorMessage)
-        self.request.on_reply(err_message)
-        self.assertEqual(self.request.error, err_message)
-
-    def test_04_request_has_finished(self):
-        type(self.node).status = PropertyMock(
-            return_value=NodeActiveStatus.DISCONNECTED
-        )
-        r = self.request.has_finished()
-        self.assertTrue(r)
-
-        type(self.node).status = PropertyMock(return_value=NodeActiveStatus.ACTIVE)
-        r = self.request.has_finished()
-        self.assertFalse(r)
-
-        self.request.on_reply(self.message)
-        r = self.request.has_finished()
-        self.assertTrue(r)
+            sem_pending=MagicMock(spec=Semaphore),
+        ),
+    )
 
 
-class TestFederatedRequest(unittest.TestCase):
-    def setUp(self):
-        self.sem_patch = patch(
-            "fedbiomed.researcher.requests._requests.threading.Semaphore"
-        )
-        self.sem_mock = self.sem_patch.start()
+def test_request_send_single(request_env):
+    # Test getter
+    assert request_env.request.node == request_env.request._node
 
-        self.policy_patch = patch(
+    request_env.request.send()
+    request_env.node.send.assert_called_once_with(
+        request_env.message, request_env.request.on_reply
+    )
+    assert request_env.request.status == RequestStatus.NO_REPLY_YET
+
+
+def test_request_flush(request_env):
+    request_env.request.flush(stopped=True)
+    request_env.node.flush.assert_called_once_with(
+        request_env.request._request_id, True
+    )
+
+
+def test_request_on_reply(request_env):
+    request_env.request.on_reply(request_env.message)
+    assert request_env.request.reply == request_env.message
+
+    err_message = MagicMock(spec=ErrorMessage)
+    request_env.request.on_reply(err_message)
+    assert request_env.request.error == err_message
+
+
+def test_request_has_finished(request_env):
+    type(request_env.node).status = PropertyMock(
+        return_value=NodeActiveStatus.DISCONNECTED
+    )
+    assert request_env.request.has_finished()
+
+    type(request_env.node).status = PropertyMock(return_value=NodeActiveStatus.ACTIVE)
+    assert not request_env.request.has_finished()
+
+    request_env.request.on_reply(request_env.message)
+    assert request_env.request.has_finished()
+
+
+# -----------------------------------------------------------------------------
+# FederatedRequest
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def federated_request_env():
+    with (
+        patch("fedbiomed.researcher.requests._requests.threading.Semaphore"),
+        patch(
             "fedbiomed.researcher.requests._requests.PolicyController", autospec=True
-        )
-        self.policy_mock = self.policy_patch.start()
+        ) as policy_mock,
+    ):
+        message_1 = MagicMock(spec=SearchRequest)
+        policy = MagicMock(spec=RequestPolicy)
 
-        self.message_1 = MagicMock(spec=SearchRequest)
-        self.policy = MagicMock(spec=RequestPolicy)
+        node_1 = MagicMock(spec=NodeAgent)
+        type(node_1).id = PropertyMock(return_value="node-1")
 
-        self.node_1 = MagicMock(spec=NodeAgent)
-        type(self.node_1).id = PropertyMock(return_value="node-1")
+        node_2 = MagicMock(spec=NodeAgent)
+        type(node_2).id = PropertyMock(return_value="node-2")
 
-        self.node_2 = MagicMock(spec=NodeAgent)
-        type(self.node_2).id = PropertyMock(return_value="node-2")
-
-        self.federated_request = FederatedRequest(
-            message=self.message_1,
-            nodes=[self.node_1, self.node_2],
-            policy=[self.policy],
-        )
-
-    def tearDown(self):
-        self.sem_patch.stop()
-        self.policy_patch.stop()
-
-    def test_01_federated_request_init(self):
-        message = MessagesByNode(
-            {
-                "node-1": self.message_1,
-                "node-3": self.message_1,
-            },  # prints warning message
+        yield SimpleNamespace(
+            policy_mock=policy_mock,
+            message_1=message_1,
+            policy=policy,
+            node_1=node_1,
+            node_2=node_2,
+            federated_request=FederatedRequest(
+                message=message_1, nodes=[node_1, node_2], policy=[policy]
+            ),
         )
 
-        r = FederatedRequest(
-            message=message, nodes=[self.node_1, self.node_2], policy=[self.policy]
+
+def test_federated_request_init(federated_request_env):
+    env = federated_request_env
+    message = MessagesByNode(
+        {
+            "node-1": env.message_1,
+            "node-3": env.message_1,
+        },  # prints warning message
+    )
+
+    r = FederatedRequest(
+        message=message, nodes=[env.node_1, env.node_2], policy=[env.policy]
+    )
+
+    assert len(r.requests) == 1
+
+
+def test_federated_request_send(federated_request_env):
+    env = federated_request_env
+    env.federated_request.send()
+
+    env.node_1.send.assert_called_once_with(env.message_1, ANY)
+    env.node_2.send.assert_called_once_with(env.message_1, ANY)
+
+
+def test_federated_request_wait(federated_request_env):
+    env = federated_request_env
+    env.policy_mock.return_value.continue_all.side_effect = [
+        PolicyStatus.CONTINUE,
+        PolicyStatus.COMPLETED,
+    ]
+    env.federated_request.wait()
+    assert env.policy_mock.return_value.continue_all.call_count == 2
+
+
+def test_federated_request_with_context_manager(federated_request_env):
+    env = federated_request_env
+    env.policy_mock.return_value.continue_all.side_effect = [
+        PolicyStatus.CONTINUE,
+        PolicyStatus.COMPLETED,
+    ]
+
+    with FederatedRequest(
+        message=env.message_1,
+        nodes=[env.node_1, env.node_2],
+        policy=[env.policy],
+    ) as fed_req:
+        assert len(fed_req.requests) == 2
+        assert len(fed_req.disconnected_requests()) == 0
+        assert fed_req.replies() == {}
+        assert fed_req.errors() == {}
+
+
+# -----------------------------------------------------------------------------
+# RequestPolicy
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def policy_env():
+    return SimpleNamespace(
+        req_1=MagicMock(spec=Request),
+        req_2=MagicMock(spec=Request),
+        pol=RequestPolicy(),
+    )
+
+
+def test_request_policy_continue(policy_env):
+    policy_env.req_1.has_finished.return_value = False
+    policy_env.req_2.has_finished.return_value = True
+
+    r = policy_env.pol.continue_([policy_env.req_1, policy_env.req_2])
+    assert r == PolicyStatus.CONTINUE
+
+
+def test_request_policy_stop(policy_env):
+    r = policy_env.pol.stop(policy_env.req_1)
+    assert r == PolicyStatus.STOPPED
+    assert policy_env.pol.status == PolicyStatus.STOPPED
+    assert policy_env.pol.stop_caused_by == policy_env.req_1
+
+
+def test_request_policy_keep(policy_env):
+    r = policy_env.pol.keep()
+    assert r == PolicyStatus.CONTINUE
+    assert policy_env.pol.status == PolicyStatus.CONTINUE
+
+
+def test_request_policy_completed(policy_env):
+    r = policy_env.pol.completed()
+    assert r == PolicyStatus.COMPLETED
+    assert policy_env.pol.status == PolicyStatus.COMPLETED
+
+
+# -----------------------------------------------------------------------------
+# PolicyController
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def policy_controller_env():
+    with patch(
+        "fedbiomed.researcher.requests._policies.RequestPolicy"
+    ) as req_policy_mock:
+        policy_1 = MagicMock()
+        yield SimpleNamespace(
+            req_policy_mock=req_policy_mock,
+            policy_1=policy_1,
+            req_1=MagicMock(spec=Request),
+            req_2=MagicMock(spec=Request),
+            pol_cont=PolicyController(policies=[policy_1]),
         )
 
-        self.assertEqual(1, len(r.requests))
 
-    def test_02_federeated_request_send(self):
-        self.federated_request.send()
+def test_policy_controller_continue_all(policy_controller_env):
+    env = policy_controller_env
+    env.req_policy_mock.return_value.continue_.return_value = PolicyStatus.CONTINUE
+    env.policy_1.continue_.return_value = PolicyStatus.CONTINUE
 
-        self.node_1.send.assert_called_once_with(self.message_1, ANY)
-        self.node_2.send.assert_called_once_with(self.message_1, ANY)
-
-    def test_03_federated_request_wait(self):
-        self.policy_mock.return_value.continue_all.side_effect = [
-            PolicyStatus.CONTINUE,
-            PolicyStatus.COMPLETED,
-        ]
-        self.federated_request.wait()
-
-    def test_04_federaeted_request_with_context_manager(self):
-        self.policy_mock.return_value.continue_all.side_effect = [
-            PolicyStatus.CONTINUE,
-            PolicyStatus.COMPLETED,
-        ]
-
-        with FederatedRequest(
-            message=self.message_1,
-            nodes=[self.node_1, self.node_2],
-            policy=[self.policy],
-        ) as fed_req:
-            self.assertEqual(2, len(fed_req.requests))
-            self.assertEqual(0, len(fed_req.disconnected_requests()))
-            self.assertEqual({}, fed_req.replies())
-            self.assertEqual({}, fed_req.errors())
+    r = env.pol_cont.continue_all([env.req_1, env.req_1])
+    assert r == PolicyStatus.CONTINUE
 
 
-class TestRequestPolicy(unittest.TestCase):
-    def setUp(self):
-        self.req_1 = MagicMock(spec=Request)
-        self.req_2 = MagicMock(spec=Request)
-        self.pol = RequestPolicy()
-
-    def test_01_request_policy_continue(self):
-        self.req_1.has_finished.return_value = False
-        self.req_2.has_finished.return_value = True
-
-        r = self.pol.continue_([self.req_1, self.req_2])
-        self.assertEqual(r, PolicyStatus.CONTINUE)
-
-    def test_02_request_policy_stop(self):
-        r = self.pol.stop(self.req_1)
-        self.assertEqual(r, PolicyStatus.STOPPED)
-        self.assertEqual(self.pol.status, PolicyStatus.STOPPED)
-        self.assertEqual(self.pol.stop_caused_by, self.req_1)
-
-    def test_03_request_policy_keep(self):
-        r = self.pol.keep()
-        self.assertEqual(r, PolicyStatus.CONTINUE)
-        self.assertEqual(self.pol.status, PolicyStatus.CONTINUE)
-
-    def test_04_request_policy_completed(self):
-        r = self.pol.completed()
-        self.assertEqual(r, PolicyStatus.COMPLETED)
-        self.assertEqual(self.pol.status, PolicyStatus.COMPLETED)
+def test_policy_controller_has_stopped_any(policy_controller_env):
+    env = policy_controller_env
+    type(env.policy_1).status = PropertyMock(return_value=PolicyStatus.STOPPED)
+    assert env.pol_cont.has_stopped_any()
 
 
-class TestPolicyController(unittest.TestCase):
-    def setUp(self):
-        self.req_policy_patch = patch(
-            "fedbiomed.researcher.requests._policies.RequestPolicy"
-        )
-        self.req_policy_mock = self.req_policy_patch.start()
+def test_policy_controller_report(policy_controller_env):
+    env = policy_controller_env
+    type(env.policy_1).status = PropertyMock(return_value=PolicyStatus.STOPPED)
+    r = env.pol_cont.report()
 
-        self.policy_1 = MagicMock()
-        self.req_1 = MagicMock(spec=Request)
-        self.req_2 = MagicMock(spec=Request)
-
-        self.pol_cont = PolicyController(policies=[self.policy_1])
-
-    def tearDown(self):
-        self.req_policy_patch.stop()
-
-    def test_01_policy_controller_continue_all(self):
-        self.req_policy_mock.return_value.continue_.return_value = PolicyStatus.CONTINUE
-        self.policy_1.continue_.return_value = PolicyStatus.CONTINUE
-
-        r = self.pol_cont.continue_all([self.req_1, self.req_1])
-        self.assertEqual(r, PolicyStatus.CONTINUE)
-
-    def test_02_policy_controller_has_stopped_any(self):
-        type(self.policy_1).status = PropertyMock(return_value=PolicyStatus.STOPPED)
-        r = self.pol_cont.has_stopped_any()
-        self.assertTrue(r)
-
-    def test_03_policy_controller_(self):
-        type(self.policy_1).status = PropertyMock(return_value=PolicyStatus.STOPPED)
-        r = self.pol_cont.report()
-
-        self.assertTrue(r[list(r.keys())[0]])
+    assert r[list(r.keys())[0]]
 
 
-class TestPolicyImplementations(unittest.TestCase):
-    def setUp(self):
-        self.req = MagicMock(spec=Request)
-        self.node = MagicMock()
+# -----------------------------------------------------------------------------
+# Policy implementations
+# -----------------------------------------------------------------------------
 
-        type(self.node).id = PropertyMock(return_value="node-1")
-        type(self.req).node = PropertyMock(return_value=self.node)
-        type(self.req).status = PropertyMock()
-        type(self.req).error = PropertyMock()
 
-    def test_01_discard_on_timeout(self):
-        pol = DiscardOnTimeout(nodes=["node-1"], timeout=0.1)
+@pytest.fixture
+def policy_request():
+    req = MagicMock(spec=Request)
+    node = MagicMock()
 
-        def time_out():
-            time.sleep(1)
-            return False
+    type(node).id = PropertyMock(return_value="node-1")
+    type(req).node = PropertyMock(return_value=node)
+    type(req).status = PropertyMock()
+    type(req).error = PropertyMock()
+    return req
 
-        self.req.has_finished.side_effect = time_out
-        pol.continue_([self.req])
-        pol.continue_([self.req])
 
-    def test_02_stop_on_timeout(self):
-        pol = StopOnTimeout(nodes=["node-1"], timeout=0.1)
+def test_discard_on_timeout(policy_request):
+    pol = DiscardOnTimeout(nodes=["node-1"], timeout=0.1)
 
-        def time_out():
-            time.sleep(1)
-            return False
-
-        self.req.has_finished.side_effect = time_out
-        pol.continue_([self.req])
-        r = pol.continue_([self.req])
-        self.assertEqual(r, PolicyStatus.STOPPED)
-
-    def test_01_stop_on_disconnect(self):
-        pol = StopOnDisconnect(nodes=["node-1"], timeout=0)
-
-        r = pol.continue_([self.req])
-        self.assertEqual(r, PolicyStatus.CONTINUE)
-
+    def time_out():
         time.sleep(1)
-        type(self.req).status = PropertyMock(return_value=RequestStatus.DISCONNECT)
-        r = pol.continue_([self.req])
-        self.assertEqual(r, PolicyStatus.STOPPED)
+        return False
 
-    def test_01_stop_on_error(self):
-        pol = StopOnError(nodes=["node-1"])
-
-        type(self.req).error = PropertyMock(return_value=False)
-        r = pol.continue_([self.req])
-        self.assertEqual(r, PolicyStatus.CONTINUE)
-        type(self.req).error = PropertyMock(return_value={"error": True})
-        r = pol.continue_([self.req])
-        self.assertEqual(r, PolicyStatus.STOPPED)
+    policy_request.has_finished.side_effect = time_out
+    # Unlike StopOnTimeout, a reached timeout discards but never stops
+    assert pol.continue_([policy_request]) == PolicyStatus.CONTINUE
+    assert pol.continue_([policy_request]) == PolicyStatus.CONTINUE
 
 
-if __name__ == "__main__":  # pragma: no cover
-    unittest.main()
+def test_stop_on_timeout(policy_request):
+    pol = StopOnTimeout(nodes=["node-1"], timeout=0.1)
+
+    def time_out():
+        time.sleep(1)
+        return False
+
+    policy_request.has_finished.side_effect = time_out
+    pol.continue_([policy_request])
+    r = pol.continue_([policy_request])
+    assert r == PolicyStatus.STOPPED
+
+
+def test_stop_on_disconnect(policy_request):
+    pol = StopOnDisconnect(nodes=["node-1"], timeout=0)
+
+    r = pol.continue_([policy_request])
+    assert r == PolicyStatus.CONTINUE
+
+    time.sleep(1)
+    type(policy_request).status = PropertyMock(return_value=RequestStatus.DISCONNECT)
+    r = pol.continue_([policy_request])
+    assert r == PolicyStatus.STOPPED
+
+
+def test_stop_on_error(policy_request):
+    pol = StopOnError(nodes=["node-1"])
+
+    type(policy_request).error = PropertyMock(return_value=False)
+    r = pol.continue_([policy_request])
+    assert r == PolicyStatus.CONTINUE
+    type(policy_request).error = PropertyMock(return_value={"error": True})
+    r = pol.continue_([policy_request])
+    assert r == PolicyStatus.STOPPED
+
+
+# -----------------------------------------------------------------------------
+# Requests under mutual TLS
+# -----------------------------------------------------------------------------
+
+
+@pytest.fixture
+def mtls_requests_env():
+    """Trust bundle wiring of the researcher server under mutual TLS."""
+    with (
+        patch(
+            "fedbiomed.researcher.requests._requests.GrpcServer", autospec=True
+        ) as grpc_server_mock,
+        patch(
+            "fedbiomed.researcher.requests._requests.is_mtls_enabled",
+            return_value=True,
+        ),
+        tempfile.TemporaryDirectory() as tmp,
+    ):
+        config_mock = MagicMock()
+        config_mock.root = tmp
+        db_path = os.path.join(tmp, "certs.json")
+        config_mock.getpath.return_value = db_path
+        config_mock.config_path = os.path.join(tmp, "config.ini")
+        certificate_manager = CertificateManager(db_path=db_path)
+
+        if Requests in Requests._objects:
+            del Requests._objects[Requests]
+
+        yield SimpleNamespace(
+            grpc_server_mock=grpc_server_mock,
+            config=config_mock,
+            certificate_manager=certificate_manager,
+        )
+
+        certificate_manager.close()
+        if Requests in Requests._objects:
+            del Requests._objects[Requests]
+
+
+def test_mtls_without_registered_node_certificate_raises(mtls_requests_env):
+    """gRPC cannot bind an empty trust bundle, so it must fail early."""
+    with pytest.raises(FedbiomedCertificateError) as exc_info:
+        Requests(config=mtls_requests_env.config)
+
+    assert "certificate register" in str(exc_info.value)
+    mtls_requests_env.grpc_server_mock.assert_not_called()
+
+
+def test_mtls_passes_trust_bundle_provider_to_server(mtls_requests_env):
+    """The server receives a provider, not a static bundle."""
+    mtls_requests_env.certificate_manager.insert(
+        certificate="PEM-1",
+        party_id="NODE_1",
+        component=ComponentType.NODE.name,
+    )
+
+    with patch(
+        "fedbiomed.researcher.requests._requests.SSLCredentials"
+    ) as ssl_credentials:
+        Requests(config=mtls_requests_env.config)
+
+    bundle = ssl_credentials.call_args.kwargs["trusted_node_certificates"]
+    assert isinstance(bundle, TrustedCertificateBundle)
+    assert bundle() == b"PEM-1"

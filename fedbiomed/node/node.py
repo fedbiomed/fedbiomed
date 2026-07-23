@@ -11,8 +11,12 @@ import traceback
 from typing import Callable, Optional, Union
 
 from fedbiomed import __version__
+from fedbiomed.common.certificate_manager import (
+    CertificateManager,
+    is_mtls_enabled,
+)
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     AdditiveSSSetupRequest,
@@ -37,6 +41,7 @@ from fedbiomed.common.message import (
 )
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.utils import read_file
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -46,7 +51,7 @@ from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-from fedbiomed.transport.client import ResearcherCredentials
+from fedbiomed.transport.client import NodeClientIdentity, ResearcherCredentials
 from fedbiomed.transport.controller import GrpcController
 
 
@@ -130,12 +135,7 @@ class Node:
 
         self._grpc_client = GrpcController(
             node_id=self._node_id,
-            researchers=[
-                ResearcherCredentials(
-                    port=self.config.get("researcher", "port"),
-                    host=self.config.get("researcher", "ip"),
-                )
-            ],
+            researchers=[self._researcher_credentials()],
             on_message=self.on_message,
         )
 
@@ -166,6 +166,101 @@ class Node:
             node_name=self._node_name,
             config_path=self.config.root,
         )
+
+    def _researcher_credentials(self) -> ResearcherCredentials:
+        """Builds the researcher connection credentials.
+
+        When mutual TLS is enabled through the `[mtls]` config section, the node
+        attaches its own client identity and pins the registered researcher
+        certificate. Otherwise the legacy auto-trust behaviour is kept.
+
+        Returns:
+            Credentials used to connect to the researcher gRPC server.
+
+        Raises:
+            FedbiomedCertificateError: mutual TLS is enabled but required
+                certificates are missing.
+        """
+        credentials = ResearcherCredentials(
+            port=self.config.get("researcher", "port"),
+            host=self.config.get("researcher", "ip"),
+        )
+
+        if not is_mtls_enabled(self.config):
+            return credentials
+
+        credentials.mtls = True
+        credentials.node_identity = self._node_identity()
+        credentials.certificate = self._pinned_researcher_certificate()
+        return credentials
+
+    def _node_identity(self) -> NodeClientIdentity:
+        """Loads the node's own mutual-TLS client identity.
+
+        Returns:
+            The node's client identity (private key and certificate chain)
+            presented to the researcher under mutual TLS.
+
+        Raises:
+            FedbiomedCertificateError: the node's certificate or private key
+                could not be read.
+        """
+        try:
+            private_key = read_file(self.config.getpath("certificate", "private_key"))
+            certificate_chain = read_file(
+                self.config.getpath("certificate", "public_key")
+            )
+        except FedbiomedError as exp:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but this node's "
+                f"certificate or private key could not be read: {exp}"
+            ) from exp
+
+        return NodeClientIdentity(
+            private_key=private_key.encode("utf-8"),
+            certificate_chain=certificate_chain.encode("utf-8"),
+        )
+
+    def _pinned_researcher_certificate(self) -> bytes:
+        """Resolves the registered researcher server certificate to pin.
+
+        The node connects to the single researcher declared in its `[researcher]`
+        config section, so exactly one researcher certificate must be registered.
+
+        Returns:
+            The researcher's public server certificate, pinned under mutual TLS.
+
+        Raises:
+            FedbiomedCertificateError: no researcher certificate is registered, or
+                several are and the one to pin is ambiguous.
+        """
+        certificate_manager = CertificateManager(
+            db_path=self.config.getpath("default", "db")
+        )
+        try:
+            researcher_certificates = certificate_manager.get_by_component(
+                ComponentType.RESEARCHER.name
+            )
+        finally:
+            certificate_manager.close()
+        if not researcher_certificates:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but no researcher "
+                "certificate is registered. Please register the researcher certificate "
+                "with `fedbiomed node certificate register`."
+            )
+
+        if len(researcher_certificates) > 1:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but "
+                f"{len(researcher_certificates)} researcher certificates are "
+                "registered, so the certificate to pin for researcher "
+                f"`{self.config.get('researcher', 'ip')}` is ambiguous. Keep only "
+                "the certificate of that researcher, using `fedbiomed node "
+                "certificate list` and `fedbiomed node certificate delete`."
+            )
+
+        return researcher_certificates[0].encode("utf-8")
 
     @property
     def node_id(self):

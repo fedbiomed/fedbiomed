@@ -16,7 +16,17 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.constants import REQUEST_PREFIX, MessageType
+from fedbiomed.common.certificate_manager import (
+    TrustedCertificateBundle,
+    is_mtls_enabled,
+)
+from fedbiomed.common.constants import (
+    REQUEST_PREFIX,
+    ComponentType,
+    ErrorNumbers,
+    MessageType,
+)
+from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     ApprovalRequest,
@@ -347,6 +357,25 @@ class Requests(metaclass=SingletonMeta):
         cert_priv = config.getpath("certificate", "private_key")
         cert_pub = config.getpath("certificate", "public_key")
 
+        # Bundle of registered node certificates to pin, when mutual TLS is on.
+        trusted_node_certificates = None
+        if is_mtls_enabled(config):
+            trusted_node_certificates = TrustedCertificateBundle(
+                config.getpath("default", "db"), ComponentType.NODE.name
+            )
+            # This first read also reports expiring certificates. gRPC cannot build
+            # server credentials from an empty bundle: it fails to bind the port
+            # rather than starting and rejecting nodes.
+            if not trusted_node_certificates():
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: mutual TLS is enabled but no node "
+                    "certificate is registered, so the researcher server cannot "
+                    "start. Register at least one node certificate with `fedbiomed "
+                    "researcher certificate register`, or disable mutual TLS by "
+                    "setting `enabled = False` in the `[mtls]` section of "
+                    f"{config.config_path}."
+                )
+
         # Creates grpc server and starts it
         self._researcher_id = config.get("default", "id")
         self._grpc_server = GrpcServer(
@@ -354,7 +383,11 @@ class Requests(metaclass=SingletonMeta):
             port=server_port,
             config=config,
             on_message=self.on_message,
-            ssl=SSLCredentials(key=cert_priv, cert=cert_pub),
+            ssl=SSLCredentials(
+                key=cert_priv,
+                cert=cert_pub,
+                trusted_node_certificates=trusted_node_certificates,
+            ),
         )
         self.start_messaging()
 

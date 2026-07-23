@@ -303,13 +303,14 @@ class Config(metaclass=ABCMeta):
                 "version": str(self._CONFIG_VERSION),
             }
 
+            config_dir = os.path.join(self.root, CONFIG_FOLDER_NAME)
             db_path = os.path.join(
                 self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json"
             )
-            self._cfg["default"]["db"] = os.path.relpath(
-                db_path, os.path.join(self.root, CONFIG_FOLDER_NAME)
-            )
+
+            self._cfg["default"]["db"] = os.path.relpath(db_path, config_dir)
             self._cfg["syslog"] = {"enable": "False"}
+            self._cfg["mtls"] = {"enabled": "False"}
 
             # Calls child class add_parameterss
             self.add_parameters()
