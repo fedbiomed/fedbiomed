@@ -6,37 +6,23 @@ on:
       - "*"
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 jobs:
-  build:
-    name: Build package
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pdm-project/setup-pdm@v4
-        with:
-          python-version: "3.10"
-      - name: Install Fed-BioMed
-        run: pdm install --no-default
-
-      - name: Build
-        run: pdm build
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: fedbiomed-package
-          path: ./dist/
+  package-compatibility:
+    name: Build and test release package
+    uses: ./.github/workflows/package-compatibility.yml
+    permissions:
+      contents: read
 
   publish:
     name: upload release to PyPI
     runs-on: ubuntu-latest
     environment: production
-    needs: build
+    needs: package-compatibility
+    permissions:
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
       - name: Download built files
         uses: actions/download-artifact@v4
         with:
@@ -52,7 +38,9 @@ jobs:
   release:
     name: Release pushed tag
     runs-on: ubuntu-latest
-    needs: build
+    needs: package-compatibility
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Extract latest changes
