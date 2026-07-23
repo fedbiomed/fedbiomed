@@ -442,7 +442,7 @@ class GrpcClient:
                             "mutual-TLS client authentication but mutual-TLS is "
                             "disabled on this node. Enable it in the node `[mtls]` "
                             "configuration, register the researcher certificate and "
-                            "ask the researcher to register this  node's certificate."
+                            "ask the researcher to register this node's certificate."
                         )
                         await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                         continue
@@ -706,7 +706,7 @@ class Listener:
                                 "mutual-TLS client authentication but mutual-TLS is "
                                 "disabled on this node. Enable it in the node `[mtls]` "
                                 "configuration, register the researcher certificate and "
-                                "ask the researcher to register this  node's certificate."
+                                "ask the researcher to register this node's certificate."
                             )
                         else:
                             logger.debug(
