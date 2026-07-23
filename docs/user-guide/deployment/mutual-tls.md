@@ -62,8 +62,9 @@ secure messaging, …). Fed-BioMed does not exchange certificates for you.
 ### 2. Register the received certificates
 
 Save each received certificate to a file and register it. The party id is read from the
-certificate's `O=` field, so `--party-id` is optional (supply it only for legacy
-certificates without an embedded identity; if given it must match the certificate):
+certificate's `O=` field, so `--party-id` is optional (supply it only for certificates
+without an embedded Fed-BioMed identity — legacy or third-party ones; if given together
+with an embedded identity it must match it):
 
 ```shell
 # On the researcher: register each node certificate
@@ -80,10 +81,16 @@ Check what is registered at any time:
 fedbiomed [node|researcher] certificate list   # shows party id, component, expiry date
 ```
 
-!!! warning "One researcher certificate per node"
-    A node pins exactly one researcher certificate. If more than one researcher
-    certificate is registered on a node, startup fails as ambiguous — delete the extras
-    with `fedbiomed node certificate delete`.
+Registration refuses combinations that cannot be valid:
+
+- a component cannot register a certificate of its **own type** (checked against the
+  party id and against the certificate's client/server role);
+- a **node registers at most one certificate** — its researcher's. Registering a second
+  party is rejected; re-registering the same party goes through `--upsert`.
+
+Databases predating these checks may still violate them: `certificate list` warns about
+such leftovers, and node startup fails as ambiguous if several researcher certificates
+are registered — delete the extras with `fedbiomed node certificate delete`.
 
 ### 3. Turn mTLS on
 
@@ -146,15 +153,21 @@ expiry differ, so every party that pinned or trusted it must register the new on
 
 ## Verifying and troubleshooting
 
-Both sides emit `is_security` log lines confirming the state of the channel. If a
-connection does not establish, match the symptom below.
+Both sides log the security state of the channel; the node additionally records
+structured security audit events. A persisting failure is logged once at error level,
+then repeated at debug level only until the connection recovers. If a connection does
+not establish, match the symptom below — diagnosis is mostly **node-side**: the
+researcher rejects untrusted nodes inside the TLS handshake and logs nothing per
+rejected node (it says so once at startup).
 
 | Log / error | Cause | Fix |
 |---|---|---|
-| `FB628 … no node certificate is available to trust` (researcher won't start) | mTLS on, but no node certificate registered | Register at least one node certificate, or set `[mtls] enabled = False` |
+| `FB619 … no node certificate is registered` (researcher won't start) | mTLS on, but no node certificate registered | Register at least one node certificate, or set `[mtls] enabled = False` |
 | `FB628 … Mutual-TLS handshake with researcher failed` (node retries) | Pinned researcher cert wrong/outdated, or possible MITM | Re-register the current researcher certificate on the node |
-| `FB628 … Researcher rejected this node's identity` (node stops) | Node cert not registered on researcher, or declared node id ≠ cert `O=` | Register the node cert on the researcher; ensure the node id matches its certificate |
-| `FB628 … researcher does not require client certificates` (node warning) | Node has mTLS on, researcher has it off | Enable `[mtls]` on the researcher too |
+| `FB628 … reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher — rejected inside the handshake | Register the node's certificate on the researcher |
+| `FB628 … Researcher rejected this node's identity` (node stops) | Declared node id ≠ cert `O=` | Ensure the node id matches its certificate |
+| `node identity will NOT be verified` (node warning) | Node has mTLS on, researcher has it off — node connects anyway | Enable `[mtls]` on the researcher too |
+| `FB628 … researcher requires mutual-TLS client authentication but mutual-TLS is disabled on this node` (node retries) | Researcher has mTLS on, node has it off | Enable `[mtls]` on the node, register the researcher certificate, have the researcher register the node's |
 | `Suspected malicious node activity !` (researcher error) | A node declared an id different from its certificate identity | Investigate; the node id and certificate `O=` must be the same party |
 | `FB619 … no researcher certificate is registered` (node won't start) | mTLS on, researcher cert missing on node | Register the researcher certificate on the node |
 
