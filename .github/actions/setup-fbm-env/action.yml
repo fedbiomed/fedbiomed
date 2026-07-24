@@ -34,11 +34,20 @@ runs:
         echo "use_brew=$USE_BREW" >> "$GITHUB_OUTPUT"
 
     - name: Install Python with setup-python
+      id: setup_python
       if: steps.runner.outputs.is_fedora == 'false' && steps.runner.outputs.use_brew == 'false'
       uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
         cache: pip
+
+    - name: Export hosted Python executable
+      if: steps.runner.outputs.is_fedora == 'false' && steps.runner.outputs.use_brew == 'false'
+      shell: bash -l {0}
+      run: |
+        PYTHON_BIN="${{ steps.setup_python.outputs.python-path }}"
+        test -x "$PYTHON_BIN"
+        echo "FEDBIOMED_PYTHON_BIN=$PYTHON_BIN" >> "$GITHUB_ENV"
 
     - name: Install Python on self-hosted Fedora
       if: steps.runner.outputs.is_fedora == 'true'
@@ -47,7 +56,8 @@ runs:
         sudo dnf install -y "python${{ inputs.python-version }}"
         PYTHON_BIN=$(command -v "python${{ inputs.python-version }}")
         sudo ln -sf "$PYTHON_BIN" /usr/local/bin/python
-        python -m ensurepip --upgrade
+        "$PYTHON_BIN" -m ensurepip --upgrade
+        echo "FEDBIOMED_PYTHON_BIN=$PYTHON_BIN" >> "$GITHUB_ENV"
 
     - name: Install Python on self-hosted Apple Silicon
       if: steps.runner.outputs.use_brew == 'true'
@@ -59,8 +69,10 @@ runs:
         fi
 
         PYTHON_PREFIX=$(arch -arm64 brew --prefix "python@$VERSION")
-        sudo ln -sf "$PYTHON_PREFIX/bin/python$VERSION" /usr/local/bin/python
-        python -m ensurepip --upgrade
+        PYTHON_BIN="$PYTHON_PREFIX/bin/python$VERSION"
+        sudo ln -sf "$PYTHON_BIN" /usr/local/bin/python
+        "$PYTHON_BIN" -m ensurepip --upgrade
+        echo "FEDBIOMED_PYTHON_BIN=$PYTHON_BIN" >> "$GITHUB_ENV"
         echo "$PYTHON_PREFIX/bin" >> "$GITHUB_PATH"
         echo "$PYTHON_PREFIX/libexec/bin" >> "$GITHUB_PATH"
 
@@ -68,20 +80,23 @@ runs:
       shell: bash -l {0}
       run: |
         EXPECTED="${{ inputs.python-version }}"
-        ACTUAL=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        PYTHON_BIN="${FEDBIOMED_PYTHON_BIN:-$(command -v python)}"
+        ACTUAL=$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
         test "$ACTUAL" = "$EXPECTED"
-        PYTHON_BIN=$(command -v python)
+        PYTHON_BIN=$("$PYTHON_BIN" -c 'import os, sys; print(os.path.realpath(sys.executable))')
         echo "FEDBIOMED_PYTHON_BIN=$PYTHON_BIN" >> "$GITHUB_ENV"
-        python --version
-        python -m pip --version
+        "$PYTHON_BIN" --version
+        "$PYTHON_BIN" -m pip --version
         echo "Python executable: $PYTHON_BIN"
         echo "Runner OS: ${{ runner.os }}"
         uname -a
-        python -c "import platform; print('Architecture:', platform.machine())"
+        "$PYTHON_BIN" -c "import platform; print('Architecture:', platform.machine())"
 
     - name: Install tox
       shell: bash -l {0}
-      run: "$FEDBIOMED_PYTHON_BIN" -m pip install tox
+      run: |
+        PYTHON_BIN="${FEDBIOMED_PYTHON_BIN:-$(command -v python)}"
+        "$PYTHON_BIN" -m pip install tox
 
     - name: Check tox
       shell: bash -l {0}
