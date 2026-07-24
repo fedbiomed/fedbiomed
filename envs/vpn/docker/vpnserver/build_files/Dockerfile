@@ -1,6 +1,8 @@
 ARG FBM_CONTAINER_VERSION_TAG
 FROM fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}
 
+ARG PYTHON_VERSION=3.10
+
 WORKDIR /fedbiomed
 
 # wireguard server
@@ -18,6 +20,9 @@ ENV CONTAINER_GID=${CONTAINER_GID:-0}
 # alpine does not accept users/groups with numerical names
 ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
+
+RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
+    test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./bashrc_append /tmp

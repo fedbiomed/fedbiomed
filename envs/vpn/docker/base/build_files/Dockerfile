@@ -1,8 +1,9 @@
+ARG PYTHON_VERSION=3.10
+
 # temporary builder image for wireguard tools
 # - need coherent system version with base image
 # - may need update for properly compiling boringtun
-# - 2023-05: `bookworm` is not officially released, stick to `bullseye` for now
-FROM debian:bullseye-slim AS builder
+FROM debian:bookworm-slim AS builder
 
 RUN apt-get update && apt-get install -y git build-essential curl
 
@@ -20,9 +21,14 @@ RUN apt-get install -y wireguard-tools
 
 # docker base image for VPN server, Fed-BioMed node and researcher
 # - need proper python version for Fed-BioMed
-FROM python:3.10-slim-bullseye
+FROM python:${PYTHON_VERSION}-slim-bookworm
+
+ARG PYTHON_VERSION
 
 RUN apt-get update && apt-get install -y iptables iproute2 iputils-ping bash vim net-tools procps build-essential kmod
+
+RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
+    test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
 
 # get wireguard from builder image
 COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
