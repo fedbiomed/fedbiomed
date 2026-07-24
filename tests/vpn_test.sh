@@ -20,8 +20,10 @@ function assert_image_python(){
 	local image="fedbiomed/vpn-${component}:${FBM_CONTAINER_VERSION_TAG}"
 	local actual
 
-	actual=$(docker run --rm --entrypoint python "$image" -c \
-		'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+	if ! actual=$(docker run --rm --entrypoint python "$image" -c \
+		'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'); then
+		error "Could not run Python in $image"
+	fi
 	if [[ "$actual" != "$PYTHON_VERSION" ]]; then
 		error "Expected Python $PYTHON_VERSION in $image, found $actual"
 	fi
