@@ -154,6 +154,11 @@ def clear_component_data(config: Config):
 def stop_grpc_server(grpc_server):
     """Stops the researcher gRPC server and joins its thread."""
     if grpc_server._server._loop.is_closed():
+        if grpc_server._thread.is_alive():
+            raise End2EndError(
+                "Researcher gRPC thread is still alive after its event loop closed "
+                f"on port {grpc_server._port}"
+            )
         return
 
     future = asyncio.run_coroutine_threadsafe(
@@ -175,7 +180,10 @@ def stop_grpc_server(grpc_server):
 
     grpc_server._thread.join(timeout=10)
     if grpc_server._thread.is_alive():
-        print("##### FBM: gRPC server thread still alive after join timeout")
+        raise End2EndError(
+            "Researcher gRPC server thread is still alive after the join timeout "
+            f"on port {grpc_server._port}"
+        )
 
     print("##### FBM: Researcher server has stopped")
 
@@ -190,8 +198,6 @@ def stop_researcher_server():
 
     try:
         stop_grpc_server(requests._grpc_server)
-    except Exception as e:
-        print(f"#### FBM: Error during researcher server safety-net cleanup: {e}")
     finally:
         Requests._objects.pop(Requests, None)
 
@@ -210,15 +216,15 @@ def clear_experiment_data(exp: "Experiment"):
     print("Stopping gRPC server started by the test function")
     print("Will wait 10 seconds to cancel current RPC requests")
 
-    # Stop GRPC server and remove request object for next experiments
-    stop_grpc_server(exp._reqs._grpc_server)
-
-    # Need to remove request
-    print("##### FBM: Removing request object")
     from fedbiomed.researcher.requests import Requests
 
-    if Requests in Requests._objects:
-        del Requests._objects[Requests]
+    try:
+        # Stop GRPC server and remove request object for next experiments
+        stop_grpc_server(exp._reqs._grpc_server)
+    finally:
+        # Need to remove request
+        print("##### FBM: Removing request object")
+        Requests._objects.pop(Requests, None)
 
     # tensorboard_folder = os.path.join(config.root, TENSORBOARD_FOLDER_NAME)
     # tensorboard_files = os.listdir(tensorboard_folder)
@@ -392,14 +398,35 @@ def create_multiple_nodes(
 
     # Create nodes
     nodes = []
-    for n in range(num_nodes):
-        if config_sections:
-            nodes.append(create_node(port, config_sections[n]))
+    body_failed = False
+    try:
+        for n in range(num_nodes):
+            if config_sections:
+                nodes.append(create_node(port, config_sections[n]))
+            else:
+                nodes.append(create_node(port))
+
+        yield tuple(nodes)
+    except BaseException:
+        body_failed = True
+        raise
+    finally:
+        if body_failed:
+            print(
+                "Deferring node component cleanup to the module safety net "
+                "after an earlier failure."
+            )
         else:
-            nodes.append(create_node(port))
+            # Clear every node after successful setup and process teardown.
+            cleanup_errors = []
+            for node in nodes:
+                try:
+                    clear_component_data(node)
+                except Exception as e:
+                    cleanup_errors.append(e)
 
-    yield tuple(nodes)
-
-    # Clear node data
-    for node in nodes:
-        clear_component_data(node)
+            if cleanup_errors:
+                raise End2EndError(
+                    f"Failed to clean {len(cleanup_errors)} node component(s): "
+                    f"{cleanup_errors}"
+                )

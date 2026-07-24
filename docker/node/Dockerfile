@@ -3,6 +3,8 @@ ARG FBM_IMAGE_VERSION
 
 FROM fedbiomed/base:${FBM_IMAGE_VERSION:-latest} AS fedbiomed-base
 
+ARG PYTHON_VERSION=3.11
+
 # Redeclare ARGs from base image to make them available at build time
 ARG FEDBIOMED_USER=fedbiomed
 ARG FEDBIOMED_GROUP=fedbiomed
@@ -14,6 +16,9 @@ ENV FEDBIOMED_USER=${FEDBIOMED_USER}
 ENV FEDBIOMED_GROUP=${FEDBIOMED_GROUP}
 ENV FEDBIOMED_UID=${FEDBIOMED_UID}
 ENV FEDBIOMED_GID=${FEDBIOMED_GID}
+
+RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
+    test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
 
 # Copy node entry point file
 COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP docker/node/entrypoint.sh /entrypoint.sh
