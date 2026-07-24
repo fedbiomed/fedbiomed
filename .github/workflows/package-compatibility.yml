@@ -5,9 +5,6 @@ run-name: Package Compatibility Tests
 on:
   workflow_call:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - develop
   schedule:
     # Monday at 01:17 UTC, representing Sunday night operationally.
     - cron: "17 1 * * 1"

@@ -3,6 +3,9 @@ name: Fed-BioMed Docker Compatibility Tests
 run-name: Fed-BioMed Docker Compatibility Tests
 
 on:
+  pull_request:
+    branches:
+      - develop
   schedule:
     # Monday at 01:17 UTC, representing Sunday night operationally.
     - cron: "17 1 * * 1"
