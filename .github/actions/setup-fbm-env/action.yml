@@ -95,8 +95,10 @@ runs:
     - name: Install tox
       shell: bash -l {0}
       run: |
-        PYTHON_BIN="${FEDBIOMED_PYTHON_BIN:-$(command -v python)}"
-        "$PYTHON_BIN" -m pip install tox
+        TOX_VENV=$(mktemp -d "${RUNNER_TEMP:-/tmp}/fedbiomed-tox-XXXXXXXX")
+        "$FEDBIOMED_PYTHON_BIN" -m venv "$TOX_VENV"
+        "$TOX_VENV/bin/python" -m pip install tox
+        echo "$TOX_VENV/bin" >> "$GITHUB_PATH"
 
     - name: Check tox
       shell: bash -l {0}
