@@ -23,9 +23,9 @@ os.environ["FBM_DEBUG"] = "1"
 
 
 @pytest.fixture(scope="module")
-def port(unused_tcp_port_factory):
+def port(free_tcp_port_factory):
     """Return an available port shared by the researcher and nodes."""
-    return str(unused_tcp_port_factory())
+    return str(free_tcp_port_factory())
 
 
 @pytest.fixture(scope="module", autouse=True)
