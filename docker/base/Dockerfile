@@ -1,3 +1,5 @@
+ARG PYTHON_VERSION=3.11
+
 # Stage 1: Build Node.js frontend
 FROM node:20-bullseye AS node-build
 WORKDIR /build
@@ -14,7 +16,7 @@ COPY fedbiomed_gui/ui/ ./
 RUN yarn build
 
 # Stage 2: Build Python package without hatch hook
-FROM python:3.11-slim-bullseye AS python-build
+FROM python:${PYTHON_VERSION}-slim-bookworm AS python-build
 
 ARG FEDBIOMED_GID=2101
 ARG FEDBIOMED_UID=2101
@@ -38,17 +40,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy all required files for pip install
-COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} pyproject.toml README.md ./
-COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} fedbiomed ./fedbiomed
-COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} envs/common ./envs/common
-COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} envs/vpn ./envs/vpn
-COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} notebooks ./notebooks
-COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} docs/tutorials ./docs/tutorials
-COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} scripts ./scripts
-COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} hatch_build.py ./hatch_build.py
+COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} pyproject.toml README.md ./
+COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} fedbiomed ./fedbiomed
+COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} envs/common ./envs/common
+COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} envs/vpn ./envs/vpn
+COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} notebooks ./notebooks
+COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} docs/tutorials ./docs/tutorials
+COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} scripts ./scripts
+COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} hatch_build.py ./hatch_build.py
 
 # Copy fedbiomed_gui structure (needed for pyproject.toml packages)
-COPY --chown=${FEDBIOMED_USER}:${FEDBIOMED_GROUP} fedbiomed_gui ./fedbiomed_gui
+COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} fedbiomed_gui ./fedbiomed_gui
 
 # Copy pre-built frontend from node-build stage
 COPY --from=node-build /build/build ./fedbiomed_gui/ui/build
@@ -58,7 +60,9 @@ RUN sed -i '/hatch\.build\.hooks/,/^$/d' pyproject.toml && pip install --no-cach
     pip wheel --no-cache-dir --wheel-dir /wheels '.[researcher, node, gui]'
 
 # Stage 3: Final runtime image
-FROM debian:bullseye-slim
+FROM python:${PYTHON_VERSION}-slim-bookworm
+
+ARG PYTHON_VERSION
 
 ARG FEDBIOMED_GID=2101
 ARG FEDBIOMED_UID=2101
@@ -75,8 +79,8 @@ ENV FEDBIOMED_GID=${FEDBIOMED_GID} \
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    libssl1.1 \
-    libffi7 \
+    libssl3 \
+    libffi8 \
     libbz2-1.0 \
     libjpeg62-turbo \
     libpng16-16 \
@@ -84,7 +88,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libreadline8 \
     libsqlite3-0 \
     zlib1g \
-#    python3-tk \
     libgmp10 \
     libmpfr6 \
     libmpc3 \
@@ -93,8 +96,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python from official image
-COPY --from=python:3.11-slim-bullseye /usr/local/ /usr/local/
+RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
+    test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
 
 # Create user and directories
 RUN groupadd --gid $FEDBIOMED_GID $FEDBIOMED_GROUP && \

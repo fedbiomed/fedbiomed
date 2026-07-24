@@ -15,6 +15,11 @@ inputs:
     required: false
     default: 'false'
 
+  python-version:
+    description: Python version used by the image
+    required: false
+    default: '3.11'
+
 runs:
   using: "composite"
   steps:
@@ -64,6 +69,7 @@ runs:
       run: |
         docker build ${{ steps.tag-args.outputs.TAG_ARGS }} \
           --build-arg FBM_IMAGE_VERSION=${{ steps.meta.outputs.version }} \
+          --build-arg PYTHON_VERSION=${{ inputs.python-version }} \
           -f ${{ inputs.file }} . 
       shell: bash -l {0}
     

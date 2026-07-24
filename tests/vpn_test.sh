@@ -15,12 +15,40 @@ function info(){
 	  echo "${YLW}INFO:${NC} $1"
 }
 
+function assert_image_python(){
+	local component="$1"
+	local image="fedbiomed/vpn-${component}:${FBM_CONTAINER_VERSION_TAG}"
+	local actual
+
+	actual=$(docker run --rm --entrypoint python "$image" -c \
+		'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+	if [[ "$actual" != "$PYTHON_VERSION" ]]; then
+		error "Expected Python $PYTHON_VERSION in $image, found $actual"
+	fi
+	info "$image uses Python $actual"
+}
+
 # Clean images if existing
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
 
 FEDBIOMED_DIR="$basedir"
+VPN_ENV_FILE="${FEDBIOMED_DIR}/envs/vpn/docker/.env"
+
+FBM_CONTAINER_VERSION_TAG="${FBM_CONTAINER_VERSION_TAG:-$(
+	source "$VPN_ENV_FILE"
+	echo "$FBM_CONTAINER_VERSION_TAG"
+)}"
+FBM_CONTAINER_INSTANCE_ID="${FBM_CONTAINER_INSTANCE_ID:-$(
+	source "$VPN_ENV_FILE"
+	echo "$FBM_CONTAINER_INSTANCE_ID"
+)}"
+PYTHON_VERSION="${PYTHON_VERSION:-$(
+	source "$VPN_ENV_FILE"
+	echo "$PYTHON_VERSION"
+)}"
+export FBM_CONTAINER_VERSION_TAG FBM_CONTAINER_INSTANCE_ID PYTHON_VERSION
 
 info "cleaning images created"
 
@@ -40,6 +68,9 @@ if ! ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build vpnserver researcher; then
 	error "Error while building vpnserver and researcher components"
 fi
 
+assert_image_python vpnserver
+assert_image_python researcher
+
 info "Configuring researcher component"
 
 if ! ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn configure researcher; then
@@ -49,7 +80,8 @@ fi
 
 info "Starting researcher"
 ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start researcher
-if ! docker ps | grep -q fedbiomed-vpn-researcher; then
+if ! docker ps --format '{{.Names}}' | \
+	grep -Fxq "fedbiomed-vpn-researcher-${FBM_CONTAINER_INSTANCE_ID}"; then
      error "Fed-BioMed researcher container is not running"
 fi
 
@@ -62,6 +94,9 @@ info "Building node and GUI"
 if ! ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build node gui; then
 	error "Error while building node and gui images"
 fi
+
+assert_image_python node
+assert_image_python gui
 
 cd ${FEDBIOMED_DIR}/envs/vpn/docker
 if ! docker compose exec vpnserver bash --login -c 'python ./vpn/bin/configure_peer.py genconf node node1'; then
@@ -85,11 +120,13 @@ export FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True
 docker compose up -d node
 docker compose up -d node2
 
-if ! docker ps | grep -q fedbiomed-vpn-node; then
+if ! docker ps --format '{{.Names}}' | \
+	grep -Fxq "fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID}"; then
      error "Fed-BioMed node1 container is not running"
 fi
 
-if ! docker ps | grep -q fedbiomed-vpn-node2; then
+if ! docker ps --format '{{.Names}}' | \
+	grep -Fxq "fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID}"; then
      error "Fed-BioMed node 2 container is not running"
 fi
 
