@@ -70,15 +70,18 @@ runs:
         EXPECTED="${{ inputs.python-version }}"
         ACTUAL=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
         test "$ACTUAL" = "$EXPECTED"
+        PYTHON_BIN=$(command -v python)
+        echo "FEDBIOMED_PYTHON_BIN=$PYTHON_BIN" >> "$GITHUB_ENV"
         python --version
         python -m pip --version
+        echo "Python executable: $PYTHON_BIN"
         echo "Runner OS: ${{ runner.os }}"
         uname -a
         python -c "import platform; print('Architecture:', platform.machine())"
 
     - name: Install tox
       shell: bash -l {0}
-      run: python -m pip install tox
+      run: "$FEDBIOMED_PYTHON_BIN" -m pip install tox
 
     - name: Check tox
       shell: bash -l {0}

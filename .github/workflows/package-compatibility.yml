@@ -118,11 +118,12 @@ jobs:
           fi
 
           VENV_DIR="$RUNNER_TEMP/fedbiomed-wheel-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-py${{ matrix.python-version }}"
-          python -m venv "$VENV_DIR"
+          "$FEDBIOMED_PYTHON_BIN" -m venv "$VENV_DIR"
           VENV_PYTHON="$VENV_DIR/bin/python"
           echo "VENV_PYTHON=$VENV_PYTHON" >> "$GITHUB_ENV"
           echo "$VENV_DIR/bin" >> "$GITHUB_PATH"
 
+          "$VENV_PYTHON" -c 'import sys; print("Venv Python:", sys.executable, sys.version)'
           "$VENV_PYTHON" -m pip install --upgrade pip
           "$VENV_PYTHON" -m pip install \
             "${wheel_files[0]}[node,gui,researcher]"
