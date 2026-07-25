@@ -31,6 +31,10 @@ RUN apt-get update && apt-get install -y gcc apt-utils wget procps systemd \
 RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
     test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
 
+# The VPN functional test is non-GPU; avoid pulling CUDA-enabled PyTorch wheels.
+RUN python -m pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch torchvision
 
 # Install nodejs -----------------------------------------------------------------
 RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
@@ -84,8 +88,8 @@ WORKDIR /fedbiomed
 # Set container user
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
-# Installs fedbiomed and necessary modules
-RUN python -m pip install --no-warn-script-location '.[gui]'
+# Installs fedbiomed and necessary modules without retaining downloaded wheels
+RUN python -m pip install --no-cache-dir --no-warn-script-location '.[gui]'
 
 # Changedir to main directory
 WORKDIR /

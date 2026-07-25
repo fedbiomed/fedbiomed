@@ -71,8 +71,9 @@ WORKDIR /fedbiomed
 # Set container user
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
-# Installs fedbiomed and necessary modules
-RUN python -m pip install --no-warn-script-location -I '.[node]'
+# Installs fedbiomed and necessary modules without retaining downloaded wheels.
+# Do not ignore installed packages: the base supplies CPU-only PyTorch.
+RUN python -m pip install --no-cache-dir --no-warn-script-location '.[node]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

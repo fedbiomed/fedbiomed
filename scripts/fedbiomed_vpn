@@ -729,7 +729,9 @@ fi
 # start doing something useful
 # -----------------------------
 [[ $CLEAN -gt 0 ]]          && { containers_clean; }
-[[ $BUILD -eq 1 ]]          && { containers_build; }
+if [[ $BUILD -eq 1 ]]; then
+    containers_build || exit $?
+fi
 [[ $CONFIGURE -eq 1 ]]      && { containers_configure; }
 [[ $START -eq 1 ]]          && { containers_start; }
 [[ $STOP -eq 1 ]]           && { containers_remove; }

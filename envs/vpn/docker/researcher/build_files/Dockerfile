@@ -77,8 +77,8 @@ WORKDIR /fedbiomed
 # Set container user
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
-# Install fedbiomed and its requirements
-RUN python -m pip install --no-warn-script-location '.[researcher]'
+# Install fedbiomed and its requirements without retaining downloaded wheels
+RUN python -m pip install --no-cache-dir --no-warn-script-location '.[researcher]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

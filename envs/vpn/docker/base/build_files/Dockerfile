@@ -30,6 +30,11 @@ RUN apt-get update && apt-get install -y iptables iproute2 iputils-ping bash vim
 RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
     test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
 
+# Keep the non-GPU VPN images free of the multi-gigabyte CUDA runtime.
+RUN python -m pip install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch torchvision
+
 # get wireguard from builder image
 COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
 COPY --from=builder /usr/bin/wg* /usr/bin/
