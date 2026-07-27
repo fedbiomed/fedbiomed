@@ -116,6 +116,9 @@ docker compose exec vpnserver cat /config/config_peers/node/node2/config.env > $
 
 # Disable secure aggregation
 export FBM_SECURITY_FORCE_SECURE_AGGREGATION=False
+# The getting-started notebook defines a custom training plan. This functional
+# smoke test validates VPN connectivity and training, not plan approval.
+export FBM_SECURITY_TRAINING_PLAN_APPROVAL=False
 # Authorize default training plans
 export FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True
 
