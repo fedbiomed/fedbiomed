@@ -11,8 +11,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from fedbiomed.common.certificate_manager import (
-    CERT_PURPOSE_CLIENT,
-    CERT_PURPOSE_SERVER,
     CertificateManager,
     TrustedCertificateBundle,
     certificate_audit_fields,
@@ -42,7 +40,7 @@ def _events(security_event, operation):
     ]
 
 
-def _self_signed(folder, org, cn="localhost", purpose=None, with_org_subject=True):
+def _self_signed(folder, org, cn="localhost", with_org_subject=True):
     """Generates a self-signed certificate, returns its PEM file path."""
     subject = {"CommonName": cn}
     if with_org_subject:
@@ -52,8 +50,39 @@ def _self_signed(folder, org, cn="localhost", purpose=None, with_org_subject=Tru
         certificate_name=org.replace(" ", "_"),
         component_id=org,
         subject=subject,
-        purpose=purpose,
     )
+    return pem_file
+
+
+def _third_party(folder, org, extended_key_usages=None):
+    """A certificate not issued by Fed-BioMed: arbitrary `O=`, chosen TLS roles.
+
+    Fed-BioMed derives the role from the component id, so a certificate whose
+    role contradicts the party it is registered as can only come from outside.
+    """
+    pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.ORGANIZATION_NAME, org)])
+    builder = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(pkey.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+    )
+    if extended_key_usages is not None:
+        builder = builder.add_extension(
+            x509.ExtendedKeyUsage(extended_key_usages), critical=False
+        )
+
+    pem_file = os.path.join(folder, f"{org}_{extended_key_usages}.pem")
+    with open(pem_file, "wb") as file:
+        file.write(
+            builder.sign(private_key=pkey, algorithm=hashes.SHA256()).public_bytes(
+                serialization.Encoding.PEM
+            )
+        )
     return pem_file
 
 
@@ -63,131 +92,105 @@ def _load(pem_file):
 
 
 # -----------------------------------------------------------------------------
-# CertificateManager over a mocked TinyDB
+# CertificateManager over a real TinyDB
 # -----------------------------------------------------------------------------
 
 
-@pytest.fixture
-def mocked_cm():
-    """CertificateManager with the TinyDB layer fully mocked."""
-    with (
-        patch("os.path.isdir") as mock_isdir,
-        patch("os.path.isfile") as mock_isfile,
-        patch(
-            "fedbiomed.common.certificate_manager.TinyDB.__init__",
-            MagicMock(return_value=None),
-        ) as tiny_db,
-        patch("fedbiomed.common.certificate_manager.Query") as query,
-        patch("fedbiomed.common.certificate_manager.TinyDB.table") as table,
-        patch("fedbiomed.common.certificate_manager.TinyDB.close"),
-    ):
-        cm = CertificateManager(db_path="test-db")
-        tiny_db.reset_mock()
-        query.reset_mock()
-        table.reset_mock()
-        yield SimpleNamespace(
-            cm=cm,
-            tiny_db=tiny_db,
-            query=query,
-            table=table,
-            isdir=mock_isdir,
-            isfile=mock_isfile,
-        )
+def test_certificate_manager_initialization(tmp_path):
+    """A manager opened on a path reads and writes that database."""
+    db_path = str(tmp_path / "certs.json")
+    cm = CertificateManager(db_path=db_path)
+    try:
+        cm.insert(certificate="cert", party_id="NODE_a", component="NODE")
+    finally:
+        cm.close()
+
+    reopened = CertificateManager(db_path=db_path)
+    try:
+        assert reopened.get(party_id="NODE_a")["certificate"] == "cert"
+    finally:
+        reopened.close()
 
 
-def test_certificate_manager_initialization(mocked_cm):
-    CertificateManager(db_path="test-db")
+def test_certificate_manager_set_db_switches_database(tmp_path):
+    """`set_db` moves the manager to another database, releasing the first."""
+    first, second = str(tmp_path / "a.json"), str(tmp_path / "b.json")
+    cm = CertificateManager(db_path=first)
+    try:
+        cm.insert(certificate="cert", party_id="NODE_a", component="NODE")
 
-    # Check tiny db called
-    mocked_cm.tiny_db.assert_called_once_with("test-db")
-    mocked_cm.query.assert_called_once()
-    mocked_cm.table.assert_called_once_with("Certificates")
+        cm.set_db(db_path=second)
+        assert cm.list() == []
 
-
-def test_certificate_manager_set_db(mocked_cm):
-    db_path = "test-set-db"
-    mocked_cm.cm.set_db(db_path=db_path)
-    mocked_cm.tiny_db.assert_called_once_with(db_path)
-    mocked_cm.table.assert_called_once_with("Certificates")
-
-
-def test_certificate_manager_get(mocked_cm):
-    """Tests get method of certificate manager"""
-    mocked_cm.cm.get("Test-ID")
-    mocked_cm.table.return_value.get.assert_called_once()
-    mocked_cm.query.return_value.party_id.__eq__.assert_called_once_with("Test-ID")
+        cm.insert(certificate="other", party_id="NODE_b", component="NODE")
+        assert [d["party_id"] for d in cm.list()] == ["NODE_b"]
+    finally:
+        cm.close()
 
 
-def test_certificate_manager_get_by_component(mocked_cm):
-    """Tests retrieving all certificates of a given component type"""
-    mocked_cm.table.return_value.search.return_value = [
-        {"certificate": "cert-1"},
-        {"certificate": "cert-2"},
-    ]
+def test_certificate_manager_get(cert_db):
+    """Only the requested party is returned; an unknown one yields nothing."""
+    cert_db.cm.insert(certificate="cert-a", party_id="NODE_a", component="NODE")
+    cert_db.cm.insert(certificate="cert-b", party_id="NODE_b", component="NODE")
 
-    result = mocked_cm.cm.get_by_component("NODE")
-
-    assert result == ["cert-1", "cert-2"]
-    mocked_cm.table.return_value.search.assert_called_once()
-    mocked_cm.query.return_value.component.__eq__.assert_called_once_with("NODE")
+    assert cert_db.cm.get(party_id="NODE_a")["certificate"] == "cert-a"
+    assert cert_db.cm.get(party_id="NODE_missing") is None
 
 
-def test_certificate_manager_get_by_component_empty(mocked_cm):
+def test_certificate_manager_get_by_component(cert_db):
+    """Only certificates of the requested component type are returned."""
+    cert_db.cm.insert(certificate="node-cert", party_id="NODE_a", component="NODE")
+    cert_db.cm.insert(
+        certificate="researcher-cert", party_id="RESEARCHER_a", component="RESEARCHER"
+    )
+
+    assert cert_db.cm.get_by_component("NODE") == ["node-cert"]
+    assert cert_db.cm.get_by_component("RESEARCHER") == ["researcher-cert"]
+
+
+def test_certificate_manager_get_by_component_empty(cert_db):
     """Tests component lookup with no registered certificates"""
-    mocked_cm.table.return_value.search.return_value = []
-    assert mocked_cm.cm.get_by_component("NODE") == []
+    assert cert_db.cm.get_by_component("NODE") == []
 
 
-def test_certificate_manager_insert(mocked_cm):
-    """Tests insert method of certificate manager"""
+def test_certificate_manager_insert(cert_db):
+    """A party can be registered once; registering again needs `upsert`."""
+    entry = dict(certificate="first", party_id="NODE_a", component="NODE")
 
-    certificate = "Dummy certificate"
-    party_id = "test-id"
-    component = "researcher"
-    entry = dict(certificate=certificate, party_id=party_id, component=component)
+    cert_db.cm.insert(**entry)
+    assert cert_db.cm.get(party_id="NODE_a")["certificate"] == "first"
 
-    # Assume that get will return empty dict
-    mocked_cm.table.return_value.get.return_value = {}
-    mocked_cm.cm.insert(**entry)
-    mocked_cm.table.return_value.insert.assert_called_once_with(entry)
-
-    # A non-empty dict means that party is already registered
-    mocked_cm.table.return_value.get.return_value = {"certificate": "xxx"}
     with pytest.raises(FedbiomedCertificateError):
-        mocked_cm.cm.insert(**entry)
+        cert_db.cm.insert(**{**entry, "certificate": "second"})
+    assert cert_db.cm.get(party_id="NODE_a")["certificate"] == "first"
 
-    # Already registered, and force to upsert/update with new data
-    mocked_cm.table.reset_mock()
-    mocked_cm.query.return_value.party_id.__eq__.reset_mock()
-    mocked_cm.table.return_value.get.return_value = {"certificate": "xxx"}
-    mocked_cm.cm.insert(**entry, upsert=True)
-    assert mocked_cm.query.return_value.party_id.__eq__.call_count == 2
-    mocked_cm.query.return_value.party_id.__eq__.assert_called_with(party_id)
-    mocked_cm.table.return_value.upsert.assert_called_once_with(entry, False)
+    cert_db.cm.insert(**{**entry, "certificate": "second"}, upsert=True)
+    assert cert_db.cm.get(party_id="NODE_a")["certificate"] == "second"
+    # Updating a party replaces its entry rather than adding one
+    assert len(cert_db.cm.list()) == 1
 
 
-def test_certificate_manager_delete(mocked_cm):
-    """Tests delete method of certificate manager"""
+def test_certificate_manager_delete(cert_db):
+    """Deleting removes only the named party."""
+    cert_db.cm.insert(certificate="cert-a", party_id="NODE_a", component="NODE")
+    cert_db.cm.insert(certificate="cert-b", party_id="NODE_b", component="NODE")
 
-    mocked_cm.cm.delete("Test-ID")
-    mocked_cm.table.return_value.remove.assert_called_once()
-    mocked_cm.query.return_value.party_id.__eq__.assert_called_once_with("Test-ID")
+    cert_db.cm.delete(party_id="NODE_a")
+
+    assert [d["party_id"] for d in cert_db.cm.list()] == ["NODE_b"]
 
 
-def test_certificate_manager_list(mocked_cm):
+def test_certificate_manager_list(cert_db):
     """Tests list method of certificate manager"""
-    dummy_result = [{"certificate": "xxxx", "party_id": "xxxx"}]
-    mocked_cm.table.return_value.all.return_value = dummy_result
+    cert_db.cm.insert(certificate="cert-a", party_id="NODE_a", component="NODE")
 
-    result = mocked_cm.cm.list()
-
-    mocked_cm.table.return_value.all.assert_called_once()
-    assert result == dummy_result
+    assert [d["party_id"] for d in cert_db.cm.list()] == ["NODE_a"]
 
     with patch("builtins.print") as mock_print:
-        result = mocked_cm.cm.list(verbose=True)
+        result = cert_db.cm.list(verbose=True)
         mock_print.assert_called_once()
-        assert result == dummy_result
+    # Printing must not strip the certificate from what the caller receives
+    assert result[0]["certificate"] == "cert-a"
 
 
 @pytest.mark.parametrize(
@@ -197,50 +200,55 @@ def test_certificate_manager_list(mocked_cm):
         ("researcher_9c2b1d70-1111-2222-3333-444455556666", "RESEARCHER"),
     ],
 )
-def test_certificate_manager_register_certificate(mocked_cm, party_id, component):
-    """A registered certificate is inserted with its inferred component"""
+def test_certificate_manager_register_certificate(cert_db, party_id, component):
+    """A registered certificate is stored under its inferred component"""
 
-    # Missing certificate file
-    mocked_cm.isfile.return_value = False
     with pytest.raises(FedbiomedCertificateError):
-        mocked_cm.cm.register_certificate(
-            certificate_path="dummy/path", party_id=party_id
-        )
-
-    with (
-        patch("builtins.open") as mock_open,
-        patch(
-            "fedbiomed.common.certificate_manager.CertificateManager.insert"
-        ) as cm_insert,
-    ):
-        mocked_cm.isfile.return_value = True
-        mock_open.return_value.__enter__.return_value.read.return_value = (
-            "Test certificate"
-        )
-        mocked_cm.table.return_value.get.return_value = {}
-
-        mocked_cm.cm.register_certificate(
-            certificate_path="dummy/path", party_id=party_id
-        )
-        cm_insert.assert_called_once_with(
-            certificate="Test certificate",
+        cert_db.cm.register_certificate(
+            certificate_path=os.path.join(cert_db.tmp, "missing.pem"),
             party_id=party_id,
-            component=component,
-            upsert=False,
         )
 
+    # No `O=` identity, so the given party id decides how it is classified
+    pem_file = _self_signed(cert_db.tmp, "Hospital", with_org_subject=False)
+    registered = cert_db.cm.register_certificate(
+        certificate_path=pem_file, party_id=party_id
+    )
 
-def test_certificate_manager_write_certificate_file(mocked_cm):
-    with patch("builtins.open") as mock_open:
-        mocked_cm.cm._write_certificate_file("dummy/path", "Certificate")
-        mock_open.assert_called_once_with("dummy/path", "w", encoding="UTF-8")
-        mock_open.return_value.__enter__.return_value.write.assert_called_once_with(
-            "Certificate"
+    assert registered == party_id
+    entry = cert_db.cm.get(party_id=party_id)
+    assert entry["component"] == component
+    with open(pem_file, encoding="UTF-8") as f:
+        assert entry["certificate"] == f.read()
+
+
+def test_register_certificate_returns_the_recovered_party_id(cert_db):
+    """The caller learns who was registered even when it supplied no party id.
+
+    The identity normally comes from the certificate, so the return value is the
+    only way to report which party a registration applied to.
+    """
+    registered = cert_db.cm.register_certificate(
+        certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A)
+    )
+
+    assert registered == _RESEARCHER_A
+
+
+def test_certificate_manager_write_certificate_file(cert_db):
+    path = os.path.join(cert_db.tmp, "written.pem")
+    CertificateManager._write_certificate_file(path, "Certificate")
+
+    with open(path, encoding="UTF-8") as f:
+        assert f.read() == "Certificate"
+
+
+def test_certificate_manager_write_certificate_file_unwritable(cert_db):
+    """A path that cannot be written is reported as a certificate error."""
+    with pytest.raises(FedbiomedCertificateError):
+        CertificateManager._write_certificate_file(
+            os.path.join(cert_db.tmp, "no-such-dir", "written.pem"), "Certificate"
         )
-
-        mock_open.side_effect = Exception
-        with pytest.raises(FedbiomedCertificateError):
-            mocked_cm.cm._write_certificate_file("dummy/path", "Certificate")
 
 
 def test_operations_require_initialized_database():
@@ -249,51 +257,46 @@ def test_operations_require_initialized_database():
         CertificateManager().get("NODE_1")
 
 
-def _generate_in(cm, certificate_folder):
-    return cm.generate_self_signed_ssl_certificate(
+def _generate_in(certificate_folder):
+    return CertificateManager.generate_self_signed_ssl_certificate(
         certificate_folder=certificate_folder,
         certificate_name="certificate",
         component_id="component-id",
     )
 
 
-def test_generate_writes_key_and_certificate_files(mocked_cm):
+def test_generate_writes_key_and_certificate_files(tmp_path):
     # Production always passes an absolute path (component roots are
     # absolutized before reaching certificate generation).
-    folder = os.path.abspath("test-dir")
-    mocked_cm.isdir.return_value = True
-    with patch("fedbiomed.common.certificate_manager.open") as mock_open:
-        _generate_in(mocked_cm.cm, folder)
-        assert mock_open.call_args_list[0][0] == (
-            os.path.join(folder, "certificate.key"),
-            "wb",
-        )
-        assert mock_open.call_args_list[1][0] == (
-            os.path.join(folder, "certificate.pem"),
-            "wb",
-        )
-        assert mock_open.return_value.__enter__.return_value.write.call_count == 2
+    key_file, pem_file = _generate_in(str(tmp_path))
+
+    assert key_file == str(tmp_path / "certificate.key")
+    assert pem_file == str(tmp_path / "certificate.pem")
+    # Both are usable: a loadable certificate and its matching private key
+    certificate = _load(pem_file)
+    with open(key_file, "rb") as f:
+        key = serialization.load_pem_private_key(f.read(), password=None)
+    assert (
+        certificate.public_key().public_numbers() == key.public_key().public_numbers()
+    )
 
 
 # Failing on the key file write, then on the certificate file write.
 @pytest.mark.parametrize("side_effect", [Exception, [MagicMock(), Exception]])
-def test_generate_raises_when_a_file_cannot_be_written(mocked_cm, side_effect):
-    mocked_cm.isdir.return_value = True
+def test_generate_raises_when_a_file_cannot_be_written(tmp_path, side_effect):
     with patch("fedbiomed.common.certificate_manager.open", side_effect=side_effect):
         with pytest.raises(FedbiomedCertificateError):
-            _generate_in(mocked_cm.cm, os.path.abspath("test-dir"))
+            _generate_in(str(tmp_path))
 
 
-def test_generate_raises_for_non_existing_folder(mocked_cm):
-    mocked_cm.isdir.return_value = False
+def test_generate_raises_for_non_existing_folder(tmp_path):
     with pytest.raises(FedbiomedCertificateError):
-        _generate_in(mocked_cm.cm, os.path.abspath("test-dir"))
+        _generate_in(str(tmp_path / "no-such-folder"))
 
 
-def test_generate_rejects_relative_path(mocked_cm):
-    # Absoluteness is checked before the folder is used, so no mocking needed.
+def test_generate_rejects_relative_path():
     with pytest.raises(FedbiomedCertificateError):
-        _generate_in(mocked_cm.cm, "relative-dir")
+        _generate_in("relative-dir")
 
 
 # -----------------------------------------------------------------------------
@@ -451,26 +454,6 @@ def test_unrecognized_id_gets_both_roles(tmp_path):
     assert ExtendedKeyUsageOID.CLIENT_AUTH in eku
 
 
-def test_explicit_purpose_overrides_component_id(tmp_path):
-    eku, _, _ = _extensions(
-        _load(
-            _self_signed(
-                str(tmp_path),
-                "NODE_1",
-                purpose=CERT_PURPOSE_SERVER,
-                with_org_subject=False,
-            )
-        )
-    )
-    assert ExtendedKeyUsageOID.SERVER_AUTH in eku
-    assert ExtendedKeyUsageOID.CLIENT_AUTH not in eku
-
-
-def test_unknown_purpose_raises(tmp_path):
-    with pytest.raises(FedbiomedCertificateError):
-        _self_signed(str(tmp_path), "NODE_1", purpose="bogus", with_org_subject=False)
-
-
 # -----------------------------------------------------------------------------
 # The module-level `generate_certificate` wrapper
 # -----------------------------------------------------------------------------
@@ -582,6 +565,32 @@ def test_party_id_required_without_usable_identity(cert_db):
         )
 
 
+def test_certificate_already_registered_under_another_party_is_rejected(cert_db):
+    """A certificate identifies one party, so a second party cannot claim it.
+
+    Only reachable with a third-party certificate: one embedding a valid identity
+    can only be registered under that identity.
+    """
+    certificate = _self_signed(cert_db.tmp, "Hospital A")
+    cert_db.cm.register_certificate(certificate_path=certificate, party_id=_NODE_A)
+
+    with pytest.raises(FedbiomedCertificateError, match=_NODE_A):
+        cert_db.cm.register_certificate(certificate_path=certificate, party_id=_NODE_B)
+
+    assert cert_db.cm.get(_NODE_B) is None
+
+
+def test_reregistering_a_party_own_certificate_is_allowed(cert_db):
+    """Renewal keeps working: the conflict is with another party, not itself."""
+    certificate = _self_signed(cert_db.tmp, "Hospital A")
+    cert_db.cm.register_certificate(certificate_path=certificate, party_id=_NODE_A)
+    cert_db.cm.register_certificate(
+        certificate_path=certificate, party_id=_NODE_A, upsert=True
+    )
+
+    assert len(cert_db.cm.list()) == 1
+
+
 def test_given_party_id_used_without_usable_identity(cert_db):
     cert_db.cm.register_certificate(
         certificate_path=_self_signed(cert_db.tmp, "Hospital A"), party_id=_NODE_A
@@ -684,8 +693,8 @@ def test_researcher_registering_server_only_third_party_rejected(cert_db):
     # even though `O=` carries no party id.
     with pytest.raises(FedbiomedCertificateError):
         cert_db.cm.register_certificate(
-            certificate_path=_self_signed(
-                cert_db.tmp, "Hospital_x", purpose=CERT_PURPOSE_SERVER
+            certificate_path=_third_party(
+                cert_db.tmp, "Hospital_x", [ExtendedKeyUsageOID.SERVER_AUTH]
             ),
             party_id=_NODE_A,
             registering_component=ComponentType.RESEARCHER.name,
@@ -695,8 +704,8 @@ def test_researcher_registering_server_only_third_party_rejected(cert_db):
 def test_node_registering_client_only_third_party_rejected(cert_db):
     with pytest.raises(FedbiomedCertificateError):
         cert_db.cm.register_certificate(
-            certificate_path=_self_signed(
-                cert_db.tmp, "Hospital_x", purpose=CERT_PURPOSE_CLIENT
+            certificate_path=_third_party(
+                cert_db.tmp, "Hospital_x", [ExtendedKeyUsageOID.CLIENT_AUTH]
             ),
             party_id=_RESEARCHER_A,
             registering_component=ComponentType.NODE.name,
@@ -715,23 +724,8 @@ def test_dual_role_third_party_accepted(cert_db):
 
 def test_missing_eku_constrains_nothing(cert_db):
     # A certificate without any EKU carries no role to check against.
-    pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    name = x509.Name([x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Hospital_x")])
-    certificate = (
-        x509.CertificateBuilder()
-        .subject_name(name)
-        .issuer_name(name)
-        .public_key(pkey.public_key())
-        .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.now(timezone.utc))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
-        .sign(private_key=pkey, algorithm=hashes.SHA256())
-    )
-    pem_file = os.path.join(cert_db.tmp, "no_eku.pem")
-    with open(pem_file, "wb") as file:
-        file.write(certificate.public_bytes(serialization.Encoding.PEM))
     cert_db.cm.register_certificate(
-        certificate_path=pem_file,
+        certificate_path=_third_party(cert_db.tmp, "Hospital_x"),
         party_id=_NODE_A,
         registering_component=ComponentType.RESEARCHER.name,
     )

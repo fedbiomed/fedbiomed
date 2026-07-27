@@ -1,20 +1,19 @@
 import configparser
-
-import unittest
-import tempfile
 import os
 import shutil
+import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
 
-from unittest.mock import patch, MagicMock
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.utils._config_utils import (
     _get_fedbiomed_root,
-    get_component_config,
-    get_component_certificate_from_config,
-    get_all_existing_config_files,
     get_all_existing_certificates,
+    get_all_existing_config_files,
+    get_component_certificate_from_config,
+    get_component_config,
     get_existing_component_db_names,
 )
-from fedbiomed.common.exceptions import FedbiomedError
 
 
 class TestCommonConfigUtils(unittest.TestCase):
@@ -86,6 +85,12 @@ class TestCommonConfigUtils(unittest.TestCase):
                     "party_id": "node-id",
                 },
             )
+
+            # Component types are compared against `ComponentType` names, which
+            # are uppercase; a config written otherwise reads back the same way
+            cfg["default"]["component"] = "node"
+            cert = get_component_certificate_from_config("dummy/path/to/config")
+            self.assertEqual(cert["component"], "NODE")
 
     def test_03_common_config_utils_get_all_existing_config_files(self):
         test_dir = tempfile.mkdtemp()

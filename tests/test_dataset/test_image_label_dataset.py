@@ -241,3 +241,30 @@ def test_mnist_dataset_class():
     """Test MnistDataset class attributes."""
     dataset = MnistDataset()
     assert dataset._controller_cls == MnistController
+
+
+@pytest.mark.parametrize(
+    "supplied,expected",
+    [
+        # Nothing recorded: current behaviour, no fetch when reading back
+        ({}, {"train": True, "download": False}),
+        # An entry predating the split still carries both; both are obeyed
+        ({"train": True, "download": False}, {"train": True, "download": False}),
+        ({"train": False, "download": True}, {"train": False, "download": True}),
+    ],
+)
+def test_mnist_dataset_load_forwards_supplied_flags(
+    mocker, tmp_path, supplied, expected
+):
+    """`train`/`download` reach the controller when given, and default otherwise.
+
+    The round replays `dataset_parameters` verbatim, so entries written before
+    these stopped being recorded must still load, and a caller passing them
+    explicitly must be obeyed.
+    """
+    controller = mocker.patch.object(MnistDataset, "_init_controller")
+    mocker.patch.object(MnistDataset, "_validate_initial_sample")
+
+    MnistDataset().load(root=tmp_path, to_format=DataReturnFormat.TORCH, **supplied)
+
+    assert controller.call_args.kwargs == {"root": tmp_path, **expected}

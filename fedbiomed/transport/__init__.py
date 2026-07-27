@@ -8,6 +8,9 @@ node components based on gRPC
 
 import os
 
-# Silence gRPC C-core INFO logs (e.g. each failed TLS handshake, reported
-# node-side instead); must be set before submodules `import grpc`.
+# gRPC reports every failed TLS handshake at INFO, and a node retrying its
+# connection turns that into unbounded output on the researcher. Read by the C
+# core as it initialises, so it is set here, before the submodules `import grpc`.
+# A value already in the environment wins: raising it to INFO is how an operator
+# sees the individual rejections while diagnosing.
 os.environ.setdefault("GRPC_VERBOSITY", "ERROR")

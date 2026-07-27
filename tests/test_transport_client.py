@@ -104,10 +104,8 @@ async def test_grpc_client_on_status_change(grpc_client):
 async def test_grpc_client_update_id(grpc_client):
     client = grpc_client.client
     await client._update_id(id_="test")
-    assert client._id == "test"
-    grpc_client.update_id_map.assert_called_once_with(
-        f"{client._researcher.host}:{client._researcher.port}", "test"
-    )
+    # The observable effect: the endpoint is mapped to the researcher it answered as
+    grpc_client.update_id_map.assert_called_once_with("localhost:50051", "test")
 
     with pytest.raises(FedbiomedCommunicationError):
         await client._update_id(id_="test-malicious")
@@ -198,47 +196,44 @@ async def test_grpc_client_channel_event_identifies_researcher_certificate(
 
 
 @pytest.mark.asyncio
-@patch("fedbiomed.transport.client._researcher_requires_client_auth", return_value=True)
-@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
 @patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.certificate_subject_field", autospec=True)
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
-@patch("fedbiomed.transport.client.asyncio.sleep")
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
-async def test_grpc_client_connect_refuses_in_band_cert_from_mtls_researcher(
+async def test_grpc_client_connect_does_not_probe_without_mtls(
     is_server_alive,
-    sleep,
     get_server_certificate,
+    subject_field,
     security_event,
-    log_error,
     requires_client_auth,
     grpc_client,
 ):
-    """A non-mTLS node facing an mTLS-enforcing researcher never adopts an
-    in-band certificate: it reports the mismatch and keeps waiting."""
+    """Connecting without mTLS never depends on the client-auth probe.
+
+    The probe cannot distinguish a busy researcher from one enforcing mutual
+    TLS, so gating on it let a transient failure stop a correctly configured
+    node from connecting at all. A researcher that does enforce mutual TLS is
+    diagnosed from the resulting RPC failure instead.
+    """
     is_server_alive.return_value = True
-    # Break out of the connect loop after two retry sleeps
-    sleep.side_effect = [None, asyncio.CancelledError]
+    get_server_certificate.return_value = "DUMMY-CERT"
+    subject_field.return_value = "test-researcher"
     grpc_client.client._channels.connect = AsyncMock()  # no spec
 
-    with pytest.raises(asyncio.CancelledError):
-        await grpc_client.client._connect()
+    await grpc_client.client._connect()
 
-    # No in-band certificate fetch, no channel creation
-    get_server_certificate.assert_not_called()
-    grpc_client.client._channels.connect.assert_not_called()
-    # One console-visible error despite two detections
-    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
-    assert len(errors) == 1
-    assert "mutual-TLS is disabled on this node" in errors[0].args[0]
-    # The audit event names the endpoint the mismatch was detected against
-    mismatch = security_event.call_args_list[0].kwargs
-    assert mismatch["operation"] == "mtls_configuration_mismatch"
-    assert (mismatch["host"], mismatch["port"]) == ("localhost", "50051")
+    requires_client_auth.assert_not_called()
+    get_server_certificate.assert_called_once()
+    grpc_client.client._channels.connect.assert_called_once()
 
 
-# Warn iff the researcher does not require the node's client certificate
+# Warn iff the researcher is known not to require the node's client certificate;
+# an inconclusive probe (None) is not evidence of anything.
 @pytest.mark.asyncio
-@pytest.mark.parametrize("requires_auth,expected_warnings", [(False, 1), (True, 0)])
+@pytest.mark.parametrize(
+    "requires_auth,expected_warnings", [(False, 1), (True, 0), (None, 0)]
+)
 @patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
@@ -594,6 +589,7 @@ async def test_task_listener_mtls_announce_and_reannounce_on_reconnect(
 ):
     """An idle deadline confirms the mTLS channel; a reconnect re-announces it."""
     listener_env.channels.mtls = True
+    listener_env.channels.client_auth_enforced = True
     await listener_env.drain(
         [
             _rpc_error(grpc.StatusCode.DEADLINE_EXCEEDED, "deadline"),
@@ -676,6 +672,26 @@ async def test_task_listener_announce_honest_when_not_enforced(log_info, listene
     assert "Mutual-TLS communication established" not in msgs[0].args[0]
 
 
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.info")
+async def test_task_listener_announce_honest_when_enforcement_unknown(
+    log_info, listener_env
+):
+    """An inconclusive probe claims neither that identity was verified nor that
+    it was not: the connection proves only that the channel came up."""
+    listener_env.channels.mtls = True
+    listener_env.channels.client_auth_enforced = None
+
+    await listener_env.drain([_one_task(b"t1")])
+
+    msgs = [
+        c for c in log_info.call_args_list if "Communication established" in c.args[0]
+    ]
+    assert len(msgs) == 1
+    assert "could not determine whether the researcher verifies" in msgs[0].args[0]
+    assert "NOT verified" not in msgs[0].args[0]
+
+
 # -----------------------------------------------------------------------------
 # TLS/pinning failure discriminator
 # -----------------------------------------------------------------------------
@@ -737,10 +753,29 @@ def test_probe_false_when_server_replies(context, create_connection):
 
 @patch("fedbiomed.transport.client.socket.create_connection")
 @patch("fedbiomed.transport.client.ssl.create_default_context")
-def test_probe_true_when_connection_times_out(context, create_connection):
+def test_probe_true_when_server_aborts_the_connection(context, create_connection):
+    wrap_socket = context.return_value.wrap_socket.return_value
+    wrap_socket.__enter__.return_value.recv.side_effect = ConnectionResetError()
+    assert _researcher_requires_client_auth("localhost", "50051") is True
+
+
+# A probe that learns nothing must say so: reporting "required" would let a slow
+# or unreachable server look like a researcher enforcing mutual TLS.
+@patch("fedbiomed.transport.client.socket.create_connection")
+@patch("fedbiomed.transport.client.ssl.create_default_context")
+def test_probe_unknown_when_connection_times_out(context, create_connection):
     wrap_socket = context.return_value.wrap_socket.return_value
     wrap_socket.__enter__.return_value.recv.side_effect = TimeoutError()
-    assert _researcher_requires_client_auth("localhost", "50051")
+    assert _researcher_requires_client_auth("localhost", "50051") is None
+
+
+@patch("fedbiomed.transport.client.ssl.create_default_context")
+@patch(
+    "fedbiomed.transport.client.socket.create_connection",
+    side_effect=ConnectionRefusedError(),
+)
+def test_probe_unknown_when_server_unreachable(create_connection, context):
+    assert _researcher_requires_client_auth("localhost", "50051") is None
 
 
 # -----------------------------------------------------------------------------

@@ -11,9 +11,10 @@ from typing import Iterable, List, Optional, Tuple, Union
 import pandas as pd
 from tabulate import tabulate  # only used for printing
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import get_controller
+from fedbiomed.common.dataset_controller import download_mnist
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.node.dataset_manager._db_tables import (
@@ -174,7 +175,15 @@ class DatasetManager:
             - If there are conflicting tags with existing datasets
             - If the data loading plan name is invalid or not unique
             - If the data_type is not supported
+            - If MNIST is deployed and its files can neither be found nor fetched
         """
+        # MNIST is the only dataset Fed-BioMed can fetch, and deploying it is the
+        # only moment that is wanted; an explicit `download` overrides.
+        if data_type == DatasetTypes.DEFAULT.value and (dataset_parameters or {}).get(
+            "download", True
+        ):
+            download_mnist(path)
+
         entry = self._build_dataset_entry(
             data_type=data_type,
             path=path,

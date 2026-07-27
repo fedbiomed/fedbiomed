@@ -103,8 +103,7 @@ def is_server_alive(host: str, port: str):
     port = int(port)
     address_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
     for family, socktype, protocol, _, address in address_info:
-        # Use a context manager so the socket is always closed, even when
-        # connect() raises (previously the socket leaked on failure).
+        # Context manager so the socket is closed even when connect() raises
         with socket.socket(family, socktype, protocol) as s:
             # Need this timeout for the case where the server does not answer
             # If not present, socket timeout increases and this function takes more
@@ -130,7 +129,7 @@ def _is_connection_closed_error(exp: grpc.aio.AioRpcError) -> bool:
     return any(m in detail for m in _CONNECTION_CLOSED_ERROR_MARKERS)
 
 
-def _researcher_requires_client_auth(host: str, port: str) -> bool:
+def _researcher_requires_client_auth(host: str, port: str) -> Optional[bool]:
     """Whether the researcher's TLS server demands a client certificate.
 
     gRPC hides from the client whether its certificate was requested, so this
@@ -143,13 +142,17 @@ def _researcher_requires_client_auth(host: str, port: str) -> bool:
     certificate, so the rejection only shows up on the first read. Reading the
     reply is what makes this work on both TLS 1.2 and TLS 1.3.
 
+    Blocking: run it off the event loop.
+
     Args:
         host: The host/ip of the researcher server.
         port: Port number of the researcher server.
 
     Returns:
-        True if a client certificate is required, False if an anonymous client
-        is accepted.
+        True if a client certificate is demanded, False if an anonymous client is
+        accepted, None if the exchange ended without saying either way. Callers act
+        on a definite answer only, so an unreachable or slow server cannot be
+        mistaken for a configuration mismatch.
     """
     context = ssl.create_default_context()
     # Testing the client-auth requirement only, not the server certificate.
@@ -166,12 +169,18 @@ def _researcher_requires_client_auth(host: str, port: str) -> bool:
                 ssock.settimeout(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
                 # Empty read == closed without replying == identity demanded.
                 return not ssock.recv(1)
-    except (ssl.SSLError, OSError):
-        # A server enforcing client auth rejects the anonymous connection with a
-        # TLS alert (SSLError) or by resetting it (OSError). Any transient socket
-        # failure is also treated conservatively as "required", so this
-        # diagnostic probe never warns spuriously nor crashes the connect loop.
+    except TimeoutError:
+        # Neither answered nor refused: the server may just be slow.
+        return None
+    except (ConnectionResetError, BrokenPipeError):
+        # Aborted once connected: how a server rejects an anonymous client.
         return True
+    except ssl.SSLError:
+        # A TLS alert in reply to a handshake presenting no certificate.
+        return True
+    except OSError:
+        # Never got far enough to learn anything (refused, unreachable, DNS).
+        return None
 
 
 class Channels:
@@ -379,8 +388,6 @@ class GrpcClient:
 
         self._update_id_map = update_id_map
         self._tasks = []
-        # Report the repeating connect-loop mTLS mismatch once.
-        self._auth_mismatch_logged = False
 
     @property
     def tasks(self) -> List[asyncio.Task]:
@@ -436,25 +443,14 @@ class GrpcClient:
             time_before = time.perf_counter()
             if is_server_alive(self._researcher.host, self._researcher.port):
                 if not self._researcher.mtls:
-                    if _researcher_requires_client_auth(
-                        self._researcher.host, self._researcher.port
-                    ):
-                        # A researcher enforcing mutual TLS would reject this node
-                        self._log_auth_mismatch_once(
-                            f"{ErrorNumbers.FB628.value}: The researcher requires "
-                            "mutual-TLS client authentication but mutual-TLS is "
-                            "disabled on this node. Enable it in the node `[mtls]` "
-                            "configuration, register the researcher certificate and "
-                            "ask the researcher to register this node's certificate."
-                        )
-                        await asyncio.sleep(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-                        continue
                     # Gets server certificate before creating the channel
                     # This implementation assumes that the provided IP and PORT trusted
                     # == OK for honest but curious researcher and nodes (parties in the
                     # network instance) but subject to attack by malicious MITM at each
                     # connection to server.
                     # Skipped under mutual TLS, where the cert is pinned, not fetched.
+                    # A researcher that does enforce mutual TLS is diagnosed from the
+                    # resulting RPC failure, so connecting never depends on the probe.
                     self._researcher.certificate = bytes(
                         ssl.get_server_certificate(
                             (self._researcher.host, self._researcher.port)
@@ -471,12 +467,14 @@ class GrpcClient:
                         detail=msg,
                     )
                 else:
-                    self._researcher.client_auth_enforced = (
-                        _researcher_requires_client_auth(
-                            self._researcher.host, self._researcher.port
-                        )
+                    self._researcher.client_auth_enforced = await asyncio.to_thread(
+                        _researcher_requires_client_auth,
+                        self._researcher.host,
+                        self._researcher.port,
                     )
-                    if not self._researcher.client_auth_enforced:
+                    # Only a definite "not enforced" is worth warning about; an
+                    # inconclusive probe says nothing about the researcher.
+                    if self._researcher.client_auth_enforced is False:
                         msg = (
                             "This node is configured for mutual-TLS but the "
                             "researcher does not require client certificates: "
@@ -528,22 +526,6 @@ class GrpcClient:
                     )
                 )
 
-    def _log_auth_mismatch_once(self, message: str) -> None:
-        """Logs an mTLS configuration mismatch at error level with a security
-        audit event, once; the connect loop repeats it at debug only."""
-        if self._auth_mismatch_logged:
-            logger.debug(message)
-            return
-        self._auth_mismatch_logged = True
-        logger.error(message)
-        logger.security_event(
-            operation="mtls_configuration_mismatch",
-            status="failure",
-            host=self._researcher.host,
-            port=self._researcher.port,
-            detail=message,
-        )
-
     async def _on_status_change(self, status: ClientStatus) -> None:
         """Callback awaitable to change the researcher status
 
@@ -560,12 +542,12 @@ class GrpcClient:
             id_: Researcher Id
 
         Raises:
-            FedbiomedCommunicationError: suspected malicious researcher
+            FedbiomedCommunicationError: the researcher id changed mid-connection
         """
         if self._id is not None and self._id != id_:
             msg = (
-                f"{ErrorNumbers.FB628.value}: Suspected malicious researcher activity ! "
-                f"Researcher ID changed for {self._researcher.host}:{self._researcher.port} from "
+                f"{ErrorNumbers.FB628.value}: Researcher ID changed for "
+                f"{self._researcher.host}:{self._researcher.port} from "
                 f"`{self._id}` to `{id_}`"
             )
             logger.error(msg)
@@ -720,8 +702,13 @@ class Listener:
                                 or _is_tls_handshake_error(exp)
                             )
                             and self._server_reachable()
-                            and _researcher_requires_client_auth(
-                                self._channels.host, self._channels.port
+                            and (
+                                await asyncio.to_thread(
+                                    _researcher_requires_client_auth,
+                                    self._channels.host,
+                                    self._channels.port,
+                                )
+                                is True
                             )
                         ):
                             self._log_tls_failure_once(
@@ -882,18 +869,26 @@ class TaskListener(Listener):
             return
         self._communication_established = True
 
-        if self._channels.mtls and self._channels.client_auth_enforced is not False:
+        if self._channels.mtls and self._channels.client_auth_enforced is True:
             logger.info(
                 "Mutual-TLS communication established with researcher at "
                 f"{self._channels.endpoint}; node identity verified by the researcher."
             )
-        elif self._channels.mtls:
+        elif self._channels.mtls and self._channels.client_auth_enforced is False:
             # The connect probe saw the researcher accept anonymous clients.
             logger.info(
                 "Communication established with researcher at "
                 f"{self._channels.endpoint} over TLS with pinned researcher "
                 "certificate; node identity NOT verified by the researcher "
                 "(mutual TLS not enforced)."
+            )
+        elif self._channels.mtls:
+            # The probe was inconclusive: claim only what the connection proves.
+            logger.info(
+                "Communication established with researcher at "
+                f"{self._channels.endpoint} over TLS with pinned researcher "
+                "certificate; could not determine whether the researcher "
+                "verifies node identity."
             )
         else:
             logger.info(

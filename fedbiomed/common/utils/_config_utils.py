@@ -88,8 +88,8 @@ def get_component_certificate_from_config(config_path: str) -> Dict[str, str]:
         config_path: Path where config file is located.
 
     Returns:
-        Certificate object that contains  component type as `component`, party id `id`, public key content
-            (not path)  as `certificate`
+        Certificate object that contains  component type as `component` (uppercase),
+            party id `id`, public key content (not path)  as `certificate`
 
     Raises:
         FedbiomedError:
@@ -100,7 +100,7 @@ def get_component_certificate_from_config(config_path: str) -> Dict[str, str]:
 
     config = get_component_config(config_path)
     component_id = config.get("default", "id")
-    component_type = config.get("default", "component")
+    component_type = config.get("default", "component").upper()
 
     certificate = config.get("certificate", "public_key")
     certificate_path = os.path.join(os.path.dirname(config_path), certificate)

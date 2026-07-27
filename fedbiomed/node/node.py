@@ -172,7 +172,8 @@ class Node:
 
         When mutual TLS is enabled through the `[mtls]` config section, the node
         attaches its own client identity and pins the registered researcher
-        certificate. Otherwise the legacy auto-trust behaviour is kept.
+        certificate. Otherwise it trusts whichever certificate the endpoint
+        presents on connect.
 
         Returns:
             Credentials used to connect to the researcher gRPC server.
