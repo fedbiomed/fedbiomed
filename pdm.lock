@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs", "gui", "node", "researcher", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:cb9a24fe0e2caf7f41531caedc4c5398a7803f7fb1e049c96dfb3f23af43b961"
+content_hash = "sha256:79a08c9b4b820b225707c7fbf475a662a06221b3128b8b5c20a36f1b12c4f037"
 
 [[metadata.targets]]
 requires_python = ">=3.10,<3.15"
@@ -170,17 +170,17 @@ files = [
 
 [[package]]
 name = "backrefs"
-version = "7.0"
+version = "8.0"
 requires_python = ">=3.10"
 summary = "A wrapper around re and regex that adds additional back references."
 groups = ["docs"]
 files = [
-    {file = "backrefs-7.0-py310-none-any.whl", hash = "sha256:b57cd227ea556b0aed3dc9b8da4628db4eabc0402c6d7fcfc69283a93955f7e9"},
-    {file = "backrefs-7.0-py311-none-any.whl", hash = "sha256:a0fa7360c63509e9e077e174ef4e6d3c21c8db94189b9d957289ae6d794b9475"},
-    {file = "backrefs-7.0-py312-none-any.whl", hash = "sha256:ca42ce6a49ace3d75684dfa9937f3373902a63284ecb385ce36d15e5dcb41c12"},
-    {file = "backrefs-7.0-py313-none-any.whl", hash = "sha256:f2c52955d631b9e1ac4cd56209f0a3a946d592b98e7790e77699339ae01c102a"},
-    {file = "backrefs-7.0-py314-none-any.whl", hash = "sha256:a6448b28180e3ca01134c9cf09dcebafad8531072e09903c5451748a05f24bc9"},
-    {file = "backrefs-7.0.tar.gz", hash = "sha256:4989bb9e1e99eb23647c7160ed51fb21d0b41b5d200f2d3017da41e023097e82"},
+    {file = "backrefs-8.0-py310-none-any.whl", hash = "sha256:4a627b817fd2dce43b79ab48da63613340509381cd8ce0897078a0bce79a2ab8"},
+    {file = "backrefs-8.0-py311-none-any.whl", hash = "sha256:f0c35cf0102ba6b6070c12a492be3c1c1d3f5839529784b9a9565d6d04569a01"},
+    {file = "backrefs-8.0-py312-none-any.whl", hash = "sha256:87f0fae8c5f207fe9f4b2887efc71d42f4900ac78faa1af08d675ef303692dc5"},
+    {file = "backrefs-8.0-py313-none-any.whl", hash = "sha256:601ce68ca12385dbda06ce264406b4c4210cf5b79fd0fd627592365c92f29a88"},
+    {file = "backrefs-8.0-py314-none-any.whl", hash = "sha256:9ec96efa080938be92323e8e730e57718c9c88eb15ad70bbef4e1766df591408"},
+    {file = "backrefs-8.0.tar.gz", hash = "sha256:b556cd7d36c3a3a2f256b89590b176b8eddfb73bcfaee3a3ddd84ea66d21ce50"},
 ]
 
 [[package]]
@@ -252,13 +252,13 @@ files = [
 
 [[package]]
 name = "cachetools"
-version = "7.1.4"
+version = "7.1.6"
 requires_python = ">=3.10"
 summary = "Extensible memoizing collections and decorators"
 groups = ["test"]
 files = [
-    {file = "cachetools-7.1.4-py3-none-any.whl", hash = "sha256:323dc4127934744db5b54eb4924482d7edafbf9554e820d1531c2e08c0e4ef54"},
-    {file = "cachetools-7.1.4.tar.gz", hash = "sha256:437f55a4e0c1b01a4f3077cc470e6991d47430970e36fbcb77e2be0df4fc1cd6"},
+    {file = "cachetools-7.1.6-py3-none-any.whl", hash = "sha256:2c12e255780330af28b91bb7fb96cce4c766f04e38396b9a24510190a5827096"},
+    {file = "cachetools-7.1.6.tar.gz", hash = "sha256:c7a79e7f30ba9943c1cefd08cc36f006aaae086e017af9166f1d59d6170c47e1"},
 ]
 
 [[package]]
@@ -1031,12 +1031,12 @@ files = [
 
 [[package]]
 name = "fastjsonschema"
-version = "2.21.2"
+version = "2.22.0"
 summary = "Fastest Python implementation of JSON schema"
 groups = ["docs", "researcher"]
 files = [
-    {file = "fastjsonschema-2.21.2-py3-none-any.whl", hash = "sha256:1c797122d0a86c5cace2e54bf4e819c36223b552017172f32c5c024a6b77e463"},
-    {file = "fastjsonschema-2.21.2.tar.gz", hash = "sha256:b1eb43748041c880796cd077f1a07c3d94e93ae84bba5ed36800a33554ae05de"},
+    {file = "fastjsonschema-2.22.0-py3-none-any.whl", hash = "sha256:60f4c92fda6f93efe3b3261638836478e1e11abc01c647e36e478199f7a86a37"},
+    {file = "fastjsonschema-2.22.0.tar.gz", hash = "sha256:6eb12e8f9900db6166c3d396d178ebdf6a4215fe22a06e19792edd612a20035a"},
 ]
 
 [[package]]
@@ -2944,7 +2944,7 @@ files = [
 
 [[package]]
 name = "notebook"
-version = "7.6.0"
+version = "7.6.1"
 requires_python = ">=3.10"
 summary = "Jupyter Notebook - A web-based notebook environment for interactive computing"
 groups = ["researcher"]
@@ -2952,13 +2952,13 @@ dependencies = [
     "jupyter-builder<2,>=1.0.2",
     "jupyter-server<3,>=2.19.0",
     "jupyterlab-server<3,>=2.28.0",
-    "jupyterlab<4.7,>=4.6.0",
+    "jupyterlab<4.7,>=4.6.2",
     "notebook-shim<0.3,>=0.2",
     "tornado>=6.2.0",
 ]
 files = [
-    {file = "notebook-7.6.0-py3-none-any.whl", hash = "sha256:98aa2811b54ac191321d5dfce12ca700f8a511a33a26e4de2fa106a357c43d6a"},
-    {file = "notebook-7.6.0.tar.gz", hash = "sha256:ea13e79e601bf273074895fdfb17dd3f2da916d3c045e0b9c47d18b16ab62481"},
+    {file = "notebook-7.6.1-py3-none-any.whl", hash = "sha256:6ea1e4c926f0dc490444ddcc335797a3dacda470a805d01031872fb119988ba2"},
+    {file = "notebook-7.6.1.tar.gz", hash = "sha256:0b45fd1010668dd4808c40914d957706dbf044a677d28764dc881b74dfcede82"},
 ]
 
 [[package]]
@@ -3574,27 +3574,27 @@ files = [
 
 [[package]]
 name = "prometheus-client"
-version = "0.25.0"
+version = "0.26.0"
 requires_python = ">=3.9"
 summary = "Python client for the Prometheus monitoring system."
 groups = ["researcher"]
 files = [
-    {file = "prometheus_client-0.25.0-py3-none-any.whl", hash = "sha256:d5aec89e349a6ec230805d0df882f3807f74fd6c1a2fa86864e3c2279059fed1"},
-    {file = "prometheus_client-0.25.0.tar.gz", hash = "sha256:5e373b75c31afb3c86f1a52fa1ad470c9aace18082d39ec0d2f918d11cc9ba28"},
+    {file = "prometheus_client-0.26.0-py3-none-any.whl", hash = "sha256:fa93d06737aa02bacd05794768508bb97d2fbee28cb3bca04eaae92f0ca953d6"},
+    {file = "prometheus_client-0.26.0.tar.gz", hash = "sha256:04a91bcf94e2cf74a44a1a874d651a2e853ed354b6e822f3b7487751465d5c2b"},
 ]
 
 [[package]]
 name = "prompt-toolkit"
-version = "3.0.52"
-requires_python = ">=3.8"
+version = "3.0.53"
+requires_python = ">=3.10"
 summary = "Library for building powerful interactive command lines in Python"
 groups = ["docs", "researcher"]
 dependencies = [
-    "wcwidth",
+    "wcwidth>=0.1.4",
 ]
 files = [
-    {file = "prompt_toolkit-3.0.52-py3-none-any.whl", hash = "sha256:9aac639a3bbd33284347de5ad8d68ecc044b91a762dc39b7c21095fcd6a19955"},
-    {file = "prompt_toolkit-3.0.52.tar.gz", hash = "sha256:28cde192929c8e7321de85de1ddbe736f1375148b02f2e17edd840042b1be855"},
+    {file = "prompt_toolkit-3.0.53-py3-none-any.whl", hash = "sha256:01c0891d7f9237d5e339f7d3e42cdae80b7534abb1c7c0e3352efba6231492f2"},
+    {file = "prompt_toolkit-3.0.53.tar.gz", hash = "sha256:9ec8a0ad96d5c56148b3f914aa79c1564c3fde5d2e6b876e7bc327e353cf8fa6"},
 ]
 
 [[package]]
@@ -3925,12 +3925,12 @@ files = [
 
 [[package]]
 name = "pytz"
-version = "2026.2"
+version = "2026.3.post1"
 summary = "World timezone definitions, modern and historical"
 groups = ["default"]
 files = [
-    {file = "pytz-2026.2-py2.py3-none-any.whl", hash = "sha256:04156e608bee23d3792fd45c94ae47fae1036688e75032eea2e3bf0323d1f126"},
-    {file = "pytz-2026.2.tar.gz", hash = "sha256:0e60b47b29f21574376f218fe21abc009894a2321ea16c6754f3cad6eb7cdd6a"},
+    {file = "pytz-2026.3.post1-py2.py3-none-any.whl", hash = "sha256:dd95840dd199baea12d9cc096a1d452caa6596a1c1e4b5f3dbd1541855d5e815"},
+    {file = "pytz-2026.3.post1.tar.gz", hash = "sha256:2211d3fcf9a797d3405cac96ac7f61d80e6a644f72a3309607282fe8a2010c5d"},
 ]
 
 [[package]]
@@ -4818,7 +4818,7 @@ files = [
 
 [[package]]
 name = "tqdm"
-version = "4.69.0"
+version = "4.70.0"
 requires_python = ">=3.8"
 summary = "Fast, Extensible Progress Meter"
 groups = ["default"]
@@ -4826,8 +4826,8 @@ dependencies = [
     "colorama; platform_system == \"Windows\"",
 ]
 files = [
-    {file = "tqdm-4.69.0-py3-none-any.whl", hash = "sha256:9979978912be667a6ef21fd5d8abf54e324e63d82f7f43c360792ebc2bc4e622"},
-    {file = "tqdm-4.69.0.tar.gz", hash = "sha256:700c5e85dcd5f009dd6222588a29180a193a748247a5d855b4d67db93d79a53b"},
+    {file = "tqdm-4.70.0-py3-none-any.whl", hash = "sha256:7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953"},
+    {file = "tqdm-4.70.0.tar.gz", hash = "sha256:55b0b0dbd97462d06ebee91e4dac24ed4d4702be82b24f07e6c1d27e08cea220"},
 ]
 
 [[package]]
