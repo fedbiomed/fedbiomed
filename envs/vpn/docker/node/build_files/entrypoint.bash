@@ -42,7 +42,7 @@ su -l -c "export FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS=\"${FBM_SECURITY_ALLOW_F
 su -l -c "echo \"$FBM_NODE_START_OPTIONS\" >/fbm-node/FBM_NODE_START_OPTIONS" $CONTAINER_USER
 
 # Launch node using node options
-su -l -c "fedbiomed node --path /fbm-node start $FBM_NODE_START_OPTIONS &" $CONTAINER_USER
+su -l -c "fedbiomed node --path /fbm-node start --force $FBM_NODE_START_OPTIONS &" $CONTAINER_USER
 
 echo "Node container is ready"
 sleep infinity &
