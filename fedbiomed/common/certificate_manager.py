@@ -56,6 +56,39 @@ def certificate_subject_field(
         return None
 
 
+def certificate_audit_fields(certificate: Union[bytes, str]) -> Dict[str, str]:
+    """Identifying fields of a peer certificate, for security audit events.
+
+    Reports the certificate a peer authenticated with precisely enough to trace
+    it back to an issued credential, without emitting the certificate itself.
+    Called while logging a connection, so a certificate that cannot be described
+    yields an empty dict instead of raising into the connection path.
+    """
+    if isinstance(certificate, str):
+        certificate = certificate.encode("utf-8")
+    try:
+        cert = x509.load_pem_x509_certificate(certificate)
+        fields = {
+            "cert_subject": cert.subject.rfc4514_string(),
+            "cert_issuer": cert.issuer.rfc4514_string(),
+            # Hex, as serials exceed what JSON consumers hold exactly as integers.
+            "cert_serial": f"{cert.serial_number:x}",
+            "cert_not_after": f"{cert.not_valid_after_utc:%Y-%m-%dT%H:%M:%SZ}",
+        }
+    except (TypeError, ValueError, AttributeError):
+        return {}
+
+    try:
+        san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        names = [str(name.value) for name in san.value]
+    except (x509.ExtensionNotFound, TypeError, ValueError, AttributeError):
+        names = []
+    if names:
+        fields["cert_san"] = ",".join(names)
+
+    return fields
+
+
 def certificate_expiry(certificate: Union[bytes, str]) -> Optional[datetime]:
     """Expiry date (`notAfter`, UTC) of a PEM certificate, or None if unparsable."""
     if isinstance(certificate, str):
@@ -242,9 +275,17 @@ class TrustedCertificateBundle:
                     self._state = state
                     self._warn_expiring(expiring)
             except (OSError, FedbiomedError) as e:
-                logger.warning(
+                msg = (
                     f"Could not read certificate database {self._db_path}: {e}. "
                     "Keeping the previously loaded node certificates."
+                )
+                logger.warning(msg)
+                logger.security_event(
+                    operation="certificate_store_unreadable",
+                    status="warning",
+                    component=self._component,
+                    db_path=self._db_path,
+                    detail=msg,
                 )
             return self._bundle
 
@@ -259,10 +300,19 @@ class TrustedCertificateBundle:
         """
         for party_id, expiry in expiring:
             if (party_id, expiry) not in self._warned:
-                logger.warning(
+                msg = (
                     f"{self._component} certificate `{party_id}` expires on "
                     f"{expiry:%Y-%m-%d}; register an updated certificate to avoid "
                     "connection failures."
+                )
+                logger.warning(msg)
+                logger.security_event(
+                    operation="certificate_expiring",
+                    status="warning",
+                    party_id=party_id,
+                    component=self._component,
+                    expires_on=f"{expiry:%Y-%m-%d}",
+                    detail=msg,
                 )
         self._warned = set(expiring)
 
@@ -526,25 +576,38 @@ class CertificateManager:
                 "party identity, so `party_id` must be provided to register it."
             )
 
-        if registering_component is not None:
-            _validate_registering_component(
-                certificate_content, component, registering_component
-            )
-
-        # A node communicates with a single researcher, so its database holds at
-        # most one certificate: registering under a second party id is rejected
-        # (re-registering the same party goes through the usual upsert flow).
-        if registering_component == ComponentType.NODE.name:
-            others = [
-                doc["party_id"] for doc in self.list() if doc["party_id"] != party_id
-            ]
-            if others:
-                registered = ", ".join(f"`{o}`" for o in others)
-                raise FedbiomedCertificateError(
-                    f"{ErrorNumbers.FB619.value}: A node registers at most one "
-                    f"certificate. Cannot register `{party_id}` while other "
-                    f"certificates are registered: {registered}. Delete them first."
+        # Rejections below mean the certificate does not belong in this trust store,
+        # so they are audited; successful ones are audited by `DBTable` on insert.
+        try:
+            if registering_component is not None:
+                _validate_registering_component(
+                    certificate_content, component, registering_component
                 )
+
+            # A node communicates with a single researcher, so its database holds at most one certificate
+            if registering_component == ComponentType.NODE.name:
+                others = [
+                    d["party_id"] for d in self.list() if d["party_id"] != party_id
+                ]
+                if others:
+                    registered = ", ".join(f"`{o}`" for o in others)
+                    raise FedbiomedCertificateError(
+                        f"{ErrorNumbers.FB619.value}: A node registers at most one "
+                        f"certificate. Cannot register `{party_id}` while other "
+                        f"certificates are registered: {registered}. Delete them first."
+                    )
+        except FedbiomedCertificateError as exp:
+            logger.security_event(
+                operation="certificate_registration_rejected",
+                status="failure",
+                party_id=party_id,
+                component=component,
+                registering_component=registering_component,
+                certificate_path=certificate_path,
+                error_type=type(exp).__name__,
+                error_message=str(exp),
+            )
+            raise
 
         return self.insert(
             certificate=certificate_content,

@@ -367,7 +367,7 @@ class Requests(metaclass=SingletonMeta):
             # server credentials from an empty bundle: it fails to bind the port
             # rather than starting and rejecting nodes.
             if not trusted_node_certificates():
-                raise FedbiomedCertificateError(
+                msg = (
                     f"{ErrorNumbers.FB619.value}: mutual TLS is enabled but no node "
                     "certificate is registered, so the researcher server cannot "
                     "start. Register at least one node certificate with `fedbiomed "
@@ -375,6 +375,12 @@ class Requests(metaclass=SingletonMeta):
                     "setting `enabled = False` in the `[mtls]` section of "
                     f"{config.config_path}."
                 )
+                logger.security_event(
+                    operation="mtls_startup_aborted",
+                    status="failure",
+                    detail=msg,
+                )
+                raise FedbiomedCertificateError(msg)
 
         # Creates grpc server and starts it
         self._researcher_id = config.get("default", "id")

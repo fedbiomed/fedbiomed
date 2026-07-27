@@ -16,6 +16,10 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
 LOG_VALUE_MAX_LENGTH = 250
+REDACTED = "<redacted>"
+
+# Entry fields whose values must never reach the logs. Case-insensitive.
+SENSITIVE_FIELDS = {"certificate", "key", "secagg_elem", "context"}
 
 
 def cast_(func):
@@ -45,6 +49,27 @@ def cast_(func):
             return casted
 
     return wrapped
+
+
+def _is_sensitive(key: str) -> bool:
+    """Whether an entry field holds material that must not reach the logs."""
+    return any(field in key.lower() for field in SENSITIVE_FIELDS)
+
+
+def _redact(obj: Any) -> Any:
+    """Replaces the values of sensitive fields, at any depth, before logging.
+
+    Entries are redacted by field name rather than relying on log truncation.
+    """
+    if isinstance(obj, dict):
+        return {
+            k: REDACTED if _is_sensitive(str(k)) else _redact(v) for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_redact(v) for v in obj]
+    if isinstance(obj, tuple):
+        return tuple(_redact(v) for v in obj)
+    return obj
 
 
 def to_print_str(obj, max_len=None) -> str:
@@ -77,6 +102,7 @@ def printtable_args_for_log(obj: Any, max_len=None) -> str:
     """Convert any Python object to a string suitable for logging, with error handling."""
 
     try:
+        obj = _redact(obj)
         if isinstance(obj, dict):
             parts = []
             for k, v in obj.items():
@@ -123,7 +149,8 @@ def _security_log(operation: str, default_stacklevel: int = 3):
                 except Exception as e:
                     logger.security_event(
                         status="failure",
-                        details=str(e),
+                        error_type=type(e).__name__,
+                        error_message=str(e),
                         db_args=args_for_log,
                         db_kwargs=kwargs_for_log,
                         stacklevel=logging_stacklevel,
@@ -162,15 +189,6 @@ def _security_log(operation: str, default_stacklevel: int = 3):
         return wrapper
 
     return _security_log
-
-
-def _is_forbidden(key: str) -> bool:
-    """Set of keys/strings that are not allowed in the database entries"""
-    forbidden_strings = {"certificate", "key", "secagg_elem"}
-    for forbidden in forbidden_strings:
-        if forbidden in key.lower():
-            return True
-    return False
 
 
 class DBTable(Table):
