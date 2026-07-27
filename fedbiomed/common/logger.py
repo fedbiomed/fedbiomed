@@ -449,11 +449,12 @@ class FedLogger(metaclass=SingletonMeta):
         Writes one JSON security/audit log line to security file only.
 
         Always present:
-          - node_id, researcher_id, timestamp, operation, status, fedbiomed_version
+          - component_id, component_name, researcher_id, timestamp, operation, status,
+            fedbiomed_version
           - caller_function, caller_module, caller_file, caller_line (automatically captured)
 
         Values resolved as:
-          - explicit args > bound SECURITY_CONTEXT > defaults (for node_id/version)
+          - explicit args > bound SECURITY_CONTEXT > defaults (for component_id/version)
 
         Args:
             operation: Name of the operation being logged (e.g., 'dataset_search', 'training_execute')
@@ -506,7 +507,7 @@ class FedLogger(metaclass=SingletonMeta):
                 json.dumps(
                     {
                         "timestamp": _utc_timestamp(),
-                        "node_id": self._security_defaults.get("component_id"),
+                        "component_id": self._security_defaults.get("component_id"),
                         "caller_parsing": "failure",
                         "caller_parser_error": str(e),
                     },

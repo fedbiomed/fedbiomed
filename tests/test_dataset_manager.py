@@ -169,6 +169,46 @@ def test_get_dlp_by_id_not_found():
     assert dlbs == []
 
 
+@pytest.mark.parametrize(
+    "dataset_parameters,expected",
+    [
+        (None, ["/data"]),
+        ({"download": True}, ["/data"]),
+        # Pointing at files already in place deploys without a fetch
+        ({"download": False}, []),
+    ],
+)
+def test_add_database_deploys_mnist_files(monkeypatch, dataset_parameters, expected):
+    """Deploying MNIST fetches its files unless the caller says they are there."""
+    fetched = []
+    monkeypatch.setattr(dm_mod, "download_mnist", fetched.append)
+    dm = dm_mod.DatasetManager(path="/db")
+
+    dm.add_database(
+        name="MNIST",
+        data_type="default",
+        tags=["#MNIST"],
+        description="d",
+        path="/data",
+        dataset_parameters=dataset_parameters,
+    )
+
+    assert fetched == expected
+
+
+def test_add_database_does_not_deploy_other_types(monkeypatch):
+    """Only MNIST can be fetched; every other type must already be on disk."""
+    fetched = []
+    monkeypatch.setattr(dm_mod, "download_mnist", fetched.append)
+    dm = dm_mod.DatasetManager(path="/db")
+
+    dm.add_database(
+        name="N", data_type="tabular", tags=["t"], description="d", path="/root"
+    )
+
+    assert fetched == []
+
+
 def test_add_database_with_and_without_persisting_dlp():
     dm = dm_mod.DatasetManager(path="/db")
 

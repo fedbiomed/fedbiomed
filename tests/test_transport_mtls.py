@@ -6,18 +6,23 @@
 Covers the mutual-TLS feature end to end:
 
 * the certificate/config helpers in ``fedbiomed.common.certificate_manager``
-  (``certificate_subject_field``, ``is_mtls_enabled``),
-* the server side wiring (``SSLCredentials.mtls``, ``_peer_node_id``), the
-  node-identity spoofing enforcement in ``ResearcherServicer.GetTaskUnary`` and
-  the audit events it records for accepted and rejected peers,
+  (``certificate_subject_field``, ``TrustedCertificateBundle``, ``is_mtls_enabled``),
+* the server side wiring (``SSLCredentials.mtls``, ``_verify_peer_identity``),
+  the node-identity spoofing enforcement in every ``ResearcherServicer`` RPC
+  carrying a node id, and the audit events recorded for accepted and rejected
+  peers,
 * a real gRPC handshake matrix validating certificate pinning, required client
   authentication and the target-name override.
 """
 
 import asyncio
+import os
+import subprocess
+import sys
 import tempfile
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import grpc
 import pytest
@@ -25,21 +30,34 @@ from cryptography import x509
 
 from fedbiomed.common.certificate_manager import (
     CertificateManager,
+    TrustedCertificateBundle,
     certificate_subject_field,
     is_mtls_enabled,
 )
-from fedbiomed.common.constants import ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
-from fedbiomed.common.message import SearchRequest
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedCertificateError
+from fedbiomed.common.message import SearchReply, SearchRequest
+from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.client import _researcher_requires_client_auth
 from fedbiomed.transport.node_agent import AgentStore
-from fedbiomed.transport.protocols.researcher_pb2 import TaskRequest
+from fedbiomed.transport.protocols.researcher_pb2 import (
+    FeedbackMessage,
+    TaskRequest,
+    TaskResult,
+)
 from fedbiomed.transport.server import (
     ResearcherServicer,
     SSLCredentials,
     _GrpcAsyncServer,
-    _peer_node_id,
+    _verify_peer_identity,
 )
+
+
+# Component ids as `Config.generate` builds them. The prefix is what restricts a
+# generated certificate to a single TLS role, so the shipped certificates are
+# single-role and the handshake matrix has to exercise them as such.
+NODE_ID = f"NODE_{uuid4()}"
+RESEARCHER_ID = f"RESEARCHER_{uuid4()}"
 
 
 def _generate(folder, name, org, cn="localhost"):
@@ -59,10 +77,10 @@ def certs():
     """Generates researcher and node certificates for the whole module."""
     with tempfile.TemporaryDirectory() as tmp:
         researcher_key_file, researcher_cert_file, researcher_key, researcher_cert = (
-            _generate(tmp, "researcher", "researcher_1", cn="localhost")
+            _generate(tmp, "researcher", RESEARCHER_ID, cn="localhost")
         )
         node_key_file, node_cert_file, node_key, node_cert = _generate(
-            tmp, "node", "node_1", cn="*"
+            tmp, "node", NODE_ID, cn="*"
         )
         yield {
             "researcher_key_file": researcher_key_file,
@@ -86,7 +104,7 @@ def test_subject_field_reads_organization(certs):
         certificate_subject_field(
             certs["node_cert"], x509.oid.NameOID.ORGANIZATION_NAME
         )
-        == "node_1"
+        == NODE_ID
     )
 
 
@@ -150,7 +168,7 @@ def test_is_mtls_enabled_false_when_flag_unset():
 
 
 def test_is_mtls_enabled_false_when_section_absent():
-    # No `[mtls]` section at all -> legacy workflow, disabled
+    # No `[mtls]` section at all -> disabled
     assert is_mtls_enabled(_FakeConfig("/root")) is False
 
 
@@ -179,7 +197,7 @@ def test_ssl_credentials_mtls_enabled_with_bundle(certs):
 
 
 # ---------------------------------------------------------------------------
-# _peer_node_id
+# Peer identity resolution against the certificate registry
 # ---------------------------------------------------------------------------
 
 
@@ -192,18 +210,207 @@ def _context_with_cert(cert, peer="ipv4:127.0.0.1:51234"):
     return context
 
 
-def test_peer_node_id_from_bytes_certificate(certs):
-    assert _peer_node_id(_context_with_cert(certs["node_cert"])) == "node_1"
+class _Aborted(Exception):
+    """Stands in for the exception grpc raises out of ``context.abort``."""
 
 
-def test_peer_node_id_from_str_certificate(certs):
-    # Some gRPC builds surface the PEM as str rather than bytes
-    context = _context_with_cert(certs["node_cert"].decode("utf-8"))
-    assert _peer_node_id(context) == "node_1"
+def _events(event_mock, operation):
+    """Audit events of one operation recorded by a patched `logger.security_event`."""
+    return [
+        c for c in event_mock.call_args_list if c.kwargs.get("operation") == operation
+    ]
 
 
-def test_peer_node_id_none_when_no_client_certificate():
-    assert _peer_node_id(_context_with_cert(None)) is None
+def _registry(path, entries):
+    """Writes a certificate registry holding `(party_id, certificate)` entries."""
+    manager = CertificateManager(db_path=str(path))
+    try:
+        for party_id, certificate in entries:
+            manager.insert(
+                certificate=certificate.decode("utf-8"),
+                party_id=party_id,
+                component=ComponentType.NODE.name,
+            )
+    finally:
+        manager.close()
+    return TrustedCertificateBundle(str(path), ComponentType.NODE.name)
+
+
+@pytest.fixture
+def registry(certs, tmp_path):
+    """Registry holding the node certificate under the node's party id."""
+    return _registry(tmp_path / "registry.json", [(NODE_ID, certs["node_cert"])])
+
+
+def test_party_id_resolves_registered_certificate(certs, registry):
+    assert registry.party_id(certs["node_cert"]) == NODE_ID
+    # Re-encoded PEM (extra whitespace) still resolves: matching is on content
+    assert registry.party_id(b"\n" + certs["node_cert"]) == NODE_ID
+
+
+def test_party_id_returns_none_for_unregistered_certificate(certs, registry):
+    # Registered for RESEARCHER, not the NODE bundle this view covers
+    assert registry.party_id(certs["researcher_cert"]) is None
+    assert registry.party_id(b"not a certificate") is None
+
+
+def test_party_id_refuses_a_certificate_registered_under_two_parties(certs, tmp_path):
+    """One certificate under two party ids authenticates neither of them.
+
+    Registration refuses to create this, so it only arises in a registry written
+    before that check or edited by hand.
+    """
+    ambiguous = _registry(
+        tmp_path / "ambiguous.json",
+        [("NODE_second", certs["node_cert"]), ("NODE_first", certs["node_cert"])],
+    )
+
+    with patch("fedbiomed.common.certificate_manager.logger.security_event") as event:
+        assert ambiguous.party_id(certs["node_cert"]) is None
+
+    # The report names every claimant, so the operator knows what to delete
+    fields = _events(event, "certificate_ambiguous_identity")[0].kwargs
+    assert fields["party_ids"] == ["NODE_first", "NODE_second"]
+
+
+def test_party_id_reads_the_registry_once_across_calls(certs, registry):
+    """Resolution is cached: an unchanged registry is read only on first use."""
+    with patch(
+        "fedbiomed.common.certificate_manager.CertificateManager.list",
+        side_effect=CertificateManager.list,
+        autospec=True,
+    ) as read:
+        for _ in range(50):
+            assert registry.party_id(certs["node_cert"]) == NODE_ID
+        # ... and the PEM bundle is served from the same single read
+        registry()
+
+    assert read.call_count == 1
+
+
+def test_party_id_picks_up_a_registration_without_restart(certs, tmp_path, registry):
+    """A certificate registered after first use resolves on the next call."""
+    assert registry.party_id(certs["researcher_cert"]) is None
+
+    manager = CertificateManager(db_path=registry._db_path)
+    try:
+        manager.insert(
+            certificate=certs["researcher_cert"].decode("utf-8"),
+            party_id="NODE_late",
+            component=ComponentType.NODE.name,
+        )
+    finally:
+        manager.close()
+
+    assert registry.party_id(certs["researcher_cert"]) == "NODE_late"
+
+
+@pytest.mark.asyncio
+async def test_verify_peer_identity_skips_without_client_certificate(registry):
+    """Server-auth only: there is no peer identity to bind the declared id to."""
+    context = _context_with_cert(None)
+    assert await _verify_peer_identity(context, "anything", registry) is None
+
+
+@pytest.mark.asyncio
+async def test_verify_peer_identity_prefers_registry_over_certificate_subject(
+    certs, tmp_path
+):
+    """The registered party id is authoritative, not the certificate `O=` field.
+
+    Registering a certificate under an explicit party id is supported for
+    certificates that embed no Fed-BioMed identity, so the identity that counts
+    is the one in the registry.
+    """
+    aliased = _registry(tmp_path / "aliased.json", [("NODE_alias", certs["node_cert"])])
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+
+    assert await _verify_peer_identity(context, "NODE_alias", aliased) == "NODE_alias"
+
+    # The certificate's O= value is not what it is registered as
+    with pytest.raises(_Aborted):
+        await _verify_peer_identity(context, NODE_ID, aliased)
+
+
+async def _refusal(context, identities):
+    """Refuses the peer and returns the recorded `mtls_identity_unresolved` event."""
+    with patch("fedbiomed.transport.server.logger.security_event") as event:
+        with pytest.raises(_Aborted):
+            await _verify_peer_identity(context, NODE_ID, identities)
+
+    unresolved = _events(event, "mtls_identity_unresolved")
+    assert len(unresolved) == 1
+    return unresolved[0].kwargs
+
+
+@pytest.mark.asyncio
+async def test_refusal_distinguishes_an_unreadable_registry(certs, tmp_path):
+    """An unreadable registry is not reported as an unregistered certificate."""
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+    unreadable = tmp_path / "corrupt.json"
+    unreadable.write_text("{ not json", encoding="utf-8")
+
+    fields = await _refusal(
+        context, TrustedCertificateBundle(str(unreadable), ComponentType.NODE.name)
+    )
+
+    assert fields["reason"] == "registry_unreadable"
+    assert "registry could not be read" in fields["detail"]
+
+
+@pytest.mark.asyncio
+async def test_refusal_distinguishes_an_unregistered_certificate(certs, tmp_path):
+    """A readable registry the certificate is absent from says exactly that."""
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+
+    fields = await _refusal(context, _registry(tmp_path / "empty.json", []))
+
+    assert fields["reason"] == "certificate_not_registered"
+    assert "not registered" in fields["detail"]
+
+
+@pytest.mark.asyncio
+async def test_refusal_distinguishes_a_missing_registry(certs):
+    """A client certificate with no registry configured is its own failure."""
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+
+    fields = await _refusal(context, None)
+
+    assert fields["reason"] == "no_registry_configured"
+    assert "no node certificate registry is configured" in fields["detail"]
+
+
+def test_loaded_reports_whether_the_registry_was_ever_read(certs, tmp_path, registry):
+    unreadable = tmp_path / "corrupt.json"
+    unreadable.write_text("{ not json", encoding="utf-8")
+    broken = TrustedCertificateBundle(str(unreadable), ComponentType.NODE.name)
+
+    assert broken.party_id(certs["node_cert"]) is None
+    assert broken.loaded is False
+
+    assert registry.party_id(certs["node_cert"]) == NODE_ID
+    assert registry.loaded is True
+
+
+def test_party_id_keeps_last_read_when_registry_becomes_unreadable(certs, registry):
+    """A partially written registry does not drop identities already resolved.
+
+    TinyDB rewrites the file non-atomically, so a read landing mid-write is
+    transient; refusing on it would reject healthy nodes at random.
+    """
+    assert registry.party_id(certs["node_cert"]) == NODE_ID
+
+    with open(registry._db_path, "w", encoding="utf-8") as f:
+        f.write("{ partially writ")
+
+    with patch("fedbiomed.common.certificate_manager.logger.security_event") as event:
+        assert registry.party_id(certs["node_cert"]) == NODE_ID
+
+    assert len(_events(event, "certificate_store_unreadable")) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -211,11 +418,7 @@ def test_peer_node_id_none_when_no_client_certificate():
 # ---------------------------------------------------------------------------
 
 
-class _Aborted(Exception):
-    """Stands in for the exception grpc raises out of ``context.abort``."""
-
-
-def _servicer_with_agent():
+def _servicer_with_agent(registry):
     """Returns (servicer, agent_store, node_agent) ready for GetTaskUnary."""
     node_agent = AsyncMock()
     node_agent.task_done = MagicMock()
@@ -226,22 +429,29 @@ def _servicer_with_agent():
     ]
     agent_store = MagicMock(spec=AgentStore)
     agent_store.retrieve.return_value = node_agent
-    servicer = ResearcherServicer(agent_store=agent_store, on_message=MagicMock())
+    servicer = ResearcherServicer(
+        agent_store=agent_store, on_message=MagicMock(), identities=registry
+    )
     return servicer, agent_store, node_agent
 
 
-def _events(event_mock, operation):
-    """Audit events of one operation recorded by a patched `logger.security_event`."""
-    return [
-        c for c in event_mock.call_args_list if c.kwargs.get("operation") == operation
-    ]
+def _feedback_servicer(registry):
+    """Returns (servicer, on_message); Feedback never touches the agent store."""
+    on_message = MagicMock()
+    servicer = ResearcherServicer(
+        agent_store=MagicMock(spec=AgentStore),
+        on_message=on_message,
+        identities=registry,
+    )
+    return servicer, on_message
 
 
 @pytest.mark.asyncio
-async def test_get_task_aborts_on_node_id_spoofing(certs):
-    """Declared node id not matching the client certificate is rejected."""
-    servicer, agent_store, _ = _servicer_with_agent()
-    # Certificate identity is `node_1`, but the request declares `node-1`
+async def test_get_task_aborts_on_node_id_spoofing(certs, registry):
+    """Declared node id not matching the registered identity is rejected."""
+    servicer, agent_store, _ = _servicer_with_agent(registry)
+    # The certificate resolves to the registered node id, the request declares
+    # another one
     context = _context_with_cert(certs["node_cert"])
     context.abort = AsyncMock(side_effect=_Aborted)
 
@@ -259,9 +469,9 @@ async def test_get_task_aborts_on_node_id_spoofing(certs):
 
 
 @pytest.mark.asyncio
-async def test_node_id_spoofing_is_registered_as_event(certs):
+async def test_node_id_spoofing_is_registered_as_event(certs, registry):
     """The spoofing rejection is registered as a named audit event."""
-    servicer, _, _ = _servicer_with_agent()
+    servicer, _, _ = _servicer_with_agent(registry)
     context = _context_with_cert(certs["node_cert"])
     context.abort = AsyncMock(side_effect=_Aborted)
     request = TaskRequest(node="node-1", protocol_version="x")
@@ -274,16 +484,16 @@ async def test_node_id_spoofing_is_registered_as_event(certs):
     audit = _events(event, "mtls_identity_mismatch")
     assert len(audit) == 1
     assert audit[0].kwargs["status"] == "failure"
-    assert audit[0].kwargs["node_id"] == "node_1"
+    assert audit[0].kwargs["node_id"] == NODE_ID
     assert audit[0].kwargs["declared_node_id"] == "node-1"
     # A rejection identifies where it came from and which certificate was used
     assert audit[0].kwargs["source_address"] == "ipv4:127.0.0.1:51234"
-    assert audit[0].kwargs["cert_subject"] == "O=node_1,CN=*"
+    assert audit[0].kwargs["cert_subject"] == f"O={NODE_ID},CN=*"
 
 
 async def _poll(servicer, certs, peers):
-    """Issues one GetTaskUnary per peer address, as node_1."""
-    request = TaskRequest(node="node_1", protocol_version="x")
+    """Issues one GetTaskUnary per peer address, as the registered node."""
+    request = TaskRequest(node=NODE_ID, protocol_version="x")
     for peer in peers:
         context = _context_with_cert(certs["node_cert"], peer=peer)
         async for _ in servicer.GetTaskUnary(request=request, context=context):
@@ -291,24 +501,24 @@ async def _poll(servicer, certs, peers):
 
 
 @pytest.mark.asyncio
-async def test_authenticated_node_event_identifies_certificate(certs):
+async def test_authenticated_node_event_identifies_certificate(certs, registry):
     """A successful handshake records the certificate and the peer address."""
-    servicer, _, _ = _servicer_with_agent()
+    servicer, _, _ = _servicer_with_agent(registry)
 
     with patch("fedbiomed.transport.server.logger.security_event") as event:
         await _poll(servicer, certs, ("ipv4:127.0.0.1:51234",))
 
     fields = _events(event, "mtls_node_authenticated")[0].kwargs
     assert fields["status"] == "success"
-    assert fields["node_id"] == "node_1"
+    assert fields["node_id"] == NODE_ID
     assert fields["source_address"] == "ipv4:127.0.0.1:51234"
     assert fields["destination_service"] == "researcher.ResearcherService"
-    assert fields["cert_subject"] == "O=node_1,CN=*"
+    assert fields["cert_subject"] == f"O={NODE_ID},CN=*"
     assert {"cert_issuer", "cert_serial", "cert_not_after"} <= fields.keys()
 
 
 @pytest.mark.asyncio
-async def test_authenticated_node_event_repeats_on_new_origin(certs):
+async def test_authenticated_node_event_repeats_on_new_origin(certs, registry):
     """Reconnecting is audited again, keeping only the node's current identity.
 
     gRPC reports the peer's ephemeral source port, so every reconnection yields
@@ -316,7 +526,7 @@ async def test_authenticated_node_event_repeats_on_new_origin(certs):
     is one such reconnection, so it is audited rather than treated as already
     seen; the bookkeeping stays at one entry per node throughout.
     """
-    servicer, _, _ = _servicer_with_agent()
+    servicer, _, _ = _servicer_with_agent(registry)
     addresses = ("ipv4:127.0.0.1:1", "ipv4:127.0.0.1:2", "ipv4:127.0.0.1:1")
 
     with patch("fedbiomed.transport.server.logger.security_event") as event:
@@ -324,30 +534,30 @@ async def test_authenticated_node_event_repeats_on_new_origin(certs):
 
     audit = _events(event, "mtls_node_authenticated")
     assert [c.kwargs["source_address"] for c in audit] == list(addresses)
-    assert list(servicer._peer_identity) == ["node_1"]
+    assert list(servicer._peer_identity) == [NODE_ID]
 
 
 @pytest.mark.asyncio
-async def test_get_task_proceeds_when_identity_matches(certs):
-    """Matching declared node id and certificate identity serves the task."""
-    servicer, agent_store, _ = _servicer_with_agent()
+async def test_get_task_proceeds_when_identity_matches(certs, registry):
+    """Matching declared node id and registered identity serves the task."""
+    servicer, agent_store, _ = _servicer_with_agent(registry)
     context = _context_with_cert(certs["node_cert"])
     context.abort = AsyncMock(side_effect=_Aborted)
 
-    request = TaskRequest(node="node_1", protocol_version="x")
+    request = TaskRequest(node=NODE_ID, protocol_version="x")
     responses = [
         r async for r in servicer.GetTaskUnary(request=request, context=context)
     ]
 
     context.abort.assert_not_awaited()
-    agent_store.retrieve.assert_called_once_with(node_id="node_1")
+    agent_store.retrieve.assert_called_once_with(node_id=NODE_ID)
     assert len(responses) == 1
 
 
 @pytest.mark.asyncio
-async def test_get_task_proceeds_without_client_certificate():
+async def test_get_task_proceeds_without_client_certificate(registry):
     """With mutual TLS disabled (no client cert) identity is not enforced."""
-    servicer, agent_store, _ = _servicer_with_agent()
+    servicer, agent_store, _ = _servicer_with_agent(registry)
     context = _context_with_cert(None)
     context.abort = AsyncMock(side_effect=_Aborted)
 
@@ -362,12 +572,12 @@ async def test_get_task_proceeds_without_client_certificate():
 
 
 @pytest.mark.asyncio
-async def test_get_task_audits_first_authentication_only(certs):
+async def test_get_task_audits_first_authentication_only(certs, registry):
     """The first authenticated poll logs one audit event; later polls stay quiet."""
-    servicer, _, _ = _servicer_with_agent()
+    servicer, _, _ = _servicer_with_agent(registry)
     context = _context_with_cert(certs["node_cert"])
     context.abort = AsyncMock(side_effect=_Aborted)
-    request = TaskRequest(node="node_1", protocol_version="x")
+    request = TaskRequest(node=NODE_ID, protocol_version="x")
 
     with patch("fedbiomed.transport.server.logger.security_event") as event:
         for _ in range(2):
@@ -377,13 +587,13 @@ async def test_get_task_audits_first_authentication_only(certs):
     audit = _events(event, "mtls_node_authenticated")
     assert len(audit) == 1
     assert audit[0].kwargs["status"] == "success"
-    assert audit[0].kwargs["node_id"] == "node_1"
+    assert audit[0].kwargs["node_id"] == NODE_ID
 
 
 @pytest.mark.asyncio
-async def test_get_task_no_audit_without_client_certificate():
+async def test_get_task_no_audit_without_client_certificate(registry):
     """Server-auth-only connections (no client cert) produce no audit event."""
-    servicer, _, _ = _servicer_with_agent()
+    servicer, _, _ = _servicer_with_agent(registry)
     context = _context_with_cert(None)
     context.abort = AsyncMock(side_effect=_Aborted)
     request = TaskRequest(node="node-1", protocol_version="x")
@@ -393,6 +603,121 @@ async def test_get_task_no_audit_without_client_certificate():
             pass
 
     assert _events(event, "mtls_node_authenticated") == []
+
+
+# ---------------------------------------------------------------------------
+# ResearcherServicer node-identity enforcement (ReplyTask, Feedback)
+# ---------------------------------------------------------------------------
+
+
+async def _reply_stream(node_id):
+    """Single-chunk ReplyTask stream carrying a reply declared by `node_id`."""
+    payload = Serializer.dumps(
+        SearchReply(
+            researcher_id="r-id",
+            node_id=node_id,
+            node_name="node-name",
+            databases=[],
+            count=0,
+        ).to_dict()
+    )
+    yield TaskResult(size=1, iteration=1, bytes_=payload)
+
+
+@pytest.mark.asyncio
+async def test_reply_task_aborts_on_node_id_spoofing(certs, registry):
+    """A reply declaring another node's id is refused, not handed to its agent."""
+    servicer, agent_store, _ = _servicer_with_agent(registry)
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+
+    with pytest.raises(_Aborted):
+        await servicer.ReplyTask(
+            request_iterator=_reply_stream("node-2"), context=context
+        )
+
+    status, message = context.abort.await_args.args
+    assert status == grpc.StatusCode.UNAUTHENTICATED
+    assert ErrorNumbers.FB628.value in message
+    agent_store.get.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reply_task_proceeds_when_identity_matches(certs, registry):
+    """A reply declaring the peer's own registered id reaches its agent."""
+    servicer, agent_store, _ = _servicer_with_agent(registry)
+    node_agent = AsyncMock()
+    agent_store.get.return_value = node_agent
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+
+    await servicer.ReplyTask(request_iterator=_reply_stream(NODE_ID), context=context)
+
+    context.abort.assert_not_awaited()
+    node_agent.on_reply.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_feedback_aborts_on_node_id_spoofing(certs, registry):
+    """Feedback attributed to another node is refused before dispatch."""
+    servicer, on_message = _feedback_servicer(registry)
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+    request = FeedbackMessage(
+        researcher_id="r-id",
+        log=FeedbackMessage.Log(node_id="node-2", level="DEBUG", msg="spoofed"),
+    )
+
+    with pytest.raises(_Aborted):
+        await servicer.Feedback(request=request, context=context)
+
+    status, _message = context.abort.await_args.args
+    assert status == grpc.StatusCode.UNAUTHENTICATED
+    on_message.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_feedback_proceeds_when_identity_matches(certs, registry):
+    """Feedback attributed to the peer's own registered id is dispatched."""
+    servicer, on_message = _feedback_servicer(registry)
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+    request = FeedbackMessage(
+        researcher_id="r-id",
+        log=FeedbackMessage.Log(node_id=NODE_ID, level="DEBUG", msg="genuine"),
+    )
+
+    await servicer.Feedback(request=request, context=context)
+
+    context.abort.assert_not_awaited()
+    on_message.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_unregistered_certificate_is_refused_on_every_rpc(certs, tmp_path):
+    """A certificate trusted at handshake but absent from the registry is refused.
+
+    Covers the window after `certificate delete`, where the running trust bundle
+    and the registry disagree.
+    """
+    empty = _registry(tmp_path / "empty.json", [])
+    servicer, _, _ = _servicer_with_agent(empty)
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+
+    with patch("fedbiomed.transport.server.logger.security_event") as event:
+        with pytest.raises(_Aborted):
+            async for _ in servicer.GetTaskUnary(
+                request=TaskRequest(node=NODE_ID, protocol_version="x"),
+                context=context,
+            ):
+                pass
+        with pytest.raises(_Aborted):
+            await servicer.ReplyTask(
+                request_iterator=_reply_stream(NODE_ID), context=context
+            )
+
+    assert len(_events(event, "mtls_identity_unresolved")) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -530,8 +855,36 @@ async def test_node_revoked_after_startup_is_rejected_without_restart(certs):
 
 def test_empty_trust_bundle_is_reported_before_binding(certs):
     """An empty bundle fails with the cause, not an opaque port-binding error."""
-    with pytest.raises(FedbiomedCommunicationError, match="no node certificate"):
+    with pytest.raises(FedbiomedCertificateError, match="no node certificate"):
         _credentials(certs, lambda: b"")
+
+
+@pytest.mark.parametrize("preset,expected", [(None, "ERROR"), ("INFO", "INFO")])
+def test_grpc_verbosity_is_a_default_not_an_override(preset, expected):
+    """gRPC noise is lowered, but an operator can raise it to see rejections.
+
+    A rejected handshake is only reported by gRPC itself, so overriding this is
+    the sole way to observe rejections on the researcher. Run in a fresh
+    interpreter because the import sets the variable only once.
+    """
+    environment = {k: v for k, v in os.environ.items() if k != "GRPC_VERBOSITY"}
+    if preset is not None:
+        environment["GRPC_VERBOSITY"] = preset
+
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import os, fedbiomed.transport; print(os.environ['GRPC_VERBOSITY'])",
+        ],
+        capture_output=True,
+        text=True,
+        env=environment,
+        timeout=60,
+        check=True,
+    )
+
+    assert probe.stdout.strip() == expected
 
 
 async def _probe(port):
@@ -566,8 +919,13 @@ async def test_probe_detects_server_auth_only(certs):
 
 
 @pytest.mark.asyncio
-async def test_probe_reports_enforcing_when_server_unreachable(certs):
-    """An unreachable server never produces a spurious 'not enforced' warning."""
+async def test_probe_reports_unknown_when_server_unreachable(certs):
+    """An unreachable server yields no verdict, in either direction.
+
+    It must not read as "not enforced", which would wrongly reassure a node that
+    its identity goes unchecked, nor as "enforced", which previously let an
+    unreachable researcher look like a mutual-TLS configuration mismatch.
+    """
     server, port = await _serve(certs, lambda: certs["node_cert"])
     await server.stop(0)
-    assert await _probe(port) is True
+    assert await _probe(port) is None

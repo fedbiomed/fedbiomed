@@ -111,7 +111,7 @@ class MnistDataset(_ImageLabelDataset):
         root: Union[str, Path],
         to_format: DataReturnFormat,
         train: bool = True,
-        download: bool = True,
+        download: bool = False,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
@@ -119,7 +119,8 @@ class MnistDataset(_ImageLabelDataset):
             root: path to the dataset root
             to_format: format associated to expected return format
             train: if true then train files are used
-            download: if true then downloads and extracts the files if they do not exist
+            download: if true then downloads and extracts the files if they do not
+                exist. Off by default: a deployed dataset is already under `root`.
         """
         self.to_format = to_format
         self._init_controller(root=root, train=train, download=download)
