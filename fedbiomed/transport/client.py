@@ -13,7 +13,10 @@ from typing import Awaitable, Callable, Iterable, List, Optional
 import grpc
 from cryptography import x509
 
-from fedbiomed.common.certificate_manager import certificate_subject_field
+from fedbiomed.common.certificate_manager import (
+    certificate_audit_fields,
+    certificate_subject_field,
+)
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
     MAX_RETRIEVE_ERROR_RETRIES,
@@ -458,7 +461,15 @@ class GrpcClient:
                         ),
                         "utf-8",
                     )
-                    logger.info("Retrieved server certificate, connecting to server.")
+                    msg = "Retrieved server certificate, connecting to server."
+                    logger.info(msg)
+                    logger.security_event(
+                        operation="server_certificate_auto_trusted",
+                        status="success",
+                        host=self._researcher.host,
+                        port=self._researcher.port,
+                        detail=msg,
+                    )
                 else:
                     self._researcher.client_auth_enforced = (
                         _researcher_requires_client_auth(
@@ -490,8 +501,16 @@ class GrpcClient:
                 await self._channels.connect()
                 logger.info(
                     "Channel created to researcher server at "
-                    f"{self._researcher.host}:{self._researcher.port}",
-                    extra={"is_security": True},
+                    f"{self._researcher.host}:{self._researcher.port}"
+                )
+                logger.security_event(
+                    operation="researcher_channel_established",
+                    status="success",
+                    researcher_id=self._id,
+                    host=self._researcher.host,
+                    port=self._researcher.port,
+                    mtls=self._researcher.mtls,
+                    **certificate_audit_fields(self._researcher.certificate),
                 )
 
                 break
@@ -520,6 +539,8 @@ class GrpcClient:
         logger.security_event(
             operation="mtls_configuration_mismatch",
             status="failure",
+            host=self._researcher.host,
+            port=self._researcher.port,
             detail=message,
         )
 
@@ -620,6 +641,8 @@ class Listener:
         logger.security_event(
             operation="mtls_handshake_failure",
             status="failure",
+            host=self._channels.host,
+            port=self._channels.port,
             detail=message,
         )
 
@@ -733,18 +756,27 @@ class Listener:
                         logger.security_event(
                             operation="mtls_identity_rejected",
                             status="failure",
+                            host=self._channels.host,
+                            port=self._channels.port,
                             detail=msg,
                         )
                         raise FedbiomedCommunicationError(msg) from exp
 
                     case grpc.StatusCode.UNKNOWN | _:
-                        logger.error(
+                        msg = (
                             "Unexpected error raised by researcher gRPC server in "
                             f"{self.__class__.__name__}: {exp}. "
                             f"Will retry connect in {GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds "
                             f"to the channel {self._channels._channels} "
-                            f"with stubs {self._channels._stubs}",
-                            extra={"is_security": True},
+                            f"with stubs {self._channels._stubs}"
+                        )
+                        logger.error(msg)
+                        logger.security_event(
+                            operation="grpc_client_error",
+                            status="failure",
+                            origin="server",
+                            grpc_status=exp.code().name,
+                            detail=msg,
                         )
                         await self._handle_after_process(
                             ClientStatus.FAILED,
@@ -753,13 +785,19 @@ class Listener:
                         )
 
             except (Exception, GeneratorExit) as exp:
-                logger.error(
+                msg = (
                     f"Unexpected error raised by node gRPC client in {self.__class__.__name__}: "
                     f"{type(exp).__name__} : {exp} "
                     f"to the channel {self._channels._channels} "
-                    f"with stubs {self._channels._stubs}",
-                    extra={"is_security": True},
-                    exc_info=True,
+                    f"with stubs {self._channels._stubs}"
+                )
+                logger.error(msg, exc_info=True)
+                logger.security_event(
+                    operation="grpc_client_error",
+                    status="failure",
+                    origin="client",
+                    error_type=type(exp).__name__,
+                    detail=msg,
                 )
                 await self._handle_after_process(
                     ClientStatus.FAILED, True, False, self._post_handle_raise, exp

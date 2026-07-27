@@ -7,8 +7,9 @@ Covers the mutual-TLS feature end to end:
 
 * the certificate/config helpers in ``fedbiomed.common.certificate_manager``
   (``certificate_subject_field``, ``is_mtls_enabled``),
-* the server side wiring (``SSLCredentials.mtls``, ``_peer_node_id``) and the
-  node-identity spoofing enforcement in ``ResearcherServicer.GetTaskUnary``,
+* the server side wiring (``SSLCredentials.mtls``, ``_peer_node_id``), the
+  node-identity spoofing enforcement in ``ResearcherServicer.GetTaskUnary`` and
+  the audit events it records for accepted and rejected peers,
 * a real gRPC handshake matrix validating certificate pinning, required client
   authentication and the target-name override.
 """
@@ -182,11 +183,12 @@ def test_ssl_credentials_mtls_enabled_with_bundle(certs):
 # ---------------------------------------------------------------------------
 
 
-def _context_with_cert(cert):
+def _context_with_cert(cert, peer="ipv4:127.0.0.1:51234"):
     """Builds a servicer context whose peer presents `cert` (None for no cert)."""
     context = MagicMock()
     auth = {"x509_pem_cert": [cert]} if cert is not None else {}
     context.auth_context.return_value = auth
+    context.peer.return_value = peer
     return context
 
 
@@ -228,6 +230,13 @@ def _servicer_with_agent():
     return servicer, agent_store, node_agent
 
 
+def _events(event_mock, operation):
+    """Audit events of one operation recorded by a patched `logger.security_event`."""
+    return [
+        c for c in event_mock.call_args_list if c.kwargs.get("operation") == operation
+    ]
+
+
 @pytest.mark.asyncio
 async def test_get_task_aborts_on_node_id_spoofing(certs):
     """Declared node id not matching the client certificate is rejected."""
@@ -247,6 +256,75 @@ async def test_get_task_aborts_on_node_id_spoofing(certs):
     assert ErrorNumbers.FB628.value in message
     # The task must never be served to a spoofing peer
     agent_store.retrieve.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_node_id_spoofing_is_registered_as_event(certs):
+    """The spoofing rejection is registered as a named audit event."""
+    servicer, _, _ = _servicer_with_agent()
+    context = _context_with_cert(certs["node_cert"])
+    context.abort = AsyncMock(side_effect=_Aborted)
+    request = TaskRequest(node="node-1", protocol_version="x")
+
+    with patch("fedbiomed.transport.server.logger.security_event") as event:
+        with pytest.raises(_Aborted):
+            async for _ in servicer.GetTaskUnary(request=request, context=context):
+                pass
+
+    audit = _events(event, "mtls_identity_mismatch")
+    assert len(audit) == 1
+    assert audit[0].kwargs["status"] == "failure"
+    assert audit[0].kwargs["node_id"] == "node_1"
+    assert audit[0].kwargs["declared_node_id"] == "node-1"
+    # A rejection identifies where it came from and which certificate was used
+    assert audit[0].kwargs["source_address"] == "ipv4:127.0.0.1:51234"
+    assert audit[0].kwargs["cert_subject"] == "O=node_1,CN=*"
+
+
+async def _poll(servicer, certs, peers):
+    """Issues one GetTaskUnary per peer address, as node_1."""
+    request = TaskRequest(node="node_1", protocol_version="x")
+    for peer in peers:
+        context = _context_with_cert(certs["node_cert"], peer=peer)
+        async for _ in servicer.GetTaskUnary(request=request, context=context):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_authenticated_node_event_identifies_certificate(certs):
+    """A successful handshake records the certificate and the peer address."""
+    servicer, _, _ = _servicer_with_agent()
+
+    with patch("fedbiomed.transport.server.logger.security_event") as event:
+        await _poll(servicer, certs, ("ipv4:127.0.0.1:51234",))
+
+    fields = _events(event, "mtls_node_authenticated")[0].kwargs
+    assert fields["status"] == "success"
+    assert fields["node_id"] == "node_1"
+    assert fields["source_address"] == "ipv4:127.0.0.1:51234"
+    assert fields["destination_service"] == "researcher.ResearcherService"
+    assert fields["cert_subject"] == "O=node_1,CN=*"
+    assert {"cert_issuer", "cert_serial", "cert_not_after"} <= fields.keys()
+
+
+@pytest.mark.asyncio
+async def test_authenticated_node_event_repeats_on_new_origin(certs):
+    """Reconnecting is audited again, keeping only the node's current identity.
+
+    gRPC reports the peer's ephemeral source port, so every reconnection yields
+    a new address even from the same host. Returning to an address used before
+    is one such reconnection, so it is audited rather than treated as already
+    seen; the bookkeeping stays at one entry per node throughout.
+    """
+    servicer, _, _ = _servicer_with_agent()
+    addresses = ("ipv4:127.0.0.1:1", "ipv4:127.0.0.1:2", "ipv4:127.0.0.1:1")
+
+    with patch("fedbiomed.transport.server.logger.security_event") as event:
+        await _poll(servicer, certs, addresses)
+
+    audit = _events(event, "mtls_node_authenticated")
+    assert [c.kwargs["source_address"] for c in audit] == list(addresses)
+    assert list(servicer._peer_identity) == ["node_1"]
 
 
 @pytest.mark.asyncio
@@ -283,45 +361,38 @@ async def test_get_task_proceeds_without_client_certificate():
     assert len(responses) == 1
 
 
-def _security_info_calls(info_mock):
-    return [
-        c
-        for c in info_mock.call_args_list
-        if c.kwargs.get("extra", {}).get("is_security")
-    ]
-
-
 @pytest.mark.asyncio
 async def test_get_task_audits_first_authentication_only(certs):
-    """The first authenticated poll logs one audit line; later polls stay quiet."""
+    """The first authenticated poll logs one audit event; later polls stay quiet."""
     servicer, _, _ = _servicer_with_agent()
     context = _context_with_cert(certs["node_cert"])
     context.abort = AsyncMock(side_effect=_Aborted)
     request = TaskRequest(node="node_1", protocol_version="x")
 
-    with patch("fedbiomed.transport.server.logger.info") as info:
+    with patch("fedbiomed.transport.server.logger.security_event") as event:
         for _ in range(2):
             async for _r in servicer.GetTaskUnary(request=request, context=context):
                 pass
 
-    audit = _security_info_calls(info)
+    audit = _events(event, "mtls_node_authenticated")
     assert len(audit) == 1
-    assert "node_1" in audit[0].args[0]
+    assert audit[0].kwargs["status"] == "success"
+    assert audit[0].kwargs["node_id"] == "node_1"
 
 
 @pytest.mark.asyncio
 async def test_get_task_no_audit_without_client_certificate():
-    """Server-auth-only connections (no client cert) produce no audit line."""
+    """Server-auth-only connections (no client cert) produce no audit event."""
     servicer, _, _ = _servicer_with_agent()
     context = _context_with_cert(None)
     context.abort = AsyncMock(side_effect=_Aborted)
     request = TaskRequest(node="node-1", protocol_version="x")
 
-    with patch("fedbiomed.transport.server.logger.info") as info:
+    with patch("fedbiomed.transport.server.logger.security_event") as event:
         async for _r in servicer.GetTaskUnary(request=request, context=context):
             pass
 
-    assert _security_info_calls(info) == []
+    assert _events(event, "mtls_node_authenticated") == []
 
 
 # ---------------------------------------------------------------------------

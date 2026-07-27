@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 import fedbiomed.common.db as db_mod
-from fedbiomed.common.db import _security_log
+from fedbiomed.common.db import REDACTED, _security_log
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -61,6 +61,14 @@ def test_security_log_success_strips_forbidden_and_truncates(
     assert debug_args.kwargs["extra"]["db_args"] == logged["db_args"]
     assert debug_args.kwargs["extra"]["db_kwargs"] == logged["db_kwargs"]
     assert debug_args.kwargs["stacklevel"] == 42
+
+    # Sensitive values are dropped, at any depth, and their keys kept
+    assert "SUPER-SECRET" not in logged["db_args"]
+    assert "ALSO-SECRET" not in logged["db_args"]
+    assert "SECRET" not in logged["db_args"]
+    assert logged["db_args"].count(REDACTED) == 3
+    assert "'ok': 'value'" in logged["db_args"]
+    assert "'keep': 1" in logged["db_args"]
 
     # Truncation applied (50 chars + '...')
     assert isinstance(logged["db_args"], str)
@@ -120,7 +128,8 @@ def test_security_log_failure_logs_and_wraps_exception(
 
     logged = security_event.call_args.kwargs
     assert logged["status"] == "failure"
-    assert logged["details"] == "boom"
+    assert logged["error_type"] == "ValueError"
+    assert logged["error_message"] == "boom"
     assert logged["stacklevel"] == 9
 
     debug.assert_called_once()

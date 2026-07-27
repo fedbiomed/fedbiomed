@@ -7,6 +7,7 @@ import grpc
 import pytest
 from cryptography import x509
 
+from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import MAX_RETRIEVE_ERROR_RETRIES, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import (
@@ -116,7 +117,7 @@ async def test_grpc_client_update_id(grpc_client):
 @patch(
     "fedbiomed.transport.client._researcher_requires_client_auth", return_value=False
 )
-@patch("fedbiomed.transport.client.logger._logger.info")
+@patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.x509.load_pem_x509_certificate", autospec=True)
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
@@ -124,7 +125,7 @@ async def test_grpc_client_connect_security_log(
     is_server_alive,
     get_server_certificate,
     load_pem_x509_certificate,
-    log_info,
+    security_event,
     requires_client_auth,
     grpc_client,
 ):
@@ -145,18 +146,61 @@ async def test_grpc_client_connect_security_log(
     await grpc_client.client._connect()
 
     grpc_client.client._channels.connect.assert_called_once()
-    security_calls = [
-        c
-        for c in log_info.call_args_list
-        if c.kwargs.get("extra", {}).get("is_security") is True
+    # Auto-trusting the researcher certificate and establishing the channel are
+    # both registered as named audit events
+    operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+    assert operations == [
+        "server_certificate_auto_trusted",
+        "researcher_channel_established",
     ]
-    assert len(security_calls) == 1
-    assert security_calls[0].args[0]
+    channel_event = security_event.call_args_list[1].kwargs
+    assert channel_event["status"] == "success"
+    assert channel_event["researcher_id"] == "test-researcher"
+    assert channel_event["mtls"] is False
+
+
+@pytest.mark.asyncio
+@patch(
+    "fedbiomed.transport.client._researcher_requires_client_auth", return_value=False
+)
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_channel_event_identifies_researcher_certificate(
+    is_server_alive,
+    get_server_certificate,
+    security_event,
+    requires_client_auth,
+    grpc_client,
+    tmp_path,
+):
+    """The node records which researcher certificate it connected with."""
+    is_server_alive.return_value = True
+    _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(tmp_path),
+        certificate_name="researcher",
+        component_id="researcher_1",
+        subject={"CommonName": "localhost", "OrganizationName": "researcher_1"},
+    )
+    with open(pem_file, "r") as f:
+        get_server_certificate.return_value = f.read()
+
+    grpc_client.client._channels.connect = AsyncMock()
+
+    await grpc_client.client._connect()
+
+    channel_event = security_event.call_args_list[1].kwargs
+    assert channel_event["operation"] == "researcher_channel_established"
+    assert channel_event["cert_subject"] == "O=researcher_1,CN=localhost"
+    assert {"cert_issuer", "cert_serial", "cert_not_after"} <= channel_event.keys()
+    # The certificate itself is never emitted
+    assert not any("BEGIN CERTIFICATE" in str(v) for v in channel_event.values())
 
 
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client._researcher_requires_client_auth", return_value=True)
 @patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
 @patch("fedbiomed.transport.client.asyncio.sleep")
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
@@ -164,6 +208,7 @@ async def test_grpc_client_connect_refuses_in_band_cert_from_mtls_researcher(
     is_server_alive,
     sleep,
     get_server_certificate,
+    security_event,
     log_error,
     requires_client_auth,
     grpc_client,
@@ -185,11 +230,16 @@ async def test_grpc_client_connect_refuses_in_band_cert_from_mtls_researcher(
     errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
     assert len(errors) == 1
     assert "mutual-TLS is disabled on this node" in errors[0].args[0]
+    # The audit event names the endpoint the mismatch was detected against
+    mismatch = security_event.call_args_list[0].kwargs
+    assert mismatch["operation"] == "mtls_configuration_mismatch"
+    assert (mismatch["host"], mismatch["port"]) == ("localhost", "50051")
 
 
 # Warn iff the researcher does not require the node's client certificate
 @pytest.mark.asyncio
 @pytest.mark.parametrize("requires_auth,expected_warnings", [(False, 1), (True, 0)])
+@patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
 @patch("fedbiomed.transport.client.certificate_subject_field", autospec=True)
@@ -199,6 +249,7 @@ async def test_grpc_client_connect_mtls_warns_only_when_not_enforced(
     subject_field,
     requires_client_auth,
     log_warning,
+    security_event,
     grpc_client,
     requires_auth,
     expected_warnings,
@@ -226,6 +277,13 @@ async def test_grpc_client_connect_mtls_warns_only_when_not_enforced(
         if "node identity will NOT be verified" in c.args[0]
     ]
     assert len(warnings) == expected_warnings
+    # The unenforced-mTLS warning is audited alongside it
+    audited = [
+        c
+        for c in security_event.call_args_list
+        if c.kwargs.get("operation") == "mtls_not_enforced_by_researcher"
+    ]
+    assert len(audited) == expected_warnings
 
 
 # -----------------------------------------------------------------------------
@@ -317,32 +375,40 @@ async def test_task_listener_listen(listener_env):
         (grpc.StatusCode.ABORTED, 1, True),
     ],
 )
+@patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.logger._logger.error")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_listen_grpc_exceptions(
-    sleep, log_error, listener_env, code, sleeps, logs_error
+    sleep, log_error, security_event, listener_env, code, sleeps, logs_error
 ):
     request_stub = await listener_env.drain([_rpc_error(code)])
 
     assert request_stub.GetTaskUnary.call_count == 2
     assert sleep.call_count == sleeps
     if logs_error:
-        # Logged with channel/stub details as a security record
+        # Logged with channel/stub details, and registered as an audit event
         log_error.assert_called_once()
-        log_args, log_kwargs = log_error.call_args
+        log_args, _ = log_error.call_args
         assert "CHANNELS" in log_args[0]
         assert "STUBS" in log_args[0]
-        assert log_kwargs["extra"].get("is_security")
+        security_event.assert_called_once()
+        event = security_event.call_args.kwargs
+        assert event["operation"] == "grpc_client_error"
+        assert event["status"] == "failure"
+        assert event["origin"] == "server"
+        assert event["grpc_status"] == code.name
     else:
         log_error.assert_not_called()
+        security_event.assert_not_called()
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("exception", [RuntimeError, Exception, GeneratorExit])
+@patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.logger._logger.error")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_listen_non_grpc_exceptions(
-    sleep, log_error, listener_env, exception
+    sleep, log_error, security_event, listener_env, exception
 ):
     """Retries are capped: beyond MAX_RETRIEVE_ERROR_RETRIES the listener stops
     with FedbiomedCommunicationError; a successful poll resets the counter."""
@@ -368,13 +434,18 @@ async def test_task_listener_listen_non_grpc_exceptions(
         with pytest.raises(signal):
             await task
 
-        # Logging assertions: security + exc_info + includes channel/stub details
+        # Logging assertions: audit event + exc_info + includes channel/stub details
         assert log_error.call_count >= 1
         log_args, log_kwargs = log_error.call_args
         assert "CHANNELS" in log_args[0]
         assert "STUBS" in log_args[0]
         assert log_kwargs.get("exc_info")
-        assert log_kwargs["extra"].get("is_security")
+        assert security_event.call_count >= 1
+        event = security_event.call_args.kwargs
+        assert event["operation"] == "grpc_client_error"
+        assert event["status"] == "failure"
+        assert event["origin"] == "client"
+        assert event["error_type"] == exception.__name__
 
         assert sleep.call_count == min(nb_errors, MAX_RETRIEVE_ERROR_RETRIES)
         assert request_stub.GetTaskUnary.call_count == min(
@@ -407,9 +478,12 @@ async def test_task_listener_listen_non_grpc_exceptions(
 
 
 @pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.logger._logger.error")
 @patch("fedbiomed.transport.client.asyncio.sleep")
-async def test_task_listener_unauthenticated_stops(sleep, log_error, listener_env):
+async def test_task_listener_unauthenticated_stops(
+    sleep, log_error, security_event, listener_env
+):
     """A researcher identity rejection (UNAUTHENTICATED) is fatal, not retried."""
     request_stub = MagicMock()
     listener_env.channels.stub = AsyncMock(return_value=request_stub)
@@ -438,15 +512,20 @@ async def test_task_listener_unauthenticated_stops(sleep, log_error, listener_en
     log_args, log_kwargs = log_error.call_args
     assert "FB628" in log_args[0]
     assert not log_kwargs.get("extra", {}).get("is_security")
+    # The audit event names the endpoint that rejected this node
+    rejection = security_event.call_args_list[0].kwargs
+    assert rejection["operation"] == "mtls_identity_rejected"
+    assert (rejection["host"], rejection["port"]) == ("localhost", "1")
 
     task.cancel()
 
 
 @pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.logger._logger.error")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_unavailable_mtls_handshake_logs_error(
-    sleep, log_error, listener_env
+    sleep, log_error, security_event, listener_env
 ):
     """Under mTLS, a handshake/pinning failure is logged loudly but still retried."""
     listener_env.channels.mtls = True
@@ -467,6 +546,10 @@ async def test_task_listener_unavailable_mtls_handshake_logs_error(
     assert not log_kwargs.get("extra", {}).get("is_security")
     sleep.assert_called_once()
     assert request_stub.GetTaskUnary.call_count == 2
+    # The audit event names the endpoint the handshake failed against
+    failure = security_event.call_args_list[0].kwargs
+    assert failure["operation"] == "mtls_handshake_failure"
+    assert (failure["host"], failure["port"]) == ("localhost", "1")
 
 
 @pytest.mark.asyncio
