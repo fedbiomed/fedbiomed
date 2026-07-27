@@ -31,15 +31,15 @@ jobs:
       matrix:
         include:
           - python-version: "3.10"
-            python-tag: "3.10"
+            python-tag: "310"
           - python-version: "3.11"
-            python-tag: "3.11"
+            python-tag: "311"
           - python-version: "3.12"
-            python-tag: "3.12"
+            python-tag: "312"
           - python-version: "3.13"
-            python-tag: "3.13"
+            python-tag: "313"
           - python-version: "3.14"
-            python-tag: "3.14"
+            python-tag: "314"
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
       IMAGE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
@@ -112,22 +112,22 @@ jobs:
       matrix:
         include:
           - python-version: "3.10"
-            python-tag: "3.10"
+            python-tag: "310"
             runner: ubuntu-latest
             runner-name: Ubuntu latest
             runner-tag: ubuntu-latest
           - python-version: "3.14"
-            python-tag: "3.14"
+            python-tag: "314"
             runner: ubuntu-latest
             runner-name: Ubuntu latest
             runner-tag: ubuntu-latest
           - python-version: "3.10"
-            python-tag: "3.10"
+            python-tag: "310"
             runner: [self-hosted, ubuntu-24-04]
             runner-name: Self-hosted Ubuntu
             runner-tag: self-hosted-ubuntu
           - python-version: "3.14"
-            python-tag: "3.14"
+            python-tag: "314"
             runner: [self-hosted, ubuntu-24-04]
             runner-name: Self-hosted Ubuntu
             runner-tag: self-hosted-ubuntu
