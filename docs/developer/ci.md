@@ -1,67 +1,331 @@
-# Developer info on continuous integration
+# Continuous integration
 
-Continuous integration uses [GitHub Actions](https://github.com/fedbiomed/fedbiomed/actions). 
+Fed-BioMed uses [GitHub Actions](https://github.com/fedbiomed/fedbiomed/actions)
+for pull-request checks, scheduled compatibility testing, package validation,
+Docker testing, and releases.
 
-## Events that trigger CI tests
+The supported Python range is Python 3.10 through Python 3.14. The CI strategy
+uses two complementary levels:
 
-CI tests are triggered automatically by GitHub on a:
+- Fast pull-request gates test the oldest and newest supported Python versions.
+- Scheduled jobs test every supported Python version on the complete runner
+  matrix.
 
-- pull request to `develop` or `master` branch
-- push in `develop` or `master` branches (eg: after a merge, pushing a fix directly to this branch)
+This keeps pull-request feedback reasonably fast while still detecting
+compatibility problems in intermediate Python versions.
 
+## Runner labels
 
-The pull request can not be completed before CI pipeline succeeds
+Workflow files use the following runner labels:
 
-- pushing a fix to the branch with the open pull request re-triggers the CI test
-- CI test can also be manually triggered form `Pull Requests` > `Check` > `Re-run all checks` or directly from `Action` tab. 
+| Label | Ownership | Purpose |
+| --- | --- | --- |
+| `ubuntu-latest` | GitHub-hosted | Primary Linux pull-request and compatibility runner |
+| `ubuntu-24-04` | Self-hosted | Project Ubuntu runner, including privileged Docker tests |
+| `macos-latest` | GitHub-hosted | Primary macOS pull-request and compatibility runner |
+| `macos-m1` | Self-hosted | Apple Silicon compatibility runner |
 
-CI pipeline currently contains :
+`ubuntu-latest` and `ubuntu-24-04` are not aliases for the same runner.
+`ubuntu-latest` creates an ephemeral GitHub-hosted virtual machine, while
+`ubuntu-24-04` is a project-defined label for a self-hosted runner.
 
-- running unit tests
-    - update conda envs for `researcher`
-    - run unit tests
+## Workflow ownership
 
-- running a simplenet + federated average training, on a few batches of a MNIST dataset, with 2 nodes. For that, CI launches `./scripts/run_test_mnist` (an also be launched on localhost)
-    - update conda env for `node` (rely on unit tests for others)
-    - activate conda and environments, launch nodes.
-    - convert with `jupyter nbconvert` the notebook `./notebooks/101_getting-started.ipynb` to the python script `./notebooks/101_getting-started.py`
-    - launch the `fedbiomed` script `./notebooks/101_getting-started.py`
-    - succeed if the script completes without failure.
+All workflow definitions are under `.github/workflows`.
 
-- running test build process for documentation 
+| Workflow file | Responsibility | Triggers |
+| --- | --- | --- |
+| `build-test.yml` | Pull-request gate for unit tests, the MNIST test, and documentation | Non-draft pull requests targeting `develop` or `master` |
+| `fbm-generic-test.yml` | Base implementation, used by the other workflows for documentation, unit, MNIST, and ordinary E2E jobs; also provides the configurable manual test UI | Called by other workflows or started manually |
+| `python-compatibility.yml` | Complete test across all Python and runner (OS) versions on for unit and E2E tests (excet Endurance) | Sunday at 00:37 UTC |
+| `end-to-end.yml` | Ordinary E2E testing after changes reach `master`, with optional manually supplied JSON matrices | Push to `master` or manual |
+| `endurance-tests.yml` | Long-running endurance tests on the Python endpoints | Saturday at 01:00 UTC or manual |
+| `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 01:17 UTC, manual, or called by the release workflow |
+| `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Pull requests to `develop`, push to `master`, Monday at 01:17 UTC, or manual |
+| `deploy.yml` | Validates the release package for Python wheel of Fedbiomed, publishes it to PyPI, and creates the GitHub release | Tag push |
+| `docker-deploy.yml` | Builds public base, node, and researcher docker images and publishes those release images to Docker Hub | Push to `develop` or `master`, version tag, or manual |
+| `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
+| `codespell.yml` | Checks repository spelling and annotates errors | Pull requests targeting `develop` or `master` |
 
+The workflow filename identifies the owner of a CI lane. The reusable
+`fbm-generic-test.yml` file owns the test implementation, while small caller
+workflows such as `build-test.yml` and `python-compatibility.yml` define when
+and with which matrix it runs.
 
-!!! note "Execution exceptions"
-    CI build tests are run if a file related to the build is changed. For example, if the changes (difference between base and feature branch) in a pull request are only made in the gui directory or docs, the CI action for unit tests will be skipped. Please see the exceptions in `.gihub/workflows/*.yml`
+## Test strategy
 
-## Displaying Outputs and Results
+### Pull-request gate
 
-To view CI test output and logs:
+`build-test.yml` runs only for non-draft pull requests targeting `develop` or
+`master`. It calls `fbm-generic-test.yml` with:
 
-- view the pull request in github (select `Pull requests` in top bar, then select your pull request).
-- click on the `Checks` at the top bar of the pull request and select the `Check` that you want to display.
-- Click on the jobs to see its console output. 
+- Python 3.10 and Python 3.14
+- `ubuntu-latest` and `macos-latest`
+- the complete unit-test suite
+- the MNIST E2E smoke test
+- one documentation build on Python 3.14 and `ubuntu-latest`
 
-### Unit tests coverage 
+The endpoint versions provide early warning for both the oldest and newest
+supported interpreters. Intermediate versions are covered by the scheduled
+matrix.
 
-Unit tests coverage reports are published on Codecov platform for each branch/pull request. The report contains overall test coverage for the branch and detailed coverage rates file by file. 
+Superseded runs for the same pull request are cancelled. Pushing another commit
+to the pull-request branch therefore replaces an obsolete run.
 
-- Once a GitHub workflow/pipeline is executed for unit-test Codecov with automatically add a comment to the pull request that shows:
-    - Overall test coverage
-    - The difference code coverage between base and feature branch 
+### Weekly Python compatibility
 
-To access reports on Codecov please go [Fed-BioMed Codecov dashboard](https://app.codecov.io/gh/fedbiomed/fedbiomed/) or go to your pull request,click on `Checks` at the top of the pull request view and click on `View this Pull Request on Codecov`
+`python-compatibility.yml` runs once per week and calls
+`fbm-generic-test.yml` with:
 
+- Python 3.10, 3.11, 3.12, 3.13, and 3.14
+- `ubuntu-latest`, `ubuntu-24-04`, `macos-latest`, and `macos-m1`
+- unit tests
+- ordinary E2E tests
 
-## CI and GitHub Actions Configuration
+Ordinary E2E tests are sharded by test file. Each file receives its own job,
+temporary data directory, tox environment, timeout, logs, and dependency
+snapshot. A failure in one file does not prevent unrelated shards from
+reporting their results.
 
+The matrix uses `fail-fast: false`, so all Python and runner combinations can
+report compatibility failures in a single workflow run.
 
-GitHub actions are configured using `yml` files for each workflow. Workflow files can contain multiple jobs and multiple steps for each job. Please go `.github/workflow` directory to display all workflows for CI. 
+### E2E testing on `master`
 
-The `name` value in each `yml` file corresponds to the name of the workflows that are displayed in `Actions` [page of the Fed-BioMed repository](https://github.com/fedbiomed/fedbiomed/actions). The `name` value under each `job` corresponds to each `Checks` in pull requests.
+`end-to-end.yml` retains ordinary E2E coverage for pushes to `master`. Its
+automatic default is Python 3.10 and 3.14 across the four compatibility
+runners.
 
-Please see [GitHub actions](https://github.com/features/actions) documentation for more information. 
+For a manual run, `python-version` and `os` accept JSON arrays. For example:
 
-### CI slaves
+```text
+python-version: ["3.12"]
+os: ["ubuntu-latest"]
+```
 
-CI slaves are located on `ci.inria.fr`. To be able to add extra configuration and installation you have to connect with your account on `ci.inria.fr`. You need to be approved by one member of the Fed-BioMed CI project or to be a member of Inria to be able get an account on `ci.inria.fr`. You can request the Fed-BioMed team to become a member of the Fed-BioMed CI project.
+This workflow does not collect endurance files. Ordinary E2E environments
+select `e2e_*.py` and exclude `endurance_*.py`.
+
+### Endurance testing
+
+`endurance-tests.yml` is deliberately separate from ordinary E2E testing. It
+runs once per week with:
+
+- Python 3.10 and Python 3.14
+- `ubuntu-latest` and `ubuntu-24-04`
+- only `endurance_*.py`
+- a six-hour job timeout
+- explicit process-group cleanup
+
+It has no pull-request or branch-push trigger because endurance tests are too
+expensive for frequent development feedback.
+
+## Reusable test workflow
+
+`fbm-generic-test.yml` is the central implementation for the regular Python
+test lanes. Callers provide:
+
+- `python-versions`: JSON array of Python versions
+- `os-list`: JSON array of runner labels
+- `run-docs`: enable the documentation build
+- `run-unit`: enable unit tests
+- `run-mnist`: enable the MNIST smoke test
+- `run-e2e`: enable the ordinary E2E shards
+
+It creates exact tox environment names such as:
+
+```text
+py3.10-unit
+py3.14-e2e-mnist
+py3.12-e2e
+```
+
+Using an exact environment ensures that a matrix job cannot accidentally run
+tests under a different interpreter.
+
+The workflow uploads failure diagnostics for the enabled suite, including:
+
+- JUnit XML reports
+- tox logs
+- E2E output
+- test logs
+- coverage XML where applicable
+- the installed dependency snapshot
+
+Unit-test coverage is uploaded to
+[Codecov](https://app.codecov.io/gh/fedbiomed/fedbiomed/). A Codecov upload
+failure does not fail the test job.
+
+### Manual test selection
+
+The Actions page exposes `fbm-generic-test.yml` as **Fed-BioMed Tests
+(Reusable)**. Its manual form provides independent checkboxes for:
+
+- Python 3.10 through Python 3.14
+- GitHub-hosted Ubuntu
+- self-hosted Ubuntu
+- GitHub-hosted macOS
+- self-hosted macOS M1
+- documentation
+- unit tests
+- MNIST
+- ordinary E2E
+
+At least one Python version and one runner must be selected when a matrix test
+is enabled. Documentation can run by itself because it has a fixed Python and
+runner configuration.
+
+## Python setup
+
+`.github/actions/setup-fbm-env/action.yml` installs the interpreter requested by
+the matrix and exports its resolved executable as `FEDBIOMED_PYTHON_BIN`.
+
+The action handles:
+
+- GitHub-hosted runners with `actions/setup-python`
+- self-hosted Fedora with `dnf`
+- self-hosted Apple Silicon with Homebrew
+- exact interpreter-version validation
+- Python, pip, operating-system, and architecture diagnostics
+- tox installation inside an isolated virtual environment
+
+The isolated tox environment avoids modifying Homebrew-managed Python
+installations and avoids the PEP 668 `externally-managed-environment` error.
+
+## Package compatibility and releases
+
+`package-compatibility.yml` separates building a package from testing its
+installation:
+
+1. Build one wheel and one source distribution on Python 3.10.
+2. Validate their metadata with Twine.
+3. Upload the build output as the `fedbiomed-package` artifact.
+4. Download the same wheel into each Python and runner job.
+5. Install it in a clean virtual environment.
+
+The installation matrix covers Python 3.10 through Python 3.14 on all four
+compatibility runners. It verifies:
+
+- `pip check`
+- `fedbiomed --help`
+- the interpreter actually used by the environment
+- `Requires-Python` and package extras
+- the `fedbiomed` console-script entry point
+- notebooks, tutorials, and common environment files under `SHARE_DIR`
+- compiled React assets
+- that imports come from the installed wheel rather than the checkout
+
+`deploy.yml` calls this workflow for a tag. PyPI publication and GitHub release
+creation depend on the tested package artifact, so the published files are the
+same files that passed compatibility testing.
+
+## Docker strategy
+
+Docker testing is split into build smoke tests and a functional VPN test.
+
+### Public-image build smoke
+
+The `hosted-build-smoke` job in `test-docker.yml` runs on a fresh
+`ubuntu-latest` runner for Python 3.10 through Python 3.14. It:
+
+- builds `docker/base/Dockerfile`
+- builds `docker/node/Dockerfile`
+- builds `docker/researcher/Dockerfile`
+- checks the selected Python inside each image
+- checks the Fed-BioMed command entry points
+- removes only the images created by that job
+
+These images are test-only and are not pushed.
+
+### VPN functional test
+
+The `vpn-functional` job in `test-docker.yml` runs Python 3.10 and 3.14 on
+GitHub-hosted and self-hosted Ubuntu. It builds the VPN server, researcher,
+node, and GUI images and then:
+
+- creates the WireGuard network
+- connects a researcher and two nodes
+- registers datasets on both nodes
+- converts notebook 101 to a Python script
+- runs a federated training experiment
+
+The test uses run-specific image tags, Compose project names, container names,
+and network names. The matrix is currently serial because the VPN environment
+uses fixed host ports.
+
+Compatibility CI explicitly selects the non-GPU node base and CPU-only PyTorch
+to fit within CI disk limits. This is an opt-in test configuration:
+
+- `FBM_VPN_NODE_BASE_SERVICE=basenode-no-gpu`
+- `FBM_PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cpu`
+
+Normal VPN deployment does not set these values. It keeps the GPU-capable node
+base and standard package-index resolution.
+
+The VPN build wrapper propagates the first failed Docker build instead of
+continuing with later images. Cleanup removes resources created by the current
+run and does not execute a broad `docker system prune`.
+
+### Docker publication
+
+`docker-deploy.yml` owns publication of the public base, node, and researcher
+images. Published images intentionally use one documented Python runtime,
+currently Python 3.11.
+
+Branch pushes and manual runs perform test builds. Release-tag events publish
+the generated tags to Docker Hub.
+
+## Schedule
+
+GitHub cron expressions use UTC and have five fields:
+
+```text
+┌──────── minute
+│ ┌────── hour
+│ │ ┌──── day of month
+│ │ │ ┌── month
+│ │ │ │ ┌ day of week, where Sunday is 0
+│ │ │ │ │
+37 0 * * 0
+```
+
+| Cron | Workflow | Meaning |
+| --- | --- | --- |
+| `0 1 * * 6` | `endurance-tests.yml` | Saturday at 01:00 UTC |
+| `37 0 * * 0` | `python-compatibility.yml` | Sunday at 00:37 UTC |
+| `17 1 * * 1` | `package-compatibility.yml` | Monday at 01:17 UTC |
+| `17 1 * * 1` | `test-docker.yml` | Monday at 01:17 UTC |
+
+Scheduled workflows always execute from the repository's default branch.
+Changing a cron entry on a feature branch does not make that schedule active
+until the change reaches the default branch.
+
+## Inspecting and rerunning CI
+
+To inspect a failure:
+
+1. Open the pull request or the repository **Actions** page.
+2. Select the workflow run.
+3. Select the failing matrix job.
+4. Inspect the first failing step rather than only the final cleanup error.
+5. Download the diagnostic artifact when one is available.
+
+Pushing a new commit reruns pull-request workflows. A completed job can also be
+rerun from its workflow page.
+
+You can use the `fbm-generic-test.yml` workflow to run a manual job for a targeted Python/test/runner
+combination instead of rerunning the complete scheduled matrix.
+
+## Self-hosted runner requirements
+
+Self-hosted runners must provide the tools required by their assigned jobs:
+
+- a supported shell and Git
+- passwordless access for the package-manager commands used by the setup action
+- enough disk space for tox environments and test artifacts
+- Docker and Docker Compose for Docker-assigned Ubuntu runners
+- `/dev/net/tun` and the capabilities required by the VPN functional test
+- Homebrew on the self-hosted Apple Silicon runner
+
+Runner labels are part of the workflow interface. If a runner is renamed or
+relabelled, update every matrix that refers to its old label.
