@@ -7,6 +7,7 @@ ARG CONTAINER_GROUP
 ARG CONTAINER_USER
 
 ARG PYTHON_VERSION="3.10"
+ARG FBM_PYTORCH_INDEX_URL=""
 
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
@@ -72,8 +73,13 @@ WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Installs fedbiomed and necessary modules without retaining downloaded wheels.
-# Do not ignore installed packages: the base supplies CPU-only PyTorch.
-RUN python -m pip install --no-cache-dir --no-warn-script-location '.[node]'
+# CI preserves CPU PyTorch from the base; deployment retains the original
+# ignore-installed behavior and standard dependency resolution.
+RUN if [ -n "$FBM_PYTORCH_INDEX_URL" ]; then \
+        python -m pip install --no-cache-dir --no-warn-script-location '.[node]'; \
+    else \
+        python -m pip install --no-cache-dir --no-warn-script-location -I '.[node]'; \
+    fi
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

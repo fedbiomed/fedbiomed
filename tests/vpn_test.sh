@@ -30,6 +30,23 @@ function assert_image_python(){
 	info "$image uses Python $actual"
 }
 
+function assert_image_cpu_torch(){
+	[[ "${FBM_EXPECT_CPU_TORCH:-false}" == "true" ]] || return 0
+
+	local component="$1"
+	local image="fedbiomed/vpn-${component}:${FBM_CONTAINER_VERSION_TAG}"
+	local actual
+
+	if ! actual=$(docker run --rm --entrypoint python "$image" -c \
+		'import torch; print("cpu" if torch.version.cuda is None else torch.version.cuda)'); then
+		error "Could not inspect PyTorch in $image"
+	fi
+	if [[ "$actual" != "cpu" ]]; then
+		error "Expected CPU-only PyTorch in $image, found CUDA $actual"
+	fi
+	info "$image uses CPU-only PyTorch"
+}
+
 # Clean images if existing
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
@@ -72,6 +89,7 @@ fi
 
 assert_image_python vpnserver
 assert_image_python researcher
+assert_image_cpu_torch researcher
 
 info "Configuring researcher component"
 
@@ -99,6 +117,8 @@ fi
 
 assert_image_python node
 assert_image_python gui
+assert_image_cpu_torch node
+assert_image_cpu_torch gui
 
 cd ${FEDBIOMED_DIR}/envs/vpn/docker
 if ! docker compose exec vpnserver bash --login -c 'python ./vpn/bin/configure_peer.py genconf node node1'; then

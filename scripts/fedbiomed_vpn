@@ -362,6 +362,15 @@ containers_build() {
 
     BUILD_BASE=0
     BUILD_NODEBASE=0
+    NODE_BASE_SERVICE="${FBM_VPN_NODE_BASE_SERVICE:-basenode}"
+    case "$NODE_BASE_SERVICE" in
+        basenode|basenode-no-gpu) ;;
+        *)
+            echo "** ERROR: invalid node base service '$NODE_BASE_SERVICE'"
+            return 1
+            ;;
+    esac
+
     for i in ${ONLY_CONTAINERS[@]}
     do
         case $i in
@@ -381,12 +390,12 @@ containers_build() {
         fi
     fi
     if [ $BUILD_NODEBASE -eq 1 ]; then
-        echo "- building non-GPU 'basenode' container"
+        echo "- building '$NODE_BASE_SERVICE' container"
         if ! CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-            $DOCKER_COMPOSE build basenode-no-gpu; then
-            echo "** ERROR: failed to build non-GPU 'basenode' container"
+            $DOCKER_COMPOSE build "$NODE_BASE_SERVICE"; then
+            echo "** ERROR: failed to build '$NODE_BASE_SERVICE' container"
             return 1
         fi
     fi

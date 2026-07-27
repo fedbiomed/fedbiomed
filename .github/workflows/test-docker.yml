@@ -133,6 +133,10 @@ jobs:
             runner-tag: self-hosted-ubuntu
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
+      # Compatibility CI is CPU-only. Deployment keeps the GPU-capable defaults.
+      FBM_VPN_NODE_BASE_SERVICE: basenode-no-gpu
+      FBM_PYTORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
+      FBM_EXPECT_CPU_TORCH: "true"
       FBM_CONTAINER_VERSION_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runner-tag }}-py${{ matrix.python-tag }}
       FBM_CONTAINER_INSTANCE_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runner-tag }}-py${{ matrix.python-tag }}
       COMPOSE_PROJECT_NAME: fedbiomed-vpn-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runner-tag }}-py${{ matrix.python-tag }}

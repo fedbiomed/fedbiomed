@@ -30,10 +30,14 @@ RUN apt-get update && apt-get install -y iptables iproute2 iputils-ping bash vim
 RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
     test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
 
-# Keep the non-GPU VPN images free of the multi-gigabyte CUDA runtime.
-RUN python -m pip install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cpu \
-    torch torchvision
+# CI may request CPU-only PyTorch. Normal deployment leaves this unset and
+# resolves the project dependencies through the standard package index.
+ARG FBM_PYTORCH_INDEX_URL=""
+RUN if [ -n "$FBM_PYTORCH_INDEX_URL" ]; then \
+        python -m pip install --no-cache-dir \
+            --index-url "$FBM_PYTORCH_INDEX_URL" \
+            torch torchvision; \
+    fi
 
 # get wireguard from builder image
 COPY --from=builder /root/.cargo/bin/boringtun /usr/bin/
