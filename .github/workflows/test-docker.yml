@@ -31,15 +31,15 @@ jobs:
       matrix:
         include:
           - python-version: "3.10"
-            python-tag: "310"
+            python-tag: "3.10"
           - python-version: "3.11"
-            python-tag: "311"
+            python-tag: "3.11"
           - python-version: "3.12"
-            python-tag: "312"
+            python-tag: "3.12"
           - python-version: "3.13"
-            python-tag: "313"
+            python-tag: "3.13"
           - python-version: "3.14"
-            python-tag: "314"
+            python-tag: "3.14"
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
       IMAGE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
@@ -103,8 +103,8 @@ jobs:
             "fedbiomed/base:$IMAGE_TAG" || true
 
   vpn-functional:
-    name: VPN functional / Python ${{ matrix.python-version }}
-    runs-on: [self-hosted, ubuntu-24-04]
+    name: VPN functional / Python ${{ matrix.python-version }} / ${{ matrix.runner-name }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 360
     strategy:
       fail-fast: false
@@ -112,14 +112,30 @@ jobs:
       matrix:
         include:
           - python-version: "3.10"
-            python-tag: "310"
+            python-tag: "3.10"
+            runner: ubuntu-latest
+            runner-name: Ubuntu latest
+            runner-tag: ubuntu-latest
           - python-version: "3.14"
-            python-tag: "314"
+            python-tag: "3.14"
+            runner: ubuntu-latest
+            runner-name: Ubuntu latest
+            runner-tag: ubuntu-latest
+          - python-version: "3.10"
+            python-tag: "3.10"
+            runner: [self-hosted, ubuntu-24-04]
+            runner-name: Self-hosted Ubuntu
+            runner-tag: self-hosted-ubuntu
+          - python-version: "3.14"
+            python-tag: "3.14"
+            runner: [self-hosted, ubuntu-24-04]
+            runner-name: Self-hosted Ubuntu
+            runner-tag: self-hosted-ubuntu
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
-      FBM_CONTAINER_VERSION_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
-      FBM_CONTAINER_INSTANCE_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
-      COMPOSE_PROJECT_NAME: fedbiomed-vpn-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
+      FBM_CONTAINER_VERSION_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runner-tag }}-py${{ matrix.python-tag }}
+      FBM_CONTAINER_INSTANCE_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runner-tag }}-py${{ matrix.python-tag }}
+      COMPOSE_PROJECT_NAME: fedbiomed-vpn-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runner-tag }}-py${{ matrix.python-tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
