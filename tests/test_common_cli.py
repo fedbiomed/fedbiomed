@@ -6,6 +6,10 @@ import pytest
 from fedbiomed.common.cli import CommonCLI
 from fedbiomed.common.exceptions import FedbiomedError
 
+_NODE_1 = {"party_id": "NODE_1", "component": "NODE"}
+_RESEARCHER_1 = {"party_id": "RESEARCHER_1", "component": "RESEARCHER"}
+_RESEARCHER_2 = {"party_id": "RESEARCHER_2", "component": "RESEARCHER"}
+
 
 @pytest.fixture
 def set_db():
@@ -233,6 +237,38 @@ def test_common_cli_list_certificates(mock_open, mock_cm_list, cli):
 
     cli._list_certificates(args)
     mock_cm_list.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "certificates,reason",
+    [
+        ([_NODE_1], "own_component_type_registered"),
+        ([_RESEARCHER_1, _RESEARCHER_2], "multiple_certificates_on_node"),
+        ([_RESEARCHER_1], None),  # consistent registry: nothing to audit
+    ],
+)
+@patch("fedbiomed.common.cli.logger.security_event")
+@patch("fedbiomed.common.cli.CertificateManager.list")
+@patch("builtins.open")
+def test_list_certificates_audits_inconsistencies(
+    mock_open, mock_cm_list, security_event, cli, certificates, reason
+):
+    """Registry invariants broken by entries predating the checks are audited."""
+    cli.config.COMPONENT_TYPE = "NODE"
+    mock_cm_list.return_value = certificates
+    cli.initialize_certificate_parser()
+
+    cli._list_certificates(cli.parser.parse_args(["certificate", "list"]))
+
+    if reason is None:
+        security_event.assert_not_called()
+        return
+    security_event.assert_called_once()
+    event = security_event.call_args.kwargs
+    assert event["operation"] == "certificate_registry_inconsistent"
+    assert event["status"] == "warning"
+    assert event["reason"] == reason
+    assert event["party_ids"] == [c["party_id"] for c in certificates]
 
 
 @patch("fedbiomed.common.cli.CertificateManager.list")

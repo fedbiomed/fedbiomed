@@ -153,8 +153,11 @@ expiry differ, so every party that pinned or trusted it must register the new on
 
 ## Verifying and troubleshooting
 
-Both sides log the security state of the channel; the node additionally records
-structured security audit events. A persisting failure is logged once at error level,
+Both sides log the security state of the channel and record structured security audit
+events, identifying the peer certificate by subject, issuer, serial and expiry — never
+by its contents. The researcher additionally records the node's source address; it
+re-records a node whose certificate or address changes, so reconnections and
+certificate rotations are visible. A persisting failure is logged once at error level,
 then repeated at debug level only until the connection recovers. If a connection does
 not establish, match the symptom below — diagnosis is mostly **node-side**: the
 researcher rejects untrusted nodes inside the TLS handshake and logs nothing per

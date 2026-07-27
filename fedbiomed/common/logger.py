@@ -166,8 +166,8 @@ class _SecurityFormatter(logging.Formatter):
 
         entry = {
             "timestamp": _utc_timestamp(),
-            "node_id": self._security_defaults.get("component_id"),
-            "node_name": self._security_defaults.get("component_name"),
+            "component_id": self._security_defaults.get("component_id"),
+            "component_name": self._security_defaults.get("component_name"),
             "researcher_id": ctx.get("researcher_id")
             or getattr(record, "researcher_id", None),
             "operation": ctx.get("operation") or getattr(record, "operation", None),

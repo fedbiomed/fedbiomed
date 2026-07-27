@@ -718,6 +718,25 @@ def test_mtls_without_registered_node_certificate_raises(mtls_requests_env):
     mtls_requests_env.grpc_server_mock.assert_not_called()
 
 
+def test_mtls_without_registered_node_certificate_is_registered_as_event(
+    mtls_requests_env,
+):
+    with patch(
+        "fedbiomed.researcher.requests._requests.logger.security_event"
+    ) as security_event:
+        with pytest.raises(FedbiomedCertificateError):
+            Requests(config=mtls_requests_env.config)
+
+    # `logger` is a singleton, so the patch also records `DBTable` table access
+    events = [
+        c
+        for c in security_event.call_args_list
+        if c.kwargs.get("operation") == "mtls_startup_aborted"
+    ]
+    assert len(events) == 1
+    assert events[0].kwargs["status"] == "failure"
+
+
 def test_mtls_passes_trust_bundle_provider_to_server(mtls_requests_env):
     """The server receives a provider, not a static bundle."""
     mtls_requests_env.certificate_manager.insert(

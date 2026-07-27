@@ -5,14 +5,17 @@ import asyncio
 import os
 import threading
 import time
-from typing import Any, Callable, Coroutine, Iterable, List, Optional
+from typing import Any, Callable, Coroutine, Dict, Iterable, List, Optional
 
 import grpc
 from cryptography import x509
 from google.protobuf.message import Message as ProtoBufMessage
 
 import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
-from fedbiomed.common.certificate_manager import certificate_subject_field
+from fedbiomed.common.certificate_manager import (
+    certificate_audit_fields,
+    certificate_subject_field,
+)
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
@@ -47,6 +50,9 @@ server_setup_timeout = int(os.getenv("GRPC_SERVER_SETUP_TIMEOUT", 1))
 GRPC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + server_setup_timeout
 MAX_GRPC_SERVER_SETUP_TIMEOUT = 20 * server_setup_timeout
 
+# gRPC service nodes connect to, reported as the destination of connection events.
+_SERVICE_NAME = "researcher.ResearcherService"
+
 
 class SSLCredentials:
     """Contains credentials for SSL certificate of the gRPC server"""
@@ -79,6 +85,26 @@ class SSLCredentials:
         return self.trusted_node_certificates is not None
 
 
+def _peer_certificate(context: grpc.aio.ServicerContext) -> Optional[bytes]:
+    """PEM of the peer client certificate, or None when none was presented.
+
+    Args:
+        context: RPC peer context.
+
+    Returns:
+        The presented client certificate, or None under server-only TLS.
+    """
+    pem = context.auth_context().get("x509_pem_cert")
+    if not pem:
+        return None
+
+    certificate = pem[0]
+    if not isinstance(certificate, bytes):
+        certificate = certificate.encode("utf-8")
+
+    return certificate
+
+
 def _peer_node_id(context: grpc.aio.ServicerContext) -> Optional[str]:
     """Extracts the node id (cert `O=` field) from the peer client certificate.
 
@@ -89,13 +115,9 @@ def _peer_node_id(context: grpc.aio.ServicerContext) -> Optional[str]:
         The organization value of the presented client certificate, or None when
         no client certificate was presented (mutual TLS disabled).
     """
-    pem = context.auth_context().get("x509_pem_cert")
-    if not pem:
+    certificate = _peer_certificate(context)
+    if certificate is None:
         return None
-
-    certificate = pem[0]
-    if not isinstance(certificate, bytes):
-        certificate = certificate.encode("utf-8")
 
     return certificate_subject_field(certificate, x509.oid.NameOID.ORGANIZATION_NAME)
 
@@ -113,7 +135,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         super().__init__()
         self._agent_store = agent_store
         self._on_message = on_message
-        self._authenticated_nodes: set = set()
+        # Last audited (certificate serial, source address) per node: a node holds
+        # one connection at a time, so a change to either is a new handshake.
+        self._peer_identity: Dict[str, tuple] = {}
 
     async def GetTaskUnary(
         self, request: ProtoBufMessage, context: grpc.aio.ServicerContext
@@ -128,20 +152,39 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         logger.debug(f"Node: {task_request.get('node')} polling for the tasks")
 
         peer_node_id = _peer_node_id(context)
+        # Connection facts common to every audit event of this call.
+        connection = {
+            "source_address": context.peer(),
+            "destination_service": _SERVICE_NAME,
+            **certificate_audit_fields(_peer_certificate(context)),
+        }
+
         if peer_node_id is not None and peer_node_id != task_request["node"]:
             msg = (
                 f"{ErrorNumbers.FB628.value}: Suspected malicious node activity ! "
                 f"Declared node id `{task_request['node']}` does not match the "
                 f"client certificate identity `{peer_node_id}`."
             )
-            logger.error(msg, extra={"is_security": True})
+            logger.error(msg)
+            logger.security_event(
+                operation="mtls_identity_mismatch",
+                status="failure",
+                node_id=peer_node_id,
+                declared_node_id=task_request["node"],
+                detail=msg,
+                **connection,
+            )
             await context.abort(grpc.StatusCode.UNAUTHENTICATED, msg)
 
-        if peer_node_id is not None and peer_node_id not in self._authenticated_nodes:
-            self._authenticated_nodes.add(peer_node_id)
-            logger.info(
-                f"Node `{peer_node_id}` authenticated via mutual TLS.",
-                extra={"is_security": True},
+        identity = (connection.get("cert_serial"), connection["source_address"])
+        if peer_node_id and self._peer_identity.get(peer_node_id) != identity:
+            self._peer_identity[peer_node_id] = identity
+            logger.info(f"Node `{peer_node_id}` authenticated via mutual TLS.")
+            logger.security_event(
+                operation="mtls_node_authenticated",
+                status="success",
+                node_id=peer_node_id,
+                **connection,
             )
 
         node_agent = await self._agent_store.retrieve(node_id=task_request["node"])

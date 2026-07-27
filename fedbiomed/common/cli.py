@@ -462,16 +462,34 @@ class CommonCLI:
         component = self.config.COMPONENT_TYPE
         own = [d["party_id"] for d in certificates if d.get("component") == component]
         if own:
-            logger.warning(
+            msg = (
                 f"Inconsistency: certificate(s) of this component's own type "
                 f"({component}) are registered: {', '.join(own)}. Parties register "
                 "each other's certificates, never their own type."
             )
+            logger.warning(msg)
+            logger.security_event(
+                operation="certificate_registry_inconsistent",
+                status="warning",
+                reason="own_component_type_registered",
+                party_ids=own,
+                component=component,
+                detail=msg,
+            )
         if component == ComponentType.NODE.name and len(certificates) > 1:
-            logger.warning(
+            msg = (
                 "Inconsistency: a node registers at most one certificate — its "
                 f"researcher's — but {len(certificates)} are registered. Delete "
                 "the extra entries."
+            )
+            logger.warning(msg)
+            logger.security_event(
+                operation="certificate_registry_inconsistent",
+                status="warning",
+                reason="multiple_certificates_on_node",
+                party_ids=[d["party_id"] for d in certificates],
+                component=component,
+                detail=msg,
             )
 
     def _delete_certificate(self, args: argparse.Namespace):

@@ -15,6 +15,7 @@ from fedbiomed.common.certificate_manager import (
     CERT_PURPOSE_SERVER,
     CertificateManager,
     TrustedCertificateBundle,
+    certificate_audit_fields,
     certificate_expiry,
     generate_certificate,
 )
@@ -26,6 +27,19 @@ _NODE_B = "NODE_9c2b1d70-1111-2222-3333-444455556666"
 _NODE_C = "NODE_0a1b2c3d-aaaa-bbbb-cccc-ddddeeeeffff"
 _RESEARCHER_A = "RESEARCHER_9c2b1d70-1111-2222-3333-444455556666"
 _RESEARCHER_B = "RESEARCHER_7e6d5c40-9999-8888-7777-666655554444"
+
+
+def _events(security_event, operation):
+    """Audit events of one operation recorded by a patched `logger.security_event`.
+
+    Filtering by operation is required: `logger` is a singleton, so a patched
+    `security_event` also records the events `DBTable` emits for table access.
+    """
+    return [
+        call
+        for call in security_event.call_args_list
+        if call.kwargs.get("operation") == operation
+    ]
 
 
 def _self_signed(folder, org, cn="localhost", purpose=None, with_org_subject=True):
@@ -303,6 +317,30 @@ def test_certificate_expiry_returns_future_date(real_cert):
 
 def test_certificate_expiry_none_for_unparsable():
     assert certificate_expiry(b"not a certificate") is None
+
+
+def test_certificate_audit_fields_identify_the_certificate(real_cert):
+    fields = certificate_audit_fields(real_cert)
+    assert fields["cert_subject"] == "O=node_1,CN=localhost"
+    assert fields["cert_issuer"] == "O=node_1,CN=localhost"
+    assert fields["cert_san"] == "localhost"
+    # Serial as hex, expiry as an ISO-8601 instant
+    assert int(fields["cert_serial"], 16) > 0
+    assert fields["cert_not_after"].endswith("Z")
+    # The certificate itself is never emitted
+    assert not any("BEGIN CERTIFICATE" in value for value in fields.values())
+
+
+def test_certificate_audit_fields_accepts_str(real_cert):
+    assert certificate_audit_fields(real_cert.decode()) == certificate_audit_fields(
+        real_cert
+    )
+
+
+@pytest.mark.parametrize("certificate", [b"not a certificate", b"", None])
+def test_certificate_audit_fields_empty_for_undescribable(certificate):
+    """Logging a connection must not raise on a certificate that cannot be read."""
+    assert certificate_audit_fields(certificate) == {}
 
 
 def test_expiring_certificates_filters_by_threshold_and_component(real_cert):
@@ -716,6 +754,46 @@ def test_node_registering_second_certificate_rejected(cert_db):
     assert len(cert_db.cm.list()) == 1
 
 
+# Both rejections a node can hit: a certificate of its own type, and a second
+# certificate once one is registered.
+@pytest.mark.parametrize(
+    "preregister,party_id", [(None, _NODE_A), (_RESEARCHER_A, _RESEARCHER_B)]
+)
+def test_registration_rejection_is_registered_as_event(cert_db, preregister, party_id):
+    if preregister:
+        cert_db.cm.register_certificate(
+            certificate_path=_self_signed(cert_db.tmp, preregister),
+            registering_component=ComponentType.NODE.name,
+        )
+    with patch(
+        "fedbiomed.common.certificate_manager.logger.security_event"
+    ) as security_event:
+        with pytest.raises(FedbiomedCertificateError):
+            cert_db.cm.register_certificate(
+                certificate_path=_self_signed(cert_db.tmp, party_id),
+                registering_component=ComponentType.NODE.name,
+            )
+
+    events = _events(security_event, "certificate_registration_rejected")
+    assert len(events) == 1
+    assert events[0].kwargs["status"] == "failure"
+    assert events[0].kwargs["party_id"] == party_id
+    assert events[0].kwargs["registering_component"] == ComponentType.NODE.name
+
+
+def test_accepted_registration_is_not_rejected_event(cert_db):
+    """Successful inserts are audited by the DBTable wrapper, not by this path."""
+    with patch(
+        "fedbiomed.common.certificate_manager.logger.security_event"
+    ) as security_event:
+        cert_db.cm.register_certificate(
+            certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A),
+            registering_component=ComponentType.NODE.name,
+        )
+
+    assert _events(security_event, "certificate_registration_rejected") == []
+
+
 def test_node_reregistering_same_party_upserts(cert_db):
     # Same party id is not a second certificate: the usual upsert flow applies.
     cert_db.cm.register_certificate(
@@ -869,6 +947,40 @@ def test_expiring_certificate_is_reported_on_first_read(bundle_expiry_env):
     warned = _warned_parties(env.logger)
     assert len(warned) == 1
     assert "NODE certificate `node-1`" in warned[0]
+
+
+def test_expiring_certificate_is_registered_as_event(bundle_expiry_env):
+    env = bundle_expiry_env
+    env.register("node-1", env.real_certificate("node-1"))
+    provider = TrustedCertificateBundle(env.db_path, ComponentType.NODE.name)
+    provider()
+
+    events = _events(env.logger.security_event, "certificate_expiring")
+    assert len(events) == 1
+    assert events[0].kwargs["status"] == "warning"
+    assert events[0].kwargs["party_id"] == "node-1"
+    assert events[0].kwargs["component"] == ComponentType.NODE.name
+
+
+def test_unreadable_certificate_store_is_registered_as_event(bundle_expiry_env):
+    """A trust store that cannot be read leaves a stale bundle in use: audited."""
+    env = bundle_expiry_env
+    env.register("node-1", "PEM-1")
+    provider = TrustedCertificateBundle(env.db_path, ComponentType.NODE.name)
+    provider()
+
+    with patch(
+        "fedbiomed.common.certificate_manager.os.stat",
+        side_effect=OSError("database is locked"),
+    ):
+        # The previously loaded bundle is kept
+        assert provider() == b"PEM-1"
+
+    events = _events(env.logger.security_event, "certificate_store_unreadable")
+    assert len(events) == 1
+    assert events[0].kwargs["status"] == "warning"
+    assert events[0].kwargs["component"] == ComponentType.NODE.name
+    assert events[0].kwargs["db_path"] == env.db_path
 
 
 def test_hot_added_certificate_is_reported_on_refresh(bundle_expiry_env):
