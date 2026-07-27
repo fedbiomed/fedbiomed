@@ -5,7 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
+from fedbiomed.common.exceptions import (
+    FedbiomedCertificateError,
+    FedbiomedCommunicationError,
+)
 from fedbiomed.common.message import OverlayMessage, SearchReply, SearchRequest
 from fedbiomed.researcher.config import ResearcherConfig
 from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus
@@ -73,6 +76,7 @@ def servicer_env():
         context=context,
         agent_store=agent_store,
         on_message=on_message,
+        # No identities: server-auth only, so no client identity to verify
         servicer=ResearcherServicer(agent_store=agent_store, on_message=on_message),
     )
 
@@ -108,7 +112,7 @@ async def test_researcher_servicer_ReplyTask(load, servicer_env):
     servicer_env.agent_store.get.return_value = node_agent
     load.return_value = reply.to_dict()
     result = await servicer_env.servicer.ReplyTask(
-        request_iterator=request_iterator(), unused_context=servicer_env.context
+        request_iterator=request_iterator(), context=servicer_env.context
     )
     node_agent.on_reply.assert_called_once_with(load.return_value)
     assert result == Empty()
@@ -123,7 +127,7 @@ async def test_researcher_servicer_Feedback(servicer_env):
 
     with patch("fedbiomed.transport.server.logger.debug") as logger_debug:
         result = await servicer_env.servicer.Feedback(
-            request=request, unused_context=servicer_env.context
+            request=request, context=servicer_env.context
         )
     servicer_env.on_message.assert_called_once()
     assert result == Empty()
@@ -209,6 +213,22 @@ async def test_grpc_async_server_start(async_server_env):
 
 
 @pytest.mark.asyncio
+async def test_grpc_async_server_gives_servicer_the_trusted_bundle(async_server_env):
+    """The servicer resolves identities through the bundle the TLS layer trusts.
+
+    Sharing the one instance is what keeps the trust bundle and the identities
+    derived from a single read of the registry, so they cannot disagree.
+    """
+    with patch("fedbiomed.transport.server.ResearcherServicer") as servicer:
+        await async_server_env.server.start()
+
+    assert (
+        servicer.call_args.kwargs["identities"]
+        is async_server_env.server._ssl.trusted_node_certificates
+    )
+
+
+@pytest.mark.asyncio
 async def test_grpc_async_server_server_auth_only_credentials(async_server_env):
     # mtls disabled -> server-auth only, no client cert required
     with patch("fedbiomed.transport.server.grpc.ssl_server_credentials") as credentials:
@@ -240,7 +260,7 @@ async def test_grpc_async_server_mtls_requires_client_auth(async_server_env):
 async def test_grpc_async_server_mtls_empty_bundle_raises(async_server_env, bundle):
     # An empty bundle cannot bind in gRPC, so it is reported before starting
     server = _mtls_server(bundle, async_server_env)
-    with pytest.raises(FedbiomedCommunicationError):
+    with pytest.raises(FedbiomedCertificateError):
         server._server_credentials()
 
 

@@ -60,16 +60,15 @@ Please follow the instructions below to register this certificate:
 
 
  1- Copy certificate content into a file e.g 'Hospital1.pem'
- 2- Change your directory to 'fedbiomed' root
- 2- Run: "fedbiomed [node | researcher] certificate register -pk [PATH WHERE CERTIFICATE IS SAVED] -pi researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830  --ip 193.0.0.1 --port 14002"
-    Examples commands to use for VPN/docker mode:
-      fedbiomed node certificate register -pk ./etc/cert-secagg -pi researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830 --ip 193.0.0.1 --port 14002
-      fedbiomed researcher certificate register -pk ./etc/cert-secagg -pi researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830 --ip 193.0.0.1 --port 14002
+ 2- On each node, change your directory to 'fedbiomed' root
+ 3- Run: fedbiomed node certificate register -pk [PATH WHERE CERTIFICATE IS SAVED]
+
+The party id (researcher_e1c5c101-0c79-43b1-8bf1-d70b06b91830) is read from the certificate, so `-pi` is not needed.
 ```
 
-The aforementioned instructions provide essential details for registering a party among the other participants in a
-federated experiment. The information includes the certificate, component identification number (`-pi`), IP address
-(`--ip`), and port (`--port`).
+The instructions name the component the certificate must be registered on: a researcher
+certificate is registered on the nodes, and a node certificate on the researcher. The
+certificate carries the party id, so only its file path (`-pk`) is required.
 
 
 !!! note "Certificates should be shared outside Fed-BioMed through a trusted channel."
@@ -78,14 +77,15 @@ federated experiment. The information includes the certificate, component identi
 
 ### Registering the certificate
 
-Certificates of other parties should be registered with their component ID, IP and port information. Certificates must
-be copied and saved in a file. Then, the file path is given with the option `-pk`.
+Certificates of other parties must be copied and saved in a file. Then, the file path is given with the option `-pk`.
 
 ```shell
-fedbiomed [node | researcher] certificate register -pk <certificate-file-path> -pi <component-id> --ip  <IP> --port <PORT>"
+fedbiomed [node | researcher] certificate register -pk <certificate-file-path>
 ```
 
-One of `[node | researcher]` must be chosen according to component type that registers the certificate.
+One of `[node | researcher]` must be chosen according to component type that registers the certificate. A component
+registers the certificates of the parties it communicates with, never of its own type: node certificates are registered
+on the researcher, and the researcher certificate on each node.
 
 ## Registration Through GUI
 
