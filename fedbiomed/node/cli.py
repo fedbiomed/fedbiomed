@@ -149,7 +149,7 @@ class DatasetArgumentParser(CLIArgumentParser):
             self._context.dataset_manager,
             initialdir=os.path.join(self._context.config.root, NODE_DATA_FOLDER),
         )
-    
+
     def list(self, unused_args):
         """List datasets
 
@@ -638,7 +638,16 @@ class GUIControl(CLIArgumentParser):
         else:
             certificate = []
 
-        fedbiomed_gui = importlib.import_module("fedbiomed_gui")
+        try:
+            fedbiomed_gui = importlib.import_module("fedbiomed_gui")
+        except ModuleNotFoundError as error:
+            if error.name != "fedbiomed_gui":
+                raise
+            raise FedbiomedError(
+                "The Node GUI is not installed. Install it with:\n"
+                "pip install fedbiomed-gui"
+            ) from error
+
         server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
         print("path to server", server_app)
 

@@ -1,9 +1,9 @@
-import os
 import configparser
-from fedbiomed.node.config import NodeConfig
+import os
 import shutil
+from importlib.resources import as_file, files
 
-from fedbiomed.common.utils import ROOT_DIR
+from fedbiomed.node.config import NodeConfig
 
 cfg = configparser.ConfigParser()
 
@@ -46,8 +46,9 @@ class Config(dict):
             self.configuration["NODE_FEDBIOMED_ROOT"], "etc", "config_gui.ini"
         )
         if not os.path.isfile(conf):
-            default_config = os.path.join(ROOT_DIR, "fedbiomed_gui", "config_gui.ini")
-            shutil.copy(default_config, conf)
+            default_config = files("fedbiomed_gui").joinpath("config_gui.ini")
+            with as_file(default_config) as default_config_path:
+                shutil.copy(default_config_path, conf)
 
         # Config file that is located in ${FEDBIOMED_DIR}/gui directory
         cfg.read(conf)

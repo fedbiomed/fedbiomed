@@ -534,6 +534,62 @@ class TestGUIControl(unittest.TestCase):
         with self.assertRaises(FedbiomedError):
             self.control.forward(args, [])
 
+    @patch("fedbiomed.node.cli.importlib.import_module")
+    @patch("os.path.isdir", return_value=True)
+    def test_06_gui_control_forward_gui_not_installed(
+        self, mock_isdir, mock_import_module
+    ):
+        """Tests forward() explains how to install a missing GUI package."""
+        self.control.initialize()
+        self.context.config.root = "/node/root"
+        mock_import_module.side_effect = ModuleNotFoundError(
+            "No module named 'fedbiomed_gui'", name="fedbiomed_gui"
+        )
+
+        args = argparse.Namespace(
+            path="/some/fedbiomed/path",
+            data_folder="/test/data",
+            key_file=None,
+            cert_file=None,
+            development=False,
+            host="localhost",
+            port="8484",
+            debug=False,
+            recreate=False,
+        )
+
+        with self.assertRaisesRegex(FedbiomedError, "pip install fedbiomed-gui"):
+            self.control.forward(args, [])
+
+    @patch("fedbiomed.node.cli.importlib.import_module")
+    @patch("os.path.isdir", return_value=True)
+    def test_07_gui_control_forward_missing_gui_dependency(
+        self, mock_isdir, mock_import_module
+    ):
+        """Tests missing dependencies inside the GUI remain visible."""
+        self.control.initialize()
+        self.context.config.root = "/node/root"
+        mock_import_module.side_effect = ModuleNotFoundError(
+            "No module named 'gui_dependency'", name="gui_dependency"
+        )
+
+        args = argparse.Namespace(
+            path="/some/fedbiomed/path",
+            data_folder="/test/data",
+            key_file=None,
+            cert_file=None,
+            development=False,
+            host="localhost",
+            port="8484",
+            debug=False,
+            recreate=False,
+        )
+
+        with self.assertRaises(ModuleNotFoundError) as context:
+            self.control.forward(args, [])
+
+        self.assertEqual(context.exception.name, "gui_dependency")
+
 
 class TestStartNodeProcess(unittest.TestCase):
     """Tests for the _start_node_process function."""
