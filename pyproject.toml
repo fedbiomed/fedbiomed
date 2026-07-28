@@ -131,14 +131,6 @@ researcher = [
 	"ipython"
 ]
 
-gui = [
-	"flask >=2.3.1,<24.0",
-	"jsonschema ~=4.18.0",
-	"Flask-JWT-Extended >=4.4.4,<4.5.0",
-	"cachelib >=0.10.2,<0.11.0",
-	"gunicorn ~=23.0.0"
-]
-
 [tool.hatch.metadata]
 allow-direct-references = true
 
@@ -146,7 +138,6 @@ allow-direct-references = true
 include = [
 	"docs/tutorials",
 	"fedbiomed",
-	"fedbiomed_gui",
 	"notebooks",
 	"envs",
 	"docs/tutorials"
@@ -156,14 +147,8 @@ exclude = [
   "envs/vpn"
 ]
 
-# Custom build hook for building node app
-[tool.hatch.build.hooks.custom]
-
 [tool.hatch.build.targets.wheel]
-packages = ["fedbiomed", "fedbiomed_gui"]
-artifacts = [
-  "fedbiomed_gui/ui/build"
-]
+packages = ["fedbiomed"]
 skip-excluded-dirs = true
 
 
@@ -201,7 +186,7 @@ docs = [
 post_install = "pre-commit install"
 
 [build-system]
-requires = ["hatchling", "hatch-build-scripts"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
