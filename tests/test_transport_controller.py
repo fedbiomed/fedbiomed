@@ -1,6 +1,6 @@
 import asyncio
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchReply
@@ -144,8 +144,9 @@ class TestGrpcController(unittest.IsolatedAsyncioTestCase):
 
         self.controller._is_started.set()
         self.controller.send(message)
-        self.send_mock.assert_called_once()
-        self.async_mock.run_coroutine_threadsafe.assert_called_once()
+        self.async_mock.run_coroutine_threadsafe.assert_called_once_with(
+            ANY, self.controller._loop
+        )
 
     def test_grpc_controller_04_is_connected(self):
         with self.assertRaises(FedbiomedCommunicationError):
@@ -165,8 +166,7 @@ class TestGrpcController(unittest.IsolatedAsyncioTestCase):
         # Sync mock so `super().is_connected()` does not create an un-awaited
         # coroutine when `run_coroutine_threadsafe` is mocked out.
         with patch(
-            "fedbiomed.transport.controller.GrpcAsyncTaskController.is_connected",
-            new_callable=MagicMock,
+            "fedbiomed.transport.controller.GrpcAsyncTaskController.is_connected"
         ):
             self.assertTrue(self.controller.is_connected())
 
