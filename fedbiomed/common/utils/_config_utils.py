@@ -70,11 +70,14 @@ def get_component_config(config_path: str) -> configparser.ConfigParser:
     """
     config = configparser.ConfigParser()
 
+    if not os.path.isfile(config_path):
+        raise FedbiomedError(f"Config file is not existing. {config_path}")
+
     try:
         config.read(config_path)
     except Exception as e:
         raise FedbiomedError(
-            f"Can not read config file. Please make sure it is existing or it has valid format. "
+            f"Can not read config file. Please make sure it has valid format. "
             f"{config_path}"
         ) from e
 
@@ -93,16 +96,23 @@ def get_component_certificate_from_config(config_path: str) -> Dict[str, str]:
 
     Raises:
         FedbiomedError:
-            - If config file does not contain `node_id` or `researcher_id` under `default` section.
-            - If config file does not contain `public_key` under `ssl` section.
+            - If config file does not contain `id` or `component` under `default` section.
+            - If config file does not contain `public_key` under `certificate` section.
             - If certificate file is not found or not readable
     """
 
     config = get_component_config(config_path)
-    component_id = config.get("default", "id")
-    component_type = config.get("default", "component").upper()
 
-    certificate = config.get("certificate", "public_key")
+    try:
+        component_id = config.get("default", "id")
+        component_type = config.get("default", "component").upper()
+        certificate = config.get("certificate", "public_key")
+    except configparser.Error as e:
+        raise FedbiomedError(
+            f"Config file is missing component or certificate declarations. "
+            f"{config_path}: {e}"
+        ) from e
+
     certificate_path = os.path.join(os.path.dirname(config_path), certificate)
 
     if not os.path.isfile(certificate_path):
