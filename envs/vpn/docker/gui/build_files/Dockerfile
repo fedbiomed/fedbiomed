@@ -1,5 +1,5 @@
-ARG PYTHON_VERSION=3.10
-FROM python:${PYTHON_VERSION}-slim-bookworm
+ARG FBM_CONTAINER_VERSION_TAG
+FROM fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}
 
 # nginx + flask HTTP server for node1
 EXPOSE 8484
@@ -14,8 +14,7 @@ ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
-ARG PYTHON_VERSION
-ARG FBM_PYTORCH_INDEX_URL=""
+ARG PYTHON_VERSION="3.10"
 
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
@@ -31,13 +30,6 @@ RUN apt-get update && apt-get install -y gcc apt-utils wget procps systemd \
 
 RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
     test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
-
-# CI may request CPU-only PyTorch. Normal deployment leaves this unset.
-RUN if [ -n "$FBM_PYTORCH_INDEX_URL" ]; then \
-        python -m pip install --no-cache-dir \
-            --index-url "$FBM_PYTORCH_INDEX_URL" \
-            torch torchvision; \
-    fi
 
 # Install nodejs -----------------------------------------------------------------
 RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
@@ -92,7 +84,9 @@ WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Installs fedbiomed and necessary modules without retaining downloaded wheels
-RUN python -m pip install --no-cache-dir --no-warn-script-location '.[gui]'
+# or transient front-end dependencies created by the package build hook.
+RUN python -m pip install --no-cache-dir --no-warn-script-location '.[gui]' && \
+    rm -rf "$HOME/.cache/yarn" /fedbiomed/fedbiomed_gui/ui/node_modules
 
 # Changedir to main directory
 WORKDIR /

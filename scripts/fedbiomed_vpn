@@ -374,7 +374,7 @@ containers_build() {
     for i in ${ONLY_CONTAINERS[@]}
     do
         case $i in
-            vpnserver|researcher) BUILD_BASE=1;;
+            vpnserver|researcher|gui|gui2) BUILD_BASE=1;;
             node|node2)           BUILD_NODEBASE=1;;
         esac
     done

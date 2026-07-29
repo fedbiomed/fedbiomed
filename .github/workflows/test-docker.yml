@@ -116,21 +116,25 @@ jobs:
             runner: ubuntu-latest
             runner-name: Ubuntu latest
             runner-tag: ubuntu-latest
+            persistent-cache: false
           - python-version: "3.14"
             python-tag: "314"
             runner: ubuntu-latest
             runner-name: Ubuntu latest
             runner-tag: ubuntu-latest
+            persistent-cache: false
           - python-version: "3.10"
             python-tag: "310"
             runner: [self-hosted, ubuntu-24-04]
             runner-name: Self-hosted Ubuntu
             runner-tag: self-hosted-ubuntu
+            persistent-cache: true
           - python-version: "3.14"
             python-tag: "314"
             runner: [self-hosted, ubuntu-24-04]
             runner-name: Self-hosted Ubuntu
             runner-tag: self-hosted-ubuntu
+            persistent-cache: true
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
       # Compatibility CI is CPU-only. Deployment keeps the GPU-capable defaults.
@@ -149,6 +153,16 @@ jobs:
           docker version
           docker compose version
           test -c /dev/net/tun
+          df -h
+          docker system df
+
+      - name: Bound persistent Docker build cache
+        if: matrix.persistent-cache
+        run: |
+          docker builder prune \
+            --all \
+            --force \
+            --keep-storage 8gb
 
       - name: Run VPN functional test
         run: ./tests/vpn_test.sh
@@ -162,3 +176,12 @@ jobs:
             --file envs/vpn/docker/docker-compose.yml \
             --project-name "$COMPOSE_PROJECT_NAME" \
             down --remove-orphans || true
+
+      - name: Prune persistent Docker build cache
+        if: ${{ always() && matrix.persistent-cache }}
+        run: |
+          docker builder prune \
+            --all \
+            --force \
+            --keep-storage 8gb || true
+          docker system df || true

@@ -262,6 +262,16 @@ to fit within CI disk limits. This is an opt-in test configuration:
 Normal VPN deployment does not set these values. It keeps the GPU-capable node
 base and standard package-index resolution.
 
+The CPU PyTorch installation is created in the VPN base and reused by the
+researcher, non-GPU node base, and GUI images. The researcher and node package
+builds skip the React build because neither image serves the node GUI. Node.js,
+Yarn, and the React compilation remain in the dedicated GUI image.
+
+On the self-hosted runner, useful Docker layers persist between jobs. A bounded
+prune before and after the VPN test targets 8 GB of retained build cache
+without deleting Docker images, containers, volumes, or networks. Hosted
+runners are ephemeral and do not need persistent cache management.
+
 The VPN build wrapper propagates the first failed Docker build instead of
 continuing with later images. Cleanup removes resources created by the current
 run and does not execute a broad `docker system prune`.

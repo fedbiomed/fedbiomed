@@ -16,6 +16,14 @@ class CustomBuildHook(BuildHookInterface):
         # Code in this function will run before building
         super().initialize(version, build_data)
 
+        if os.environ.get("FBM_SKIP_FRONTEND_BUILD", "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }:
+            logger.info("Skipping node front-end build")
+            return
+
         logger.info("Building node front-end")
         yarn = shutil.which("yarn")
 

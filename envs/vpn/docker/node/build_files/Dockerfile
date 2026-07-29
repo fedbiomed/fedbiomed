@@ -19,17 +19,11 @@ ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 
-RUN apt-get update && apt-get install -y libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git \
+RUN apt-get update && apt-get install -y libgmp3-dev libmpfr-dev libmpc-dev apt-utils git \
 	rsync
 
 RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
     test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
-
-# Install nodejs -----------------------------------------------------------------
-RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
-RUN apt-get install -y nodejs
-RUN npm install --global yarn@1.22
-
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/node/build_files/bashrc_append /tmp
@@ -76,9 +70,11 @@ USER $CONTAINER_USER:$CONTAINER_GROUP
 # CI preserves CPU PyTorch from the base; deployment retains the original
 # ignore-installed behavior and standard dependency resolution.
 RUN if [ -n "$FBM_PYTORCH_INDEX_URL" ]; then \
-        python -m pip install --no-cache-dir --no-warn-script-location '.[node]'; \
+        FBM_SKIP_FRONTEND_BUILD=1 \
+            python -m pip install --no-cache-dir --no-warn-script-location '.[node]'; \
     else \
-        python -m pip install --no-cache-dir --no-warn-script-location -I '.[node]'; \
+        FBM_SKIP_FRONTEND_BUILD=1 \
+            python -m pip install --no-cache-dir --no-warn-script-location -I '.[node]'; \
     fi
 
 # transmit build-time values to running container
