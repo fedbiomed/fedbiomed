@@ -718,6 +718,21 @@ def test_mtls_without_registered_node_certificate_raises(mtls_requests_env):
     mtls_requests_env.grpc_server_mock.assert_not_called()
 
 
+def test_mtls_with_unreadable_certificate_database_names_the_database(
+    mtls_requests_env,
+):
+    """A database that cannot be read is reported as such, not as an empty one."""
+    db_path = mtls_requests_env.config.getpath("default", "db")
+    mtls_requests_env.certificate_manager.close()
+    os.remove(db_path)
+
+    with pytest.raises(FedbiomedCertificateError) as exc_info:
+        Requests(config=mtls_requests_env.config)
+
+    assert f"certificate database {db_path} could not be read" in str(exc_info.value)
+    mtls_requests_env.grpc_server_mock.assert_not_called()
+
+
 def test_mtls_without_registered_node_certificate_is_registered_as_event(
     mtls_requests_env,
 ):
