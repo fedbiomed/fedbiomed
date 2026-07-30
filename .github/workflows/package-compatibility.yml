@@ -1,0 +1,205 @@
+---
+name: Package Compatibility Tests
+run-name: Package Compatibility Tests
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    # Monday at 01:17 UTC, representing Sunday night operationally.
+    - cron: "17 1 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  build-package:
+    name: Build package / Python 3.10 / Ubuntu latest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python and PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.10"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Yarn
+        run: npm install --global yarn@1.22.22
+
+      - name: Install build environment
+        run: pdm install --no-default
+
+      - name: Build wheel and source distribution
+        run: pdm build
+
+      - name: Validate distributions
+        shell: bash
+        run: |
+          python -m pip install twine
+          python -m twine check dist/*
+
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          source_distributions=(dist/*.tar.gz)
+
+          if [[ ${#wheels[@]} -ne 1 ]]; then
+            echo "Expected exactly one wheel, found ${#wheels[@]}." >&2
+            exit 1
+          fi
+          if [[ ${#source_distributions[@]} -ne 1 ]]; then
+            echo "Expected exactly one source distribution, found ${#source_distributions[@]}." >&2
+            exit 1
+          fi
+          if [[ "${wheels[0]}" != *-py3-none-any.whl ]]; then
+            echo "Expected a py3-none-any wheel, found ${wheels[0]}." >&2
+            exit 1
+          fi
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fedbiomed-package
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  test-wheel:
+    name: Wheel / Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    needs: build-package
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24-04
+          - macos-latest
+          - macos-m1
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup requested Python
+        uses: ./.github/actions/setup-fbm-env
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: fedbiomed-package
+          path: dist/
+
+      - name: Install exact wheel in a clean environment
+        run: |
+          wheel_files=("$GITHUB_WORKSPACE"/dist/*.whl)
+          if [[ ${#wheel_files[@]} -ne 1 || ! -f "${wheel_files[0]}" ]]; then
+            echo "Expected exactly one wheel in the downloaded artifact." >&2
+            exit 1
+          fi
+
+          VENV_DIR="$RUNNER_TEMP/fedbiomed-wheel-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-py${{ matrix.python-version }}"
+          "$FEDBIOMED_PYTHON_BIN" -m venv "$VENV_DIR"
+          VENV_PYTHON="$VENV_DIR/bin/python"
+          echo "VENV_PYTHON=$VENV_PYTHON" >> "$GITHUB_ENV"
+          echo "$VENV_DIR/bin" >> "$GITHUB_PATH"
+
+          "$VENV_PYTHON" -c 'import sys; print("Venv Python:", sys.executable, sys.version)'
+          "$VENV_PYTHON" -m pip install --upgrade pip
+          "$VENV_PYTHON" -m pip install \
+            "${wheel_files[0]}[node,gui,researcher]"
+
+      - name: Verify installed wheel
+        working-directory: ${{ runner.temp }}
+        env:
+          EXPECTED_PYTHON: ${{ matrix.python-version }}
+        run: |
+          "$VENV_PYTHON" -m pip check
+          "$(dirname "$VENV_PYTHON")/fedbiomed" --help
+          "$VENV_PYTHON" - <<'PY'
+          import os
+          import sys
+          from importlib.metadata import distribution
+          from pathlib import Path
+
+          import fedbiomed
+          import fedbiomed_gui
+          from fedbiomed.common.utils import SHARE_DIR
+
+          expected_python = os.environ["EXPECTED_PYTHON"]
+          actual_python = f"{sys.version_info.major}.{sys.version_info.minor}"
+          assert actual_python == expected_python, (
+              f"Expected Python {expected_python}, found {actual_python}"
+          )
+
+          workspace = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          package_file = Path(fedbiomed.__file__).resolve()
+          assert workspace not in package_file.parents, (
+              f"Imported Fed-BioMed from the checkout: {package_file}"
+          )
+
+          package = distribution("fedbiomed")
+          requires_python = package.metadata["Requires-Python"]
+          assert requires_python, "Wheel metadata has no Requires-Python value"
+          provided_extras = set(package.metadata.get_all("Provides-Extra") or ())
+          assert {"node", "gui", "researcher"} <= provided_extras, (
+              f"Missing wheel extras: {provided_extras}"
+          )
+          console_scripts = {
+              entry.name: entry.value
+              for entry in package.entry_points
+              if entry.group == "console_scripts"
+          }
+          assert console_scripts.get("fedbiomed") == "fedbiomed.cli:run"
+
+          share_dir = Path(SHARE_DIR)
+          required_shared_directories = (
+              share_dir / "notebooks",
+              share_dir / "docs" / "tutorials",
+              share_dir / "envs" / "common",
+          )
+          for directory in required_shared_directories:
+              assert directory.is_dir(), f"Missing shared directory: {directory}"
+              assert any(directory.rglob("*")), f"Empty shared directory: {directory}"
+
+          gui_root = Path(fedbiomed_gui.__file__).resolve().parent
+          react_index = gui_root / "ui" / "build" / "index.html"
+          assert react_index.is_file(), f"Missing React entry point: {react_index}"
+
+          print(f"Installed package: {package_file}")
+          print(f"Requires-Python: {requires_python}")
+          print(f"Shared data: {share_dir}")
+          print(f"React entry point: {react_index}")
+          PY
+
+      - name: Record failed installation dependencies
+        if: failure()
+        run: |
+          if [[ -n "${VENV_PYTHON:-}" && -x "$VENV_PYTHON" ]]; then
+            "$VENV_PYTHON" -m pip freeze --all > wheel-dependencies.txt
+          fi
+
+      - name: Upload failed installation diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: wheel-dependencies.txt
+          if-no-files-found: ignore
+          retention-days: 14
