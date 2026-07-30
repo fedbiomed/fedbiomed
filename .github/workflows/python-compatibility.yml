@@ -1,0 +1,24 @@
+---
+name: Python Compatibility Tests
+run-name: Python Compatibility Tests
+
+on:
+  schedule:
+    # Sunday at 00:37 UTC on the default branch.
+    - cron: "37 0 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  full-unit-and-e2e:
+    name: Full unit and end-to-end compatibility matrix
+    uses: ./.github/workflows/fbm-generic-test.yml
+    secrets: inherit
+    with:
+      python-versions: '["3.10","3.11","3.12","3.13","3.14"]'
+      os-list: '["ubuntu-latest","ubuntu-24-04","macos-latest","macos-m1"]'
+      run-docs: false
+      run-unit: true
+      run-mnist: false
+      run-e2e: true
