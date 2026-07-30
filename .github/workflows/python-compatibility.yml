@@ -3,6 +3,7 @@ name: Python Compatibility Tests
 run-name: Python Compatibility Tests
 
 on:
+  pull_request:
   schedule:
     # Sunday at 00:37 UTC on the default branch.
     - cron: "37 0 * * 0"
