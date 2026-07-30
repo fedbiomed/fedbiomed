@@ -360,21 +360,34 @@ class Requests(metaclass=SingletonMeta):
         # Bundle of registered node certificates to pin, when mutual TLS is on.
         trusted_node_certificates = None
         if is_mtls_enabled(config):
+            db_path = config.getpath("default", "db")
             trusted_node_certificates = TrustedCertificateBundle(
-                config.getpath("default", "db"), ComponentType.NODE.name
+                db_path, ComponentType.NODE.name
             )
             # This first read also reports expiring certificates. gRPC cannot build
             # server credentials from an empty bundle: it fails to bind the port
             # rather than starting and rejecting nodes.
             if not trusted_node_certificates():
-                msg = (
-                    f"{ErrorNumbers.FB619.value}: mutual TLS is enabled but no node "
-                    "certificate is registered, so the researcher server cannot "
-                    "start. Register at least one node certificate with `fedbiomed "
-                    "researcher certificate register`, or disable mutual TLS by "
-                    "setting `enabled = False` in the `[mtls]` section of "
-                    f"{config.config_path}."
-                )
+                # An empty bundle from a database that was never read means the
+                # database is missing or unreadable, not that it holds nothing.
+                if trusted_node_certificates.loaded:
+                    msg = (
+                        f"{ErrorNumbers.FB619.value}: mutual TLS is enabled but no node "
+                        "certificate is registered, so the researcher server cannot "
+                        "start. Register at least one node certificate with `fedbiomed "
+                        "researcher certificate register`, or disable mutual TLS by "
+                        "setting `enabled = False` in the `[mtls]` section of "
+                        f"{config.config_path}."
+                    )
+                else:
+                    msg = (
+                        f"{ErrorNumbers.FB619.value}: mutual TLS is enabled but the "
+                        f"certificate database {db_path} could not be read, so the "
+                        "researcher server cannot start. Registering a node certificate "
+                        "with `fedbiomed researcher certificate register` creates it, "
+                        "provided the `db` path of the `[default]` section of "
+                        f"{config.config_path} points into an existing directory."
+                    )
                 logger.security_event(
                     operation="mtls_startup_aborted",
                     status="failure",

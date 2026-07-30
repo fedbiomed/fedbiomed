@@ -357,10 +357,16 @@ class TrustedCertificateBundle:
             self._state = state
             self._warn_expiring(expiring)
         except (OSError, FedbiomedError) as e:
-            msg = (
-                f"Could not read certificate database {self._db_path}: {e}. "
-                "Keeping the previously loaded node certificates."
-            )
+            if self._state is None:
+                msg = (
+                    f"Could not read certificate database {self._db_path}: {e}. "
+                    f"No {self._component} certificate is available."
+                )
+            else:
+                msg = (
+                    f"Could not read certificate database {self._db_path}: {e}. "
+                    f"Keeping the previously loaded {self._component} certificates."
+                )
             logger.warning(msg)
             logger.security_event(
                 operation="certificate_store_unreadable",

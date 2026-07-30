@@ -977,6 +977,23 @@ def test_unreadable_certificate_store_is_registered_as_event(bundle_expiry_env):
     assert events[0].kwargs["db_path"] == env.db_path
 
 
+def test_never_read_certificate_store_reports_no_certificate_available(
+    bundle_expiry_env,
+):
+    """A database never read holds nothing to keep, and must not claim it does."""
+    env = bundle_expiry_env
+    provider = TrustedCertificateBundle(
+        f"{env.db_path}.missing", ComponentType.NODE.name
+    )
+
+    assert provider() == b""
+    assert not provider.loaded
+
+    warning = env.logger.warning.call_args.args[0]
+    assert f"No {ComponentType.NODE.name} certificate is available" in warning
+    assert "Keeping" not in warning
+
+
 def test_hot_added_certificate_is_reported_on_refresh(bundle_expiry_env):
     """The gap this closes: a certificate registered after startup."""
     env = bundle_expiry_env
