@@ -3,6 +3,7 @@ name: Package Compatibility Tests
 run-name: Package Compatibility Tests
 
 on:
+  pull_request:
   workflow_call:
   workflow_dispatch:
   schedule:
