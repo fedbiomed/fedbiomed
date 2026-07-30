@@ -5,172 +5,379 @@ on:
   workflow_call:
     inputs:
       python-versions:
+        description: JSON list of Python versions
         required: true
         type: string
       os-list:
+        description: JSON list of runner labels
         required: true
         type: string
+      run-docs:
+        description: Build documentation once
+        required: false
+        default: false
+        type: boolean
+      run-unit:
+        description: Run the unit-test matrix
+        required: false
+        default: false
+        type: boolean
+      run-mnist:
+        description: Run the MNIST smoke-test matrix
+        required: false
+        default: false
+        type: boolean
+      run-e2e:
+        description: Run the ordinary end-to-end matrix
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      python_310:
+        description: Test with Python 3.10
+        required: false
+        default: true
+        type: boolean
+      python_311:
+        description: Test with Python 3.11
+        required: false
+        default: false
+        type: boolean
+      python_312:
+        description: Test with Python 3.12
+        required: false
+        default: false
+        type: boolean
+      python_313:
+        description: Test with Python 3.13
+        required: false
+        default: false
+        type: boolean
+      python_314:
+        description: Test with Python 3.14
+        required: false
+        default: true
+        type: boolean
+      os_ubuntu_latest:
+        description: Test on GitHub-hosted Ubuntu latest
+        required: false
+        default: true
+        type: boolean
+      os_ubuntu_self_hosted:
+        description: Test on the self-hosted Ubuntu runner
+        required: false
+        default: true
+        type: boolean
+      os_macos_latest:
+        description: Test on GitHub-hosted macOS latest
+        required: false
+        default: true
+        type: boolean
+      os_macos_m1:
+        description: Test on self-hosted macOS M1
+        required: false
+        default: true
+        type: boolean
+      run-docs:
+        description: Build documentation once
+        required: false
+        default: false
+        type: boolean
+      run-unit:
+        description: Run the unit-test matrix
+        required: false
+        default: true
+        type: boolean
+      run-mnist:
+        description: Run the MNIST smoke-test matrix
+        required: false
+        default: false
+        type: boolean
+      run-e2e:
+        description: Run the ordinary end-to-end matrix
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
 
 jobs:
-  build-doc:
-    name: Test documentation build
+  prepare-matrix:
+    name: Prepare test matrix
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
+    outputs:
+      python_versions: ${{ steps.matrix.outputs.python_versions }}
+      os_list: ${{ steps.matrix.outputs.os_list }}
     steps:
-      - name: Checkout to repository
+      - name: Resolve selected Python versions and runners
+        id: matrix
+        shell: bash
+        env:
+          CALLED_PYTHON_VERSIONS: ${{ inputs.python-versions }}
+          CALLED_OS_LIST: ${{ inputs.os-list }}
+          PYTHON_310: ${{ inputs.python_310 }}
+          PYTHON_311: ${{ inputs.python_311 }}
+          PYTHON_312: ${{ inputs.python_312 }}
+          PYTHON_313: ${{ inputs.python_313 }}
+          PYTHON_314: ${{ inputs.python_314 }}
+          OS_UBUNTU_LATEST: ${{ inputs.os_ubuntu_latest }}
+          OS_UBUNTU_SELF_HOSTED: ${{ inputs.os_ubuntu_self_hosted }}
+          OS_MACOS_LATEST: ${{ inputs.os_macos_latest }}
+          OS_MACOS_M1: ${{ inputs.os_macos_m1 }}
+          RUN_MATRIX_TESTS: ${{ inputs.run-unit || inputs.run-mnist || inputs.run-e2e }}
+        run: |
+          make_json_array() {
+            local json=""
+            local value
+            for value in "$@"; do
+              if [[ -n "$json" ]]; then
+                json+=","
+              fi
+              json+="\"$value\""
+            done
+            printf '[%s]' "$json"
+          }
+
+          if [[ -z "$CALLED_PYTHON_VERSIONS" && -z "$CALLED_OS_LIST" ]]; then
+            python_versions=()
+            [[ "$PYTHON_310" == "true" ]] && python_versions+=("3.10")
+            [[ "$PYTHON_311" == "true" ]] && python_versions+=("3.11")
+            [[ "$PYTHON_312" == "true" ]] && python_versions+=("3.12")
+            [[ "$PYTHON_313" == "true" ]] && python_versions+=("3.13")
+            [[ "$PYTHON_314" == "true" ]] && python_versions+=("3.14")
+
+            os_list=()
+            [[ "$OS_UBUNTU_LATEST" == "true" ]] && os_list+=("ubuntu-latest")
+            [[ "$OS_UBUNTU_SELF_HOSTED" == "true" ]] && os_list+=("ubuntu-24-04")
+            [[ "$OS_MACOS_LATEST" == "true" ]] && os_list+=("macos-latest")
+            [[ "$OS_MACOS_M1" == "true" ]] && os_list+=("macos-m1")
+
+            if [[ "$RUN_MATRIX_TESTS" == "true" && \
+                  ( ${#python_versions[@]} -eq 0 || ${#os_list[@]} -eq 0 ) ]]; then
+              echo "Select at least one Python version and one runner." >&2
+              exit 1
+            fi
+
+            python_versions_json=$(make_json_array "${python_versions[@]}")
+            os_list_json=$(make_json_array "${os_list[@]}")
+          elif [[ -n "$CALLED_PYTHON_VERSIONS" && -n "$CALLED_OS_LIST" ]]; then
+            python_versions_json="$CALLED_PYTHON_VERSIONS"
+            os_list_json="$CALLED_OS_LIST"
+          else
+            echo "The caller must provide both Python and runner matrices." >&2
+            exit 1
+          fi
+
+          echo "Python matrix: $python_versions_json"
+          echo "Runner matrix: $os_list_json"
+          echo "python_versions=$python_versions_json" >> "$GITHUB_OUTPUT"
+          echo "os_list=$os_list_json" >> "$GITHUB_OUTPUT"
+
+  build-doc:
+    name: Documentation / Python 3.14 / Ubuntu latest
+    if: ${{ inputs.run-docs }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.14"
+          cache: pip
 
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v4
 
-      - name: Install Dependencies
+      - name: Install documentation dependencies
         run: pdm install --no-default -G docs -G dev
 
-      - name: Configure git
+      - name: Configure Git
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "fedbiomed-bot@users.noreply.github.com"
 
-      - name: Build docs with mike
-        run: |
-          pdm run mike deploy test
+      - name: Build documentation
+        run: pdm run mike deploy test
 
   unit-test:
-    name: Unit Tests
+    name: Unit / Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    if: ${{ inputs.run-unit }}
+    needs: prepare-matrix
     defaults:
       run:
         shell: bash -l {0}
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJson(inputs.os-list) }}
-        python-version: ${{ fromJson(inputs.python-versions) }}
-
+        os: ${{ fromJSON(needs.prepare-matrix.outputs.os_list) }}
+        python-version: ${{ fromJSON(needs.prepare-matrix.outputs.python_versions) }}
     runs-on: ${{ matrix.os }}
-    if: github.event.pull_request.draft == false
     steps:
-      - name: Checkout to commit
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Filter module related changes
-        uses: dorny/paths-filter@master
-        id: filter
-        with:
-          filters: |
-            module:
-              - 'fedbiomed/**'
-              - 'scripts/**'
-              - 'tests/**'
-              - 'envs/build/**'
-              - 'modules/**'
-              - '.github/**'
-              - 'pyproject.toml'
-              - 'pdm.lock'
-
-      - name: Setup Fed-BioMed Test Environment
-        if: matrix.os != 'windows-latest'
+      - name: Setup Fed-BioMed test environment
         uses: ./.github/actions/setup-fbm-env
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Python on Windows
-        if: matrix.os == 'windows-latest'
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip"
+      - name: Verify tox configuration
+        run: tox --showconfig -e py${{ matrix.python-version }}-unit
 
-      - name: Install Dependencies
-        if: steps.filter.outputs.module == 'true'
+      - name: Run unit tests
+        run: tox -r -e py${{ matrix.python-version }}-unit
+
+      - name: Record unit-test dependencies
+        if: failure()
         run: |
-          pip install tox
+          tox exec -e py${{ matrix.python-version }}-unit -- \
+            python -m pip freeze --all > dependency-freeze.txt || \
+            python -m pip freeze --all > dependency-freeze.txt
 
-      - name: Verify Tox Config
-        if: steps.filter.outputs.module == 'true'
-        run: |
-          tox --showconfig -e py${{ matrix.python-version }}-unit
-        shell: bash -l {0}
-
-      - name: Run tests
-        if: steps.filter.outputs.module == 'true'
-        run: |
-          tox -r -e py${{ matrix.python-version }}-unit
-        shell: bash -l {0}
-
-      - name: Upload coverage reports to Codecov
-        if: steps.filter.outputs.module == 'true' && matrix.os != 'macos-m1'
-        uses: codecov/codecov-action@v3
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.os != 'macos-m1' }}
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: tests/coverage.xml
-          flags: unittests-${{ matrix.os }} # optional
-          name: codecov-umbrella # optional
-          fail_ci_if_error: false # may fail for PR from forks
-          verbose: true # optional (default = false)
+          flags: unittests-${{ matrix.os }}-py${{ matrix.python-version }}
+          fail_ci_if_error: false
 
-      - name: Notify upload impossible on m1
-        if: steps.filter.outputs.module == 'true' && matrix.os == 'macos-m1'
-        run: |
-          echo "No codecov-action available for macos-m1"
+      - name: Upload unit-test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            .tox/*-junit.xml
+            .tox/**/*.log
+            tests/**/*.log
+            tests/coverage.xml
+            dependency-freeze.txt
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
 
   mnist-test:
-    name: Test Basic MNIST
+    name: MNIST / Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    if: ${{ inputs.run-mnist }}
+    needs: prepare-matrix
     defaults:
       run:
         shell: bash -l {0}
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJson(inputs.os-list) }}
-        python-version: ${{ fromJson(inputs.python-versions) }}
-
+        os: ${{ fromJSON(needs.prepare-matrix.outputs.os_list) }}
+        python-version: ${{ fromJSON(needs.prepare-matrix.outputs.python_versions) }}
     runs-on: ${{ matrix.os }}
-    continue-on-error: true
-    needs: unit-test
-    if: github.event.pull_request.draft == false
     steps:
-      - name: Checkout to commit
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Filter module related changes
-        uses: dorny/paths-filter@master
-        id: filter
-        with:
-          filters: |
-            module:
-              - 'fedbiomed/**'
-              - 'scripts/**'
-              - 'tests/**'
-              - 'envs/build/**'
-              - 'modules/**'
-              - '.github/**'
-              - 'pyproject.toml'
-              - 'pdm.lock'
-
-      - name: Setup Fed-BioMed Test Environment
+      - name: Setup Fed-BioMed test environment
         uses: ./.github/actions/setup-fbm-env
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Dependencies
-        if: steps.filter.outputs.module == 'true'
-        run: |
-          pip install tox
+      - name: Verify tox configuration
+        run: tox --showconfig -e py${{ matrix.python-version }}-e2e-mnist
 
-      - name: Verify Tox Config
-        if: steps.filter.outputs.module == 'true'
+      - name: Run MNIST smoke test
+        env:
+          FEDBIOMED_E2E_DATA_PATH: ${{ runner.temp }}/fedbiomed-e2e-data
+        run: tox -r -e py${{ matrix.python-version }}-e2e-mnist
+
+      - name: Record MNIST dependencies
+        if: failure()
         run: |
-          tox --showconfig -e py${{ matrix.python-version }}-e2e
+          tox exec -e py${{ matrix.python-version }}-e2e-mnist -- \
+            python -m pip freeze --all > dependency-freeze.txt || \
+            python -m pip freeze --all > dependency-freeze.txt
+
+      - name: Upload MNIST diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mnist-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            .tox/*-junit.xml
+            .tox/**/*.log
+            tests/end2end/**/*.log
+            dependency-freeze.txt
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
+
+  e2e-test:
+    name: E2E / ${{ matrix.e2e-file }} / Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    if: ${{ inputs.run-e2e }}
+    needs: prepare-matrix
+    timeout-minutes: 180
+    defaults:
+      run:
         shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.prepare-matrix.outputs.os_list) }}
+        python-version: ${{ fromJSON(needs.prepare-matrix.outputs.python_versions) }}
+        e2e-file:
+          - e2e_analytics.py
+          - e2e_declearn_modules.py
+          - e2e_declearn_modules_sklearn.py
+          - e2e_image_folder_pytorch.py
+          - e2e_ixi_brain_segmentation.py
+          - e2e_mnist_pytorch.py
+          - e2e_secure_aggregation.py
+          - e2e_sklearn.py
+          - e2e_training_plan_approval.py
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Run tests
-        if: steps.filter.outputs.module == 'true'
+      - name: Setup Fed-BioMed test environment
+        uses: ./.github/actions/setup-fbm-env
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Verify tox configuration
+        run: tox --showconfig -e py${{ matrix.python-version }}-e2e
+
+      - name: Run ordinary end-to-end tests
+        timeout-minutes: 135
+        env:
+          FBM_GITLAB_TOKEN: ${{ secrets.FBM_GITLAB_TOKEN }}
+          FBM_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.e2e-file }}
+          FEDBIOMED_E2E_DATA_PATH: ${{ runner.temp }}/fedbiomed-e2e-data-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-version }}-${{ matrix.e2e-file }}
         run: |
-          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
-            tox -r -e py${{ matrix.python-version }}-e2e -- e2e_mnist_pytorch.py
-        shell: bash -il {0}
+          set -o pipefail
+          tox -r -e py${{ matrix.python-version }}-e2e -- \
+            --maxfail=1 ${{ matrix.e2e-file }} 2>&1 | tee e2e-output.log
+
+      - name: Record end-to-end dependencies
+        if: always()
+        run: |
+          tox exec -e py${{ matrix.python-version }}-e2e -- \
+            python -m pip freeze --all > dependency-freeze.txt || \
+            python -m pip freeze --all > dependency-freeze.txt
+
+      - name: Upload end-to-end diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.e2e-file }}-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            .tox/*-junit.xml
+            .tox/**/*.log
+            tests/end2end/**/*.log
+            e2e-output.log
+            dependency-freeze.txt
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,53 +1,34 @@
 ---
 name: End-to-End Test
 run-name: fedbiomed-e2e-tests
-permissions: write-all
+
 on:
-  schedule:
-    - cron: '0 20 * * *'  # Run every day at 8pm on default branch: develop
   workflow_dispatch:
     inputs:
       python-version:
-        description: 'Python version (e.g. ["3.10"]). Leave empty for all.'
+        description: 'Python versions as JSON; empty uses ["3.10","3.14"].'
         required: false
+        type: string
       os:
-        description: 'OS (e.g. ["ubuntu-latest"]). Leave empty for all.'
+        description: 'Runners as JSON; empty uses all four targets.'
         required: false
-      
+        type: string
   push:
     branches:
-      - 'master'
-      
+      - master
+
+permissions:
+  contents: read
+
 jobs:
   e2e-test-auto:
-    name: e2e tests
-    defaults:
-      run:
-        shell: bash -il {0}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ${{ github.event.inputs.os != '' && fromJson(github.event.inputs.os) || fromJson('["ubuntu-latest","ubuntu-22.04","macos-latest","macos-m1"]') }}
-        python-version: ${{ github.event.inputs.python-version != '' && fromJson(github.event.inputs.python-version) || fromJson('["3.10","3.11"]') }}
-    
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout of head
-        id: e2e-checkout
-        uses: actions/checkout@v4
-
-      - name: Install Python using Pyenv
-        uses: ./.github/actions/setup-fbm-env
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Run end-to-end tests
-        id: e2e-tests-with-pytest
-        env:
-          FBM_GITLAB_TOKEN: ${{ secrets.FBM_GITLAB_TOKEN }}
-        run: |
-          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox \
-            -r -m e2e
-        shell: bash -il {0}
+    name: Run ordinary end-to-end tests
+    uses: ./.github/workflows/fbm-generic-test.yml
+    secrets: inherit
+    with:
+      python-versions: ${{ github.event.inputs.python-version != '' && github.event.inputs.python-version || '["3.10","3.14"]' }}
+      os-list: ${{ github.event.inputs.os != '' && github.event.inputs.os || '["ubuntu-latest","ubuntu-24-04","macos-latest","macos-m1"]' }}
+      run-docs: false
+      run-unit: false
+      run-mnist: false
+      run-e2e: true

@@ -1,34 +1,35 @@
 ---
-name: Fed-BioMed Build test
-run-name: Fed-BioMed Build test
+name: Fed-BioMed Build Test
+run-name: Fed-BioMed Build Test
+
 on:
   pull_request:
     types:
       - opened
       - synchronize
+      - reopened
       - ready_for_review
     branches:
       - develop
       - master
 
-  workflow_dispatch:
-    inputs:
-      full:
-        description: "Run full test matrix"
-        required: false
-        default: "true"
-
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-
 jobs:
   run-tests:
-    name: Run Fed-BioMed UNIT-MNIST-DOC Tests
+    name: Run unit, MNIST, and documentation tests
+    if: ${{ github.event.pull_request.draft == false }}
     uses: ./.github/workflows/fbm-generic-test.yml
     secrets: inherit
     with:
-      python-versions: ${{ ( github.event_name == 'schedule' || inputs.full == 'true' ) && '["3.10","3.11"]' || '["3.11"]' }}
-      os-list: ${{ ( github.event_name == 'schedule' || inputs.full == 'true' ) && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest","ubuntu-22.04","macos-latest","macos-m1"]' }}
+      python-versions: '["3.10","3.14"]'
+      os-list: '["ubuntu-latest","macos-latest"]'
+      run-docs: true
+      run-unit: true
+      run-mnist: true
+      run-e2e: false

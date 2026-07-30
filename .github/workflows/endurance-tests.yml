@@ -6,9 +6,9 @@ on:
   schedule:
     - cron: "0 1 * * 6"  # Run every Saturday at 1 am on default branch: develop
   workflow_dispatch:
-  push:
-    branches:
-      - 'master'
+
+permissions:
+  contents: read
 
 jobs:
   endurance-test:
@@ -16,19 +16,17 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
-    name: Endurance Tests
+    name: Endurance / Python ${{ matrix.python-version }} / ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os:
           - ubuntu-latest
-          - ubuntu-22.04
-          - macos-latest
-          - macos-m1
+          - ubuntu-24-04
         python-version:
-          - '3.10'
-          - '3.11'
-    runs-on: ${{matrix.os}}
+          - "3.10"
+          - "3.14"
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         id: endurance-checkout
@@ -47,7 +45,8 @@ jobs:
           FBM_GITLAB_TOKEN: ${{ secrets.FBM_GITLAB_TOKEN }}
         run: |
           set -m
-          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox -r -m endurance &
+          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
+            tox -r -e py${{ matrix.python-version }}-e2e-endurance &
           TEST_PID=$!
           echo "TEST_PGID=$(ps -o pgid= -p $TEST_PID | tr -d ' ')" >> $GITHUB_ENV
           wait $TEST_PID
