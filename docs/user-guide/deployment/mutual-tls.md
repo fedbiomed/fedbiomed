@@ -35,6 +35,7 @@ man-in-the-middle that spoofs a party inside the network).
 | Researcher → node | Node identity not checked | Node **must** present a registered client cert |
 | Node identity | Declared in the message only | Every message's declared id must match the party id the presented certificate is registered under |
 | New certificates | — | Picked up on the next handshake, **no restart** (hot-add) |
+| `[mtls] enabled` | Read at startup | Read at startup; turning mTLS on or off takes effect only after **restarting** the component |
 
 ## Component certificates
 
@@ -119,6 +120,12 @@ enabled = True
 
 An absent `[mtls]` section reads the same as `enabled = False`, so mTLS stays off until
 the section says otherwise.
+
+Each component reads this setting when it starts, so change it while the component is
+stopped, or restart it afterwards — on the researcher, by relaunching it or restarting
+the Jupyter Notebook. Only the registered certificates are re-read while running, and a
+component left on its previous setting behaves exactly as the
+[state combinations](#mtls-enabled-or-disabled) below describe.
 
 ### 4. Start the components
 
