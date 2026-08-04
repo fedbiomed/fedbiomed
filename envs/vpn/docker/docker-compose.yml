@@ -12,8 +12,6 @@ x-node: &standard-node
       - CONTAINER_USER
       - CONTAINER_GROUP
       - FBM_CONTAINER_VERSION_TAG
-      - PYTHON_VERSION
-      - FBM_PYTORCH_INDEX_URL
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
   networks:
     - fedbiomed_node
@@ -78,9 +76,6 @@ services:
     hostname: fedbiomed-vpn-base-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ./base/build_files
-      args:
-        - PYTHON_VERSION
-        - FBM_PYTORCH_INDEX_URL
     image: "fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}"
     networks:
       - fedbiomed_misc
@@ -96,9 +91,6 @@ services:
     hostname: fedbiomed-vpn-base-node-no-gpu-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ./base/build_files
-      args:
-        - PYTHON_VERSION
-        - FBM_PYTORCH_INDEX_URL
     image: fedbiomed/vpn-basenode:${FBM_CONTAINER_VERSION_TAG:-unknown}
     networks:
       - fedbiomed_misc
@@ -129,7 +121,6 @@ services:
         - CONTAINER_USER # build and use other account than "root"
         - CONTAINER_GROUP # build and use other group than "root"
         - FBM_CONTAINER_VERSION_TAG
-        - PYTHON_VERSION
     image: fedbiomed/vpn-vpnserver:${FBM_CONTAINER_VERSION_TAG:-unknown}
     networks:
       - fedbiomed_vpnserver
@@ -157,8 +148,6 @@ services:
   # using gpu (need image with gpu support)
   node-gpu:
     <<: *standard-node
-    container_name: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}-gpu
-    hostname: fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID:-unknown}-gpu
     runtime: nvidia
     #
     ## alternate syntax from the `Compose` specification, needs both
@@ -180,8 +169,6 @@ services:
   # using gpu (need image with gpu support)
   node2-gpu:
     <<: *standard-node2
-    container_name: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}-gpu
-    hostname: fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID:-unknown}-gpu
     runtime: nvidia
 
   #
@@ -197,7 +184,6 @@ services:
         - CONTAINER_GID
         - CONTAINER_USER
         - CONTAINER_GROUP
-        - FBM_CONTAINER_VERSION_TAG
         - PYTHON_VERSION
     image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
     networks:
@@ -262,7 +248,6 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
         - FBM_CONTAINER_VERSION_TAG
-        - PYTHON_VERSION
     image: fedbiomed/vpn-researcher:${FBM_CONTAINER_VERSION_TAG:-unknown}
     networks:
       - fedbiomed_researcher

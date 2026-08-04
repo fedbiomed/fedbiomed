@@ -24,10 +24,18 @@ ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 RUN apt-get update && apt-get install -y libgmp3-dev openssl \
 	libreadline-dev xz-utils libncurses-dev libffi-dev \
-	libmpfr-dev libmpc-dev apt-utils socat git
+	libmpfr-dev libmpc-dev apt-utils wget socat git \
+	python-tk python${PYTHON_VERSION} python3-pip
 
-RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
-    test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
+# Create alias
+RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
+
+# Install nodejs -----------------------------------------------------------------
+RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
+RUN apt-get install -y nodejs
+RUN npm install --global yarn@1.22
+
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/researcher/build_files/bashrc_append /tmp
@@ -71,10 +79,8 @@ WORKDIR /fedbiomed
 # Set container user
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
-# The researcher does not serve the node GUI. Skip its React build and install
-# only Fed-BioMed and the researcher dependencies.
-RUN FBM_SKIP_FRONTEND_BUILD=1 \
-    python -m pip install --no-cache-dir --no-warn-script-location '.[researcher]'
+# Install fedbiomed and its requirements
+RUN pip install --no-warn-script-location '.[researcher]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

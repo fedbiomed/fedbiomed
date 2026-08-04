@@ -1,5 +1,4 @@
-ARG FBM_CONTAINER_VERSION_TAG
-FROM fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}
+FROM python:3.10-slim-bullseye
 
 # nginx + flask HTTP server for node1
 EXPOSE 8484
@@ -26,10 +25,12 @@ ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 RUN apt-get update && apt-get install -y gcc apt-utils wget procps systemd \
-	gettext-base libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git
+	gettext-base libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git \
+	python-tk python${PYTHON_VERSION} python3-pip
 
-RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
-    test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
+
+RUN python --version
+
 
 # Install nodejs -----------------------------------------------------------------
 RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
@@ -83,10 +84,8 @@ WORKDIR /fedbiomed
 # Set container user
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
-# Installs fedbiomed and necessary modules without retaining downloaded wheels
-# or transient front-end dependencies created by the package build hook.
-RUN python -m pip install --no-cache-dir --no-warn-script-location '.[gui]' && \
-    rm -rf "$HOME/.cache/yarn" /fedbiomed/fedbiomed_gui/ui/node_modules
+# Installs fedbiomed and necessary modules
+RUN pip install --no-warn-script-location '.[gui]'
 
 # Changedir to main directory
 WORKDIR /

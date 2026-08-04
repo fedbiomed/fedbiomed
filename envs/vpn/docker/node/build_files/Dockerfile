@@ -7,7 +7,6 @@ ARG CONTAINER_GROUP
 ARG CONTAINER_USER
 
 ARG PYTHON_VERSION="3.10"
-ARG FBM_PYTORCH_INDEX_URL=""
 
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
@@ -19,11 +18,20 @@ ENV CONTAINER_USER=${CONTAINER_USER:-root}
 ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 
-RUN apt-get update && apt-get install -y libgmp3-dev libmpfr-dev libmpc-dev apt-utils git \
-	rsync
+RUN apt-get update && apt-get install -y libgmp3-dev libmpfr-dev libmpc-dev apt-utils wget git \
+	python-tk python${PYTHON_VERSION} python3-pip
 
-RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
-    test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
+# Create alias
+RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
+
+RUN apt-get -y install rsync
+
+# Install nodejs -----------------------------------------------------------------
+RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
+RUN apt-get install -y nodejs
+RUN npm install --global yarn@1.22
+
 
 # read config.env in interactive shells & setup for reading it in entrypoint
 COPY ./envs/vpn/docker/node/build_files/bashrc_append /tmp
@@ -66,16 +74,8 @@ WORKDIR /fedbiomed
 # Set container user
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
-# Installs fedbiomed and necessary modules without retaining downloaded wheels.
-# CI preserves CPU PyTorch from the base; deployment retains the original
-# ignore-installed behavior and standard dependency resolution.
-RUN if [ -n "$FBM_PYTORCH_INDEX_URL" ]; then \
-        FBM_SKIP_FRONTEND_BUILD=1 \
-            python -m pip install --no-cache-dir --no-warn-script-location '.[node]'; \
-    else \
-        FBM_SKIP_FRONTEND_BUILD=1 \
-            python -m pip install --no-cache-dir --no-warn-script-location -I '.[node]'; \
-    fi
+# Installs fedbiomed and necessary modules
+RUN /bin/pip install --no-warn-script-location -I '.[node]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}
