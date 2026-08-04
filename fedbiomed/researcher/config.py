@@ -92,9 +92,7 @@ class ResearcherConfig(Config):
                 "EXPERIMENTS_DIR": os.path.join(
                     self.root, VAR_FOLDER_NAME, "experiments"
                 ),
-                "DB": os.path.join(
-                    self.root, CONFIG_FOLDER_NAME, self._cfg.get("default", "db")
-                ),
+                "DB": self.getpath("default", "db"),
             }
         )
 

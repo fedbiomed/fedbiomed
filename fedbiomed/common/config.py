@@ -219,8 +219,16 @@ class Config(metaclass=ABCMeta):
 
         return self._cfg.getint(section, key, **kwargs)
 
+    def getpath(self, section, key, **kwargs) -> str:
+        """Absolute path for a config value stored relative to the config folder"""
+        return os.path.abspath(
+            os.path.join(
+                self.root, CONFIG_FOLDER_NAME, self.get(section, key, **kwargs)
+            )
+        )
+
     def _get(self, section, key, **kwargs) -> str:
-        """ """
+        """Returns value for given key and section"""
         environ_key = f"FBM_{section.upper()}_{key.upper()}"
         return os.environ.get(environ_key, self._cfg.get(section, key, **kwargs))
 
