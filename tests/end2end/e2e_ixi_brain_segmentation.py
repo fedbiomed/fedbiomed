@@ -135,7 +135,7 @@ def prepare_ixi_dataset(root_folder: str):
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(post_session, port):
+def setup(module_environment, port):
     """Setup fixture for the module"""
 
     data_folder = get_data_folder("IXI-example")

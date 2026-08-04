@@ -153,30 +153,25 @@ def clear_component_data(config: Config):
 
 def stop_grpc_server(grpc_server):
     """Stops the researcher gRPC server and joins its thread."""
-    if grpc_server._server._loop.is_closed():
-        if grpc_server._thread.is_alive():
-            raise End2EndError(
-                "Researcher gRPC thread is still alive after its event loop closed "
-                f"on port {grpc_server._port}"
-            )
-        return
-
-    future = asyncio.run_coroutine_threadsafe(
-        grpc_server._server.stop(10),
-        grpc_server._server._loop,
-    )
-    print("##### FBM: Waiting for server to stop, timeout after 10 seconds")
-    try:
-        future.result(10)
-    except Exception as e:
-        print(
-            "#### FBM: Exception has raised while stopping gRPC server."
-            f"Timeout: 10, Error: {e}"
+    # A closed loop means the server thread is already winding down, so only the
+    # join below can tell whether it actually finished.
+    if not grpc_server._server._loop.is_closed():
+        future = asyncio.run_coroutine_threadsafe(
+            grpc_server._server.stop(10),
+            grpc_server._server._loop,
         )
+        print("##### FBM: Waiting for server to stop, timeout after 10 seconds")
         try:
-            grpc_server._server._loop.stop()
+            future.result(10)
         except Exception as e:
-            print(f"#### FBM: Error while closing loop: {e}")
+            print(
+                "#### FBM: Exception has raised while stopping gRPC server."
+                f"Timeout: 10, Error: {e}"
+            )
+            try:
+                grpc_server._server._loop.stop()
+            except Exception as e:
+                print(f"#### FBM: Error while closing loop: {e}")
 
     grpc_server._thread.join(timeout=10)
     if grpc_server._thread.is_alive():
@@ -189,7 +184,12 @@ def stop_grpc_server(grpc_server):
 
 
 def stop_researcher_server():
-    """Best-effort stop of a researcher gRPC server left running by a failed test."""
+    """Stops the researcher gRPC server and drops the `Requests` singleton.
+
+    Serves both the end of an experiment and the module teardown safety net. The
+    singleton is dropped even when the server refuses to stop, so a later test
+    still starts from a clean state while the failure is reported.
+    """
     from fedbiomed.researcher.requests import Requests
 
     requests = Requests._objects.get(Requests)
@@ -216,15 +216,9 @@ def clear_experiment_data(exp: "Experiment"):
     print("Stopping gRPC server started by the test function")
     print("Will wait 10 seconds to cancel current RPC requests")
 
-    from fedbiomed.researcher.requests import Requests
-
-    try:
-        # Stop GRPC server and remove request object for next experiments
-        stop_grpc_server(exp._reqs._grpc_server)
-    finally:
-        # Need to remove request
-        print("##### FBM: Removing request object")
-        Requests._objects.pop(Requests, None)
+    # `exp._reqs` is the `Requests` singleton this stops and then drops, so the
+    # next experiment of the module starts its own server.
+    stop_researcher_server()
 
     # tensorboard_folder = os.path.join(config.root, TENSORBOARD_FOLDER_NAME)
     # tensorboard_files = os.listdir(tensorboard_folder)
@@ -388,17 +382,16 @@ def create_multiple_nodes(
     if config_sections:
         if isinstance(config_sections, dict):
             config_sections = [config_sections] * num_nodes
-        elif isinstance(config_sections, list) and len(config_sections) != num_nodes:
+        elif not isinstance(config_sections, list):
+            raise TypeError(f"Invalid config_sections type {type(config_sections)}")
+        elif len(config_sections) != num_nodes:
             raise ValueError(
                 f"Number of nodes {num_nodes} is not equal number of config "
                 f"sections {len(config_sections)}"
             )
-        else:
-            raise TypeError(f"Invalid config_sections type {type(config_sections)}")
 
     # Create nodes
     nodes = []
-    body_failed = False
     try:
         for n in range(num_nodes):
             if config_sections:
@@ -408,25 +401,11 @@ def create_multiple_nodes(
 
         yield tuple(nodes)
     except BaseException:
-        body_failed = True
+        # Node processes may still be holding these directories. The module
+        # temporary directory removes them, so cleaning here would only risk
+        # replacing the real failure with a cleanup error.
+        print("Deferring node component cleanup after an earlier failure.")
         raise
-    finally:
-        if body_failed:
-            print(
-                "Deferring node component cleanup to the module safety net "
-                "after an earlier failure."
-            )
-        else:
-            # Clear every node after successful setup and process teardown.
-            cleanup_errors = []
-            for node in nodes:
-                try:
-                    clear_component_data(node)
-                except Exception as e:
-                    cleanup_errors.append(e)
-
-            if cleanup_errors:
-                raise End2EndError(
-                    f"Failed to clean {len(cleanup_errors)} node component(s): "
-                    f"{cleanup_errors}"
-                )
+    else:
+        for node in nodes:
+            clear_component_data(node)

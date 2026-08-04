@@ -36,7 +36,7 @@ from fedbiomed.researcher.secagg import (
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session):
+def setup(port, module_environment):
     """Setup fixture for the module"""
     dataset = {
         "name": "MNIST",

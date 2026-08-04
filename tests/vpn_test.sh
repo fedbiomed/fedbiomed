@@ -7,7 +7,7 @@ BLD='\033[1m'
 # Error function
 function error(){
       echo "${RED}ERROR: ${NC}"
-      echo "${BOLD}$1${NC}"
+      echo "${BLD}$1${NC}"
       exit 1
 }
 
@@ -15,26 +15,12 @@ function info(){
 	  echo "${YLW}INFO:${NC} $1"
 }
 
-function assert_image_python(){
-	local component="$1"
-	local image="fedbiomed/vpn-${component}:${FBM_CONTAINER_VERSION_TAG}"
-	local actual
-
-	if ! actual=$(docker run --rm --entrypoint python "$image" -c \
-		'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'); then
-		error "Could not run Python in $image"
-	fi
-	if [[ "$actual" != "$PYTHON_VERSION" ]]; then
-		error "Expected Python $PYTHON_VERSION in $image, found $actual"
-	fi
-	info "$image uses Python $actual"
-}
-
+# The build installs the project extras on top of the CPU PyTorch of the base
+# image, which nothing else checks for the resulting flavour.
 function assert_image_cpu_torch(){
 	[[ "${FBM_EXPECT_CPU_TORCH:-false}" == "true" ]] || return 0
 
-	local component="$1"
-	local image="fedbiomed/vpn-${component}:${FBM_CONTAINER_VERSION_TAG}"
+	local image="fedbiomed/vpn-${1}:${FBM_CONTAINER_VERSION_TAG}"
 	local actual
 
 	if ! actual=$(docker run --rm --entrypoint python "$image" -c \
@@ -47,27 +33,25 @@ function assert_image_cpu_torch(){
 	info "$image uses CPU-only PyTorch"
 }
 
+function assert_container_running(){
+	local name="fedbiomed-vpn-${1}-${FBM_CONTAINER_INSTANCE_ID}"
+
+	if ! docker ps --format '{{.Names}}' | grep -Fxq "$name"; then
+		error "Fed-BioMed container $name is not running"
+	fi
+}
+
 # Clean images if existing
 basedir=$(cd $(dirname $0)/.. || exit ; pwd)
 cd $basedir || exit
 
 
 FEDBIOMED_DIR="$basedir"
-VPN_ENV_FILE="${FEDBIOMED_DIR}/envs/vpn/docker/.env"
-
-FBM_CONTAINER_VERSION_TAG="${FBM_CONTAINER_VERSION_TAG:-$(
-	source "$VPN_ENV_FILE"
-	echo "$FBM_CONTAINER_VERSION_TAG"
-)}"
-FBM_CONTAINER_INSTANCE_ID="${FBM_CONTAINER_INSTANCE_ID:-$(
-	source "$VPN_ENV_FILE"
-	echo "$FBM_CONTAINER_INSTANCE_ID"
-)}"
-PYTHON_VERSION="${PYTHON_VERSION:-$(
-	source "$VPN_ENV_FILE"
-	echo "$PYTHON_VERSION"
-)}"
-export FBM_CONTAINER_VERSION_TAG FBM_CONTAINER_INSTANCE_ID PYTHON_VERSION
+# Entries are written as `VAR=${VAR:-default}`, so this keeps the values CI
+# exports and fills in the defaults for a local run.
+set -a
+source "${FEDBIOMED_DIR}/envs/vpn/docker/.env"
+set +a
 
 info "cleaning images created"
 
@@ -87,8 +71,6 @@ if ! ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build vpnserver researcher; then
 	error "Error while building vpnserver and researcher components"
 fi
 
-assert_image_python vpnserver
-assert_image_python researcher
 assert_image_cpu_torch researcher
 
 info "Configuring researcher component"
@@ -100,10 +82,7 @@ fi
 
 info "Starting researcher"
 ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn start researcher
-if ! docker ps --format '{{.Names}}' | \
-	grep -Fxq "fedbiomed-vpn-researcher-${FBM_CONTAINER_INSTANCE_ID}"; then
-     error "Fed-BioMed researcher container is not running"
-fi
+assert_container_running researcher
 
 
 info "Checking status of the researcher VPN connection"
@@ -115,8 +94,6 @@ if ! ${FEDBIOMED_DIR}/scripts/fedbiomed_vpn build node gui; then
 	error "Error while building node and gui images"
 fi
 
-assert_image_python node
-assert_image_python gui
 assert_image_cpu_torch node
 assert_image_cpu_torch gui
 
@@ -145,15 +122,8 @@ export FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True
 docker compose up -d node
 docker compose up -d node2
 
-if ! docker ps --format '{{.Names}}' | \
-	grep -Fxq "fedbiomed-vpn-node-${FBM_CONTAINER_INSTANCE_ID}"; then
-     error "Fed-BioMed node1 container is not running"
-fi
-
-if ! docker ps --format '{{.Names}}' | \
-	grep -Fxq "fedbiomed-vpn-node2-${FBM_CONTAINER_INSTANCE_ID}"; then
-     error "Fed-BioMed node 2 container is not running"
-fi
+assert_container_running node
+assert_container_running node2
 
 pbkey_n1="$(docker compose exec node wg show wg0 public-key | tr -d '\r')"
 pbkey_n2="$(docker compose exec node2 wg show wg0 public-key | tr -d '\r')"

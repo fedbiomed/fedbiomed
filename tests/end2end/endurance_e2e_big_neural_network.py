@@ -3,30 +3,28 @@ Test module to test a big model (60MB) using dry run training
 """
 
 import pytest
-
-from helpers import (
-    add_dataset_to_node,
-    start_nodes,
-    kill_subprocesses,
-    clear_experiment_data,
-    clear_component_data,
-    get_data_folder,
-    create_researcher,
-    create_multiple_nodes,
-)
-
 from experiments.training_plans.mnist_pytorch_training_plan import (
     BigModelMyTrainingPlan,
 )
+from helpers import (
+    add_dataset_to_node,
+    clear_component_data,
+    clear_experiment_data,
+    create_multiple_nodes,
+    create_researcher,
+    get_data_folder,
+    kill_subprocesses,
+    start_nodes,
+)
 
-from fedbiomed.researcher.federated_workflows import Experiment
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.aggregators.scaffold import Scaffold
+from fedbiomed.researcher.federated_workflows import Experiment
 
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(port, module_environment, request):
     """Setup fixture for the module"""
     data_folder = get_data_folder("MNIST-e2e-test")
     with create_multiple_nodes(port, 3) as nodes:

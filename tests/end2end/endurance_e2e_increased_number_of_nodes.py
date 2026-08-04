@@ -23,7 +23,7 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(port, module_environment, request):
     """Setup fixture for the module"""
 
     with create_multiple_nodes(port, 10) as nodes:

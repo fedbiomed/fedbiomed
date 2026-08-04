@@ -32,7 +32,7 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session):
+def setup(port, module_environment):
     """Setup fixture for the module"""
 
     print(f"USING PORT {port} for researcher server")

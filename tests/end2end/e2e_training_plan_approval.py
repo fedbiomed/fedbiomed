@@ -21,7 +21,7 @@ from fedbiomed.researcher.experiment import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup_components(port, post_session):
+def setup_components(port, module_environment):
     """Setup fixture for the module"""
     dataset = {
         "name": "MNIST",

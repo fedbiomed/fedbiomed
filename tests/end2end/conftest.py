@@ -5,8 +5,8 @@ Module for global PyTest configuration and fixtures
 
 import atexit
 import os
-import re
 import shutil
+import socket
 import tempfile
 
 # Redirect the researcher component created on `fedbiomed.researcher.config`
@@ -23,54 +23,31 @@ os.environ["FBM_DEBUG"] = "1"
 
 
 @pytest.fixture(scope="module")
-def port(free_tcp_port_factory):
+def port():
     """Return an available port shared by the researcher and nodes."""
-    return str(free_tcp_port_factory())
+    with socket.socket() as sock:
+        sock.bind(("localhost", 0))
+        return str(sock.getsockname()[1])
 
 
 @pytest.fixture(scope="module", autouse=True)
-def data():
-    """Create and expose the shared temporary directory for the test module."""
-    run_id = os.environ.get("FBM_E2E_RUN_ID", f"local-{os.getpid()}")
-    run_id = re.sub(r"[^A-Za-z0-9_.-]", "-", run_id)
-    tmp_dir = os.environ.get("RUNNER_TEMP", tempfile.gettempdir())
-    print(f"##### FBM: Setting temporary test directory under {tmp_dir}")
+def module_environment(request):
+    """Expose a temporary directory for the module and guarantee its teardown.
+
+    Every component the module creates lives under this directory, so removing
+    it also removes what a failed test left behind. The finalizers run in
+    reverse order and pytest reports all of them, so a failure to stop the
+    server does not prevent the processes and the directory from being cleaned.
+    """
+    tmp_dir = os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()
     pytest.temporary_test_directory = tempfile.TemporaryDirectory(
-        prefix=f"fedbiomed-e2e-{run_id}-",
-        dir=tmp_dir,
+        prefix="fedbiomed-e2e-", dir=tmp_dir
     )
-
-
-@pytest.fixture(scope="module", autouse=True)
-def post_session(request, data):
-    """This method makes sure that the environment is clean to execute another test"""
-
-    print("#### Killing e2e processes before executing test module")
-    kill_e2e_test_processes()
-    print("#### Killing is completed --------")
+    print(f"##### FBM: Temporary test directory {pytest.temporary_test_directory.name}")
     print(f"\n#######  Running test {request.node}:{request.node.name} --------")
 
-    try:
-        yield
-    finally:
-        try:
-            stop_researcher_server()
-        finally:
-            print("#### Killing e2e processes after the tests -----")
-            try:
-                kill_e2e_test_processes()
-                print("#### Killing is completed")
-            finally:
-                print("\n###### Cleaning temporary directory: started -----\n")
-                print(f"Directory: {pytest.temporary_test_directory}")
-                pytest.temporary_test_directory.cleanup()
-                print("\n###### Cleaning temporary directory: finished  -----\n\n")
-                print(
-                    "#### Module tests have finished "
-                    f"{request.node}:{request.node.name} --------"
-                )
+    request.addfinalizer(pytest.temporary_test_directory.cleanup)
+    request.addfinalizer(kill_registered_subprocesses)
+    request.addfinalizer(stop_researcher_server)
 
-
-def kill_e2e_test_processes():
-    """Kills end2end processes if any existing"""
-    kill_registered_subprocesses()
+    yield

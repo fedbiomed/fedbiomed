@@ -1,5 +1,6 @@
 """Contains execution helpers"""
 
+import contextlib
 import multiprocessing
 import subprocess
 import threading
@@ -39,22 +40,21 @@ def collect(process, on_failure: Optional[Callable] = None) -> bool:
     """
 
     try:
-        try:
-            returncode = process.wait()
-        except Exception as e:
-            print(f"Error raised while waiting for the process to finish: {e}")
-        else:
-            # -9 is for killing the process Ctrl-z or psutil.kill
-            # 137: Process finished with exit code 137
-            # (interrupted by signal 9: SIGKILL) mostly on ubuntu slave
-            if returncode not in [0, -9, 137]:
-                if on_failure:
-                    on_failure(process)
-                # Other exceptions are caught by pytest
-                pytest.exit(
-                    f"Error: Processes failed {process}. Args: {process.args} "
-                    "Please check the outputs."
-                )
+        returncode = process.wait()
+    except Exception as e:
+        print(f"Error raised while waiting for the process to finish: {e}")
+    else:
+        # -9 is for killing the process Ctrl-z or psutil.kill
+        # 137: Process finished with exit code 137
+        # (interrupted by signal 9: SIGKILL) mostly on ubuntu slave
+        if returncode not in [0, -9, 137]:
+            if on_failure:
+                on_failure(process)
+            # Other exceptions are caught by pytest
+            pytest.exit(
+                f"Error: Processes failed {process}. Args: {process.args} "
+                "Please check the outputs."
+            )
     finally:
         if process.poll() is not None:
             unregister_process(process)
@@ -93,18 +93,9 @@ def kill_subprocesses(processes):
     Args:
         processes: List of subprocesses to kill
     """
-    errors = []
     for p in processes:
         print(f"\n ##### Killing subprocess: {p}")
-        try:
-            kill_process(p)
-        except Exception as e:
-            errors.append(f"PID {p.pid}: {e}")
-
-    if errors:
-        raise End2EndErrorExit(
-            f"Failed to kill {len(errors)} E2E subprocess(es): {errors}"
-        )
+        kill_process(p)
 
 
 def kill_registered_subprocesses() -> None:
@@ -116,35 +107,27 @@ def kill_registered_subprocesses() -> None:
 
 
 def kill_process(process):
-    """Kills single process"""
+    """Kills single process and its children, tolerating exit races.
+
+    A process that disappears while being killed is the expected outcome, not a
+    failure, so every `psutil` error is reported and swallowed. Callers run
+    during teardown and must be able to continue.
+    """
 
     try:
+        # Reaps the child, so a recycled pid can never be killed by mistake.
         if isinstance(process, subprocess.Popen) and process.poll() is not None:
             print(f"\n ###### Process is no longer available {process}")
             return
 
-        if not psutil.pid_exists(process.pid):
-            cmdl = process.cmdline() if hasattr(process, "cmdline") else process
-            print(f"\n ###### Process is no longer available {cmdl}")
-            return
-
         parent = psutil.Process(process.pid)
-        print(f'\n ##### Checking child process of parent "{parent.cmdline()}"')
         for child in parent.children(recursive=True):
-            try:
-                print(f"\n ##### Killing child process {child.cmdline()}")
+            # A child dying on its own must not stop the parent from being killed.
+            with contextlib.suppress(psutil.Error):
                 child.kill()
-            except (psutil.NoSuchProcess, psutil.ZombieProcess):
-                print(f"\n ##### Child process {child.pid} is no longer available")
-
-        try:
-            parent.kill()
-        except psutil.ZombieProcess:
-            print(
-                "\n Parent process has became zombie process after killing child processes"
-            )
-        except psutil.NoSuchProcess:
-            print("\n Parent process no longer existing after killing child processes")
+        parent.kill()
+    except psutil.Error as e:
+        print(f"\n ###### Process {process} could not be killed: {e}")
     finally:
         unregister_process(process)
 
