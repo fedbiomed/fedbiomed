@@ -1,6 +1,6 @@
 # Fed-BioMed changelog
 
-## 2026-08-04
+## 2026-08-04 version 6.4.0
 
 - Added new Docker images for the core Fed-BioMed components that can be used without a VPN. Docker images are now published to Docker Hub for each release.
 - Added the ability to start, stop, and restart a Fed-BioMed node from both the CLI and the GUI. A dedicated Node Management page has also been added to the GUI.
