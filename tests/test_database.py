@@ -6,11 +6,14 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db_dataclasses import (
     DatasetEntry,
     DynamicDatasetEntry,
+    NodeProcessStateEntry,
 )
 from fedbiomed.node.dataset_manager._db_tables import (
     DatasetTable,
     DlpTable,
     DynamicDatasetTable,
+    NodeProcessStateHistoryTable,
+    NodeProcessStateTable,
 )
 
 
@@ -315,6 +318,110 @@ class TestDlpTable(unittest.TestCase):
             self.table.list_by_target_dataset_type("invalid")
         result = self.table.list_by_target_dataset_type(DatasetTypes.TABULAR.value)
         self.assertTrue(any(d["dlp_name"] == "dlp_listed" for d in result))
+
+
+class TestNodeProcessStateTables(unittest.TestCase):
+    def setUp(self):
+        self.dbfile = tempfile.NamedTemporaryFile(delete=True)
+        self.state_table = NodeProcessStateTable(self.dbfile.name)
+        self.history_table = NodeProcessStateHistoryTable(self.dbfile.name)
+
+    def tearDown(self):
+        self.dbfile.close()
+
+    def test_current_state_table_upserts_by_node_id(self):
+        first_entry = {
+            "node_id": "node-1",
+            "node_name": "Node 1",
+            "pid": 111,
+            "state": "running",
+            "action": "start",
+            "reason": "process_started",
+            "node_args": {
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": False,
+                "debug": True,
+            },
+            "background": True,
+        }
+        second_entry = {
+            "node_id": "node-1",
+            "node_name": "Node 1",
+            "pid": 222,
+            "state": "stopped",
+            "action": "stop",
+            "reason": "stop_requested",
+        }
+
+        self.state_table.update_or_insert_by_id("node-1", first_entry)
+        self.state_table.update_or_insert_by_id("node-1", second_entry)
+
+        stored = self.state_table.get_by_id("node-1")
+        self.assertEqual(stored["pid"], 222)
+        self.assertEqual(stored["state"], "stopped")
+        self.assertEqual(len(self.state_table.all()), 1)
+
+    def test_process_state_entry_accepts_legacy_records(self):
+        entry = NodeProcessStateEntry.from_dict(
+            {
+                "node_id": "node-1",
+                "node_name": "Node 1",
+                "pid": 111,
+                "state": "running",
+                "action": "start",
+            }
+        )
+
+        self.assertIsNone(entry.node_args)
+        self.assertIsNone(entry.background)
+
+    def test_process_state_table_stores_execution_settings(self):
+        entry = {
+            "node_id": "node-1",
+            "node_name": "Node 1",
+            "pid": 111,
+            "state": "running",
+            "action": "start",
+            "node_args": {
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": False,
+                "debug": True,
+            },
+            "background": True,
+        }
+
+        self.state_table.update_or_insert_by_id("node-1", entry)
+        stored = self.state_table.get_by_id("node-1")
+
+        self.assertEqual(stored["node_args"], entry["node_args"])
+        self.assertTrue(stored["background"])
+
+    def test_history_table_inserts_multiple_entries_for_same_pid(self):
+        first_entry = {
+            "node_id": "node-1",
+            "node_name": "Node 1",
+            "pid": 333,
+            "state": "starting",
+            "action": "start",
+            "reason": "start_requested",
+        }
+        second_entry = {
+            "node_id": "node-1",
+            "node_name": "Node 1",
+            "pid": 333,
+            "state": "running",
+            "action": "start",
+            "reason": "process_started",
+        }
+
+        self.history_table.insert(first_entry)
+        self.history_table.insert(second_entry)
+
+        stored = self.history_table.get_all_by_value("pid", 333)
+        self.assertEqual(len(stored), 2)
+        self.assertEqual([entry["state"] for entry in stored], ["starting", "running"])
 
 
 if __name__ == "__main__":

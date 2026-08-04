@@ -193,7 +193,7 @@ class TrainingPlanSecurityManager:
             if training_plans_name_get:
                 raise FedbiomedTrainingPlanSecurityManagerError(
                     f"{ErrorNumbers.FB606.value}:  there is already a existing training plan with "
-                    "same name: '{name}' Please use different name"
+                    f"same name: '{name}' Please use different name"
                 )
 
         if hash_ is not None or algorithm is not None:
@@ -779,7 +779,7 @@ class TrainingPlanSecurityManager:
                     self._check_training_plan_not_existing(None, hash_, algorithm)
                     logger.info(
                         f"Recreating hashing for : {training_plan_info['name']} \t"
-                        '{training_plan_info["training_plan_id"]}'
+                        f"{training_plan_info['training_plan_id']}"
                     )
 
                     self._db.update(

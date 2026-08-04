@@ -188,23 +188,20 @@ def reverse_quantize(
 
 
 def _check_clipping_range(values: List[float], clipping_range: float) -> None:
-    """Checks clipping range for quantization
+    """Warns if any value falls outside [-clipping_range, clipping_range].
 
     Args:
-        values: Values to check whether clipping range is exceed from both direction
+        values: Values to check against the clipping range
         clipping_range: Clipping range
-
     """
-    state = False
-
-    for x in values:
-        if x < -clipping_range or x > clipping_range:
-            state = True
-
-    if state:
-        logger.info(
-            "There are some numbers in the local vector that exceeds clipping range. Please increase the "
-            "clipping range to account for value"
+    # short-circuits on the first offender; no full scan or allocation.
+    offender = next(
+        (x for x in values if x < -clipping_range or x > clipping_range), None
+    )
+    if offender is not None:
+        logger.warning(
+            "There are some numbers in the local vector that exceeds clipping range. "
+            "Please increase the clipping range to account for value"
         )
 
 

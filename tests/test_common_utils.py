@@ -94,7 +94,6 @@ class TestCommonConfigUtils(unittest.TestCase):
         file_ = os.path.join(test_dir, "etc", "test-test-config-util.ini")
         with open(file_, "w") as file:
             file.write("Hello world")
-            file.close()
 
         with patch("fedbiomed.common.utils._config_utils.ROOT_DIR", test_dir):
             files = get_all_existing_config_files()

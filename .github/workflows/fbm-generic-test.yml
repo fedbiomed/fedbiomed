@@ -30,7 +30,7 @@ jobs:
 
       - name: Install Dependencies
         run: pdm install --no-default -G docs -G dev
-      
+
       - name: Configure git
         run: |
           git config --global user.name "GitHub Actions Bot"
@@ -51,7 +51,6 @@ jobs:
         os: ${{ fromJson(inputs.os-list) }}
         python-version: ${{ fromJson(inputs.python-versions) }}
 
-      
     runs-on: ${{ matrix.os }}
     if: github.event.pull_request.draft == false
     steps:
@@ -111,7 +110,7 @@ jobs:
           files: tests/coverage.xml
           flags: unittests-${{ matrix.os }} # optional
           name: codecov-umbrella # optional
-          fail_ci_if_error: true # optional (default = false)
+          fail_ci_if_error: false # may fail for PR from forks
           verbose: true # optional (default = false)
 
       - name: Notify upload impossible on m1

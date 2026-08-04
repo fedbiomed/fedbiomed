@@ -22,7 +22,7 @@ from fedbiomed.common.message import (
 
 
 def test_fa_request_message_creation():
-    """Test FARequest message creation"""
+    """Test FARequest message creation without secagg (plaintext path)"""
     _ = message.FARequest(
         researcher_id="researcher_1234",
         experiment_id="experiment_1234",
@@ -33,9 +33,42 @@ def test_fa_request_message_creation():
     )
 
 
+def test_fa_request_message_creation_with_secagg():
+    """Test FARequest carries secagg_arguments when secure aggregation is active"""
+    req = message.FARequest(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        fa_id="fa_1234",
+        dataset_id="dataset_1234",
+        stats=[Stats.MEAN.value],
+        stats_args={"test": "output_data"},
+        secagg_arguments={
+            "secagg_scheme": "LOM",
+            "secagg_dh_id": "dh_abc",
+            "secagg_random": 0.42,
+            "secagg_clipping_range": 3,
+            "parties": ["node_1234"],
+            "fa_round": 1,
+        },
+    )
+    assert req.secagg_arguments["secagg_scheme"] == "LOM"
+    assert req.secagg_arguments["fa_round"] == 1
+
+
+def test_fa_request_secagg_arguments_defaults_to_none():
+    """Test FARequest.secagg_arguments defaults to None (no encryption)"""
+    req = message.FARequest(
+        researcher_id="r",
+        experiment_id="e",
+        fa_id="f",
+        dataset_id="d",
+    )
+    assert req.secagg_arguments is None
+
+
 def test_fa_reply_message_creation():
-    """Test FAReply message creation"""
-    _ = message.FAReply(
+    """Test FAReply plaintext path — output is a dict, encrypted fields are defaults"""
+    reply = message.FAReply(
         researcher_id="researcher_1234",
         experiment_id="experiment_1234",
         fa_id="fa_1234",
@@ -44,6 +77,102 @@ def test_fa_reply_message_creation():
         stats=[Stats.MEAN.value],
         output={"test": "output_data"},
     )
+    assert reply.encrypted is False
+    assert reply.params_encrypted is None
+    assert reply.output_schema is None
+
+
+def test_fa_reply_plaintext_requires_output():
+    """Test FAReply raises when encrypted=False and output is missing"""
+    import pytest
+
+    with pytest.raises(FedbiomedMessageError):
+        message.FAReply(
+            researcher_id="researcher_1234",
+            experiment_id="experiment_1234",
+            fa_id="fa_1234",
+            node_id="node_1234",
+            node_name="node_name_1234",
+            stats=[Stats.MEAN.value],
+        )
+
+
+def test_fa_reply_plaintext_rejects_encrypted_fields():
+    """Test FAReply raises when encrypted=False but encrypted fields are set"""
+    import pytest
+
+    with pytest.raises(FedbiomedMessageError):
+        message.FAReply(
+            researcher_id="researcher_1234",
+            experiment_id="experiment_1234",
+            fa_id="fa_1234",
+            node_id="node_1234",
+            node_name="node_name_1234",
+            stats=[Stats.MEAN.value],
+            output={"mean": 1.0},
+            params_encrypted=[100],
+        )
+
+
+def test_fa_reply_encrypted_rejects_output():
+    """Test FAReply raises when encrypted=True but output is also set"""
+    import pytest
+
+    with pytest.raises(FedbiomedMessageError):
+        message.FAReply(
+            researcher_id="researcher_1234",
+            experiment_id="experiment_1234",
+            fa_id="fa_1234",
+            node_id="node_1234",
+            node_name="node_name_1234",
+            stats=[Stats.MEAN.value],
+            encrypted=True,
+            output={"mean": 1.0},
+            params_encrypted=[100],
+            output_schema=[["mean"]],
+        )
+
+
+def test_fa_reply_encrypted_requires_params_and_schema():
+    """FAReply raises when encrypted=True but params_encrypted or output_schema is missing."""
+    import pytest
+
+    with pytest.raises(FedbiomedMessageError):
+        message.FAReply(
+            researcher_id="researcher_1234",
+            experiment_id="experiment_1234",
+            fa_id="fa_1234",
+            node_id="node_1234",
+            node_name="node_name_1234",
+            stats=[Stats.MEAN.value],
+            encrypted=True,
+            params_encrypted=[100],
+            # output_schema intentionally omitted — should raise
+        )
+
+
+def test_fa_reply_message_creation_encrypted():
+    """Test FAReply encrypted path — params_encrypted and output_schema set."""
+    reply = message.FAReply(
+        researcher_id="researcher_1234",
+        experiment_id="experiment_1234",
+        fa_id="fa_1234",
+        node_id="node_1234",
+        node_name="node_name_1234",
+        stats=[Stats.MEAN.value],
+        encrypted=True,
+        params_encrypted=[100, 200, 300, 400],
+        output_schema=[
+            ["mean", "age"],
+            ["mean", "bmi"],
+            ["std", "age"],
+            ["std", "bmi"],
+        ],
+    )
+    assert reply.encrypted is True
+    assert reply.output is None
+    assert reply.params_encrypted == [100, 200, 300, 400]
+    assert len(reply.output_schema) == 4
 
 
 def test_preproc_request_message_creation():

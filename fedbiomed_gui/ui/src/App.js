@@ -10,7 +10,6 @@ import {
 } from "react-router-dom";
 
 import Home from './pages/Home'
-import Configuration from './pages/Configuration';
 import Repository from './pages/repository';
 import Datasets from './pages/datasets';
 import AddDataset from "./pages/datasets/AddDataset"
@@ -31,6 +30,7 @@ import UserManagement from "./pages/admin/UserManagement";
 import AccountRequestManagement from "./pages/admin/AccountRequestManagement";
 import SecurityLogs from "./pages/admin/SecurityLogs";
 import UserAccount from './pages/authentication/UserAccount';
+import NodeManagement from './pages/node-manager/NodeManagement';
 
 
 function App(props) {
@@ -48,7 +48,6 @@ function App(props) {
                 <Route path="/register/" element={<Register/>} />
                 <Route path="/" element ={<LoginProtected/>} >
                   <Route path="/" element={<Home/>} />
-                  <Route path="/configuration/" element={<Configuration/>} />
                   <Route path="/user-account/" element={<UserAccount/>}>
                       <Route index element={<UserInfo/>} />
                       <Route path={"info"} element={<UserInfo/>} />
@@ -58,6 +57,7 @@ function App(props) {
                       <Route path={"security-logs"} element={<AdminProtected redirect_to={'/user-account'}><SecurityLogs/></AdminProtected>}/>
                   </Route>
                   <Route path="/repository/" element={<Repository/>} />
+                  <Route path="/node-management/" element={<NodeManagement/>} />
                   <Route path="/training-plans/" element={<TrainingPlans/>} />
                   <Route path="/training-plans/preview/:training_plan_id" element={<SingleModel />} />
                   <Route path="/datasets/" element={<Datasets/>} />

@@ -571,17 +571,23 @@ class JoyeLibert:
 
     """
 
-    def __init__(self):
+    def __init__(self, target_range: int | None = None):
         """Constructs the class
 
-        VEParameters.TARGET_RANGE + VEParameters.WEIGHT_RANGE should be
-        equal or less than 2**32
+        Args:
+            target_range: Quantization range the values were packed into. The
+                vector-encoder slot size is derived from it, so it MUST match the
+                ``target_range`` used for quantization on encryption (and be the
+                same on encryption and decryption). Defaults to the training
+                ``SAParameters.TARGET_RANGE``. Federated analytics uses the wider
+                ``SAParameters.FA_TARGET_RANGE``; passing it here is required so
+                that ~55-bit FA values do not overflow their packing slot and
+                corrupt neighbouring values.
         """
+        target_range = target_range or SAParameters.TARGET_RANGE
         self._vector_encoder = VES(
             ptsize=SAParameters.KEY_SIZE // 2,
-            valuesize=ceil(
-                log2(SAParameters.TARGET_RANGE) + log2(SAParameters.WEIGHT_RANGE)
-            ),
+            valuesize=ceil(log2(target_range) + log2(SAParameters.WEIGHT_RANGE)),
         )
 
     def protect(

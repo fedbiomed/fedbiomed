@@ -228,7 +228,7 @@ services:
       - CONTAINER_USER
       - CONTAINER_GROUP
     ports:
-      - "${GUI_SERVER_IP:-127.0.0.1}:8485:8485" # nginx + gunicorn HTTP server
+      - "${GUI_SERVER_IP:-127.0.0.1}:8485:8485" # nginx + flask HTTP server
       - "${GUI_SERVER_IP:-127.0.0.1}:8444:8444" # nginx + gunicorn HTTPS server
     volumes:
       # caution: /fbm-node directory must be shared with node

@@ -72,6 +72,7 @@ class Config(metaclass=ABCMeta):
             root: Root directory for the component.
         """
         self._cfg = configparser.ConfigParser()
+        logger.set_application_logs(root_path=root)
         # Set up security logging for config operations
         # This ensures security events are captured even before Node/Researcher initialization
         logger.set_security_logs(root_path=root)

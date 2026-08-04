@@ -64,22 +64,11 @@ class ComponentDirectoryAction(ABC, argparse.Action):
 
     _component: ComponentType
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Sets config by default if option string for config is not present.
-        # The default is defined by the argument parser.
-        if (
-            not set(self.option_strings).intersection(set(sys.argv))
-            and not set(["--help", "-h"]).intersection(set(sys.argv))
-            and len(sys.argv) > 2
-        ):
-            self._create_config(self.default)
-
-        super().__init__(*args, **kwargs)
-
     def __call__(self, parser, namespace, values: str, option_string=None) -> None:
         """When argument is called"""
+
+        if values is None:
+            values = self.default
 
         if not set(["--help", "-h"]).intersection(set(sys.argv)):
             self._create_config(values)
@@ -136,6 +125,7 @@ class CommonCLI:
         self._certificate_manager: CertificateManager = CertificateManager()
         self._description: str = ""
         self._args = None
+        self._path_action: ComponentDirectoryAction | None = None
         if os.environ.get("FBM_DEBUG", "").lower() in ("1", "true", "yes"):
             logger.setLevel("DEBUG")
         else:
@@ -543,6 +533,8 @@ class CommonCLI:
         """
         args, unknown_args = self._parser.parse_known_args(args_)
         if hasattr(args, "func"):
+            if self._path_action is not None and getattr(self, "config", None) is None:
+                self._path_action._create_config(self._path_action.default)
             specs = get_method_spec(args.func)
             if specs:
                 # If default function has 2 arguments

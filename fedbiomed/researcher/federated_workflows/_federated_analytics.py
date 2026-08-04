@@ -12,13 +12,15 @@ from collections import OrderedDict
 from typing import Any, Callable, Iterator, Optional
 
 from fedbiomed.common.analytics import AGGREGATORS_MAP
-from fedbiomed.common.constants import Stats
+from fedbiomed.common.constants import SAParameters, Stats
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedExperimentError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import FAReply
+from fedbiomed.common.utils import unflatten_fa_output
 from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.federated_workflows.jobs import FARequestJob
 from fedbiomed.researcher.requests import Requests
+from fedbiomed.researcher.secagg import SecureAggregation
 
 
 class FAResult:
@@ -33,6 +35,9 @@ class FAResult:
         self._data: dict[str, Any] = {}  # {node_id: raw_orchestrator_output}
         # Cache for the list of computable stats, set to None on every merge.
         self._computable_stats_cache: Optional[list[str]] = None
+        # Real participating node IDs under secure aggregation, where per-node data
+        # is collapsed into the ``__secagg__`` virtual node. None for plaintext.
+        self._secagg_node_ids: Optional[list[str]] = None
         if replies:
             self.merge(replies)
 
@@ -81,8 +86,14 @@ class FAResult:
         return next(iter(self._data.values()))
 
     @staticmethod
-    def _filter_output(output: Any, schema: list) -> Optional[Any]:
+    def _filter_output(output: Any, schema: list | dict) -> Optional[Any]:
         """Return a filtered copy of *output* keeping only keys listed in *schema*.
+
+        Accepts both the list form (``["a", {"b": ["c"]}]``) and the dict form
+        (``{"a": None, "b": ["c"]}``), mirroring the node-side orchestrator. A
+        dict schema is normalised to ``[{key: child_sub}]`` so the same per-item
+        logic applies; a bare-string child (``{"b": "c"}``) is normalised to
+        ``["c"]``.
 
         Returns ``None`` if *output* is not a filterable dict, a key is absent, a child
         schema is given for a non-dict value, or a schema item type is unsupported.
@@ -90,6 +101,9 @@ class FAResult:
         # Stat-leaves are terminal values, not filterable structural dicts.
         if not isinstance(output, dict) or FAResult._is_stat_leaf(output):
             return None
+        # Normalise a dict-form subschema ({key: child_sub}) to the list-of-items form.
+        if isinstance(schema, dict):
+            schema = [{k: v} for k, v in schema.items()]
         result: dict = {}
         for item in schema:
             if isinstance(item, str):
@@ -108,8 +122,8 @@ class FAResult:
                 )  # no sub-schema: copy subtree as-is
             elif not isinstance(output[key], dict):
                 return None  # child schema given but value is not a filterable dict
-            elif isinstance(child_sub, (list, tuple)):
-                child = FAResult._filter_output(output[key], list(child_sub))
+            elif isinstance(child_sub, (list, tuple, dict)):
+                child = FAResult._filter_output(output[key], child_sub)
                 if child is None:
                     return None
                 result[key] = child
@@ -117,7 +131,7 @@ class FAResult:
                 return None  # child_sub is an unexpected type
         return result
 
-    def _filtered_copy(self, schema: list) -> Optional["FAResult"]:
+    def _filtered_copy(self, schema: list | dict) -> Optional["FAResult"]:
         """Return a copy filtered to *schema*, or ``None`` if any node output cannot be filtered."""
         filtered_data: dict[str, Any] = {}
         for node_id, output in self._data.items():
@@ -127,6 +141,8 @@ class FAResult:
             filtered_data[node_id] = out
         result = FAResult(None)
         result._data = filtered_data
+        if self._secagg_node_ids is not None:
+            result._secagg_node_ids = list(self._secagg_node_ids)
         return result
 
     @staticmethod
@@ -166,9 +182,53 @@ class FAResult:
         # Both scalars: new overwrites.
         return new
 
+    @staticmethod
+    def _combine(a: "FAResult", b: "FAResult") -> "FAResult":
+        """Return a new FAResult deep-merging the per-node trees of *a* and *b*.
+
+        Used to fold the round-1 result (count/sum/…) and the round-2 centered
+        result (count/sum_sq_centered) into a single result from which
+        count, mean, variance and std are all computable. Both results must share
+        the same node keys (same nodes, schema and — under secagg — the
+        ``__secagg__`` virtual node).
+        """
+        combined = FAResult(None)
+        combined._data = {nid: copy.deepcopy(out) for nid, out in a._data.items()}
+        for nid, out in b._data.items():
+            if nid in combined._data:
+                combined._data[nid] = FAResult._deep_merge(combined._data[nid], out)
+            else:
+                combined._data[nid] = copy.deepcopy(out)
+        secagg_node_ids = a._secagg_node_ids or b._secagg_node_ids
+        if secagg_node_ids is not None:
+            combined._secagg_node_ids = list(secagg_node_ids)
+        return combined
+
     # ------------------------------------------------------------------
     # Mutation
     # ------------------------------------------------------------------
+
+    def _merge_aggregate(
+        self, output: dict, node_ids: Optional[list[str]] = None
+    ) -> None:
+        """Merge a pre-built aggregate output into the secagg virtual node.
+
+        Used by the encrypted reply path where all node contributions have been
+        decrypted and unflattened into a single aggregate dict by the researcher.
+
+        Args:
+            output: The decrypted, unflattened aggregate output.
+            node_ids: Real participating node IDs, recorded for reporting.
+        """
+        if "__secagg__" not in self._data:
+            self._data["__secagg__"] = output
+        else:
+            self._data["__secagg__"] = FAResult._deep_merge(
+                self._data["__secagg__"], output
+            )
+        if node_ids is not None:
+            self._secagg_node_ids = list(node_ids)
+        self._computable_stats_cache = None
 
     def merge(self, replies: dict[str, FAReply]) -> None:
         """Add stats from a new request into the existing output tree,
@@ -201,7 +261,13 @@ class FAResult:
 
     @property
     def node_ids(self) -> list[str]:
-        """List of node IDs present in the result."""
+        """List of node IDs present in the result.
+
+        Under secure aggregation, reports the real participating node IDs rather
+        than the ``__secagg__`` virtual node.
+        """
+        if self._secagg_node_ids is not None:
+            return list(self._secagg_node_ids)
         return list(self._data.keys())
 
     @property
@@ -271,17 +337,29 @@ class FAResult:
     def node_stats(self, node_id: Optional[str] = None) -> Any:
         """Return a copy of the raw statistics output for one or all nodes.
 
+        Under secure aggregation per-node statistics do not exist, so an info
+        message is logged and :meth:`global_stats` is returned instead.
+
         Args:
             node_id: Identifier of the node. When omitted, returns a dict
                 mapping every node ID to its output.
 
         Returns:
             Per-node output when *node_id* is given, or a ``{node_id: output}``
-            dict for all nodes when omitted.
+            dict for all nodes when omitted. Under secure aggregation, the result
+            of :meth:`global_stats` regardless of *node_id*.
 
         Raises:
             FedbiomedError: If *node_id* is not found.
         """
+        if self._secagg_node_ids is not None:
+            logger.info(
+                "Per-node statistics are not available under secure aggregation: "
+                "node contributions are encrypted and only their aggregate is "
+                "recoverable. Returning global statistics instead."
+            )
+            return self.global_stats()
+
         if node_id is None:
             return {nid: copy.deepcopy(output) for nid, output in self._data.items()}
 
@@ -429,6 +507,9 @@ class FederatedAnalytics:
 
     _MAX_CACHE_SIZE: int = 32  # Maximum number of cached result sets.
 
+    # Statistics that are not computable by nodes in a single round
+    _CENTERED_DERIVED: tuple[str, ...] = ("variance", "std")
+
     def __init__(
         self,
         fds: FederatedDataset,
@@ -436,6 +517,7 @@ class FederatedAnalytics:
         researcher_id: str,
         reqs: Requests,
         experimentation_folder: str,
+        secagg: Optional[SecureAggregation] = None,
         **kwargs,
     ) -> None:
         """Initialise a federated analytics session.
@@ -446,6 +528,8 @@ class FederatedAnalytics:
             researcher_id: Identifier of the researcher.
             reqs: Request handler used to communicate with nodes.
             experimentation_folder: Local folder for storing experiment artefacts.
+            secagg: Optional ``SecureAggregation`` instance.  When ``None`` or
+                inactive, FA runs in plaintext.
             **kwargs: Additional keyword arguments (reserved for future use).
         """
         self._fa_id: str = "FA_" + str(uuid.uuid4())
@@ -454,6 +538,12 @@ class FederatedAnalytics:
         self._researcher_id = researcher_id
         self._reqs = reqs
         self._experimentation_folder = experimentation_folder
+        self._secagg: SecureAggregation = (
+            secagg if secagg is not None else SecureAggregation(active=False)
+        )
+        self._fa_round_counter: int = 0
+        # One-shot guard for the clipping-range mismatch warning.
+        self._fa_clipping_warned: bool = False
         # Maps hash(node_ids, dataset_schema, stats_args) → FAResult.
         self._results_store: OrderedDict[str, FAResult] = OrderedDict()
 
@@ -536,6 +626,42 @@ class FederatedAnalytics:
         if len(self._results_store) > self._MAX_CACHE_SIZE:
             self._results_store.popitem(last=False)
 
+    def _secagg_setup(self, node_ids: list[str]) -> dict:
+        """Set up secure aggregation for the given nodes and return secagg arguments.
+
+        Args:
+            node_ids: Node IDs that will participate in the FA round.
+
+        Returns:
+            Secagg arguments dict (suitable for inclusion in FARequest), or an empty
+            dict when secure aggregation is not active.
+        """
+        if not self._secagg.active:
+            return {}
+        self._secagg.setup(
+            parties=node_ids,
+            experiment_id=self._experiment_id,
+            researcher_id=self._researcher_id,
+            insecure_validation=False,
+        )
+        # FA clipping range is fixed; leave the researcher's object untouched
+        return dict(self._secagg.train_arguments())
+
+    def _warn_on_clipping_mismatch(self) -> None:
+        """Warn once if the researcher set a clipping range differing from the FA constant (None/equal stays silent)."""
+        requested = self._secagg.clipping_range
+        if (
+            requested is not None
+            and requested != SAParameters.FA_CLIPPING_RANGE
+            and not self._fa_clipping_warned
+        ):
+            logger.warning(
+                f"Secure aggregation 'clipping_range'={requested} is ignored for FA: "
+                f"the node uses a fixed range ({SAParameters.FA_CLIPPING_RANGE}); "
+                f"remove it from the SecureAggregation setup to silence this warning."
+            )
+            self._fa_clipping_warned = True
+
     def _execute_and_update_cache(
         self,
         cache_key: str,
@@ -562,6 +688,11 @@ class FederatedAnalytics:
         Raises:
             FedbiomedError: If no replies are received or if any node returns an error.
         """
+        secagg_arguments = self._secagg_setup(node_ids)
+        self._fa_round_counter += 1
+        if secagg_arguments:
+            secagg_arguments["fa_round"] = self._fa_round_counter
+
         fa_job = FARequestJob(
             fa_id=self._fa_id,
             stats=stats,
@@ -572,22 +703,143 @@ class FederatedAnalytics:
             researcher_id=self._researcher_id,
             requests=self._reqs,
             nodes=node_ids,
+            secagg_arguments=secagg_arguments or None,
         )
+
+        # Warn once on a mismatching clipping range, then strip it from the arguments
+        if secagg_arguments:
+            self._warn_on_clipping_mismatch()
+            secagg_arguments.pop("secagg_clipping_range", None)
 
         # Node-level errors and empty replies are handled by FARequestJob.execute()
         analytics_replies = fa_job.execute()
 
-        if cached is None:
-            cached = FAResult(analytics_replies)
+        first_reply = next(iter(analytics_replies.values()))
+        if first_reply.encrypted:
+            # Every party must contribute or secagg masks will not cancel on decryption.
+            if set(analytics_replies) != set(node_ids):
+                raise FedbiomedError(
+                    "Secure aggregation requires all nodes to reply; missing "
+                    f"contributions break mask cancellation. Expected {sorted(node_ids)}, "
+                    f"got {sorted(analytics_replies)}."
+                )
+            model_params = {
+                nid: r.params_encrypted for nid, r in analytics_replies.items()
+            }
+            output_schema = first_reply.output_schema
+            num_expected_params = len(output_schema)
+            num_nodes = len(analytics_replies)
+            aggregated_flat = self._secagg.aggregate(
+                round_=self._fa_round_counter,
+                total_sample_size=num_nodes,
+                model_params=model_params,
+                num_expected_params=num_expected_params,
+                target_range=SAParameters.FA_TARGET_RANGE,
+                clipping_range=SAParameters.FA_CLIPPING_RANGE,
+            )
+            # Crypter returns cross-node mean (÷num_nodes cancels quantization
+            # offset); ×num_nodes restores the additive sum FA aggregators expect.
+            aggregated_flat = [v * num_nodes for v in aggregated_flat]
+            aggregated_output = unflatten_fa_output(aggregated_flat, output_schema)
+            if cached is None:
+                cached = FAResult(None)
+            cached._merge_aggregate(
+                aggregated_output, node_ids=list(analytics_replies.keys())
+            )
         else:
-            cached.merge(analytics_replies)
+            if cached is None:
+                cached = FAResult(analytics_replies)
+            else:
+                cached.merge(analytics_replies)
+
         self._cache_store(cache_key, cached)
         return cached
+
+    def _recover_from_cache(
+        self,
+        cache_key: Any,
+        missing: list[str],
+        dataset_schema: list[str | dict],
+        node_ids: list[str],
+    ) -> Optional[FAResult]:
+        """Recover missing stats from a cached superset-schema result, or None.
+
+        Scans stored results for an entry from the same node set containing all
+        ``missing`` stats whose schema is a superset of ``dataset_schema``.
+        ``_filtered_copy`` returns None on any missing key, so a non-None result
+        implies a superset. On success the filtered copy is stored under
+        ``cache_key`` and returned. Results from a different node set are skipped:
+        reusing them would drop or invent node contributions.
+        """
+        for other in self._results_store.values():
+            if set(other.node_ids) != set(node_ids):
+                continue
+            satisfiable = set(other.available_stats()) | set(other.computable_stats())
+            if not all(s in satisfiable for s in missing):
+                continue
+            filtered = other._filtered_copy(dataset_schema)
+            if filtered is not None:
+                self._cache_store(cache_key, filtered)
+                logger.info(
+                    f"Statistics {missing} recovered from cached result "
+                    "— skipping node requests."
+                )
+                return filtered
+        return None
+
+    @staticmethod
+    def _centered_args_from_mean(mean_tree: Any) -> Any:
+        """Turn a global-mean tree into ``sum_sq_centered`` stats_args."""
+        if isinstance(mean_tree, dict):
+            return {
+                k: FederatedAnalytics._centered_args_from_mean(v)
+                for k, v in mean_tree.items()
+            }
+        if isinstance(mean_tree, (list, tuple)):
+            return type(mean_tree)(
+                FederatedAnalytics._centered_args_from_mean(v) for v in mean_tree
+            )
+        # Scalar leaf: the global mean for one feature.
+        return {"sum_sq_centered": {"mean": float(mean_tree)}}
+
+    def _fetch_centered(
+        self,
+        stats: list[str],
+        dataset_schema: Optional[list[str | dict]],
+        node_ids: list[str],
+    ) -> FAResult:
+        """Run the two-pass centered scheme and return a combined result."""
+        # Round 1: the requested stats plus the count+sum the global mean is built from
+        round1_stats = sorted(
+            {s for s in stats if s not in self._CENTERED_DERIVED} | {"count", "sum"}
+        )
+        r1 = self.fetch_stats(round1_stats, dataset_schema, _emit_log=False)
+        mean_tree = r1.global_stats("mean")
+
+        # Round 2: Σ(x − μ)² centered on the round-1 global mean.
+        # Reuses round 1's count, so round 2 only needs the centered moment.
+        centered_args = self._centered_args_from_mean(mean_tree)
+        round2_key = self.make_cache_key(node_ids, None, centered_args)
+        r2 = self._results_store.get(round2_key)
+        if r2 is None:
+            r2 = self._execute_and_update_cache(
+                round2_key, None, centered_args, None, node_ids, None
+            )
+
+        return FAResult._combine(r1, r2)
+
+    def _log_global_stats(self, result: FAResult) -> None:
+        """Log the aggregated global statistics of *result* once, prettily."""
+        logger.info(
+            "Global statistics:\n%s",
+            json.dumps(result.global_stats(), indent=2, default=str, sort_keys=True),
+        )
 
     def fetch_stats(
         self,
         stats: Optional[str | list[str]] = None,
         dataset_schema: Optional[str | list[str | dict]] = None,
+        _emit_log: bool = True,
     ) -> FAResult:
         """Fetch named statistics across nodes. Already-cached statistics are not re-requested.
 
@@ -595,6 +847,9 @@ class FederatedAnalytics:
             stats: Statistic name(s) to request from nodes (e.g. ``"mean"``).
                 Defaults to ``["count", "mean", "variance"]``.
             dataset_schema: Optional schema definition for filtering the dataset.
+            _emit_log: Internal. When ``False``, suppresses the final global-stats
+                log line — used for intermediate rounds (e.g. the round-1 mean of
+                the variance/std two-pass) so the stats are logged once, at the end.
 
         Returns:
             A :class:`FAResult` containing per-node data and supporting global aggregation.
@@ -606,10 +861,16 @@ class FederatedAnalytics:
         if not stats:  # guard against explicit empty list
             raise FedbiomedError("'stats' must be a non-empty string or list.")
 
-        # Stats nodes can compute directly; derived stats (e.g. 'std', 'sum') are not requestable.
+        # Stats nodes can compute directly; the centered-derived stats
+        # (variance/std) are handled here via the two-pass scheme. Any other
+        # AGGREGATORS_MAP-only stat remains non-requestable.
         requestable = {s.value for s in Stats}
         computed_only = [
-            s for s in stats if s in AGGREGATORS_MAP and s not in requestable
+            s
+            for s in stats
+            if s in AGGREGATORS_MAP
+            and s not in requestable
+            and s not in self._CENTERED_DERIVED
         ]
         unknown = [
             s for s in stats if s not in AGGREGATORS_MAP and s not in requestable
@@ -641,32 +902,52 @@ class FederatedAnalytics:
         cache_key = FederatedAnalytics.make_cache_key(node_ids, dataset_schema, None)
         cached = self._results_store.get(cache_key)
 
-        missing = [
-            s for s in stats if cached is None or s not in cached.available_stats()
-        ]
+        # Two-pass path: any requested variance/std needs the global mean first.
+        derived = [s for s in stats if s in self._CENTERED_DERIVED]
+        if derived:
+            if cached is not None and set(stats).issubset(
+                set(cached.computable_stats())
+            ):
+                logger.info(
+                    f"All requested statistics {stats} are already cached — "
+                    "skipping node requests."
+                )
+                result = cached
+            else:
+                result = self._fetch_centered(stats, dataset_schema, node_ids)
+                self._cache_store(cache_key, result)
+            if _emit_log:
+                self._log_global_stats(result)
+            return result
+
+        # Re-requesting the same (node_ids, schema) key returns identical data, so a
+        # stat only needs requesting if it is present in NO form in the cache.
+        satisfiable = (
+            set(cached.available_stats()) | set(cached.computable_stats())
+            if cached is not None
+            else set()
+        )
+        missing = [s for s in stats if s not in satisfiable]
         if missing:
-            # Scan cache for a superset-schema entry before contacting nodes.
-            # _filtered_copy returns None on any missing key, so success implies superset.
-            if dataset_schema is not None and cached is None:
-                for other in self._results_store.values():
-                    if not all(s in other.available_stats() for s in missing):
-                        continue
-                    filtered = other._filtered_copy(dataset_schema)
-                    if filtered is not None:
-                        self._cache_store(cache_key, filtered)
-                        logger.info(
-                            f"Statistics {missing} recovered from cached result "
-                            "— skipping node requests."
-                        )
-                        return filtered
-            cached = self._execute_and_update_cache(
-                cache_key, missing, None, dataset_schema, node_ids, cached
+            recovered = (
+                self._recover_from_cache(cache_key, missing, dataset_schema, node_ids)
+                if dataset_schema is not None and cached is None
+                else None
             )
+            if recovered is not None:
+                cached = recovered
+            else:
+                cached = self._execute_and_update_cache(
+                    cache_key, missing, None, dataset_schema, node_ids, cached
+                )
         else:
             logger.info(
                 f"All requested statistics {stats} are already cached — "
                 "skipping node requests."
             )
+
+        if _emit_log:
+            self._log_global_stats(cached)
 
         return cached
 
@@ -735,9 +1016,9 @@ class FederatedAnalytics:
         return self._stat(Stats.MEAN.value, "mean", dataset_schema)
 
     def variance(self, dataset_schema: Optional[str | list[str | dict]] = None) -> Any:
-        """Return the global variance across nodes."""
-        return self._stat(Stats.VARIANCE.value, "variance", dataset_schema)
+        """Return the global variance across nodes (two-pass centered scheme)."""
+        return self.fetch_stats("variance", dataset_schema).global_stats("variance")
 
     def std(self, dataset_schema: Optional[str | list[str | dict]] = None) -> Any:
-        """Return the global standard deviation across nodes."""
-        return self._stat(Stats.VARIANCE.value, "std", dataset_schema)
+        """Return the global standard deviation across nodes (two-pass centered scheme)."""
+        return self.fetch_stats("std", dataset_schema).global_stats("std")

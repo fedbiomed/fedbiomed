@@ -1,11 +1,11 @@
+import asyncio
 import os
 import tempfile
-import unittest
-from unittest.mock import patch, MagicMock, AsyncMock
-import asyncio
 import time
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from fedbiomed.common.message import OverlayMessage, KeyReply, InnerMessage
+from fedbiomed.common.message import InnerMessage, KeyReply, OverlayMessage
 from fedbiomed.node.requests._n2n_router import NodeToNodeRouter, _NodeToNodeAsyncRouter
 
 
@@ -313,10 +313,27 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
             "fedbiomed.node.requests._n2n_router.NodeToNodeController", autospec=True
         )
         self.n2n_controller_patch.side_effect = AsyncMock()
+        # Sync mocks so the sync wrappers do not create un-awaited coroutines when
+        # `asyncio.run`/`run_coroutine_threadsafe` are mocked out.
+        self.run_async_patch = patch(
+            "fedbiomed.node.requests._n2n_router._NodeToNodeAsyncRouter._run_async",
+            new_callable=MagicMock,
+        )
+        self.submit_patch = patch(
+            "fedbiomed.node.requests._n2n_router._NodeToNodeAsyncRouter._submit",
+            new_callable=MagicMock,
+        )
+        self.format_outgoing_patch = patch(
+            "fedbiomed.node.requests._n2n_router.OverlayChannel.format_outgoing_overlay",
+            new_callable=MagicMock,
+        )
 
         self.async_patcher = self.async_patch.start()
         self.thread_patcher = self.thread_patch.start()
         self.n2n_controller_patcher = self.n2n_controller_patch.start()
+        self.run_async_patch.start()
+        self.submit_patch.start()
+        self.format_outgoing_patch.start()
 
         self.grpc_controller_mock = MagicMock(autospec=True)
         self.pending_requests_mock = MagicMock(autospec=True)
@@ -339,6 +356,9 @@ class TestNodeToNodeRouter(unittest.IsolatedAsyncioTestCase, unittest.TestCase):
         self.async_patch.stop()
         self.thread_patch.stop()
         self.n2n_controller_patch.stop()
+        self.run_async_patch.stop()
+        self.submit_patch.stop()
+        self.format_outgoing_patch.stop()
 
     def test_n2n_router_01_start(self):
         """Start a n2n router"""

@@ -1,7 +1,6 @@
 import re
-import unittest
 import tempfile
-
+import unittest
 from secrets import token_bytes
 from unittest.mock import MagicMock, patch
 
@@ -9,21 +8,20 @@ import numpy as np
 from requests import Request
 from testsupport.base_mocks import MockRequestModule
 
-from fedbiomed.common.constants import SecureAggregationSchemes
+from fedbiomed.common.constants import SAParameters, SecureAggregationSchemes
 from fedbiomed.common.exceptions import (
     FedbiomedSecaggCrypterError,
-    FedbiomedSecureAggregationError,
     FedbiomedSecaggError,
+    FedbiomedSecureAggregationError,
 )
 from fedbiomed.common.secagg import LOM
 from fedbiomed.common.utils import multiply, quantize
+from fedbiomed.researcher.config import config
 from fedbiomed.researcher.secagg import (
     JoyeLibertSecureAggregation,
     LomSecureAggregation,
     SecureAggregation,
 )
-
-from fedbiomed.researcher.config import config
 
 test_id = "researcher-test-id"
 
@@ -123,6 +121,16 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
                 researcher_id=test_id,
                 parties=[test_id, "node-1", "node-2", "new_party"],
                 experiment_id=1345,
+            )
+
+        # Fewer than 2 nodes is rejected (the researcher is not counted as a node).
+        with self.assertRaisesRegex(
+            FedbiomedSecureAggregationError, "at least 2 nodes"
+        ):
+            self.secagg.setup(
+                researcher_id=test_id,
+                parties=[test_id, "node-1"],
+                experiment_id="exp-id-1",
             )
 
         # Execute setup
@@ -234,6 +242,29 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
                 encryption_factors={"node-1": [1], "node-2": [1]},
             )
 
+    def test_jl_secure_aggregation_08b_aggregate_forwards_target_range(self):
+        """aggregate() forwards target_range to the crypter."""
+        self.secagg.setup(
+            researcher_id=test_id,
+            parties=[test_id, "node-1", "node-2"],
+            experiment_id="exp-id-1",
+        )
+        self.secagg._servkey._status = True
+        self.secagg._servkey._context = {"server_key": 1234, "biprime": 1234}
+        self.secagg._secagg_random = None
+        self.secagg._secagg_crypter = MagicMock(**{"aggregate.return_value": [1.0]})
+
+        self.secagg.aggregate(
+            round_=1,
+            total_sample_size=2,
+            model_params={"node-1": [1], "node-2": [1]},
+            target_range=SAParameters.FA_TARGET_RANGE,
+        )
+        self.assertEqual(
+            self.secagg._secagg_crypter.aggregate.call_args.kwargs["target_range"],
+            SAParameters.FA_TARGET_RANGE,
+        )
+
     def test_jl_secure_aggregation_09_save_state_breakpoint(self):
         # Configure for round
         self.secagg.setup(
@@ -287,6 +318,9 @@ class TestSecureAggregationWrapper(unittest.TestCase):
 
         for method in methods_names:
             if not re.compile("^_").match(method):
+                # only methods are delegated here; skip data attributes
+                if not callable(getattr(original_obj, method)):
+                    continue
                 if not hasattr(obj, method):
                     self.fail(f"method {method} doesn't belong to object {obj}")
 
@@ -306,21 +340,29 @@ class TestSecureAggregationWrapper(unittest.TestCase):
         for scheme, cl in zip(
             SecureAggregationSchemes,
             (LomSecureAggregation, JoyeLibertSecureAggregation, LomSecureAggregation),
+            strict=True,
         ):
             sa = SecureAggregation(scheme=scheme)
             state = sa.__getattr__("save_state_breakpoint")()
-            self.assertDictContainsSubset(
+            self.assertLessEqual(
                 {
                     "attributes": {},
                     "class": "SecureAggregation",
                     "module": "fedbiomed.researcher.secagg._secure_aggregation",
                     "arguments": {"scheme": scheme.value},
-                },
-                state,
+                }.items(),
+                state.items(),
             )
             eval(f'exec("from {state["module"]} import {state["class"]}")')
             loaded_sa = SecureAggregation.load_state_breakpoint(state)
             self.check_specific_method_belongs_to_class(loaded_sa, cl)
+
+    def test_secure_aggregation_03_clipping_range_setter_delegates(self):
+        """Writing clipping_range on the wrapper reaches the inner scheme and train args."""
+        sa = SecureAggregation(active=True)
+        sa.clipping_range = 4242
+        self.assertEqual(sa.clipping_range, 4242)
+        self.assertEqual(sa.train_arguments()["secagg_clipping_range"], 4242)
 
 
 class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
@@ -361,7 +403,7 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
             multiply(params_3, weight),
         )
         pv = []
-        for n, l, s, p in zip(
+        for n, lom, s, p in zip(
             self.parties[1:],
             (
                 lom_1,
@@ -378,8 +420,9 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
                 params_2,
                 params_3,
             ),
+            strict=True,
         ):
-            pv.append(l.protect(n, s, round, p, self.parties[1:]))
+            pv.append(lom.protect(n, s, round, p, self.parties[1:]))
         return pv
 
     def test_lom_secagg_01_train_arg(self):
@@ -432,7 +475,14 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
             status = self.lom.setup(self.parties, self.experiment_id, test_id)
 
         state = self.lom.save_state_breakpoint()
-        lom = LomSecureAggregation.load_state_breakpoint(state)
+        LomSecureAggregation.load_state_breakpoint(state)
+
+    def test_lom_secagg_02b_setup_requires_two_nodes(self):
+        """LOM rejects a setup with fewer than 2 nodes (researcher is not a node)."""
+        with self.assertRaisesRegex(
+            FedbiomedSecureAggregationError, "at least 2 nodes"
+        ):
+            self.lom.setup([test_id, "node-1"], self.experiment_id, test_id)
 
     def test_lom_secagg_03_aggregate(self):
         fake_replies = MagicMock(
@@ -463,8 +513,52 @@ class TestLomSecureAggregation(MockRequestModule, unittest.TestCase):
             np.sum([[1, 2, 3, 4, 5], [1, 2, 3, 4, 5], [1, 2, 3, 4, 5]], axis=0)
             + 2 * self.clipping_range
         )
-        for ouput_val, expected_val in zip(agg_params, expected_agg_params):
+        for ouput_val, expected_val in zip(
+            agg_params, expected_agg_params, strict=True
+        ):
             self.assertTrue(np.isclose(np.round(ouput_val), expected_val))
+
+    def test_lom_secagg_03b_aggregate_explicit_clipping_range(self):
+        """An explicit clipping_range overrides self.clipping_range at decryption."""
+        fake_replies = MagicMock(
+            return_value={
+                n: MagicMock(spec=Request, node_id=n, success=True)
+                for n in self.parties[1:]
+            }
+        )
+        send_fed_req = {"replies": fake_replies, "errors": MagicMock(return_value={})}
+        super().setUp(
+            module="fedbiomed.researcher.secagg._secagg_context.Requests",
+            send_fed_req_conf=send_fed_req,
+        )
+        self.lom.setup(self.parties, self.experiment_id, test_id)
+        self.lom._secagg_random = None
+
+        # Quantize with a range that differs from self.clipping_range; decryption must
+        # honour the explicitly-passed value, not the one set on the scheme.
+        custom_clip = 2 * self.clipping_range
+        pv = self.create_protected_vector(
+            1, [1, 2, 3, 4, 5], [1, 2, 3, 4, 5], [1, 2, 3, 4, 5], custom_clip, 5
+        )
+        agg_params = self.lom.aggregate(
+            round_=1,
+            total_sample_size=5,
+            model_params={n: pv[i] for i, n in enumerate(self.parties[1:])},
+            encryption_factors={"node-1": [5555], "node-2": [5555], "node-3": [5555]},
+            clipping_range=custom_clip,
+        )
+
+        # Decrypting with custom_clip yields sum + 2*custom_clip; decrypting with the
+        # scheme's range (self.clipping_range) would be off by ~custom_clip, so the small
+        # atol (quantization noise scales with the range) still separates the two.
+        expected_agg_params = (
+            np.sum([[1, 2, 3, 4, 5], [1, 2, 3, 4, 5], [1, 2, 3, 4, 5]], axis=0)
+            + 2 * custom_clip
+        )
+        for ouput_val, expected_val in zip(
+            agg_params, expected_agg_params, strict=True
+        ):
+            self.assertTrue(np.isclose(ouput_val, expected_val, atol=2))
 
     def test_lom_secagg_04_aggregate_errors(self):
         ######## WARNING #######

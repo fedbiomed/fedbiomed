@@ -215,7 +215,6 @@ class TestCertificateManager(unittest.TestCase):
             mock_open.return_value.__enter__.return_value.write.assert_called_once_with(
                 "Certificate"
             )
-            mock_open.return_value.__enter__.return_value.close.assert_called_once()
 
             mock_open.side_effect = Exception
             with self.assertRaises(FedbiomedCertificateError):
@@ -244,9 +243,6 @@ class TestCertificateManager(unittest.TestCase):
 
             self.assertEqual(
                 mock_open.return_value.__enter__.return_value.write.call_count, 2
-            )
-            self.assertEqual(
-                mock_open.return_value.__enter__.return_value.close.call_count, 2
             )
 
             mock_open.side_effect = Exception

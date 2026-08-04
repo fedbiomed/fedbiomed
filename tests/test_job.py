@@ -709,6 +709,7 @@ class TestJob(unittest.TestCase):
             preproc_id="preproc_123",
             federated_dataset=self.fds,
             preproc_args={"a": 1},
+            preproc_args_nodes={"alice": {"a": 1}, "bob": {"b": 2}},
             state_id={"alice": "state_alice"},
         )
 
@@ -773,6 +774,7 @@ class TestJob(unittest.TestCase):
             preproc_id="preproc_123",
             federated_dataset=self.fds,
             preproc_args={"a": 1},
+            preproc_args_nodes={"alice": {"a": 1}, "bob": {"b": 2}},
             state_id={"alice": "state_alice"},
         )
 

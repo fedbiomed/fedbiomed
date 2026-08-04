@@ -4,7 +4,7 @@ import {ReactComponent as DocIcon} from "../assets/img/doc.svg";
 import {ReactComponent as FileIcon} from "../assets/img/file.svg";
 import {ReactComponent as DataIcon} from "../assets/img/database.svg";
 import {ReactComponent as PlusIcon} from "../assets/img/plus.svg";
-import {ReactComponent as ConfIcon} from "../assets/img/configuration.svg";
+import {ReactComponent as PlayIcon} from "../assets/img/play.svg";
 import {EuiTitle, EuiText, EuiTextAlign} from '@elastic/eui'
 
 
@@ -41,10 +41,10 @@ const Home = (props) => {
             internal: true,
         },
         {
-            title : 'Configuration',
-            icon : ConfIcon,
-            link : '/configuration',
-            text: 'Display details of node configurations',
+            title : 'Node Management',
+            icon : PlayIcon,
+            link : '/node-management',
+            text: 'Manage the node process and configuration.',
             internal: true,
         }
         ]

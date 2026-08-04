@@ -55,6 +55,43 @@ def fa_job_setup():
     }
 
 
+def test_two_pass_round_arg_shapes_are_valid(fa_job_setup):
+    """Regression: the request shapes the variance/std two-pass produces must
+    satisfy FARequestJob's mutual-exclusivity rules (stats XOR stats_args, and
+    stats_args not combined with dataset_schema).
+    """
+    common = {
+        "experiment_id": fa_job_setup["experiment_id"],
+        "fa_id": fa_job_setup["fa_id"],
+        "federated_dataset": fa_job_setup["federated_dataset"],
+        "nodes": fa_job_setup["nodes"],
+        "requests": fa_job_setup["reqs"],
+        "researcher_id": fa_job_setup["researcher_id"],
+    }
+
+    # Round 1: direct primitives via a flat stats list (+ optional schema).
+    FARequestJob(
+        stats=["count", "sum"], stats_args=None, dataset_schema=["age"], **common
+    )
+
+    # Round 2: centered moment via stats_args only — stats and dataset_schema None.
+    FARequestJob(
+        stats=None,
+        stats_args={"age": {"sum_sq_centered": {"mean": 45.0}}},
+        dataset_schema=None,
+        **common,
+    )
+
+    # Guard: combining the two would raise (the bug this regression covers).
+    with pytest.raises(FedbiomedError, match="mutually exclusive"):
+        FARequestJob(
+            stats=["count"],
+            stats_args={"age": {"sum_sq_centered": {"mean": 45.0}}},
+            dataset_schema=None,
+            **common,
+        )
+
+
 def test_init(fa_job_setup):
     """Test that all constructor arguments are stored correctly."""
     job = fa_job_setup["job"]
@@ -65,6 +102,7 @@ def test_init(fa_job_setup):
     assert job._dataset_schema == fa_job_setup["dataset_schema"]
     assert job._stats == fa_job_setup["stats"]
     assert job._researcher_id == fa_job_setup["researcher_id"]
+    assert job._secagg_arguments is None
 
 
 def test_init_with_stats_only(fa_job_setup):
@@ -280,6 +318,40 @@ def test_execute_with_stats_args(fa_job_setup):
     assert req_node1.stats_args == stats_args
     assert req_node1.stats is None
     assert req_node1.dataset_schema is None
+
+
+def test_execute_forwards_secagg_arguments(fa_job_setup):
+    """secagg_arguments are included verbatim in every FARequest sent to nodes."""
+    setup = fa_job_setup
+    reqs = setup["reqs"]
+    secagg_args = {"secagg_scheme": "JOYE_LIBERT", "fa_round": 1}
+
+    job = FARequestJob(
+        experiment_id=setup["experiment_id"],
+        fa_id=setup["fa_id"],
+        federated_dataset=setup["federated_dataset"],
+        stats_args=None,
+        stats=setup["stats"],
+        dataset_schema=setup["dataset_schema"],
+        secagg_arguments=secagg_args,
+        nodes=setup["nodes"],
+        requests=reqs,
+        researcher_id=setup["researcher_id"],
+    )
+    job._policies = setup["policies"]
+
+    responses_mock = MagicMock()
+    responses_mock.errors.return_value = {}
+    responses_mock.replies.return_value = {"node1": MagicMock(), "node2": MagicMock()}
+    reqs.send.return_value.__enter__.return_value = responses_mock
+
+    job.execute()
+
+    args, _ = reqs.send.call_args
+    for node_id in setup["nodes"]:
+        req = args[0][node_id]
+        assert isinstance(req, FARequest)
+        assert req.secagg_arguments == secagg_args
 
 
 def test_execute_errors_are_logged(fa_job_setup):

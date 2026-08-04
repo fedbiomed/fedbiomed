@@ -24,31 +24,59 @@ from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.experiment import Experiment
 
 
-def download_file(url, filename):
+def download_file(url, filename, retries=2, headers=None):
     """
-    Helper method handling downloading large files from `url` to `filename`. Returns a pointer to `filename`.
+    Helper method handling downloading large files.
     """
     chunk_size = 1024
-    r = requests.get(url, stream=True)
-    with open(filename, "wb") as f:
-        pbar = tqdm.tqdm(unit="B", total=int(r.headers["Content-Length"]))
-        for chunk in r.iter_content(chunk_size=chunk_size):
-            if chunk:  # filter out keep-alive new chunks
-                pbar.update(len(chunk))
-                f.write(chunk)
-    return filename
+    for attempt in range(retries):
+        try:
+            r = requests.get(
+                url, headers=headers if headers else {}, stream=True, timeout=60
+            )
+            r.raise_for_status()
+            total = r.headers.get("Content-Length")
+            with open(filename, "wb") as f:
+                pbar = tqdm.tqdm(
+                    unit="B", unit_scale=True, total=int(total) if total else None
+                )
+                for chunk in r.iter_content(chunk_size=chunk_size):
+                    if chunk:
+                        pbar.update(len(chunk))
+                        f.write(chunk)
+            return filename
+        except requests.RequestException as e:
+            # Never print `url` directly if it could ever contain a token as a query param.
+            # Here the token is only in headers, so this is safe, but we still avoid
+            # printing headers or any request object that might expose it.
+            print(
+                f"Download attempt {attempt + 1}/{retries} failed for {filename}: {type(e).__name__}"
+            )
+            if attempt == retries - 1:
+                raise requests.RequestException(
+                    f"Failed to download {filename} after {retries} attempts"
+                ) from None
+            time.sleep(3)
+        except Exception as e:
+            print(f"Unexpected error downloading {filename}: {type(e).__name__}")
 
 
 def download_and_extract_ixi_sample(root_folder):
-    url = "https://data.mendeley.com/public-api/zip/7kd5wj7v7p/download/3"
     zip_filename = os.path.join(root_folder, "7kd5wj7v7p-3.zip")
     data_folder = os.path.join(root_folder)
     extracted_folder = os.path.join(data_folder, "7kd5wj7v7p-3", "IXI_sample")
+    url = "https://data.mendeley.com/public-api/zip/7kd5wj7v7p/download/3"
+
+    token = os.getenv("FBM_GITLAB_TOKEN", None)
+    headers = None
+    if token:
+        url = "https://gitlab.inria.fr/api/v4/projects/70069/repository/blobs/e5aa86c60fab9230a4dd2b4a1818596ed130b624/raw"
+        headers = {"PRIVATE-TOKEN": token}
 
     # Extract if ZIP exists but not folder
     if not os.path.exists(zip_filename):
         # Download if it does not exist
-        download_file(url, zip_filename)
+        download_file(url, zip_filename, headers=headers)
 
     # Check if extracted folder exists
     if os.path.isdir(extracted_folder):

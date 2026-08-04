@@ -44,6 +44,16 @@ class SecureAggregation:
             case _:
                 self.__secagg = LomSecureAggregation(*args, **kwargs)
 
+    @property
+    def clipping_range(self) -> Optional[int]:
+        """Clipping range of the wrapped scheme."""
+        return self.__secagg.clipping_range
+
+    @clipping_range.setter
+    def clipping_range(self, value: Optional[int]) -> None:
+        # Expose a writable clipping_range (e.g. FA sets its own).
+        self.__secagg.clipping_range = value
+
     def __getattr__(self, item: str):
         """Wraps all functions/attributes of class members.
 
@@ -270,6 +280,15 @@ class _SecureAggregation(ABC):
             raise FedbiomedSecureAggregationError(
                 f"{ErrorNumbers.FB417.value}: Expected argument `experiment_id` "
                 f"string but got {type(parties)}"
+            )
+
+        # Secure aggregation needs >= 2 nodes to be applied
+        nodes = [p for p in parties if p != researcher_id]
+        if len(nodes) < 2:
+            raise FedbiomedSecureAggregationError(
+                f"{ErrorNumbers.FB417.value}: Secure aggregation requires at least 2 "
+                f"nodes, but only {len(nodes)} participate: {nodes}. Disable secure "
+                "aggregation or add more nodes."
             )
 
         self._configure_round(
@@ -583,6 +602,8 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
         model_params: Dict[str, List[int]],
         encryption_factors: Dict[str, Union[List[int], None]] = None,
         num_expected_params: int = 1,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> self.clipping_range (training)
         **kwargs,
     ) -> List[float]:
         """Aggregates given model parameters
@@ -627,7 +648,10 @@ class JoyeLibertSecureAggregation(_SecureAggregation):
             key=key,
             total_sample_size=total_sample_size,
             biprime=biprime,
-            clipping_range=self.clipping_range,
+            clipping_range=(
+                clipping_range if clipping_range is not None else self.clipping_range
+            ),
+            target_range=target_range,
         )
 
         return self._aggregate(
@@ -803,6 +827,8 @@ class LomSecureAggregation(_SecureAggregation):
         model_params: Dict[str, List[int]],
         total_sample_size: int,
         encryption_factors: Dict[str, Union[List[int], None]] = None,
+        target_range: Optional[int] = None,  # None -> TARGET_RANGE (training)
+        clipping_range: Optional[int] = None,  # None -> self.clipping_range (training)
         **kwargs,
     ) -> List[float]:
         """Aggregates given model parameters
@@ -838,7 +864,10 @@ class LomSecureAggregation(_SecureAggregation):
         aggregate = functools.partial(
             self._secagg_crypter.aggregate,
             total_sample_size=total_sample_size,
-            clipping_range=self.clipping_range,
+            clipping_range=(
+                clipping_range if clipping_range is not None else self.clipping_range
+            ),
+            target_range=target_range,
         )
 
         return self._aggregate(

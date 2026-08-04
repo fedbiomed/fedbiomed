@@ -72,9 +72,6 @@ class TestSecaggServkeySetup(SecaggTestCase):
         self.args["controller_data"] = self.mock_controller_data
         self.args["n2n_router"] = self.mock_n2n_router
 
-    def tearDown(self) -> None:
-        pass
-
     def test_secagg_key_01_init(self):
         secagg = SecaggServkeySetup(**self.args)
         self.assertTrue(hasattr(secagg, "_secagg_manager"))
@@ -107,8 +104,8 @@ class TestSecaggServkeySetup(SecaggTestCase):
         self.assertIsInstance(reply.share, int)
 
     @patch("fedbiomed.node.secagg_manager.SecaggServkeyManager.add")
-    def test_secagg_key_02_setup(self, skmanager_add):
-        """Tests key setup for additive key"""
+    def test_secagg_key_02_setup_error(self, skmanager_add):
+        """Tests key setup returns an error when pending request fails"""
         secagg_addss = SecaggServkeySetup(**self.args)
         self.mock_n2n_router.format_outgoing_overlay.return_value = (
             b"overlay",
@@ -196,11 +193,10 @@ class TestSecaggServkeySetup(SecaggTestCase):
 
                 reply = secagg_addss.setup()
             self.assertEqual(reply.success, True)
-            check_sum_share = (
-                lambda randbits, rand_ints, other_shares: randbits
-                - sum(rand_ints)
-                + sum(other_shares)
-            )
+
+            def check_sum_share(randbits, rand_ints, other_shares):
+                return randbits - sum(rand_ints) + sum(other_shares)
+
             # self.assertEqual(reply.share, 5432 - 1234 - 4321 - 1122 + 1234 + 4321 + 4321)
             self.assertEqual(
                 reply.share,
@@ -234,9 +230,6 @@ class TestSecaggDHSetup(SecaggTestCase):
         self.args["pending_requests"] = self.mock_pending_requests
         self.args["controller_data"] = self.mock_controller_data
         self.args["n2n_router"] = self.mock_n2n_router
-
-    def tearDown(self) -> None:
-        pass
 
     @patch("fedbiomed.node.secagg_manager.SecaggDhManager.add")
     @patch("fedbiomed.node.secagg._secagg_setups.DHKey.export_public_key")

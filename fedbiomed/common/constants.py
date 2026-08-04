@@ -39,6 +39,9 @@ TENSORBOARD_FOLDER_NAME = "runs"
 VAR_FOLDER_NAME = "var"
 """Directory/folder name where variable files are saved"""
 
+NODE_DYNAMIC_DATA_FOLDER = os.path.join(VAR_FOLDER_NAME, "data")
+"""Directory/folder name used by Nodes to save their dynamic datasets"""
+
 DB_FOLDER_NAME = VAR_FOLDER_NAME
 """Directory/folder name where DB files are saved"""
 
@@ -56,6 +59,12 @@ EXPERIMENT_PREFIX = "exper_"
 
 REQUEST_PREFIX = "request_"
 """Prefix for request ID"""
+
+HARMONIZED_PREFIX = "harmonized_"
+"""Prefix for harmonized dataset ID"""
+
+UPDATED_PREFIX = "updated_"
+"""Prefix for updated dataset ID"""
 
 DEFAULT_NODE_NAME = "fbm-node"
 """Default node component folder name"""
@@ -333,10 +342,9 @@ class HarmonizationStep(PreprocStep):
     """Enumeration class for dataset preprocessing steps"""
 
     STANDARDIZE: int = 1
-    TRAIN: int = 2
-    RESID_VAR: int = 3
-    RESID_PARAMS: int = 4
-    FC_PARAMS: int = 5
+    TRAIN_RESID_VAR: int = 2
+    RESID_PARAMS: int = 3
+    FC_PARAMS: int = 4
 
 
 class SAParameters:
@@ -347,6 +355,11 @@ class SAParameters:
     )  # TODO: this has to be provided by the researcher, find the max range among all the nodes' weights
     # TODO: to separate from SAParameters
     KEY_SIZE: int = 2048
+    # Federated-analytics secure-aggregation quantization window.
+    # Resolution = 2·FA_CLIPPING_RANGE / FA_TARGET_RANGE, so stats
+    # keep full precision. Raise both together if values exceed 1e14.
+    FA_CLIPPING_RANGE: int = 100_000_000_000_000  # 1e14
+    FA_TARGET_RANGE: int = 2**55
 
 
 class ErrorNumbers(_BaseEnum):
@@ -379,6 +392,8 @@ class ErrorNumbers(_BaseEnum):
     FB324 = "FB324: Node to node overlay communication error"
     FB325 = "FB325: Node federated analytics error"
     FB326 = "FB326: Node Preprocessing error"
+    FB327 = "FB327: Node Process Manager error"
+
     # application error on researcher
 
     FB400 = "FB400: undetermined application error"
@@ -460,14 +475,20 @@ class UserRequestStatus(str, _BaseEnum):
 class Stats(_BaseEnum):
     """Enumeration class for Federated Analytics types
 
+    These are the primitives a node can compute directly in a single round.
+    Derived statistics (``variance``, ``std``) are not listed here: they are
+    computed from ``sum_sq_centered`` via the two-pass scheme.
+
     Attributes:
         COUNT: Count of values
         MEAN: Mean value
-        VARIANCE: Variance of values
+        SUM: Sum of values
+        SUM_SQ_CENTERED: Centered sum of squares Σ (x − mean)². Feeds variance/std.
         HISTOGRAM: histogram of values
     """
 
     COUNT = "count"
     MEAN = "mean"
-    VARIANCE = "variance"
+    SUM = "sum"
+    SUM_SQ_CENTERED = "sum_sq_centered"
     HISTOGRAM = "histogram"

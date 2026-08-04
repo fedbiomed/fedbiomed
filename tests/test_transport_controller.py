@@ -41,7 +41,6 @@ class TestGrpcAsyncTaskController(unittest.IsolatedAsyncioTestCase):
         f.set_result(True)
 
         self.client_mock.return_value.start.return_value = f
-        self.start = self.controller.start()
 
     def tearDown(self) -> None:
         self.client_patch.stop()
@@ -55,7 +54,7 @@ class TestGrpcAsyncTaskController(unittest.IsolatedAsyncioTestCase):
         self.client_mock.return_value.start.assert_called_once()
 
     async def test_grpc_async_controller_02_send(self):
-        await self.start
+        await self.controller.start()
         self.client_mock.return_value.start.assert_called_once()
         await self.controller.send(message=message)
         self.client_mock.return_value.send.assert_called_once_with(message)
@@ -66,7 +65,7 @@ class TestGrpcAsyncTaskController(unittest.IsolatedAsyncioTestCase):
         self.client_mock.return_value.send.assert_called_once_with(message)
 
     async def test_grpc_async_controller_03_update_id_map(self):
-        await self.start
+        await self.controller.start()
         await self.controller._update_id_ip_map(id_=self.r_id, ip="localhost:50052")
         self.assertEqual(self.controller._ip_id_map[self.r_id], "localhost:50052")
 
@@ -74,7 +73,7 @@ class TestGrpcAsyncTaskController(unittest.IsolatedAsyncioTestCase):
         task = MagicMock()
         task.done.return_value = False
         type(self.client_mock.return_value).tasks = [task]
-        await self.start
+        await self.controller.start()
         self.assertTrue(await self.controller.is_connected())
 
 
@@ -86,13 +85,21 @@ class TestGrpcController(unittest.IsolatedAsyncioTestCase):
         self.thread_patch = patch(
             "fedbiomed.transport.controller.threading.Thread", autospec=True
         )
+        # Sync mocks so `super().send()`/`super().start()` in the GrpcController
+        # wrappers do not create un-awaited coroutines when `asyncio` is mocked out.
         self.send_patch = patch(
-            "fedbiomed.transport.controller.GrpcAsyncTaskController.send", autospec=True
+            "fedbiomed.transport.controller.GrpcAsyncTaskController.send",
+            new_callable=MagicMock,
+        )
+        self.start_patch = patch(
+            "fedbiomed.transport.controller.GrpcAsyncTaskController.start",
+            new_callable=MagicMock,
         )
 
         self.async_mock = self.async_patch.start()
         self.thread_mock = self.thread_patch.start()
         self.send_mock = self.send_patch.start()
+        self.start_mock = self.start_patch.start()
 
         self.on_message = MagicMock()
 
@@ -107,6 +114,7 @@ class TestGrpcController(unittest.IsolatedAsyncioTestCase):
         self.async_patch.stop()
         self.thread_patch.stop()
         self.send_patch.stop()
+        self.start_patch.stop()
 
         return super().tearDown()
 
@@ -154,9 +162,12 @@ class TestGrpcController(unittest.IsolatedAsyncioTestCase):
         future_mock = MagicMock()
         future_mock.result.return_value = True
         self.async_mock.run_coroutine_threadsafe.return_value = future_mock
+        # Sync mock so `super().is_connected()` does not create an un-awaited
+        # coroutine when `run_coroutine_threadsafe` is mocked out.
         with patch(
-            "fedbiomed.transport.controller.GrpcAsyncTaskController.is_connected"
-        ) as is_connected:
+            "fedbiomed.transport.controller.GrpcAsyncTaskController.is_connected",
+            new_callable=MagicMock,
+        ):
             self.assertTrue(self.controller.is_connected())
 
 

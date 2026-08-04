@@ -367,11 +367,22 @@ Setup the node by sharing datasets. The commands below will use default Fed-BioM
     * re-start the Fed-BioMed node, for example in background:
 
         ```bash
-        [user@node-container $] kill $(ps auxwwww | grep -E 'python.*fedbiomed node start' | grep -Ev grep | awk '{ print $2}')
-        [user@node-container $] nohup fedbiomed node start $(cat /fbm-node/FBM_NODE_START_OPTIONS) >/fbm-node/fedbiomed_node.out &
+        [user@node-container $] fedbiomed node restart --background 
         ```
 
-        Please note that in that case, the node component output does not appear anymore in `docker compose logs node`
+    * check if the node has started running
+        
+        ```bash
+        [user@node-container $] fedbiomed node status
+        ```
+
+        Please note that when run with the `--background` option, the node component output is stored in `NODE_DIR/log/node_process.log`
+
+    * to stop the node, you can run:
+
+        ```bash
+        [user@node-container $] fedbiomed node stop
+        ```
 
     * share one or more datasets, for example a MNIST dataset or an interactively defined dataset (can also be done via the GUI):
 

@@ -11,6 +11,7 @@ from ._config_utils import (
     get_component_config,
     get_existing_component_db_names,
 )
+from ._fa_secagg_utils import flatten_fa_output, unflatten_fa_output
 from ._secagg_utils import (
     divide,
     get_default_biprime,
@@ -73,4 +74,7 @@ __all__ = [
     "import_class_object_from_file",
     "import_class_from_spec",
     "import_class_from_file",
+    # _fa_secagg_utils
+    "flatten_fa_output",
+    "unflatten_fa_output",
 ]

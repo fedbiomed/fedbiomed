@@ -370,6 +370,116 @@ class TestLogger(unittest.TestCase):
 
         pass
 
+    def test_logger_07b_application_filehandler_filters_security(self):
+        """Test application file handler writes regular logs only."""
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel("INFO")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_file = str(Path(tmpdir) / "application.log")
+            logger.add_application_file_handler(filename=app_file)
+            logger.info("APP-FIND-REGULAR")
+            logger.info(
+                "APP-SHOULD-NOT-CONTAIN-SECURITY",
+                extra={"is_security": True},
+            )
+
+            file_handler = logger._handlers.get("FILE")
+            self.assertIsNotNone(file_handler)
+            file_handler.flush()
+
+            with open(app_file, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            self.assertIn("APP-FIND-REGULAR", content)
+            self.assertNotIn("APP-SHOULD-NOT-CONTAIN-SECURITY", content)
+
+        logger.setLevel(old_level)
+
+    def test_logger_07ba_set_application_logs_initializes_info_level(self):
+        """Test application log setup receives INFO without changing console."""
+        self.assertEqual(logger.getEffectiveLevel(), DEFAULT_LOG_LEVEL)
+        self.assertEqual(logger._handlers["CONSOLE"].level, DEFAULT_LOG_LEVEL)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logger.set_application_logs(root_path=tmpdir)
+            logger.info("APP-FIND-DEFAULT-INFO")
+
+            file_handler = logger._handlers.get("FILE")
+            self.assertIsNotNone(file_handler)
+            file_handler.flush()
+
+            app_file = Path(tmpdir) / "log" / "application.log"
+            with open(app_file, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            self.assertIn("APP-FIND-DEFAULT-INFO", content)
+            self.assertEqual(logger._handlers["CONSOLE"].level, DEFAULT_LOG_LEVEL)
+
+    def test_logger_07c_application_filehandler_rotation(self):
+        """Test application file handler rotates daily."""
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel("INFO")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_file = str(Path(tmpdir) / "application.log")
+            logger.add_application_file_handler(filename=app_file)
+            logger.info("APP-BEFORE-ROLLOVER")
+
+            file_handler = logger._handlers.get("FILE")
+            self.assertIsNotNone(file_handler)
+            file_handler.flush()
+            file_handler.doRollover()
+
+            logger.info("APP-AFTER-ROLLOVER")
+            file_handler.flush()
+
+            with open(app_file, "r", encoding="utf-8") as f:
+                current_content = f.read()
+
+            self.assertIn("APP-AFTER-ROLLOVER", current_content)
+            self.assertNotIn("APP-BEFORE-ROLLOVER", current_content)
+
+            backups = sorted(Path(tmpdir).glob("application.log.*"))
+            self.assertGreater(len(backups), 0)
+            backup_content = backups[0].read_text(encoding="utf-8")
+            self.assertIn("APP-BEFORE-ROLLOVER", backup_content)
+
+        logger.setLevel(old_level)
+
+    def test_logger_07d_set_application_logs_replaces_file_handler(self):
+        """Test application log setup repoints FILE handler for another root."""
+        old_level = logger.getEffectiveLevel()
+        logger.setLevel("INFO")
+
+        with (
+            tempfile.TemporaryDirectory() as root_one,
+            tempfile.TemporaryDirectory() as root_two,
+        ):
+            logger.set_application_logs(root_one)
+            logger.info("APP-FIRST-ROOT")
+            first_handler = logger._handlers.get("FILE")
+            self.assertIsNotNone(first_handler)
+            first_handler.flush()
+
+            logger.set_application_logs(root_two)
+            logger.info("APP-SECOND-ROOT")
+            second_handler = logger._handlers.get("FILE")
+            self.assertIsNotNone(second_handler)
+            second_handler.flush()
+
+            first_file = Path(root_one) / "log" / "application.log"
+            second_file = Path(root_two) / "log" / "application.log"
+
+            self.assertIn("APP-FIRST-ROOT", first_file.read_text(encoding="utf-8"))
+            self.assertNotIn(
+                "APP-SECOND-ROOT",
+                first_file.read_text(encoding="utf-8"),
+            )
+            self.assertIn("APP-SECOND-ROOT", second_file.read_text(encoding="utf-8"))
+
+        logger.setLevel(old_level)
+
     def test_logger_08_setprefix(self):
         """
         test setPrefix

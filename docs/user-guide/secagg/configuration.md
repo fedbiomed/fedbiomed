@@ -8,6 +8,9 @@ Nodes have the privilege of activating, deactivating, and enforcing secure aggre
 
 In a federated setup, if one of the nodes requires secure aggregation but the researcher does not activate it, the FL round fails. Please refer to the researcher secure aggregation interface for more details.
 
+!!! warning "Minimum number of nodes"
+    Secure aggregation requires **at least 2 nodes** (plus the researcher). With a single node the aggregate would be that node's own value, and masking schemes have no peer to mask against, so the setup is rejected with a clear error. This applies to both federated training and federated analytics.
+
 !!! note "Researcher"
     Researcher configuration file does not have parameter regarding secure aggregation activation. However, secure aggregation context is managed through [Experiment][fedbiomed.researcher.federated_workflows.Experiment] interface (class).
 

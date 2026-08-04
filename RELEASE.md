@@ -145,6 +145,7 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   * `CHANGELOG.md`
   * `fedbiomed/__init__.py` : change `__version__`
   * `envs/vpn/docker/.env` : change `FBM_CONTAINER_VERSION_TAG`
+  * `CITATION.cff` : change `version`
 
 - in the `hotfix` branch, commit the hotfix time updates
 

@@ -43,6 +43,8 @@ jobs:
       # TEST_PGID is captured immediately (before wait) for the cleanup step to use.
       - name: Run end-to-end endurance tests
         id: e2e-tests-with-pytest
+        env:
+          FBM_GITLAB_TOKEN: ${{ secrets.FBM_GITLAB_TOKEN }}
         run: |
           set -m
           FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed tox -r -m endurance &

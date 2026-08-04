@@ -145,7 +145,7 @@ class DatasetManager:
         dataset_parameters: Optional[dict] = None,
         data_loading_plan: Optional[DataLoadingPlan] = None,
         save_dlp: bool = True,
-    ):
+    ) -> str:
         """Register a dataset in the database.
 
         Args:
@@ -197,7 +197,7 @@ class DatasetManager:
         description: Optional[str] = None,
         dataset_id: Optional[str] = None,
         dataset_parameters: Optional[dict] = None,
-    ):
+    ) -> str:
         """Adds a dynamic dataset to the database.
 
         Args:

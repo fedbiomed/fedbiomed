@@ -190,8 +190,8 @@ class TestNode(unittest.TestCase):
         self.mock_dataset_manager.return_value.obfuscate_private_information.side_effect = (
             lambda x: x
         )
-        self.mock_dataset_manager.return_value.dataset_table.get_by_id = MagicMock(
-            return_value=self.database_id
+        self.mock_dataset_manager.return_value.get_dataset_entry_by_id = MagicMock(
+            return_value=(self.database_id, "dummy_table_name")
         )
 
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -208,6 +208,8 @@ class TestNode(unittest.TestCase):
             "allow_preproc": "True",
             "allow_federated_analytics": "True",
             "minimum_samples": "0",
+            "secure_aggregation": "False",
+            "force_secure_aggregation": "False",
         }
 
         self.node_config._cfg = self.config
@@ -385,7 +387,9 @@ class TestNode(unittest.TestCase):
         round_init.return_value = None
 
         mock_dataset_manager = MagicMock()
-        mock_dataset_manager.dataset_table.get_by_id = MagicMock(return_value=None)
+        mock_dataset_manager.get_dataset_entry_by_id = MagicMock(
+            return_value=(None, None)
+        )
         self.n1.dataset_manager = mock_dataset_manager
         with patch("fedbiomed.node.node.logger.error") as logger_error:
             self.n1.parser_task_train(self.train_request)
@@ -476,7 +480,7 @@ class TestNode(unittest.TestCase):
             model_kwargs=dict_msg_1_dataset["model_args"],
             training_kwargs=dict_msg_1_dataset["training_args"],
             training=True,
-            dataset=self.database_id,
+            dataset_entry=self.database_id,
             params=dict_msg_1_dataset["params"],
             experiment_id=dict_msg_1_dataset["experiment_id"],
             researcher_id=dict_msg_1_dataset["researcher_id"],
@@ -539,7 +543,7 @@ class TestNode(unittest.TestCase):
             training_kwargs=dict_msg_1_dataset["training_args"],
             tp_security_manager=ANY,
             training=True,
-            dataset=self.database_id,
+            dataset_entry=self.database_id,
             params=dict_msg_1_dataset["params"],
             experiment_id=dict_msg_1_dataset["experiment_id"],
             researcher_id=dict_msg_1_dataset["researcher_id"],

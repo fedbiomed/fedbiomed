@@ -15,22 +15,19 @@ class FedCombatModelWrapper(nn.Module):
     def __init__(
         self,
         biological_model: nn.Module,
-        n_covariates: int,
-        n_phenotypes: int,
+        bias_model: nn.Module,
     ):
         """Constructor of the wrapper
 
         Args:
             biological_model: PyTorch model representing the biological effects in Fed-ComBat.
-            n_covariates: Number of covariates in the dataset.
-            n_phenotypes: Number of phenotypes in the dataset.
+            bias_model: PyTorch model representing the bias effects in Fed-ComBat.
 
         Raises:
             FedbiomedExperimentError: if the provided biological model contains bias parameters."""
         super().__init__()
-        self.n_phenotypes = n_phenotypes
-        self.n_covariates = n_covariates
         self.biological_model = biological_model
+        self.bias_model = bias_model
 
         if not self._check_model_no_bias():
             raise FedbiomedExperimentError(
@@ -40,12 +37,10 @@ class FedCombatModelWrapper(nn.Module):
                 "Please provide a model without bias parameters."
             )
 
-        self.local_bias = nn.Linear(1, self.n_phenotypes, bias=False)
-
     def forward(self, x):
         biological_effects = self.biological_model(x)
         bias_column = x.new_ones((x.shape[0], 1))
-        bias = self.local_bias(bias_column)
+        bias = self.bias_model(bias_column)
         return biological_effects + bias
 
     def _check_model_no_bias(self) -> bool:

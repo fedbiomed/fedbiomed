@@ -72,11 +72,13 @@ class FakeTrainingArgs(dict):
 
 
 class TestDataset(Dataset):
+    __test__ = False  # fixture, not a test: don't collect
+
     def __init__(self):
         self._data = [np.array((i, i * 2)) for i in range(10)]  # simple data
         self._target = [np.array(i * 3) for i in range(10)]  # corresponding target
 
-    def complete_initialization(self) -> None:
+    def load(self) -> None:
         pass
 
     def __getitem__(self, idx: int) -> tuple:

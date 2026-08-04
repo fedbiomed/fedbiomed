@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.logger import logger
 from fedbiomed.common.message import ErrorMessage, RequestReply
 from fedbiomed.node.dataset_manager import DatasetManager
 
@@ -52,6 +53,14 @@ class _BaseJob(ABC):
         self, msg: str, errnum: str = ErrorNumbers.FB313.value
     ) -> ErrorMessage:
         """Build error message for job failure."""
+        logger.security_event(
+            operation="job_finished_error",
+            status="failed",
+            researcher_id=self._researcher_id,
+            dataset_id=self._dataset_id,
+            request_id=self._request_id,
+        )
+
         return ErrorMessage(
             request_id=self._request_id,
             researcher_id=self._researcher_id,

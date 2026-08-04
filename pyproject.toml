@@ -4,28 +4,31 @@ dynamic = ["version"]
 description = "Collaborative learning for healthcare"
 
 maintainers = [
-	{name = "Yannick Bouillard", email = "yannick.bouillard@inria.fr"},
 	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
+	{name = "Lucie Chambon", email = "lucie.chambon@inria.fr"},
 	{name = "Francesco Cremonesi", email = "francesco.cremonesi@inria.fr"},
+	{name = "Ali Tolga Dincer", email = "ali-tolga.dincer@inria.fr"},
 	{name = "Marco Lorenzi", email = "marco.lorenzi@inria.fr"},
+	{name = "Jhonatan Torres", email = "jhonatan--leonardo.torres-sanchez@inria.fr"},
 	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
 ]
 
 authors = [
 	{name = "Yannick Bouillard", email = "yannick.bouillard@inria.fr"},
    	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
+	{name = "Lucie Chambon", email = "lucie.chambon@inria.fr"},
 	{name = "Francesco Cremonesi ", email = "francesco.cremonesi@inria.fr"},
+	{name = "Ali Tolga Dincer", email = "ali-tolga.dincer@inria.fr"},
 	{name = "Marco Lorenzi", email = "marco.lorenzi@inria.fr"},
+	{name = "Jhonatan Torres", email = "jhonatan--leonardo.torres-sanchez@inria.fr"},
 	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
 	{name = "Paul Andrey", email = "paul.andrey@inria.fr"},
 	{name = "Lucie Chambon", email = "lucie.chambon@inria.fr"},
 	{name = "Erwan Demairy", email = "erwan.demairy@inria.fr"},
-	{name = "Ali Tolga Dincer", email = "ali-tolga.dincer@inria.fr"},
 	{name = "Thibaud Kloczko", email = "thibaud.kloczko@inria.fr"},
 	{name = "Côme Le Breton", email = "come.le-breton@inria.fr"},
 	{name = "Jean-Luc Szpyrka", email = "jean-luc@szpyrka.fr"},
 	{name = "Riccardo Taiello", email = "riccardo.taiello@inria.fr"},
-	{name = "Jhonatan Torres", email = "jhonatan--leonardo.torres-sanchez@inria.fr"},
 	{name = "Maya Assal"},
 	{name = "Samy-Safwan Ayed"},
 	{name = "Irene Balelli"},

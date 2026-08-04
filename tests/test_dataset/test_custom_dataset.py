@@ -59,16 +59,43 @@ class ValidNumpyComposedDataset(ValidNumpyDataset):
         return data, target
 
 
-class WrongFormatDataset(CustomDataset):
+class ScalarTargetDataset(CustomDataset):
+    """Classifier-style dataset whose target is a numpy scalar from a 1-D label array."""
+
     def read(self):
         self.data = np.random.randn(10, 5).astype(np.float32)
-        self.targets = np.random.randint(0, 2, 10)  # Int instead of ndarray
+        self.targets = np.random.randint(0, 2, 10).astype(np.int64)  # 1-D labels
 
     def __len__(self):
         return 10
 
     def get_item(self, idx):
         return self.data[idx], self.targets[idx]
+
+
+class NoneTargetDataset(CustomDataset):
+    """Unsupervised-style dataset whose `get_item` returns a ``None`` target."""
+
+    def read(self):
+        self.data = np.random.randn(10, 5).astype(np.float32)
+
+    def __len__(self):
+        return 10
+
+    def get_item(self, idx):
+        return self.data[idx], None
+
+
+class WrongFormatDataset(CustomDataset):
+    def read(self):
+        self.data = np.random.randn(10, 5).astype(np.float32)
+        self.targets = np.random.randint(0, 2, 10)
+
+    def __len__(self):
+        return 10
+
+    def get_item(self, idx):
+        return self.data[idx], str(self.targets[idx])  # str instead of ndarray/scalar
 
 
 class WrongFormatComposedDataset(WrongFormatDataset):
@@ -78,7 +105,7 @@ class WrongFormatComposedDataset(WrongFormatDataset):
             "modality_2": self.data[idx] * 2,
         }
         target = {
-            "label_1": self.targets[idx],  # int instead of array
+            "label_1": str(self.targets[idx]),  # str instead of ndarray/scalar
             "label_2": (self.targets[idx] + 1) % 2,
         }
         return data, target
@@ -116,9 +143,7 @@ class EmptyDataset(CustomDataset):
 
 def test_valid_dataset_creation():
     dataset = ValidTorchDataset()
-    dataset.complete_initialization(
-        controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
-    )
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.TORCH)
     assert len(dataset) == 10
     data, target = dataset[0]
     assert isinstance(data, torch.Tensor)
@@ -166,8 +191,8 @@ def test_wrong_format():
     for ds_class in _dataset_classes:
         dataset = ds_class()
         with pytest.raises(FedbiomedError):
-            dataset.complete_initialization(
-                controller_kwargs={"root": "dummy_path"},
+            dataset.load(
+                root="dummy_path",
                 to_format=DataReturnFormat.SKLEARN,
             )
 
@@ -177,13 +202,34 @@ def test_wrong_format():
 
 def test_wrong_format_changing_dataset():
     dataset = WrongFormatChangingDataset()
-    dataset.complete_initialization(
-        controller_kwargs={"root": "dummy_path"},
+    dataset.load(
+        root="dummy_path",
         to_format=DataReturnFormat.SKLEARN,
     )
 
     with pytest.raises(FedbiomedError):
         _ = dataset[1]
+
+
+def test_scalar_target_is_accepted():
+    """A numpy scalar target is accepted (sklearn) and normalized to a 0-d ndarray."""
+    dataset = ScalarTargetDataset()
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.SKLEARN)
+    assert len(dataset) == 10
+    data, target = dataset[0]
+    assert isinstance(data, np.ndarray)
+    assert isinstance(target, np.ndarray)
+    assert np.issubdtype(target.dtype, np.integer)
+
+
+def test_none_target_is_accepted():
+    """A ``None`` target is accepted and passed through untouched."""
+    dataset = NoneTargetDataset()
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.SKLEARN)
+    assert len(dataset) == 10
+    data, target = dataset[0]
+    assert isinstance(data, np.ndarray)
+    assert target is None
 
 
 def test_override_getitem():
@@ -219,21 +265,60 @@ def test_override_init():
                 return 0
 
 
+def test_override_path():
+    with pytest.raises(FedbiomedError, match="Overriding `path` .* is not allowed"):
+
+        class OverridePathDataset(CustomDataset):
+            path = "hardcoded"
+
+            def read(self):
+                pass
+
+            def get_item(self, idx):
+                return None, None
+
+            def __len__(self):
+                return 0
+
+
+def test_override_load():
+    with pytest.raises(FedbiomedError, match="Overriding `load` .* is not allowed"):
+
+        class OverrideLoadDataset(CustomDataset):
+            def load(self, root, to_format):
+                pass
+
+            def read(self):
+                pass
+
+            def get_item(self, idx):
+                return None, None
+
+            def __len__(self):
+                return 0
+
+
+def test_path_is_read_only():
+    """`path` is set by load() and cannot be reassigned by subclass code."""
+    dataset = ValidTorchDataset()
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.TORCH)
+    assert dataset.path == "dummy_path"
+    with pytest.raises(AttributeError):
+        dataset.path = "/evil/path"
+    assert dataset.path == "dummy_path"
+
+
 def test_initialization_parameters():
     dataset = ValidTorchDataset()
     path = "test_path"
-    dataset.complete_initialization(
-        controller_kwargs={"root": path}, to_format=DataReturnFormat.TORCH
-    )
+    dataset.load(root=path, to_format=DataReturnFormat.TORCH)
     assert dataset.path == path
     assert dataset._to_format == DataReturnFormat.TORCH
 
 
 def test_data_access():
     dataset = ValidTorchDataset()
-    dataset.complete_initialization(
-        controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
-    )
+    dataset.load(root="dummy_path", to_format=DataReturnFormat.TORCH)
 
     # Test multiple indices
     for i in range(len(dataset)):
@@ -244,22 +329,18 @@ def test_data_access():
         assert target.shape == ()  # Single target value
 
 
-def test_complete_initialization_missing_root_key():
-    """complete_initialization raises when 'root' key is absent from controller_kwargs."""
+def test_load_missing_root_key():
+    """load requires `root` as a positional argument."""
     ds = ValidTorchDataset()
-    with pytest.raises(FedbiomedError, match="'root' must be provided"):
-        ds.complete_initialization(
-            controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
-        )
+    with pytest.raises(TypeError):
+        ds.load(to_format=DataReturnFormat.SKLEARN)
 
 
-def test_complete_initialization_root_is_none():
-    """complete_initialization raises when 'root' is explicitly None."""
+def test_load_root_is_none():
+    """load raises when 'root' is explicitly None."""
     ds = ValidTorchDataset()
     with pytest.raises(FedbiomedError, match="'root' must be provided"):
-        ds.complete_initialization(
-            controller_kwargs={"root": None}, to_format=DataReturnFormat.SKLEARN
-        )
+        ds.load(root=None, to_format=DataReturnFormat.SKLEARN)
 
 
 def test_read_exception_is_wrapped(tmp_path):
@@ -275,20 +356,18 @@ def test_read_exception_is_wrapped(tmp_path):
 
     ds = DS()
     with pytest.raises(FedbiomedError):
-        ds.complete_initialization(
-            controller_kwargs={"root": str(tmp_path)},
+        ds.load(
+            root=str(tmp_path),
             to_format=DataReturnFormat.TORCH,
         )
 
 
-def test_complete_initialization_empty_dataset():
-    """complete_initialization raises when dataset length is 0 after read()."""
+def test_load_empty_dataset():
+    """load raises when dataset length is 0 after read()."""
 
     ds = EmptyDataset()
     with pytest.raises(FedbiomedError, match="dataset is empty"):
-        ds.complete_initialization(
-            controller_kwargs={"root": "dummy_path"}, to_format=DataReturnFormat.TORCH
-        )
+        ds.load(root="dummy_path", to_format=DataReturnFormat.TORCH)
 
 
 def test_get_item_exception_is_wrapped(tmp_path):
@@ -302,25 +381,47 @@ def test_get_item_exception_is_wrapped(tmp_path):
 
     ds = DS()
     with pytest.raises(FedbiomedError):
-        ds.complete_initialization(
-            controller_kwargs={"root": str(tmp_path)},
+        ds.load(
+            root=str(tmp_path),
             to_format=DataReturnFormat.TORCH,
         )
 
 
-def test_get_item_must_return_tuple_of_len_2(tmp_path):
-    class DSWrongTuple(CustomDataset):
+def test_get_item_data_only_is_treated_as_none_target(tmp_path):
+    """get_item may return data alone; target is then treated as None."""
+
+    class DSDataOnly(CustomDataset):
+        def read(self):
+            self.data = np.random.randn(10, 5).astype(np.float32)
+
+        def get_item(self, idx):
+            return self.data[idx]  # data only, no target
+
+        def __len__(self):
+            return 10
+
+    ds = DSDataOnly()
+    ds.load(root=str(tmp_path), to_format=DataReturnFormat.SKLEARN)
+    data, target = ds.__getitem__(0)
+    assert isinstance(data, np.ndarray)
+    assert target is None
+
+
+def test_get_item_wrong_type_data_only_still_fails(tmp_path):
+    """A data-only return of an unsupported type still fails the type check."""
+
+    class DSWrongType(CustomDataset):
         def read(self): ...
         def get_item(self, idx):
-            return [1, 2, 3]  # not a (data, target) tuple
+            return [1, 2, 3]  # unsupported type
 
         def __len__(self):
             return 1
 
-    ds = DSWrongTuple()
+    ds = DSWrongType()
     with pytest.raises(FedbiomedError):
-        ds.complete_initialization(
-            controller_kwargs={"root": str(tmp_path)},
+        ds.load(
+            root=str(tmp_path),
             to_format=DataReturnFormat.TORCH,
         )
 
@@ -342,9 +443,7 @@ def test_getitem_not_composed():
         strict=True,
     ):
         ds = ds_class()
-        ds.complete_initialization(
-            controller_kwargs={"root": "dummy_path"}, to_format=_d_format
-        )
+        ds.load(root="dummy_path", to_format=_d_format)
         result = ds.__getitem__(0)
         assert isinstance(result, tuple) and len(result) == 2
         data, target = result
@@ -366,9 +465,7 @@ def test_getitem_composed():
         strict=True,
     ):
         ds = ds_class()
-        ds.complete_initialization(
-            controller_kwargs={"root": "dummy_path"}, to_format=_d_format
-        )
+        ds.load(root="dummy_path", to_format=_d_format)
         result = ds.__getitem__(0)
         assert isinstance(result, tuple) and len(result) == 2
         data, target = result
@@ -386,8 +483,8 @@ def test_apply_default_types_exception_is_wrapped():
     """_apply_default_types wraps errors raised while converting data."""
 
     ds = ValidNumpyDataset()
-    ds.complete_initialization(
-        controller_kwargs={"root": "dummy_path"},
+    ds.load(
+        root="dummy_path",
         to_format=DataReturnFormat.SKLEARN,
     )
 

@@ -145,6 +145,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
         for curr_module_state, before_loading_module_state in zip(
             current_round_optim_state["states"]["modules"],
             optim_state_before_loading["states"]["modules"],
+            strict=True,
         ):
             self.assertNotEqual(curr_module_state, before_loading_module_state)
 
@@ -199,6 +200,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             initialized_torch_optim_wrappers,
             self._torch_zero_model_wrappers,
             fake_retrieved_grads,
+            strict=True,
         ):
             with patch.object(TorchModel, "get_gradients") as get_gradients_patch:
                 get_gradients_patch.return_value = grads.coefs
@@ -206,9 +208,10 @@ class TestDeclearnOptimizer(unittest.TestCase):
                 torch_optim_wrapper.step()
                 get_gradients_patch.assert_called_once()
 
-            for (l, val), (l_ref, val_ref) in zip(
+            for (_, val), (_, val_ref) in zip(
                 zero_model.get_weights().items(),
                 torch_optim_wrapper._model.get_weights().items(),
+                strict=True,
             ):
                 self.assertTrue(torch.isclose(val - 1, val_ref).all())
 
@@ -241,15 +244,17 @@ class TestDeclearnOptimizer(unittest.TestCase):
             initialized_sklearn_optim,
             self._sklearn_model_wrappers,
             fake_retrieved_grads,
+            strict=True,
         ):
             with patch.object(BaseSkLearnModel, "get_gradients") as get_gradients_patch:
                 get_gradients_patch.return_value = grads.coefs
                 sklearn_optim_wrapper.step()
                 get_gradients_patch.assert_called()
 
-            for (l, val), (l_ref, val_ref) in zip(
+            for (_, val), (_, val_ref) in zip(
                 zero_model.get_weights().items(),
                 sklearn_optim_wrapper._model.get_weights().items(),
+                strict=True,
             ):
                 self.assertTrue(
                     np.all(val - 1 == val_ref)
@@ -587,6 +592,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
             for curr_module_state, prev_module_state in zip(
                 current_round_optim_state["states"]["modules"],
                 previous_round_optim_state["states"]["modules"],
+                strict=True,
             ):
                 if curr_module_state[0] == common_opi_module.name:
                     self.assertEqual(curr_module_state, prev_module_state)
@@ -685,7 +691,7 @@ class TestDeclearnOptimizer(unittest.TestCase):
 
         researcher_lr, node_lr = 0.03, 0.5
         data = torch.Tensor([[1, 1, 1, 1], [1, 0, 0, 1]])
-        targets = torch.Tensor([[1, 1]])
+        targets = torch.Tensor([[1, 1], [1, 1]])
 
         loss_func = torch.nn.MSELoss()
         for model in self._torch_zero_model_wrappers:
@@ -730,7 +736,7 @@ class TestTorchBasedOptimizer(unittest.TestCase):
         for model in self._fed_models:
             # first check that element of model are non zeros
             grads = model.get_gradients()
-            for l, val in grads.items():
+            for _, val in grads.items():
                 self.assertFalse(torch.isclose(val, torch.zeros(val.shape)).all())
             # initialisation of declearn optimizer wrapper
             dec_model = copy.deepcopy(model)
@@ -739,7 +745,7 @@ class TestTorchBasedOptimizer(unittest.TestCase):
             declearn_optim_wrapper.zero_grad()
             grads = dec_model.get_gradients()
 
-            for l, val in grads.items():
+            for _, val in grads.items():
                 self.assertTrue(torch.isclose(val, torch.zeros(val.shape)).all())
 
             # initialisation of native torch optimizer wrapper
@@ -749,7 +755,7 @@ class TestTorchBasedOptimizer(unittest.TestCase):
             native_torch_optim_wrapper.zero_grad()
 
             grads = torch_model.get_gradients()
-            for l, val in grads.items():
+            for _, val in grads.items():
                 self.assertTrue(torch.isclose(val, torch.zeros(val.shape)).all())
 
     def test_torchbasedoptimizer_02_step(self):
@@ -789,9 +795,10 @@ class TestTorchBasedOptimizer(unittest.TestCase):
             native_torch_optim_wrapper.step()
 
             # checks
-            for (l, dec_optim_val), (l, torch_optim_val) in zip(
+            for (_, dec_optim_val), (_, torch_optim_val) in zip(
                 declearn_optim_wrapper._model.get_weights().items(),
                 native_torch_optim_wrapper._model.get_weights().items(),
+                strict=True,
             ):
                 self.assertTrue(torch.isclose(dec_optim_val, torch_optim_val).all())
 
@@ -866,9 +873,10 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
                 sk_model_declearn.train(self.data, self.targets)
                 dec_optim_w.step()
 
-            for (k, v_ref), (k, v) in zip(
+            for (_, v_ref), (_, v) in zip(
                 sk_model_native.get_weights().items(),
                 sk_model_declearn.get_weights().items(),
+                strict=True,
             ):
                 self.assertTrue(np.all(np.isclose(v, v_ref)))
 
@@ -892,10 +900,11 @@ class TestSklearnBasedOptimizer(unittest.TestCase):
                 model_weights_before_step = copy.deepcopy(model.get_weights())
                 optim_wrapper.step()
                 model_weights_after = model.get_weights()
-                for (l, grads), (l, w_before_step), (l, w_after) in zip(
+                for (_, grads), (_, w_before_step), (_, w_after) in zip(
                     model.get_gradients().items(),
                     model_weights_before_step.items(),
                     model_weights_after.items(),
+                    strict=True,
                 ):
                     # check that only the declearn learning rate is used for training the model
                     self.assertTrue(
@@ -964,7 +973,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         # then test using a pytorch scheduler
         scheduler = LambdaLR(optimizer.optimizer, lambda e: 2 * e)
         # this pytorch scheduler increase earning rate by twice its previous value
-        for e, (x, y) in enumerate(zip(dataset, target)):
+        for e, (x, y) in enumerate(zip(dataset, target, strict=True)):
             # training a simple model in pytorch fashion
             # `e` represents epoch
             out = model.model.forward(x)
@@ -1044,7 +1053,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
         self.assertListEqual(sorted(list(lr_extracted.keys())), model_layers_names)
 
         # check that learning rates are extracted correctly according to the model layer names
-        for k, v in model.named_parameters():
+        for k, _ in model.named_parameters():
             if "block" in k:
                 self.assertEqual(lr_extracted[k], lr_block)
             elif "conv1" in k:
@@ -1082,7 +1091,7 @@ class TestNativeTorchOptimizer(unittest.TestCase):
 
             self.assertIsInstance(torch_optim.optimizer, torch.optim.Optimizer)
             self.assertIsNone(torch_optim_state)
-            for previous_optim, current_optim in (
+            for _previous_optim, _current_optim in (
                 (
                     torch_optim,
                     dec_optim,

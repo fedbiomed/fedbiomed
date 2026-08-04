@@ -28,45 +28,99 @@ from fedbiomed.common.training_plans._sklearn_models import (
 )
 
 
-class NativePerceptronTraining(FedPerceptron):
-    def training_data(self):
-        dataset = pd.read_csv(self.dataset_path, header=None, delimiter=",")
-        _, n_cols = dataset.shape
-        X = dataset.iloc[:, : n_cols - 1].values
-        y = dataset.iloc[:, n_cols - 1].values
-        return DataManager(dataset=X, target=y, shuffle=True)
-
-
-class NativeSGDRegressorTrainingPlan(FedSGDRegressor):
-    def training_data(self):
-        dataset = pd.read_csv(self.dataset_path, delimiter=";", header=0)
-        regressors_col = [
-            "AGE",
-            "WholeBrain.bl",
-            "Ventricles.bl",
-            "Hippocampus.bl",
-            "MidTemp.bl",
-            "Entorhinal.bl",
+class CustomPerceptronTraining(FedPerceptron):
+    def init_dependencies(self):
+        return [
+            "import numpy as np",
+            "import pandas as pd",
+            "from fedbiomed.common.dataset import CustomDataset",
         ]
-        target_col = ["MMSE.bl"]
 
-        # mean and standard deviation for normalizing dataset
-        # it has been computed over the whole dataset
-        scaling_mean = np.array([72.3, 0.7, 0.0, 0.0, 0.0, 0.0])
-        scaling_sd = np.array([7.3e00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
+    class CSVClassificationDataset(CustomDataset):
+        """Reads a headerless CSV (comma-delimited) where the last column is the label."""
 
-        X = (dataset[regressors_col].values - scaling_mean) / scaling_sd
-        y = dataset[target_col].values
-        return DataManager(dataset=X, target=y, shuffle=True)
+        def read(self):
+            df = pd.read_csv(self.path, header=None, delimiter=",")
+            self.X = df.iloc[:, :-1].to_numpy(dtype=np.float64)
+            self.y = df.iloc[:, -1].to_numpy(dtype=np.int64)
 
+        def get_item(self, index):
+            return self.X[index], self.y[index]
 
-class NativeSGDClassifierTrainingPlan(FedSGDClassifier):
+        def __len__(self):
+            return self.X.shape[0]
+
     def training_data(self):
-        dataset = pd.read_csv(self.dataset_path, header=None, delimiter=",")
-        _, n_cols = dataset.shape
-        X = dataset.iloc[:, : n_cols - 1].values
-        y = dataset.iloc[:, n_cols - 1].values
-        return DataManager(dataset=X, target=y, shuffle=True)
+        return DataManager(dataset=self.CSVClassificationDataset(), shuffle=True)
+
+
+class CustomSGDRegressorTrainingPlan(FedSGDRegressor):
+    def init_dependencies(self):
+        return [
+            "import numpy as np",
+            "import pandas as pd",
+            "from fedbiomed.common.dataset import CustomDataset",
+        ]
+
+    class CSVRegressionDataset(CustomDataset):
+        """Reads a ';'-delimited CSV with a header and applies fixed scaling."""
+
+        def read(self):
+            df = pd.read_csv(self.path, delimiter=";", header=0)
+            regressors_col = [
+                "AGE",
+                "WholeBrain.bl",
+                "Ventricles.bl",
+                "Hippocampus.bl",
+                "MidTemp.bl",
+                "Entorhinal.bl",
+            ]
+            target_col = ["MMSE.bl"]
+
+            # mean and standard deviation for normalizing dataset
+            # it has been computed over the whole dataset
+            scaling_mean = np.array([72.3, 0.7, 0.0, 0.0, 0.0, 0.0])
+            scaling_sd = np.array([7.3e00, 5.0e-02, 1.1e-02, 1.0e-03, 2.0e-03, 1.0e-03])
+
+            self.X = ((df[regressors_col].values - scaling_mean) / scaling_sd).astype(
+                np.float64
+            )
+            self.y = df[target_col].values.astype(np.float64)
+
+        def get_item(self, index):
+            return self.X[index], self.y[index]
+
+        def __len__(self):
+            return self.X.shape[0]
+
+    def training_data(self):
+        return DataManager(dataset=self.CSVRegressionDataset(), shuffle=True)
+
+
+class CustomSGDClassifierTrainingPlan(FedSGDClassifier):
+    def init_dependencies(self):
+        return [
+            "import numpy as np",
+            "import pandas as pd",
+            "from fedbiomed.common.dataset import CustomDataset",
+        ]
+
+    class CSVClassificationDataset(CustomDataset):
+        """Reads a headerless CSV (comma-delimited) where the last column is the label."""
+
+        def read(self):
+            df = pd.read_csv(self.path, header=None, delimiter=",")
+            self.X = df.iloc[:, :-1].to_numpy(dtype=np.float64)
+            self.y = df.iloc[:, -1].to_numpy(dtype=np.int64)
+
+        def get_item(self, index):
+            return self.X[index], self.y[index]
+
+        def __len__(self):
+            return self.X.shape[0]
+
+    def training_data(self):
+        return DataManager(dataset=self.CSVClassificationDataset(), shuffle=True)
 
 
 class PerceptronTraining(FedPerceptron):

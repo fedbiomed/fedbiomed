@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import abstractmethod
-from typing import Any, Dict, Tuple, Union
+from pathlib import Path
+from typing import Any, Tuple, Union
+
+import numpy as np
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataset_types import DataReturnFormat
@@ -24,16 +27,24 @@ class CustomDataset(Dataset):
 
         if "__getitem__" in cls.__dict__:
             raise FedbiomedError(
-                "Overriding __getitem__ in CustomDataset subclasses is not allowed. "
-                "Please overwrite get_item instead."
+                f"{ErrorNumbers.FB632.value}: Overriding __getitem__ in CustomDataset "
+                "subclasses is not allowed. Please overwrite get_item instead."
             )
 
         if "__init__" in cls.__dict__:
             raise FedbiomedError(
-                "Overriding __init__ in CustomDataset subclasses is not allowed. "
-                "Please overwrite `read` method instead. Using path attribute to "
-                "access dataset location."
+                f"{ErrorNumbers.FB632.value}: Overriding __init__ in CustomDataset "
+                "subclasses is not allowed. Please overwrite `read` method instead. "
+                "Using path attribute to access dataset location."
             )
+
+        for reserved in ("load", "path"):
+            if reserved in cls.__dict__:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Overriding `{reserved}` in "
+                    "CustomDataset subclasses is not allowed; it is reserved for "
+                    "internal use and managed by the node."
+                )
 
         for method, label in [
             ("read", "read"),
@@ -61,7 +72,10 @@ class CustomDataset(Dataset):
 
     @abstractmethod
     def get_item(self, index):
-        """Return a (data, target) tuple for the given index.
+        """Return the sample for the given index.
+
+        May return either ``data`` alone, or a ``(data, target)`` tuple. When
+        only ``data`` is returned, the target is treated as ``None``.
 
         Args:
             index (int): Index of the sample to retrieve.
@@ -73,21 +87,28 @@ class CustomDataset(Dataset):
         """Returns the number of samples in the dataset."""
         pass
 
-    def complete_initialization(
-        self, controller_kwargs: Dict[str, Any], to_format: DataReturnFormat
+    @property
+    def path(self) -> Union[str, Path]:
+        """Dataset location (file or folder) on the node; set by `load`, read-only."""
+        return self.__path
+
+    def load(
+        self,
+        root: Union[str, Path],
+        to_format: DataReturnFormat,
     ) -> None:
         """Finalize initialization of object to be able to recover items.
 
         Args:
-            controller_kwargs: must contain a ``"root"`` key with the path to the dataset.
+            root: path to the dataset (must not be ``None``).
             to_format: expected format of data returned by ``__getitem__``.
         """
 
-        self.path = controller_kwargs.get("root", None)
-        if self.path is None:
+        if root is None:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Custom Dataset ERROR: 'root' must be provided in controller_kwargs to specify dataset location."
+                f"{ErrorNumbers.FB632.value}: Custom Dataset ERROR: 'root' must be provided to specify dataset location."
             )
+        self.__path = root
         self._to_format = to_format
 
         # Call user defined read function to read the dataset
@@ -112,20 +133,35 @@ class CustomDataset(Dataset):
                 f"from dataset using get_item method. Please see error: {e}"
             ) from e
 
-        if not isinstance(sample, tuple) or len(sample) != 2:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: get_item method must return a tuple of two elements"
-                f" (data, target), but got {type(sample).__name__} with"
-                f" length {len(sample) if isinstance(sample, (list, tuple)) else 'N/A'}"
-            )
-
-        data, target = sample
+        data, target = self._split_sample(sample)
+        target = self._normalize_target(target)
         self._composed: dict[str, Union[bool, None]] = {
             "data": None,
             "target": None,
         }
         self._check_type(data, "data")
-        self._check_type(target, "target")
+        if target is not None:
+            self._check_type(target, "target")
+
+    def _split_sample(self, sample: Any) -> Tuple[Any, Any]:
+        """Split a ``get_item`` return into ``(data, target)``.
+
+        A 2-element tuple is read as ``(data, target)``; anything else is
+        treated as ``data`` with a ``None`` target.
+        """
+        if isinstance(sample, tuple) and len(sample) == 2:
+            return sample
+        return sample, None
+
+    def _normalize_target(self, target: Any) -> Any:
+        """Coerce a numpy scalar `target` to a 0-d ``np.ndarray`` (scikit-learn only).
+
+        Indexing a 1-D label array yields a numpy scalar; treat it as a 0-d array
+        so it passes the type check. No-op for torch, dict targets, and ``None``.
+        """
+        if self._to_format.value is np.ndarray and isinstance(target, np.generic):
+            return np.asarray(target)
+        return target
 
     def _check_type(self, sample: Any, type_: str) -> None:
         """Check if sample is of expected type"""
@@ -188,13 +224,14 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx) -> Tuple[Any, Any]:
         """Retrieves a sample and its target by index."""
-        data, target = self.get_item(idx)
+        data, target = self._split_sample(self.get_item(idx))
+        target = self._normalize_target(target)
 
         self._check_type(data, "data")
-        self._check_type(target, "target")
-
-        # Apply default types for training plan framework
         data = self._apply_default_types(data, "data")
-        target = self._apply_default_types(target, "target")
+
+        if target is not None:
+            self._check_type(target, "target")
+            target = self._apply_default_types(target, "target")
 
         return data, target

@@ -1,14 +1,13 @@
 import unittest
-
 from math import ceil, log2
 from unittest.mock import patch
 
 from gmpy2 import mpz
 
 from fedbiomed.common.constants import SAParameters
-from fedbiomed.common.secagg import SecaggCrypter, EncryptedNumber
-from fedbiomed.common.secagg._jls import PublicParam
 from fedbiomed.common.exceptions import FedbiomedSecaggCrypterError
+from fedbiomed.common.secagg import EncryptedNumber, SecaggCrypter
+from fedbiomed.common.secagg._jls import PublicParam
 
 
 class TestSecaggCrypter(unittest.TestCase):
@@ -95,6 +94,77 @@ class TestSecaggCrypter(unittest.TestCase):
             with self.assertRaises(FedbiomedSecaggCrypterError):
                 self.secagg_crypter._apply_weighting(vector, 2)
 
+    def test_secagg_crypter_04b_apply_weighting_target_range_bound(self):
+        """_apply_weighting bound scales with target_range (FA uses a wider range)."""
+        # One past the default max -> rejected with the default range...
+        val = SAParameters.TARGET_RANGE
+        with self.assertRaises(FedbiomedSecaggCrypterError):
+            self.secagg_crypter._apply_weighting([val], 2)
+        # ...but in-bounds when the wider FA range is used.
+        self.assertListEqual(
+            self.secagg_crypter._apply_weighting(
+                [val], 2, target_range=SAParameters.FA_TARGET_RANGE
+            ),
+            [val * 2],
+        )
+        # A value at the FA bound is still rejected.
+        with self.assertRaises(FedbiomedSecaggCrypterError):
+            self.secagg_crypter._apply_weighting(
+                [SAParameters.FA_TARGET_RANGE],
+                2,
+                target_range=SAParameters.FA_TARGET_RANGE,
+            )
+
+    def test_secagg_crypter_04c_encrypt_forwards_target_range(self):
+        """encrypt() forwards target_range to quantize (None -> TARGET_RANGE)."""
+        for given, expected in [
+            (SAParameters.FA_TARGET_RANGE, SAParameters.FA_TARGET_RANGE),
+            (None, SAParameters.TARGET_RANGE),  # backward-compatible default
+        ]:
+            with patch(
+                "fedbiomed.common.secagg._secagg_crypter.quantize",
+                return_value=[1, 2, 3, 4],
+            ) as mock_q:
+                self.secagg_crypter.encrypt(
+                    num_nodes=2,
+                    current_round=1,
+                    params=[1.0, 2.0, 3.0, 4.0],
+                    biprime=TestSecaggCrypter.biprime,
+                    key=10,
+                    target_range=given,
+                )
+            self.assertEqual(mock_q.call_args.kwargs["target_range"], expected)
+
+    def test_secagg_crypter_04d_aggregate_forwards_target_range(self):
+        """aggregate() forwards target_range to reverse_quantize."""
+
+        def enc():
+            return self.secagg_crypter.encrypt(
+                num_nodes=2,
+                current_round=2,
+                params=[0.5, 0.8],
+                biprime=TestSecaggCrypter.biprime,
+                key=10,
+            )
+
+        with patch(
+            "fedbiomed.common.secagg._secagg_crypter.reverse_quantize",
+            return_value=[0.5, 0.8],
+        ) as mock_rq:
+            self.secagg_crypter.aggregate(
+                current_round=2,
+                num_nodes=2,
+                params=[enc(), enc()],
+                biprime=TestSecaggCrypter.biprime,
+                key=-20,
+                total_sample_size=2,
+                num_expected_params=2,
+                target_range=SAParameters.FA_TARGET_RANGE,
+            )
+        self.assertEqual(
+            mock_rq.call_args.kwargs["target_range"], SAParameters.FA_TARGET_RANGE
+        )
+
     def test_secagg_crypter_05_encrypt(self):
         """Tests encryption"""
 
@@ -146,7 +216,7 @@ class TestSecaggCrypter(unittest.TestCase):
             )
 
         # If JLS.aggregate raises
-        with patch("fedbiomed.common.secagg._jls.UserKey") as mock_user_key:
+        with patch("fedbiomed.common.secagg._jls.UserKey"):
             # Invalid type of UserKey
             with self.assertRaises(FedbiomedSecaggCrypterError):
                 result = self.secagg_crypter.encrypt(
@@ -254,6 +324,62 @@ class TestSecaggCrypter(unittest.TestCase):
                 biprime=TestSecaggCrypter.biprime,
                 total_sample_size=8,
             )
+
+    def test_secagg_crypter_07_fa_wide_range_roundtrip(self):
+        """JLS round-trip with federated-analytics wide-range (~55-bit) values.
+
+        Regression test: the Joye-Libert vector encoder packs several values into
+        one plaintext. Its slot size must be derived from the (wide) FA target
+        range, otherwise ~55-bit FA statistics overflow the default training-sized
+        slots and corrupt the neighbouring packed value. With the encoder sized for
+        FA_TARGET_RANGE the two adjacent stats (count, sum) decode independently.
+        """
+        C = SAParameters.FA_CLIPPING_RANGE
+        T = SAParameters.FA_TARGET_RANGE
+        num_nodes, current_round = 2, 1
+
+        # 'year' [count, sum] held by each of two nodes (adjacent in the vector).
+        node_1_vals = [10667.0, 21516413.0]
+        node_2_vals = [17965.0, 36233008.0]
+
+        node_1 = self.secagg_crypter.encrypt(
+            num_nodes=num_nodes,
+            current_round=current_round,
+            params=node_1_vals,
+            key=10,
+            biprime=TestSecaggCrypter.biprime,
+            clipping_range=C,
+            weight=1,
+            target_range=T,
+        )
+        node_2 = self.secagg_crypter.encrypt(
+            num_nodes=num_nodes,
+            current_round=current_round,
+            params=node_2_vals,
+            key=10,
+            biprime=TestSecaggCrypter.biprime,
+            clipping_range=C,
+            weight=1,
+            target_range=T,
+        )
+
+        aggregated = self.secagg_crypter.aggregate(
+            current_round=current_round,
+            num_nodes=num_nodes,
+            params=[node_1, node_2],
+            key=-20,
+            biprime=TestSecaggCrypter.biprime,
+            total_sample_size=num_nodes,
+            clipping_range=C,
+            num_expected_params=2,
+            target_range=T,
+        )
+        # FA restores the additive sum across nodes (crypter returns the mean).
+        result = [v * num_nodes for v in aggregated]
+
+        # count = 10667 + 17965 = 28632 ; sum = 21516413 + 36233008 = 57749421
+        self.assertAlmostEqual(result[0], 28632.0, delta=1.0)
+        self.assertAlmostEqual(result[1], 57749421.0, delta=1.0)
 
 
 if __name__ == "__main__":

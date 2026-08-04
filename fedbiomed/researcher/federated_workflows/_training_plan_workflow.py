@@ -157,6 +157,8 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
             model_args={} if self._model_args is None else self._model_args,
             training_args=self._training_args,
             initialize_optimizer=False,
+            # node_id does not exist on researcher side
+            # round_current does not exist at this stage
         )
 
         return training_plan, training_plan_file

@@ -14,7 +14,7 @@ import numpy as np
 import torch
 from declearn.model.api import Vector
 
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers, PreprocType
 from fedbiomed.common.exceptions import (
     FedbiomedExperimentError,
     FedbiomedTypeError,
@@ -39,6 +39,7 @@ from fedbiomed.researcher.strategies.strategy import Strategy
 
 from ._federated_workflow import exp_exceptions
 from ._training_plan_workflow import TrainingPlanWorkflow
+from .preproc import FedCombatPreproc
 
 if TYPE_CHECKING:
     from fedbiomed.common.training_plans._base_training_plan import BaseTrainingPlan
@@ -132,6 +133,7 @@ class Experiment(TrainingPlanWorkflow):
         self._aggregated_params = {}
         self._training_replies: Dict = {}
         self._retain_full_history = None
+        self._fed_preproc: Optional[FedCombatPreproc] = None
 
         # initialize object
         super().__init__(*args, **kwargs)
@@ -158,6 +160,9 @@ class Experiment(TrainingPlanWorkflow):
 
         # whether to retain the full experiment history or not
         self.set_retain_full_history(retain_full_history)
+
+        # no preprocessing by default
+        self.set_preprocessing(PreprocType.NONE)
 
     @exp_exceptions
     def __del__(self):
@@ -336,6 +341,15 @@ class Experiment(TrainingPlanWorkflow):
     def retain_full_history(self):
         """Retrieves the status of whether the full experiment history should be kept in memory."""
         return self._retain_full_history
+
+    @property
+    def preprocessing(self) -> Union[FedCombatPreproc, None]:
+        """Retrieves the object for the federated pre-processing associated to the experiment.
+
+        Returns:
+            Federated pre-processing object. `None` if it isn't set.
+        """
+        return self._fed_preproc
 
     # a specific getter-like
     @exp_exceptions
@@ -687,6 +701,75 @@ class Experiment(TrainingPlanWorkflow):
             raise FedbiomedTypeError(msg)
         self._retain_full_history = retain_full_history_
         return self._retain_full_history
+
+    @exp_exceptions
+    def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
+        """Sets the nodes filter + verifications on argument type
+
+        Args:
+            nodes: List of node_ids to filter the nodes to be involved in the experiment.
+
+        Returns:
+            List of nodes that are set. None, if the argument `nodes` is None.
+        """
+        super().set_nodes(nodes)
+
+        # Inform preprocessing object of node filter change
+        # To be removed when `nodes` is integrated into the `_fds` object
+        if self._fed_preproc is not None:
+            self._fed_preproc.set_nodes(nodes)
+
+        return self._nodes_filter
+
+    @exp_exceptions
+    def set_preprocessing(
+        self,
+        preproc_type: Optional[Union[PreprocType, bool]],
+        preproc_args: Optional[Dict] = None,
+    ) -> Optional[FedCombatPreproc]:
+        """Sets preprocessing to be applied before training.
+
+        Args:
+            preproc_type: Type of preprocessing to apply, or None or False for no preprocessing
+            preproc_args: Arguments for the preprocessing
+
+        Returns:
+            Preprocessing object if `preproc_type` is not `PreprocType.NONE`, None otherwise
+
+        Raises:
+            FedbiomedTypeError: bad argument type
+        """
+        if preproc_type is None or preproc_type is False:
+            preproc_type = PreprocType.NONE
+
+        if not isinstance(preproc_type, PreprocType):
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB410.value} `preproc_type` has incorrect type: "
+                f"{type(preproc_type).__name__} but expected a PreprocType or None/False"
+            )
+
+        preproc_args = preproc_args or {}
+        if not isinstance(preproc_args, dict):
+            raise FedbiomedTypeError(
+                f"{ErrorNumbers.FB410.value} `preproc_args` has incorrect type: "
+                f"{type(preproc_args).__name__} but expected a dict or None"
+            )
+
+        if preproc_type == PreprocType.NONE:
+            self._fed_preproc = None
+        else:
+            self._fed_preproc = FedCombatPreproc(
+                self._fds,
+                self._experiment_id,
+                self._researcher_id,
+                self._reqs,
+                self.__class__,  # experiment class
+                self._nodes_filter,
+                self._experimentation_folder,
+                preproc_args,
+            )
+
+        return self._fed_preproc
 
     @exp_exceptions
     def run_once(self, increase: bool = False, test_after: bool = False) -> int:
@@ -1274,6 +1357,9 @@ class Experiment(TrainingPlanWorkflow):
                 self._aggregated_params, breakpoint_path
             ),
             "training_replies": training_replies_bkpt,
+            "preprocessing": self._fed_preproc.save_state_breakpoint()
+            if self._fed_preproc
+            else None,
         }
 
         super().breakpoint(state, self._round_current)
@@ -1305,6 +1391,24 @@ class Experiment(TrainingPlanWorkflow):
         loaded_exp, saved_state, tempo_id = super().load_breakpoint(
             breakpoint_folder_path
         )
+        # retrieve preprocessing state and reinitialize preprocessing object
+        preproc_state = saved_state.get("preprocessing")
+        if isinstance(preproc_state, dict):
+            preproc_state["arguments"].update(
+                {
+                    "fds": loaded_exp.training_data(),
+                    "experiment_id": loaded_exp.id,
+                    "researcher_id": loaded_exp.researcher_id,
+                    "reqs": loaded_exp.requests,
+                    "experiment_class": loaded_exp.__class__,
+                    "nodes": loaded_exp._nodes_filter,
+                    "experimentation_folder": loaded_exp.experimentation_folder(),
+                }
+            )
+            loaded_exp._fed_preproc = FedCombatPreproc.load_state_breakpoint(
+                preproc_state
+            )
+
         # retrieve breakpoint sampling strategy
         bkpt_sampling_strategy_args = saved_state.get("node_selection_strategy")
         bkpt_sampling_strategy = cls._create_object(bkpt_sampling_strategy_args)

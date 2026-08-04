@@ -1,12 +1,12 @@
 
 import React from 'react';
 import NavItem from './NavItem';
-import {ReactComponent as ConfIcon}  from '../../assets/img/configuration.svg'
 import {ReactComponent as DataIcon}  from '../../assets/img/database.svg'
 import {ReactComponent as FolderIcon}  from '../../assets/img/folder.svg'
 import {ReactComponent as HomeIcon}  from '../../assets/img/home.svg'
 import {ReactComponent as PlusIcon}  from '../../assets/img/plus.svg'
 import {ReactComponent as FileIcon}  from '../../assets/img/file.svg'
+import {ReactComponent as PlayIcon}  from '../../assets/img/play.svg'
 import {useLocation} from "react-router-dom";
 
 
@@ -20,7 +20,7 @@ const SideNav= (props) => {
             { key: '3', label: 'TrainingPlans/Models', path: '/training-plans/', icon: FileIcon, action: null},
             { key: '4', label: 'Manage Datasets', path: '/datasets/', icon: DataIcon, action: null },
             { key: '5', label: 'Add New Dataset', path: '/datasets/add-dataset/', icon: PlusIcon, action: null },
-            { key: '6', label: 'Node Configuration', path: '/configuration/', icon: ConfIcon, action: null },
+            { key: '6', label: 'Node Management', path: '/node-management/', icon: PlayIcon, action: null },
         ]
     }, [])
 

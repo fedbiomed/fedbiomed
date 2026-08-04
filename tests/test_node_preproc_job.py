@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -33,11 +33,14 @@ def mocked_dataset_manager():
     """Fixture for mocked DatasetManager with common setup."""
     with patch("fedbiomed.node.jobs._base_job.DatasetManager") as mock_dm_cls:
         mock_dm = mock_dm_cls.return_value
-        mock_dm.dataset_table.get_by_id.return_value = {
-            "data_type": "csv",
-            "path": "/path/to/data",
-            "dataset_parameters": {},
-        }
+        mock_dm.get_dataset_entry_by_id.return_value = (
+            {
+                "data_type": "csv",
+                "path": "/path/to/data",
+                "dataset_parameters": {},
+            },
+            "dummy_table_name",
+        )
         yield mock_dm
 
 
@@ -49,6 +52,7 @@ def preproc_job_args(preproc_request, mocked_dataset_manager):
         "node_id": "node_1",
         "node_name": "Toto",
         "request": preproc_request,
+        "db": "dummy_db1",
         "allow_preproc": True,
     }
 
@@ -78,20 +82,49 @@ def preproc_type(monkeypatch):
     return preproc_type
 
 
+@pytest.fixture(autouse=True)
+def preproc_type_to_steps(monkeypatch):
+    """Ensure tests see a mutable _preproc_step_to_jobs mapping they can populate."""
+
+    class DummyStepJob:
+        def __init__(self, v, *args, **kwargs):
+            self.name = v
+
+        def __call__(self, *args, **kwargs):
+            return {"result": "success"}
+
+    preproc_type = PreprocType.FEDCOMBAT
+    monkeypatch.setattr(
+        _preproc_job, "_preproc_type_to_steps", {preproc_type: DummyStepJob}
+    )
+    return {preproc_type: DummyStepJob}
+
+
 @pytest.fixture
 def preproc_step(monkeypatch):
     """Ensure HarmonizationStep is constructible in tests."""
 
-    class Dummy:
-        def __init__(self, v):
-            self.name = v
+    monkeypatch.setattr(_preproc_job, "HarmonizationStep", "DummyStepJob")
 
-    monkeypatch.setattr(_preproc_job, "HarmonizationStep", Dummy)
-
-    return preproc_step
+    return "DummyStepJob"
 
 
-def test_preproc_job_init(preproc_request, preproc_job_args):
+@pytest.fixture(autouse=True)
+def node_state_manager(monkeypatch):
+    """Ensure NodeStateManager is constructible in tests."""
+
+    state_id = "dummy_state_id"
+    node_state_manager_mock = MagicMock(spec=_preproc_job.NodeStateManager)
+    node_state_manager_mock.return_value.state_id = state_id
+    monkeypatch.setattr(_preproc_job, "NodeStateManager", node_state_manager_mock)
+
+    return node_state_manager_mock.return_value
+
+
+def test_preproc_job_init(
+    preproc_request,
+    preproc_job_args,
+):
     """Test PreprocJob initialization."""
     job = PreprocJob(**preproc_job_args)
 
@@ -110,11 +143,11 @@ def test_preproc_job_init(preproc_request, preproc_job_args):
 
 
 def test_run_success(
-    monkeypatch,
     preproc_request,
     preproc_job_args,
     preproc_type,
     preproc_step,
+    node_state_manager,
 ):
     """Test successful run of PreprocJob."""
 
@@ -131,7 +164,7 @@ def test_run_success(
     assert reply.experiment_id == preproc_request.experiment_id
     assert reply.node_id == preproc_job_args["node_id"]
     assert reply.node_name == preproc_job_args["node_name"]
-    assert reply.state_id == preproc_request.state_id
+    assert reply.state_id == node_state_manager.state_id
 
 
 def test_run_dataset_entry_not_dict(
@@ -144,7 +177,10 @@ def test_run_dataset_entry_not_dict(
     """Test run of PreprocJob when dataset entry returned by DatasetManager is not a dict."""
 
     # make dataset_table return a non-dict value
-    mocked_dataset_manager.dataset_table.get_by_id.return_value = "this_is_not_a_dict"
+    mocked_dataset_manager.get_dataset_entry_by_id.return_value = (
+        "this_is_not_a_dict",
+        "dummy_table_name",
+    )
 
     job = PreprocJob(**preproc_job_args)
     result = job.run()
@@ -188,16 +224,15 @@ def test_run_invalid_preproc_type(monkeypatch, preproc_job_args, preproc_step):
 def test_run_invalid_preproc_step(monkeypatch, preproc_job_args, preproc_type):
     """Test run of PreprocJob with invalid preproc_step."""
 
-    # PreprocType ok, HarmonizationStep bad
-    class DummyType:
-        def __init__(self, v):
-            self.name = v
+    # Keep a supported PreprocType, but make step constructor fail
 
     def bad_step(x):
         raise ValueError("bad step")
 
-    monkeypatch.setattr(_preproc_job, "PreprocType", DummyType)
-    monkeypatch.setattr(_preproc_job, "HarmonizationStep", bad_step)
+    monkeypatch.setattr(_preproc_job, "PreprocType", lambda x: preproc_type)
+    monkeypatch.setattr(
+        _preproc_job, "_preproc_type_to_steps", {preproc_type: bad_step}
+    )
 
     job = PreprocJob(**preproc_job_args)
     result = job.run()
@@ -205,6 +240,25 @@ def test_run_invalid_preproc_step(monkeypatch, preproc_job_args, preproc_type):
     assert isinstance(result, ErrorMessage)
     assert result.errnum == ErrorNumbers.FB326.value
     assert "invalid preproc_step" in result.extra_msg
+
+
+def test_run_invalid_node_state_manager(
+    monkeypatch, preproc_job_args, preproc_type, preproc_step
+):
+    """Test run of PreprocJob when NodeStateManager raises an exception."""
+
+    # Make NodeStateManager raise an exception during construction
+    def bad_nsm(*args, **kwargs):
+        raise RuntimeError("bad nsm")
+
+    monkeypatch.setattr(_preproc_job, "NodeStateManager", bad_nsm)
+
+    job = PreprocJob(**preproc_job_args)
+    result = job.run()
+
+    assert isinstance(result, ErrorMessage)
+    assert result.errnum == ErrorNumbers.FB326.value
+    assert "node state manager" in result.extra_msg.lower()
 
 
 def test_run_preprocreply_construction_failure(
@@ -235,7 +289,7 @@ def test_run_preprocreply_construction_failure(
 
     assert isinstance(result, ErrorMessage)
     assert result.errnum == ErrorNumbers.FB326.value
-    assert "Preprocessing job cannot reply" in result.extra_msg
+    assert "cannot build reply message" in result.extra_msg
 
 
 def test_run_no_job_for_type(monkeypatch, preproc_job_args, preproc_type, preproc_step):

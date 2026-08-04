@@ -61,8 +61,16 @@ from fedbiomed.common.singleton import SingletonMeta
 
 # default values
 DEFAULT_LOG_FILE = "mylog.log"
+DEFAULT_APPLICATION_LOG_FILE = "application.log"
 DEFAULT_SECURITY_LOG_FILE = "security_audit.log"
 DEFAULT_LOG_LEVEL = logging.WARNING
+
+# Keys under which handlers are registered in `self._handlers`.
+HANDLER_CONSOLE = "CONSOLE"
+HANDLER_GRPC = "GRPC"
+HANDLER_FILE = "FILE"
+HANDLER_SECURITY_FILE = "SECURITY_FILE"
+HANDLER_SYSLOG = "SYSLOG"
 SYSLOG_IDENT = "fedbiomed: "
 LOG_PREFIX = "%(prefix)s"
 DEFAULT_FORMAT = f"%(asctime)s %(name)s{LOG_PREFIX} %(levelname)s - %(message)s"
@@ -347,6 +355,16 @@ class FedLogger(metaclass=SingletonMeta):
         security_log_path = os.path.join(security_log_dir, "security_audit.log")
         self.add_security_file_handler(filename=security_log_path)
 
+    def set_application_logs(self, root_path: str) -> None:
+        """Configure the rotating application log file for a component root."""
+        if self._logger.getEffectiveLevel() > logging.INFO:
+            self._logger.setLevel(logging.INFO)
+
+        log_dir = os.path.join(root_path, "log")
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, DEFAULT_APPLICATION_LOG_FILE)
+        self.add_application_file_handler(filename=log_path)
+
     def configure_security(
         self,
         *,
@@ -396,6 +414,10 @@ class FedLogger(metaclass=SingletonMeta):
             filename: Security log file path. Defaults to 'security_audit.log'
             level: Logging level for security events. Defaults to INFO
         """
+        # Register under its own key so it doesn't collide with FILE handler
+        if HANDLER_SECURITY_FILE in self._handlers:
+            return
+
         handler = TimedRotatingFileHandler(
             filename=filename,
             when="midnight",
@@ -408,14 +430,11 @@ class FedLogger(metaclass=SingletonMeta):
         # Disable buffering to ensure immediate writes
         handler.stream.reconfigure(line_buffering=True)
 
-        handler_name = "SECURITY_FILE"
-        # Register under its own key so it doesn't collide with FILE handler
-        if handler_name not in self._handlers:
-            self._logger.debug(" adding handler for: " + handler_name)
-            self._handlers[handler_name] = handler
-            self._logger.addHandler(handler)
-            self._original_format[handler_name] = None
-            self._handler_prefix[handler_name] = ""
+        self._logger.debug(" adding handler for: " + HANDLER_SECURITY_FILE)
+        self._handlers[HANDLER_SECURITY_FILE] = handler
+        self._logger.addHandler(handler)
+        self._original_format[HANDLER_SECURITY_FILE] = None
+        self._handler_prefix[HANDLER_SECURITY_FILE] = ""
 
     def security_event(
         self,
@@ -626,7 +645,6 @@ class FedLogger(metaclass=SingletonMeta):
         # Optional compatibility knobs from stdlib docs
         handler.append_nul = False
         handler.ident = SYSLOG_IDENT
-        handler_key = "SYSLOG"
 
         handler.setLevel(self._internal_level_translator(level))
 
@@ -636,9 +654,9 @@ class FedLogger(metaclass=SingletonMeta):
         # Keep the same JSON structure as the security audit file
         handler.setFormatter(_SecurityFormatter(self._security_defaults))
 
-        self._internal_add_handler(handler_key, handler)
+        self._internal_add_handler(HANDLER_SYSLOG, handler)
 
-    def del_syslog_handler(self, handler_key: str = "SYSLOG"):
+    def del_syslog_handler(self, handler_key: str = HANDLER_SYSLOG):
         self._internal_add_handler(handler_key, None)
 
     def add_file_handler(
@@ -647,7 +665,11 @@ class FedLogger(metaclass=SingletonMeta):
         format: str = DEFAULT_FORMAT,
         level: Any = DEFAULT_LOG_LEVEL,
     ):
-        """Adds a file handler
+        """Adds a non-rotating file handler.
+
+        Kept for compatibility with callers that explicitly configure an
+        arbitrary log file. Component application logs should use
+        `add_application_file_handler()` so they rotate daily.
 
         Args:
             filename: File to log to
@@ -657,8 +679,60 @@ class FedLogger(metaclass=SingletonMeta):
 
         handler = logging.FileHandler(filename=filename, mode="a")
         handler.setLevel(self._internal_level_translator(level))
+        handler.addFilter(_ExcludeSecurityFilter())
 
-        self._internal_add_handler("FILE", handler, format)
+        self._internal_add_handler(HANDLER_FILE, handler, format)
+
+    def add_application_file_handler(
+        self,
+        filename: str = DEFAULT_APPLICATION_LOG_FILE,
+        format: str = DEFAULT_FORMAT,
+        level: Any = logging.INFO,
+    ) -> None:
+        """Adds a daily rotating application log file handler.
+
+        The application log is registered as the standard FILE handler so all
+        Fed-BioMed logger calls use the same destination, regardless of whether
+        the node was started from the CLI or GUI. Reconfiguring with another
+        filename replaces the existing FILE handler.
+
+        Args:
+            filename: File to log to.
+            format: Log format.
+            level: Initial level of the file handler.
+        """
+
+        abs_filename = os.path.abspath(filename)
+        existing = self._handlers.get(HANDLER_FILE)
+        if existing is not None:
+            existing_filename = getattr(existing, "baseFilename", None)
+            if existing_filename == abs_filename and isinstance(
+                existing, TimedRotatingFileHandler
+            ):
+                existing.setLevel(self._internal_level_translator(level))
+                self._original_format[HANDLER_FILE] = format
+                self._set_handler_formatter(HANDLER_FILE)
+                return
+
+            self._internal_add_handler(HANDLER_FILE, None)
+            try:
+                existing.close()
+            except Exception:
+                pass
+
+        handler = TimedRotatingFileHandler(
+            filename=abs_filename,
+            when="midnight",
+            interval=1,
+            backupCount=0,
+            encoding="utf-8",
+        )
+        handler.setLevel(self._internal_level_translator(level))
+        handler.addFilter(_ExcludeSecurityFilter())
+        if hasattr(handler.stream, "reconfigure"):
+            handler.stream.reconfigure(line_buffering=True)
+
+        self._internal_add_handler(HANDLER_FILE, handler, format)
 
     def add_console_handler(
         self, format: str = DEFAULT_FORMAT, level: Any = DEFAULT_LOG_LEVEL
@@ -680,7 +754,7 @@ class FedLogger(metaclass=SingletonMeta):
         # Prevent security audit logs from appearing in interactive console (e.g., IPython).
         handler.addFilter(_ExcludeSecurityFilter())
 
-        self._internal_add_handler("CONSOLE", handler, format)
+        self._internal_add_handler(HANDLER_CONSOLE, handler, format)
 
         pass
 
@@ -710,7 +784,7 @@ class FedLogger(metaclass=SingletonMeta):
         # Never transmit security audit logs to the researcher via gRPC.
         handler.addFilter(_ExcludeSecurityFilter())
 
-        self._internal_add_handler("GRPC", handler)
+        self._internal_add_handler(HANDLER_GRPC, handler)
 
         # as a side effect this will set the minimal level to ERROR
         # FIXME: alitolga: This could cause problems in the logging level,
@@ -777,10 +851,10 @@ class FedLogger(metaclass=SingletonMeta):
 
     def _set_handler_formatter(self, output: str) -> None:
         """Configure formatter for a handler based on its current level."""
-        if output not in self._handlers or output == "SECURITY_FILE":
+        if output not in self._handlers or output == HANDLER_SECURITY_FILE:
             return
 
-        if output == "GRPC":
+        if output == HANDLER_GRPC:
             return
 
         base_format = self._original_format.get(output)

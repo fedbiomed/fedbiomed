@@ -300,6 +300,7 @@ class FedPerceptron(FedSGDClassifier):
         training_args: Dict[str, Any],
         aggregator_args: Optional[Dict[str, Any]] = None,
         node_id: Optional[str] = None,
+        round: Optional[int] = None,
         **kwargs,
     ) -> None:
         # get default values of Perceptron model (different from SGDClassifier model default values)
@@ -307,7 +308,7 @@ class FedPerceptron(FedSGDClassifier):
 
         # make sure loss used is perceptron loss - can not be changed by user
         model_args["loss"] = "perceptron"
-        super().post_init(model_args, training_args, node_id=node_id)
+        super().post_init(model_args, training_args, node_id=node_id, round=round)
         self._model.set_params(loss="perceptron")
 
         # Since we are using the SGDClassifier as a base model,

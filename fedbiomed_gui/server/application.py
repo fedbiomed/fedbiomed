@@ -2,16 +2,15 @@ import os
 import secrets
 from datetime import timedelta
 from pathlib import Path
+
 from flask import Flask, send_from_directory
 from flask_jwt_extended import JWTManager
 
-
-from .utils import error
 from .config import config
 
 # Import api route blueprint before importing routes and register as blueprint
 from .routes import api, auth
-
+from .utils import error
 
 build_dir = os.path.join(Path(__file__).parent, "..", "ui", "build")
 

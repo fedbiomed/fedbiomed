@@ -97,7 +97,7 @@ class EventWaitExchange:
                 # this triggered event is obsolete
                 del self._triggered_events[reqid]
                 logger.debug(
-                    f"{ErrorNumbers.FB324}: Clean obsolete entry {reqid} from triggered"
+                    f"{ErrorNumbers.FB324.value}: Clean obsolete entry {reqid} from triggered"
                     "event table."
                 )
 
@@ -160,7 +160,7 @@ class EventWaitExchange:
             or timeout > MAX_TRIGGERED_EVENT_TIMEOUT
         ):
             raise FedbiomedSynchroError(
-                f"{ErrorNumbers.FB324}: Cannot wait {timeout} seconds. "
+                f"{ErrorNumbers.FB324.value}: Cannot wait {timeout} seconds. "
                 f"Should be int or float between 0 and {MAX_TRIGGERED_EVENT_TIMEOUT}"
             )
 

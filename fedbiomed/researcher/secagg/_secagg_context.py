@@ -82,7 +82,7 @@ class SecaggContext(ABC):
         except ValidatorError as e:
             raise FedbiomedSecaggError(
                 f"{ErrorNumbers.FB415.value}: bad parameter "
-                "`secagg_id` must be a None or non-empty string: {e}"
+                f"`secagg_id` must be a None or non-empty string: {e}"
             ) from e
 
         try:

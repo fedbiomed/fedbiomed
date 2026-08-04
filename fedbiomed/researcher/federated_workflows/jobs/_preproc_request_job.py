@@ -32,6 +32,7 @@ class PreprocRequestJob(Job):
         preproc_id: str,
         federated_dataset: FederatedDataset,
         preproc_args: dict,
+        preproc_args_nodes: dict[str, dict],
         state_id: dict[str, str] | None = None,
         **kwargs,
     ) -> None:
@@ -43,6 +44,7 @@ class PreprocRequestJob(Job):
             preproc_id: The unique identifier for the preprocessing task.
             federated_dataset: The federated dataset on which preprocessing is to be performed.
             preproc_args: The arguments required for the preprocessing task.
+            preproc_args_nodes: The arguments required for the preprocessing task specific to each node.
             state_id: Optional dictionary mapping node IDs to their respective state IDs.
             **kwargs: Named arguments of parent class. Please see
                 [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
@@ -55,6 +57,7 @@ class PreprocRequestJob(Job):
         self._preproc_id = preproc_id
         self._federated_dataset = federated_dataset
         self._preproc_args = preproc_args
+        self._preproc_args_nodes = preproc_args_nodes
         self._state_id = state_id or {}
 
     def execute(self) -> Dict[str, PreprocReply]:
@@ -73,9 +76,10 @@ class PreprocRequestJob(Job):
 
         requests = MessagesByNode()
         for node in self._nodes:
-            # Note: deepcopy is used to avoid mutation issues across nodes
+            # Note: deepcopy is used to avoid any mutation issues across nodes
             # may be later reconsidered depending on size and content of preproc_args
             preproc_args = deepcopy(self._preproc_args)
+            preproc_args.update(self._preproc_args_nodes.get(node, {}))
 
             requests[node] = PreprocRequest(
                 **{

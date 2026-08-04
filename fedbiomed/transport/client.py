@@ -65,18 +65,19 @@ def is_server_alive(host: str, port: str):
     port = int(port)
     address_info = socket.getaddrinfo(host, port, socket.AF_INET, socket.SOCK_STREAM)
     for family, socktype, protocol, _, address in address_info:
-        s = socket.socket(family, socktype, protocol)
-        # Need this timeout for the case where the server does not answer
-        # If not present, socket timeout increases and this function takes more
-        # than GRPC_CLIENT_CONN_RETRY_TIMEOUT to execute
-        s.settimeout(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
-        try:
-            s.connect(address)
-        except socket.error:
-            return False
-        else:
-            s.close()
-            return True
+        # Use a context manager so the socket is always closed, even when
+        # connect() raises (previously the socket leaked on failure).
+        with socket.socket(family, socktype, protocol) as s:
+            # Need this timeout for the case where the server does not answer
+            # If not present, socket timeout increases and this function takes more
+            # than GRPC_CLIENT_CONN_RETRY_TIMEOUT to execute
+            s.settimeout(GRPC_CLIENT_CONN_RETRY_TIMEOUT)
+            try:
+                s.connect(address)
+            except socket.error:
+                return False
+            else:
+                return True
 
 
 class Channels:
@@ -363,7 +364,7 @@ class GrpcClient:
         """
         if self._id is not None and self._id != id_:
             msg = (
-                f"{ErrorNumbers.FB628}: Suspected malicious researcher activity ! "
+                f"{ErrorNumbers.FB628.value}: Suspected malicious researcher activity ! "
                 f"Researcher ID changed for {self._researcher.host}:{self._researcher.port} from "
                 f"`{self._id}` to `{id_}`"
             )
@@ -428,7 +429,7 @@ class Listener:
             exp: Base exception to use
         """
         raise FedbiomedCommunicationError(
-            f"{ErrorNumbers.FB628}: {self.__class__.__name__} has stopped due to unknown reason: "
+            f"{ErrorNumbers.FB628.value}: {self.__class__.__name__} has stopped due to unknown reason: "
             f"{type(exp).__name__} : {exp}"
         ) from exp
 

@@ -2,14 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Registry for dataset controllers and their parameters
+Registry for dataset controllers
 """
 
-from dataclasses import asdict, dataclass, fields
+import inspect
 from typing import Dict, Optional, Tuple, Type
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
-from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset_controller import (
     Controller,
     CustomController,
@@ -41,60 +40,30 @@ DATASET_CLASSES_PER_TYPE: Dict[DatasetTypes, Type[Dataset]] = {
 }
 
 
-@dataclass
-class ControllerParametersBase:
-    root: str
-
-    def to_dict(self) -> dict:
-        """Convert entry to dictionary - removes None values"""
-        return {k: v for k, v in asdict(self).items() if v is not None}
-
-    @classmethod
-    def from_dict(cls, data: dict):
-        field_names = {f.name for f in fields(cls)}
-        filtered = {k: v for k, v in data.items() if k in field_names}
-        return cls(**filtered)
-
-
-@dataclass
-class MedicalFolderParameters(ControllerParametersBase):
-    tabular_file: Optional[str] = None
-    index_col: Optional[str] = None
-    dlp: Optional[DataLoadingPlan] = None
-
-
-# Registry mapping data types to corresponding controller and expected parameters
-REGISTRY_CONTROLLERS: Dict[
-    DatasetTypes, Tuple[Type[Controller], Type[ControllerParametersBase], Type[Dataset]]
-] = {
+# Registry mapping data types to their controller and dataset classes
+REGISTRY_CONTROLLERS: Dict[DatasetTypes, Tuple[Type[Controller], Type[Dataset]]] = {
     DatasetTypes.TABULAR: (
         TabularController,
-        ControllerParametersBase,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.TABULAR],
     ),
     DatasetTypes.MEDICAL_FOLDER: (
         MedicalFolderController,
-        MedicalFolderParameters,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.MEDICAL_FOLDER],
     ),
     DatasetTypes.IMAGES: (
         ImageFolderController,
-        ControllerParametersBase,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.IMAGES],
     ),
     DatasetTypes.DEFAULT: (
         MnistController,
-        ControllerParametersBase,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.DEFAULT],
     ),
     DatasetTypes.MEDNIST: (
         MedNistController,
-        ControllerParametersBase,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.MEDNIST],
     ),
     DatasetTypes.CUSTOM: (
         CustomController,
-        ControllerParametersBase,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.CUSTOM],
     ),
 }
@@ -104,7 +73,11 @@ def get_controller(
     data_type: str,
     controller_parameters: dict,
 ) -> Controller:
-    """Get controller instance based on data_type and dataset_parameters"""
+    """Get controller instance based on data_type and controller_parameters.
+
+    Only the keyword arguments accepted by the controller's constructor are
+    forwarded; unknown keys and `None` values are dropped.
+    """
     # Validate that data_type is implemented.
     data_type_: Optional[DatasetTypes] = DatasetTypes.get_type_by_value(data_type)
     if not data_type_ or data_type_ not in REGISTRY_CONTROLLERS:
@@ -113,18 +86,17 @@ def get_controller(
             f"Unknown 'data_type', implemented are: {list(REGISTRY_CONTROLLERS.keys())}"
         )
 
-    controller_class, parameters_class, _ = REGISTRY_CONTROLLERS[data_type_]
+    controller_class, _ = REGISTRY_CONTROLLERS[data_type_]
 
-    # Validate and instantiate parameters
-    try:
-        parameters_instance = parameters_class.from_dict(controller_parameters)
-    except Exception as e:
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB632.value}: Failed to parse dataset_parameters: {str(e)}"
-        ) from e
+    accepted = inspect.signature(controller_class.__init__).parameters
+    parameters = {
+        k: v
+        for k, v in controller_parameters.items()
+        if k in accepted and v is not None
+    }
 
     try:
-        return controller_class(**parameters_instance.to_dict())
+        return controller_class(**parameters)
     except FedbiomedError:
         raise
     except Exception as e:

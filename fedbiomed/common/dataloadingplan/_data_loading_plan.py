@@ -108,7 +108,7 @@ class SerializationValidation:
     @staticmethod
     @validator_decorator
     def _identifier_validation_hook(full_name: str) -> Union[bool, Tuple[bool, str]]:
-        """Validates that a fully qualified name follows the syntax for python identifiers.
+        r"""Validates that a fully qualified name follows the syntax for python identifiers.
 
         Valid identifiers are of the form (in regexp) "^[a-zA-Z_]\w*$" and multiple identifiers may be combined with
         dots in a fully qualified name in case of inheritance.

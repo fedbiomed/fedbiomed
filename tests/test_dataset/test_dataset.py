@@ -27,8 +27,8 @@ class DummyDataset(Dataset):
     _transform = staticmethod(lambda x: x)
     _target_transform = staticmethod(lambda x: x)
 
-    def complete_initialization(self, controller_kwargs=None, to_format=None):
-        super().complete_initialization(controller_kwargs, to_format)
+    def load(self, root=None, to_format=None, **kwargs):
+        super().load(root, to_format, **kwargs)
 
     def __getitem__(self, idx):
         return (1, 2)
@@ -76,21 +76,15 @@ def test_07_validate_transform_invalid():
         ds._validate_transform("not_callable")
 
 
-def test_08_init_controller_invalid_type():
-    ds = DummyDataset()
-    with pytest.raises(FedbiomedError):
-        ds._init_controller("not_a_dict")
-
-
 def test_09_init_controller_valid():
     ds = DummyDataset()
-    ds._init_controller({})
+    ds._init_controller()
     assert isinstance(ds._controller, DummyController)
 
 
 def test_10_len():
     ds = DummyDataset()
-    ds._init_controller({})
+    ds._init_controller()
     assert len(ds) == 42
 
 
@@ -144,10 +138,10 @@ def test_14_default_types_sklearn():
     y_int = ds._default_types_sklearn(x_int)
     assert y_int.dtype == np.int64
 
-    # non-numeric dtype left untouched
-    x_str = np.array(["a", "b"], dtype=object)
-    y_str = ds._default_types_sklearn(x_str)
-    assert y_str is x_str
+    # non-numeric dtypes raise: object (strings) and bool
+    for bad in (np.array(["a", "b"], dtype=object), np.array([True, False])):
+        with pytest.raises(FedbiomedError):
+            ds._default_types_sklearn(bad)
 
     with pytest.raises(FedbiomedError):
         ds._default_types_sklearn([1, 2, 3])
@@ -215,17 +209,17 @@ def test_17_validate_transformation_success():
 
 def test_18_iter():
     ds = DummyDataset()
-    ds._init_controller({})
+    ds._init_controller()
     items = list(ds)
     assert len(items) == 42
     assert all(item == (1, 2) for item in items)
 
 
-def test_19_complete_initialization_calls_super():
+def test_19_load_calls_super():
     """Covers abstract body at line 51."""
     ds = DummyDataset()
-    ds.complete_initialization(
-        controller_kwargs={}, to_format=DataReturnFormat.SKLEARN
+    ds.load(
+        to_format=DataReturnFormat.SKLEARN
     )  # DummyDataset calls super() → hits `pass`
 
 
@@ -238,7 +232,7 @@ def test_20_abstract_getitem_body():
         _transform = staticmethod(lambda x: x)
         _target_transform = staticmethod(lambda x: x)
 
-        def complete_initialization(self):
+        def load(self):
             pass
 
         def __getitem__(self, idx):
@@ -291,7 +285,7 @@ def test_24_init_controller_instantiation_failure():
         _transform = staticmethod(lambda x: x)
         _target_transform = staticmethod(lambda x: x)
 
-        def complete_initialization(self):
+        def load(self):
             pass
 
         def __getitem__(self, idx):
@@ -299,7 +293,7 @@ def test_24_init_controller_instantiation_failure():
 
     ds = BrokenDataset()
     with pytest.raises(FedbiomedError, match="Failed to create Controller"):
-        ds._init_controller({})
+        ds._init_controller()
 
 
 def test_25_apply_transforms_no_target():

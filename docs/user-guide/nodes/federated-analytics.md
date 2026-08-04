@@ -34,6 +34,27 @@ Once a dataset is registered on a node with the appropriate tags, it is automati
 
 ---
 
+## Secure aggregation
+
+Analytics requests can run under **secure aggregation**, where each node masks its contribution so the researcher only ever recovers the combined result. This relies on the same node-side secure-aggregation mechanism as federated training — no analytics-specific setup is required beyond enabling FA.
+
+### Enforcing secure aggregation
+
+A node can **require** secure aggregation for every action that uses its datasets — including analytics. Set `force_secure_aggregation = True` in the `[security]` section of the node configuration:
+
+```ini
+[security]
+secure_aggregation = True
+force_secure_aggregation = True
+```
+
+When forced, the node **rejects any analytics request that does not carry a secure-aggregation context**. The researcher must then run the experiment with `secagg=True`.
+
+!!! note "See also"
+    [Secure Aggregation Configuration](../secagg/configuration.md#activating-deactivating-and-forcing-secure-aggregation) for activating, deactivating and forcing secagg.
+
+---
+
 ## Common Errors & Troubleshooting
 
 | Error message | Cause | Fix |

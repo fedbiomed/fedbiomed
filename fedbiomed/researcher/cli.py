@@ -12,7 +12,7 @@ from fedbiomed.common.cli import CLIArgumentParser, CommonCLI, ComponentDirector
 from fedbiomed.common.constants import NOTEBOOKS_FOLDER_NAME, ComponentType
 from fedbiomed.common.logger import logger
 
-__intro__ = """
+__intro__ = r"""
    __         _ _     _                          _
   / _|       | | |   (_)                        | |
  | |_ ___  __| | |__  _  ___  _ __ ___   ___  __| |
@@ -131,7 +131,7 @@ class ResearcherCLI(CommonCLI):
 
         super().initialize()
 
-        self._parser.add_argument(
+        self._path_action = self._parser.add_argument(
             "--path",
             "-p",
             nargs="?",

@@ -897,7 +897,7 @@ class TestTorchnn(unittest.TestCase):
             nn.Conv1d(1, 1, 2),
             nn.ReLU(),
             nn.Linear(4, 5),
-            nn.utils.weight_norm(nn.Linear(5, 2)),
+            nn.utils.parametrizations.weight_norm(nn.Linear(5, 2)),
             torch.nn.InstanceNorm1d(1),
             nn.Softmax(dim=0),
         )
@@ -1012,7 +1012,7 @@ class TestTorchnn(unittest.TestCase):
                 nn.Conv1d(1, 1, 2),
                 nn.ReLU(),
                 nn.Linear(4, 5),
-                nn.utils.weight_norm(nn.Linear(5, 2)),
+                nn.utils.parametrizations.weight_norm(nn.Linear(5, 2)),
                 torch.nn.InstanceNorm1d(1),
                 nn.Softmax(dim=0),
             )
@@ -1075,6 +1075,11 @@ class TestSendToDevice(unittest.TestCase):
         with patch("torch.Tensor.to") as p:
             _ = tp.send_to_device(tup, torch.device("cuda"))
             self.assertEqual(p.call_count, 8)
+
+    def test_none_is_passed_through(self):
+        """A ``None`` (e.g. unsupervised target) is returned unchanged."""
+        tp = TorchTrainingPlan()
+        self.assertIsNone(tp.send_to_device(None, self.cpu))
 
     def test_unsupported_parameters(self):
         """Ensure that the function correctly raises errors with wrong parameters."""

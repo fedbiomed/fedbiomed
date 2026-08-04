@@ -10,8 +10,6 @@ on:
     branches:
       - develop
       - master
-  schedule:
-    - cron: "0 4 * * *"
 
   workflow_dispatch:
     inputs:
@@ -19,6 +17,11 @@ on:
         description: "Run full test matrix"
         required: false
         default: "true"
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 
 jobs:

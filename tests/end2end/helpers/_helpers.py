@@ -151,6 +151,51 @@ def clear_component_data(config: Config):
     shutil.rmtree(config.root)
 
 
+def stop_grpc_server(grpc_server):
+    """Stops the researcher gRPC server and joins its thread."""
+    if grpc_server._server._loop.is_closed():
+        return
+
+    future = asyncio.run_coroutine_threadsafe(
+        grpc_server._server.stop(10),
+        grpc_server._server._loop,
+    )
+    print("##### FBM: Waiting for server to stop, timeout after 10 seconds")
+    try:
+        future.result(10)
+    except Exception as e:
+        print(
+            "#### FBM: Exception has raised while stopping gRPC server."
+            f"Timeout: 10, Error: {e}"
+        )
+        try:
+            grpc_server._server._loop.stop()
+        except Exception as e:
+            print(f"#### FBM: Error while closing loop: {e}")
+
+    grpc_server._thread.join(timeout=10)
+    if grpc_server._thread.is_alive():
+        print("##### FBM: gRPC server thread still alive after join timeout")
+
+    print("##### FBM: Researcher server has stopped")
+
+
+def stop_researcher_server():
+    """Best-effort stop of a researcher gRPC server left running by a failed test."""
+    from fedbiomed.researcher.requests import Requests
+
+    requests = Requests._objects.get(Requests)
+    if requests is None:
+        return
+
+    try:
+        stop_grpc_server(requests._grpc_server)
+    except Exception as e:
+        print(f"#### FBM: Error during researcher server safety-net cleanup: {e}")
+    finally:
+        Requests._objects.pop(Requests, None)
+
+
 def clear_experiment_data(exp: "Experiment"):
     """Clears data relative to an Experiment execution, mainly:
     - `ROOT/experiments/Experiment_xx` folder
@@ -166,25 +211,7 @@ def clear_experiment_data(exp: "Experiment"):
     print("Will wait 10 seconds to cancel current RPC requests")
 
     # Stop GRPC server and remove request object for next experiments
-    if not exp._reqs._grpc_server._server._loop.is_closed():
-        future = asyncio.run_coroutine_threadsafe(
-            exp._reqs._grpc_server._server.stop(10),
-            exp._reqs._grpc_server._server._loop,
-        )
-        print("##### FBM: Waiting for server to stop, timeout after 10 seconds")
-        try:
-            future.result(10)
-        except Exception as e:
-            print(
-                "#### FBM: Exception has raised while stopping gRPC server."
-                f"Timeout: 10, Error: {e}"
-            )
-            try:
-                exp._reqs._grpc_server._server._loop.stop()
-            except Exception as e:
-                print(f"#### FBM: Error while closing loop: {e}")
-
-        print("##### FBM: Researcher server has stopped")
+    stop_grpc_server(exp._reqs._grpc_server)
 
     # Need to remove request
     print("##### FBM: Removing request object")

@@ -61,7 +61,6 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
     Researcher may have to add extra dependencies/python imports, by using `init_dependencies` method.
 
     Attributes:
-        dataset_path: The path that indicates where dataset has been stored
         pre_processes: Preprocess functions that will be applied to the
             training data at the beginning of the training routine.
         training_data_loader: Data loader used in the training routine.
@@ -138,6 +137,7 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         aggregator_args: Optional[Dict[str, Any]] = None,
         initialize_optimizer: bool = True,
         node_id: Optional[str] = None,
+        round: Optional[int] = None,
     ) -> None:
         """Process model, training and optimizer arguments.
 
@@ -150,12 +150,16 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
                 researcher-side aggregator.
             initialize_optimizer: If True, configures optimizer. It has to be True for node
                 side configuration to prepare optimizer for the training.
+            node_id: the ID of the node executing the training plan, if applicable.
+            round: the current round of training, if applicable.
         Raises:
             FedbiomedTrainingPlanError: If the provided arguments do not
                 match expectations, or if the optimizer, model and dependencies
                 configuration goes wrong.
         """
-        super().post_init(model_args, training_args, aggregator_args, node_id=node_id)
+        super().post_init(
+            model_args, training_args, aggregator_args, node_id=node_id, round=round
+        )
         # Assign scalar attributes.
         self._use_gpu = self._training_args.get("use_gpu")
         self._batch_maxnum = self._training_args.get("batch_maxnum")
@@ -440,7 +444,9 @@ class TorchTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
         Raises:
            FedbiomedTrainingPlanError: when to_send is not the correct type
         """
-        if isinstance(to_send, torch.Tensor):
+        if to_send is None:
+            return None
+        elif isinstance(to_send, torch.Tensor):
             return to_send.to(device)
         elif isinstance(to_send, dict):
             return {

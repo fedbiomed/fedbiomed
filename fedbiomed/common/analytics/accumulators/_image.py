@@ -1,12 +1,11 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import numpy as np
 
 from fedbiomed.common.dataset_types import DatasetElementType
-from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
 from ._base import Accumulator
@@ -39,17 +38,24 @@ class ImageAccumulator(Accumulator):
                     }
         """
         self.stats_config: Dict[str, Any] = config.get("stats", {})
-        self.accumulators: Dict[str, Accumulator] = {}
+        self.accumulators: List[Accumulator] = []
 
+        # Group stats by args so accumulators sharing the same config are built together
+        groups: List[tuple] = []
         for stat, stat_args in self.stats_config.items():
-            accumulator_class = AnalyticsRegistry.get_accumulator_class(
-                stat, DatasetElementType.IMAGE
+            for group_args, group_stats in groups:
+                if group_args == stat_args:
+                    group_stats.append(stat)
+                    break
+            else:
+                groups.append((stat_args, [stat]))
+
+        for stat_args, stats in groups:
+            accumulator_cls_list = AnalyticsRegistry.get_accumulators(
+                stats, DatasetElementType.IMAGE
             )
-            if accumulator_class is None:
-                raise FedbiomedError(
-                    f"No accumulator registered for stat '{stat}' of type IMAGE."
-                )
-            self.accumulators[stat] = accumulator_class(**stat_args)
+            for acc_cls in accumulator_cls_list:
+                self.accumulators.append(acc_cls(**stat_args))
 
         logger.debug("ImageAccumulator initialized")
 
@@ -57,10 +63,10 @@ class ImageAccumulator(Accumulator):
         """Update all stat accumulators with a new image sample.
 
         Args:
-            value: Image array of arbitrary shape (e.g. H×W or C×H×W).
+            value: Image array of arbitrary shape (e.g. (H, W) or (C, H, W)).
         """
         value = np.asarray(value)
-        for acc in self.accumulators.values():
+        for acc in self.accumulators:
             acc.update(value)
 
     def finalize(self) -> Dict[str, Any]:
@@ -70,6 +76,6 @@ class ImageAccumulator(Accumulator):
             A merged dictionary of all stat accumulator results.
         """
         result = {}
-        for acc in self.accumulators.values():
+        for acc in self.accumulators:
             result.update(acc.finalize())
         return result

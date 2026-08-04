@@ -218,12 +218,12 @@ class GrpcController(GrpcAsyncTaskController):
         """
         if not isinstance(message, Message):
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: bad argument type for message, expected `Message`, got `{type(message)}`"
+                f"{ErrorNumbers.FB628.value}: bad argument type for message, expected `Message`, got `{type(message)}`"
             )
 
         if not self._is_started.is_set():
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Communication client is not initialized."
+                f"{ErrorNumbers.FB628.value}: Communication client is not initialized."
             )
 
         asyncio.run_coroutine_threadsafe(super().send(message, broadcast), self._loop)
@@ -241,7 +241,7 @@ class GrpcController(GrpcAsyncTaskController):
         """
         if self._thread is None or not self._is_started.is_set():
             raise FedbiomedCommunicationError(
-                f"{ErrorNumbers.FB628}: Communication client is not initialized."
+                f"{ErrorNumbers.FB628.value}: Communication client is not initialized."
             )
 
         if not self._thread.is_alive():
