@@ -1,5 +1,15 @@
 # Fed-BioMed changelog
 
+## 2026-08-04
+
+- Added new Docker images for the core Fed-BioMed components that can be used without a VPN. Docker images are now published to Docker Hub for each release.
+- Added the ability to start, stop, and restart a Fed-BioMed node from both the CLI and the GUI. A dedicated Node Management page has also been added to the GUI.
+- Added a new GUI page that allows users to view and modify configuration parameters directly from the interface.
+- Enabled secure aggregation for federated analytics.
+- Implemented the federated preprocessing layer and integrated Fed-Combat for data harmonization.
+- Several fixes in the CI and small corrections and improvements in the code base. 
+- Applied several CI fixes, along with various bug fixes, code corrections, and overall improvements across the codebase.
+
 ## 2026-07-07 version 6.3.3
 
 - Upgrade grpcio and grpc-tools. 
