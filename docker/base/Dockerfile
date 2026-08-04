@@ -18,16 +18,6 @@ RUN yarn build
 # Stage 2: Build Python package without hatch hook
 FROM python:${PYTHON_VERSION}-slim-bookworm AS python-build
 
-ARG FEDBIOMED_GID=2101
-ARG FEDBIOMED_UID=2101
-ARG FEDBIOMED_GROUP=fedbiomed
-ARG FEDBIOMED_USER=fedbiomed
-
-ENV FEDBIOMED_GID=${FEDBIOMED_GID} \
-    FEDBIOMED_UID=${FEDBIOMED_UID} \
-    FEDBIOMED_GROUP=${FEDBIOMED_GROUP} \
-    FEDBIOMED_USER=${FEDBIOMED_USER}
-
 WORKDIR /build
 
 # Install build dependencies
@@ -40,17 +30,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy all required files for pip install
-COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} pyproject.toml README.md ./
-COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} fedbiomed ./fedbiomed
-COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} envs/common ./envs/common
-COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} envs/vpn ./envs/vpn
-COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} notebooks ./notebooks
-COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} docs/tutorials ./docs/tutorials
-COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} scripts ./scripts
-COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} hatch_build.py ./hatch_build.py
+COPY pyproject.toml README.md ./
+COPY fedbiomed ./fedbiomed
+COPY envs/common ./envs/common
+COPY envs/vpn ./envs/vpn
+COPY notebooks ./notebooks
+COPY docs/tutorials ./docs/tutorials
+COPY scripts ./scripts
+COPY hatch_build.py ./hatch_build.py
 
 # Copy fedbiomed_gui structure (needed for pyproject.toml packages)
-COPY --chown=${FEDBIOMED_UID}:${FEDBIOMED_GID} fedbiomed_gui ./fedbiomed_gui
+COPY fedbiomed_gui ./fedbiomed_gui
 
 # Copy pre-built frontend from node-build stage
 COPY --from=node-build /build/build ./fedbiomed_gui/ui/build
@@ -76,18 +66,10 @@ ENV FEDBIOMED_GID=${FEDBIOMED_GID} \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Install runtime dependencies
+# Install runtime dependencies the python base image does not already provide.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    libssl3 \
-    libffi8 \
-    libbz2-1.0 \
     libjpeg62-turbo \
     libpng16-16 \
-    liblzma5 \
-    libreadline8 \
-    libsqlite3-0 \
-    zlib1g \
     libgmp10 \
     libmpfr6 \
     libmpc3 \

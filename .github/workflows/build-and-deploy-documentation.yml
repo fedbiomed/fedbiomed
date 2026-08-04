@@ -1,3 +1,4 @@
+---
 name: Build and deploy docs to fedbiomed-docs-public
 
 on:
@@ -71,7 +72,7 @@ jobs:
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "ALIAS=${ALIAS}" >> $GITHUB_OUTPUT
-      
+
       - name: Checkout requested ref
         if: github.event_name == 'workflow_dispatch'
         run: |

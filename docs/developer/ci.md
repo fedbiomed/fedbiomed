@@ -43,9 +43,10 @@ All workflow definitions are under `.github/workflows`.
 | `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 01:17 UTC, manual, or called by the release workflow |
 | `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Pull requests to `develop`, push to `master`, Monday at 01:17 UTC, or manual |
 | `deploy.yml` | Validates the release package for Python wheel of Fedbiomed, publishes it to PyPI, and creates the GitHub release | Tag push |
-| `docker-deploy.yml` | Builds public base, node, and researcher docker images and publishes those release images to Docker Hub | Push to `develop` or `master`, version tag, or manual |
+| `docker-deploy.yml` | Builds public base, node, and researcher docker images and publishes those release images to Docker Hub | Version tag, or manual |
 | `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
 | `codespell.yml` | Checks repository spelling and annotates errors | Pull requests targeting `develop` or `master` |
+| `runner-maintenance.yml` | Bounded cleanup of the pip cache, Homebrew downloads, and cached interpreters on every self-hosted runner | Sunday at 04:00 UTC or manual |
 
 The workflow filename identifies the owner of a CI lane. The reusable
 `fbm-generic-test.yml` file owns the test implementation, while small caller
@@ -182,15 +183,23 @@ the matrix and exports its resolved executable as `FEDBIOMED_PYTHON_BIN`.
 
 The action handles:
 
-- GitHub-hosted runners with `actions/setup-python`
-- self-hosted Fedora with `dnf`
-- self-hosted Apple Silicon with Homebrew
+- self-hosted macOS with Homebrew
+- runners providing `dnf`, such as Fedora and its derivatives
+- every other runner with `actions/setup-python`
 - exact interpreter-version validation
-- Python, pip, operating-system, and architecture diagnostics
+- CPU-only PyTorch selection on Linux
 - tox installation inside an isolated virtual environment
 
 The isolated tox environment avoids modifying Homebrew-managed Python
 installations and avoids the PEP 668 `externally-managed-environment` error.
+
+On Linux the action exports
+`PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu`, which replaces about
+3.8 GB of CUDA runtime wheels with a 190 MB CPU build. The tests never run on a
+GPU: the node selects a CUDA device only when it is started with `--gpu` or
+`--gpu-only`, and no test does that. Exporting `PIP_EXTRA_INDEX_URL` before the
+action runs keeps the CUDA wheels. Other platforms are unaffected, because
+PyTorch publishes no CUDA build for them.
 
 ## Package compatibility and releases
 
@@ -282,8 +291,10 @@ run and does not execute a broad `docker system prune`.
 images. Published images intentionally use one documented Python runtime,
 currently Python 3.11.
 
-Branch pushes and manual runs perform test builds. Release-tag events publish
-the generated tags to Docker Hub.
+A `v*.*.*` tag publishes the generated tags to Docker Hub. Manual runs build
+the same images without publishing them. Image builds are otherwise covered by
+`test-docker.yml`, which builds the three Dockerfiles on every pull request to
+`develop`.
 
 ## Schedule
 
@@ -339,3 +350,9 @@ Self-hosted runners must provide the tools required by their assigned jobs:
 
 Runner labels are part of the workflow interface. If a runner is renamed or
 relabelled, update every matrix that refers to its old label.
+
+GitHub cannot address every self-hosted runner in one job, so
+`runner-maintenance.yml` lists them individually. A new runner is cleaned only
+once its label is added to that matrix. A runner that is offline when the
+workflow starts keeps its job queued until GitHub cancels it, so a failing leg
+means the machine needs attention.

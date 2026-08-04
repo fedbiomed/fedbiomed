@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       python-version:
-        description: 'Python versions as JSON; empty uses ["3.10","3.14"].'
+        description: Python versions, comma separated; empty uses 3.10,3.14
         required: false
         type: string
       os:
-        description: 'Runners as JSON; empty uses all four targets.'
+        description: Runner labels, comma separated; empty uses all four targets
         required: false
         type: string
   push:
@@ -26,8 +26,8 @@ jobs:
     uses: ./.github/workflows/fbm-generic-test.yml
     secrets: inherit
     with:
-      python-versions: ${{ github.event.inputs.python-version != '' && github.event.inputs.python-version || '["3.10","3.14"]' }}
-      os-list: ${{ github.event.inputs.os != '' && github.event.inputs.os || '["ubuntu-latest","ubuntu-24-04","macos-latest","macos-m1"]' }}
+      python-versions: ${{ github.event.inputs.python-version || '3.10,3.14' }}
+      os-list: ${{ github.event.inputs.os || 'ubuntu-latest,ubuntu-24-04,macos-latest,macos-m1' }}
       run-docs: false
       run-unit: false
       run-mnist: false

@@ -1,5 +1,5 @@
 ---
-name: "Setup Fed-BioMed Test Environment"
+name: Setup Fed-BioMed Test Environment
 description: Install the requested Python interpreter and tox
 
 inputs:
@@ -14,92 +14,92 @@ runs:
       id: runner
       shell: bash -l {0}
       run: |
-        OS_ID=""
-        if [[ -f /etc/os-release ]]; then
-          OS_ID=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
-        fi
-
-        IS_FEDORA=false
-        if [[ "$OS_ID" == "fedora" ]]; then
-          IS_FEDORA=true
-        fi
-
-        USE_BREW=false
+        set -euo pipefail
         if [[ "${{ runner.environment }}" == "self-hosted" && \
               "${{ runner.os }}" == "macOS" ]]; then
-          USE_BREW=true
+          PACKAGE_MANAGER=brew
+        elif command -v dnf >/dev/null; then
+          PACKAGE_MANAGER=dnf
+        else
+          PACKAGE_MANAGER=setup-python
         fi
 
-        echo "is_fedora=$IS_FEDORA" >> "$GITHUB_OUTPUT"
-        echo "use_brew=$USE_BREW" >> "$GITHUB_OUTPUT"
+        echo "Installing Python with $PACKAGE_MANAGER"
+        echo "package_manager=$PACKAGE_MANAGER" >> "$GITHUB_OUTPUT"
 
     - name: Install Python with setup-python
       id: setup_python
-      if: steps.runner.outputs.is_fedora == 'false' && steps.runner.outputs.use_brew == 'false'
+      if: steps.runner.outputs.package_manager == 'setup-python'
       uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
         cache: pip
+        cache-dependency-path: |
+          pyproject.toml
+          tox.ini
 
-    - name: Export hosted Python executable
-      if: steps.runner.outputs.is_fedora == 'false' && steps.runner.outputs.use_brew == 'false'
+    - name: Install Python with dnf
+      if: steps.runner.outputs.package_manager == 'dnf'
       shell: bash -l {0}
       run: |
-        PYTHON_BIN="${{ steps.setup_python.outputs.python-path }}"
-        test -x "$PYTHON_BIN"
-        echo "FEDBIOMED_PYTHON_BIN=$PYTHON_BIN" >> "$GITHUB_ENV"
-
-    - name: Install Python on self-hosted Fedora
-      if: steps.runner.outputs.is_fedora == 'true'
-      shell: bash -l {0}
-      run: |
+        set -euo pipefail
         sudo dnf install -y "python${{ inputs.python-version }}"
         PYTHON_BIN=$(command -v "python${{ inputs.python-version }}")
-        sudo ln -sf "$PYTHON_BIN" /usr/local/bin/python
-        "$PYTHON_BIN" -m ensurepip --upgrade
         echo "FEDBIOMED_PYTHON_BIN=$PYTHON_BIN" >> "$GITHUB_ENV"
 
-    - name: Install Python on self-hosted Apple Silicon
-      if: steps.runner.outputs.use_brew == 'true'
+    - name: Install Python with Homebrew
+      if: steps.runner.outputs.package_manager == 'brew'
       shell: bash -l {0}
       run: |
+        set -euo pipefail
         VERSION="${{ inputs.python-version }}"
         if ! arch -arm64 brew list --versions "python@$VERSION" >/dev/null; then
           arch -arm64 brew install "python@$VERSION"
         fi
 
         PYTHON_PREFIX=$(arch -arm64 brew --prefix "python@$VERSION")
-        PYTHON_BIN="$PYTHON_PREFIX/bin/python$VERSION"
-        sudo ln -sf "$PYTHON_BIN" /usr/local/bin/python
-        "$PYTHON_BIN" -m ensurepip --upgrade
-        echo "FEDBIOMED_PYTHON_BIN=$PYTHON_BIN" >> "$GITHUB_ENV"
+        echo "FEDBIOMED_PYTHON_BIN=$PYTHON_PREFIX/bin/python$VERSION" >> "$GITHUB_ENV"
         echo "$PYTHON_PREFIX/bin" >> "$GITHUB_PATH"
         echo "$PYTHON_PREFIX/libexec/bin" >> "$GITHUB_PATH"
 
     - name: Validate Python installation
       shell: bash -l {0}
       run: |
-        EXPECTED="${{ inputs.python-version }}"
-        PYTHON_BIN="${FEDBIOMED_PYTHON_BIN:-$(command -v python)}"
-        ACTUAL=$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-        test "$ACTUAL" = "$EXPECTED"
-        PYTHON_BIN=$("$PYTHON_BIN" -c 'import os, sys; print(os.path.realpath(sys.executable))')
-        echo "FEDBIOMED_PYTHON_BIN=$PYTHON_BIN" >> "$GITHUB_ENV"
-        "$PYTHON_BIN" --version
-        "$PYTHON_BIN" -m pip --version
-        echo "Python executable: $PYTHON_BIN"
-        echo "Runner OS: ${{ runner.os }}"
-        uname -a
-        "$PYTHON_BIN" -c "import platform; print('Architecture:', platform.machine())"
+        set -euo pipefail
+        PYTHON_BIN="${FEDBIOMED_PYTHON_BIN:-${{ steps.setup_python.outputs.python-path }}}"
+        if [[ -z "$PYTHON_BIN" ]]; then
+          echo "No installation step ran for package manager" \
+               "${{ steps.runner.outputs.package_manager }} on ${{ runner.os }}." >&2
+          exit 1
+        fi
+        ACTUAL=$("$PYTHON_BIN" -c 'import sys; print("%d.%d" % sys.version_info[:2])')
+        if [[ "$ACTUAL" != "${{ inputs.python-version }}" ]]; then
+          echo "Expected Python ${{ inputs.python-version }}, found $ACTUAL at $PYTHON_BIN" >&2
+          exit 1
+        fi
+        RESOLVED=$("$PYTHON_BIN" -c 'import os, sys; print(os.path.realpath(sys.executable))')
+        echo "Python $ACTUAL at $RESOLVED"
+        echo "FEDBIOMED_PYTHON_BIN=$RESOLVED" >> "$GITHUB_ENV"
+
+    # Torch ships CUDA runtime wheels (~3.8 GB) on Linux x86_64 whether or not the
+    # machine has a GPU, and no test selects the CUDA code path. Setting
+    # PIP_EXTRA_INDEX_URL beforehand opts back into the CUDA build. tox forwards
+    # the variable through its default PIP_* pass_env.
+    - name: Select CPU-only torch on Linux
+      shell: bash -l {0}
+      run: |
+        set -euo pipefail
+        if [[ "${{ runner.os }}" == "Linux" && -z "${PIP_EXTRA_INDEX_URL:-}" ]]; then
+          echo "Using CPU-only torch wheels."
+          echo "PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu" >> "$GITHUB_ENV"
+        fi
 
     - name: Install tox
       shell: bash -l {0}
       run: |
+        set -euo pipefail
         TOX_VENV=$(mktemp -d "${RUNNER_TEMP:-/tmp}/fedbiomed-tox-XXXXXXXX")
         "$FEDBIOMED_PYTHON_BIN" -m venv "$TOX_VENV"
         "$TOX_VENV/bin/python" -m pip install tox
+        "$TOX_VENV/bin/tox" --version
         echo "$TOX_VENV/bin" >> "$GITHUB_PATH"
-
-    - name: Check tox
-      shell: bash -l {0}
-      run: tox --version

@@ -1,19 +1,20 @@
+---
 name: Build and Push a Docker Image
 description: Publish docker images
 
-inputs: 
+inputs:
   image-names:
-    description: List of tags to push
+    description: Image names used as base for the generated tags
     required: true
-  
+
   file:
     description: Path to the docker file
     required: true
-  
+
   test:
     description: Only builds images without pushing
     required: false
-    default: 'false'
+    default: 'true'
 
   python-version:
     description: Python version used by the image
@@ -21,7 +22,7 @@ inputs:
     default: '3.11'
 
 runs:
-  using: "composite"
+  using: composite
   steps:
     - name: Docker meta
       id: meta
@@ -31,50 +32,63 @@ runs:
         images: ${{ inputs.image-names }}
         # generate Docker tags based on the following events/attributes
         tags: |
-          type=schedule
           type=ref,event=branch
-          type=ref,event=pr
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
           type=sha
         flavor: |
           latest=false
-    
-    - name: Info
-      run: |
-        echo "${{ steps.meta.outputs.tags }}"
-        echo "${{ steps.meta.outputs.labels }}"
-      shell: bash -l {0}
 
-#    Following actions are kept in case of disk space issue.
-    - name: Tag used for images
-      id: tag-export
-      run: |
-        TAG=$(echo "$FIRST_LINE" | cut -d ':' -f2) 
-        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-      shell: bash -l {0}
-
-    - name: Generate docker tag args (no jq)
-      id: tag-args
-      run: |
-        TAG_ARGS=""
-        while IFS= read -r tag; do
-          [ -n "$tag" ] && TAG_ARGS="$TAG_ARGS -t $tag"
-        done <<< "${{ steps.meta.outputs.tags }}"
-        echo "TAG_ARGS=$TAG_ARGS" >> $GITHUB_OUTPUT
-      shell: bash -l {0}
-
+    # Images are built into the local image store: node and researcher images
+    # are built `FROM` the base image produced by an earlier step of the same job.
     - name: Build the image
+      shell: bash
+      env:
+        IMAGE_NAMES: ${{ inputs.image-names }}
+        TAGS: ${{ steps.meta.outputs.tags }}
+        LABELS: ${{ steps.meta.outputs.labels }}
+        VERSION: ${{ steps.meta.outputs.version }}
+        DOCKERFILE: ${{ inputs.file }}
+        PYTHON_VERSION: ${{ inputs.python-version }}
       run: |
-        docker build ${{ steps.tag-args.outputs.TAG_ARGS }} \
-          --build-arg FBM_IMAGE_VERSION=${{ steps.meta.outputs.version }} \
-          --build-arg PYTHON_VERSION=${{ inputs.python-version }} \
-          -f ${{ inputs.file }} . 
-      shell: bash -l {0}
-    
+        set -euo pipefail
+
+        TAG_ARGS=()
+        while IFS= read -r tag; do
+          if [[ -n "$tag" ]]; then
+            TAG_ARGS+=(-t "$tag")
+          fi
+        done <<< "$TAGS"
+
+        if [[ ${#TAG_ARGS[@]} -eq 0 ]]; then
+          echo "No tag was generated for $IMAGE_NAMES" >&2
+          exit 1
+        fi
+
+        LABEL_ARGS=()
+        while IFS= read -r label; do
+          if [[ -n "$label" ]]; then
+            LABEL_ARGS+=(--label "$label")
+          fi
+        done <<< "$LABELS"
+
+        docker build "${TAG_ARGS[@]}" "${LABEL_ARGS[@]}" \
+          --build-arg FBM_IMAGE_VERSION="$VERSION" \
+          --build-arg PYTHON_VERSION="$PYTHON_VERSION" \
+          -f "$DOCKERFILE" .
+
+    # Only an explicit `false` publishes, so an unset or unexpected `test` value
+    # keeps the images out of the registry.
     - name: Push the image
-      if: ${{ inputs.test == false || inputs.test == 'false' }}
-      run: | 
-        docker push --all-tags ${{ inputs.image-names }}
-      shell: bash -l {0}
+      if: inputs.test == 'false'
+      shell: bash
+      env:
+        TAGS: ${{ steps.meta.outputs.tags }}
+      run: |
+        set -euo pipefail
+        while IFS= read -r tag; do
+          if [[ -n "$tag" ]]; then
+            docker push "$tag"
+          fi
+        done <<< "$TAGS"

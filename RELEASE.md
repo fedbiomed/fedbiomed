@@ -60,6 +60,11 @@ git push origin release/$RELEASE_TAG
   * check that `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
   * review carefully the log details for the build
 
+- check that the docker image publication completes successfully
+  * pushing the version tag publishes the `fedbiomed/base`, `fedbiomed/node` and `fedbiomed/researcher` images to Docker Hub
+  * check that `Tests and Publish Fed-BioMed Docker Images` https://github.com/fedbiomed/fedbiomed/actions/workflows/docker-deploy.yml completes correctly
+  * verify the new version tag is listed on Docker Hub for the three images
+
 - do the merge
   *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
   * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
@@ -180,6 +185,11 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
   * check that `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
   * review carefully the log details for the build
+
+- check that the docker image publication completes successfully
+  * pushing the version tag publishes the `fedbiomed/base`, `fedbiomed/node` and `fedbiomed/researcher` images to Docker Hub
+  * check that `Tests and Publish Fed-BioMed Docker Images` https://github.com/fedbiomed/fedbiomed/actions/workflows/docker-deploy.yml completes correctly
+  * verify the new version tag is listed on Docker Hub for the three images
 
 - do the merge
   *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
