@@ -118,6 +118,10 @@ class TrainingArgs:
             logger.critical(msg)
             raise FedbiomedUserInputError(msg) from e
 
+        # Only the enum is passed on; the key is absent when only required args are set
+        if "test_metric" in self._ta:
+            self._ta["test_metric"] = self._as_metric_type(self._ta["test_metric"])
+
         # Validate DP arguments if it is existing in training arguments
         if self._ta["dp_args"] is not None:
             try:
@@ -240,6 +244,16 @@ class TrainingArgs:
         return False, f"Metric {metric} is not a supported Metric"
 
     @staticmethod
+    def _as_metric_type(
+        metric: Union[MetricTypes, str, None],
+    ) -> Optional[MetricTypes]:
+        """Converts an already validated metric name to the enum consumers expect."""
+        if isinstance(metric, str):
+            return MetricTypes.get_metric_type_by_name(metric.upper())
+
+        return metric
+
+    @staticmethod
     @validator_decorator
     def _fedprox_mu_validator(
         val: object,
@@ -337,7 +351,7 @@ class TrainingArgs:
         | test_on_local_updates | toggles validation after local training |
         | test_on_global_updates | toggles validation before local training |
         | shuffle_testing_dataset | whether reset or not the testing (and training) dataset for this `Round` |
-        | test_metric | metric to be used for validation |
+        | test_metric | metric to be used for validation, a `MetricTypes` or its name |
         | test_metric_args | supplemental arguments for the validation metric |
         | log_interval | output a training logging entry every log_interval model updates |
         | fedprox_mu | set the value of mu and enable FedProx correction |
@@ -459,6 +473,8 @@ class TrainingArgs:
             ta = deepcopy(self._ta)
             ta[key] = value
             self._sc.validate(ta)
+            if key == "test_metric":
+                value = self._as_metric_type(value)
             self._ta[key] = value  # only update it value is OK
         except (RuleError, ValidateError) as e:
             #
@@ -591,11 +607,6 @@ class TrainingArgs:
     @classmethod
     def load_state_breakpoint(cls, state: Dict) -> "TrainingArgs":
         """Loads training arguments state"""
-        if metric_name := state.get("test_metric"):
-            state.update(
-                {"test_metric": MetricTypes.get_metric_type_by_name(metric_name)}
-            )
-
         return cls(state)
 
     def get(self, key: str, default: Any = None) -> Any:
