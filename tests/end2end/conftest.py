@@ -5,8 +5,8 @@ Module for global PyTest configuration and fixtures
 
 import atexit
 import os
-import re
 import shutil
+import socket
 import tempfile
 
 # Redirect the researcher component created on `fedbiomed.researcher.config`
@@ -16,74 +16,46 @@ if "FBM_RESEARCHER_COMPONENT_ROOT" not in os.environ:
     os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = _researcher_root
     atexit.register(shutil.rmtree, _researcher_root, ignore_errors=True)
 
-import psutil
 import pytest
 from helpers import (
-    CONFIG_PREFIX,
-    kill_process,
+    create_federation,
+    kill_registered_subprocesses,
     stop_researcher_server,
 )
-
-_PORT = 50151
 
 os.environ["FBM_DEBUG"] = "1"
 
 
 @pytest.fixture(scope="module")
 def port():
-    """Increases and return port for researcher server"""
-    global _PORT
-
-    _PORT += 1
-    return str(_PORT)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def data():
-    """Create and expose the shared temporary directory for the test module."""
-    home_dir = os.path.expanduser("~")
-    tmp_dir = os.path.join(home_dir, "_tmp")
-    os.makedirs(tmp_dir, exist_ok=True)
-    print(f"##### FBM: Setting temporary test directory to {tmp_dir}")
-    pytest.temporary_test_directory = tempfile.TemporaryDirectory(dir=tmp_dir)
+    """Return an available port shared by the researcher and nodes."""
+    with socket.socket() as sock:
+        sock.bind(("localhost", 0))
+        return str(sock.getsockname()[1])
 
 
 @pytest.fixture(scope="module", autouse=True)
-def post_session(request, data):
-    """This method makes sure that the environment is clean to execute another test"""
+def e2e_workspace(request):
+    """Directory holding everything the module creates, removed afterwards.
 
-    print("#### Killing e2e processes before executing test module")
-    kill_e2e_test_processes()
-    print("#### Killing is completed --------")
+    The finalizers run in reverse order and pytest reports all of them, so a
+    failure to stop the server does not prevent the processes and the directory
+    from being cleaned.
+    """
+    tmp_dir = os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()
+    workspace = tempfile.TemporaryDirectory(prefix="fedbiomed-e2e-", dir=tmp_dir)
+    print(f"##### FBM: Workspace {workspace.name}")
     print(f"\n#######  Running test {request.node}:{request.node.name} --------")
 
-    yield
+    request.addfinalizer(workspace.cleanup)
+    request.addfinalizer(kill_registered_subprocesses)
+    request.addfinalizer(stop_researcher_server)
 
-    stop_researcher_server()
-    print("#### Killing e2e processes after the tests -----")
-    kill_e2e_test_processes()
-    print("#### Killing is completed")
-    print("\n###### Cleaning temporary directory: started -----\n")
-    print(f"Directory: {pytest.temporary_test_directory}")
-    pytest.temporary_test_directory.cleanup()
-    tmp_dir = os.path.join(os.path.expanduser("~"), "_tmp")
-    shutil.rmtree(tmp_dir, ignore_errors=True)
-    print("\n###### Cleaning temporary directory: finished  -----\n\n")
-    print(
-        f"#### Module tests have finished {request.node}:{request.node.name} --------"
-    )
+    yield workspace.name
 
 
-def kill_e2e_test_processes():
-    """Kills end2end processes if any existing"""
-
-    for process in psutil.process_iter():
-        try:
-            cmdline = process.cmdline()
-        except psutil.Error as e:
-            print(f"\n #####: FBM: PSUTIL ERROR: {e}")
-            continue
-        else:
-            if any([re.search(rf"^{CONFIG_PREFIX}.*\.ini$", cmd) for cmd in cmdline]):
-                print(f'#####: FBM: Found a processes not killed: "{cmdline}"')
-                kill_process(process)
+@pytest.fixture(scope="module")
+def federation(e2e_workspace, port):
+    """The researcher and nodes the module runs against."""
+    with create_federation(e2e_workspace, port) as federation_:
+        yield federation_

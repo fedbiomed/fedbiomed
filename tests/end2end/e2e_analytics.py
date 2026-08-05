@@ -9,14 +9,9 @@ import time
 import pytest
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_multiple_nodes,
-    create_researcher,
     generate_controlled_analytics_dataset,
     generate_sklearn_classification_dataset,
-    kill_subprocesses,
-    start_nodes,
 )
 
 from fedbiomed.common.utils import SHARE_DIR
@@ -24,14 +19,10 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session):
+def setup(federation):
     """Set up 2 nodes, each with an ADNI CSV and a synthetic classification CSV."""
 
-    with create_multiple_nodes(port, 2) as nodes:
-        node_1, node_2 = nodes
-
-        researcher = create_researcher(port=port)
-
+    with federation.nodes(2) as (node_1, node_2):
         # ADNI dataset — named columns, semicolon-delimited
         adni_path = os.path.join(
             SHARE_DIR, "notebooks", "data", "CSV", "pseudo_adni_mod.csv"
@@ -68,18 +59,11 @@ def setup(port, post_session):
         add_dataset_to_node(node_1, {**ctrl_dataset, "path": cp1})
         add_dataset_to_node(node_2, {**ctrl_dataset, "path": cp2})
 
-        node_processes, thread = start_nodes([node_1, node_2])
+        federation.start((node_1, node_2))
         print("Sleep 10 seconds to give time for nodes to start")
         time.sleep(10)
 
-        yield node_1, node_2, researcher
-
-        try:
-            kill_subprocesses(node_processes)
-            thread.join()
-        finally:
-            print("Clearing researcher data")
-            clear_component_data(researcher)
+        yield node_1, node_2, federation.researcher
 
 
 @pytest.fixture
