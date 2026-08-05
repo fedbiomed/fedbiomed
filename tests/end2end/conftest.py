@@ -17,7 +17,11 @@ if "FBM_RESEARCHER_COMPONENT_ROOT" not in os.environ:
     atexit.register(shutil.rmtree, _researcher_root, ignore_errors=True)
 
 import pytest
-from helpers import kill_registered_subprocesses, stop_researcher_server
+from helpers import (
+    create_federation,
+    kill_registered_subprocesses,
+    stop_researcher_server,
+)
 
 os.environ["FBM_DEBUG"] = "1"
 
@@ -31,23 +35,27 @@ def port():
 
 
 @pytest.fixture(scope="module", autouse=True)
-def module_environment(request):
-    """Expose a temporary directory for the module and guarantee its teardown.
+def e2e_workspace(request):
+    """Directory holding everything the module creates, removed afterwards.
 
-    Every component the module creates lives under this directory, so removing
-    it also removes what a failed test left behind. The finalizers run in
-    reverse order and pytest reports all of them, so a failure to stop the
-    server does not prevent the processes and the directory from being cleaned.
+    The finalizers run in reverse order and pytest reports all of them, so a
+    failure to stop the server does not prevent the processes and the directory
+    from being cleaned.
     """
     tmp_dir = os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()
-    pytest.temporary_test_directory = tempfile.TemporaryDirectory(
-        prefix="fedbiomed-e2e-", dir=tmp_dir
-    )
-    print(f"##### FBM: Temporary test directory {pytest.temporary_test_directory.name}")
+    workspace = tempfile.TemporaryDirectory(prefix="fedbiomed-e2e-", dir=tmp_dir)
+    print(f"##### FBM: Workspace {workspace.name}")
     print(f"\n#######  Running test {request.node}:{request.node.name} --------")
 
-    request.addfinalizer(pytest.temporary_test_directory.cleanup)
+    request.addfinalizer(workspace.cleanup)
     request.addfinalizer(kill_registered_subprocesses)
     request.addfinalizer(stop_researcher_server)
 
-    yield
+    yield workspace.name
+
+
+@pytest.fixture(scope="module")
+def federation(e2e_workspace, port):
+    """The researcher and nodes the module runs against."""
+    with create_federation(e2e_workspace, port) as federation_:
+        yield federation_

@@ -3,7 +3,6 @@ Helper methods for end2end tests
 """
 
 import asyncio
-import functools
 import importlib
 import json
 import multiprocessing
@@ -19,17 +18,24 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple
 if TYPE_CHECKING:
     from fedbiomed.researcher.federated_workflows import Experiment
 
-import pytest
-
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import ComponentType
 
 from ._execution import (
     execute_in_paralel,
     fedbiomed_run,
+    kill_subprocesses,
     shell_process,
 )
 from .constants import CONFIG_PREFIX, End2EndError
+
+# Cached outside the per-module workspace so each dataset is fetched once.
+DEFAULT_DATA_CACHE = os.path.join(
+    os.path.expanduser("~"), ".cache", "fedbiomed", "e2e-data"
+)
+
+# Only one researcher can exist per process, so only one federation can.
+_federation: "Federation | None" = None
 
 
 class PytestThread(threading.Thread):
@@ -290,15 +296,17 @@ def create_component(
     return config
 
 
-def create_researcher(port: str, config_sections: Dict | None = None) -> Config:
-    """Creates researcher component"""
+def create_researcher(
+    directory: str, port: str, config_sections: Dict | None = None
+) -> Config:
+    """Creates the researcher component files under the given directory"""
 
     config_sections = config_sections or {}
     config_sections.update({"server": {"port": port}})
 
     researcher = create_component(
         ComponentType.RESEARCHER,
-        directory=pytest.temporary_test_directory.name,
+        directory=directory,
         component_name=f"config_researcher_{uuid.uuid4()}.ini",
         config_sections=config_sections,
     )
@@ -334,78 +342,136 @@ def training_plan_operation(config: Config, operation: str, training_plan_id: st
     _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 
 
-def get_data_folder(path, root: str | None = None):
+def get_data_folder(path):
     """Returns the path for storing datasets, creating the folder if it does not exist.
+
+    The data root outlives the module workspace: downloaders skip work when the
+    files are already there, so each dataset is fetched once. Clear the root to
+    recover from a truncated archive.
 
     Args:
         path: Relative sub-path appended to the data root.
-        root: Optional override for the data root directory.
-            Defaults to the module-level temporary test directory.
     """
-    ci_data_path = os.environ.get("FEDBIOMED_E2E_DATA_PATH")
-    if ci_data_path:
-        folder = os.path.join(ci_data_path, path)
-    else:
-        if not root:
-            root = pytest.temporary_test_directory.name
-        folder = os.path.join(root, "data", path)
+    root = os.environ.get("FEDBIOMED_E2E_DATA_PATH") or DEFAULT_DATA_CACHE
+    folder = os.path.join(root, path)
 
     if not os.path.isdir(folder):
         print(f"Data folder for {path} is not existing. Creating folder...")
-        os.makedirs(folder)
+        os.makedirs(folder, exist_ok=True)
 
     return folder
 
 
-def create_node(port, config_sections: Dict | None = None):
-    """Creates node component"""
-
-    c_com = functools.partial(
-        create_component,
-        component_type=ComponentType.NODE,
-        directory=pytest.temporary_test_directory.name,
-        component_name=f"config_e2e_{uuid.uuid4()}.ini",
-    )
+def create_node(
+    directory: str, port: str, config_sections: Dict | None = None
+) -> Config:
+    """Creates a node component's files under the given directory"""
 
     config_sections = config_sections or {}
     config_sections.update({"researcher": {"port": port}})
 
-    return c_com(config_sections=config_sections)
+    return create_component(
+        ComponentType.NODE,
+        directory=directory,
+        component_name=f"config_e2e_{uuid.uuid4()}.ini",
+        config_sections=config_sections,
+    )
+
+
+class Federation:
+    """The researcher and the nodes of one test module.
+
+    A process holds one researcher only: `Requests` is a singleton,
+    `FBM_RESEARCHER_COMPONENT_ROOT` is process-wide and the researcher config is
+    module-global. Tests build one federation and add nodes to it, including the
+    extra nodes an individual test needs.
+
+    Owns the components it creates and the processes it starts, so tests never
+    handle teardown order.
+    """
+
+    def __init__(self, directory: str, port: str) -> None:
+        self._directory = directory
+        self._port = port
+        self._groups: List[Tuple[List, PytestThread]] = []
+        self.researcher = create_researcher(directory, port)
+
+    @contextmanager
+    def nodes(self, count: int = 1, config_sections: Dict | None = None) -> Tuple:
+        """Adds nodes to the federation for the duration of the block.
+
+        Whatever the block started is stopped on exit and the components
+        removed, so test-scoped nodes cannot outlive their test.
+        """
+        nodes = tuple(
+            create_node(self._directory, self._port, config_sections)
+            for _ in range(count)
+        )
+        started = len(self._groups)
+
+        try:
+            yield nodes
+        except BaseException:
+            # The processes may still hold these directories. The workspace
+            # removes them, so cleaning here would only risk replacing the real
+            # failure with a cleanup error.
+            print("Deferring node cleanup after an earlier failure.")
+            del self._groups[started:]
+            raise
+        else:
+            self._stop(started)
+            for node in nodes:
+                clear_component_data(node)
+
+    def start(self, nodes: Tuple[Config, ...]) -> None:
+        """Starts the given nodes, keeping their supervisor until they stop."""
+        processes, thread = start_nodes(list(nodes))
+        self._groups.append((processes, thread))
+
+    def _stop(self, from_index: int = 0) -> None:
+        """Stops every group started from the given index onwards.
+
+        Joining is what surfaces a node that died on its own, and it re-raises,
+        so everything is killed first to leave no process behind.
+        """
+        groups = self._groups[from_index:]
+        del self._groups[from_index:]
+
+        for processes, _ in groups:
+            kill_subprocesses(processes)
+
+        for _, thread in groups:
+            thread.join()
+
+    def close(self) -> None:
+        """Stops whatever is still running and removes the researcher.
+
+        The researcher goes even when stopping raises, so a reported node death
+        leaves nothing behind.
+        """
+        try:
+            self._stop()
+        finally:
+            clear_component_data(self.researcher)
 
 
 @contextmanager
-def create_multiple_nodes(
-    port: int, num_nodes: int, config_sections: Dict | List[Dict] = None
-) -> Tuple:
-    """Creates multiple node in a context manager"""
+def create_federation(directory: str, port: str) -> Federation:
+    """Creates the federation a test module runs against."""
+    global _federation
 
-    if config_sections:
-        if isinstance(config_sections, dict):
-            config_sections = [config_sections] * num_nodes
-        elif not isinstance(config_sections, list):
-            raise TypeError(f"Invalid config_sections type {type(config_sections)}")
-        elif len(config_sections) != num_nodes:
-            raise ValueError(
-                f"Number of nodes {num_nodes} is not equal number of config "
-                f"sections {len(config_sections)}"
-            )
+    if _federation is not None:
+        raise End2EndError(
+            "A federation already exists for this process. Only one researcher "
+            "can run at a time, so extra nodes must be added to it with "
+            "`Federation.nodes` instead of creating a second federation."
+        )
 
-    # Create nodes
-    nodes = []
+    _federation = Federation(directory, port)
     try:
-        for n in range(num_nodes):
-            if config_sections:
-                nodes.append(create_node(port, config_sections[n]))
-            else:
-                nodes.append(create_node(port))
-
-        yield tuple(nodes)
-    except BaseException:
-        # Node processes may still be holding these directories. The module
-        # temporary directory removes them, so cleaning here would only risk
-        # replacing the real failure with a cleanup error.
-        print("Deferring node component cleanup after an earlier failure.")
-        raise
-    else:
-        for node in nodes:
-            clear_component_data(node)
+        yield _federation
+    finally:
+        try:
+            _federation.close()
+        finally:
+            _federation = None

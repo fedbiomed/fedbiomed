@@ -8,13 +8,8 @@ from experiments.training_plans.mnist_pytorch_training_plan import (
 )
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_multiple_nodes,
-    create_researcher,
     get_data_folder,
-    kill_subprocesses,
-    start_nodes,
 )
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -24,10 +19,10 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, module_environment, request):
+def setup(federation):
     """Setup fixture for the module"""
     data_folder = get_data_folder("MNIST-e2e-test")
-    with create_multiple_nodes(port, 3) as nodes:
+    with federation.nodes(3) as nodes:
         dataset = {
             "name": "MNIST",
             "description": "MNIST DATASET",
@@ -39,15 +34,9 @@ def setup(port, module_environment, request):
         for node in nodes:
             add_dataset_to_node(node, dataset)
 
-        researcher = create_researcher(port=port)
-        node_processes, thread = start_nodes(list(nodes))
+        federation.start(nodes)
 
         yield
-
-        kill_subprocesses(node_processes)
-        thread.join()
-        print("Clearing component data")
-        clear_component_data(researcher)
 
 
 #############################################

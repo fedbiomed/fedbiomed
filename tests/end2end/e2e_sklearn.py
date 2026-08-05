@@ -30,14 +30,9 @@ from experiments.training_plans.sklearn import (
 )
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_multiple_nodes,
-    create_researcher,
     generate_sklearn_classification_dataset,
     get_data_folder,
-    kill_subprocesses,
-    start_nodes,
 )
 
 from fedbiomed.common.constants import DB_PREFIX, VAR_FOLDER_NAME
@@ -57,19 +52,14 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, module_environment):
+def setup(federation):
     """Setup fixture for the module"""
 
-    with create_multiple_nodes(
-        port, 3, {"security": {"secure_aggregation": "True"}}
-    ) as nodes:
-        node_1, node_2, node_3 = nodes  # pylint: disable=unbalanced-tuple-unpacking
-
-        # Create researcher component
-        researcher = create_researcher(port=port)
-
-        # Generate datasets
-
+    with federation.nodes(3, {"security": {"secure_aggregation": "True"}}) as (
+        node_1,
+        node_2,
+        node_3,
+    ):
         # Add CSV Dataset
         p1, p2, p3 = generate_sklearn_classification_dataset()
         dataset = {
@@ -131,20 +121,13 @@ def setup(port, module_environment):
         add_dataset_to_node(node_3, dataset)
 
         # Starts the nodes
-        node_processes, thread = start_nodes([node_1, node_2, node_3])
+        federation.start((node_1, node_2, node_3))
         # Wait for nodes to finish starting before running tests
         print("Waiting 10 seconds for nodes to start")
         time.sleep(10)
 
         # Run tests
-        yield node_1, node_2, node_3, researcher
-
-        try:
-            kill_subprocesses(node_processes)
-            thread.join()
-        finally:
-            print("Clearing researcher data")
-            clear_component_data(researcher)
+        yield node_1, node_2, node_3, federation.researcher
 
 
 RANDOM_SEED = 1234

@@ -10,13 +10,8 @@ import tqdm
 from experiments.training_plans.ixi_brain_segmentation import UNetTrainingPlan
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_multiple_nodes,
-    create_researcher,
     get_data_folder,
-    kill_subprocesses,
-    start_nodes,
 )
 from sklearn.model_selection import train_test_split
 
@@ -135,18 +130,14 @@ def prepare_ixi_dataset(root_folder: str):
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(module_environment, port):
+def setup(federation):
     """Setup fixture for the module"""
 
     data_folder = get_data_folder("IXI-example")
     prepare_ixi_dataset(root_folder=data_folder)
 
     print("Creating components ---------------------------------------------")
-    with create_multiple_nodes(port, 2) as nodes:
-        node_1, node_2 = nodes
-
-        researcher = create_researcher(port=port)
-
+    with federation.nodes(2) as (node_1, node_2):
         dataset = {
             "name": "IXI",
             "description": "IXI",
@@ -177,17 +168,11 @@ def setup(module_environment, port):
         add_dataset_to_node(node_2, dataset)
 
         # start nodes and give some time to start
-        node_processes, thread = start_nodes([node_1, node_2])
+        federation.start((node_1, node_2))
         print("Waiting for nodes to start")
         time.sleep(15)
 
         yield
-
-        try:
-            kill_subprocesses(node_processes)
-            thread.join()
-        finally:
-            clear_component_data(researcher)
 
 
 #############################################

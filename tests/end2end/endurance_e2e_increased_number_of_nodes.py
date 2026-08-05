@@ -8,13 +8,8 @@ import pytest
 from experiments.training_plans.sklearn import PerceptronTraining
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_multiple_nodes,
-    create_researcher,
     generate_sklearn_classification_dataset,
-    kill_subprocesses,
-    start_nodes,
 )
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -23,10 +18,10 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, module_environment, request):
+def setup(federation):
     """Setup fixture for the module"""
 
-    with create_multiple_nodes(port, 10) as nodes:
+    with federation.nodes(10) as nodes:
         p1, _, _ = generate_sklearn_classification_dataset()
 
         dataset = {
@@ -41,19 +36,12 @@ def setup(port, module_environment, request):
             print(node)
             add_dataset_to_node(node, dataset)
 
-        researcher = create_researcher(port=port)
-
-        node_processes, thread = start_nodes(list(nodes))
+        federation.start(nodes)
 
         # Give some time to start nodes in parallel
         time.sleep(30)
 
-        yield tuple(nodes)
-
-        kill_subprocesses(node_processes)
-        thread.join()
-        print("Clearing component data")
-        clear_component_data(researcher)
+        yield nodes
 
 
 #############################################

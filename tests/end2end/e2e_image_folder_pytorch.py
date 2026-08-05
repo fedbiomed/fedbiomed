@@ -8,13 +8,8 @@ from experiments.training_plans.mednist_pytorch_training_plan import (
 )
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_node,
-    create_researcher,
     get_data_folder,
-    kill_subprocesses,
-    start_nodes,
 )
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
@@ -23,15 +18,8 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, module_environment, request):
+def setup(federation):
     """Setup fixture for the module"""
-
-    print(f"USING PORT {port} for researcher server")
-    print("Creating components ---------------------------------------------")
-
-    node_1 = create_node(port=port)
-    node_2 = create_node(port=port)
-    researcher = create_researcher(port=port)
 
     mednist_path = get_data_folder("MedNIST-e2e-test")
     dataset1 = {
@@ -53,38 +41,27 @@ def setup(port, module_environment, request):
         "path": image_folder_path,
     }
 
-    print("Adding first dataset on first node ----------------------------------------")
-    add_dataset_to_node(node_1, dataset1)
-    print("Adding first dataset on second node ---------------------------------------")
-    add_dataset_to_node(node_2, dataset1)
+    with federation.nodes(2) as (node_1, node_2):
+        print("Adding first dataset on first node ------------------------------------")
+        add_dataset_to_node(node_1, dataset1)
+        print("Adding first dataset on second node -----------------------------------")
+        add_dataset_to_node(node_2, dataset1)
 
-    time.sleep(1)
+        time.sleep(1)
 
-    print("Adding second dataset on first node ---------------------------------------")
-    add_dataset_to_node(node_1, dataset2)
-    print("Adding second dataset on second node --------------------------------------")
-    add_dataset_to_node(node_2, dataset2)
+        print("Adding second dataset on first node -----------------------------------")
+        add_dataset_to_node(node_1, dataset2)
+        print("Adding second dataset on second node ----------------------------------")
+        add_dataset_to_node(node_2, dataset2)
 
-    time.sleep(1)
+        time.sleep(1)
 
-    # Starts the nodes
-    node_processes, thread = start_nodes([node_1, node_2])
+        federation.start((node_1, node_2))
 
-    # Clear files and processes created for the tests
-    def clear():
-        kill_subprocesses(node_processes)
-        thread.join()
+        print("Sleep 10 seconds. Giving some time for nodes to start")
+        time.sleep(10)
 
-        print("Clearing component data")
-        clear_component_data(node_1)
-        clear_component_data(node_2)
-        clear_component_data(researcher)
-
-    # Good to wait 3 second to give time to nodes start
-    print("Sleep 5 seconds. Giving some time for nodes to start")
-    time.sleep(10)
-
-    request.addfinalizer(clear)
+        yield
 
 
 #############################################

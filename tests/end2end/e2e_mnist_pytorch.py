@@ -11,13 +11,8 @@ from experiments.training_plans.mnist_pytorch_training_plan import (
 )
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_node,
-    create_researcher,
     get_data_folder,
-    kill_subprocesses,
-    start_nodes,
 )
 
 from fedbiomed.common.constants import DB_PREFIX, VAR_FOLDER_NAME
@@ -32,15 +27,8 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, module_environment):
+def setup(federation):
     """Setup fixture for the module"""
-
-    print(f"USING PORT {port} for researcher server")
-    print("Creating components ---------------------------------------------")
-
-    node_1 = create_node(port=port)
-    node_2 = create_node(port=port)
-    researcher = create_researcher(port=port)
 
     path_data = get_data_folder("MNIST-e2e-test")
     dataset1 = {
@@ -50,14 +38,6 @@ def setup(port, module_environment):
         "data_type": "default",
         "path": path_data,
     }
-
-    print("Adding first dataset --------------------------------------------")
-    add_dataset_to_node(node_1, dataset1)
-    print("Adding second dataset -------------------------------------------")
-    add_dataset_to_node(node_2, dataset1)
-
-    time.sleep(1)
-
     dataset2 = {
         "name": "CustomMNIST",
         "description": "MNIST DATASET using custom dataset class",
@@ -66,30 +46,28 @@ def setup(port, module_environment):
         "path": path_data,
     }
 
-    print("Adding first custom dataset -------------------------------------")
-    add_dataset_to_node(node_1, dataset2)
-    print("Adding second custom dataset ------------------------------------")
-    add_dataset_to_node(node_2, dataset2)
+    with federation.nodes(2) as (node_1, node_2):
+        print("Adding first dataset --------------------------------------------")
+        add_dataset_to_node(node_1, dataset1)
+        print("Adding second dataset -------------------------------------------")
+        add_dataset_to_node(node_2, dataset1)
 
-    time.sleep(1)
+        time.sleep(1)
 
-    # Starts the nodes
-    node_processes, thread = start_nodes([node_1, node_2])
+        print("Adding first custom dataset -------------------------------------")
+        add_dataset_to_node(node_1, dataset2)
+        print("Adding second custom dataset ------------------------------------")
+        add_dataset_to_node(node_2, dataset2)
 
-    # Wait for nodes to finish starting before running tests
-    print("Waiting 10 seconds for nodes to start")
-    time.sleep(10)
+        time.sleep(1)
 
-    yield node_1, node_2, researcher
+        federation.start((node_1, node_2))
 
-    try:
-        kill_subprocesses(node_processes)
-        thread.join()
-    finally:
-        print("Clearing component data")
-        clear_component_data(node_1)
-        clear_component_data(node_2)
-        clear_component_data(researcher)
+        # Wait for nodes to finish starting before running tests
+        print("Waiting 10 seconds for nodes to start")
+        time.sleep(10)
+
+        yield node_1, node_2, federation.researcher
 
 
 #############################################
