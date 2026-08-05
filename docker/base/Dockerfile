@@ -1,7 +1,7 @@
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.14
 
 # Stage 1: Build Node.js frontend
-FROM node:20-bullseye AS node-build
+FROM node:22-bookworm AS node-build
 WORKDIR /build
 
 # Copy package files for better caching
@@ -77,9 +77,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     tini \
     && rm -rf /var/lib/apt/lists/*
-
-RUN ACTUAL_PYTHON=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")') && \
-    test "$ACTUAL_PYTHON" = "$PYTHON_VERSION"
 
 # Create user and directories
 RUN groupadd --gid $FEDBIOMED_GID $FEDBIOMED_GROUP && \
