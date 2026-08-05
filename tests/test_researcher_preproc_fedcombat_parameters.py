@@ -56,7 +56,7 @@ def mock_analytics():
 
     # Configure fetch_stats to return a structure compatible with _compute_global_mean_std
     # Each stat ("mean", "std") returns per-node tensors
-    def fetch_stats_side_effect(stat_names, _emit_log):
+    def fetch_stats_side_effect(stat_names):
         result = {
             "mean": {
                 "cov1": torch.tensor([1.0]),
