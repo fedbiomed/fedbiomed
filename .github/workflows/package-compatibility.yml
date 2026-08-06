@@ -49,18 +49,14 @@ jobs:
           wheels=(dist/*.whl)
           source_distributions=(dist/*.tar.gz)
 
-          if [[ ${#wheels[@]} -ne 1 ]]; then
-            echo "Expected exactly one wheel, found ${#wheels[@]}." >&2
-            exit 1
-          fi
-          if [[ ${#source_distributions[@]} -ne 1 ]]; then
-            echo "Expected exactly one source distribution, found ${#source_distributions[@]}." >&2
-            exit 1
-          fi
-          if [[ "${wheels[0]}" != *-py3-none-any.whl ]]; then
-            echo "Expected a py3-none-any wheel, found ${wheels[0]}." >&2
-            exit 1
-          fi
+          fail() { echo "$1" >&2; exit 1; }
+
+          [[ ${#wheels[@]} -eq 1 ]] ||
+            fail "Expected exactly one wheel, found ${#wheels[@]}."
+          [[ ${#source_distributions[@]} -eq 1 ]] ||
+            fail "Expected exactly one source distribution, found ${#source_distributions[@]}."
+          [[ "${wheels[0]}" == *-py3-none-any.whl ]] ||
+            fail "Expected a py3-none-any wheel, found ${wheels[0]}."
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4

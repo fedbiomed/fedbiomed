@@ -86,10 +86,11 @@ runs:
     # PIP_EXTRA_INDEX_URL beforehand opts back into the CUDA build. tox forwards
     # the variable through its default PIP_* pass_env.
     - name: Select CPU-only torch on Linux
+      if: runner.os == 'Linux'
       shell: bash -l {0}
       run: |
         set -euo pipefail
-        if [[ "${{ runner.os }}" == "Linux" && -z "${PIP_EXTRA_INDEX_URL:-}" ]]; then
+        if [[ -z "${PIP_EXTRA_INDEX_URL:-}" ]]; then
           echo "Using CPU-only torch wheels."
           echo "PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu" >> "$GITHUB_ENV"
         fi

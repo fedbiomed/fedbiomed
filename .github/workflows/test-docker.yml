@@ -47,58 +47,37 @@ jobs:
 
       - name: Build base image
         run: |
-          docker build \
-            --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
-            --tag "fedbiomed/base:$IMAGE_TAG" \
-            --file docker/base/Dockerfile \
-            .
+          docker build --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
+            --tag "fedbiomed/base:$IMAGE_TAG" --file docker/base/Dockerfile .
 
-      - name: Build node image
+      - name: Build node and researcher images
         run: |
-          docker build \
-            --build-arg "FBM_IMAGE_VERSION=$IMAGE_TAG" \
-            --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
-            --tag "fedbiomed/node:$IMAGE_TAG" \
-            --file docker/node/Dockerfile \
-            .
-
-      - name: Build researcher image
-        run: |
-          docker build \
-            --build-arg "FBM_IMAGE_VERSION=$IMAGE_TAG" \
-            --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
-            --tag "fedbiomed/researcher:$IMAGE_TAG" \
-            --file docker/researcher/Dockerfile \
-            .
+          for image in node researcher; do
+            docker build \
+              --build-arg "FBM_IMAGE_VERSION=$IMAGE_TAG" \
+              --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
+              --tag "fedbiomed/$image:$IMAGE_TAG" \
+              --file "docker/$image/Dockerfile" .
+          done
 
       - name: Verify image Python and commands
         run: |
-          verify_python() {
-            local image="$1"
-            local actual
-            actual=$(docker run --rm --entrypoint python "$image" -c \
+          for image in base node researcher; do
+            actual=$(docker run --rm --entrypoint python "fedbiomed/$image:$IMAGE_TAG" -c \
               'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
             test "$actual" = "$PYTHON_VERSION"
-          }
+          done
 
-          verify_python "fedbiomed/base:$IMAGE_TAG"
-          verify_python "fedbiomed/node:$IMAGE_TAG"
-          verify_python "fedbiomed/researcher:$IMAGE_TAG"
-
-          docker run --rm --entrypoint fedbiomed \
-            "fedbiomed/base:$IMAGE_TAG" --help
-          docker run --rm --entrypoint fedbiomed \
-            "fedbiomed/node:$IMAGE_TAG" node --help
+          docker run --rm --entrypoint fedbiomed "fedbiomed/base:$IMAGE_TAG" --help
+          docker run --rm --entrypoint fedbiomed "fedbiomed/node:$IMAGE_TAG" node --help
           docker run --rm --entrypoint fedbiomed \
             "fedbiomed/researcher:$IMAGE_TAG" researcher --help
 
       - name: Remove test images
         if: always()
         run: |
-          docker image rm --force \
-            "fedbiomed/researcher:$IMAGE_TAG" \
-            "fedbiomed/node:$IMAGE_TAG" \
-            "fedbiomed/base:$IMAGE_TAG" || true
+          docker image rm --force "fedbiomed/researcher:$IMAGE_TAG" \
+            "fedbiomed/node:$IMAGE_TAG" "fedbiomed/base:$IMAGE_TAG" || true
 
   vpn-functional:
     name: VPN functional / Python ${{ matrix.python-version }} / ${{ matrix.runner-name }}
@@ -155,11 +134,7 @@ jobs:
 
       - name: Bound persistent Docker build cache
         if: matrix.persistent-cache
-        run: |
-          docker builder prune \
-            --all \
-            --force \
-            --keep-storage 8gb
+        run: docker builder prune --all --force --keep-storage 8gb
 
       - name: Run VPN functional test
         run: ./tests/vpn_test.sh
@@ -169,16 +144,11 @@ jobs:
         run: |
           sudo chown -R "$(id -u):$(id -g)" envs/vpn/docker || true
           ./scripts/fedbiomed_vpn clean image || true
-          docker compose \
-            --file envs/vpn/docker/docker-compose.yml \
-            --project-name "$COMPOSE_PROJECT_NAME" \
-            down --remove-orphans || true
+          docker compose --file envs/vpn/docker/docker-compose.yml \
+            --project-name "$COMPOSE_PROJECT_NAME" down --remove-orphans || true
 
       - name: Prune persistent Docker build cache
         if: ${{ always() && matrix.persistent-cache }}
         run: |
-          docker builder prune \
-            --all \
-            --force \
-            --keep-storage 8gb || true
+          docker builder prune --all --force --keep-storage 8gb || true
           docker system df || true
