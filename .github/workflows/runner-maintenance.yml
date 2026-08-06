@@ -1,0 +1,115 @@
+---
+# Self-hosted runners keep their disk between jobs, so the caches the tests
+# fill are never reclaimed. This bounds the four that grow without limit — pip,
+# Homebrew, cached interpreters, E2E datasets — and touches nothing else.
+name: Self-hosted runner maintenance
+
+on:
+  schedule:
+    # Sunday 04:00 UTC (05:00 Paris CET, 06:00 CEST), clear of the endurance
+    # and compatibility matrices.
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  # Purge the pip cache once it grows past this size, in kilobytes.
+  PIP_CACHE_LIMIT_KB: 5242880
+  # Remove interpreters the runner tool cache has not written for this long.
+  TOOL_CACHE_MAX_AGE_DAYS: 60
+  # Refresh end-to-end datasets that have not been rewritten for this long.
+  DATA_CACHE_MAX_AGE_DAYS: 90
+
+jobs:
+  # GitHub cannot address every self-hosted runner at once, so each one is
+  # listed here. A runner that is offline keeps its job queued and the leg
+  # eventually fails, which is the intended signal that the machine needs
+  # attention.
+  clean:
+    name: Clean ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - macos-m1
+          - ubuntu-24-04
+    runs-on: [self-hosted, "${{ matrix.runner }}"]
+    timeout-minutes: 30
+    steps:
+      - name: Report disk usage before cleaning
+        shell: bash -l {0}
+        run: df -h
+
+      # Test jobs on these runners install into a persistent pip cache, which
+      # nothing else bounds. Emptying it costs one slower job afterwards.
+      - name: Purge an oversized pip cache
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            CACHE_DIR="$HOME/Library/Caches/pip"
+          else
+            CACHE_DIR="$HOME/.cache/pip"
+          fi
+
+          if [[ ! -d "$CACHE_DIR" ]]; then
+            echo "No pip cache at $CACHE_DIR."
+            exit 0
+          fi
+
+          SIZE_KB=$(du -sk "$CACHE_DIR" | cut -f1)
+          if [[ "$SIZE_KB" -gt "$PIP_CACHE_LIMIT_KB" ]]; then
+            echo "Purging $CACHE_DIR, $((SIZE_KB / 1024)) MB."
+            rm -rf "${CACHE_DIR:?}"
+          else
+            echo "Keeping $CACHE_DIR, $((SIZE_KB / 1024)) MB."
+          fi
+
+      - name: Remove superseded Homebrew downloads
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          arch -arm64 brew cleanup -s
+
+      # actions/setup-python keeps one directory per patch version, so the tool
+      # cache grows every time a matrix moves to a newer patch. A version that
+      # is still wanted is downloaded again on its next use.
+      - name: Remove unused interpreters from the tool cache
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          PYTHON_TOOL_CACHE="${RUNNER_TOOL_CACHE:-}/Python"
+          if [[ ! -d "$PYTHON_TOOL_CACHE" ]]; then
+            echo "No interpreters cached in $PYTHON_TOOL_CACHE."
+            exit 0
+          fi
+
+          find "$PYTHON_TOOL_CACHE" -mindepth 1 -maxdepth 1 -type d \
+            -mtime "+$TOOL_CACHE_MAX_AGE_DAYS" -print -exec rm -rf {} +
+
+      # The E2E dataset cache outlives the job and nothing else reclaims it.
+      # Directories are rewritten on fetch but not on read, so age expires every
+      # dataset alike. Root: DEFAULT_DATA_CACHE in tests/end2end/helpers.
+      - name: Remove stale end-to-end datasets
+        shell: bash -l {0}
+        run: |
+          set -euo pipefail
+          DATA_CACHE="$HOME/.cache/fedbiomed/e2e-data"
+          if [[ ! -d "$DATA_CACHE" ]]; then
+            echo "No dataset cache at $DATA_CACHE."
+            exit 0
+          fi
+
+          find "$DATA_CACHE" -mindepth 1 -maxdepth 1 -type d \
+            -mtime "+$DATA_CACHE_MAX_AGE_DAYS" -print -exec rm -rf {} +
+
+      - name: Report disk usage after cleaning
+        shell: bash -l {0}
+        run: df -h

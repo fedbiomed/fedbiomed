@@ -46,7 +46,7 @@ All workflow definitions are under `.github/workflows`.
 | `docker-deploy.yml` | Builds public base, node, and researcher docker images and publishes those release images to Docker Hub | Version tag, or manual |
 | `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
 | `codespell.yml` | Checks repository spelling and annotates errors | Pull requests targeting `develop` or `master` |
-| `runner-maintenance.yml` | Bounded cleanup of the pip cache, Homebrew downloads, and cached interpreters on every self-hosted runner | Sunday at 04:00 UTC or manual |
+| `runner-maintenance.yml` | Bounded cleanup of the pip cache, Homebrew downloads, cached interpreters, and end-to-end datasets on every self-hosted runner | Sunday at 04:00 UTC or manual |
 
 The workflow filename identifies the owner of a CI lane. The reusable
 `fbm-generic-test.yml` file owns the test implementation, while small caller
@@ -84,9 +84,14 @@ to the pull-request branch therefore replaces an obsolete run.
 - ordinary E2E tests
 
 Ordinary E2E tests are sharded by test file. Each file receives its own job,
-temporary data directory, tox environment, timeout, logs, and dependency
-snapshot. A failure in one file does not prevent unrelated shards from
-reporting their results.
+tox environment, timeout, logs, and dependency snapshot. A failure in one file
+does not prevent unrelated shards from reporting their results.
+
+Datasets are not sharded. `get_data_folder` caches them under
+`~/.cache/fedbiomed/e2e-data`, so a self-hosted runner fetches MNIST, MedNIST,
+and IXI once and later jobs reuse them; a hosted runner starts empty each time.
+`FEDBIOMED_E2E_DATA_PATH` overrides that root and no workflow sets it.
+`runner-maintenance.yml` prunes the cache.
 
 The matrix uses `fail-fast: false`, so all Python and runner combinations can
 report compatibility failures in a single workflow run.
@@ -288,8 +293,9 @@ run and does not execute a broad `docker system prune`.
 ### Docker publication
 
 `docker-deploy.yml` owns publication of the public base, node, and researcher
-images. Published images intentionally use one documented Python runtime,
-currently Python 3.11.
+images. Published images use one Python runtime, currently Python 3.14. It is
+the default `PYTHON_VERSION` in `docker/base/Dockerfile`; `docker-deploy.yml`
+passes no build argument, so editing that default changes what is published.
 
 A `v*.*.*` tag publishes the generated tags to Docker Hub. Manual runs build
 the same images without publishing them. Image builds are otherwise covered by

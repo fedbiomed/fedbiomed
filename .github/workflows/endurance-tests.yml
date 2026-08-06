@@ -45,8 +45,7 @@ jobs:
           FBM_GITLAB_TOKEN: ${{ secrets.FBM_GITLAB_TOKEN }}
         run: |
           set -m
-          FEDBIOMED_E2E_DATA_PATH=$HOME/Data/fedbiomed \
-            tox -r -e py${{ matrix.python-version }}-e2e-endurance &
+          tox -r -e py${{ matrix.python-version }}-e2e-endurance &
           TEST_PID=$!
           echo "TEST_PGID=$(ps -o pgid= -p $TEST_PID | tr -d ' ')" >> $GITHUB_ENV
           wait $TEST_PID

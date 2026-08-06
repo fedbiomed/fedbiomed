@@ -281,8 +281,6 @@ jobs:
         run: tox --showconfig -e py${{ matrix.python-version }}-e2e-mnist
 
       - name: Run MNIST smoke test
-        env:
-          FEDBIOMED_E2E_DATA_PATH: ${{ runner.temp }}/fedbiomed-e2e-data
         run: tox -r -e py${{ matrix.python-version }}-e2e-mnist
 
       - name: Record MNIST dependencies
@@ -347,7 +345,6 @@ jobs:
         env:
           FBM_GITLAB_TOKEN: ${{ secrets.FBM_GITLAB_TOKEN }}
           FBM_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.e2e-file }}
-          FEDBIOMED_E2E_DATA_PATH: ${{ runner.temp }}/fedbiomed-e2e-data-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-version }}-${{ matrix.e2e-file }}
         run: |
           set -o pipefail
           tox -r -e py${{ matrix.python-version }}-e2e -- \
