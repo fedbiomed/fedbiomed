@@ -1,5 +1,10 @@
 # Fed-BioMed changelog
 
+## 2026-08-06 version 6.4.1
+
+- Solves the blank page bug in node process manager in the GUI. 
+- Enables node process manager in the GUI by default and disables node process manager only for VPN GUI image and activates for other usages. 
+
 ## 2026-08-04 version 6.4.0
 
 - Added new Docker images for the core Fed-BioMed components that can be used without a VPN. Docker images are now published to Docker Hub for each release.
