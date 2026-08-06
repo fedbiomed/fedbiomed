@@ -1,8 +1,10 @@
 import React from 'react';
+import axios from 'axios';
 import SideNav from './SideNav'
 import { Navigate, Outlet, useNavigate} from "react-router-dom";
 import {autoLogin, decodeToken, getAccessToken, removeToken, setUser} from "../../store/actions/authActions";
 import {useDispatch, useSelector, shallowEqual, connect} from "react-redux";
+import {EP_CONFIG_NODE_ENVIRON} from "../../constants";
 import {
     EuiHeaderSectionItemButton,
     EuiAvatar,
@@ -52,6 +54,16 @@ export const LoginProtected = connect(mapStateToProps, mapDispatchToProps)( (pro
         userAutoLogin(navigate)
     }, [userAutoLogin])
 
+    // Only fetch this once the user is authenticated, since /api/config/node-environ
+    // requires a valid JWT and would otherwise 401 and bounce back to /login.
+    const [nodeManagementEnabled, setNodeManagementEnabled] = React.useState(false)
+    React.useEffect(() => {
+        if (!props.user.is_auth) return
+        axios.get(EP_CONFIG_NODE_ENVIRON)
+            .then(res => setNodeManagementEnabled(Boolean(res.data?.result?.enable_node_management)))
+            .catch(() => {})
+    }, [props.user.is_auth])
+
 
     if(user) {
         return(
@@ -74,7 +86,7 @@ export const LoginProtected = connect(mapStateToProps, mapDispatchToProps)( (pro
                     <div className="main-frame">
                         <div className="router-frame">
                             <div className="inner">
-                                <Outlet />
+                                <Outlet context={{nodeManagementEnabled}} />
                             </div>
                         </div>
                     </div>

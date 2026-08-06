@@ -1,9 +1,9 @@
-import os
 import configparser
-from fedbiomed.node.config import NodeConfig
+import os
 import shutil
 
 from fedbiomed.common.utils import ROOT_DIR
+from fedbiomed.node.config import NodeConfig
 
 cfg = configparser.ConfigParser()
 
@@ -110,6 +110,11 @@ class Config(dict):
             True,
             "yes",
         )
+
+        # Enable Node Management page (temporary flag, default on; disabled in vpn/node-gui image)
+        self.configuration["ENABLE_NODE_MANAGEMENT"] = os.getenv(
+            "FBM_GUI_ENABLE_NODE_MANAGEMENT", "True"
+        ).lower() in ("true", "1", "yes")
 
         # Serve  configurations PORT and IP
         self.configuration["PORT"] = os.getenv(

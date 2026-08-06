@@ -20,6 +20,9 @@ export DOLLAR='$'
 export FBM_GUI_PORT=8000
 export FBM_GUI_HOST=localhost
 
+# Temporary: keep Node Management page disabled in this image until it's the default everywhere (remove this line then)
+export FBM_GUI_ENABLE_NODE_MANAGEMENT=False
+
 # Set variable for nginx handling with/without specific domain
 if [ -z "$GUI_SERVER_NAME" ] ; then
   export SERVER_NAME_DIRECTIVE=
