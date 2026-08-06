@@ -3,6 +3,7 @@
 
 from typing import Any, Callable, Dict, Optional, Tuple
 import pandas as pd
+import types
 import torch
 
 from fedbiomed.common.dataset._dataset import Dataset
@@ -65,6 +66,8 @@ class NipoppyDataset(Dataset):
         controller_kwargs["whole_df_transform"] = self._whole_df_level_transform
         self._init_controller(controller_kwargs=controller_kwargs)
         self._to_format = to_format
+        if self._controller is not None and hasattr(self, "_complete_derivatives_initialization"):
+            self._complete_derivatives_initialization()
 
     def __getitem__(self, idx) -> Tuple[pd.DataFrame, pd.DataFrame | None]:
         target_ = self.target if self.target is not None else []
@@ -92,3 +95,16 @@ class NipoppyDataset(Dataset):
             Dict[str, Optional[Any]]: Metadata about the dataset.
         """
         return self._controller.metadata if self._controller is not None else {}
+
+    def set_derivatives_initializer(self, derivatives_initializer: Callable) -> None:
+        """Sets the derivatives initializer method for the dataset. 
+        
+        This method will be called during complete_initialization to initialize derivatives,
+        after initializing the controller.
+        
+        Args:
+            derivatives_initializer: A callable that takes the dataset instance as an argument and initializes derivatives. 
+                                     The signature of this method MUST be: `def derivatives_initializer(dataset: NipoppyDataset) -> None`.
+        """
+        self._complete_derivatives_initialization = types.MethodType(derivatives_initializer, self)
+        
