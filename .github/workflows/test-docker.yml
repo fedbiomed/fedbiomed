@@ -18,8 +18,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: fedbiomed-docker-compatibility
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   hosted-build-smoke:
@@ -106,7 +106,6 @@ jobs:
     timeout-minutes: 360
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         include:
           - python-version: "3.11"

@@ -265,8 +265,18 @@ node, and GUI images and then:
 - runs a federated training experiment
 
 The test uses run-specific image tags, Compose project names, container names,
-and network names. The matrix is currently serial because the VPN environment
-uses fixed host ports.
+and network names. Host ports are fixed, so two legs must never share a
+machine. The runner topology provides that: GitHub-hosted legs each get their
+own ephemeral virtual machine, and a self-hosted runner executes one job at a
+time. Installing a second runner service on an existing self-hosted host would
+break the assumption and cause port collisions.
+
+The same constraint applies to a developer machine. Only one VPN stack can run
+at a time on a given host — `FBM_CONTAINER_INSTANCE_ID` distinguishes container
+and network names, but not host ports.
+
+Runs are superseded per pull request or ref, so pushing a new commit replaces
+an in-flight run instead of queueing behind it.
 
 Compatibility CI explicitly selects the non-GPU node base and CPU-only PyTorch
 to fit within CI disk limits. This is an opt-in test configuration:
