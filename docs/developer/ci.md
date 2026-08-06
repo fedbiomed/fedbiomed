@@ -165,21 +165,17 @@ failure does not fail the test job.
 ### Manual test selection
 
 The Actions page exposes `fbm-generic-test.yml` as **Fed-BioMed Tests
-(Reusable)**. Its manual form provides independent checkboxes for:
+(Reusable)**. Its manual form takes the same inputs as a workflow call:
 
-- Python 3.11 through Python 3.14
-- GitHub-hosted Ubuntu
-- self-hosted Ubuntu
-- GitHub-hosted macOS
-- self-hosted macOS M1
-- documentation
-- unit tests
-- MNIST
-- ordinary E2E
+- `python-versions`: JSON list, for example `["3.11","3.14"]`
+- `os-list`: JSON list of runner labels, drawn from `ubuntu-latest`,
+  `ubuntu-24-04`, `macos-latest`, and `macos-m1`
+- `run-docs`, `run-unit`, `run-mnist`, `run-e2e`: one checkbox each
 
-At least one Python version and one runner must be selected when a matrix test
-is enabled. Documentation can run by itself because it has a fixed Python and
-runner configuration.
+Both lists must be valid JSON arrays; the matrices consume them through
+`fromJSON`, so a malformed value fails the run before any job starts. An empty
+array produces no jobs for that matrix. Documentation ignores both lists
+because it has a fixed Python and runner configuration.
 
 ## Python setup
 
