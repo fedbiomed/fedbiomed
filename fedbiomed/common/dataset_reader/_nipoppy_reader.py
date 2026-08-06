@@ -48,5 +48,13 @@ class NipoppyReader:
         """
         return {str(col): str(dtype) for col, dtype in self._retriever.get_all_phenotypes().dtypes.items()}
 
+    def get_installed_pipelines(self) -> List[str]:
+        """Gets the list of installed pipelines.
+
+        Returns:
+            List[str]: The list of installed pipelines.
+        """
+        return NippopyStudy(NippopyDatasetLayout(self._path)).get_installed_pipelines()
+
     def __len__(self):
         return len(NippopyStudy(NippopyDatasetLayout(self._path)))
