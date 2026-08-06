@@ -76,10 +76,19 @@ class NipoppyDataset(Dataset):
         X, Y = map(self._get_format_conversion_callable(), (X, Y))
         X, Y = self._apply_transform(X, Y)
         return X, Y
-    
+
     def _apply_transform(self, X, Y):
         if self.transform is not None:
             X = self.transform(X)
         if self.target_transform is not None and Y is not None:
             Y = self.target_transform(Y)
         return X, Y
+
+    def get_metadata(self) -> Dict[str, Optional[Any]]:
+        """Returns metadata about the dataset.
+        Includes available phenotypes and installed pipelines.
+
+        Returns:
+            Dict[str, Optional[Any]]: Metadata about the dataset.
+        """
+        return self._controller.metadata if self._controller is not None else {}

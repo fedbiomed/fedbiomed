@@ -36,6 +36,7 @@ class NipoppyController(Controller):
         self._controller_kwargs = {
             "root": str(self.root),
             "available_phenotypes": list(self._reader.get_schema().keys()),
+            "installed_pipelines": self._reader.get_installed_pipelines()
         }
         self._data: Optional[pd.DataFrame] = None  # lazy loaded
         session_filters = [session_filters] if isinstance(session_filters, str) else session_filters  # wrap single string in list
@@ -43,6 +44,10 @@ class NipoppyController(Controller):
         self._drop_na = drop_na
         self._drop_na_kwargs = drop_na_kwargs if drop_na_kwargs is not None else {}
         self._whole_df_transform = whole_df_transform
+        self.metadata : Dict[str, Optional[Any]] = {
+            "available_phenotypes": kwargs.get("available_phenotypes"),
+            "installed_pipelines": kwargs.get("installed_pipelines")
+        }
 
     def _read_and_postprocess_data(self, 
                               phenotypes: Optional[List[str]] = None,
