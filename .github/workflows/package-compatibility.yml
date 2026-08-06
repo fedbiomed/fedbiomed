@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build-package:
-    name: Build package / Python 3.10 / Ubuntu latest
+    name: Build package / Python 3.11 / Ubuntu latest
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -23,7 +23,7 @@ jobs:
       - name: Setup Python and PDM
         uses: pdm-project/setup-pdm@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -82,7 +82,6 @@ jobs:
           - macos-latest
           - macos-m1
         python-version:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"

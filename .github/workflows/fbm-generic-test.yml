@@ -34,15 +34,10 @@ on:
         type: boolean
   workflow_dispatch:
     inputs:
-      python_310:
-        description: Test with Python 3.10
-        required: false
-        default: true
-        type: boolean
       python_311:
         description: Test with Python 3.11
         required: false
-        default: false
+        default: true
         type: boolean
       python_312:
         description: Test with Python 3.12
@@ -117,7 +112,6 @@ jobs:
         env:
           CALLED_PYTHON_VERSIONS: ${{ inputs.python-versions }}
           CALLED_OS_LIST: ${{ inputs.os-list }}
-          PYTHON_310: ${{ inputs.python_310 }}
           PYTHON_311: ${{ inputs.python_311 }}
           PYTHON_312: ${{ inputs.python_312 }}
           PYTHON_313: ${{ inputs.python_313 }}
@@ -142,7 +136,6 @@ jobs:
 
           if [[ -z "$CALLED_PYTHON_VERSIONS" && -z "$CALLED_OS_LIST" ]]; then
             python_versions=()
-            [[ "$PYTHON_310" == "true" ]] && python_versions+=("3.10")
             [[ "$PYTHON_311" == "true" ]] && python_versions+=("3.11")
             [[ "$PYTHON_312" == "true" ]] && python_versions+=("3.12")
             [[ "$PYTHON_313" == "true" ]] && python_versions+=("3.13")

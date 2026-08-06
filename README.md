@@ -2,7 +2,7 @@
 [![PyPI Downloads](https://static.pepy.tech/badge/fedbiomed)](https://pepy.tech/projects/fedbiomed)
 [![](https://img.shields.io/badge/Medium-black?logo=medium)](https://medium.com/fed-biomed)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/fedbiomed/fedbiomed/blob/master/LICENSE.md)
-[![Python-versions](https://img.shields.io/badge/python-3.10-brightgreen)](https://www.python.org/)
+[![Python-versions](https://img.shields.io/badge/python-3.11--3.14-brightgreen)](https://www.python.org/)
 [![PyPI - Version](https://img.shields.io/pypi/v/fedbiomed?color=white)](https://pypi.org/project/fedbiomed/)
 [![Citation](https://img.shields.io/badge/cite-paper-orange)](https://arxiv.org/abs/2304.12012)
 [![PR](https://img.shields.io/badge/PRs-welcome-green)](https://github.com/fedbiomed/fedbiomed/pulls)
@@ -35,12 +35,12 @@ An installation guide is also provided for Windows11, which relies on WSL2: http
 
 ### Prerequisites
 
-- **Python:** Compatible version (currently 3.10)
+- **Python:** Compatible version (currently 3.11 to 3.14)
 - It is recommended to install Python in a local environment, for example, using `pyenv`.
 
 ```
-pyenv install 3.10
-pyenv local 3.10
+pyenv install 3.11
+pyenv local 3.11
 ```
 
 A recommended practice is to use a virtual environment for managing dependencies. For example, if using `venv`:

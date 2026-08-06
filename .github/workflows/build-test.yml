@@ -27,7 +27,7 @@ jobs:
     uses: ./.github/workflows/fbm-generic-test.yml
     secrets: inherit
     with:
-      python-versions: '["3.10","3.14"]'
+      python-versions: '["3.11","3.14"]'
       os-list: '["ubuntu-latest","macos-latest"]'
       run-docs: true
       run-unit: true

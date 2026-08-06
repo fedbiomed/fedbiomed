@@ -24,7 +24,7 @@ jobs:
           - ubuntu-latest
           - ubuntu-24-04
         python-version:
-          - "3.10"
+          - "3.11"
           - "3.14"
     runs-on: ${{ matrix.os }}
     steps:
@@ -32,7 +32,7 @@ jobs:
         id: endurance-checkout
         uses: actions/checkout@v4
 
-      - name: Install Python using Pyenv
+      - name: Setup Fed-BioMed test environment
         uses: ./.github/actions/setup-fbm-env
         with:
           python-version: ${{ matrix.python-version }}

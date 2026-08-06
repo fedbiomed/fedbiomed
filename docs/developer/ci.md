@@ -4,7 +4,7 @@ Fed-BioMed uses [GitHub Actions](https://github.com/fedbiomed/fedbiomed/actions)
 for pull-request checks, scheduled compatibility testing, package validation,
 Docker testing, and releases.
 
-The supported Python range is Python 3.10 through Python 3.14. The CI strategy
+The supported Python range is Python 3.11 through Python 3.14. The CI strategy
 uses two complementary levels:
 
 - Fast pull-request gates test the oldest and newest supported Python versions.
@@ -60,7 +60,7 @@ and with which matrix it runs.
 `build-test.yml` runs only for non-draft pull requests targeting `develop` or
 `master`. It calls `fbm-generic-test.yml` with:
 
-- Python 3.10 and Python 3.14
+- Python 3.11 and Python 3.14
 - `ubuntu-latest` and `macos-latest`
 - the complete unit-test suite
 - the MNIST E2E smoke test
@@ -78,7 +78,7 @@ to the pull-request branch therefore replaces an obsolete run.
 `python-compatibility.yml` runs once per week and calls
 `fbm-generic-test.yml` with:
 
-- Python 3.10, 3.11, 3.12, 3.13, and 3.14
+- Python 3.11, 3.12, 3.13, and 3.14
 - `ubuntu-latest`, `ubuntu-24-04`, `macos-latest`, and `macos-m1`
 - unit tests
 - ordinary E2E tests
@@ -94,7 +94,7 @@ report compatibility failures in a single workflow run.
 ### E2E testing on `master`
 
 `end-to-end.yml` retains ordinary E2E coverage for pushes to `master`. Its
-automatic default is Python 3.10 and 3.14 across the four compatibility
+automatic default is Python 3.11 and 3.14 across the four compatibility
 runners.
 
 For a manual run, `python-version` and `os` accept JSON arrays. For example:
@@ -112,7 +112,7 @@ select `e2e_*.py` and exclude `endurance_*.py`.
 `endurance-tests.yml` is deliberately separate from ordinary E2E testing. It
 runs once per week with:
 
-- Python 3.10 and Python 3.14
+- Python 3.11 and Python 3.14
 - `ubuntu-latest` and `ubuntu-24-04`
 - only `endurance_*.py`
 - a six-hour job timeout
@@ -136,7 +136,7 @@ test lanes. Callers provide:
 It creates exact tox environment names such as:
 
 ```text
-py3.10-unit
+py3.11-unit
 py3.14-e2e-mnist
 py3.12-e2e
 ```
@@ -162,7 +162,7 @@ failure does not fail the test job.
 The Actions page exposes `fbm-generic-test.yml` as **Fed-BioMed Tests
 (Reusable)**. Its manual form provides independent checkboxes for:
 
-- Python 3.10 through Python 3.14
+- Python 3.11 through Python 3.14
 - GitHub-hosted Ubuntu
 - self-hosted Ubuntu
 - GitHub-hosted macOS
@@ -206,13 +206,13 @@ PyTorch publishes no CUDA build for them.
 `package-compatibility.yml` separates building a package from testing its
 installation:
 
-1. Build one wheel and one source distribution on Python 3.10.
+1. Build one wheel and one source distribution on Python 3.11.
 2. Validate their metadata with Twine.
 3. Upload the build output as the `fedbiomed-package` artifact.
 4. Download the same wheel into each Python and runner job.
 5. Install it in a clean virtual environment.
 
-The installation matrix covers Python 3.10 through Python 3.14 on all four
+The installation matrix covers Python 3.11 through Python 3.14 on all four
 compatibility runners. It verifies:
 
 - `pip check`
@@ -235,7 +235,7 @@ Docker testing is split into build smoke tests and a functional VPN test.
 ### Public-image build smoke
 
 The `hosted-build-smoke` job in `test-docker.yml` runs on a fresh
-`ubuntu-latest` runner for Python 3.10 through Python 3.14. It:
+`ubuntu-latest` runner for Python 3.11 through Python 3.14. It:
 
 - builds `docker/base/Dockerfile`
 - builds `docker/node/Dockerfile`
@@ -248,7 +248,7 @@ These images are test-only and are not pushed.
 
 ### VPN functional test
 
-The `vpn-functional` job in `test-docker.yml` runs Python 3.10 and 3.14 on
+The `vpn-functional` job in `test-docker.yml` runs Python 3.11 and 3.14 on
 GitHub-hosted and self-hosted Ubuntu. It builds the VPN server, researcher,
 node, and GUI images and then:
 
