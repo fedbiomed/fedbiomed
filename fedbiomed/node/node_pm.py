@@ -17,7 +17,7 @@ from typing import Any, Dict, Optional, Union
 
 import psutil
 
-from fedbiomed.common.constants import CONFIG_FOLDER_NAME, ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import DEFAULT_APPLICATION_LOG_FILE, logger
 from fedbiomed.node.config import NodeConfig
@@ -68,10 +68,8 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
     config = NodeConfig(root=config_path)
     node_args = json.loads(node_args) if isinstance(node_args, str) else node_args
 
-    _node = Node(config, node_args)
-
-    logger.info(str(_node))
-    logger.info(f"Node name: {_node.config.get('default', 'name')}")
+    # Built inside the try below: building it can fail on a bad configuration.
+    _node: Optional[Node] = None
 
     def _node_signal_handler(signum: int, frame: Union[FrameType, None]):
         """Signal handler that terminates the process.
@@ -112,12 +110,17 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
             time.sleep(0.5)
             sys.exit(signum)
 
-    if getattr(_node, "_debug", False):
-        logger.setLevel("DEBUG")
-    else:
-        logger.setLevel("INFO")
-
     try:
+        _node = Node(config, node_args)
+
+        logger.info(str(_node))
+        logger.info(f"Node name: {_node.config.get('default', 'name')}")
+
+        if getattr(_node, "_debug", False):
+            logger.setLevel("DEBUG")
+        else:
+            logger.setLevel("INFO")
+
         signal.signal(signal.SIGTERM, _node_signal_handler)
         signal.signal(signal.SIGINT, _node_signal_handler)
         logger.info("Launching node...")
@@ -162,7 +165,8 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
             error_message=str(exp),
             exception_type=type(exp).__name__,
         )
-        _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
+        if _node:
+            _node.send_error(ErrorNumbers.FB300, extra_msg="Error = " + str(exp))
         logger.critical(f"Node stopped. {exp}")
 
 
@@ -188,25 +192,11 @@ class NodeProcessManager:
 
     def _get_state_table(self) -> NodeProcessStateTable:
         """Get the state table instance."""
-        db_path = os.path.abspath(
-            os.path.join(
-                self._config.root,
-                CONFIG_FOLDER_NAME,
-                self._config.get("default", "db"),
-            )
-        )
-        return NodeProcessStateTable(db_path)
+        return NodeProcessStateTable(self._config.getpath("default", "db"))
 
     def _get_history_table(self) -> NodeProcessStateHistoryTable:
         """Get the history table instance."""
-        db_path = os.path.abspath(
-            os.path.join(
-                self._config.root,
-                CONFIG_FOLDER_NAME,
-                self._config.get("default", "db"),
-            )
-        )
-        return NodeProcessStateHistoryTable(db_path)
+        return NodeProcessStateHistoryTable(self._config.getpath("default", "db"))
 
     def _cleanup_process_state_history(self, days: int = 30) -> None:
         """Remove process-state history entries older than the given number of days.

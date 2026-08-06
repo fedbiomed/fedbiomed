@@ -34,7 +34,7 @@ from fedbiomed.node.cli_utils import (
     view_training_plan,
 )
 from fedbiomed.node.config import node_component
-from fedbiomed.node.node import Node
+from fedbiomed.node.node import NodeContext
 from fedbiomed.node.node_pm import NodeProcessManager
 
 # Please use following code generate similar intro
@@ -63,7 +63,7 @@ def intro():
 class DatasetArgumentParser(CLIArgumentParser):
     """Initializes CLI options for dataset actions"""
 
-    _node: Node
+    _context: NodeContext
     _mnist_path = None
 
     def initialize(self):
@@ -134,19 +134,22 @@ class DatasetArgumentParser(CLIArgumentParser):
 
         if args.mnist != "":
             if args.mnist is None:
-                mnist_path = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
+                mnist_path = os.path.join(self._context.config.root, NODE_DATA_FOLDER)
             else:
                 mnist_path = args.mnist
             return add_database(
-                self._node.dataset_manager, interactive=False, path=mnist_path
+                self._context.dataset_manager, interactive=False, path=mnist_path
             )
 
         if args.file:
             return self._add_dataset_from_file(path=args.file)
 
         # All operation is handled by CLI utils add_database
-        return add_database(self._node.dataset_manager)
-
+        return add_database(
+            self._context.dataset_manager,
+            initialdir=os.path.join(self._context.config.root, NODE_DATA_FOLDER),
+        )
+    
     def list(self, unused_args):
         """List datasets
 
@@ -154,7 +157,7 @@ class DatasetArgumentParser(CLIArgumentParser):
           unused_args: Empty arguments since `list` command no positional args.
         """
         print("Listing your data available")
-        data = self._node.dataset_manager.list_my_datasets(verbose=True)
+        data = self._context.dataset_manager.list_my_datasets(verbose=True)
         if len(data) == 0:
             print("No data has been set up.")
 
@@ -162,12 +165,12 @@ class DatasetArgumentParser(CLIArgumentParser):
         """Deletes datasets"""
 
         if args.all:
-            return delete_all_database(self._node.dataset_manager)
+            return delete_all_database(self._context.dataset_manager)
 
         if args.mnist:
-            return delete_database(self._node.dataset_manager, interactive=False)
+            return delete_database(self._context.dataset_manager, interactive=False)
 
-        return delete_database(self._node.dataset_manager)
+        return delete_database(self._context.dataset_manager)
 
     def _add_dataset_from_file(self, path):
         print("Dataset description file provided: adding these data")
@@ -201,14 +204,14 @@ class DatasetArgumentParser(CLIArgumentParser):
         elif elements[0]:
             # p is relative (does not start with /)
             # prepend with topdir
-            elements = [self._node.config.root] + elements
+            elements = [self._context.config.root] + elements
 
         # rebuild the path with these (eventually) new elements
         data["path"] = os.path.join(os.path.sep, *elements)
 
         # add the dataset to local database (not interactive)
         add_database(
-            self._node.dataset_manager,
+            self._context.dataset_manager,
             interactive=False,
             path=data["path"],
             data_type=data["data_type"],
@@ -222,7 +225,7 @@ class DatasetArgumentParser(CLIArgumentParser):
 class TrainingPlanArgumentParser(CLIArgumentParser):
     """Argument parser for training-plan operations"""
 
-    _node: Node
+    _context: NodeContext
 
     def initialize(self):
         self._parser = self._subparser.add_parser(
@@ -295,39 +298,39 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
 
     def delete(self, args):
         """Deletes training plan"""
-        delete_training_plan(self._node.tp_security_manager, id=args.id)
+        delete_training_plan(self._context.tp_security_manager, id=args.id)
 
     def register(self):
         """Registers training plan"""
-        register_training_plan(self._node.tp_security_manager)
+        register_training_plan(self._context.tp_security_manager)
 
     def list(self):
         """Lists training plans"""
-        self._node.tp_security_manager.list_training_plans(verbose=True)
+        self._context.tp_security_manager.list_training_plans(verbose=True)
 
     def view(self):
         """Views training plan"""
-        view_training_plan(self._node.tp_security_manager)
+        view_training_plan(self._context.tp_security_manager)
 
     def approve(self, args):
         """Approves training plan"""
-        approve_training_plan(self._node.tp_security_manager, id=args.id)
+        approve_training_plan(self._context.tp_security_manager, id=args.id)
 
     def reject(self, args):
         """Approves training plan"""
         reject_training_plan(
-            self._node.tp_security_manager, id=args.id, notes=args.notes
+            self._context.tp_security_manager, id=args.id, notes=args.notes
         )
 
     def update(self):
         """Updates training plan"""
-        update_training_plan(self._node.tp_security_manager)
+        update_training_plan(self._context.tp_security_manager)
 
 
 class NodeControl(CLIArgumentParser):
     """CLI argument parser for starting the node"""
 
-    _node: Node
+    _context: NodeContext
 
     def initialize(self):
         """Initializes missing control argument parser"""
@@ -450,7 +453,7 @@ class NodeControl(CLIArgumentParser):
             "debug": True if args.debug else False,
         }
 
-        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager = NodeProcessManager(self._context.config)
         background = True if args.background else False
         try:
             if background:
@@ -482,7 +485,7 @@ class NodeControl(CLIArgumentParser):
 
     def stop(self):
         """Stops the node"""
-        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager = NodeProcessManager(self._context.config)
         node_process_manager.stop(
             actor={"source": "cli"},
             reason="cli_stop_command",
@@ -502,7 +505,7 @@ class NodeControl(CLIArgumentParser):
         if args.debug is not None:
             node_args["debug"] = args.debug
 
-        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager = NodeProcessManager(self._context.config)
         node_process_manager.restart(
             node_args=node_args,
             background=args.background,
@@ -512,13 +515,13 @@ class NodeControl(CLIArgumentParser):
 
     def status(self):
         """Shows the node status"""
-        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager = NodeProcessManager(self._context.config)
         status = node_process_manager.get_status()
         print(f"Node status: {status}")
 
 
 class GUIControl(CLIArgumentParser):
-    _node: Node
+    _context: NodeContext
 
     def initialize(self):
         """Initializes GUI commands"""
@@ -617,7 +620,7 @@ class GUIControl(CLIArgumentParser):
         fedbiomed_root = os.path.abspath(args.path)
 
         if args.data_folder == "":
-            data_folder = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
+            data_folder = os.path.join(self._context.config.root, NODE_DATA_FOLDER)
         else:
             data_folder = os.path.abspath(args.data_folder)
         if not os.path.isdir(data_folder):
@@ -673,6 +676,14 @@ class GUIControl(CLIArgumentParser):
 
 
 class NodeCLI(CommonCLI):
+    """The `fedbiomed node` command line application.
+
+    Defines and parses what a user can type, then hands over to the matching
+    action. Decides which action runs and, through `--path`, on which node;
+    what the action then acts on is the `NodeContext` it passes to every
+    subparser.
+    """
+
     _arg_parsers_classes: List[type] = [
         NodeControl,
         DatasetArgumentParser,
@@ -709,19 +720,19 @@ class NodeCLI(CommonCLI):
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
                 config = node_component.initiate(root=component_dir)
                 self._this.config = config
-                node = Node(config)
-                # Set node object to make it accessible
-                ComponentDirectoryActionNode._this._node = node
+                context = NodeContext(config)
+                # Set context object to make it accessible
+                ComponentDirectoryActionNode._this._context = context
                 os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = config.get(
                     "default", "id"
                 )
 
-                # Set node in all subparsers
+                # Set context in all subparsers
                 for (
                     _,
                     parser,
                 ) in ComponentDirectoryActionNode._this._arg_parsers.items():
-                    parser._node = node
+                    parser._context = context
 
         super().initialize()
 

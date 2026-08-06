@@ -386,6 +386,10 @@ class _SkLearnBatchIterator:
 
         return batch_data, batch_target
 
+    def __iter__(self) -> "_SkLearnBatchIterator":
+        """Returns the iterator instance."""
+        return self
+
     def __next__(self) -> SkLearnDataLoaderSampleBatch:
         """Returns the next batch.
 

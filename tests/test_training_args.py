@@ -130,8 +130,12 @@ class TestTrainingArgs(unittest.TestCase):
         t ^= {"test_metric": None}
         self.assertEqual(t["test_metric"], None)
 
+        # A metric name is accepted, and normalised to the enum consumers expect
         t ^= {"test_metric": "ACCURACY"}
-        self.assertEqual(t["test_metric"], "ACCURACY")
+        self.assertEqual(t["test_metric"], MetricTypes.ACCURACY)
+
+        t ^= {"test_metric": "accuracy"}
+        self.assertEqual(t["test_metric"], MetricTypes.ACCURACY)
 
         t ^= {"test_metric": MetricTypes.ACCURACY}
         self.assertEqual(t["test_metric"], MetricTypes.ACCURACY)

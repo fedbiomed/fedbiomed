@@ -344,15 +344,14 @@ class TestSecureAggregationWrapper(unittest.TestCase):
         ):
             sa = SecureAggregation(scheme=scheme)
             state = sa.__getattr__("save_state_breakpoint")()
-            self.assertLessEqual(
-                {
-                    "attributes": {},
-                    "class": "SecureAggregation",
-                    "module": "fedbiomed.researcher.secagg._secure_aggregation",
-                    "arguments": {"scheme": scheme.value},
-                }.items(),
-                state.items(),
-            )
+            for key, value in {
+                "attributes": {},
+                "class": "SecureAggregation",
+                "module": "fedbiomed.researcher.secagg._secure_aggregation",
+                "arguments": {"scheme": scheme.value},
+            }.items():
+                self.assertIn(key, state)
+                self.assertEqual(value, state[key])
             eval(f'exec("from {state["module"]} import {state["class"]}")')
             loaded_sa = SecureAggregation.load_state_breakpoint(state)
             self.check_specific_method_belongs_to_class(loaded_sa, cl)
