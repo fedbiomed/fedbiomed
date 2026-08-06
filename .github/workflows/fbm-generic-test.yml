@@ -169,7 +169,7 @@ jobs:
           echo "os_list=$os_list_json" >> "$GITHUB_OUTPUT"
 
   build-doc:
-    name: Documentation / Python 3.14 / Ubuntu latest
+    name: Documentation / Python 3.11 / Ubuntu latest
     if: ${{ inputs.run-docs }}
     runs-on: ubuntu-latest
     steps:
@@ -179,7 +179,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.11"
           cache: pip
 
       - name: Setup PDM

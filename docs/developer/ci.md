@@ -64,7 +64,7 @@ and with which matrix it runs.
 - `ubuntu-latest` and `macos-latest`
 - the complete unit-test suite
 - the MNIST E2E smoke test
-- one documentation build on Python 3.14 and `ubuntu-latest`
+- one documentation build on Python 3.11 and `ubuntu-latest`
 
 The endpoint versions provide early warning for both the oldest and newest
 supported interpreters. Intermediate versions are covered by the scheduled
