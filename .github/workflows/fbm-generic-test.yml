@@ -81,10 +81,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
 
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v4
+        with:
+          cache: true
 
       - name: Install documentation dependencies
         run: pdm install --no-default -G docs -G dev
@@ -100,6 +101,7 @@ jobs:
   unit-test:
     name: Unit / Python ${{ matrix.python-version }} / ${{ matrix.os }}
     if: ${{ inputs.run-unit }}
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash -l {0}
@@ -127,9 +129,15 @@ jobs:
       - name: Record unit-test dependencies
         if: failure()
         run: |
-          tox exec -e py${{ matrix.python-version }}-unit -- \
-            python -m pip freeze --all > dependency-freeze.txt || \
-            python -m pip freeze --all > dependency-freeze.txt
+          env_name=py${{ matrix.python-version }}-unit
+          if tox exec -e "$env_name" -- python -m pip freeze --all > freeze.txt; then
+            echo "# resolved inside tox environment $env_name" > dependency-freeze.txt
+          else
+            echo "# tox environment $env_name unavailable; runner interpreter instead" > dependency-freeze.txt
+            python -m pip freeze --all > freeze.txt
+          fi
+          cat freeze.txt >> dependency-freeze.txt
+          rm -f freeze.txt
 
       - name: Upload coverage to Codecov
         if: ${{ matrix.os != 'macos-m1' }}
@@ -158,6 +166,7 @@ jobs:
   mnist-test:
     name: MNIST / Python ${{ matrix.python-version }} / ${{ matrix.os }}
     if: ${{ inputs.run-mnist }}
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash -l {0}
@@ -185,9 +194,15 @@ jobs:
       - name: Record MNIST dependencies
         if: failure()
         run: |
-          tox exec -e py${{ matrix.python-version }}-e2e-mnist -- \
-            python -m pip freeze --all > dependency-freeze.txt || \
-            python -m pip freeze --all > dependency-freeze.txt
+          env_name=py${{ matrix.python-version }}-e2e-mnist
+          if tox exec -e "$env_name" -- python -m pip freeze --all > freeze.txt; then
+            echo "# resolved inside tox environment $env_name" > dependency-freeze.txt
+          else
+            echo "# tox environment $env_name unavailable; runner interpreter instead" > dependency-freeze.txt
+            python -m pip freeze --all > freeze.txt
+          fi
+          cat freeze.txt >> dependency-freeze.txt
+          rm -f freeze.txt
 
       - name: Upload MNIST diagnostics
         if: failure()
@@ -242,21 +257,26 @@ jobs:
         timeout-minutes: 135
         env:
           FBM_GITLAB_TOKEN: ${{ secrets.FBM_GITLAB_TOKEN }}
-          FBM_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.e2e-file }}
         run: |
           set -o pipefail
           tox -r -e py${{ matrix.python-version }}-e2e -- \
             --maxfail=1 ${{ matrix.e2e-file }} 2>&1 | tee e2e-output.log
 
       - name: Record end-to-end dependencies
-        if: always()
+        if: failure()
         run: |
-          tox exec -e py${{ matrix.python-version }}-e2e -- \
-            python -m pip freeze --all > dependency-freeze.txt || \
-            python -m pip freeze --all > dependency-freeze.txt
+          env_name=py${{ matrix.python-version }}-e2e
+          if tox exec -e "$env_name" -- python -m pip freeze --all > freeze.txt; then
+            echo "# resolved inside tox environment $env_name" > dependency-freeze.txt
+          else
+            echo "# tox environment $env_name unavailable; runner interpreter instead" > dependency-freeze.txt
+            python -m pip freeze --all > freeze.txt
+          fi
+          cat freeze.txt >> dependency-freeze.txt
+          rm -f freeze.txt
 
       - name: Upload end-to-end diagnostics
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-${{ matrix.e2e-file }}-${{ matrix.os }}-py${{ matrix.python-version }}

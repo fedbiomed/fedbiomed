@@ -112,6 +112,11 @@ os: ["ubuntu-latest"]
 This workflow does not collect endurance files. Ordinary E2E environments
 select `e2e_*.py` and exclude `endurance_*.py`.
 
+Runs are superseded per ref. A push to `master` cancels an E2E run still in
+flight for the same branch, so consecutive pushes do not stack multi-hour jobs
+on the self-hosted queue. E2E therefore reports for the current tip of
+`master`, not for every intermediate commit.
+
 ### Endurance testing
 
 `endurance-tests.yml` is deliberately separate from ordinary E2E testing. It
