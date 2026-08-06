@@ -54,4 +54,6 @@ def fedbiomed_environ():
             )
             pass
 
+    res["enable_node_management"] = config["ENABLE_NODE_MANAGEMENT"]
+
     return response(res), 200

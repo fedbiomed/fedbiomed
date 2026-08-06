@@ -7,6 +7,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useOutletContext,
 } from "react-router-dom";
 
 import Home from './pages/Home'
@@ -30,8 +31,14 @@ import UserManagement from "./pages/admin/UserManagement";
 import AccountRequestManagement from "./pages/admin/AccountRequestManagement";
 import SecurityLogs from "./pages/admin/SecurityLogs";
 import UserAccount from './pages/authentication/UserAccount';
-import NodeManagement from './pages/node-manager/NodeManagement';
+import NodeManagement, {NodeManagementEnabled} from './pages/node-manager/NodeManagement';
 
+// Reads the flag passed down via <Outlet context={...}/> from LoginProtected,
+// which only fetches it once the user is authenticated.
+const NodeManagementRoute = () => {
+  const {nodeManagementEnabled} = useOutletContext();
+  return nodeManagementEnabled ? <NodeManagementEnabled/> : <NodeManagement/>;
+}
 
 function App(props) {
 
@@ -57,7 +64,7 @@ function App(props) {
                       <Route path={"security-logs"} element={<AdminProtected redirect_to={'/user-account'}><SecurityLogs/></AdminProtected>}/>
                   </Route>
                   <Route path="/repository/" element={<Repository/>} />
-                  <Route path="/node-management/" element={<NodeManagement/>} />
+                  <Route path="/node-management/" element={<NodeManagementRoute/>} />
                   <Route path="/training-plans/" element={<TrainingPlans/>} />
                   <Route path="/training-plans/preview/:training_plan_id" element={<SingleModel />} />
                   <Route path="/datasets/" element={<Datasets/>} />
