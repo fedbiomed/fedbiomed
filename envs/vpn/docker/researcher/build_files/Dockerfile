@@ -11,7 +11,8 @@ ARG CONTAINER_GID
 ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
-ARG PYTHON_VERSION="3.10"
+# Empty selects the default index; CI points it at the CPU-only PyTorch wheels.
+ARG FBM_PYTORCH_INDEX_URL=""
 
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
@@ -24,12 +25,7 @@ ENV CONTAINER_GROUP=${CONTAINER_GROUP:-root}
 
 RUN apt-get update && apt-get install -y libgmp3-dev openssl \
 	libreadline-dev xz-utils libncurses-dev libffi-dev \
-	libmpfr-dev libmpc-dev apt-utils wget socat git \
-	python-tk python${PYTHON_VERSION} python3-pip
-
-# Create alias
-RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python && \
-    ln -sf /usr/bin/pip3 /usr/bin/pip
+	libmpfr-dev libmpc-dev apt-utils wget socat git
 
 # Install nodejs -----------------------------------------------------------------
 RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
@@ -80,7 +76,8 @@ WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Install fedbiomed and its requirements
-RUN pip install --no-warn-script-location '.[researcher]'
+RUN pip install --no-warn-script-location \
+	${FBM_PYTORCH_INDEX_URL:+--extra-index-url "$FBM_PYTORCH_INDEX_URL"} '.[researcher]'
 
 # transmit build-time values to running container
 ENV CONTAINER_BUILD_USER=${CONTAINER_USER}

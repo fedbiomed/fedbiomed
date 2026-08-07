@@ -15,8 +15,8 @@ function info(){
 	  echo "${YLW}INFO:${NC} $1"
 }
 
-# The build installs the project extras on top of the CPU PyTorch of the base
-# image, which nothing else checks for the resulting flavour.
+# The extras resolve PyTorch through FBM_PYTORCH_INDEX_URL, and nothing else
+# checks which flavour the built image ended up with.
 function assert_image_cpu_torch(){
 	[[ "${FBM_EXPECT_CPU_TORCH:-false}" == "true" ]] || return 0
 

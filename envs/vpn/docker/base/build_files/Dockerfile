@@ -1,7 +1,11 @@
+# Python of the VPN stack. Every image below derives from this one, so this
+# single value decides the interpreter of the vpnserver, node and researcher
+# containers.
+ARG PYTHON_VERSION="3.11"
+
 # temporary builder image for wireguard tools
-# - need coherent system version with base image
 # - may need update for properly compiling boringtun
-# - 2023-05: `bookworm` is not officially released, stick to `bullseye` for now
+# - built on the older suite so its binaries stay compatible with the base image
 FROM debian:bullseye-slim AS builder
 
 RUN apt-get update && apt-get install -y git build-essential curl
@@ -20,7 +24,7 @@ RUN apt-get install -y wireguard-tools
 
 # docker base image for VPN server, Fed-BioMed node and researcher
 # - need proper python version for Fed-BioMed
-FROM python:3.10-slim-bullseye
+FROM python:${PYTHON_VERSION}-slim-bookworm
 
 RUN apt-get update && apt-get install -y iptables iproute2 iputils-ping bash vim net-tools procps build-essential kmod
 

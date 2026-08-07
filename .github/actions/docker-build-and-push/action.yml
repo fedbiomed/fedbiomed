@@ -24,11 +24,10 @@ runs:
       with:
         # list of Docker images to use as base name for tags
         images: ${{ inputs.image-names }}
-        # generate Docker tags based on the following events/attributes
+        # A version tag produces the three semver tags; a manual run from a
+        # branch produces the branch name. Every run also carries its commit.
         tags: |
-          type=schedule
           type=ref,event=branch
-          type=ref,event=pr
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
@@ -40,14 +39,6 @@ runs:
       run: |
         echo "${{ steps.meta.outputs.tags }}"
         echo "${{ steps.meta.outputs.labels }}"
-      shell: bash -l {0}
-
-#    Following actions are kept in case of disk space issue.
-    - name: Tag used for images
-      id: tag-export
-      run: |
-        TAG=$(echo "$FIRST_LINE" | cut -d ':' -f2) 
-        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       shell: bash -l {0}
 
     - name: Generate docker tag args (no jq)

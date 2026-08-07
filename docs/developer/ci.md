@@ -41,9 +41,9 @@ All workflow definitions are under `.github/workflows`.
 | `end-to-end.yml` | Ordinary E2E testing after changes reach `master`, with optional manually supplied JSON matrices | Push to `master` or manual |
 | `endurance-tests.yml` | Long-running endurance tests on the Python endpoints | Saturday at 01:00 UTC or manual |
 | `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 01:17 UTC, manual, or called by the release workflow |
-| `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Pull requests to `develop`, push to `master`, Monday at 01:17 UTC, or manual |
+| `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Daily at 23:00 UTC or manual |
 | `deploy.yml` | Validates the release package for Python wheel of Fedbiomed, publishes it to PyPI, and creates the GitHub release | Tag push |
-| `docker-deploy.yml` | Builds public base, node, and researcher docker images and publishes those release images to Docker Hub | Version tag, or manual |
+| `docker-deploy.yml` | Builds public base, node, and researcher docker images, and publishes them to Docker Hub when a version tag triggered the run | Version tag or manual |
 | `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
 | `codespell.yml` | Checks repository spelling and annotates errors | Pull requests targeting `develop` or `master` |
 | `runner-maintenance.yml` | Bounded cleanup of the pip cache, Homebrew downloads, cached interpreters, and end-to-end datasets on every self-hosted runner | Sunday at 04:00 UTC or manual |
@@ -275,8 +275,8 @@ The same constraint applies to a developer machine. Only one VPN stack can run
 at a time on a given host — `FBM_CONTAINER_INSTANCE_ID` distinguishes container
 and network names, but not host ports.
 
-Runs are superseded per pull request or ref, so pushing a new commit replaces
-an in-flight run instead of queueing behind it.
+Runs are superseded per ref, so a manual run replaces an in-flight scheduled one
+instead of queueing behind it.
 
 Compatibility CI explicitly selects the non-GPU node base and CPU-only PyTorch
 to fit within CI disk limits. This is an opt-in test configuration:
@@ -287,8 +287,10 @@ to fit within CI disk limits. This is an opt-in test configuration:
 Normal VPN deployment does not set these values. It keeps the GPU-capable node
 base and standard package-index resolution.
 
-The CPU PyTorch installation is created in the VPN base and reused by the
-researcher, non-GPU node base, and GUI images. The researcher and node package
+`FBM_PYTORCH_INDEX_URL` reaches the researcher and node builds as a Docker
+build argument and becomes an extra package index for their `pip install`, so
+those images resolve the CPU-only PyTorch wheels. Left empty, the builds use the
+default index. The researcher and node package
 builds skip the React build because neither image serves the node GUI. Node.js,
 Yarn, and the React compilation remain in the dedicated GUI image.
 
@@ -308,10 +310,12 @@ images. Published images use one Python runtime, currently Python 3.14. It is
 the default `PYTHON_VERSION` in `docker/base/Dockerfile`; `docker-deploy.yml`
 passes no build argument, so editing that default changes what is published.
 
-A `v*.*.*` tag publishes the generated tags to Docker Hub. Manual runs build
-the same images without publishing them. Image builds are otherwise covered by
-`test-docker.yml`, which builds the three Dockerfiles on every pull request to
-`develop`.
+A `v*.*.*` tag publishes the generated tags to Docker Hub; a manual run builds the
+same images and publishes nothing. Build and push are the same job, so a failed
+build publishes nothing. Nothing else triggers this workflow: `test-docker.yml`
+builds the same three Dockerfiles nightly across every supported interpreter, and
+a release branch differs from `develop` only in files those Dockerfiles ignore,
+so the release tree is already covered before a tag exists.
 
 ## Schedule
 
@@ -329,10 +333,10 @@ GitHub cron expressions use UTC and have five fields:
 
 | Cron | Workflow | Meaning |
 | --- | --- | --- |
+| `0 23 * * *` | `test-docker.yml` | Every day at 23:00 UTC |
 | `0 1 * * 6` | `endurance-tests.yml` | Saturday at 01:00 UTC |
 | `37 0 * * 0` | `python-compatibility.yml` | Sunday at 00:37 UTC |
 | `17 1 * * 1` | `package-compatibility.yml` | Monday at 01:17 UTC |
-| `17 1 * * 1` | `test-docker.yml` | Monday at 01:17 UTC |
 
 Scheduled workflows always execute from the repository's default branch.
 Changing a cron entry on a feature branch does not make that schedule active

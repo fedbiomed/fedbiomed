@@ -3,29 +3,23 @@ name: Fed-BioMed Docker Compatibility Tests
 run-name: Fed-BioMed Docker Compatibility Tests
 
 on:
-  pull_request:
-    branches:
-      - develop
   schedule:
-    # Monday at 01:17 UTC, representing Sunday night operationally.
-    - cron: "17 1 * * 1"
-  push:
-    branches:
-      - master
+    # Every day at 23:00 UTC.
+    - cron: "0 23 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   hosted-build-smoke:
     name: Build smoke / Python ${{ matrix.python-version }} / Ubuntu latest
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -82,7 +76,7 @@ jobs:
   vpn-functional:
     name: VPN functional / Python ${{ matrix.python-version }} / ${{ matrix.runner-name }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 360
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -91,25 +85,21 @@ jobs:
             python-tag: "311"
             runner: ubuntu-latest
             runner-name: Ubuntu latest
-            runner-tag: ubuntu-latest
             persistent-cache: false
           - python-version: "3.14"
             python-tag: "314"
             runner: ubuntu-latest
             runner-name: Ubuntu latest
-            runner-tag: ubuntu-latest
             persistent-cache: false
           - python-version: "3.11"
             python-tag: "311"
             runner: [self-hosted, ubuntu-24-04]
             runner-name: Self-hosted Ubuntu
-            runner-tag: self-hosted-ubuntu
             persistent-cache: true
           - python-version: "3.14"
             python-tag: "314"
             runner: [self-hosted, ubuntu-24-04]
             runner-name: Self-hosted Ubuntu
-            runner-tag: self-hosted-ubuntu
             persistent-cache: true
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
@@ -117,9 +107,10 @@ jobs:
       FBM_VPN_NODE_BASE_SERVICE: basenode-no-gpu
       FBM_PYTORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
       FBM_EXPECT_CPU_TORCH: "true"
-      FBM_CONTAINER_VERSION_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runner-tag }}-py${{ matrix.python-tag }}
-      FBM_CONTAINER_INSTANCE_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runner-tag }}-py${{ matrix.python-tag }}
-      COMPOSE_PROJECT_NAME: fedbiomed-vpn-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.runner-tag }}-py${{ matrix.python-tag }}
+      FBM_CONTAINER_VERSION_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
+      # Prefixed by the service name to form a container hostname, capped at 64.
+      FBM_CONTAINER_INSTANCE_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
+      COMPOSE_PROJECT_NAME: fedbiomed-vpn-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
