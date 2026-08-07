@@ -35,12 +35,12 @@ All workflow definitions are under `.github/workflows`.
 
 | Workflow file | Responsibility | Triggers |
 | --- | --- | --- |
-| `build-test.yml` | Unit tests, the MNIST test, and documentation: the endpoint interpreters on hosted runners for a pull request, every interpreter on every runner on a schedule | Non-draft pull requests targeting `develop` or `master`, and Monday to Friday at 19:00 UTC |
+| `build-test.yml` | Unit tests, the MNIST test, and documentation: the endpoint interpreters on hosted runners for a pull request, every interpreter on every runner on a schedule | Non-draft pull requests targeting `develop` or `master`, and Monday to Friday at 18:00 UTC |
 | `fbm-generic-test.yml` | Base implementation, used by the other workflows for documentation, unit, MNIST, and ordinary E2E jobs; also provides the configurable manual test UI | Called by other workflows or started manually |
-| `end-to-end.yml` | Ordinary E2E testing after changes reach `master`, with optional manually supplied JSON matrices | Push to `master` or manual |
-| `endurance-tests.yml` | Long-running endurance tests on the Python endpoints | Saturday at 01:00 UTC or manual |
+| `end-to-end.yml` | Ordinary E2E testing, with optional manually supplied JSON matrices | Monday to Friday at 23:00 UTC, push to `master`, or manual |
+| `endurance-tests.yml` | Long-running endurance tests on the Python endpoints | Saturday at 09:00 UTC or manual |
 | `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 01:17 UTC, manual, or called by the release workflow |
-| `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Daily at 23:00 UTC or manual |
+| `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Monday to Friday at 20:00 UTC or manual |
 | `deploy.yml` | Validates the release package for Python wheel of Fedbiomed, publishes it to PyPI, and creates the GitHub release | Tag push |
 | `docker-deploy.yml` | Builds public base, node, and researcher docker images, and publishes them to Docker Hub when a version tag triggered the run | Version tag or manual |
 | `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
@@ -66,7 +66,7 @@ For a non-draft pull request targeting `develop` or `master`:
 - Python 3.11 and Python 3.14
 - `ubuntu-latest` and `macos-latest`
 
-Monday to Friday at 19:00 UTC:
+Monday to Friday at 18:00 UTC:
 
 - Python 3.11, 3.12, 3.13, and 3.14
 - `ubuntu-latest`, `ubuntu-24-04`, `macos-latest`, and `macos-m1`
@@ -93,11 +93,11 @@ and IXI once and later jobs reuse them; a hosted runner starts empty each time.
 The matrix uses `fail-fast: false`, so all Python and runner combinations can
 report compatibility failures in a single workflow run.
 
-### E2E testing on `master`
+### E2E testing
 
-`end-to-end.yml` retains ordinary E2E coverage for pushes to `master`. Its
-automatic default is Python 3.11 and 3.14 across the four compatibility
-runners.
+`end-to-end.yml` owns ordinary E2E coverage. It runs Monday to Friday at
+23:00 UTC and on a push to `master`. Its automatic default is Python
+3.11 and 3.14 across the four compatibility runners.
 
 For a manual run, `python-version` and `os` accept JSON arrays. For example:
 
@@ -310,7 +310,7 @@ passes no build argument, so editing that default changes what is published.
 A `v*.*.*` tag publishes the generated tags to Docker Hub; a manual run builds the
 same images and publishes nothing. Build and push are the same job, so a failed
 build publishes nothing. Nothing else triggers this workflow: `test-docker.yml`
-builds the same three Dockerfiles nightly across every supported interpreter, and
+builds the same three Dockerfiles every weekday across every supported interpreter, and
 a release branch differs from `develop` only in files those Dockerfiles ignore,
 so the release tree is already covered before a tag exists.
 
@@ -330,9 +330,10 @@ GitHub cron expressions use UTC and have five fields:
 
 | Cron | Workflow | Meaning |
 | --- | --- | --- |
-| `0 23 * * *` | `test-docker.yml` | Every day at 23:00 UTC |
-| `0 1 * * 6` | `endurance-tests.yml` | Saturday at 01:00 UTC |
-| `0 19 * * 1-5` | `build-test.yml` | Monday to Friday at 19:00 UTC |
+| `0 20 * * 1-5` | `test-docker.yml` | Monday to Friday at 20:00 UTC |
+| `0 23 * * 1-5` | `end-to-end.yml` | Monday to Friday at 23:00 UTC |
+| `0 9 * * 6` | `endurance-tests.yml` | Saturday at 09:00 UTC |
+| `0 18 * * 1-5` | `build-test.yml` | Monday to Friday at 18:00 UTC |
 | `0 1 * * 1` | `runner-maintenance.yml` | Monday at 01:00 UTC |
 | `17 1 * * 1` | `package-compatibility.yml` | Monday at 01:17 UTC |
 

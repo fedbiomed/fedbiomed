@@ -15,8 +15,8 @@ on:
       - develop
       - master
   schedule:
-    # Monday to Friday at 19:00 UTC on the default branch.
-    - cron: "0 19 * * 1-5"
+    # Monday to Friday at 18:00 UTC on the default branch.
+    - cron: "0 18 * * 1-5"
 
 permissions:
   contents: read

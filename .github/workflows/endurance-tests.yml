@@ -4,7 +4,7 @@ run-name: endurance-tests
 
 on:
   schedule:
-    - cron: "0 1 * * 6"  # Run every Saturday at 1 am on default branch: develop
+    - cron: "0 9 * * 6"  # Run every Saturday at 9 am on default branch: develop
   workflow_dispatch:
 
 permissions:

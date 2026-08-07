@@ -4,8 +4,8 @@ run-name: Fed-BioMed Docker Compatibility Tests
 
 on:
   schedule:
-    # Every day at 23:00 UTC.
-    - cron: "0 23 * * *"
+    # Monday to Friday at 20:00 UTC.
+    - cron: "0 20 * * 1-5"
   workflow_dispatch:
 
 permissions:
