@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y libgmp3-dev openssl \
 	libmpfr-dev libmpc-dev apt-utils wget socat git
 
 # Install nodejs -----------------------------------------------------------------
-RUN wget -qO- https://deb.nodesource.com/setup_23.x | bash -
+RUN wget -qO- https://deb.nodesource.com/setup_24.x | bash -
 RUN apt-get install -y nodejs
 RUN npm install --global yarn@1.22
 

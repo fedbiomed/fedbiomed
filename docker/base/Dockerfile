@@ -1,7 +1,7 @@
 ARG PYTHON_VERSION=3.14
 
 # Stage 1: Build Node.js frontend
-FROM node:22-bookworm AS node-build
+FROM node:24-bookworm AS node-build
 WORKDIR /build
 
 # Copy package files for better caching

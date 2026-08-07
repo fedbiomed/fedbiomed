@@ -1,13 +1,13 @@
 ---
-name: Package Compatibility Tests
-run-name: Package Compatibility Tests
+name: Package Build Test
+run-name: Package Build Test
 
 on:
   workflow_call:
   workflow_dispatch:
   schedule:
-    # Monday at 01:17 UTC, representing Sunday night operationally.
-    - cron: "17 1 * * 1"
+    # Monday at 03:00 UTC.
+    - cron: "0 3 * * 1"
 
 permissions:
   contents: read
@@ -16,6 +16,7 @@ jobs:
   build-package:
     name: Build package / Python 3.11 / Ubuntu latest
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,7 +29,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install Yarn
         run: npm install --global yarn@1.22.22
@@ -64,7 +65,7 @@ jobs:
           name: fedbiomed-package
           path: dist/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
 
   test-wheel:
     name: Wheel / Python ${{ matrix.python-version }} / ${{ matrix.os }}
@@ -83,6 +84,7 @@ jobs:
           - "3.13"
           - "3.14"
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash -l {0}

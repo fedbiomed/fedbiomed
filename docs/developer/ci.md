@@ -39,7 +39,7 @@ All workflow definitions are under `.github/workflows`.
 | `fbm-generic-test.yml` | Base implementation, used by the other workflows for documentation, unit, MNIST, and ordinary E2E jobs; also provides the configurable manual test UI | Called by other workflows or started manually |
 | `end-to-end.yml` | Ordinary E2E testing, with optional manually supplied JSON matrices | Monday to Friday at 23:00 UTC, push to `master`, or manual |
 | `endurance-tests.yml` | Long-running endurance tests on the Python endpoints | Saturday at 09:00 UTC or manual |
-| `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 01:17 UTC, manual, or called by the release workflow |
+| `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 03:00 UTC, manual, or called by the release workflow |
 | `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Monday to Friday at 20:00 UTC or manual |
 | `deploy.yml` | Validates the release package for Python wheel of Fedbiomed, publishes it to PyPI, and creates the GitHub release | Tag push |
 | `docker-deploy.yml` | Builds public base, node, and researcher docker images, and publishes them to Docker Hub when a version tag triggered the run | Version tag or manual |
@@ -335,7 +335,7 @@ GitHub cron expressions use UTC and have five fields:
 | `0 9 * * 6` | `endurance-tests.yml` | Saturday at 09:00 UTC |
 | `0 18 * * 1-5` | `build-test.yml` | Monday to Friday at 18:00 UTC |
 | `0 1 * * 1` | `runner-maintenance.yml` | Monday at 01:00 UTC |
-| `17 1 * * 1` | `package-compatibility.yml` | Monday at 01:17 UTC |
+| `0 3 * * 1` | `package-compatibility.yml` | Monday at 03:00 UTC |
 
 Scheduled workflows always execute from the repository's default branch.
 Changing a cron entry on a feature branch does not make that schedule active
