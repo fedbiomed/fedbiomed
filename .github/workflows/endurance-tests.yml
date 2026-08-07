@@ -1,6 +1,9 @@
 ---
 name: Endurance Tests
 run-name: endurance-tests
+description: |
+  Long-running endurance tests on the Python endpoints, kept apart from ordinary
+  end-to-end testing because they are too expensive for frequent feedback.
 
 on:
   schedule:

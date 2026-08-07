@@ -1,6 +1,9 @@
 ---
 name: Fed-BioMed Docker Compatibility Tests
 run-name: Fed-BioMed Docker Compatibility Tests
+description: |
+  Builds the published docker images on every supported interpreter, then runs a
+  VPN functional test that trains across node and researcher containers.
 
 on:
   schedule:

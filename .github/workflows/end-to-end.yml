@@ -1,6 +1,9 @@
 ---
 name: End-to-End Test
 run-name: fedbiomed-e2e-tests
+description: |
+  Runs the ordinary end-to-end suite, one job per test file, on a weekday
+  schedule and on every push to master.
 
 on:
   workflow_dispatch:

@@ -1,10 +1,12 @@
 ---
 name: Fed-BioMed Build Test
 run-name: ${{ github.event_name == 'schedule' && 'Fed-BioMed Full Build Test' || 'Fed-BioMed Build Test' }}
+description: |
+  Unit tests, the MNIST smoke test and one documentation build. Both triggers run
+  the same suites: a pull request takes the endpoint interpreters on the hosted
+  runners, the schedule takes every interpreter on every runner.
 
 on:
-  # Same suites either way: a pull request takes the endpoint interpreters on
-  # the hosted runners, the schedule takes every interpreter on every runner.
   pull_request:
     types:
       - opened

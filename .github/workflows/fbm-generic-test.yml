@@ -1,5 +1,9 @@
 ---
 name: Fed-BioMed Tests (Reusable)
+description: |
+  Shared implementation of the documentation, unit, MNIST and end-to-end jobs.
+  Callers choose the matrix and which suites run; the manual form exposes the
+  same inputs.
 
 on:
   workflow_call:

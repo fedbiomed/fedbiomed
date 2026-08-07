@@ -1,5 +1,8 @@
 ---
 name: Deploy Fed-BioMed Package
+description: |
+  Publishes a tagged release to PyPI and opens the GitHub release. Both depend on
+  package-compatibility.yml, so a failing package check blocks publication.
 on:
   push:
     tags:

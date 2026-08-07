@@ -1,8 +1,9 @@
 ---
-# Self-hosted runners keep their disk between jobs, so the caches the tests
-# fill are never reclaimed. This bounds the four that grow without limit — pip,
-# Homebrew, cached interpreters, E2E datasets — and touches nothing else.
 name: Self-hosted runner maintenance
+description: |
+  Self-hosted runners keep their disk between jobs, so the caches the tests fill
+  are never reclaimed. This bounds the four that grow without limit — pip,
+  Homebrew, cached interpreters, E2E datasets — and touches nothing else.
 
 on:
   schedule:

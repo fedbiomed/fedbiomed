@@ -1,6 +1,10 @@
 ---
 name: Package Build Test
 run-name: Package Build Test
+description: |
+  Builds the wheel and source distribution once, then installs and checks that
+  exact wheel on every supported interpreter and runner. deploy.yml calls it on
+  a tag, so publication to PyPI depends on it passing.
 
 on:
   workflow_call:

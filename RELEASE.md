@@ -14,7 +14,8 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 git checkout develop
 git pull --prune
 ```
-- check that the CI for `develop` builds correctly (github checks)
+- check that the scheduled CI for `develop` is green: `Fed-BioMed Build Test`
+  (weeknights at 18:00 UTC) and `End-to-End Test` (weeknights at 23:00 UTC)
 - set the release version tag for the release (or use this tag directly in commands)
 ```bash
 export RELEASE_TAG=v6.1.0
@@ -57,7 +58,7 @@ git push origin release/$RELEASE_TAG
 
 - check that the documentation pipeline completes successfully
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
-  * check that `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
+  * check that `Build and deploy docs to fedbiomed-docs-public` https://github.com/fedbiomed/fedbiomed/actions/workflows/build-and-deploy-documentation.yml builds correctly
   * review carefully the log details for the build
 
 - check that the docker image publication completes successfully
@@ -66,8 +67,9 @@ git push origin release/$RELEASE_TAG
   * verify the new version tag is listed on Docker Hub for the three images
 
 - do the merge
-  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
-  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
+  * the tag already published the package, the images and the documentation, so
+    the merge publishes nothing. It triggers `End-to-End Test` on `master`,
+    which verifies the released tree after the fact.
 - if merge conflicts occur, solve them
 
 - browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
@@ -123,7 +125,8 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   git pull --prune
   ```
 
-- check that the CI for `master` builds correctly (github checks)
+- check that the CI for `master` is green: `End-to-End Test`, which runs on
+  every push to `master`
 - choose a name (eg `521-short-description`) for the issue and assign it to `$HOTFIX_NAME`
 
   ```bash
@@ -183,7 +186,7 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 
 - check that the documentation pipeline completes successfully
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
-  * check that `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
+  * check that `Build and deploy docs to fedbiomed-docs-public` https://github.com/fedbiomed/fedbiomed/actions/workflows/build-and-deploy-documentation.yml builds correctly
   * review carefully the log details for the build
 
 - check that the docker image publication completes successfully
@@ -192,8 +195,9 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   * verify the new version tag is listed on Docker Hub for the three images
 
 - do the merge
-  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
-  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
+  * the tag already published the package, the images and the documentation, so
+    the merge publishes nothing. It triggers `End-to-End Test` on `master`,
+    which verifies the released tree after the fact.
 - if merge conflicts occur, solve them
 
 - browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected

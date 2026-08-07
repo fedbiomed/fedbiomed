@@ -1,5 +1,8 @@
 ---
 name: Build and deploy docs to fedbiomed-docs-public
+description: |
+  Builds the versioned documentation for a tag and pushes it to the public
+  documentation repository.
 
 on:
   push:

@@ -109,15 +109,15 @@ os: ["ubuntu-latest"]
 This workflow does not collect endurance files. Ordinary E2E environments
 select `e2e_*.py` and exclude `endurance_*.py`.
 
-Runs are superseded per ref. A push to `master` cancels an E2E run still in
-flight for the same branch, so consecutive pushes do not stack multi-hour jobs
-on the self-hosted queue. E2E therefore reports for the current tip of
-`master`, not for every intermediate commit.
+Runs are superseded per ref, so a scheduled run replaces one still in flight on
+the same branch and consecutive pushes to `master` do not stack multi-hour jobs
+on the self-hosted queue. E2E therefore reports for the current tip of a branch,
+not for every intermediate commit.
 
 ### Endurance testing
 
 `endurance-tests.yml` is deliberately separate from ordinary E2E testing. It
-runs once per week with:
+runs once per week, on Saturday morning, with:
 
 - Python 3.11 and Python 3.14
 - `ubuntu-latest` and `ubuntu-24-04`
@@ -133,12 +133,15 @@ expensive for frequent development feedback.
 `fbm-generic-test.yml` is the central implementation for the regular Python
 test lanes. Callers provide:
 
-- `python-versions`: JSON array of Python versions
-- `os-list`: JSON array of runner labels
+- `python-versions`: JSON array of Python versions, `["3.11","3.14"]` by default
+- `os-list`: JSON array of runner labels, `["ubuntu-latest","macos-latest"]` by
+  default
 - `run-docs`: enable the documentation build
 - `run-unit`: enable unit tests
 - `run-mnist`: enable the MNIST smoke test
 - `run-e2e`: enable the ordinary E2E shards
+
+Every `run-` switch is off by default, so a caller lists only what it enables.
 
 It creates exact tox environment names such as:
 
@@ -167,7 +170,8 @@ failure does not fail the test job.
 ### Manual test selection
 
 The Actions page exposes `fbm-generic-test.yml` as **Fed-BioMed Tests
-(Reusable)**. Its manual form takes the same inputs as a workflow call:
+(Reusable)**. Its manual form takes the same inputs as a workflow call, but
+defaults `os-list` to all four runners rather than the two hosted ones:
 
 - `python-versions`: JSON list, for example `["3.11","3.14"]`
 - `os-list`: JSON list of runner labels, drawn from `ubuntu-latest`,
