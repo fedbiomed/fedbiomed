@@ -1,8 +1,10 @@
 ---
 name: Fed-BioMed Build Test
-run-name: Fed-BioMed Build Test
+run-name: ${{ github.event_name == 'schedule' && 'Fed-BioMed Full Build Test' || 'Fed-BioMed Build Test' }}
 
 on:
+  # Same suites either way: a pull request takes the endpoint interpreters on
+  # the hosted runners, the schedule takes every interpreter on every runner.
   pull_request:
     types:
       - opened
@@ -12,6 +14,9 @@ on:
     branches:
       - develop
       - master
+  schedule:
+    # Monday to Friday at 19:00 UTC on the default branch.
+    - cron: "0 19 * * 1-5"
 
 permissions:
   contents: read
@@ -23,13 +28,12 @@ concurrency:
 jobs:
   run-tests:
     name: Run unit, MNIST, and documentation tests
-    if: ${{ github.event.pull_request.draft == false }}
+    if: ${{ github.event_name == 'schedule' || github.event.pull_request.draft == false }}
     uses: ./.github/workflows/fbm-generic-test.yml
     secrets: inherit
     with:
-      python-versions: '["3.11","3.14"]'
-      os-list: '["ubuntu-latest","macos-latest"]'
+      python-versions: ${{ github.event_name == 'schedule' && '["3.11","3.12","3.13","3.14"]' || '["3.11","3.14"]' }}
+      os-list: ${{ github.event_name == 'schedule' && '["ubuntu-latest","ubuntu-24-04","macos-latest","macos-m1"]' || '["ubuntu-latest","macos-latest"]' }}
       run-docs: true
       run-unit: true
       run-mnist: true
-      run-e2e: false

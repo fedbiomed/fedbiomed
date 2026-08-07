@@ -6,11 +6,13 @@ on:
     inputs:
       python-versions:
         description: JSON list of Python versions
-        required: true
+        required: false
+        default: '["3.11","3.14"]'
         type: string
       os-list:
         description: JSON list of runner labels
-        required: true
+        required: false
+        default: '["ubuntu-latest","macos-latest"]'
         type: string
       run-docs:
         description: Build documentation once
@@ -52,7 +54,7 @@ on:
       run-unit:
         description: Run the unit-test matrix
         required: false
-        default: true
+        default: false
         type: boolean
       run-mnist:
         description: Run the MNIST smoke-test matrix

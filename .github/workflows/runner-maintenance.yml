@@ -6,9 +6,10 @@ name: Self-hosted runner maintenance
 
 on:
   schedule:
-    # Sunday 04:00 UTC (05:00 Paris CET, 06:00 CEST), clear of the endurance
-    # and compatibility matrices.
-    - cron: "0 4 * * 0"
+    # Monday 01:00 UTC, after the weekend matrices have had the whole of Sunday
+    # to drain. A self-hosted runner takes one job at a time, so a leg still
+    # running only delays this job, never runs alongside it.
+    - cron: "0 1 * * 1"
   workflow_dispatch:
 
 permissions:

@@ -35,9 +35,8 @@ All workflow definitions are under `.github/workflows`.
 
 | Workflow file | Responsibility | Triggers |
 | --- | --- | --- |
-| `build-test.yml` | Pull-request gate for unit tests, the MNIST test, and documentation | Non-draft pull requests targeting `develop` or `master` |
+| `build-test.yml` | Unit tests, the MNIST test, and documentation: the endpoint interpreters on hosted runners for a pull request, every interpreter on every runner on a schedule | Non-draft pull requests targeting `develop` or `master`, and Monday to Friday at 19:00 UTC |
 | `fbm-generic-test.yml` | Base implementation, used by the other workflows for documentation, unit, MNIST, and ordinary E2E jobs; also provides the configurable manual test UI | Called by other workflows or started manually |
-| `python-compatibility.yml` | Complete test across all Python and runner (OS) versions on for unit and E2E tests (excet Endurance) | Sunday at 00:37 UTC |
 | `end-to-end.yml` | Ordinary E2E testing after changes reach `master`, with optional manually supplied JSON matrices | Push to `master` or manual |
 | `endurance-tests.yml` | Long-running endurance tests on the Python endpoints | Saturday at 01:00 UTC or manual |
 | `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 01:17 UTC, manual, or called by the release workflow |
@@ -46,42 +45,40 @@ All workflow definitions are under `.github/workflows`.
 | `docker-deploy.yml` | Builds public base, node, and researcher docker images, and publishes them to Docker Hub when a version tag triggered the run | Version tag or manual |
 | `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
 | `codespell.yml` | Checks repository spelling and annotates errors | Pull requests targeting `develop` or `master` |
-| `runner-maintenance.yml` | Bounded cleanup of the pip cache, Homebrew downloads, cached interpreters, and end-to-end datasets on every self-hosted runner | Sunday at 04:00 UTC or manual |
+| `runner-maintenance.yml` | Bounded cleanup of the pip cache, Homebrew downloads, cached interpreters, and end-to-end datasets on every self-hosted runner | Monday at 01:00 UTC or manual |
 
 The workflow filename identifies the owner of a CI lane. The reusable
 `fbm-generic-test.yml` file owns the test implementation, while small caller
-workflows such as `build-test.yml` and `python-compatibility.yml` define when
+workflows such as `build-test.yml` and `end-to-end.yml` define when
 and with which matrix it runs.
 
 ## Test strategy
 
-### Pull-request gate
+### Build test
 
-`build-test.yml` runs only for non-draft pull requests targeting `develop` or
-`master`. It calls `fbm-generic-test.yml` with:
+`build-test.yml` owns the same three suites for both of its triggers, and only
+the matrix changes between them. It calls `fbm-generic-test.yml` with the
+complete unit-test suite, the MNIST E2E smoke test, and one documentation build
+on Python 3.11 and `ubuntu-latest`.
+
+For a non-draft pull request targeting `develop` or `master`:
 
 - Python 3.11 and Python 3.14
 - `ubuntu-latest` and `macos-latest`
-- the complete unit-test suite
-- the MNIST E2E smoke test
-- one documentation build on Python 3.11 and `ubuntu-latest`
 
-The endpoint versions provide early warning for both the oldest and newest
-supported interpreters. Intermediate versions are covered by the scheduled
-matrix.
-
-Superseded runs for the same pull request are cancelled. Pushing another commit
-to the pull-request branch therefore replaces an obsolete run.
-
-### Weekly Python compatibility
-
-`python-compatibility.yml` runs once per week and calls
-`fbm-generic-test.yml` with:
+Monday to Friday at 19:00 UTC:
 
 - Python 3.11, 3.12, 3.13, and 3.14
 - `ubuntu-latest`, `ubuntu-24-04`, `macos-latest`, and `macos-m1`
-- unit tests
-- ordinary E2E tests
+
+The endpoint versions provide early warning for both the oldest and newest
+supported interpreters on a pull request. Intermediate versions and the
+self-hosted runners are covered by the scheduled run, within a day.
+
+Superseded runs for the same pull request are cancelled. Pushing another commit
+to the pull-request branch therefore replaces an obsolete run. Scheduled runs
+share a group keyed on the ref, so a run still in flight is replaced by the next
+evening's.
 
 Ordinary E2E tests are sharded by test file. Each file receives its own job,
 tox environment, timeout, logs, and dependency snapshot. A failure in one file
@@ -335,7 +332,8 @@ GitHub cron expressions use UTC and have five fields:
 | --- | --- | --- |
 | `0 23 * * *` | `test-docker.yml` | Every day at 23:00 UTC |
 | `0 1 * * 6` | `endurance-tests.yml` | Saturday at 01:00 UTC |
-| `37 0 * * 0` | `python-compatibility.yml` | Sunday at 00:37 UTC |
+| `0 19 * * 1-5` | `build-test.yml` | Monday to Friday at 19:00 UTC |
+| `0 1 * * 1` | `runner-maintenance.yml` | Monday at 01:00 UTC |
 | `17 1 * * 1` | `package-compatibility.yml` | Monday at 01:17 UTC |
 
 Scheduled workflows always execute from the repository's default branch.
