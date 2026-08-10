@@ -8,14 +8,8 @@ from experiments.training_plans.mnist_pytorch_training_plan import (
 )
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_multiple_nodes,
-    create_node,
-    create_researcher,
     get_data_folder,
-    kill_subprocesses,
-    start_nodes,
 )
 
 from fedbiomed.common.exceptions import (
@@ -36,7 +30,7 @@ from fedbiomed.researcher.secagg import (
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session):
+def setup(federation):
     """Setup fixture for the module"""
     dataset = {
         "name": "MNIST",
@@ -46,47 +40,24 @@ def setup(port, post_session):
         "path": get_data_folder("MNIST-e2e-test"),
     }
 
-    # Configure secure aggregation
-    print("Configure secure aggregation ---------------------------------------------")
-    print(f"USING PORT {port} for researcher server")
-
     print("Creating components ---------------------------------------------")
-    with create_multiple_nodes(
-        port=port,
-        num_nodes=2,
-        config_sections={
-            "security": {"secure_aggregation": "True"},
-            "researcher": {"port": port},
-        },
-    ) as nodes:
-        node_1, node_2 = nodes
-
-        print(
-            "Creating researcher component -------------------------------------------"
-        )
-        researcher = create_researcher(port=port)
-
+    with federation.nodes(2, {"security": {"secure_aggregation": "True"}}) as (
+        node_1,
+        node_2,
+    ):
         print("Adding first dataset --------------------------------------------")
         add_dataset_to_node(node_1, dataset)
         print("Adding second dataset -------------------------------------------")
         add_dataset_to_node(node_2, dataset)
 
-        # Starts the nodes
-        node_processes, thread = start_nodes([node_1, node_2])
+        federation.start((node_1, node_2))
         time.sleep(10)
 
-        yield node_1, node_2, researcher
-
-        try:
-            kill_subprocesses(node_processes)
-            thread.join()
-        finally:
-            print("Clearing researcher data")
-            clear_component_data(researcher)
+        yield node_1, node_2, federation.researcher
 
 
 @pytest.fixture
-def extra_node_force_secagg(port):
+def extra_node_force_secagg(federation):
     """Fixture to add extra node which forces secagg"""
 
     dataset = {
@@ -97,33 +68,27 @@ def extra_node_force_secagg(port):
         "path": get_data_folder("MNIST-e2e-test"),
     }
 
-    node_3 = create_node(
-        port=port,
-        config_sections={
+    with federation.nodes(
+        1,
+        {
             "security": {
                 "secure_aggregation": "True",
                 "force_secure_aggregation": "True",
             },
         },
-    )
+    ) as (node_3,):
+        add_dataset_to_node(node_3, dataset)
 
-    add_dataset_to_node(node_3, dataset)
+        federation.start((node_3,))
 
-    # Starts the nodes
-    node_processes, thread = start_nodes([node_3])
+        # Give some time to researcher
+        time.sleep(15)
 
-    # Give some time to researcher
-    time.sleep(15)
-
-    yield
-
-    kill_subprocesses(node_processes)
-    thread.join()
-    clear_component_data(node_3)
+        yield
 
 
 @pytest.fixture
-def extra_node_no_validation(port):
+def extra_node_no_validation(federation):
     """Fixture to add extra node which disables validation"""
 
     dataset = {
@@ -134,33 +99,27 @@ def extra_node_no_validation(port):
         "path": get_data_folder("MNIST-e2e-test"),
     }
 
-    node_3 = create_node(
-        port=port,
-        config_sections={
+    with federation.nodes(
+        1,
+        {
             "security": {
                 "secure_aggregation": "True",
                 "secagg_insecure_validation": "False",
             },
         },
-    )
+    ) as (node_3,):
+        add_dataset_to_node(node_3, dataset)
 
-    add_dataset_to_node(node_3, dataset)
+        federation.start((node_3,))
 
-    # Starts the nodes
-    node_processes, thread = start_nodes([node_3])
+        # Give some time to researcher
+        time.sleep(15)
 
-    # Give some time to researcher
-    time.sleep(15)
-
-    yield
-
-    kill_subprocesses(node_processes)
-    thread.join()
-    clear_component_data(node_3)
+        yield
 
 
 @pytest.fixture
-def extra_nodes_for_lom(port):
+def extra_nodes_for_lom(federation):
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
@@ -169,32 +128,27 @@ def extra_nodes_for_lom(port):
         "path": get_data_folder("MNIST-e2e-test"),
     }
 
-    with create_multiple_nodes(
-        port,
+    with federation.nodes(
         3,
-        config_sections={
+        {
             "security": {
                 "secure_aggregation": "True",
                 "force_secure_aggregation": "True",
             },
         },
     ) as nodes:
-        node_1, node_2, node_3 = nodes
-
         for node in nodes:
             add_dataset_to_node(node, dataset)
 
         # start nodes and give some time to start
-        node_processes, _ = start_nodes([node_1, node_2, node_3])
+        federation.start(nodes)
         time.sleep(15)
 
         yield
 
-        kill_subprocesses(node_processes)
-
 
 @pytest.fixture
-def extra_nodes_for_lom_8_nodes(port):
+def extra_nodes_for_lom_8_nodes(federation):
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
@@ -203,28 +157,15 @@ def extra_nodes_for_lom_8_nodes(port):
         "path": get_data_folder("MNIST-e2e-test"),
     }
 
-    with create_multiple_nodes(
-        port=port,
-        num_nodes=6,
-        config_sections={
-            "security": {"secure_aggregation": "True"},
-            "researcher": {"port": port},
-        },
-    ) as nodes:
-        node_1, node_2, node_3, node_4, node_5, node_6 = nodes
-
+    with federation.nodes(6, {"security": {"secure_aggregation": "True"}}) as nodes:
         for node in nodes:
             add_dataset_to_node(node, dataset)
 
         # start nodes and give some time to start
-        node_processes, _ = start_nodes(
-            [node_1, node_2, node_3, node_4, node_5, node_6]
-        )
+        federation.start(nodes)
         time.sleep(15)
 
         yield
-
-        kill_subprocesses(node_processes)
 
 
 #############################################

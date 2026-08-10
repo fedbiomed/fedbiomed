@@ -1,15 +1,27 @@
 
 ## Self-Hosted Runner conf
 
-### Pyenv and python version installation
+### Python version installation
 
-Workflows use `setup-pyenv/action.yml` to install `pyenv`. `pyenv` allows to install requires python versions.
+Test workflows install their interpreter through `.github/actions/setup-fbm-env`.
+The action picks a method from what the runner provides:
 
-This action installs `pyenv` in Linux and MacOs systems. However, there may be some missing packages in the ci slaves. Therefore, please carefully check `pyenv` installation and python version installation steps to make sure all required packages are installed in the system.
+- Homebrew, on the self-hosted Apple Silicon runner
+- `dnf`, on Fedora and derivatives
+- `actions/setup-python`, everywhere else
 
-The error while installation specific python version can be difficult to debug on action output. Please connect self-hosted ci and execute installation manually (e.g pyenv install 3.10)
+It then resolves the real interpreter path, validates that the installed version
+is exactly the one requested, exports it as `FEDBIOMED_PYTHON_BIN`, selects
+CPU-only PyTorch on Linux, and installs tox into an isolated virtual
+environment. The isolated tox environment avoids modifying a Homebrew-managed
+Python and avoids the PEP 668 `externally-managed-environment` error.
 
-One of the known error on Fedora is a missing C++ compiler tool: gcc, solution is it install `gcc` `yum install gcc`
+Interpreter installation failures are hard to read in the action output. Connect
+to the self-hosted runner and install the version manually to see the real
+error, for example `brew install python@3.14` or `sudo dnf install python3.14`.
+
+A known Fedora failure is a missing C++ compiler; install it with
+`sudo dnf install gcc`.
 
 ### Permissions
 

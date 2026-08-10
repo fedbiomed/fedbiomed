@@ -301,7 +301,6 @@ containers_clean() {
         docker image rm -f $img 2>/dev/null
     done
 
-    docker image prune -f
     #
     # level4 : remove docker cache
     #
@@ -363,27 +362,42 @@ containers_build() {
 
     BUILD_BASE=0
     BUILD_NODEBASE=0
+    NODE_BASE_SERVICE="${FBM_VPN_NODE_BASE_SERVICE:-basenode}"
+    case "$NODE_BASE_SERVICE" in
+        basenode|basenode-no-gpu) ;;
+        *)
+            echo "** ERROR: invalid node base service '$NODE_BASE_SERVICE'"
+            return 1
+            ;;
+    esac
+
     for i in ${ONLY_CONTAINERS[@]}
     do
         case $i in
-            vpnserver|researcher) BUILD_BASE=1;;
+            vpnserver|researcher|gui|gui2) BUILD_BASE=1;;
             node|node2)           BUILD_NODEBASE=1;;
         esac
     done
 
     if [ $BUILD_BASE -eq 1 ]; then
         echo "- building 'base' container"
-        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        if ! CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-            $DOCKER_COMPOSE build base
+            $DOCKER_COMPOSE build base; then
+            echo "** ERROR: failed to build 'base' container"
+            return 1
+        fi
     fi
     if [ $BUILD_NODEBASE -eq 1 ]; then
-        echo "- building 'basenode' container"
-        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        echo "- building '$NODE_BASE_SERVICE' container"
+        if ! CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-            $DOCKER_COMPOSE build basenode
+            $DOCKER_COMPOSE build "$NODE_BASE_SERVICE"; then
+            echo "** ERROR: failed to build '$NODE_BASE_SERVICE' container"
+            return 1
+        fi
     fi
 
     for i in ${ONLY_CONTAINERS[@]}
@@ -391,10 +405,13 @@ containers_build() {
         echo "- stopping '$i' container"
         $DOCKER_COMPOSE rm -sf $i >/dev/null
         echo "- building '$i' container"
-        CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
+        if ! CONTAINER_UID=${CONTAINER_UID:-$(id -u)} CONTAINER_GID=${CONTAINER_GID:-$(id -g)} \
             CONTAINER_USER=${CONTAINER_USER:-$(id -un | sed 's/[^[:alnum:]]/_/g')} \
             CONTAINER_GROUP=${CONTAINER_GROUP:-$(id -gn | sed 's/[^[:alnum:]]/_/g')} \
-            $DOCKER_COMPOSE build $i
+            $DOCKER_COMPOSE build "$i"; then
+            echo "** ERROR: failed to build '$i' container"
+            return 1
+        fi
     done
 }
 
@@ -721,7 +738,9 @@ fi
 # start doing something useful
 # -----------------------------
 [[ $CLEAN -gt 0 ]]          && { containers_clean; }
-[[ $BUILD -eq 1 ]]          && { containers_build; }
+if [[ $BUILD -eq 1 ]]; then
+    containers_build || exit $?
+fi
 [[ $CONFIGURE -eq 1 ]]      && { containers_configure; }
 [[ $START -eq 1 ]]          && { containers_start; }
 [[ $STOP -eq 1 ]]           && { containers_remove; }

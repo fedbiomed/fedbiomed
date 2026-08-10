@@ -10,7 +10,7 @@ import {
     EuiSwitch,
     EuiTab,
     EuiTabs,
-    EuiText
+    EuiText,
 } from '@elastic/eui'
 
 import ApplicationLogs from './ApplicationLogs'

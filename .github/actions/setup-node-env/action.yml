@@ -8,7 +8,7 @@ description: |
 inputs:
   node-version:
     description: 'Node Version'
-    default: '23'
+    default: '24'
 
 
 runs:

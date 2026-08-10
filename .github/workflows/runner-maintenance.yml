@@ -1,0 +1,100 @@
+---
+name: Self-hosted runner maintenance
+description: |
+  Self-hosted runners keep their disk between jobs, so the caches the tests fill
+  are never reclaimed. This bounds the four that grow without limit — pip,
+  Homebrew, cached interpreters, E2E datasets — and touches nothing else.
+
+on:
+  schedule:
+    # Monday 01:00 UTC, after the weekend matrices have had the whole of Sunday
+    # to drain. A self-hosted runner takes one job at a time, so a leg still
+    # running only delays this job, never runs alongside it.
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  # Purge the pip cache once it grows past this size, in kilobytes.
+  PIP_CACHE_LIMIT_KB: 5242880
+  # Remove interpreters the runner tool cache has not written for this long.
+  TOOL_CACHE_MAX_AGE_DAYS: 60
+  # Refresh end-to-end datasets that have not been rewritten for this long.
+  DATA_CACHE_MAX_AGE_DAYS: 90
+
+jobs:
+  # GitHub cannot address every self-hosted runner at once, so each one is
+  # listed here. A runner that is offline keeps its job queued and the leg
+  # eventually fails, which is the intended signal that the machine needs
+  # attention.
+  clean:
+    name: Clean ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - macos-m1
+          - ubuntu-24-04
+    runs-on: [self-hosted, "${{ matrix.runner }}"]
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash -leuo pipefail {0}
+    steps:
+      - name: Report disk usage before cleaning
+        run: df -h
+
+      # Test jobs on these runners install into a persistent pip cache, which
+      # nothing else bounds. Emptying it costs one slower job afterwards.
+      - name: Purge an oversized pip cache
+        run: |
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            CACHE_DIR="$HOME/Library/Caches/pip"
+          else
+            CACHE_DIR="$HOME/.cache/pip"
+          fi
+
+          if [[ ! -d "$CACHE_DIR" ]]; then
+            echo "No pip cache at $CACHE_DIR."
+            exit 0
+          fi
+
+          SIZE_KB=$(du -sk "$CACHE_DIR" | cut -f1)
+          if [[ "$SIZE_KB" -gt "$PIP_CACHE_LIMIT_KB" ]]; then
+            echo "Purging $CACHE_DIR, $((SIZE_KB / 1024)) MB."
+            rm -rf "${CACHE_DIR:?}"
+          else
+            echo "Keeping $CACHE_DIR, $((SIZE_KB / 1024)) MB."
+          fi
+
+      - name: Remove superseded Homebrew downloads
+        if: ${{ runner.os == 'macOS' }}
+        run: arch -arm64 brew cleanup -s
+
+      # actions/setup-python keeps one directory per patch version, so the tool
+      # cache grows every time a matrix moves to a newer patch. The E2E dataset
+      # cache outlives the job and nothing else reclaims it; its directories are
+      # rewritten on fetch but not on read, so age expires every dataset alike.
+      # Anything still wanted is fetched again on its next use. Dataset root:
+      # DEFAULT_DATA_CACHE in tests/end2end/helpers.
+      - name: Remove stale interpreters and end-to-end datasets
+        run: |
+          prune() {
+            if [[ ! -d "$1" ]]; then
+              echo "Nothing cached in $1."
+              return
+            fi
+            find "$1" -mindepth 1 -maxdepth 1 -type d -mtime "+$2" -print -exec rm -rf {} +
+          }
+
+          prune "${RUNNER_TOOL_CACHE:-}/Python" "$TOOL_CACHE_MAX_AGE_DAYS"
+          prune "$HOME/.cache/fedbiomed/e2e-data" "$DATA_CACHE_MAX_AGE_DAYS"
+
+      - name: Report disk usage after cleaning
+        run: df -h

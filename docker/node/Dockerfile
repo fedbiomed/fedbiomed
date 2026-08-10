@@ -1,7 +1,7 @@
 # Version tag of Fed-BioMed image
 ARG FBM_IMAGE_VERSION
 
-FROM fedbiomed/base:${FBM_IMAGE_VERSION:-latest} AS fedbiomed-base
+FROM fedbiomed/base:${FBM_IMAGE_VERSION} AS fedbiomed-base
 
 # Redeclare ARGs from base image to make them available at build time
 ARG FEDBIOMED_USER=fedbiomed

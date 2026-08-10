@@ -1,34 +1,41 @@
 ---
-name: Fed-BioMed Build test
-run-name: Fed-BioMed Build test
+name: Fed-BioMed Build Test
+run-name: ${{ github.event_name == 'schedule' && 'Fed-BioMed Full Build Test' || 'Fed-BioMed Build Test' }}
+description: |
+  Unit tests, the MNIST smoke test and one documentation build. Both triggers run
+  the same suites: a pull request takes the endpoint interpreters on the hosted
+  runners, the schedule takes every interpreter on every runner.
+
 on:
   pull_request:
     types:
       - opened
       - synchronize
+      - reopened
       - ready_for_review
     branches:
       - develop
       - master
+  schedule:
+    # Monday to Friday at 18:00 UTC on the default branch.
+    - cron: "0 18 * * 1-5"
 
-  workflow_dispatch:
-    inputs:
-      full:
-        description: "Run full test matrix"
-        required: false
-        default: "true"
-
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-
 jobs:
   run-tests:
-    name: Run Fed-BioMed UNIT-MNIST-DOC Tests
+    name: UNIT-MNIST-DOC Tests
+    if: ${{ github.event_name == 'schedule' || github.event.pull_request.draft == false }}
     uses: ./.github/workflows/fbm-generic-test.yml
     secrets: inherit
     with:
-      python-versions: ${{ ( github.event_name == 'schedule' || inputs.full == 'true' ) && '["3.10","3.11"]' || '["3.11"]' }}
-      os-list: ${{ ( github.event_name == 'schedule' || inputs.full == 'true' ) && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest","ubuntu-22.04","macos-latest","macos-m1"]' }}
+      python-versions: ${{ github.event_name == 'schedule' && '["3.11","3.12","3.13","3.14"]' || '["3.11","3.14"]' }}
+      os-list: ${{ github.event_name == 'schedule' && '["ubuntu-latest","ubuntu-24-04","macos-latest","macos-m1"]' || '["ubuntu-latest","macos-latest"]' }}
+      run-docs: true
+      run-unit: true
+      run-mnist: true

@@ -290,6 +290,7 @@ Run this only at first launch of container or after cleaning :
 
 * build container
 ```bash
+[user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build base
 [user@node $] CONTAINER_UID=$(id -u) CONTAINER_GID=$(id -g) CONTAINER_USER=$(id -un | sed 's/[^[:alnum:]]/_/g') CONTAINER_GROUP=$(id -gn | sed 's/[^[:alnum:]]/_/g') docker compose build gui
 ```
 
@@ -312,6 +313,7 @@ On the build machine
 * in this example, we build the container with user `fedbiomed` (id `1234`) and group `fedbiomed` (id `1234`). Account name and id used on the node machine may differ (see below).
 * build container
 ```bash
+[user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build base
 [user@build $] CONTAINER_UID=1234 CONTAINER_GID=1234 CONTAINER_USER=fedbiomed CONTAINER_GROUP=fedbiomed docker compose build gui
 ```
 * save image for container

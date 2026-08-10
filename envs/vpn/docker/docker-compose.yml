@@ -12,6 +12,7 @@ x-node: &standard-node
       - CONTAINER_USER
       - CONTAINER_GROUP
       - FBM_CONTAINER_VERSION_TAG
+      - FBM_PYTORCH_INDEX_URL
   image: fedbiomed/vpn-node:${FBM_CONTAINER_VERSION_TAG:-unknown}
   networks:
     - fedbiomed_node
@@ -76,6 +77,8 @@ services:
     hostname: fedbiomed-vpn-base-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ./base/build_files
+      args:
+        - PYTHON_VERSION
     image: "fedbiomed/vpn-base:${FBM_CONTAINER_VERSION_TAG:-unknown}"
     networks:
       - fedbiomed_misc
@@ -91,6 +94,8 @@ services:
     hostname: fedbiomed-vpn-base-node-no-gpu-${FBM_CONTAINER_INSTANCE_ID:-unknown}
     build:
       context: ./base/build_files
+      args:
+        - PYTHON_VERSION
     image: fedbiomed/vpn-basenode:${FBM_CONTAINER_VERSION_TAG:-unknown}
     networks:
       - fedbiomed_misc
@@ -248,6 +253,7 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
         - FBM_CONTAINER_VERSION_TAG
+        - FBM_PYTORCH_INDEX_URL
     image: fedbiomed/vpn-researcher:${FBM_CONTAINER_VERSION_TAG:-unknown}
     networks:
       - fedbiomed_researcher

@@ -1,4 +1,8 @@
+---
 name: Build and deploy docs to fedbiomed-docs-public
+description: |
+  Builds the versioned documentation for a tag and pushes it to the public
+  documentation repository.
 
 on:
   push:
@@ -71,7 +75,7 @@ jobs:
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "ALIAS=${ALIAS}" >> $GITHUB_OUTPUT
-      
+
       - name: Checkout requested ref
         if: github.event_name == 'workflow_dispatch'
         run: |

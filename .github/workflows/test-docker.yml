@@ -1,55 +1,148 @@
 ---
-name: Fed-BioMed VPN Docker Image and Container Test
-run-name: fedbiomed-docker-container-test
+name: Fed-BioMed Docker Compatibility Tests
+run-name: Fed-BioMed Docker Compatibility Tests
+description: |
+  Builds the published docker images on every supported interpreter, then runs a
+  VPN functional test that trains across node and researcher containers.
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # Run every day at 1 am on default branch: develop
-  push:
-    branches:
-      - "master"
+    # Monday to Friday at 20:00 UTC.
+    - cron: "0 20 * * 1-5"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  run-docker-test:
-    name: VPN Image/Docker Test
+  hosted-build-smoke:
+    name: Build smoke / ubuntu-latest / ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - [self-hosted, ubuntu-24-04]
-        python-version:
-          - "3.10"
-          - "3.11"
-    runs-on: ${{ matrix.os }}
+        include:
+          - python-version: "3.11"
+            python-tag: "311"
+          - python-version: "3.12"
+            python-tag: "312"
+          - python-version: "3.13"
+            python-tag: "313"
+          - python-version: "3.14"
+            python-tag: "314"
+    env:
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      IMAGE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
     steps:
-      - name: Checkout to repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Install docker if it is not existing
-        if: runner.os == 'macOS'
-        run: |
-          if ! command -v docker &>/dev/null; then
-            echo "Docker is not installed. Proceeding to install..."
-            brew install --cask docker
-          else
-            echo "Docker is already installed."
-          fi
-          docker compose --help
-          if ! docker compose version; then
-            echo "failed to execute docker compose version"
-          fi
-        shell: bash -l {0}
 
-      - name: Run docker test
+      - name: Build base image
         run: |
-          ./tests/vpn_test.sh
-        shell: bash -l {0}
+          docker build --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
+            --tag "fedbiomed/base:$IMAGE_TAG" --file docker/base/Dockerfile .
 
-      - name: Clean
+      - name: Build node and researcher images
+        run: |
+          for image in node researcher; do
+            docker build \
+              --build-arg "FBM_IMAGE_VERSION=$IMAGE_TAG" \
+              --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
+              --tag "fedbiomed/$image:$IMAGE_TAG" \
+              --file "docker/$image/Dockerfile" .
+          done
+
+      - name: Verify image Python and commands
+        run: |
+          for image in base node researcher; do
+            actual=$(docker run --rm --entrypoint python "fedbiomed/$image:$IMAGE_TAG" -c \
+              'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+            test "$actual" = "$PYTHON_VERSION"
+          done
+
+          docker run --rm --entrypoint fedbiomed "fedbiomed/base:$IMAGE_TAG" --help
+          docker run --rm --entrypoint fedbiomed "fedbiomed/node:$IMAGE_TAG" node --help
+          docker run --rm --entrypoint fedbiomed \
+            "fedbiomed/researcher:$IMAGE_TAG" researcher --help
+
+      - name: Remove test images
         if: always()
         run: |
-          # Fix possible permission issues
-          sudo chown -R $(whoami):$(whoami) envs/vpn/docker || true
-          ./scripts/fedbiomed_vpn clean image
-          docker system prune -af
-        shell: bash -l {0}
+          docker image rm --force "fedbiomed/researcher:$IMAGE_TAG" \
+            "fedbiomed/node:$IMAGE_TAG" "fedbiomed/base:$IMAGE_TAG" || true
+
+  vpn-functional:
+    name: VPN functional / ${{ matrix.runner-name }} / ${{ matrix.python-version }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.11"
+            python-tag: "311"
+            runner: ubuntu-latest
+            runner-name: ubuntu-latest
+            persistent-cache: false
+          - python-version: "3.14"
+            python-tag: "314"
+            runner: ubuntu-latest
+            runner-name: ubuntu-latest
+            persistent-cache: false
+          - python-version: "3.11"
+            python-tag: "311"
+            runner: [self-hosted, ubuntu-24-04]
+            runner-name: ubuntu-24-04 (self-hosted)
+            persistent-cache: true
+          - python-version: "3.14"
+            python-tag: "314"
+            runner: [self-hosted, ubuntu-24-04]
+            runner-name: ubuntu-24-04 (self-hosted)
+            persistent-cache: true
+    env:
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      # Compatibility CI is CPU-only. Deployment keeps the GPU-capable defaults.
+      FBM_VPN_NODE_BASE_SERVICE: basenode-no-gpu
+      FBM_PYTORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
+      FBM_EXPECT_CPU_TORCH: "true"
+      FBM_CONTAINER_VERSION_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
+      # Prefixed by the service name to form a container hostname, capped at 64.
+      FBM_CONTAINER_INSTANCE_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
+      COMPOSE_PROJECT_NAME: fedbiomed-vpn-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Docker and VPN prerequisites
+        run: |
+          docker version
+          docker compose version
+          test -c /dev/net/tun
+          df -h
+          docker system df
+
+      - name: Bound persistent Docker build cache
+        if: matrix.persistent-cache
+        run: docker builder prune --all --force --keep-storage 8gb
+
+      - name: Run VPN functional test
+        run: ./tests/vpn_test.sh
+
+      - name: Clean this VPN test run
+        if: always()
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" envs/vpn/docker || true
+          ./scripts/fedbiomed_vpn clean image || true
+          docker compose --file envs/vpn/docker/docker-compose.yml \
+            --project-name "$COMPOSE_PROJECT_NAME" down --remove-orphans || true
+
+      - name: Prune persistent Docker build cache
+        if: ${{ always() && matrix.persistent-cache }}
+        run: |
+          docker builder prune --all --force --keep-storage 8gb || true
+          docker system df || true
