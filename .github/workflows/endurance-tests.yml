@@ -19,7 +19,7 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
-    name: Endurance / ${{ matrix.os }} / ${{ matrix.python-version }}
+    name: Endurance (${{ matrix.os }}, ${{ matrix.python-version }})
     strategy:
       fail-fast: false
       matrix:
