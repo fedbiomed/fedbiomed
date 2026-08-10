@@ -76,7 +76,7 @@ permissions:
 
 jobs:
   build-doc:
-    name: Documentation / Python 3.11 / Ubuntu latest
+    name: Documentation / ubuntu-latest / 3.11
     if: ${{ inputs.run-docs }}
     runs-on: ubuntu-latest
     steps:
@@ -105,7 +105,7 @@ jobs:
         run: pdm run mike deploy test
 
   unit-test:
-    name: Unit / Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    name: Unit / ${{ matrix.os }} / ${{ matrix.python-version }}
     if: ${{ inputs.run-unit }}
     timeout-minutes: 45
     defaults:
@@ -170,7 +170,7 @@ jobs:
           retention-days: 14
 
   mnist-test:
-    name: MNIST / Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    name: MNIST / ${{ matrix.os }} / ${{ matrix.python-version }}
     if: ${{ inputs.run-mnist }}
     timeout-minutes: 60
     defaults:
@@ -225,7 +225,7 @@ jobs:
           retention-days: 14
 
   e2e-test:
-    name: E2E / ${{ matrix.e2e-file }} / Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    name: E2E / ${{ matrix.e2e-file }} / ${{ matrix.os }} / ${{ matrix.python-version }}
     if: ${{ inputs.run-e2e }}
     timeout-minutes: 180
     defaults:

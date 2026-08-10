@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   run-tests:
-    name: Run unit, MNIST, and documentation tests
+    name: UNIT-MNIST-DOC Tests
     if: ${{ github.event_name == 'schedule' || github.event.pull_request.draft == false }}
     uses: ./.github/workflows/fbm-generic-test.yml
     secrets: inherit

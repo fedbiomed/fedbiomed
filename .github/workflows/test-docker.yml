@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   hosted-build-smoke:
-    name: Build smoke / Python ${{ matrix.python-version }} / Ubuntu latest
+    name: Build smoke / ubuntu-latest / ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -77,7 +77,7 @@ jobs:
             "fedbiomed/node:$IMAGE_TAG" "fedbiomed/base:$IMAGE_TAG" || true
 
   vpn-functional:
-    name: VPN functional / Python ${{ matrix.python-version }} / ${{ matrix.runner-name }}
+    name: VPN functional / ${{ matrix.runner-name }} / ${{ matrix.python-version }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     strategy:
@@ -87,22 +87,22 @@ jobs:
           - python-version: "3.11"
             python-tag: "311"
             runner: ubuntu-latest
-            runner-name: Ubuntu latest
+            runner-name: ubuntu-latest
             persistent-cache: false
           - python-version: "3.14"
             python-tag: "314"
             runner: ubuntu-latest
-            runner-name: Ubuntu latest
+            runner-name: ubuntu-latest
             persistent-cache: false
           - python-version: "3.11"
             python-tag: "311"
             runner: [self-hosted, ubuntu-24-04]
-            runner-name: Self-hosted Ubuntu
+            runner-name: ubuntu-24-04 (self-hosted)
             persistent-cache: true
           - python-version: "3.14"
             python-tag: "314"
             runner: [self-hosted, ubuntu-24-04]
-            runner-name: Self-hosted Ubuntu
+            runner-name: ubuntu-24-04 (self-hosted)
             persistent-cache: true
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
