@@ -109,7 +109,10 @@ class DatasetManager:
         return dlp_metadata, self.dlb_table.get_all_by_value("dlb_id", dlb_ids)
 
     def read_csv(
-        self, csv_file: str, index_col: Union[int, None] = None
+        self,
+        csv_file: str,
+        index_col: Union[int, None] = None,
+        dtype: Union[type, None] = None,
     ) -> pd.DataFrame:
         """Gets content of a CSV file.
 
@@ -120,6 +123,8 @@ class DatasetManager:
             csv_file: File name / path
             index_col: Column that contains CSV file index.
                 Defaults to None.
+            dtype: Data type to force column read types. Defaults to None, letting
+                pandas infer the type of each column.
 
         Returns:
             Pandas DataFrame with data contained in CSV file.
@@ -132,7 +137,9 @@ class DatasetManager:
             file.seek(0)
             header = 0 if sniffer.has_header(file.read()) else None
 
-        return pd.read_csv(csv_file, index_col=index_col, sep=delimiter, header=header)
+        return pd.read_csv(
+            csv_file, index_col=index_col, sep=delimiter, header=header, dtype=dtype
+        )
 
     def add_database(
         self,

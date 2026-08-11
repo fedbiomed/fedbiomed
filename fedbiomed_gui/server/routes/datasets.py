@@ -313,6 +313,8 @@ def get_csv_data():
     """
     Loads csv from given path
 
+    Used by the MedicalFolderDataset reference CSV picker in the GUI, so all
+    columns are read as strings
     """
     req = request.json
 
@@ -325,7 +327,7 @@ def get_csv_data():
         ), 400
 
     try:
-        df = dataset_manager.read_csv(data_path)
+        df = dataset_manager.read_csv(data_path, dtype=str)
         rows = df.shape[0]
         df.fillna("NULL", inplace=True)
         data_preview = df.iloc[0:30, :].to_dict("split")

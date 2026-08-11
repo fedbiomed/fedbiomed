@@ -8,7 +8,7 @@ Reader implementation for CSV file
 import csv
 import os
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional, Union
 
 import pandas as pd
 import polars as pl
@@ -24,6 +24,9 @@ class CsvReader:
         path: Path,
         has_header: str | bool = "auto",
         delimiter: Optional[str] = None,
+        schema_overrides: Optional[
+            Dict[str, Union[pl.datatypes.classes.DataTypeClass, pl.DataType]]
+        ] = None,
     ) -> None:
         """Constructs the csv reader.
 
@@ -35,12 +38,16 @@ class CsvReader:
             delimiter: The delimiter used in the csv file.
                 By default it is set as None, which is the case that the reader tries to
                 detect itself whether the file has a delimiter or not.
+            schema_overrides: Optional mapping of column name to polars dtype, used to
+                override automatic type inference for the given columns. For example, forcing
+                a numeric-looking identifier column to be read as a string.
         """
 
         self._path = path
 
         self._delimiter = delimiter
         self.header: bool | None = None if has_header == "auto" else has_header
+        self._schema_overrides = schema_overrides
 
         # Pre-parse the CSV file to determine its delimiter and header
         # Note: this will read the first line of the file
@@ -69,6 +76,7 @@ class CsvReader:
                 self._path,
                 separator=self._delimiter,
                 has_header=bool(self.header),
+                schema_overrides=self._schema_overrides,
                 **kwargs,
             )
         except pl.exceptions.ComputeError as err:
