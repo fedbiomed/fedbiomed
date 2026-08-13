@@ -615,6 +615,23 @@ def test_read_csv_with_index_col(tmp_path):
     assert list(df.columns) == ["val"]
 
 
+def test_read_csv_with_dtype_str_preserves_leading_zeros(tmp_path):
+    """`dtype=str` keeps numeric-looking values (e.g. folder-name references)
+    as-is instead of letting pandas infer them as integers and drop leading
+    zeros. Used by the GUI to preview MedicalFolderDataset reference CSVs.
+    """
+    dm = dm_mod.DatasetManager(path="/tmp/db")
+    f = tmp_path / "folder_names.csv"
+    f.write_text("folder_name,age\n0002,30\n1005,40\n", encoding="utf-8")
+
+    df_inferred = dm.read_csv(str(f))
+    assert df_inferred["folder_name"].tolist() == [2, 1005]
+
+    df_str = dm.read_csv(str(f), dtype=str)
+    assert df_str["folder_name"].tolist() == ["0002", "1005"]
+    assert df_str["age"].tolist() == ["30", "40"]
+
+
 def test_add_dynamic_dataset_with_optional_fields():
     """All optional fields are forwarded and stored correctly."""
     dm = dm_mod.DatasetManager(path="/db")
