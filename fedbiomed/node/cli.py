@@ -149,7 +149,7 @@ class DatasetArgumentParser(CLIArgumentParser):
             self._context.dataset_manager,
             initialdir=os.path.join(self._context.config.root, NODE_DATA_FOLDER),
         )
-    
+
     def list(self, unused_args):
         """List datasets
 
@@ -670,7 +670,10 @@ class GUIControl(CLIArgumentParser):
             with subprocess.Popen(
                 " ".join(command), env=current_env, shell=True
             ) as proc:
-                proc.wait()
+                try:
+                    proc.wait()
+                except KeyboardInterrupt:
+                    proc.wait()
         except Exception as e:
             print(e)
 
