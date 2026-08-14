@@ -112,7 +112,8 @@ class ComponentParser(CLIArgumentParser):
             else:
                 component_path = os.path.join(os.getcwd(), DEFAULT_NODE_NAME)
         else:
-            component_path = args.path
+            # Path may be given as relative, but it is expected to be absolute downstream
+            component_path = os.path.abspath(args.path)
 
         # Researcher specific case ----------------------------------------------------
         # This is a special case since researcher import
