@@ -37,11 +37,11 @@ CERT_PURPOSE_CLIENT = "client"
 def certificate_subject_field(
     certificate: bytes, oid: x509.ObjectIdentifier
 ) -> Optional[str]:
-    """Extracts a subject field (e.g. `O=` or `CN=`) from a PEM certificate.
+    """Extracts a subject field (e.g. `CN=` or `O=`) from a PEM certificate.
 
     Args:
         certificate: PEM encoded certificate.
-        oid: Subject attribute OID, e.g. `x509.oid.NameOID.ORGANIZATION_NAME`.
+        oid: Subject attribute OID, e.g. `x509.oid.NameOID.COMMON_NAME`.
 
     Returns:
         The field value, or None if absent or unparsable.
@@ -52,8 +52,34 @@ def certificate_subject_field(
             .subject.get_attributes_for_oid(oid)[0]
             .value
         )
-    except (IndexError, AttributeError, ValueError):
+    except (IndexError, AttributeError, TypeError, ValueError):
         return None
+
+
+def certificate_names(certificate: Union[bytes, str]) -> List[str]:
+    """Hosts and addresses a certificate is valid for.
+
+    Read from the Subject Alternative Name, the only place a certificate states
+    them: the Common Name is free text and carries no host.
+
+    Args:
+        certificate: PEM encoded certificate.
+
+    Returns:
+        The certificate's SAN entries, empty when it declares none or cannot be
+        read.
+    """
+    if isinstance(certificate, str):
+        certificate = certificate.encode("utf-8")
+
+    try:
+        san = x509.load_pem_x509_certificate(certificate).extensions
+        return [
+            str(name.value)
+            for name in san.get_extension_for_class(x509.SubjectAlternativeName).value
+        ]
+    except (x509.ExtensionNotFound, TypeError, ValueError, AttributeError):
+        return []
 
 
 def certificate_audit_fields(certificate: Union[bytes, str]) -> Dict[str, str]:
@@ -465,8 +491,6 @@ class CertificateManager:
             certificate: Public-key for the FL parties
             party_id: ID of the party
             component: Node or researcher,
-            ip: IP of the component which the certificate will be registered
-            port: Port of the component which the certificate will be registered
             upsert: Update document with new data if it is existing
 
         Returns:
@@ -583,9 +607,9 @@ class CertificateManager:
     ) -> str:
         """Registers certificate
 
-        The party id may be recovered from the certificate's `O=`
-        (OrganizationName) field. A certificate identity counts only when it is
-        itself a valid party id (`<NODE|RESEARCHER>_<uuid>`):
+        The party id may be recovered from the certificate's `CN=` (CommonName)
+        field. A certificate identity counts only when it is itself a valid party
+        id (`<NODE|RESEARCHER>_<uuid>`):
 
         - certificate carries a valid identity, `party_id` omitted: recovered;
         - certificate carries no valid identity: `party_id` is required and must
@@ -631,7 +655,7 @@ class CertificateManager:
         certificate_content = read_file(certificate_path)
 
         certificate_id = certificate_subject_field(
-            certificate_content.encode("utf-8"), NameOID.ORGANIZATION_NAME
+            certificate_content.encode("utf-8"), NameOID.COMMON_NAME
         )
         # A certificate identity is usable only if it is itself a valid party id.
         certificate_component = (
@@ -752,6 +776,7 @@ class CertificateManager:
         certificate_name: str = "FBM_",
         component_id: str = "unknown",
         subject: Optional[Dict[str, str]] = None,
+        san: Optional[List[str]] = None,
     ) -> Tuple[str, str]:
         """Creates self-signed certificates
 
@@ -764,6 +789,11 @@ class CertificateManager:
                 will be saved. Path should be absolute.
             certificate_name: Name of the certificate file.
             component_id: ID of the component
+            subject: Subject fields, `CommonName` being the party id peers register
+                the certificate under. The subject states who a component is, never
+                where it is reached.
+            san: Hosts and IP addresses the component is reached at, which peers
+                verify it under. Required for a certificate peers verify by name.
 
         Returns:
             private_key: Private key file
@@ -792,13 +822,19 @@ class CertificateManager:
 
         pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
-        cn = subject.get("CommonName", "*")
-        on = subject.get("OrganizationName", component_id)
+        # The names given, plus the loopback names a party on the same machine dials
+        # it by. A certificate issued for none — a node's, resolved by fingerprint —
+        # carries no SubjectAlternativeName at all.
+        names = [entry for entry in san or [] if entry]
+        if names:
+            names = list(dict.fromkeys([*names, "localhost", "127.0.0.1"]))
 
+        # The subject holds the party id alone: who the component is, not where.
         name = x509.Name(
             [
-                x509.NameAttribute(NameOID.COMMON_NAME, cn),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, on),
+                x509.NameAttribute(
+                    NameOID.COMMON_NAME, subject.get("CommonName", component_id)
+                )
             ]
         )
 
@@ -847,14 +883,15 @@ class CertificateManager:
             .add_extension(x509.ExtendedKeyUsage(extended_key_usages), critical=False)
         )
 
-        san: Optional[x509.GeneralName]
-        try:
-            san = x509.IPAddress(ipaddress.ip_address(cn))
-        except ValueError:
-            san = x509.DNSName(cn) if cn and cn != "*" else None
-        if san is not None:
+        if names:
+            entries: List[x509.GeneralName] = []
+            for entry in names:
+                try:
+                    entries.append(x509.IPAddress(ipaddress.ip_address(entry)))
+                except ValueError:
+                    entries.append(x509.DNSName(entry))
             builder = builder.add_extension(
-                x509.SubjectAlternativeName([san]), critical=False
+                x509.SubjectAlternativeName(entries), critical=False
             )
 
         certificate = builder.sign(private_key=pkey, algorithm=hashes.SHA256())
@@ -893,11 +930,15 @@ def generate_certificate(
     component_id,
     prefix: Optional[str] = None,
     subject: Optional[Dict[str, str]] = None,
+    san: Optional[List[str]] = None,
 ) -> Tuple[str, str]:
     """Generates certificates
 
     Args:
         component_id: ID of the component for which the certificate will be generated
+        subject: Subject fields of the certificate, stating who the component is.
+        san: Hosts and IP addresses the component is reached at, which peers verify
+            it under.
 
     Returns:
         key_file: The path where private key file is saved
@@ -927,6 +968,7 @@ def generate_certificate(
         certificate_name=prefix if prefix else "",
         component_id=component_id,
         subject=subject,
+        san=san,
     )
 
     return key_file, pem_file

@@ -3,16 +3,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from cryptography import x509
-from cryptography.x509.oid import NameOID
 
+from fedbiomed.common.certificate_manager import certificate_names
 from fedbiomed.common.cli import CommonCLI
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 
-_NODE_1 = {"party_id": "NODE_1", "component": "NODE"}
-_NODE_2 = {"party_id": "NODE_2", "component": "NODE"}
-_NODE_3 = {"party_id": "NODE_3", "component": "NODE"}
-_RESEARCHER_1 = {"party_id": "RESEARCHER_1", "component": "RESEARCHER"}
-_RESEARCHER_2 = {"party_id": "RESEARCHER_2", "component": "RESEARCHER"}
+_NODE_A = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
+_NODE_B = "NODE_9c2b1d70-1111-2222-3333-444455556666"
+_NODE_C = "NODE_0a1b2c3d-aaaa-bbbb-cccc-ddddeeeeffff"
+_RESEARCHER_A = "RESEARCHER_9c2b1d70-1111-2222-3333-444455556666"
+_RESEARCHER_B = "RESEARCHER_7e6d5c40-9999-8888-7777-666655554444"
+
+# Registry rows, as `get_all_existing_certificates` returns them
+_NODE_A_ROW = {"party_id": _NODE_A, "component": "NODE"}
+_NODE_B_ROW = {"party_id": _NODE_B, "component": "NODE"}
+_NODE_C_ROW = {"party_id": _NODE_C, "component": "NODE"}
+_RESEARCHER_A_ROW = {"party_id": _RESEARCHER_A, "component": "RESEARCHER"}
+_RESEARCHER_B_ROW = {"party_id": _RESEARCHER_B, "component": "RESEARCHER"}
 
 
 @pytest.fixture
@@ -115,9 +122,9 @@ def test_common_cli_initialize_certificate_parser(cli):
 @pytest.mark.parametrize(
     "component,expected",
     [
-        ("RESEARCHER_1", ["NODE_1", "NODE_2"]),
-        ("NODE_1", ["RESEARCHER_1"]),
-        ("NODE_2", ["RESEARCHER_1"]),
+        (_RESEARCHER_A, [_NODE_A, _NODE_B]),
+        (_NODE_A, [_RESEARCHER_A]),
+        (_NODE_B, [_RESEARCHER_A]),
     ],
 )
 @patch("fedbiomed.common.cli.get_existing_component_db_names")
@@ -141,9 +148,9 @@ def test_common_cli_create_magic_dev_environment(
     """
     mock_get_components_db_names.return_value = {component: "db"}
     mock_get_all_certificates.return_value = [
-        {**_RESEARCHER_1, "certificate": "cert-r1"},
-        {**_NODE_1, "certificate": "cert-n1"},
-        {**_NODE_2, "certificate": "cert-n2"},
+        {**_RESEARCHER_A_ROW, "certificate": "cert-r1"},
+        {**_NODE_A_ROW, "certificate": "cert-n1"},
+        {**_NODE_B_ROW, "certificate": "cert-n2"},
     ]
 
     with patch("fedbiomed.common.cli.ROOT_DIR", "path/to/root"):
@@ -159,11 +166,14 @@ def test_common_cli_create_magic_dev_environment(
     "certificates,reported",
     [
         # A researcher, but a federation of one node
-        ([_RESEARCHER_1, _NODE_1], "1 node(s)"),
+        ([_RESEARCHER_A_ROW, _NODE_A_ROW], "1 node(s)"),
         # Enough components, but nobody to train them: what a count alone misses
-        ([_NODE_1, _NODE_2, _NODE_3], "0 researcher(s)"),
+        ([_NODE_A_ROW, _NODE_B_ROW, _NODE_C_ROW], "0 researcher(s)"),
         # A node cannot tell which of two researchers to pin
-        ([_RESEARCHER_1, _RESEARCHER_2, _NODE_1, _NODE_2], "2 researcher(s)"),
+        (
+            [_RESEARCHER_A_ROW, _RESEARCHER_B_ROW, _NODE_A_ROW, _NODE_B_ROW],
+            "2 researcher(s)",
+        ),
     ],
 )
 @patch("fedbiomed.common.cli.get_existing_component_db_names")
@@ -217,11 +227,11 @@ def test_create_magic_dev_environment_reports_rejected_certificate(
     Skipping a component's own kind is routine, but any other rejection means
     the certificate contradicts the component it is declared as.
     """
-    mock_get_components_db_names.return_value = {"NODE_1": "db-node-1"}
+    mock_get_components_db_names.return_value = {_NODE_A: "db-node-1"}
     mock_get_all_certificates.return_value = [
-        {**_RESEARCHER_1, "certificate": "cert-r1"},
-        {**_NODE_1, "certificate": "cert-n1"},
-        {**_NODE_2, "certificate": "cert-n2"},
+        {**_RESEARCHER_A_ROW, "certificate": "cert-r1"},
+        {**_NODE_A_ROW, "certificate": "cert-n1"},
+        {**_NODE_B_ROW, "certificate": "cert-n2"},
     ]
     mock_validate.side_effect = FedbiomedCertificateError("restricted to a TLS client")
 
@@ -239,29 +249,34 @@ def _generating_cli(cli, tmp_path, component, name):
     """Prepares `cli` to regenerate `name` for a component of the given type."""
     cli.initialize_certificate_parser()
     cli.config.COMPONENT_TYPE = component
+    cli.config.config_path = str(tmp_path / "etc" / "config.ini")
     cli.config.getpath.return_value = str(tmp_path / f"{name}.pem")
     cli.config.get.side_effect = lambda section, key: {
-        ("default", "id"): f"{component}_1",
+        ("default", "id"): _RESEARCHER_A if component == "RESEARCHER" else _NODE_A,
         ("server", "host"): "researcher-host",
     }[(section, key)]
     return cli
 
 
 @pytest.mark.parametrize(
-    "component,name,common_name",
+    "component,name,names",
     [
-        ("RESEARCHER", "server_certificate", "researcher-host"),
-        ("NODE", "FBM_certificate", "*"),
+        (
+            "RESEARCHER",
+            "server_certificate",
+            ["researcher-host", "localhost", "127.0.0.1"],
+        ),
+        ("NODE", "FBM_certificate", []),
     ],
 )
 @patch("builtins.print")
 def test_generate_certificate_is_named_and_subjected_as_configured(
-    mock_print, cli, tmp_path, component, name, common_name
+    mock_print, cli, tmp_path, component, name, names
 ):
     """The certificate is written where the configuration expects, under its name.
 
     A researcher is pinned by nodes against its server host, so its certificate
-    must carry that name; a wildcard one cannot be verified.
+    must carry that name; a node is resolved by fingerprint and carries none.
     """
     args = _generating_cli(cli, tmp_path, component, name).parser.parse_args(
         ["certificate", "generate"]
@@ -271,11 +286,7 @@ def test_generate_certificate_is_named_and_subjected_as_configured(
 
     pem = tmp_path / f"{name}.pem"
     assert pem.is_file() and (tmp_path / f"{name}.key").is_file()
-    certificate = x509.load_pem_x509_certificate(pem.read_bytes())
-    assert (
-        certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
-        == common_name
-    )
+    assert certificate_names(pem.read_bytes()) == names
 
 
 @patch("builtins.print")
@@ -291,7 +302,72 @@ def test_generate_certificate_researcher_is_pinnable(mock_print, cli, tmp_path):
         (tmp_path / "server_certificate.pem").read_bytes()
     )
     san = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
-    assert san.value.get_values_for_type(x509.DNSName) == ["researcher-host"]
+    assert san.value.get_values_for_type(x509.DNSName) == [
+        "researcher-host",
+        "localhost",
+    ]
+
+
+@patch("fedbiomed.common.cli.logger.info")
+@patch("builtins.print")
+def test_generate_certificate_reports_the_host_it_read(
+    mock_print, mock_info, cli, tmp_path
+):
+    """Without '--san' the name issued for comes from the configuration, so say so."""
+    args = _generating_cli(
+        cli, tmp_path, "RESEARCHER", "server_certificate"
+    ).parser.parse_args(["certificate", "generate"])
+
+    cli._generate_certificate(args)
+
+    message = mock_info.call_args.args[0]
+    assert "researcher-host" in message and cli.config.config_path in message
+
+
+@patch("fedbiomed.common.cli.logger.info")
+@patch("builtins.print")
+def test_generate_certificate_is_silent_about_the_host_when_named(
+    mock_print, mock_info, cli, tmp_path
+):
+    """The names are the ones given, so there is nothing to report about them."""
+    args = _generating_cli(
+        cli, tmp_path, "RESEARCHER", "server_certificate"
+    ).parser.parse_args(["certificate", "generate", "--san", "fbm.hospital.org"])
+
+    cli._generate_certificate(args)
+
+    mock_info.assert_not_called()
+
+
+@patch("builtins.print")
+def test_generate_certificate_adds_the_given_names(mock_print, cli, tmp_path):
+    """A researcher reachable under names its configuration does not hold."""
+    args = _generating_cli(
+        cli, tmp_path, "RESEARCHER", "server_certificate"
+    ).parser.parse_args(
+        ["certificate", "generate", "--san", "fbm.hospital.org", "--san", "10.0.0.9"]
+    )
+
+    cli._generate_certificate(args)
+
+    assert certificate_names((tmp_path / "server_certificate.pem").read_bytes()) == [
+        "researcher-host",
+        "fbm.hospital.org",
+        "10.0.0.9",
+        "localhost",
+        "127.0.0.1",
+    ]
+
+
+@patch("builtins.print")
+def test_generate_certificate_refuses_names_on_a_node(mock_print, cli, tmp_path):
+    """A node certificate is never verified by name, so naming it is a mistake."""
+    args = _generating_cli(cli, tmp_path, "NODE", "FBM_certificate").parser.parse_args(
+        ["certificate", "generate", "--san", "fbm.hospital.org"]
+    )
+
+    with pytest.raises(SystemExit):
+        cli._generate_certificate(args)
 
 
 @patch("builtins.print")
@@ -323,7 +399,7 @@ def test_common_cli_register_certificate(
     cli.initialize_certificate_parser()
     cli.config.COMPONENT_TYPE = "NODE"
     # The party id normally comes from the certificate, not from the command line
-    mock_register_certificate.return_value = "RESEARCHER_1"
+    mock_register_certificate.return_value = _RESEARCHER_A
     args = cli.parser.parse_args(
         ["certificate", "register", "--public-key", "path/to/key", "--upsert"]
     )
@@ -342,7 +418,7 @@ def test_common_cli_register_certificate(
     )
     # The party actually registered is named, whether or not it was supplied
     printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
-    assert "RESEARCHER_1" in printed
+    assert _RESEARCHER_A in printed
 
     mock_register_certificate.side_effect = FedbiomedError
     with pytest.raises(SystemExit):
@@ -362,9 +438,9 @@ def test_common_cli_list_certificates(mock_open, mock_cm_list, cli):
 @pytest.mark.parametrize(
     "certificates,reason",
     [
-        ([_NODE_1], "own_component_type_registered"),
-        ([_RESEARCHER_1, _RESEARCHER_2], "multiple_certificates_on_node"),
-        ([_RESEARCHER_1], None),  # consistent registry: nothing to audit
+        ([_NODE_A_ROW], "own_component_type_registered"),
+        ([_RESEARCHER_A_ROW, _RESEARCHER_B_ROW], "multiple_certificates_on_node"),
+        ([_RESEARCHER_A_ROW], None),  # consistent registry: nothing to audit
     ],
 )
 @patch("fedbiomed.common.cli.logger.security_event")
@@ -411,10 +487,10 @@ def test_common_cli_delete_certificate(
     cli.initialize_certificate_parser()
     args = cli.parser.parse_args(["certificate", "delete"])
 
-    mock_list.return_value = [{"party_id": "party-1"}, {"party_id": "party-2"}]
+    mock_list.return_value = [{"party_id": _NODE_A}, {"party_id": _NODE_B}]
     mock_input.return_value = 1
     cli._delete_certificate(args)
-    mock_delete.assert_called_once_with(party_id="party-1")
+    mock_delete.assert_called_once_with(party_id=_NODE_A)
     mock_success.assert_called_once()
 
     mock_input.side_effect = [ValueError, 1]

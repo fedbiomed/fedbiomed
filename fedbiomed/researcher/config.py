@@ -34,12 +34,12 @@ class ResearcherConfig(Config):
             os.getenv("FBM_SERVER_NODE_DISCONNECTION_TIMEOUT", "10")
         )
 
-        # Generate certificate for gRPC server
+        # Generate certificate for gRPC server, issued for the host nodes reach it at
         key_file, pem_file = generate_certificate(
             root=self.root,
             prefix=SERVER_certificate_prefix,
             component_id=self._cfg["default"]["id"],
-            subject={"CommonName": grpc_host},
+            san=[grpc_host],
         )
 
         self._cfg["server"] = {

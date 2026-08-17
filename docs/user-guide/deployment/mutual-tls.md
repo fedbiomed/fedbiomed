@@ -41,13 +41,46 @@ man-in-the-middle that spoofs a party inside the network).
 
 Each component already owns a self-signed certificate, generated automatically when the
 component is created (recorded in the `[certificate]` section of its config, under
-`etc/`). The certificate's `O=` (Organization) field carries the component's party id
-in the form `<NODE|RESEARCHER>_<uuid>`. mTLS reuses these certificates — you exchange
-and register them, then flip a switch.
+`etc/`). The certificate's `CN=` (Common Name) field carries the component's party id
+in the form `<NODE|RESEARCHER>_<uuid>`, which is what it identifies — an id, not an
+organization. mTLS reuses these certificates — you exchange and register them, then
+flip a switch.
 
 Certificates are role-restricted via Extended Key Usage: a node certificate is
 `client`-only, a researcher certificate is `server`-only. A certificate carrying no role
 restriction is accepted for both.
+
+### Names on the researcher certificate
+
+A node verifies the researcher it connects to by name, so the researcher certificate is
+issued for the hosts nodes reach it at, listed in its Subject Alternative Name: the
+`[server] host` of its configuration (`FBM_SERVER_HOST` when the component is created),
+plus `localhost` and `127.0.0.1` for a node running on the same machine. A node
+certificate is a client credential — the researcher resolves it by fingerprint, never by
+name — so it carries no name at all.
+
+The Subject Alternative Name is the only place a host or an address is stated, and the
+only one either side reads. The subject says who a component is (`CN=`, the party id),
+never where it is reached: a certificate carrying a host in its Common Name is valid for
+no host, and a certificate to be reached at a given name has to name it in its SAN.
+A third-party certificate is registered as-is, so check that it names the researcher's
+deployment address before pinning it.
+
+A node verifies the address it dialled whenever the researcher certificate names it.
+Where it does not, the node verifies the researcher under the first name the certificate
+does carry, which is what lets a certificate issued before the deployment address is
+known still be pinned.
+
+For a researcher reachable under a name its configuration does not hold — a public DNS
+name, a second interface — issue the certificate for those names too:
+
+```bash
+fedbiomed researcher certificate generate \
+    --san fbm.hospital.org --san 10.0.0.9 --force
+```
+
+`--force` is required to replace an existing certificate, and the previous private key is
+lost, so every party holding the old certificate has to register the new one.
 
 ## Enabling mTLS
 
@@ -78,7 +111,7 @@ secure messaging, …). Fed-BioMed does not exchange certificates for you.
 ### 2. Register the received certificates
 
 Save each received certificate to a file and register it. The party id is read from the
-certificate's `O=` field, so `--party-id` is optional — supply it only for a third-party
+certificate's `CN=` field, so `--party-id` is optional — supply it only for a third-party
 certificate that carries no Fed-BioMed identity; given alongside an embedded identity, it
 must match it:
 
@@ -110,7 +143,7 @@ pin — delete the extras with `fedbiomed node certificate delete`.
 
 ### 3. Turn mTLS on
 
-The config file (`etc/config-*.ini`) of **both** the researcher and every node must
+The config file (`etc/config.ini`) of **both** the researcher and every node must
 carry, adding the section if it is not already there:
 
 ```ini
