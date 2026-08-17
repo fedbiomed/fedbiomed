@@ -716,13 +716,24 @@ class Listener:
                                 is True
                             )
                         ):
-                            self._log_tls_failure_once(
+                            # Static config on both sides, retry cannot help: stop.
+                            await self._on_status_change(ClientStatus.FAILED)
+                            msg = (
                                 f"{ErrorNumbers.FB628.value}: The researcher requires "
                                 "mutual-TLS client authentication but mutual-TLS is "
                                 "disabled on this node. Enable it in the node `[mtls]` "
                                 "configuration, register the researcher certificate and "
                                 "ask the researcher to register this node's certificate."
                             )
+                            logger.error(msg)
+                            logger.security_event(
+                                operation="mtls_required_by_researcher",
+                                status="failure",
+                                host=self._channels.host,
+                                port=self._channels.port,
+                                detail=msg,
+                            )
+                            raise FedbiomedCommunicationError(msg) from exp
                         else:
                             logger.debug(
                                 f"Researcher server is not available to {self.__class__.__name__}, will retry connect in "

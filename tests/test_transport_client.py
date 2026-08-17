@@ -318,9 +318,9 @@ def listener_env():
             update_id=env.update_id,
         )
 
-        async def drain(side_effects):
-            """Runs the listener over the given GetTaskUnary results until
-            cancelled."""
+        async def drain(side_effects, expect=asyncio.CancelledError):
+            """Runs the listener over the given GetTaskUnary results until it
+            ends, `expect` being the exception expected to end it."""
             request_stub = MagicMock()
             channels.stub = AsyncMock(return_value=request_stub)
             request_stub.GetTaskUnary.side_effect = [
@@ -329,7 +329,7 @@ def listener_env():
             ]
             channels.endpoint = "localhost:50051"
             task = env.listener.listen(env.callback)
-            with pytest.raises(asyncio.CancelledError):
+            with pytest.raises(expect):
                 await task
             task.cancel()
             return request_stub
@@ -637,22 +637,31 @@ async def test_task_listener_mtls_rejection_logged_once(
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client._researcher_requires_client_auth", return_value=True)
 @patch("fedbiomed.transport.client.is_server_alive", return_value=True)
+@patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.logger._logger.error")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_non_mtls_node_against_mtls_researcher(
-    sleep, log_error, alive, requires_auth, listener_env
+    sleep, log_error, security_event, alive, requires_auth, listener_env
 ):
     """A non-mTLS node rejected by a researcher enforcing client authentication
-    is told to enable mutual TLS."""
+    stops: both sides are statically configured, so retrying cannot connect."""
     listener_env.channels.mtls = False
     await listener_env.drain(
-        [_rpc_error(grpc.StatusCode.UNAVAILABLE, "ipv4:127.0.0.1:50051: Socket closed")]
+        [
+            _rpc_error(
+                grpc.StatusCode.UNAVAILABLE, "ipv4:127.0.0.1:50051: Socket closed"
+            )
+        ],
+        expect=FedbiomedCommunicationError,
     )
 
     errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
     assert len(errors) == 1
     assert "mutual-TLS is disabled on this node" in errors[0].args[0]
     assert "register the researcher certificate" in errors[0].args[0]
+    operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+    assert "mtls_required_by_researcher" in operations
+    listener_env.on_status_change.assert_awaited_with(ClientStatus.FAILED)
 
 
 @pytest.mark.asyncio
