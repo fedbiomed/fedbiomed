@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import grpc
 import pytest
-from cryptography import x509
 
 from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import MAX_RETRIEVE_ERROR_RETRIES, MAX_SEND_RETRIES
@@ -31,6 +30,8 @@ from fedbiomed.transport.client import (
 )
 from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
+
+_RESEARCHER_A = "RESEARCHER_9c2b1d70-1111-2222-3333-444455556666"
 
 
 def _rpc_error(code, details=None):
@@ -177,8 +178,8 @@ async def test_grpc_client_channel_event_identifies_researcher_certificate(
     _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
         certificate_folder=str(tmp_path),
         certificate_name="researcher",
-        component_id="researcher_1",
-        subject={"CommonName": "localhost", "OrganizationName": "researcher_1"},
+        component_id=_RESEARCHER_A,
+        san=["localhost"],
     )
     with open(pem_file, "r") as f:
         get_server_certificate.return_value = f.read()
@@ -189,7 +190,7 @@ async def test_grpc_client_channel_event_identifies_researcher_certificate(
 
     channel_event = security_event.call_args_list[1].kwargs
     assert channel_event["operation"] == "researcher_channel_established"
-    assert channel_event["cert_subject"] == "O=researcher_1,CN=localhost"
+    assert channel_event["cert_subject"] == f"CN={_RESEARCHER_A}"
     assert {"cert_issuer", "cert_serial", "cert_not_after"} <= channel_event.keys()
     # The certificate itself is never emitted
     assert not any("BEGIN CERTIFICATE" in str(v) for v in channel_event.values())
@@ -1041,9 +1042,14 @@ async def test_channels_connect_and_stub(channels_env):
 
 
 @pytest.mark.asyncio
+@patch("fedbiomed.transport.client.certificate_names")
 @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
-async def test_channels_create_without_mtls(ssl_channel_credentials, channels_env):
-    """Without mutual TLS only the server certificate is pinned."""
+async def test_channels_create_without_mtls(
+    ssl_channel_credentials, certificate_names, channels_env
+):
+    """Without mutual TLS only the server certificate is pinned, and the
+    researcher is still verified against a name that certificate carries."""
+    certificate_names.return_value = ["researcher-host"]
     channels = Channels(
         researcher=ResearcherCredentials(
             host="localhost", port="50051", certificate=b"server-cert"
@@ -1052,21 +1058,21 @@ async def test_channels_create_without_mtls(ssl_channel_credentials, channels_en
 
     channels._create()
 
-    # Server certificate pinned, no client identity, no target-name override
+    # Server certificate pinned, no client identity presented
     ssl_channel_credentials.assert_called_once_with(b"server-cert")
     _, kwargs = channels_env.create_channel.call_args
-    assert kwargs["target_name_override"] is None
+    assert kwargs["target_name_override"] == "researcher-host"
     assert kwargs["certificate"] == ssl_channel_credentials.return_value
 
 
 @pytest.mark.asyncio
-@patch("fedbiomed.transport.client.certificate_subject_field")
+@patch("fedbiomed.transport.client.certificate_names")
 @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
 async def test_channels_create_with_mtls(
-    ssl_channel_credentials, subject_field, channels_env
+    ssl_channel_credentials, certificate_names, channels_env
 ):
-    """With mutual TLS the node presents its identity and pins the CN."""
-    subject_field.return_value = "researcher-cn"
+    """With mutual TLS the node presents its identity and still pins the name."""
+    certificate_names.return_value = ["researcher-host"]
     channels = Channels(
         researcher=ResearcherCredentials(
             host="localhost",
@@ -1087,9 +1093,65 @@ async def test_channels_create_with_mtls(
         private_key=b"node-key",
         certificate_chain=b"node-cert",
     )
-    subject_field.assert_called_once_with(b"server-cert", x509.oid.NameOID.COMMON_NAME)
+    certificate_names.assert_called_once_with(b"server-cert")
     _, kwargs = channels_env.create_channel.call_args
-    assert kwargs["target_name_override"] == "researcher-cn"
+    assert kwargs["target_name_override"] == "researcher-host"
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.certificate_names")
+async def test_channels_verify_the_dialled_address_when_named(
+    certificate_names, channels_env
+):
+    """No override where the certificate names the address: the address dialled is
+    then what TLS verifies, which is what the name check is for."""
+    certificate_names.return_value = ["researcher-host", "localhost", "127.0.0.1"]
+
+    Channels(
+        researcher=ResearcherCredentials(
+            host="localhost", port="50051", certificate=b"server-cert"
+        )
+    )._create()
+
+    _, kwargs = channels_env.create_channel.call_args
+    assert kwargs["target_name_override"] is None
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.certificate_names")
+async def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(
+    certificate_names, channels_env
+):
+    """A certificate is issued when the component is created, so it cannot always
+    name the address nodes reach it at."""
+    certificate_names.return_value = ["researcher-host", "fbm.hospital.org"]
+
+    Channels(
+        researcher=ResearcherCredentials(
+            host="10.0.0.9", port="50051", certificate=b"server-cert"
+        )
+    )._create()
+
+    _, kwargs = channels_env.create_channel.call_args
+    assert kwargs["target_name_override"] == "researcher-host"
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.certificate_names")
+async def test_channels_verify_the_dialled_address_for_a_nameless_certificate(
+    certificate_names, channels_env
+):
+    """A nameless certificate leaves nothing to override with."""
+    certificate_names.return_value = []
+
+    Channels(
+        researcher=ResearcherCredentials(
+            host="10.0.0.9", port="50051", certificate=b"server-cert"
+        )
+    )._create()
+
+    _, kwargs = channels_env.create_channel.call_args
+    assert kwargs["target_name_override"] is None
 
 
 def test_channels_create_channel_adds_target_name_override():

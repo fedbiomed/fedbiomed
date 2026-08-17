@@ -21,16 +21,20 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import grpc
 import pytest
 from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 from fedbiomed.common.certificate_manager import (
     CertificateManager,
     TrustedCertificateBundle,
+    certificate_names,
     certificate_subject_field,
     is_mtls_enabled,
 )
@@ -38,7 +42,11 @@ from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.message import SearchReply, SearchRequest
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.transport.client import _researcher_requires_client_auth
+from fedbiomed.transport.client import (
+    Channels,
+    ResearcherCredentials,
+    _researcher_requires_client_auth,
+)
 from fedbiomed.transport.node_agent import AgentStore
 from fedbiomed.transport.protocols.researcher_pb2 import (
     FeedbackMessage,
@@ -52,24 +60,61 @@ from fedbiomed.transport.server import (
     _verify_peer_identity,
 )
 
-
 # Component ids as `Config.generate` builds them. The prefix is what restricts a
 # generated certificate to a single TLS role, so the shipped certificates are
 # single-role and the handshake matrix has to exercise them as such.
 NODE_ID = f"NODE_{uuid4()}"
 RESEARCHER_ID = f"RESEARCHER_{uuid4()}"
+# A party id other than the one the certificate registered under it carries
+OTHER_NODE_ID = f"NODE_{uuid4()}"
 
 
-def _generate(folder, name, org, cn="localhost"):
-    """Generates a self-signed cert, returns (key_file, cert_file, key, cert)."""
+def _generate(folder, name, party_id, san=None):
+    """Generates a self-signed cert, returns (key_file, cert_file, key, cert).
+
+    Names are given for a researcher only, as the shipped configurations do: they
+    are what nodes verify the researcher under, and a node certificate is issued
+    for no name at all.
+    """
     key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
         certificate_folder=folder,
         certificate_name=name,
-        component_id=org,
-        subject={"CommonName": cn, "OrganizationName": org},
+        component_id=party_id,
+        san=san,
     )
     with open(key_file, "rb") as key, open(pem_file, "rb") as cert:
         return key_file, pem_file, key.read(), cert.read()
+
+
+def _naming_only(host):
+    """A server certificate naming `host` alone, as PEM (key, certificate).
+
+    Fed-BioMed adds the loopback names to every certificate it issues, so one that
+    names none of the addresses a test can dial is necessarily issued elsewhere.
+    """
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, RESEARCHER_ID)])
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+        .add_extension(
+            x509.SubjectAlternativeName([x509.DNSName(host)]), critical=False
+        )
+        .sign(private_key=key, algorithm=hashes.SHA256())
+    )
+    return (
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption(),
+        ),
+        certificate.public_bytes(serialization.Encoding.PEM),
+    )
 
 
 @pytest.fixture(scope="module")
@@ -77,10 +122,10 @@ def certs():
     """Generates researcher and node certificates for the whole module."""
     with tempfile.TemporaryDirectory() as tmp:
         researcher_key_file, researcher_cert_file, researcher_key, researcher_cert = (
-            _generate(tmp, "researcher", RESEARCHER_ID, cn="localhost")
+            _generate(tmp, "researcher", RESEARCHER_ID, san=["localhost"])
         )
         node_key_file, node_cert_file, node_key, node_cert = _generate(
-            tmp, "node", NODE_ID, cn="*"
+            tmp, "node", NODE_ID
         )
         yield {
             "researcher_key_file": researcher_key_file,
@@ -99,20 +144,33 @@ def certs():
 # ---------------------------------------------------------------------------
 
 
-def test_subject_field_reads_organization(certs):
+def test_subject_field_reads_the_party_id(certs):
     assert (
-        certificate_subject_field(
-            certs["node_cert"], x509.oid.NameOID.ORGANIZATION_NAME
-        )
+        certificate_subject_field(certs["node_cert"], x509.oid.NameOID.COMMON_NAME)
         == NODE_ID
     )
 
 
-def test_subject_field_reads_common_name(certs):
-    assert (
-        certificate_subject_field(certs["node_cert"], x509.oid.NameOID.COMMON_NAME)
-        == "*"
-    )
+def test_subject_carries_the_party_id_and_no_host(certs):
+    """The subject identifies the component; hosts and addresses live in the SAN."""
+    for certificate, party_id in (
+        (certs["researcher_cert"], RESEARCHER_ID),
+        (certs["node_cert"], NODE_ID),
+    ):
+        assert (
+            x509.load_pem_x509_certificate(certificate).subject.rfc4514_string()
+            == f"CN={party_id}"
+        )
+
+
+def test_researcher_certificate_names_its_host_and_the_loopback_names(certs):
+    """What a node verifies the researcher under, whichever of them it dials."""
+    assert certificate_names(certs["researcher_cert"]) == ["localhost", "127.0.0.1"]
+
+
+def test_node_certificate_carries_no_name(certs):
+    """A node is resolved by fingerprint, so its certificate is issued for no name."""
+    assert certificate_names(certs["node_cert"]) == []
 
 
 def test_subject_field_returns_none_for_unparseable_certificate():
@@ -262,7 +320,7 @@ def test_party_id_refuses_a_certificate_registered_under_two_parties(certs, tmp_
     """
     ambiguous = _registry(
         tmp_path / "ambiguous.json",
-        [("NODE_second", certs["node_cert"]), ("NODE_first", certs["node_cert"])],
+        [(OTHER_NODE_ID, certs["node_cert"]), (NODE_ID, certs["node_cert"])],
     )
 
     with patch("fedbiomed.common.certificate_manager.logger.security_event") as event:
@@ -270,7 +328,7 @@ def test_party_id_refuses_a_certificate_registered_under_two_parties(certs, tmp_
 
     # The report names every claimant, so the operator knows what to delete
     fields = _events(event, "certificate_ambiguous_identity")[0].kwargs
-    assert fields["party_ids"] == ["NODE_first", "NODE_second"]
+    assert fields["party_ids"] == sorted([NODE_ID, OTHER_NODE_ID])
 
 
 def test_party_id_reads_the_registry_once_across_calls(certs, registry):
@@ -296,13 +354,13 @@ def test_party_id_picks_up_a_registration_without_restart(certs, tmp_path, regis
     try:
         manager.insert(
             certificate=certs["researcher_cert"].decode("utf-8"),
-            party_id="NODE_late",
+            party_id=OTHER_NODE_ID,
             component=ComponentType.NODE.name,
         )
     finally:
         manager.close()
 
-    assert registry.party_id(certs["researcher_cert"]) == "NODE_late"
+    assert registry.party_id(certs["researcher_cert"]) == OTHER_NODE_ID
 
 
 @pytest.mark.asyncio
@@ -316,19 +374,21 @@ async def test_verify_peer_identity_skips_without_client_certificate(registry):
 async def test_verify_peer_identity_prefers_registry_over_certificate_subject(
     certs, tmp_path
 ):
-    """The registered party id is authoritative, not the certificate `O=` field.
+    """The registered party id is authoritative, not the certificate `CN=` field.
 
     Registering a certificate under an explicit party id is supported for
     certificates that embed no Fed-BioMed identity, so the identity that counts
     is the one in the registry.
     """
-    aliased = _registry(tmp_path / "aliased.json", [("NODE_alias", certs["node_cert"])])
+    aliased = _registry(
+        tmp_path / "aliased.json", [(OTHER_NODE_ID, certs["node_cert"])]
+    )
     context = _context_with_cert(certs["node_cert"])
     context.abort = AsyncMock(side_effect=_Aborted)
 
-    assert await _verify_peer_identity(context, "NODE_alias", aliased) == "NODE_alias"
+    assert await _verify_peer_identity(context, OTHER_NODE_ID, aliased) == OTHER_NODE_ID
 
-    # The certificate's O= value is not what it is registered as
+    # The certificate's CN= value is not what it is registered as
     with pytest.raises(_Aborted):
         await _verify_peer_identity(context, NODE_ID, aliased)
 
@@ -488,7 +548,7 @@ async def test_node_id_spoofing_is_registered_as_event(certs, registry):
     assert audit[0].kwargs["declared_node_id"] == "node-1"
     # A rejection identifies where it came from and which certificate was used
     assert audit[0].kwargs["source_address"] == "ipv4:127.0.0.1:51234"
-    assert audit[0].kwargs["cert_subject"] == f"O={NODE_ID},CN=*"
+    assert audit[0].kwargs["cert_subject"] == f"CN={NODE_ID}"
 
 
 async def _poll(servicer, certs, peers):
@@ -513,7 +573,7 @@ async def test_authenticated_node_event_identifies_certificate(certs, registry):
     assert fields["node_id"] == NODE_ID
     assert fields["source_address"] == "ipv4:127.0.0.1:51234"
     assert fields["destination_service"] == "researcher.ResearcherService"
-    assert fields["cert_subject"] == f"O={NODE_ID},CN=*"
+    assert fields["cert_subject"] == f"CN={NODE_ID}"
     assert {"cert_issuer", "cert_serial", "cert_not_after"} <= fields.keys()
 
 
@@ -768,9 +828,9 @@ async def _can_connect(certs, port, present_client_cert, pinned_server_cert):
         private_key=certs["node_key"] if present_client_cert else None,
         certificate_chain=certs["node_cert"] if present_client_cert else None,
     )
-    override = certificate_subject_field(
-        pinned_server_cert, x509.oid.NameOID.COMMON_NAME
-    )
+    # As `Channels._create` picks it: none where the certificate names the address.
+    names = certificate_names(pinned_server_cert)
+    override = None if "127.0.0.1" in names else next(iter(names), None)
     channel = grpc.aio.secure_channel(
         f"127.0.0.1:{port}",
         credentials,
@@ -850,6 +910,51 @@ async def test_node_revoked_after_startup_is_rejected_without_restart(certs):
 
         assert not await _can_connect(certs, port, True, certs["researcher_cert"])
     finally:
+        await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_channel_verifies_the_dialled_address_when_the_certificate_names_it(
+    certs,
+):
+    """A researcher certificate names the loopback addresses, so a node on the same
+    machine has its dialled address verified rather than overridden. Server-auth
+    only, since that is the path where the dialled address is verified.
+    """
+    server, port = await _serve(certs, None)
+    channel = Channels(
+        ResearcherCredentials(
+            host="127.0.0.1", port=str(port), certificate=certs["researcher_cert"]
+        )
+    )._create()
+    try:
+        await asyncio.wait_for(channel.channel_ready(), timeout=4)
+    finally:
+        await channel.close()
+        await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_channel_connects_on_an_address_the_certificate_omits():
+    """A certificate naming none of the addresses a node dials is still verified,
+    under the name it does carry: a certificate issued outside Fed-BioMed names
+    the hosts its issuer knew, which need not be how nodes reach the researcher.
+    """
+    key, cert = _naming_only("fbm-researcher")
+    server = grpc.aio.server()
+    port = server.add_secure_port(
+        "127.0.0.1:0", grpc.ssl_server_credentials([(key, cert)])
+    )
+    await server.start()
+
+    # Certificate names `fbm-researcher` alone, node dials 127.0.0.1
+    channel = Channels(
+        ResearcherCredentials(host="127.0.0.1", port=str(port), certificate=cert)
+    )._create()
+    try:
+        await asyncio.wait_for(channel.channel_ready(), timeout=4)
+    finally:
+        await channel.close()
         await server.stop(0)
 
 
