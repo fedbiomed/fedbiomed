@@ -365,6 +365,16 @@ class CommonCLI:
             "so every party holding the old certificate has to register the new one.",
         )
 
+        generate.add_argument(
+            "--san",
+            type=str,
+            action="append",
+            metavar="HOST",
+            help="A further host name or IP address nodes reach this researcher at, "
+            "repeatable. The configured server host and the loopback names are always "
+            "included; give this for a researcher reachable under any other name.",
+        )
+
     def _create_magic_dev_environment(self, dummy: None):
         """Registers, in every local component, the certificates it must trust.
 
@@ -450,13 +460,24 @@ class CommonCLI:
         path = args.path or os.path.dirname(configured)
         name = os.path.splitext(os.path.basename(configured))[0]
 
-        # A researcher is reached at its server host, and nodes verify the pinned
-        # certificate against that name
-        subject = (
-            {"CommonName": self.config.get("server", "host")}
-            if self.config.COMPONENT_TYPE == ComponentType.RESEARCHER.name
-            else None
-        )
+        # Issued for the researcher's server host, which is what nodes verify it
+        # under, plus any name given. A node certificate is resolved by fingerprint,
+        # never by name, so it is issued for none.
+        is_researcher = self.config.COMPONENT_TYPE == ComponentType.RESEARCHER.name
+        host = self.config.get("server", "host") if is_researcher else None
+        san = [host, *(args.san or [])] if is_researcher else None
+
+        if args.san and not is_researcher:
+            CommonCLI.error(
+                "'--san' applies to a researcher certificate only: a node "
+                "certificate is never verified by name."
+            )
+
+        if is_researcher and not args.san:
+            logger.info(
+                f"No '--san' given: issuing the certificate for the server host "
+                f"'{host}' read from {self.config.config_path}, plus the loopback names."
+            )
 
         existing = [
             file
@@ -474,7 +495,7 @@ class CommonCLI:
                 certificate_folder=path,
                 certificate_name=name,
                 component_id=self.config.get("default", "id"),
-                subject=subject,
+                san=san,
             )
         except FedbiomedError as e:
             CommonCLI.error(f"Can not generate certificate. Please see: {e}")

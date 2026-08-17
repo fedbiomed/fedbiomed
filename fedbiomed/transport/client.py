@@ -15,6 +15,7 @@ from cryptography import x509
 
 from fedbiomed.common.certificate_manager import (
     certificate_audit_fields,
+    certificate_names,
     certificate_subject_field,
 )
 from fedbiomed.common.constants import (
@@ -276,18 +277,21 @@ class Channels:
                 private_key=node_identity.private_key,
                 certificate_chain=node_identity.certificate_chain,
             )
-            target_name_override = certificate_subject_field(
-                self._researcher.certificate, x509.oid.NameOID.COMMON_NAME
-            )
         else:
             credentials = grpc.ssl_channel_credentials(self._researcher.certificate)
-            target_name_override = None
+
+        names = certificate_names(self._researcher.certificate)
 
         return self._create_channel(
             port=self._researcher.port,
             host=self._researcher.host,
             certificate=credentials,
-            target_name_override=target_name_override,
+            # Verify the address dialled where the certificate names it; one issued
+            # before the deployment address was known is verified against a name it
+            # does carry.
+            target_name_override=(
+                None if self._researcher.host in names else next(iter(names), None)
+            ),
         )
 
     @staticmethod
@@ -304,7 +308,8 @@ class Channels:
             port: TCP port of the channel
             certificate: channel credentials for secure channel, or None for insecure channel
             target_name_override: expected server name to verify against the pinned
-                certificate, used when the connect host differs from the cert CN
+                certificate, used when the certificate does not name the connect host.
+                None verifies the connect host itself.
 
         Returns:
             gRPC connection channel
@@ -489,10 +494,10 @@ class GrpcClient:
                         )
 
                 if self._id is None:
-                    # auto-detect researcher_id from the peer certificate O= field
+                    # auto-detect researcher_id from the peer certificate CN= field
                     self._id = certificate_subject_field(
                         self._researcher.certificate,
-                        x509.oid.NameOID.ORGANIZATION_NAME,
+                        x509.oid.NameOID.COMMON_NAME,
                     )
 
                 # Connect to channels and create stubs

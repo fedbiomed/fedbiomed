@@ -15,6 +15,7 @@ from fedbiomed.common.certificate_manager import (
     TrustedCertificateBundle,
     certificate_audit_fields,
     certificate_expiry,
+    certificate_names,
     generate_certificate,
 )
 from fedbiomed.common.constants import CERTS_FOLDER_NAME, ComponentType
@@ -40,28 +41,29 @@ def _events(security_event, operation):
     ]
 
 
-def _self_signed(folder, org, cn="localhost", with_org_subject=True):
+def _self_signed(folder, party_id, san=("localhost",)):
     """Generates a self-signed certificate, returns its PEM file path."""
-    subject = {"CommonName": cn}
-    if with_org_subject:
-        subject["OrganizationName"] = org
     _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
         certificate_folder=folder,
-        certificate_name=org.replace(" ", "_"),
-        component_id=org,
-        subject=subject,
+        certificate_name=party_id.replace(" ", "_"),
+        component_id=party_id,
+        san=list(san),
     )
     return pem_file
 
 
-def _third_party(folder, org, extended_key_usages=None):
-    """A certificate not issued by Fed-BioMed: arbitrary `O=`, chosen TLS roles.
+def _certificate(org="Hospital", common_name=None, san=None, extended_key_usages=None):
+    """A certificate not issued by Fed-BioMed, as PEM bytes.
 
-    Fed-BioMed derives the role from the component id, so a certificate whose
-    role contradicts the party it is registered as can only come from outside.
+    Subject fields, names and TLS roles are chosen freely, which is what a
+    certificate issued elsewhere may combine in ways Fed-BioMed never generates.
     """
     pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    name = x509.Name([x509.NameAttribute(NameOID.ORGANIZATION_NAME, org)])
+    attributes = [x509.NameAttribute(NameOID.ORGANIZATION_NAME, org)]
+    if common_name is not None:
+        attributes.append(x509.NameAttribute(NameOID.COMMON_NAME, common_name))
+
+    name = x509.Name(attributes)
     builder = (
         x509.CertificateBuilder()
         .subject_name(name)
@@ -75,20 +77,35 @@ def _third_party(folder, org, extended_key_usages=None):
         builder = builder.add_extension(
             x509.ExtendedKeyUsage(extended_key_usages), critical=False
         )
+    if san is not None:
+        builder = builder.add_extension(
+            x509.SubjectAlternativeName(san), critical=False
+        )
 
+    return builder.sign(private_key=pkey, algorithm=hashes.SHA256()).public_bytes(
+        serialization.Encoding.PEM
+    )
+
+
+def _third_party(folder, org, extended_key_usages=None):
+    """A certificate not issued by Fed-BioMed: arbitrary subject, chosen TLS roles.
+
+    Fed-BioMed derives the role from the component id, so a certificate whose
+    role contradicts the party it is registered as can only come from outside.
+    """
     pem_file = os.path.join(folder, f"{org}_{extended_key_usages}.pem")
     with open(pem_file, "wb") as file:
-        file.write(
-            builder.sign(private_key=pkey, algorithm=hashes.SHA256()).public_bytes(
-                serialization.Encoding.PEM
-            )
-        )
+        file.write(_certificate(org=org, extended_key_usages=extended_key_usages))
     return pem_file
 
 
-def _load(pem_file):
+def _pem(pem_file):
     with open(pem_file, "rb") as f:
-        return x509.load_pem_x509_certificate(f.read())
+        return f.read()
+
+
+def _load(pem_file):
+    return x509.load_pem_x509_certificate(_pem(pem_file))
 
 
 # -----------------------------------------------------------------------------
@@ -101,13 +118,13 @@ def test_certificate_manager_initialization(tmp_path):
     db_path = str(tmp_path / "certs.json")
     cm = CertificateManager(db_path=db_path)
     try:
-        cm.insert(certificate="cert", party_id="NODE_a", component="NODE")
+        cm.insert(certificate="cert", party_id=_NODE_A, component="NODE")
     finally:
         cm.close()
 
     reopened = CertificateManager(db_path=db_path)
     try:
-        assert reopened.get(party_id="NODE_a")["certificate"] == "cert"
+        assert reopened.get(party_id=_NODE_A)["certificate"] == "cert"
     finally:
         reopened.close()
 
@@ -117,31 +134,31 @@ def test_certificate_manager_set_db_switches_database(tmp_path):
     first, second = str(tmp_path / "a.json"), str(tmp_path / "b.json")
     cm = CertificateManager(db_path=first)
     try:
-        cm.insert(certificate="cert", party_id="NODE_a", component="NODE")
+        cm.insert(certificate="cert", party_id=_NODE_A, component="NODE")
 
         cm.set_db(db_path=second)
         assert cm.list() == []
 
-        cm.insert(certificate="other", party_id="NODE_b", component="NODE")
-        assert [d["party_id"] for d in cm.list()] == ["NODE_b"]
+        cm.insert(certificate="other", party_id=_NODE_B, component="NODE")
+        assert [d["party_id"] for d in cm.list()] == [_NODE_B]
     finally:
         cm.close()
 
 
 def test_certificate_manager_get(cert_db):
     """Only the requested party is returned; an unknown one yields nothing."""
-    cert_db.cm.insert(certificate="cert-a", party_id="NODE_a", component="NODE")
-    cert_db.cm.insert(certificate="cert-b", party_id="NODE_b", component="NODE")
+    cert_db.cm.insert(certificate="cert-a", party_id=_NODE_A, component="NODE")
+    cert_db.cm.insert(certificate="cert-b", party_id=_NODE_B, component="NODE")
 
-    assert cert_db.cm.get(party_id="NODE_a")["certificate"] == "cert-a"
-    assert cert_db.cm.get(party_id="NODE_missing") is None
+    assert cert_db.cm.get(party_id=_NODE_A)["certificate"] == "cert-a"
+    assert cert_db.cm.get(party_id=_NODE_C) is None
 
 
 def test_certificate_manager_get_by_component(cert_db):
     """Only certificates of the requested component type are returned."""
-    cert_db.cm.insert(certificate="node-cert", party_id="NODE_a", component="NODE")
+    cert_db.cm.insert(certificate="node-cert", party_id=_NODE_A, component="NODE")
     cert_db.cm.insert(
-        certificate="researcher-cert", party_id="RESEARCHER_a", component="RESEARCHER"
+        certificate="researcher-cert", party_id=_RESEARCHER_A, component="RESEARCHER"
     )
 
     assert cert_db.cm.get_by_component("NODE") == ["node-cert"]
@@ -155,36 +172,36 @@ def test_certificate_manager_get_by_component_empty(cert_db):
 
 def test_certificate_manager_insert(cert_db):
     """A party can be registered once; registering again needs `upsert`."""
-    entry = dict(certificate="first", party_id="NODE_a", component="NODE")
+    entry = dict(certificate="first", party_id=_NODE_A, component="NODE")
 
     cert_db.cm.insert(**entry)
-    assert cert_db.cm.get(party_id="NODE_a")["certificate"] == "first"
+    assert cert_db.cm.get(party_id=_NODE_A)["certificate"] == "first"
 
     with pytest.raises(FedbiomedCertificateError):
         cert_db.cm.insert(**{**entry, "certificate": "second"})
-    assert cert_db.cm.get(party_id="NODE_a")["certificate"] == "first"
+    assert cert_db.cm.get(party_id=_NODE_A)["certificate"] == "first"
 
     cert_db.cm.insert(**{**entry, "certificate": "second"}, upsert=True)
-    assert cert_db.cm.get(party_id="NODE_a")["certificate"] == "second"
+    assert cert_db.cm.get(party_id=_NODE_A)["certificate"] == "second"
     # Updating a party replaces its entry rather than adding one
     assert len(cert_db.cm.list()) == 1
 
 
 def test_certificate_manager_delete(cert_db):
     """Deleting removes only the named party."""
-    cert_db.cm.insert(certificate="cert-a", party_id="NODE_a", component="NODE")
-    cert_db.cm.insert(certificate="cert-b", party_id="NODE_b", component="NODE")
+    cert_db.cm.insert(certificate="cert-a", party_id=_NODE_A, component="NODE")
+    cert_db.cm.insert(certificate="cert-b", party_id=_NODE_B, component="NODE")
 
-    cert_db.cm.delete(party_id="NODE_a")
+    cert_db.cm.delete(party_id=_NODE_A)
 
-    assert [d["party_id"] for d in cert_db.cm.list()] == ["NODE_b"]
+    assert [d["party_id"] for d in cert_db.cm.list()] == [_NODE_B]
 
 
 def test_certificate_manager_list(cert_db):
     """Tests list method of certificate manager"""
-    cert_db.cm.insert(certificate="cert-a", party_id="NODE_a", component="NODE")
+    cert_db.cm.insert(certificate="cert-a", party_id=_NODE_A, component="NODE")
 
-    assert [d["party_id"] for d in cert_db.cm.list()] == ["NODE_a"]
+    assert [d["party_id"] for d in cert_db.cm.list()] == [_NODE_A]
 
     with patch("builtins.print") as mock_print:
         result = cert_db.cm.list(verbose=True)
@@ -209,8 +226,8 @@ def test_certificate_manager_register_certificate(cert_db, party_id, component):
             party_id=party_id,
         )
 
-    # No `O=` identity, so the given party id decides how it is classified
-    pem_file = _self_signed(cert_db.tmp, "Hospital", with_org_subject=False)
+    # `Hospital` is no valid party id, so the given one decides how it is classified
+    pem_file = _self_signed(cert_db.tmp, "Hospital")
     registered = cert_db.cm.register_certificate(
         certificate_path=pem_file, party_id=party_id
     )
@@ -254,14 +271,14 @@ def test_certificate_manager_write_certificate_file_unwritable(cert_db):
 def test_operations_require_initialized_database():
     """Using the manager before `set_db` is a clear error, not an AttributeError."""
     with pytest.raises(FedbiomedCertificateError):
-        CertificateManager().get("NODE_1")
+        CertificateManager().get(_NODE_A)
 
 
 def _generate_in(certificate_folder):
     return CertificateManager.generate_self_signed_ssl_certificate(
         certificate_folder=certificate_folder,
         certificate_name="certificate",
-        component_id="component-id",
+        component_id=_NODE_A,
     )
 
 
@@ -307,7 +324,7 @@ def test_generate_rejects_relative_path():
 @pytest.fixture
 def real_cert(tmp_path):
     """A real generated certificate as PEM bytes."""
-    pem_file = _self_signed(str(tmp_path), "node_1")
+    pem_file = _self_signed(str(tmp_path), _NODE_A)
     with open(pem_file, "rb") as f:
         return f.read()
 
@@ -322,11 +339,48 @@ def test_certificate_expiry_none_for_unparsable():
     assert certificate_expiry(b"not a certificate") is None
 
 
+def test_certificate_names_reads_the_subject_alternative_names(real_cert):
+    assert certificate_names(real_cert) == ["localhost", "127.0.0.1"]
+
+
+def test_certificate_names_accepts_str(real_cert):
+    assert certificate_names(real_cert.decode()) == certificate_names(real_cert)
+
+
+def test_certificate_names_ignores_the_common_name():
+    """The Common Name is free text that states no host, whatever it looks like.
+
+    Reading a host or an address back out of it would verify a peer against
+    something the TLS layer does not check.
+    """
+    certificate = _certificate(
+        common_name="not-a-host", san=[x509.DNSName("fbm.hospital.org")]
+    )
+    assert certificate_names(certificate) == ["fbm.hospital.org"]
+
+
+@pytest.mark.parametrize(
+    "common_name", ["fbm-researcher", "10.0.0.9", "10.0.0.9:50051"]
+)
+def test_certificate_names_empty_when_only_a_common_name(common_name):
+    """A certificate stating no SAN is valid for no name, host or address alike."""
+    assert certificate_names(_certificate(common_name=common_name)) == []
+
+
+@pytest.mark.parametrize("certificate", [b"not a certificate", b"", None])
+def test_certificate_names_empty_for_unparsable(certificate):
+    assert certificate_names(certificate) == []
+
+
+def test_certificate_names_empty_for_nameless_certificate():
+    assert certificate_names(_certificate()) == []
+
+
 def test_certificate_audit_fields_identify_the_certificate(real_cert):
     fields = certificate_audit_fields(real_cert)
-    assert fields["cert_subject"] == "O=node_1,CN=localhost"
-    assert fields["cert_issuer"] == "O=node_1,CN=localhost"
-    assert fields["cert_san"] == "localhost"
+    assert fields["cert_subject"] == f"CN={_NODE_A}"
+    assert fields["cert_issuer"] == f"CN={_NODE_A}"
+    assert fields["cert_san"] == "localhost,127.0.0.1"
     # Serial as hex, expiry as an ISO-8601 instant
     assert int(fields["cert_serial"], 16) > 0
     assert fields["cert_not_after"].endswith("Z")
@@ -349,10 +403,10 @@ def test_certificate_audit_fields_empty_for_undescribable(certificate):
 def test_expiring_certificates_filters_by_threshold_and_component(real_cert):
     cm = CertificateManager()
     docs = [
-        {"certificate": real_cert.decode(), "party_id": "node_1", "component": "NODE"},
+        {"certificate": real_cert.decode(), "party_id": _NODE_A, "component": "NODE"},
         {
             "certificate": real_cert.decode(),
-            "party_id": "res_1",
+            "party_id": _RESEARCHER_A,
             "component": "RESEARCHER",
         },
     ]
@@ -361,12 +415,12 @@ def test_expiring_certificates_filters_by_threshold_and_component(real_cert):
 
     # Generated cert lasts ~5 years: a wide window catches it, a tight one doesn't
     wide = cm.expiring_certificates(within_days=10000, component="NODE")
-    assert [p for p, _ in wide] == ["node_1"]
+    assert [p for p, _ in wide] == [_NODE_A]
     assert cm.expiring_certificates(within_days=1, component="NODE") == []
     # Component filter excludes the researcher entry
     assert [p for p, _ in cm.expiring_certificates(within_days=10000)] == [
-        "node_1",
-        "res_1",
+        _NODE_A,
+        _RESEARCHER_A,
     ]
 
 
@@ -374,7 +428,7 @@ def test_list_verbose_adds_expires_column(real_cert):
     cm = CertificateManager()
     cm._db = MagicMock()
     cm._db.all.return_value = [
-        {"certificate": real_cert.decode(), "party_id": "node_1", "component": "NODE"}
+        {"certificate": real_cert.decode(), "party_id": _NODE_A, "component": "NODE"}
     ]
     with patch("fedbiomed.common.certificate_manager.tabulate") as tabulate:
         cm.list(verbose=True)
@@ -399,41 +453,95 @@ def _extensions(cert):
     return eku, key_usage, basic
 
 
-def test_subject_carries_common_and_organization_name(tmp_path):
-    cert = _load(_self_signed(str(tmp_path), "node_1"))
-    assert (
-        cert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)[0].value
-        == "localhost"
-    )
-    assert (
-        cert.subject.get_attributes_for_oid(x509.oid.NameOID.ORGANIZATION_NAME)[0].value
-        == "node_1"
-    )
+def test_subject_carries_the_party_id_and_nothing_else(tmp_path):
+    """The subject states which component this is — an id, not an organization.
+
+    Where the component is reached is the SAN's business, and stays out of it.
+    """
+    subject = _load(_self_signed(str(tmp_path), _NODE_A)).subject
+    assert subject.rfc4514_string() == f"CN={_NODE_A}"
 
 
-def test_hostname_common_name_produces_dns_san(tmp_path):
-    san = _san(_load(_self_signed(str(tmp_path), "node_1", cn="localhost")))
+def test_hostname_produces_dns_san(tmp_path):
+    san = _san(_load(_self_signed(str(tmp_path), _NODE_A, san=["localhost"])))
     assert san.get_values_for_type(x509.DNSName) == ["localhost"]
 
 
-def test_ip_common_name_produces_ip_san(tmp_path):
-    san = _san(_load(_self_signed(str(tmp_path), "node_1", cn="10.0.0.5")))
-    assert san.get_values_for_type(x509.IPAddress) == [ipaddress.ip_address("10.0.0.5")]
+def test_ip_produces_ip_san(tmp_path):
+    """An address is an `iPAddress` entry, the only place TLS reads one from."""
+    certificate = _load(_self_signed(str(tmp_path), _NODE_A, san=["10.0.0.5"]))
+    assert _san(certificate).get_values_for_type(x509.IPAddress) == [
+        ipaddress.ip_address("10.0.0.5"),
+        ipaddress.ip_address("127.0.0.1"),
+    ]
+    # The address is nowhere in the subject, which holds the party id alone
+    assert certificate.subject.rfc4514_string() == f"CN={_NODE_A}"
 
 
-def test_wildcard_common_name_has_no_san(tmp_path):
-    # `*` is neither a resolvable host nor an IP -> no SubjectAlternativeName
+def test_named_certificate_also_carries_the_loopback_names(tmp_path):
+    """A party on the machine the component runs on dials it by a loopback name."""
+    san = _san(_load(_self_signed(str(tmp_path), _NODE_A, san=["fbm-researcher"])))
+    assert san.get_values_for_type(x509.DNSName) == ["fbm-researcher", "localhost"]
+    assert san.get_values_for_type(x509.IPAddress) == [
+        ipaddress.ip_address("127.0.0.1")
+    ]
+
+
+def test_every_name_given_is_kept_in_order(tmp_path):
+    """A component reachable under several names is verifiable under each."""
+    _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(tmp_path),
+        certificate_name="multi",
+        component_id=_RESEARCHER_A,
+        san=["fbm-researcher", "fbm.hospital.org", "10.0.0.9"],
+    )
+    assert certificate_names(_pem(pem_file)) == [
+        "fbm-researcher",
+        "fbm.hospital.org",
+        "10.0.0.9",
+        "localhost",
+        "127.0.0.1",
+    ]
+
+
+def test_names_are_not_repeated(tmp_path):
+    _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(tmp_path),
+        certificate_name="dedup",
+        component_id=_RESEARCHER_A,
+        san=["localhost", "127.0.0.1"],
+    )
+    assert certificate_names(_pem(pem_file)) == ["localhost", "127.0.0.1"]
+
+
+def test_certificate_issued_for_no_name_carries_none(tmp_path):
+    """A node certificate is resolved by fingerprint, so it is issued for no name.
+
+    It carries no name at all rather than a wildcard one, which matches nothing.
+    """
+    _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(tmp_path),
+        certificate_name="node",
+        component_id=_NODE_A,
+    )
+    certificate = _load(pem_file)
+
     with pytest.raises(x509.ExtensionNotFound):
-        _san(_load(_self_signed(str(tmp_path), "node_1", cn="*")))
+        _san(certificate)
+    # Its party id still identifies it, which is how peers register it
+    assert (
+        certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+        == _NODE_A
+    )
 
 
 def test_certificates_are_end_entity_not_ca(tmp_path):
-    _, _, basic = _extensions(_load(_self_signed(str(tmp_path), "node_1")))
+    _, _, basic = _extensions(_load(_self_signed(str(tmp_path), _NODE_A)))
     assert not basic.ca
 
 
 def test_researcher_id_gets_server_auth_only(tmp_path):
-    eku, key_usage, _ = _extensions(_load(_self_signed(str(tmp_path), "RESEARCHER_1")))
+    eku, key_usage, _ = _extensions(_load(_self_signed(str(tmp_path), _RESEARCHER_A)))
     assert ExtendedKeyUsageOID.SERVER_AUTH in eku
     assert ExtendedKeyUsageOID.CLIENT_AUTH not in eku
     assert key_usage.digital_signature
@@ -441,7 +549,7 @@ def test_researcher_id_gets_server_auth_only(tmp_path):
 
 
 def test_node_id_gets_client_auth_only(tmp_path):
-    eku, key_usage, _ = _extensions(_load(_self_signed(str(tmp_path), "NODE_1")))
+    eku, key_usage, _ = _extensions(_load(_self_signed(str(tmp_path), _NODE_A)))
     assert ExtendedKeyUsageOID.CLIENT_AUTH in eku
     assert ExtendedKeyUsageOID.SERVER_AUTH not in eku
     assert key_usage.digital_signature
@@ -490,7 +598,7 @@ def cert_db(tmp_path):
 
 
 def _register_own(env, party_id):
-    """Registers a certificate whose `O=` is its own party id."""
+    """Registers a certificate whose `CN=` is its own party id."""
     env.cm.register_certificate(
         certificate_path=_self_signed(env.tmp, party_id), party_id=party_id
     )
@@ -533,7 +641,7 @@ def test_invalid_party_id_is_rejected(cert_db, party_id):
         _register_own(cert_db, party_id)
 
 
-# `party_id` reconciliation against the certificate identity (`O=`). A `O=`
+# `party_id` reconciliation against the certificate identity (`CN=`). A `CN=`
 # that is not a valid party id is treated as no usable identity, like an absent
 # one (the absent case is covered by the register test above).
 
@@ -599,7 +707,7 @@ def test_given_party_id_used_without_usable_identity(cert_db):
 
 
 def test_near_miss_identity_treated_as_third_party(cert_db):
-    # An `O=` resembling a party id but failing the pattern is no usable
+    # A `CN=` resembling a party id but failing the pattern is no usable
     # identity: the certificate registers as third-party under the given
     # party id instead of being rejected for a mismatch.
     cert_db.cm.register_certificate(
@@ -678,8 +786,8 @@ def test_researcher_registering_researcher_certificate_rejected(cert_db):
 
 
 def test_given_party_id_of_own_type_rejected(cert_db):
-    # The party id is user-given for a third-party certificate (arbitrary
-    # `O=`, dual-role EKU): it goes through the same protection.
+    # The party id is user-given for a third-party certificate (subject holding
+    # no party id, dual-role EKU): it goes through the same protection.
     with pytest.raises(FedbiomedCertificateError):
         cert_db.cm.register_certificate(
             certificate_path=_self_signed(cert_db.tmp, "Hospital A"),
@@ -690,7 +798,7 @@ def test_given_party_id_of_own_type_rejected(cert_db):
 
 def test_researcher_registering_server_only_third_party_rejected(cert_db):
     # EKU restricts the certificate to the researcher's own role (server),
-    # even though `O=` carries no party id.
+    # even though its subject carries no party id.
     with pytest.raises(FedbiomedCertificateError):
         cert_db.cm.register_certificate(
             certificate_path=_third_party(
