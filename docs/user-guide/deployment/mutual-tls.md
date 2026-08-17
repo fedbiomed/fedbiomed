@@ -234,7 +234,7 @@ ones.
 | off | off | Fetches the certificate the endpoint presents and trusts it: `Communication established … over server-authenticated TLS (node identity not verified)` | Accepts the node without checking its identity |
 | on | on | Pins the registered researcher certificate and presents its own: `Mutual-TLS communication established …; node identity verified by the researcher` | `Node <NODE_id> authenticated via mutual TLS` on the node's first request |
 | on | off | Connects with the pinned certificate, and warns `node identity will NOT be verified`. If the check of the researcher was inconclusive: `could not determine whether the researcher verifies node identity` | Accepts the node like any other; the client certificate it presents is ignored |
-| off | on | Never connects; retries and logs `FB628 … researcher requires mutual-TLS client authentication but mutual-TLS is disabled on this node` | Rejects the node inside the TLS handshake; the node never appears, and the rejection is visible only with `GRPC_VERBOSITY=INFO` |
+| off | on | Stops: `FB628 … researcher requires mutual-TLS client authentication but mutual-TLS is disabled on this node`, then `Node is stopped!`. No configuration the node can reach by retrying would connect | Rejects the node inside the TLS handshake; the node never appears, and the rejection is visible only with `GRPC_VERBOSITY=INFO` |
 
 ### Certificate state, with mTLS enabled on both sides
 
@@ -281,7 +281,7 @@ rejected node (it says so once at startup).
 | `FB619 … no researcher certificate is registered` (node won't start) | mTLS on, researcher cert missing on node | Register the researcher certificate on the node |
 | `FB628 … Mutual-TLS handshake with researcher failed` (node retries) | Pinned researcher cert wrong/outdated, or possible MITM | Re-register the current researcher certificate on the node |
 | `FB628 … reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher — rejected inside the handshake | Register the node's certificate on the researcher |
-| `FB628 … researcher requires mutual-TLS client authentication but mutual-TLS is disabled on this node` (node retries) | Researcher has mTLS on, node has it off | Enable `[mtls]` on the node, register the researcher certificate, have the researcher register the node's |
+| `FB628 … researcher requires mutual-TLS client authentication but mutual-TLS is disabled on this node` (node stops) | Researcher has mTLS on, node has it off | Enable `[mtls]` on the node, register the researcher certificate, have the researcher register the node's |
 | `FB628 … Researcher rejected this node's identity` (node stops) | Declared node id ≠ the party id the node's certificate is registered under, or that certificate was deleted on the researcher | Ensure the node id matches how its certificate is registered, and that it is still registered |
 | `node identity will NOT be verified` (node warning) | Node has mTLS on, researcher has it off — node connects anyway | Enable `[mtls]` on the researcher too |
 | `could not determine whether the researcher verifies node identity` (node info) | Node has mTLS on; the check of whether the researcher demands client certificates was inconclusive (typically a busy or slow endpoint). The channel is up and the researcher certificate is pinned | Nothing to do; confirm on the researcher side that `[mtls] enabled = True` if you expect enforcement |
