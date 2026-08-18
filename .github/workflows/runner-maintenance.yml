@@ -39,7 +39,9 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        shell: bash -leuo pipefail {0}
+        # No -u: the login profile reads an unset PS1, which under -u aborts the
+        # rest of it and leaves Homebrew off the PATH.
+        shell: bash -leo pipefail {0}
     steps:
       - name: Report disk usage before cleaning
         run: df -h
@@ -68,7 +70,7 @@ jobs:
           fi
 
       - name: Remove superseded Homebrew downloads
-        if: ${{ runner.os == 'macOS' }}
+        if: ${{ always() && runner.os == 'macOS' }}
         run: arch -arm64 brew cleanup -s
 
       # actions/setup-python keeps one directory per patch version, so the tool
@@ -78,6 +80,7 @@ jobs:
       # Anything still wanted is fetched again on its next use. Dataset root:
       # DEFAULT_DATA_CACHE in tests/end2end/helpers.
       - name: Remove stale interpreters and end-to-end datasets
+        if: always()
         run: |
           prune() {
             if [[ ! -d "$1" ]]; then
@@ -91,4 +94,5 @@ jobs:
           prune "$HOME/.cache/fedbiomed/e2e-data" "$DATA_CACHE_MAX_AGE_DAYS"
 
       - name: Report disk usage after cleaning
+        if: always()
         run: df -h
