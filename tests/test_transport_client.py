@@ -229,26 +229,24 @@ async def test_grpc_client_connect_does_not_probe_without_mtls(
     grpc_client.client._channels.connect.assert_called_once()
 
 
-# Warn iff the researcher is known not to require the node's client certificate;
+# Stop iff the researcher is known not to require the node's client certificate;
 # an inconclusive probe (None) is not evidence of anything.
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "requires_auth,expected_warnings", [(False, 1), (True, 0), (None, 0)]
-)
+@pytest.mark.parametrize("requires_auth,stops", [(False, 1), (True, 0), (None, 0)])
 @patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.logger._logger.warning")
+@patch("fedbiomed.transport.client.logger._logger.error")
 @patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
 @patch("fedbiomed.transport.client.certificate_subject_field", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
-async def test_grpc_client_connect_mtls_warns_only_when_not_enforced(
+async def test_grpc_client_connect_mtls_stops_only_when_not_enforced(
     is_server_alive,
     subject_field,
     requires_client_auth,
-    log_warning,
+    log_error,
     security_event,
     grpc_client,
     requires_auth,
-    expected_warnings,
+    stops,
 ):
     is_server_alive.return_value = True
     subject_field.return_value = "test-researcher"
@@ -263,23 +261,25 @@ async def test_grpc_client_connect_mtls_warns_only_when_not_enforced(
     )
     client._channels.connect = AsyncMock()
 
-    await client._connect()
+    if stops:
+        with pytest.raises(FedbiomedCommunicationError):
+            await client._connect()
+        # The channel is never created: the mismatch is fatal before connecting
+        client._channels.connect.assert_not_called()
+    else:
+        await client._connect()
+        client._channels.connect.assert_called_once()
 
-    # Console-visible warning (no security flag: flagged records are diverted
-    # to the security file)
-    warnings = [
-        c
-        for c in log_warning.call_args_list
-        if "node identity will NOT be verified" in c.args[0]
+    errors = [
+        c for c in log_error.call_args_list if "NO node in the federation" in c.args[0]
     ]
-    assert len(warnings) == expected_warnings
-    # The unenforced-mTLS warning is audited alongside it
+    assert len(errors) == stops
     audited = [
         c
         for c in security_event.call_args_list
         if c.kwargs.get("operation") == "mtls_not_enforced_by_researcher"
     ]
-    assert len(audited) == expected_warnings
+    assert len(audited) == stops
 
 
 # -----------------------------------------------------------------------------
@@ -662,24 +662,6 @@ async def test_task_listener_non_mtls_node_against_mtls_researcher(
     operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
     assert "mtls_required_by_researcher" in operations
     listener_env.on_status_change.assert_awaited_with(ClientStatus.FAILED)
-
-
-@pytest.mark.asyncio
-@patch("fedbiomed.transport.client.logger.info")
-async def test_task_listener_announce_honest_when_not_enforced(log_info, listener_env):
-    """When the researcher accepts anonymous clients, the announce does not
-    claim the node identity was verified."""
-    listener_env.channels.mtls = True
-    listener_env.channels.client_auth_enforced = False
-
-    await listener_env.drain([_one_task(b"t1")])
-
-    msgs = [
-        c for c in log_info.call_args_list if "Communication established" in c.args[0]
-    ]
-    assert len(msgs) == 1
-    assert "NOT verified" in msgs[0].args[0]
-    assert "Mutual-TLS communication established" not in msgs[0].args[0]
 
 
 @pytest.mark.asyncio
