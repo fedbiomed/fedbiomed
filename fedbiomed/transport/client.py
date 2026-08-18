@@ -477,21 +477,30 @@ class GrpcClient:
                         self._researcher.host,
                         self._researcher.port,
                     )
-                    # Only a definite "not enforced" is worth warning about; an
+                    # Only a definite "not enforced" is acted upon; an
                     # inconclusive probe says nothing about the researcher.
                     if self._researcher.client_auth_enforced is False:
+                        # Static config on both sides, retry cannot help: stop.
+                        await self._on_status_change(ClientStatus.FAILED)
                         msg = (
-                            "This node is configured for mutual-TLS but the "
-                            "researcher does not require client certificates: "
-                            "node identity will NOT be verified. Connecting "
-                            "anyway with the researcher certificate registered."
+                            f"{ErrorNumbers.FB628.value}: This node is configured "
+                            "for mutual-TLS but the researcher does not require "
+                            "client certificates: NO node in the federation has "
+                            "its identity verified by the researcher, this one "
+                            "included. Mutual-TLS has to be enabled on the "
+                            "researcher side, with this node's certificate "
+                            "registered there; otherwise disable it in this "
+                            "node's `[mtls]` configuration."
                         )
-                        logger.warning(msg)
+                        logger.error(msg)
                         logger.security_event(
                             operation="mtls_not_enforced_by_researcher",
                             status="failure",
+                            host=self._researcher.host,
+                            port=self._researcher.port,
                             detail=msg,
                         )
+                        raise FedbiomedCommunicationError(msg)
 
                 if self._id is None:
                     # auto-detect researcher_id from the peer certificate CN= field
@@ -722,8 +731,9 @@ class Listener:
                                 f"{ErrorNumbers.FB628.value}: The researcher requires "
                                 "mutual-TLS client authentication but mutual-TLS is "
                                 "disabled on this node. Enable it in the node `[mtls]` "
-                                "configuration, register the researcher certificate and "
-                                "ask the researcher to register this node's certificate."
+                                "configuration and register the researcher certificate "
+                                "there; this node's certificate also has to be "
+                                "registered on the researcher side."
                             )
                             logger.error(msg)
                             logger.security_event(
@@ -889,14 +899,6 @@ class TaskListener(Listener):
             logger.info(
                 "Mutual-TLS communication established with researcher at "
                 f"{self._channels.endpoint}; node identity verified by the researcher."
-            )
-        elif self._channels.mtls and self._channels.client_auth_enforced is False:
-            # The connect probe saw the researcher accept anonymous clients.
-            logger.info(
-                "Communication established with researcher at "
-                f"{self._channels.endpoint} over TLS with pinned researcher "
-                "certificate; node identity NOT verified by the researcher "
-                "(mutual TLS not enforced)."
             )
         elif self._channels.mtls:
             # The probe was inconclusive: claim only what the connection proves.
