@@ -964,32 +964,46 @@ def test_empty_trust_bundle_is_reported_before_binding(certs):
         _credentials(certs, lambda: b"")
 
 
-@pytest.mark.parametrize("preset,expected", [(None, "ERROR"), ("INFO", "INFO")])
-def test_grpc_verbosity_is_a_default_not_an_override(preset, expected):
-    """gRPC noise is lowered, but an operator can raise it to see rejections.
-
-    A rejected handshake is only reported by gRPC itself, so overriding this is
-    the sole way to observe rejections on the researcher. Run in a fresh
-    interpreter because the import sets the variable only once.
-    """
+def _in_fresh_interpreter(code, preset=None):
+    """Runs `code` in a new interpreter, with GRPC_VERBOSITY unset or preset."""
     environment = {k: v for k, v in os.environ.items() if k != "GRPC_VERBOSITY"}
     if preset is not None:
         environment["GRPC_VERBOSITY"] = preset
 
-    probe = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "import os, fedbiomed.transport; print(os.environ['GRPC_VERBOSITY'])",
-        ],
+    return subprocess.run(
+        [sys.executable, "-c", code],
         capture_output=True,
         text=True,
         env=environment,
         timeout=60,
         check=True,
+    ).stdout.strip()
+
+
+def test_grpc_verbosity_default_is_set_before_grpc_is_imported():
+    """The default must be in place when the gRPC core reads it, at `import grpc`.
+
+    Importing the serializer loads grpc through declearn, so setting the default
+    anywhere below the top level package is too late. Run in a fresh interpreter
+    because the core reads the variable only once.
+    """
+    code = (
+        "import os, sys, fedbiomed.common.serializer;"
+        "print(os.environ['GRPC_VERBOSITY'], 'grpc' in sys.modules)"
     )
 
-    assert probe.stdout.strip() == expected
+    assert _in_fresh_interpreter(code) == "ERROR True"
+
+
+def test_grpc_verbosity_preset_by_an_operator_wins():
+    """The default is lowered noise, not a ceiling on what an operator can see.
+
+    A rejected handshake is reported by gRPC itself and nowhere else, so raising
+    the variable is the sole way to observe rejections on the researcher.
+    """
+    code = "import os, fedbiomed; print(os.environ['GRPC_VERBOSITY'])"
+
+    assert _in_fresh_interpreter(code, "INFO") == "INFO"
 
 
 async def _probe(port):
