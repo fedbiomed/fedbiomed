@@ -86,24 +86,20 @@ jobs:
         include:
           - python-version: "3.11"
             python-tag: "311"
-            runner: ubuntu-latest
-            runner-name: ubuntu-latest
-            persistent-cache: false
+            runner: ubuntu-24.04
+            runner-name: ubuntu-24.04
           - python-version: "3.14"
             python-tag: "314"
-            runner: ubuntu-latest
-            runner-name: ubuntu-latest
-            persistent-cache: false
+            runner: ubuntu-24.04
+            runner-name: ubuntu-24.04
           - python-version: "3.11"
             python-tag: "311"
-            runner: [self-hosted, ubuntu-24-04]
-            runner-name: self-hosted ubuntu-24-04
-            persistent-cache: true
+            runner: ubuntu-26.04
+            runner-name: ubuntu-26.04
           - python-version: "3.14"
             python-tag: "314"
-            runner: [self-hosted, ubuntu-24-04]
-            runner-name: self-hosted ubuntu-24-04
-            persistent-cache: true
+            runner: ubuntu-26.04
+            runner-name: ubuntu-26.04
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
       # Compatibility CI is CPU-only. Deployment keeps the GPU-capable defaults.
@@ -126,10 +122,6 @@ jobs:
           df -h
           docker system df
 
-      - name: Bound persistent Docker build cache
-        if: matrix.persistent-cache
-        run: docker builder prune --all --force --keep-storage 8gb
-
       - name: Run VPN functional test
         run: ./tests/vpn_test.sh
 
@@ -140,9 +132,3 @@ jobs:
           ./scripts/fedbiomed_vpn clean image || true
           docker compose --file envs/vpn/docker/docker-compose.yml \
             --project-name "$COMPOSE_PROJECT_NAME" down --remove-orphans || true
-
-      - name: Prune persistent Docker build cache
-        if: ${{ always() && matrix.persistent-cache }}
-        run: |
-          docker builder prune --all --force --keep-storage 8gb || true
-          docker system df || true
