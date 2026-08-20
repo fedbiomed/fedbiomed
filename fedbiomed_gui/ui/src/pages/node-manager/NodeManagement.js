@@ -14,6 +14,7 @@ import {
 } from '@elastic/eui'
 
 import ApplicationLogs from './ApplicationLogs'
+import Certificates from './Certificates'
 import ProcessDetails from './ProcessDetails'
 import Configuration from './Configuration'
 import {
@@ -57,6 +58,7 @@ const areNodeArgsEqual = (firstNodeArgs, secondNodeArgs) => {
 const nodeManagementTabs = {
     process: 'process',
     logs: 'logs',
+    certificates: 'certificates',
 }
 
 const mainTabs = {
@@ -664,6 +666,16 @@ const NodeManagementContent = ({
                     >
                         Application Logs
                     </EuiTab>
+                    <EuiTab
+                        isSelected={
+                            activeTab === nodeManagementTabs.certificates
+                        }
+                        onClick={() => (
+                            setActiveTab(nodeManagementTabs.certificates)
+                        )}
+                    >
+                        Certificates
+                    </EuiTab>
                 </EuiTabs>
             </section>
 
@@ -686,6 +698,8 @@ const NodeManagementContent = ({
                     StatusPill={StatusPill}
                     SummaryCard={SummaryCard}
                 />
+            ) : activeTab === nodeManagementTabs.certificates ? (
+                <Certificates />
             ) : (
                 <ApplicationLogs
                     downloadNodeLogFile={downloadNodeLogFile}

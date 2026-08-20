@@ -234,6 +234,24 @@ regularly even while nothing goes wrong. The node announces its first connection
 that follows an interruption; a connection merely replacing a retired one is logged at
 debug level. The security audit log records every one of them.
 
+## From the Node GUI
+
+A node does the same from the **Certificates** tab of the Node Management page of
+its [GUI](../nodes/node-gui.md), which is restricted to administrators:
+
+- read its own certificate and download it, to send to the researcher;
+- register the researcher certificate — pasted or from a file — and delete it;
+- turn `[authentication] mutual_authentication` on and off;
+- read the state of the connection to the researcher: whether the channel is up,
+  whether it is mutually authenticated, and why it last failed.
+
+The tab reports what would stop the node from starting before you start it: mutual
+authentication enabled with no researcher certificate registered, several registered,
+or a missing private key. Certificates are read when the node starts, so registering
+one or changing the setting takes effect when the node is restarted.
+
+The researcher has no GUI; it is configured with the commands above.
+
 ## Operating a running federation
 
 ### Adding a node to a running instance (hot-add)

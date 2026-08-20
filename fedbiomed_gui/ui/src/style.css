@@ -1401,6 +1401,13 @@ a.fed-box-link{
   border-right: 1px solid var(--node-management-border);
 }
 
+.node-management-registered-certificate {
+  border: 1px solid var(--node-management-border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+}
+
 .node-management-detail-icon {
   background: #f1f0ff;
   border-radius: 8px;

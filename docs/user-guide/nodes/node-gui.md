@@ -123,6 +123,15 @@ password = admin
     Currently, e-mail addresses are only used a login name by Fed-BioMed GUI. This is neither a user
     identity existing in the whole Fed-BioMed instance, nor used to send e-mails to the GUI user.
 
+## Certificates and the researcher connection
+
+The **Certificates** tab of the Node Management page holds what the node needs to
+communicate over [mutual TLS](../deployment/mutual-tls.md): its own certificate to
+send to the researcher, the researcher certificate it registers and pins, the
+`[authentication]` setting, and the state of its connection to the researcher as the node
+last observed it. It is restricted to administrators, and its actions are the ones
+`fedbiomed node certificate` offers on the command line.
+
 ## Production Mode
 
 By default, `fedbiomed node gui` launches the Node GUI in production mode, utilizing [Gunicorn](https://gunicorn.org/) as the application server. For debugging and development purposes, you can launch the GUI using the `--development` flag.

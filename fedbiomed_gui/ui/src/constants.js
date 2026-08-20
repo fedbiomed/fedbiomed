@@ -73,6 +73,12 @@ export const EP_NODE_LOGS = "/api/node/logs";
 export const EP_NODE_LOG_FILES = "/api/node/logs/files";
 export const EP_NODE_LOGS_DOWNLOAD = "/api/node/logs/download";
 
+// Certificates and researcher connection
+export const EP_CERTIFICATES = "/api/certificates";
+export const EP_CERTIFICATES_STATUS = "/api/certificates/status";
+export const EP_CERTIFICATES_EXPORT = "/api/certificates/export";
+export const EP_CERTIFICATES_CONNECTION = "/api/certificates/connection";
+
 // Messages
 export const DATA_NOTFOUND = 'There is no data found for the dataset. It might be deleted'
 

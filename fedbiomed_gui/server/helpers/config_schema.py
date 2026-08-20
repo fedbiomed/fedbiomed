@@ -15,7 +15,7 @@ NODE_CONFIG_READ_ONLY_SECTIONS = {
 }
 NODE_CONFIG_SKIPPED_SECTIONS = set()
 # Sections whose name does not read as a title on its own
-NODE_CONFIG_SECTION_LABELS = {"mtls": "Mutual TLS"}
+NODE_CONFIG_SECTION_LABELS = {"authentication": "Mutual TLS"}
 NODE_CONFIG_FIELD_SCHEMAS = {
     NODE_CONFIG_SECURITY_SECTION: {
         "hashing_algorithm": {
@@ -54,8 +54,8 @@ NODE_CONFIG_FIELD_SCHEMAS = {
             "min": 0,
         },
     },
-    "mtls": {
-        "enabled": {
+    "authentication": {
+        "mutual_authentication": {
             "type": "boolean",
             "label": "Mutual TLS enabled",
         },

@@ -16,8 +16,7 @@ from fedbiomed.common.certificate_manager import (
     certificate_audit_fields,
     certificate_expiry,
     certificate_fingerprint,
-    certificate_names,
-    is_mtls_enabled,
+    certificate_san_names,
 )
 from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
@@ -45,7 +44,7 @@ def _certificate_summary(certificate: str) -> Dict[str, Any]:
 
     summary: Dict[str, Any] = {
         **certificate_audit_fields(certificate),
-        "san": certificate_names(certificate),
+        "san": certificate_san_names(certificate),
         "fingerprint": fingerprint.hex() if fingerprint else None,
         "expires_in_days": None,
         "expiring_soon": False,
@@ -186,7 +185,9 @@ def _restart_required() -> bool:
 
 def _status() -> Dict[str, Any]:
     """The node's mutual-TLS posture: its certificate and what it expects."""
-    mtls_enabled = is_mtls_enabled(config.node_config)
+    mtls_enabled = config.node_config.getbool(
+        "authentication", "mutual_authentication", fallback="False"
+    )
     registered = _registered_certificates()
 
     return {
