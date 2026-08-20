@@ -14,6 +14,8 @@ NODE_CONFIG_READ_ONLY_SECTIONS = {
     "certificate",
 }
 NODE_CONFIG_SKIPPED_SECTIONS = set()
+# Sections whose name does not read as a title on its own
+NODE_CONFIG_SECTION_LABELS = {"mtls": "Mutual TLS"}
 NODE_CONFIG_FIELD_SCHEMAS = {
     NODE_CONFIG_SECURITY_SECTION: {
         "hashing_algorithm": {
@@ -50,6 +52,12 @@ NODE_CONFIG_FIELD_SCHEMAS = {
         "port": {
             "type": "integer",
             "min": 0,
+        },
+    },
+    "mtls": {
+        "enabled": {
+            "type": "boolean",
+            "label": "Mutual TLS enabled",
         },
     },
     "syslog": {
@@ -124,7 +132,9 @@ def get_config_sections_schema(node_config: Any) -> Dict[str, Dict[str, Any]]:
             fields[key] = schema
 
         sections[section] = {
-            "label": section.replace("_", " ").title(),
+            "label": NODE_CONFIG_SECTION_LABELS.get(
+                section, section.replace("_", " ").title()
+            ),
             "fields": fields,
         }
 

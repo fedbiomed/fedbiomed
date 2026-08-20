@@ -24,9 +24,9 @@ def _iso(moment: datetime) -> str:
     return moment.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _config(mocker, node_id="node-1", node_name="Node 1", db_name="node_db.json"):
+def _config(mocker, root, node_id="node-1", node_name="Node 1", db_name="node_db.json"):
     config = mocker.MagicMock()
-    config.root = "/tmp/node-root"
+    config.root = str(root)
 
     def _get(section, key):
         values = {
@@ -42,7 +42,7 @@ def _config(mocker, node_id="node-1", node_name="Node 1", db_name="node_db.json"
 
 
 @pytest.fixture
-def _manager(mocker):
+def _manager(mocker, tmp_path):
     """Create a manager with safe mocked DB tables.
 
     Do not patch _cleanup_process_state_history here: some tests need the real
@@ -64,7 +64,7 @@ def _manager(mocker):
         return_value=history_table,
     )
 
-    manager = NodeProcessManager(_config(mocker))
+    manager = NodeProcessManager(_config(mocker, tmp_path))
 
     # Test-only handles so tests can configure/assert the shared table mocks.
     # Direct access to manager._state_table and manager._history_table does not exist
@@ -75,20 +75,20 @@ def _manager(mocker):
     return manager
 
 
-def test_node_pm_init_writes_nothing(mocker):
+def test_node_pm_init_writes_nothing(mocker, tmp_path):
     """Constructing a manager opens no table: a reader leaves the database alone."""
     state_table = mocker.patch("fedbiomed.node.node_pm.NodeProcessStateTable")
     history_table = mocker.patch("fedbiomed.node.node_pm.NodeProcessStateHistoryTable")
 
-    NodeProcessManager(_config(mocker))
+    NodeProcessManager(_config(mocker, tmp_path))
 
     state_table.assert_not_called()
     history_table.assert_not_called()
 
 
 @pytest.mark.parametrize("background", [True, False])
-def test_node_pm_start(mocker, _manager, background):
-    config = _config(mocker)
+def test_node_pm_start(mocker, tmp_path, _manager, background):
+    config = _config(mocker, tmp_path)
     node_args = {"gpu": False, "debug": True, "background": background}
     manager = _manager
 
@@ -695,7 +695,7 @@ def test_node_pm_cleanup_process_state_history_removes_entries_past_retention(
     mocker.patch.object(
         NodeProcessManager, "_get_history_table", return_value=history_table
     )
-    NodeProcessManager(_config(mocker))._cleanup_process_state_history()
+    NodeProcessManager(_config(mocker, tmp_path))._cleanup_process_state_history()
 
     remaining = history_table.get_all_by_value("node_id", "node-retention")
     assert [entry["action"] for entry in remaining] == ["start-10"]
@@ -710,7 +710,7 @@ def test_node_pm_set_process_state_prunes_history(mocker, _manager):
     cleanup.assert_called_once()
 
 
-def test_node_pm_get_table_reinitializes_state_and_history_tables(mocker):
+def test_node_pm_get_table_reinitializes_state_and_history_tables(mocker, tmp_path):
     state_table_constructor = mocker.patch(
         "fedbiomed.node.node_pm.NodeProcessStateTable"
     )
@@ -720,7 +720,7 @@ def test_node_pm_get_table_reinitializes_state_and_history_tables(mocker):
 
     mocker.patch.object(NodeProcessManager, "_cleanup_process_state_history")
 
-    manager = NodeProcessManager(_config(mocker))
+    manager = NodeProcessManager(_config(mocker, tmp_path))
 
     manager._get_state_table()
     manager._get_state_table()
@@ -732,7 +732,7 @@ def test_node_pm_get_table_reinitializes_state_and_history_tables(mocker):
 
 
 @pytest.fixture
-def _connection_manager(mocker):
+def _connection_manager(mocker, tmp_path):
     """Create a connection state manager with mocked DB tables."""
     state_table = mocker.MagicMock()
     history_table = mocker.MagicMock()
@@ -751,7 +751,7 @@ def _connection_manager(mocker):
         return_value=history_table,
     )
 
-    manager = NodeConnectionStateManager(_config(mocker))
+    manager = NodeConnectionStateManager(_config(mocker, tmp_path))
 
     # Test-only handles on the shared table mocks.
     manager._state_table = state_table
@@ -770,14 +770,14 @@ def _connection_state(**kwargs):
     }
 
 
-def test_node_connection_init_writes_nothing(mocker):
+def test_node_connection_init_writes_nothing(mocker, tmp_path):
     """The GUI builds one of these to read: constructing it opens no table."""
     state_table = mocker.patch("fedbiomed.node.node_pm.NodeConnectionStateTable")
     history_table = mocker.patch(
         "fedbiomed.node.node_pm.NodeConnectionStateHistoryTable"
     )
 
-    NodeConnectionStateManager(_config(mocker))
+    NodeConnectionStateManager(_config(mocker, tmp_path))
 
     state_table.assert_not_called()
     history_table.assert_not_called()

@@ -124,7 +124,7 @@ database_id = {
 
 
 @pytest.fixture
-def node_env():
+def node_env(tmp_path):
     """Node instance with transport, queue and manager dependencies patched."""
     with (
         patch(
@@ -167,10 +167,9 @@ def node_env():
             return_value=(database_id, "dummy_table_name")
         )
 
-        temp_dir = tempfile.TemporaryDirectory()
-        db = os.path.join(temp_dir.name, "test-db.json")
+        db = str(tmp_path / "test-db.json")
         # creating Node objects
-        node_config = NodeConfig(temp_dir.name)
+        node_config = NodeConfig(str(tmp_path))
         cfg = configparser.ConfigParser()
         cfg["default"] = {"id": "test-id", "name": "test-name", "db": db}
         cfg["researcher"] = {"ip": "test", "port": "5151"}
@@ -191,7 +190,6 @@ def node_env():
             grpc_send=grpc_send,
             model_manager=model_manager,
         )
-        temp_dir.cleanup()
 
 
 @pytest.fixture
