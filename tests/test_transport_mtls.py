@@ -19,7 +19,6 @@ import asyncio
 import os
 import subprocess
 import sys
-import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -140,36 +139,34 @@ def _naming_only(host):
 
 
 @pytest.fixture(scope="module")
-def certs():
+def certs(tmp_path_factory):
     """Generates researcher and node certificates for the whole module."""
-    with tempfile.TemporaryDirectory() as tmp:
-        researcher_key_file, researcher_cert_file, researcher_key, researcher_cert = (
-            _generate(
-                tmp,
-                "researcher",
-                RESEARCHER_ID,
-                purpose=CERT_PURPOSE_SERVER,
-                san=["localhost"],
-            )
+    tmp = str(tmp_path_factory.mktemp("certs"))
+    researcher_key_file, researcher_cert_file, researcher_key, researcher_cert = (
+        _generate(
+            tmp,
+            "researcher",
+            RESEARCHER_ID,
+            purpose=CERT_PURPOSE_SERVER,
+            san=["localhost"],
         )
-        node_key_file, node_cert_file, node_key, node_cert = _generate(
-            tmp, "node", NODE_ID
-        )
-        _, _, _, other_node_cert = _generate(tmp, "other_node", OTHER_NODE_ID)
-        # Issued elsewhere, so its `CN=` is no identity
-        unidentified_cert = _third_party("Hospital A")
-        yield {
-            "researcher_key_file": researcher_key_file,
-            "researcher_cert_file": researcher_cert_file,
-            "researcher_key": researcher_key,
-            "researcher_cert": researcher_cert,
-            "node_key_file": node_key_file,
-            "node_cert_file": node_cert_file,
-            "node_key": node_key,
-            "node_cert": node_cert,
-            "other_node_cert": other_node_cert,
-            "unidentified_cert": unidentified_cert,
-        }
+    )
+    node_key_file, node_cert_file, node_key, node_cert = _generate(tmp, "node", NODE_ID)
+    _, _, _, other_node_cert = _generate(tmp, "other_node", OTHER_NODE_ID)
+    # Issued elsewhere, so its `CN=` is no identity
+    unidentified_cert = _third_party("Hospital A")
+    return {
+        "researcher_key_file": researcher_key_file,
+        "researcher_cert_file": researcher_cert_file,
+        "researcher_key": researcher_key,
+        "researcher_cert": researcher_cert,
+        "node_key_file": node_key_file,
+        "node_cert_file": node_cert_file,
+        "node_key": node_key,
+        "node_cert": node_cert,
+        "other_node_cert": other_node_cert,
+        "unidentified_cert": unidentified_cert,
+    }
 
 
 # ---------------------------------------------------------------------------

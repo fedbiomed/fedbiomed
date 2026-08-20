@@ -4,6 +4,7 @@ import json
 import os
 import signal
 import sys
+import tempfile
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -26,7 +27,11 @@ from fedbiomed.node.cli_utils._medical_folder_dataset import (
     get_map_modalities2folders_from_cli,
 )
 from fedbiomed.node.node import NodeContext
-from fedbiomed.node.node_pm import _node_signal_trigger_term, _start_node_process
+from fedbiomed.node.node_pm import (
+    NodeConnectionStateManager,
+    _node_signal_trigger_term,
+    _start_node_process,
+)
 
 # ============================================================================
 # SHARED FIXTURES AND HELPERS
@@ -307,6 +312,21 @@ class TestDatasetArgumentParser(unittest.TestCase):
                 self.dataset_arg_pars._add_dataset_from_file(path=json_path)
 
 
+def _node_config_in(tmp_dir, mock_node_config):
+    """Points the patched node configuration at a database in `tmp_dir`.
+
+    Starting a node records its state, so the configuration has to name a real
+    file: a MagicMock resolves to a file descriptor - stdout - which TinyDB then
+    writes to and closes, taking the test session down with it.
+    """
+    config = mock_node_config.return_value
+    config.get.return_value = "test-node"
+    config.getbool.return_value = False
+    config.getpath.return_value = os.path.join(tmp_dir, "node_db.json")
+
+    return config
+
+
 class TestNodeControl(unittest.TestCase):
     """Test case for node control parser"""
 
@@ -316,6 +336,8 @@ class TestNodeControl(unittest.TestCase):
         self.control = NodeControl(self.subparsers)
         self.context = MagicMock()
         self.control._context = self.context
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp_dir.cleanup)
 
     def test_01_node_control_initialize(self):
         """Tests initialize"""
@@ -336,7 +358,7 @@ class TestNodeControl(unittest.TestCase):
     @patch("fedbiomed.node.node_pm.Node", autospec=True)
     def test_03_node_control__start(self, mock_node, mock_node_config):
         """Tests node start"""
-        mock_node_config.return_value = MagicMock()
+        config = _node_config_in(self.tmp_dir.name, mock_node_config)
         mock_node.return_value.config.get.return_value = "test-node"
         mock_node.return_value.config.getbool.return_value = False
         mock_node.return_value.tp_security_manager = MagicMock()
@@ -344,6 +366,10 @@ class TestNodeControl(unittest.TestCase):
         args = {"gpu": False}
         _start_node_process("config.ini", args)
         mock_node.return_value.task_manager.assert_called_once()
+        # A run in progress is recorded before the node is built, so the state of
+        # the previous one is not read as the current one
+        state = NodeConnectionStateManager(config).get_connection_state()
+        self.assertEqual(state.operation, "node_starting")
 
         with patch("fedbiomed.node.node_pm.logger") as logger:
             mock_node.return_value.task_manager.side_effect = FedbiomedError
@@ -361,7 +387,7 @@ class TestNodeControl(unittest.TestCase):
         self, mock_node, mock_node_config
     ):
         """Tests that a node that cannot be built is reported, not raised"""
-        mock_node_config.return_value = MagicMock()
+        _node_config_in(self.tmp_dir.name, mock_node_config)
         mock_node.side_effect = FedbiomedError(
             "FB619: no researcher certificate is registered"
         )
@@ -378,7 +404,7 @@ class TestNodeControl(unittest.TestCase):
         self, mock_node, mock_node_config
     ):
         """Tests reporting an unexpected error when there is no node to report with"""
-        mock_node_config.return_value = MagicMock()
+        _node_config_in(self.tmp_dir.name, mock_node_config)
         mock_node.side_effect = Exception("unexpected")
 
         with patch("fedbiomed.node.node_pm.logger") as logger:
@@ -538,13 +564,17 @@ class TestGUIControl(unittest.TestCase):
 class TestStartNodeProcess(unittest.TestCase):
     """Tests for the _start_node_process function."""
 
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp_dir.cleanup)
+
     @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
     @patch("fedbiomed.node.node_pm.Node")
     def test_01_start_node_training_plan_approval_with_default_plans(
         self, mock_node, mock_node_config
     ):
         """Tests tp_security_manager methods are called when approval + default plans are enabled."""
-        mock_node_config.return_value = MagicMock()
+        _node_config_in(self.tmp_dir.name, mock_node_config)
         mock_node.return_value.config.getbool.return_value = True
 
         _start_node_process("config.ini", {"gpu": False})
@@ -558,7 +588,7 @@ class TestStartNodeProcess(unittest.TestCase):
         self, mock_node, mock_node_config
     ):
         """Tests register_update_default_training_plans is NOT called when allow_default_training_plans is False."""
-        mock_node_config.return_value = MagicMock()
+        _node_config_in(self.tmp_dir.name, mock_node_config)
 
         def _getbool(section, key):
             return key == "training_plan_approval"

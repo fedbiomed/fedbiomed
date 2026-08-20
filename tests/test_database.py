@@ -3,7 +3,6 @@ from unittest.mock import patch
 import pytest
 
 from fedbiomed.common.constants import DatasetTypes
-from fedbiomed.common.db import TinyDBConnector
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db_dataclasses import (
     DatasetEntry,
@@ -19,16 +18,6 @@ from fedbiomed.node.dataset_manager._db_tables import (
     NodeProcessStateHistoryTable,
     NodeProcessStateTable,
 )
-
-
-@pytest.fixture(autouse=True)
-def _isolated_database(monkeypatch):
-    """Give every test its own database.
-
-    `TinyDBConnector` is a singleton that ignores the path it is handed, so
-    without this every table in the session shares the file opened first.
-    """
-    monkeypatch.setattr(TinyDBConnector, "_instance", None)
 
 
 @pytest.fixture
