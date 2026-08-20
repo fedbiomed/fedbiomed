@@ -1,17 +1,21 @@
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from fedbiomed.common.constants import DatasetTypes
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db_dataclasses import (
     DatasetEntry,
     DynamicDatasetEntry,
+    NodeConnectionStateEntry,
     NodeProcessStateEntry,
 )
 from fedbiomed.node.dataset_manager._db_tables import (
     DatasetTable,
     DlpTable,
     DynamicDatasetTable,
+    NodeConnectionStateHistoryTable,
+    NodeConnectionStateTable,
     NodeProcessStateHistoryTable,
     NodeProcessStateTable,
 )
@@ -145,7 +149,11 @@ class TestDatasetTable(unittest.TestCase):
             "shape": [200, 200],
             "dtypes": {"data": "float32"},
         }
-        self.table.insert(entry)
+        dataset_id = self.table.insert(entry)
+
+        stored = self.table.get_by_id(dataset_id)
+        self.assertEqual(stored["name"], "test_dataset2")
+        self.assertEqual(stored["tags"], ["tagX", "tagY"])
 
     def test_update_by_id_conflict_and_success(self):
         entry = {
@@ -305,6 +313,10 @@ class TestDlpTable(unittest.TestCase):
         }
         self.table.insert(entry)
 
+        stored = self.table.get_by_id("dlp_100")
+        self.assertEqual(stored["dlp_name"], "valid_dlp")
+        self.assertEqual(stored["loading_blocks"], {"block1": "block_id1"})
+
     def test_list_by_target_dataset_type(self):
         entry = {
             "dlp_id": "dlp_101",
@@ -422,6 +434,95 @@ class TestNodeProcessStateTables(unittest.TestCase):
         stored = self.history_table.get_all_by_value("pid", 333)
         self.assertEqual(len(stored), 2)
         self.assertEqual([entry["state"] for entry in stored], ["starting", "running"])
+
+
+class TestNodeConnectionStateTables(unittest.TestCase):
+    def setUp(self):
+        self.dbfile = tempfile.NamedTemporaryFile(delete=True)
+        self.state_table = NodeConnectionStateTable(self.dbfile.name)
+        self.history_table = NodeConnectionStateHistoryTable(self.dbfile.name)
+        self.entry = {
+            "node_id": "node-1",
+            "state": "failed",
+            "host": "localhost",
+            "port": "50051",
+            "reason": "handshake failed",
+            "certificate": {"subject": "CN=RESEARCHER_1"},
+            "updated_at": "2026-08-01T10:00:00Z",
+        }
+
+    def tearDown(self):
+        self.dbfile.close()
+
+    def test_current_state_table_replaces_by_node_id(self):
+        self.state_table.replace_by_id("node-1", dict(self.entry))
+        self.state_table.replace_by_id(
+            "node-1",
+            {
+                "node_id": "node-1",
+                "state": "connected",
+                "host": "localhost",
+                "port": "50051",
+                "mtls": True,
+                "identity_verified": False,
+                "updated_at": "2026-08-20T10:00:00Z",
+            },
+        )
+
+        stored = self.state_table.get_by_id("node-1")
+        self.assertEqual(stored["state"], "connected")
+        self.assertFalse(stored["identity_verified"])
+        self.assertEqual(len(self.state_table.all()), 1)
+        # Replaced, not merged: the previous state's fields are gone
+        self.assertNotIn("reason", stored)
+        self.assertNotIn("certificate", stored)
+
+    def test_current_state_table_rejects_another_node_id(self):
+        with self.assertRaises(FedbiomedError):
+            self.state_table.replace_by_id("node-2", dict(self.entry))
+
+    def test_connection_state_entry_keeps_certificate_fields(self):
+        self.state_table.replace_by_id("node-1", dict(self.entry))
+
+        entry = NodeConnectionStateEntry.from_dict(self.state_table.get_by_id("node-1"))
+        self.assertEqual(entry.certificate, {"subject": "CN=RESEARCHER_1"})
+        self.assertIsNone(entry.researcher_id)
+
+    def test_history_table_inserts_multiple_entries_for_same_node(self):
+        entry = {**self.entry, "node_id": "node-history"}
+        self.history_table.insert(dict(entry))
+        self.history_table.insert({**entry, "state": "connected"})
+
+        stored = self.history_table.get_all_by_value("node_id", "node-history")
+        self.assertEqual([entry["state"] for entry in stored], ["failed", "connected"])
+
+    def test_history_table_deletes_entries_older_than_cutoff(self):
+        for updated_at in (
+            "2026-06-01T10:00:00Z",
+            "2026-08-01T10:00:00Z",
+            "2026-08-20T10:00:00Z",
+        ):
+            self.history_table.insert(
+                {**self.entry, "node_id": "node-cleanup", "updated_at": updated_at}
+            )
+
+        self.history_table.delete_older_than("2026-07-21T10:00:00Z")
+
+        stored = self.history_table.get_all_by_value("node_id", "node-cleanup")
+        self.assertEqual(
+            [entry["updated_at"] for entry in stored],
+            ["2026-08-01T10:00:00Z", "2026-08-20T10:00:00Z"],
+        )
+
+    def test_history_table_does_not_remove_when_nothing_is_stale(self):
+        """TinyDB rewrites the whole database file on a removal, matching or not."""
+        self.history_table.insert({**self.entry, "node_id": "node-fresh"})
+
+        with patch.object(self.history_table._table, "remove") as remove:
+            removed = self.history_table.delete_older_than("2020-01-01T00:00:00Z")
+
+        remove.assert_not_called()
+        self.assertEqual(removed, [])
 
 
 if __name__ == "__main__":

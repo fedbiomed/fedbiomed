@@ -48,7 +48,11 @@ from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-from fedbiomed.transport.client import NodeClientIdentity, ResearcherCredentials
+from fedbiomed.transport.client import (
+    ClientStatus,
+    NodeClientIdentity,
+    ResearcherCredentials,
+)
 from fedbiomed.transport.controller import GrpcController
 
 
@@ -109,14 +113,18 @@ class Node:
         self,
         config: NodeConfig,
         node_args: Union[dict, None] = None,
+        on_connection_state: Optional[Callable] = None,
     ):
         """Constructor of the class.
 
         Attributes:
             config: Node configuration
             node_args: Command line arguments for node.
+            on_connection_state: Called with the state of the researcher connection
+                whenever it changes. None records nothing.
         """
         self.node_args = node_args or {}
+        self._on_connection_state = on_connection_state
         self._debug = bool(self.node_args.get("debug", False)) or os.environ.get(
             "FBM_DEBUG", ""
         ).lower() in ("1", "true", "yes")
@@ -130,10 +138,28 @@ class Node:
             str(os.path.join(self.config.root, "var", "tmp")),
         )
 
+        try:
+            researcher = self._researcher_credentials()
+        except FedbiomedCertificateError as exp:
+            # The node stops here, so the reason is recorded where the connection
+            # state is read from, and not only in the logs.
+            if self._on_connection_state:
+                self._on_connection_state(
+                    state=ClientStatus.FAILED,
+                    host=self.config.get("researcher", "ip"),
+                    port=self.config.get("researcher", "port"),
+                    mtls=True,
+                    identity_verified=False,
+                    operation="mtls_startup_refused",
+                    reason=str(exp),
+                )
+            raise
+
         self._grpc_client = GrpcController(
             node_id=self._node_id,
-            researchers=[self._researcher_credentials()],
+            researchers=[researcher],
             on_message=self.on_message,
+            on_connection_state=on_connection_state,
         )
 
         self._pending_requests = EventWaitExchange(remove_delivered=True)

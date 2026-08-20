@@ -26,6 +26,7 @@ class GrpcAsyncTaskController:
         researchers: List[ResearcherCredentials],
         on_message: Callable,
         debug: bool = False,
+        on_connection_state: Optional[Callable] = None,
     ) -> None:
         """Constructs GrpcAsyncTaskController
 
@@ -34,6 +35,8 @@ class GrpcAsyncTaskController:
             researchers: List of researchers that the RPC client will connect to.
             on_message: Callback function to be executed once a task received from the researcher
             debug: Activates debug mode for `asyncio`
+            on_connection_state: Called with the connection state whenever it changes,
+                for a node that records it. None reports nothing.
 
         Raises:
             FedbiomedCommunicationError: bad argument type
@@ -59,6 +62,7 @@ class GrpcAsyncTaskController:
 
         self._debug = debug
         self._on_message = on_message
+        self._on_connection_state = on_connection_state
         logger.debug(
             "Initialized gRPC async controller: node_id=%s researchers=%s debug=%s",
             node_id,
@@ -76,7 +80,12 @@ class GrpcAsyncTaskController:
 
         tasks = []
         for researcher in self._researchers:
-            client = GrpcClient(self._node_id, researcher, self._update_id_ip_map)
+            client = GrpcClient(
+                self._node_id,
+                researcher,
+                self._update_id_ip_map,
+                self._on_connection_state,
+            )
             tasks.append(client.start(on_task=self._on_message))
             self._clients[f"{researcher.host}:{researcher.port}"] = client
             logger.debug(

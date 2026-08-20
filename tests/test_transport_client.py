@@ -649,6 +649,11 @@ async def test_task_listener_unauthenticated_retries(
     event = security_event.call_args_list[0].kwargs
     assert event["operation"] == "mtls_identity_rejected"
     assert (event["host"], event["port"]) == ("localhost", "1")
+    # The same rejection is reported as the node's connection state
+    reported = listener_env.channels.report_state.call_args
+    assert reported.args == (ClientStatus.DISCONNECTED,)
+    assert reported.kwargs["operation"] == "mtls_identity_rejected"
+    assert reported.kwargs["identity_verified"] is False
 
 
 @pytest.mark.asyncio
@@ -741,6 +746,13 @@ async def test_task_listener_mtls_announce_and_reannounce_on_reconnect(
         if "Mutually authenticated communication established" in c.args[0]
     ]
     assert len(msgs) == 2
+
+    # Each announcement reports a verified connection as the node's state
+    reports = listener_env.channels.report_state.call_args_list
+    connected = [c for c in reports if c.args == (ClientStatus.CONNECTED,)]
+    assert len(connected) == 2
+    assert connected[0].kwargs["operation"] == "researcher_channel_established"
+    assert connected[0].kwargs["identity_verified"] is True
 
 
 @pytest.mark.asyncio
@@ -1534,3 +1546,50 @@ def test_channels_create_channel_omits_override_when_absent():
         )
     options = dict(secure_channel.call_args.kwargs["options"])
     assert "grpc.ssl_target_name_override" not in options
+
+
+@patch(
+    "fedbiomed.transport.client.certificate_audit_fields",
+    return_value={"cert_subject": "CN=researcher-1"},
+)
+def test_channels_report_state_completes_the_channel_facts(audit_fields):
+    """The channel adds what it knows to the state the caller reports."""
+    on_connection_state = MagicMock()
+    channels = Channels(
+        researcher=ResearcherCredentials(
+            host="localhost", port="50051", certificate=b"server-cert", mtls=True
+        ),
+        on_connection_state=on_connection_state,
+    )
+    channels.researcher_id = "researcher-1"
+
+    channels.report_state(
+        ClientStatus.CONNECTED,
+        operation="researcher_channel_established",
+        identity_verified=True,
+    )
+
+    reported = on_connection_state.call_args.kwargs
+    assert reported["state"] is ClientStatus.CONNECTED
+    assert (reported["host"], reported["port"]) == ("localhost", "50051")
+    assert reported["mtls"] is True
+    assert reported["researcher_id"] == "researcher-1"
+    assert reported["operation"] == "researcher_channel_established"
+    assert reported["identity_verified"] is True
+    # Audit fields of the peer certificate, never the certificate itself
+    audit_fields.assert_called_once_with(b"server-cert")
+    assert reported["certificate"] == {"cert_subject": "CN=researcher-1"}
+
+
+@patch("fedbiomed.transport.client.certificate_audit_fields")
+def test_channels_report_state_without_a_listener(audit_fields):
+    """A node that asked for nothing is reported nothing, and no work is done."""
+    channels = Channels(
+        researcher=ResearcherCredentials(
+            host="localhost", port="50051", certificate=b"test"
+        )
+    )
+
+    channels.report_state(ClientStatus.CONNECTED)
+
+    audit_fields.assert_not_called()

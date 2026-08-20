@@ -30,6 +30,7 @@ from fedbiomed.common.message import (
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
+from fedbiomed.transport.client import ClientStatus
 
 #############################################################
 
@@ -265,6 +266,40 @@ def test_node_researcher_credentials_mtls_unreadable_node_cert(mtls_node_env):
 
     with pytest.raises(FedbiomedCertificateError):
         mtls_node_env.node._researcher_credentials()
+
+
+def test_node_forwards_connection_state_recorder(node_env):
+    """The node hands the connection-state recorder to the transport."""
+    on_connection_state = MagicMock()
+
+    with patch(
+        "fedbiomed.transport.controller.GrpcController.__init__",
+        return_value=None,
+    ) as grpc_init:
+        Node(node_env.node_config, on_connection_state=on_connection_state)
+
+    assert grpc_init.call_args.kwargs["on_connection_state"] is on_connection_state
+
+
+def test_node_records_certificate_refusal_to_start(node_env):
+    """A certificate error stopping the node is recorded as its connection state."""
+    on_connection_state = MagicMock()
+
+    with patch.object(
+        Node,
+        "_researcher_credentials",
+        side_effect=FedbiomedCertificateError("FB619: no researcher certificate"),
+    ):
+        with pytest.raises(FedbiomedCertificateError):
+            Node(node_env.node_config, on_connection_state=on_connection_state)
+
+    reported = on_connection_state.call_args.kwargs
+    assert reported["state"] is ClientStatus.FAILED
+    assert reported["operation"] == "mtls_startup_refused"
+    assert reported["mtls"] is True
+    assert reported["identity_verified"] is False
+    assert (reported["host"], reported["port"]) == ("test", "5151")
+    assert "FB619" in reported["reason"]
 
 
 @patch("fedbiomed.common.tasks_queue.TasksQueue.add")
