@@ -194,7 +194,7 @@ def node_env():
 
 @pytest.fixture
 def mtls_node_env(node_env):
-    """node_env with mutual TLS enabled and a readable node keypair configured."""
+    """node_env with mutual authentication enabled and a readable node keypair."""
     with (
         patch("fedbiomed.node.node.is_mtls_enabled", return_value=True),
         patch(
@@ -212,7 +212,7 @@ def mtls_node_env(node_env):
 
 
 def test_node_researcher_credentials_mtls(mtls_node_env):
-    """Under mutual TLS the node loads its identity and pins the researcher cert."""
+    """Under mutual authentication the node loads its identity and pins the cert."""
     certificate_manager = mtls_node_env.certificate_manager
     certificate_manager.return_value.get_by_component.return_value = ["RES_CERT"]
 
@@ -230,7 +230,8 @@ def test_node_researcher_credentials_mtls(mtls_node_env):
 
 
 def test_node_researcher_credentials_mtls_missing_researcher_cert(mtls_node_env):
-    """mTLS enabled but no registered researcher certificate is a hard error."""
+    """Mutual authentication on but no registered researcher certificate is a hard
+    error."""
     mtls_node_env.certificate_manager.return_value.get_by_component.return_value = []
 
     with pytest.raises(FedbiomedCertificateError):

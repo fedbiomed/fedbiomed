@@ -89,7 +89,7 @@ This file contains settings for connecting to a server, managing security certif
 
 The certificate is generated when the component is created, issued for the `[server]
 host` configured then plus `localhost` and `127.0.0.1`. Editing `host` afterwards does
-not reissue it, so under [mutual TLS](../deployment/mutual-tls.md), where each node pins
+not reissue it, so under [mutual authentication](../deployment/mutual-tls.md), where each node pins
 this certificate, regenerate it for the new host and have every node register it again:
 
 ```shell
