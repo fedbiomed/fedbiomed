@@ -54,35 +54,18 @@ restriction is accepted for both.
 
 ### Names on the researcher certificate
 
-A node verifies the researcher it connects to by name, so the researcher certificate is
-issued for the hosts nodes reach it at, listed in its Subject Alternative Name: the
-`[server] host` of its configuration (`FBM_SERVER_HOST` when the component is created),
-plus `localhost` and `127.0.0.1` for a node running on the same machine. A node
-certificate is a client credential — the researcher resolves it by fingerprint, never by
-name — so it carries no name at all.
-
-The Subject Alternative Name is the only place a host or an address is stated, and the
-only one either side reads. The subject says who a component is (`CN=`, the party id),
-never where it is reached: a certificate carrying a host in its Common Name is valid for
-no host, and a certificate to be reached at a given name has to name it in its SAN.
-A third-party certificate is registered as-is, so check that it names the researcher's
-deployment address before pinning it.
-
-A node verifies the address it dialled whenever the researcher certificate names it.
-Where it does not, the node verifies the researcher under the first name the certificate
-does carry, which is what lets a certificate issued before the deployment address is
-known still be pinned.
-
-For a researcher reachable under a name its configuration does not hold — a public DNS
-name, a second interface — issue the certificate for those names too:
+A node verifies the researcher by name, so the researcher certificate is issued for the
+hosts nodes reach it at: the `[server] host` of its configuration, plus `localhost` and
+`127.0.0.1`. For a researcher also reachable under a name its configuration does not
+hold — a public DNS name, a second interface — issue it for those names too:
 
 ```bash
 fedbiomed researcher certificate generate \
     --san fbm.hospital.org --san 10.0.0.9 --force
 ```
 
-`--force` is required to replace an existing certificate, and the previous private key is
-lost, so every party holding the old certificate has to register the new one.
+`--force` loses the previous private key, so every party holding the old certificate has
+to register the new one.
 
 ## Enabling mutual authentication
 
