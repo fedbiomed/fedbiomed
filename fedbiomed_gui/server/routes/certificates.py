@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from flask import request
 
 from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_CLIENT,
     CERTIFICATE_EXPIRY_WARNING_DAYS,
     CertificateManager,
     certificate_audit_fields,
@@ -18,7 +19,6 @@ from fedbiomed.common.certificate_manager import (
     certificate_fingerprint,
     certificate_san_names,
 )
-from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.node_pm import NodeConnectionStateManager
 
@@ -64,8 +64,7 @@ def _registered_certificates() -> List[Dict[str, Any]]:
     try:
         return [
             {
-                "party_id": document["party_id"],
-                "component": document["component"],
+                "component_id": document["component_id"],
                 **_certificate_summary(document["certificate"]),
             }
             for document in certificate_manager.list()
@@ -84,7 +83,7 @@ def _own_certificate() -> Dict[str, Any]:
         return {"path": path, "error": f"Could not read the node certificate: {exp}"}
 
     return {
-        "party_id": config.node_config.get("default", "id"),
+        "component_id": config.node_config.get("default", "id"),
         "path": path,
         **_certificate_summary(certificate),
     }
@@ -100,29 +99,29 @@ def _startup_check(registered: List[Dict[str, Any]], mtls_enabled: bool) -> List
         return []
 
     problems = []
-    researchers = [
-        certificate
-        for certificate in registered
-        if certificate["component"] == ComponentType.RESEARCHER.name
-    ]
-    if not researchers:
+    # A node registers at most one certificate - its researcher's - so what is
+    # registered says on its own whether the node can pin one.
+    if not registered:
         problems.append(
             "Mutual TLS is enabled but no researcher certificate is registered, "
             "so the node cannot start. Register the researcher certificate."
         )
-    elif len(researchers) > 1:
+    elif len(registered) > 1:
         problems.append(
-            f"Mutual TLS is enabled and {len(researchers)} researcher certificates "
-            "are registered, so the certificate to pin is ambiguous and the node "
+            f"Mutual TLS is enabled and {len(registered)} certificates are "
+            "registered, so the certificate to pin is ambiguous and the node "
             "cannot start. Delete all but the researcher this node connects to."
         )
 
-    private_key = config.node_config.getpath("certificate", "private_key")
-    if not os.path.isfile(private_key):
-        problems.append(
-            f"The node private key is missing from {private_key}, so the node "
-            "cannot present its identity under mutual TLS."
-        )
+    # The node reads both to build the identity it presents, so either one missing
+    # stops it.
+    for label, key in (("private key", "private_key"), ("certificate", "public_key")):
+        path = config.node_config.getpath("certificate", key)
+        if not os.path.isfile(path):
+            problems.append(
+                f"The node {label} is missing from {path}, so the node cannot "
+                "present its identity under mutual TLS."
+            )
 
     return problems
 
@@ -134,18 +133,6 @@ def _registry_warnings(registered: List[Dict[str, Any]]) -> List[str]:
     was written by hand.
     """
     warnings = []
-    own_kind = [
-        certificate["party_id"]
-        for certificate in registered
-        if certificate["component"] == ComponentType.NODE.name
-    ]
-    if own_kind:
-        warnings.append(
-            f"Certificate(s) of this component's own type are registered: "
-            f"{', '.join(own_kind)}. Parties register each other's certificates, "
-            "never their own type."
-        )
-
     if len(registered) > 1:
         warnings.append(
             "A node registers at most one certificate - its researcher's - but "
@@ -153,22 +140,27 @@ def _registry_warnings(registered: List[Dict[str, Any]]) -> List[str]:
         )
 
     expiring = [
-        certificate["party_id"]
+        certificate["component_id"]
         for certificate in registered
         if certificate["expiring_soon"]
     ]
     if expiring:
         warnings.append(
             f"Certificate(s) expiring within {CERTIFICATE_EXPIRY_WARNING_DAYS} days: "
-            f"{', '.join(expiring)}. Ask the party to renew and register the new one."
+            f"{', '.join(expiring)}. Ask the component to renew and register the new "
+            "one."
         )
 
     researcher_host = config.node_config.get("researcher", "ip")
     for certificate in registered:
-        if certificate["component"] != ComponentType.RESEARCHER.name:
-            continue
         names = certificate["san"]
-        if names and researcher_host not in names:
+        if not names:
+            warnings.append(
+                "The researcher certificate carries no host name, so the node "
+                f"verifies it under {researcher_host} and the connection fails. "
+                "Ask the researcher for a certificate naming the host it serves."
+            )
+        elif researcher_host not in names:
             warnings.append(
                 f"The researcher certificate is issued for {', '.join(names)}, which "
                 f"does not include the configured researcher host {researcher_host}. "
@@ -205,8 +197,8 @@ def _status() -> Dict[str, Any]:
     }
 
 
-def _register(certificate: str, party_id: Optional[str], upsert: bool) -> str:
-    """Register a certificate, returning the party it was registered for."""
+def _register(certificate: str, component_id: Optional[str], upsert: bool) -> str:
+    """Register a certificate, returning the component it was registered for."""
     certificate_manager = _certificate_manager()
     # `register_certificate` reads the certificate from a file, as the CLI hands it one
     with tempfile.TemporaryDirectory() as directory:
@@ -217,9 +209,9 @@ def _register(certificate: str, party_id: Optional[str], upsert: bool) -> str:
 
             return certificate_manager.register_certificate(
                 certificate_path=path,
-                party_id=party_id,
+                component_id=component_id,
                 upsert=upsert,
-                registering_component=ComponentType.NODE.name,
+                registering_purpose=CERT_PURPOSE_CLIENT,
             )
         finally:
             certificate_manager.close()
@@ -248,24 +240,25 @@ def list_certificates():
 @api.route("/certificates", methods=["POST"])
 @admin_required
 def register_certificate():
-    """Register a certificate the node received from another party.
+    """Register a certificate the node received from another component.
 
     The certificate is sent as text, whether the user pasted it or picked a file.
-    `upsert` replaces an existing registration of the same party, which the user
-    confirms after the conflict is reported.
+    `upsert` replaces an existing registration of the same component, which the user
+    confirms after the conflict is reported. `component_id` is required only for a
+    certificate that carries no component id of its own in `CN=`.
     """
     payload = request.get_json(silent=True) or {}
     certificate = payload.get("certificate")
     if not isinstance(certificate, str) or not certificate.strip():
         return error("A certificate in PEM format is required"), 400
 
-    party_id = payload.get("party_id") or None
-    if party_id is not None and not isinstance(party_id, str):
-        return error("'party_id' must be a string"), 400
+    component_id = payload.get("component_id") or None
+    if component_id is not None and not isinstance(component_id, str):
+        return error("'component_id' must be a string"), 400
 
     try:
-        registered_party_id = _register(
-            certificate, party_id, bool(payload.get("upsert", False))
+        registered_component_id = _register(
+            certificate, component_id, bool(payload.get("upsert", False))
         )
     except FedbiomedError as exp:
         return error(str(exp)), 400
@@ -274,38 +267,38 @@ def register_certificate():
 
     return response(
         {
-            "party_id": registered_party_id,
+            "component_id": registered_component_id,
             "requires_restart": _restart_required(),
         },
-        f"Certificate registered for party {registered_party_id}.",
+        f"Certificate of {registered_component_id} has been registered.",
     ), 200
 
 
-@api.route("/certificates/<party_id>", methods=["DELETE"])
+@api.route("/certificates/<component_id>", methods=["DELETE"])
 @admin_required
-def delete_certificate(party_id: str):
-    """Remove a party's certificate from the node's registry."""
+def delete_certificate(component_id: str):
+    """Remove a component's certificate from the node's registry."""
     certificate_manager = _certificate_manager()
     try:
-        if not certificate_manager.get(party_id=party_id):
-            return error(f"No certificate is registered for party {party_id}"), 404
+        if not certificate_manager.get(component_id=component_id):
+            return error(f"No certificate is registered for {component_id}"), 404
 
-        certificate_manager.delete(party_id=party_id)
+        certificate_manager.delete(component_id=component_id)
     except FedbiomedError as exp:
         return error(f"Could not delete the certificate: {exp}"), 400
     finally:
         certificate_manager.close()
 
     return response(
-        {"party_id": party_id, "requires_restart": _restart_required()},
-        f"Certificate of party {party_id} has been deleted.",
+        {"component_id": component_id, "requires_restart": _restart_required()},
+        f"Certificate of {component_id} has been deleted.",
     ), 200
 
 
 @api.route("/certificates/export", methods=["GET"])
 @admin_required
 def export_certificate():
-    """Return this node's certificate, to be shared with the other parties.
+    """Return this node's certificate, to be shared with the other components.
 
     The public certificate only; the private key never leaves the node.
     """
@@ -318,7 +311,7 @@ def export_certificate():
 
     return response(
         {
-            "party_id": config.node_config.get("default", "id"),
+            "component_id": config.node_config.get("default", "id"),
             "filename": os.path.basename(path),
             "certificate": certificate,
         }

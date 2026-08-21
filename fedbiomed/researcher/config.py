@@ -71,6 +71,8 @@ class ResearcherConfig(Config):
 
         See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
         """
+        super().migrate()
+
         if "node_disconnection_timeout" not in self._cfg["server"]:
             logger.warning(
                 "DEPRECATION: You are using an old configuration file for researcher. "

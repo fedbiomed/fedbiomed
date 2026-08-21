@@ -6,6 +6,7 @@ import {
     EuiButtonEmpty,
     EuiCallOut,
     EuiConfirmModal,
+    EuiFieldText,
     EuiFilePicker,
     EuiFlexGroup,
     EuiFlexItem,
@@ -105,18 +106,13 @@ const connectionSummary = (connection) => {
         }
     }
 
-    return state.identity_verified === true
-        ? {
-            color: 'success',
-            label: 'Mutual TLS, identity verified',
-            detail: 'The researcher verified this node\'s identity.',
-        }
-        : {
-            color: 'warning',
-            label: 'Mutual TLS, verification unconfirmed',
-            detail: 'The researcher certificate is pinned, but whether it '
-                + 'verifies node identity could not be determined.',
-        }
+    // The node only reaches a connected state under mutual TLS once the researcher
+    // has named it from the certificate it presented, so this is not in doubt.
+    return {
+        color: 'success',
+        label: 'Mutual TLS, identity verified',
+        detail: 'The researcher verified this node\'s identity.',
+    }
 }
 
 const DetailItem = ({label, value}) => (
@@ -172,10 +168,11 @@ const Certificates = (props) => {
     } = props
 
     const [certificate, setCertificate] = React.useState('')
+    const [componentId, setComponentId] = React.useState('')
     const [conflictingCertificate, setConflictingCertificate] = React.useState(
         null
     )
-    const [partyToDelete, setPartyToDelete] = React.useState(null)
+    const [componentToDelete, setComponentToDelete] = React.useState(null)
 
     React.useEffect(() => {
         fetchCertificateStatus()
@@ -200,12 +197,16 @@ const Certificates = (props) => {
     }
 
     const register = async ({upsert = false} = {}) => {
-        const registered = await props.registerCertificate(certificate, {upsert})
+        const registered = await props.registerCertificate(certificate, {
+            upsert,
+            componentId: componentId.trim() || null,
+        })
         if (registered) {
             setCertificate('')
+            setComponentId('')
             setConflictingCertificate(null)
         } else if (!upsert) {
-            // The party is already registered; replacing it is the user's call
+            // The component is already registered; replacing it is the user's call
             setConflictingCertificate(certificate)
         }
     }
@@ -408,8 +409,8 @@ const Certificates = (props) => {
             ) : ownCertificate ? (
                 <>
                     <DetailItem
-                        label="Party id"
-                        value={formatValue(ownCertificate.party_id)}
+                        label="Component id"
+                        value={formatValue(ownCertificate.component_id)}
                     />
                     <CertificateDetails certificate={ownCertificate} />
                     <EuiButton
@@ -437,11 +438,11 @@ const Certificates = (props) => {
                 registered.map((entry) => (
                     <div
                         className="node-management-registered-certificate"
-                        key={entry.party_id}
+                        key={entry.component_id}
                     >
                         <DetailItem
-                            label="Party id"
-                            value={`${entry.party_id} (${entry.component})`}
+                            label="Component id"
+                            value={entry.component_id}
                         />
                         <CertificateDetails certificate={entry} />
                         <EuiButtonEmpty
@@ -449,7 +450,7 @@ const Certificates = (props) => {
                             color="danger"
                             iconType="trash"
                             isDisabled={writing}
-                            onClick={() => setPartyToDelete(entry.party_id)}
+                            onClick={() => setComponentToDelete(entry.component_id)}
                         >
                             Delete
                         </EuiButtonEmpty>
@@ -483,6 +484,19 @@ const Certificates = (props) => {
                 onChange={readCertificateFile}
             />
             <EuiSpacer size="s" />
+            <EuiFormRow
+                label="Component id"
+                helpText="Only for a certificate that does not name the component in its CN= field. Leave it empty otherwise."
+                fullWidth
+            >
+                <EuiFieldText
+                    fullWidth
+                    placeholder="RESEARCHER_&lt;uuid&gt;"
+                    value={componentId}
+                    onChange={(event) => setComponentId(event.target.value)}
+                />
+            </EuiFormRow>
+            <EuiSpacer size="s" />
             <EuiButton
                 size="s"
                 fill
@@ -504,21 +518,21 @@ const Certificates = (props) => {
                     buttonColor="danger"
                 >
                     <p>
-                        This party already has a certificate registered.
+                        This component already has a certificate registered.
                         Replacing it means the node trusts the new one only:
-                        do it when the party renewed its certificate, and check
-                        that it came from them.
+                        do it when the component renewed its certificate, and
+                        check that it came from them.
                     </p>
                 </EuiConfirmModal>
             ) : null}
 
-            {partyToDelete ? (
+            {componentToDelete ? (
                 <EuiConfirmModal
                     title="Delete this certificate?"
-                    onCancel={() => setPartyToDelete(null)}
+                    onCancel={() => setComponentToDelete(null)}
                     onConfirm={() => {
-                        props.deleteCertificate(partyToDelete)
-                        setPartyToDelete(null)
+                        props.deleteCertificate(componentToDelete)
+                        setComponentToDelete(null)
                     }}
                     cancelButtonText="Keep it"
                     confirmButtonText="Delete"
@@ -554,7 +568,9 @@ const mapDispatchToProps = (dispatch) => ({
     registerCertificate: (certificate, options) => dispatch(
         registerCertificate(certificate, options)
     ),
-    deleteCertificate: (partyId) => dispatch(deleteCertificate(partyId)),
+    deleteCertificate: (componentId) => dispatch(
+        deleteCertificate(componentId)
+    ),
     downloadOwnCertificate: () => dispatch(downloadOwnCertificate()),
     resetCertificateMessages: () => dispatch(resetCertificateMessages()),
     writeNodeConfigSection: (section, values, baseValues) => dispatch(

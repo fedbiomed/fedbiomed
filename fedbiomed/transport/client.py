@@ -1081,8 +1081,9 @@ class TaskListener(Listener):
         log_level = logger.debug if self._connection_recycled else logger.info
         self._connection_recycled = False
 
-        # Under mutual authentication a connection is only announced once the
-        # researcher named this node, so the channel itself carries the answer.
+        # Under mutual authentication the identity header is checked before this is
+        # reached, so getting here is itself the proof that the researcher verified
+        # this node; without it, no identity was verified.
         self._channels.report_state(
             ClientStatus.CONNECTED,
             operation="researcher_channel_established",

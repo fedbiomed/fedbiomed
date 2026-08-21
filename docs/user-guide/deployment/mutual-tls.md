@@ -247,8 +247,9 @@ its [GUI](../nodes/node-gui.md), which is restricted to administrators:
 
 The tab reports what would stop the node from starting before you start it: mutual
 authentication enabled with no researcher certificate registered, several registered,
-or a missing private key. Certificates are read when the node starts, so registering
-one or changing the setting takes effect when the node is restarted.
+or the node's own key or certificate file missing. Certificates are read when the node
+starts, so registering one or changing the setting takes effect when the node is
+restarted.
 
 The researcher has no GUI; it is configured with the commands above.
 

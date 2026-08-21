@@ -72,12 +72,16 @@ export const fetchConnectionState = () => {
 }
 
 /**
- * Registers a certificate received from another party.
+ * Registers a certificate received from another component.
  *
- * `upsert` replaces an existing registration of the same party, which the user
- * confirms once the conflict has been reported.
+ * `upsert` replaces an existing registration of the same component, which the
+ * user confirms once the conflict has been reported. `componentId` is needed
+ * only for a certificate that carries no component id of its own.
  */
-export const registerCertificate = (certificate, {upsert = false} = {}) => {
+export const registerCertificate = (
+    certificate,
+    {upsert = false, componentId = null} = {}
+) => {
     return async (dispatch) => {
         dispatch({type: CERTIFICATES_WRITE_LOADING, payload: true})
 
@@ -85,6 +89,7 @@ export const registerCertificate = (certificate, {upsert = false} = {}) => {
             const response = await axios.post(EP_CERTIFICATES, {
                 certificate,
                 upsert,
+                component_id: componentId,
             })
             dispatch({
                 type: CERTIFICATES_WRITE_SUCCESS,
@@ -114,14 +119,14 @@ export const registerCertificate = (certificate, {upsert = false} = {}) => {
     }
 }
 
-/** Removes a party's certificate from the node's registry. */
-export const deleteCertificate = (partyId) => {
+/** Removes a component's certificate from the node's registry. */
+export const deleteCertificate = (componentId) => {
     return async (dispatch) => {
         dispatch({type: CERTIFICATES_WRITE_LOADING, payload: true})
 
         try {
             const response = await axios.delete(
-                `${EP_CERTIFICATES}/${partyId}`
+                `${EP_CERTIFICATES}/${encodeURIComponent(componentId)}`
             )
             dispatch({
                 type: CERTIFICATES_WRITE_SUCCESS,
@@ -148,7 +153,7 @@ export const deleteCertificate = (partyId) => {
 }
 
 /**
- * Downloads this node's certificate, to be shared with the other parties.
+ * Downloads this node's certificate, to be shared with the other components.
  *
  * The public certificate only; the private key never leaves the node.
  */
