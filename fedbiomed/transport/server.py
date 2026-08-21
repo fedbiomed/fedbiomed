@@ -38,6 +38,7 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.client import (
     GRPC_CLIENT_CONN_RETRY_TIMEOUT,
     GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
+    MTLS_PEER_ID_HEADER,
 )
 from fedbiomed.transport.node_agent import AgentStore, NodeAgent
 from fedbiomed.transport.protocols.researcher_pb2 import Empty
@@ -268,6 +269,15 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
                     node_id=peer_node_id,
                     **connection,
                 )
+
+        # Sent before the call blocks waiting for a task: the node reads it to confirm
+        # its identity was verified, and an idle federation sends no response for the
+        # whole request timeout. Headers are flushed with the first message otherwise,
+        # so sending them explicitly is what makes the answer immediate. Carries no
+        # key when no identity was verified, which is what tells the node so.
+        await context.send_initial_metadata(
+            ((MTLS_PEER_ID_HEADER, peer_node_id),) if peer_node_id else ()
+        )
 
         node_agent = await self._agent_store.retrieve(node_id=task_request["node"])
 

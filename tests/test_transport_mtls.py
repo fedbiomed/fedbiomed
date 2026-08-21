@@ -43,6 +43,7 @@ from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.message import SearchReply, SearchRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.client import (
+    MTLS_PEER_ID_HEADER,
     Channels,
     ResearcherCredentials,
     _researcher_requires_client_auth,
@@ -265,6 +266,8 @@ def _context_with_cert(cert, peer="ipv4:127.0.0.1:51234"):
     auth = {"x509_pem_cert": [cert]} if cert is not None else {}
     context.auth_context.return_value = auth
     context.peer.return_value = peer
+    # Awaited by the servicer, as `grpc.aio.ServicerContext` declares it
+    context.send_initial_metadata = AsyncMock()
     return context
 
 
@@ -616,6 +619,41 @@ async def test_get_task_proceeds_when_identity_matches(certs, registry):
     context.abort.assert_not_awaited()
     agent_store.retrieve.assert_called_once_with(node_id=NODE_ID)
     assert len(responses) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_task_names_the_authenticated_node_in_the_headers(certs, registry):
+    """The researcher names the node it verified, before the call blocks.
+
+    The node reads it to confirm its identity was checked; sending it with the
+    headers is what makes the answer immediate on a federation with no task
+    queued, where no response is produced for the whole request timeout.
+    """
+    servicer, _, _ = _servicer_with_agent(registry)
+    context = _context_with_cert(certs["node_cert"])
+
+    request = TaskRequest(node=NODE_ID, protocol_version="x")
+    [r async for r in servicer.GetTaskUnary(request=request, context=context)]
+
+    context.send_initial_metadata.assert_awaited_once_with(
+        ((MTLS_PEER_ID_HEADER, NODE_ID),)
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_task_names_no_node_without_client_certificate(registry):
+    """Without mutual authentication the headers name nobody, which is the signal.
+
+    A node that enabled it stops on this, rather than running with an identity
+    the researcher never verified.
+    """
+    servicer, _, _ = _servicer_with_agent(registry)
+    context = _context_with_cert(None)
+
+    request = TaskRequest(node=NODE_ID, protocol_version="x")
+    [r async for r in servicer.GetTaskUnary(request=request, context=context)]
+
+    context.send_initial_metadata.assert_awaited_once_with(())
 
 
 @pytest.mark.asyncio
