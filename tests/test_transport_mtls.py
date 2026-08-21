@@ -65,11 +65,11 @@ from fedbiomed.transport.server import (
 # single-role and the handshake matrix has to exercise them as such.
 NODE_ID = f"NODE_{uuid4()}"
 RESEARCHER_ID = f"RESEARCHER_{uuid4()}"
-# A party id other than the one the certificate registered under it carries
+# A component id other than the one the certificate registered under it carries
 OTHER_NODE_ID = f"NODE_{uuid4()}"
 
 
-def _generate(folder, name, party_id, san=None):
+def _generate(folder, name, component_id, san=None):
     """Generates a self-signed cert, returns (key_file, cert_file, key, cert).
 
     Names are given for a researcher only, as the shipped configurations do: they
@@ -79,7 +79,7 @@ def _generate(folder, name, party_id, san=None):
     key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
         certificate_folder=folder,
         certificate_name=name,
-        component_id=party_id,
+        component_id=component_id,
         san=san,
     )
     with open(key_file, "rb") as key, open(pem_file, "rb") as cert:
@@ -144,22 +144,22 @@ def certs():
 # ---------------------------------------------------------------------------
 
 
-def test_subject_field_reads_the_party_id(certs):
+def test_subject_field_reads_the_component_id(certs):
     assert (
         certificate_subject_field(certs["node_cert"], x509.oid.NameOID.COMMON_NAME)
         == NODE_ID
     )
 
 
-def test_subject_carries_the_party_id_and_no_host(certs):
+def test_subject_carries_the_component_id_and_no_host(certs):
     """The subject identifies the component; hosts and addresses live in the SAN."""
-    for certificate, party_id in (
+    for certificate, component_id in (
         (certs["researcher_cert"], RESEARCHER_ID),
         (certs["node_cert"], NODE_ID),
     ):
         assert (
             x509.load_pem_x509_certificate(certificate).subject.rfc4514_string()
-            == f"CN={party_id}"
+            == f"CN={component_id}"
         )
 
 
@@ -280,14 +280,14 @@ def _events(event_mock, operation):
 
 
 def _registry(path, entries):
-    """Writes a certificate registry holding `(party_id, certificate)` entries."""
+    """Writes a certificate registry holding `(component_id, certificate)` entries."""
     manager = CertificateManager(db_path=str(path))
     try:
-        for party_id, certificate in entries:
+        for component_id, certificate in entries:
             manager.insert(
                 certificate=certificate.decode("utf-8"),
-                party_id=party_id,
-                component=ComponentType.NODE.name,
+                component_id=component_id,
+                component_type=ComponentType.NODE.name,
             )
     finally:
         manager.close()
@@ -296,24 +296,26 @@ def _registry(path, entries):
 
 @pytest.fixture
 def registry(certs, tmp_path):
-    """Registry holding the node certificate under the node's party id."""
+    """Registry holding the node certificate under the node's component id."""
     return _registry(tmp_path / "registry.json", [(NODE_ID, certs["node_cert"])])
 
 
-def test_party_id_resolves_registered_certificate(certs, registry):
-    assert registry.party_id(certs["node_cert"]) == NODE_ID
+def test_component_id_resolves_registered_certificate(certs, registry):
+    assert registry.component_id(certs["node_cert"]) == NODE_ID
     # Re-encoded PEM (extra whitespace) still resolves: matching is on content
-    assert registry.party_id(b"\n" + certs["node_cert"]) == NODE_ID
+    assert registry.component_id(b"\n" + certs["node_cert"]) == NODE_ID
 
 
-def test_party_id_returns_none_for_unregistered_certificate(certs, registry):
+def test_component_id_returns_none_for_unregistered_certificate(certs, registry):
     # Registered for RESEARCHER, not the NODE bundle this view covers
-    assert registry.party_id(certs["researcher_cert"]) is None
-    assert registry.party_id(b"not a certificate") is None
+    assert registry.component_id(certs["researcher_cert"]) is None
+    assert registry.component_id(b"not a certificate") is None
 
 
-def test_party_id_refuses_a_certificate_registered_under_two_parties(certs, tmp_path):
-    """One certificate under two party ids authenticates neither of them.
+def test_component_id_refuses_a_certificate_registered_under_two_parties(
+    certs, tmp_path
+):
+    """One certificate under two component ids authenticates neither of them.
 
     Registration refuses to create this, so it only arises in a registry written
     before that check or edited by hand.
@@ -324,14 +326,14 @@ def test_party_id_refuses_a_certificate_registered_under_two_parties(certs, tmp_
     )
 
     with patch("fedbiomed.common.certificate_manager.logger.security_event") as event:
-        assert ambiguous.party_id(certs["node_cert"]) is None
+        assert ambiguous.component_id(certs["node_cert"]) is None
 
     # The report names every claimant, so the operator knows what to delete
     fields = _events(event, "certificate_ambiguous_identity")[0].kwargs
-    assert fields["party_ids"] == sorted([NODE_ID, OTHER_NODE_ID])
+    assert fields["component_ids"] == sorted([NODE_ID, OTHER_NODE_ID])
 
 
-def test_party_id_reads_the_registry_once_across_calls(certs, registry):
+def test_component_id_reads_the_registry_once_across_calls(certs, registry):
     """Resolution is cached: an unchanged registry is read only on first use."""
     with patch(
         "fedbiomed.common.certificate_manager.CertificateManager.list",
@@ -339,28 +341,30 @@ def test_party_id_reads_the_registry_once_across_calls(certs, registry):
         autospec=True,
     ) as read:
         for _ in range(50):
-            assert registry.party_id(certs["node_cert"]) == NODE_ID
+            assert registry.component_id(certs["node_cert"]) == NODE_ID
         # ... and the PEM bundle is served from the same single read
         registry()
 
     assert read.call_count == 1
 
 
-def test_party_id_picks_up_a_registration_without_restart(certs, tmp_path, registry):
+def test_component_id_picks_up_a_registration_without_restart(
+    certs, tmp_path, registry
+):
     """A certificate registered after first use resolves on the next call."""
-    assert registry.party_id(certs["researcher_cert"]) is None
+    assert registry.component_id(certs["researcher_cert"]) is None
 
     manager = CertificateManager(db_path=registry._db_path)
     try:
         manager.insert(
             certificate=certs["researcher_cert"].decode("utf-8"),
-            party_id=OTHER_NODE_ID,
-            component=ComponentType.NODE.name,
+            component_id=OTHER_NODE_ID,
+            component_type=ComponentType.NODE.name,
         )
     finally:
         manager.close()
 
-    assert registry.party_id(certs["researcher_cert"]) == OTHER_NODE_ID
+    assert registry.component_id(certs["researcher_cert"]) == OTHER_NODE_ID
 
 
 @pytest.mark.asyncio
@@ -374,9 +378,9 @@ async def test_verify_peer_identity_skips_without_client_certificate(registry):
 async def test_verify_peer_identity_prefers_registry_over_certificate_subject(
     certs, tmp_path
 ):
-    """The registered party id is authoritative, not the certificate `CN=` field.
+    """The registered component id is authoritative, not the certificate `CN=` field.
 
-    Registering a certificate under an explicit party id is supported for
+    Registering a certificate under an explicit component id is supported for
     certificates that embed no Fed-BioMed identity, so the identity that counts
     is the one in the registry.
     """
@@ -449,26 +453,26 @@ def test_loaded_reports_whether_the_registry_was_ever_read(certs, tmp_path, regi
     unreadable.write_text("{ not json", encoding="utf-8")
     broken = TrustedCertificateBundle(str(unreadable), ComponentType.NODE.name)
 
-    assert broken.party_id(certs["node_cert"]) is None
+    assert broken.component_id(certs["node_cert"]) is None
     assert broken.loaded is False
 
-    assert registry.party_id(certs["node_cert"]) == NODE_ID
+    assert registry.component_id(certs["node_cert"]) == NODE_ID
     assert registry.loaded is True
 
 
-def test_party_id_keeps_last_read_when_registry_becomes_unreadable(certs, registry):
+def test_component_id_keeps_last_read_when_registry_becomes_unreadable(certs, registry):
     """A partially written registry does not drop identities already resolved.
 
     TinyDB rewrites the file non-atomically, so a read landing mid-write is
     transient; refusing on it would reject healthy nodes at random.
     """
-    assert registry.party_id(certs["node_cert"]) == NODE_ID
+    assert registry.component_id(certs["node_cert"]) == NODE_ID
 
     with open(registry._db_path, "w", encoding="utf-8") as f:
         f.write("{ partially writ")
 
     with patch("fedbiomed.common.certificate_manager.logger.security_event") as event:
-        assert registry.party_id(certs["node_cert"]) == NODE_ID
+        assert registry.component_id(certs["node_cert"]) == NODE_ID
 
     assert len(_events(event, "certificate_store_unreadable")) == 1
 

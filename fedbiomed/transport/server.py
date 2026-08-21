@@ -73,7 +73,7 @@ class SSLCredentials:
             trusted_node_certificates: view of the registered node certificates.
                 Called for its PEM bundle on each mTLS handshake — the protocol
                 carrying mutual authentication — so nodes registered after startup
-                are trusted without a restart, and asked which party a presented
+                are trusted without a restart, and asked which component a presented
                 certificate belongs to when serving an RPC. None disables node
                 identity verification (server-auth only).
         """
@@ -135,13 +135,13 @@ async def _verify_peer_identity(
 
     Applied to every RPC carrying a node id, so a node holding a registered
     certificate cannot act under another node's identity. The identity is the
-    party id the presented certificate is registered under, which is
+    component id the presented certificate is registered under, which is
     authoritative even for certificates embedding no Fed-BioMed identity.
 
     Resolution goes through the same registry view that supplies the TLS trust
     bundle, so a certificate deleted while the researcher runs stops being
     accepted once the change is picked up. A certificate that resolves to no
-    party id is refused: the handshake proved it chains to the trusted bundle,
+    component id is refused: the handshake proved it chains to the trusted bundle,
     so an unresolved one means the registry and that bundle disagree.
 
     Args:
@@ -151,18 +151,18 @@ async def _verify_peer_identity(
             None when node identity verification is disabled.
 
     Returns:
-        The registered party id of the peer, or None when no client certificate
+        The registered component id of the peer, or None when no client certificate
         was presented — under server-only TLS there is no identity to bind to.
 
     Raises:
         grpc.aio.AbortError: the peer could not be resolved to a registered
-            party id, or that party id is not the one declared.
+            component id, or that component id is not the one declared.
     """
     certificate = _peer_certificate(context)
     if certificate is None:
         return None
 
-    peer_node_id = identities.party_id(certificate) if identities else None
+    peer_node_id = identities.component_id(certificate) if identities else None
 
     if peer_node_id is None:
         # Name which of the three ways resolution came up empty, so a broken
@@ -227,7 +227,7 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             agent_store: The class that stores node agents
             on_message: Callback function to execute once a message received from the nodes
             identities: Registered node certificates, resolving the certificate a
-                node presents to the party id it is registered under. None when
+                node presents to the component id it is registered under. None when
                 node identity verification is disabled (server-auth only TLS).
         """
         super().__init__()
