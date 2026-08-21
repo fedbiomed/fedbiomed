@@ -357,7 +357,7 @@ class Requests(metaclass=SingletonMeta):
         cert_priv = config.getpath("certificate", "private_key")
         cert_pub = config.getpath("certificate", "public_key")
 
-        # Bundle of registered node certificates to pin, when mutual TLS is on.
+        # Bundle of registered node certificates to pin, under mutual authentication.
         trusted_node_certificates = None
         if is_mtls_enabled(config):
             db_path = config.getpath("default", "db")
@@ -372,21 +372,21 @@ class Requests(metaclass=SingletonMeta):
                 # database is missing or unreadable, not that it holds nothing.
                 if trusted_node_certificates.loaded:
                     msg = (
-                        f"{ErrorNumbers.FB619.value}: mutual TLS is enabled but no node "
-                        "certificate is registered, so the researcher server cannot "
-                        "start. Register at least one node certificate with `fedbiomed "
-                        "researcher certificate register`, or disable mutual TLS by "
-                        "setting `enabled = False` in the `[mtls]` section of "
-                        f"{config.config_path}."
+                        f"{ErrorNumbers.FB619.value}: mutual authentication is enabled "
+                        "but no node certificate is registered, so the researcher "
+                        "server cannot start. Register at least one node certificate "
+                        "with `fedbiomed researcher certificate register`, or disable "
+                        "mutual authentication by setting `enabled = False` in the "
+                        f"`[mtls]` section of {config.config_path}."
                     )
                 else:
                     msg = (
-                        f"{ErrorNumbers.FB619.value}: mutual TLS is enabled but the "
-                        f"certificate database {db_path} could not be read, so the "
-                        "researcher server cannot start. Registering a node certificate "
-                        "with `fedbiomed researcher certificate register` creates it, "
-                        "provided the `db` path of the `[default]` section of "
-                        f"{config.config_path} points into an existing directory."
+                        f"{ErrorNumbers.FB619.value}: mutual authentication is enabled "
+                        f"but the certificate database {db_path} could not be read, so "
+                        "the researcher server cannot start. Registering a node "
+                        "certificate with `fedbiomed researcher certificate register` "
+                        "creates it, provided the `db` path of the `[default]` section "
+                        f"of {config.config_path} points into an existing directory."
                     )
                 logger.security_event(
                     operation="mtls_startup_aborted",

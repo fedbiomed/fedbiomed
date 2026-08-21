@@ -1,9 +1,9 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-"""Mutual-TLS test suite.
+"""Mutual authentication test suite.
 
-Covers the mutual-TLS feature end to end:
+Covers the mutual authentication feature end to end:
 
 * the certificate/config helpers in ``fedbiomed.common.certificate_manager``
   (``certificate_subject_field``, ``TrustedCertificateBundle``, ``is_mtls_enabled``),
@@ -616,7 +616,7 @@ async def test_get_task_proceeds_when_identity_matches(certs, registry):
 
 @pytest.mark.asyncio
 async def test_get_task_proceeds_without_client_certificate(registry):
-    """With mutual TLS disabled (no client cert) identity is not enforced."""
+    """With mutual authentication disabled (no client cert) identity is not enforced."""
     servicer, agent_store, _ = _servicer_with_agent(registry)
     context = _context_with_cert(None)
     context.abort = AsyncMock(side_effect=_Aborted)
@@ -807,7 +807,7 @@ def _credentials(certs, trusted_node_bundle):
 
 
 async def _serve(certs, trusted_node_bundle):
-    """Starts a mutual-TLS gRPC server and returns (server, port).
+    """Starts a mutually authenticated gRPC server and returns (server, port).
 
     Credentials come from the shipped code path, so the handshake matrix
     exercises the dynamic, per-handshake trust bundle rather than a hand-rolled
@@ -1043,7 +1043,7 @@ async def test_probe_reports_unknown_when_server_unreachable(certs):
 
     It must not read as "not enforced", which would wrongly reassure a node that
     its identity goes unchecked, nor as "enforced", which previously let an
-    unreachable researcher look like a mutual-TLS configuration mismatch.
+    unreachable researcher look like a mutual authentication configuration mismatch.
     """
     server, port = await _serve(certs, lambda: certs["node_cert"])
     await server.stop(0)

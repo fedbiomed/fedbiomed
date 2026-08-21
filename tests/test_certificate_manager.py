@@ -607,7 +607,7 @@ def _register_own(env, party_id):
 # Component classification of registered certificates. Component ids are
 # `<COMPONENT_TYPE>_<uuid>` (see `Config.generate`), so these use that real
 # shape: classifying a node certificate as `RESEARCHER` leaves the researcher's
-# mutual-TLS trust bundle empty.
+# mutual authentication trust bundle empty.
 
 
 def test_node_id_registers_as_node_component(cert_db):
@@ -929,7 +929,7 @@ def test_omitted_registering_component_skips_checks(cert_db):
 
 
 # -----------------------------------------------------------------------------
-# Mutual-TLS trusted-certificate provider
+# Mutual authentication trusted-certificate provider
 # -----------------------------------------------------------------------------
 
 

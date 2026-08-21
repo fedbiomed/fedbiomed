@@ -210,12 +210,12 @@ async def test_grpc_client_connect_does_not_probe_without_mtls(
     requires_client_auth,
     grpc_client,
 ):
-    """Connecting without mTLS never depends on the client-auth probe.
+    """Connecting without mutual authentication never depends on the client-auth probe.
 
     The probe cannot distinguish a busy researcher from one enforcing mutual
-    TLS, so gating on it let a transient failure stop a correctly configured
-    node from connecting at all. A researcher that does enforce mutual TLS is
-    diagnosed from the resulting RPC failure instead.
+    authentication, so gating on it let a transient failure stop a correctly
+    configured node from connecting at all. A researcher that does enforce
+    mutual authentication is diagnosed from the resulting RPC failure instead.
     """
     is_server_alive.return_value = True
     get_server_certificate.return_value = "DUMMY-CERT"
@@ -299,7 +299,7 @@ def listener_env():
         channels._channels = "CHANNELS"
         channels._stubs = "STUBS"
         # Real values: the listener probes this endpoint on connection-closed
-        # errors under mTLS (port 1 is reliably closed).
+        # errors under mutual authentication (port 1 is reliably closed).
         channels.host = "localhost"
         channels.port = "1"
         channels.connect = AsyncMock()
@@ -523,7 +523,8 @@ async def test_task_listener_unauthenticated_stops(
 async def test_task_listener_unavailable_mtls_handshake_logs_error(
     sleep, log_error, security_event, listener_env
 ):
-    """Under mTLS, a handshake/pinning failure is logged loudly but still retried."""
+    """Under mutual authentication, a handshake/pinning failure is logged loudly
+    but still retried."""
     listener_env.channels.mtls = True
 
     request_stub = await listener_env.drain(
@@ -588,7 +589,8 @@ async def test_task_listener_announces_communication_once(log_info, listener_env
 async def test_task_listener_mtls_announce_and_reannounce_on_reconnect(
     sleep, log_info, listener_env
 ):
-    """An idle deadline confirms the mTLS channel; a reconnect re-announces it."""
+    """An idle deadline confirms the authenticated channel; a reconnect re-announces
+    it."""
     listener_env.channels.mtls = True
     listener_env.channels.client_auth_enforced = True
     await listener_env.drain(
@@ -602,7 +604,7 @@ async def test_task_listener_mtls_announce_and_reannounce_on_reconnect(
     msgs = [
         c
         for c in log_info.call_args_list
-        if "Mutual-TLS communication established" in c.args[0]
+        if "Mutually authenticated communication established" in c.args[0]
     ]
     assert len(msgs) == 2
 
@@ -615,8 +617,8 @@ async def test_task_listener_mtls_announce_and_reannounce_on_reconnect(
 async def test_task_listener_mtls_rejection_logged_once(
     sleep, log_debug, log_error, alive, listener_env
 ):
-    """A reachable researcher closing the connection under mTLS is reported
-    once as a suspected certificate rejection, then demoted to debug."""
+    """A reachable researcher closing the connection under mutual authentication is
+    reported once as a suspected certificate rejection, then demoted to debug."""
     listener_env.channels.mtls = True
     closed = "ipv4:127.0.0.1:50051: Socket closed"
     await listener_env.drain(
@@ -643,7 +645,7 @@ async def test_task_listener_mtls_rejection_logged_once(
 async def test_task_listener_non_mtls_node_against_mtls_researcher(
     sleep, log_error, security_event, alive, requires_auth, listener_env
 ):
-    """A non-mTLS node rejected by a researcher enforcing client authentication
+    """A node without mutual authentication, rejected by a researcher enforcing it,
     stops: both sides are statically configured, so retrying cannot connect."""
     listener_env.channels.mtls = False
     await listener_env.drain(
@@ -657,7 +659,7 @@ async def test_task_listener_non_mtls_node_against_mtls_researcher(
 
     errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
     assert len(errors) == 1
-    assert "mutual-TLS is disabled on this node" in errors[0].args[0]
+    assert "mutual authentication but it is disabled on this node" in errors[0].args[0]
     assert "register the researcher certificate" in errors[0].args[0]
     operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
     assert "mtls_required_by_researcher" in operations
@@ -710,7 +712,7 @@ def test_ignores_ordinary_unavailability():
 
 
 # -----------------------------------------------------------------------------
-# Mutual-TLS client-auth probe
+# Mutual authentication client-auth probe
 #
 # The probe's real behaviour is covered against live gRPC servers in
 # `test_transport_mtls.py`; these only pin the conservative failure paths.
@@ -752,7 +754,7 @@ def test_probe_true_when_server_aborts_the_connection(context, create_connection
 
 
 # A probe that learns nothing must say so: reporting "required" would let a slow
-# or unreachable server look like a researcher enforcing mutual TLS.
+# or unreachable server look like a researcher enforcing mutual authentication.
 @patch("fedbiomed.transport.client.socket.create_connection")
 @patch("fedbiomed.transport.client.ssl.create_default_context")
 def test_probe_unknown_when_connection_times_out(context, create_connection):
@@ -1038,7 +1040,7 @@ async def test_channels_connect_and_stub(channels_env):
 async def test_channels_create_without_mtls(
     ssl_channel_credentials, certificate_names, channels_env
 ):
-    """Without mutual TLS only the server certificate is pinned, and the
+    """Without mutual authentication only the server certificate is pinned, and the
     researcher is still verified against a name that certificate carries."""
     certificate_names.return_value = ["researcher-host"]
     channels = Channels(
@@ -1062,7 +1064,8 @@ async def test_channels_create_without_mtls(
 async def test_channels_create_with_mtls(
     ssl_channel_credentials, certificate_names, channels_env
 ):
-    """With mutual TLS the node presents its identity and still pins the name."""
+    """Under mutual authentication the node presents its identity and still pins
+    the name."""
     certificate_names.return_value = ["researcher-host"]
     channels = Channels(
         researcher=ResearcherCredentials(

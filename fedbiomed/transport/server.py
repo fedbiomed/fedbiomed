@@ -71,10 +71,11 @@ class SSLCredentials:
             key: path to private key
             cert: path to certificate
             trusted_node_certificates: view of the registered node certificates.
-                Called for its PEM bundle on each mutual TLS handshake, so nodes
-                registered after startup are trusted without a restart, and asked
-                which party a presented certificate belongs to when serving an
-                RPC. None disables node identity verification (server-auth only).
+                Called for its PEM bundle on each mTLS handshake — the protocol
+                carrying mutual authentication — so nodes registered after startup
+                are trusted without a restart, and asked which party a presented
+                certificate belongs to when serving an RPC. None disables node
+                identity verification (server-auth only).
         """
         with open(key, "rb") as f:
             self.private_key = f.read()
@@ -84,7 +85,7 @@ class SSLCredentials:
 
     @property
     def mtls(self) -> bool:
-        """Whether mutual TLS (node certificate verification) is enabled."""
+        """Whether mutual authentication (node certificate verification) is enabled."""
         return self.trusted_node_certificates is not None
 
 
@@ -258,7 +259,9 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
             identity = (connection.get("cert_serial"), connection["source_address"])
             if self._peer_identity.get(peer_node_id) != identity:
                 self._peer_identity[peer_node_id] = identity
-                logger.info(f"Node `{peer_node_id}` authenticated via mutual TLS.")
+                logger.info(
+                    f"Node `{peer_node_id}` identity verified by mutual authentication."
+                )
                 logger.security_event(
                     operation="mtls_node_authenticated",
                     status="success",
@@ -512,15 +515,16 @@ class _GrpcAsyncServer:
     def _server_credentials(self) -> grpc.ServerCredentials:
         """Builds the gRPC server credentials.
 
-        Under mutual TLS, node client certificates are required and pinned to the
-        registered bundle. The bundle is re-read per handshake, so nodes registered
-        after startup are trusted without a restart. Otherwise server-auth only.
+        Under mutual authentication, node client certificates are required and pinned
+        to the registered bundle. The bundle is re-read per handshake, so nodes
+        registered after startup are trusted without a restart. Otherwise server-auth
+        only.
 
         Returns:
             Credentials to serve the researcher endpoint with.
 
         Raises:
-            FedbiomedCertificateError: mutual TLS is enabled but no node
+            FedbiomedCertificateError: mutual authentication is enabled but no node
                 certificate is registered.
         """
         key_cert_pairs = ((self._ssl.private_key, self._ssl.certificate),)
@@ -532,8 +536,8 @@ class _GrpcAsyncServer:
         # the cause instead of an opaque binding failure.
         if not self._ssl.trusted_node_certificates():
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: mutual TLS is enabled but no node "
-                "certificate is registered, so the researcher server cannot start. "
+                f"{ErrorNumbers.FB619.value}: mutual authentication is enabled but no "
+                "node certificate is registered, so the researcher server cannot start. "
                 "Register at least one node certificate with `fedbiomed researcher "
                 "certificate register`."
             )
@@ -619,9 +623,9 @@ class _GrpcAsyncServer:
         if self._ssl.mtls:
             # Rejections happen inside the TLS handshake, out of reach of this process
             logger.info(
-                "Mutual TLS is enabled: nodes whose certificate is not registered "
-                "are rejected during the TLS handshake. Run with GRPC_VERBOSITY=INFO "
-                "to have gRPC report each rejection."
+                "Mutual authentication is enabled: nodes whose certificate is not "
+                "registered are rejected during the TLS handshake. Run with "
+                "GRPC_VERBOSITY=INFO to have gRPC report each rejection."
             )
 
         # Starts async gRPC server

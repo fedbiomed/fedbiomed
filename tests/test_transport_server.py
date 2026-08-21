@@ -65,7 +65,7 @@ def _ssl_mock(key=b"test", cert=b"test", mtls=False):
 @pytest.fixture
 def servicer_env():
     context = MagicMock()
-    # No client certificate presented (mutual TLS disabled)
+    # No client certificate presented (mutual authentication disabled)
     context.auth_context.return_value = {}
 
     agent_store = MagicMock(spec=AgentStore)
@@ -230,7 +230,7 @@ async def test_grpc_async_server_gives_servicer_the_trusted_bundle(async_server_
 
 @pytest.mark.asyncio
 async def test_grpc_async_server_server_auth_only_credentials(async_server_env):
-    # mtls disabled -> server-auth only, no client cert required
+    # mutual authentication disabled -> server-auth only, no client cert required
     with patch("fedbiomed.transport.server.grpc.ssl_server_credentials") as credentials:
         await async_server_env.server.start()
     credentials.assert_called_once_with(((b"test", b"test"),))

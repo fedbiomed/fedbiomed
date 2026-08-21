@@ -41,10 +41,10 @@ _CONNECTION_CLOSED_ERROR_MARKERS = ("socket closed", "connection reset", "broken
 
 @dataclass
 class NodeClientIdentity:
-    """The node's own mutual-TLS client identity, presented to the researcher.
+    """The node's own client identity, presented to the researcher.
 
-    Owned by the node, not the researcher. Only populated when mutual TLS is
-    enabled.
+    Owned by the node, not the researcher. Only populated when mutual
+    authentication is enabled.
     """
 
     # `private_key` is secret and kept out of repr to avoid leaking into logs.
@@ -57,8 +57,8 @@ class ResearcherCredentials:
     """Connection details and pinned server certificate of a researcher.
 
     Identifies the researcher endpoint (`host`/`port`) and pins its public
-    server `certificate`. Under mutual TLS the node additionally presents its
-    own client identity, carried separately in `node_identity`.
+    server `certificate`. Under mutual authentication the node additionally
+    presents its own client identity, carried separately in `node_identity`.
     """
 
     port: str
@@ -66,7 +66,7 @@ class ResearcherCredentials:
     # Researcher server certificate to pin (public).
     certificate: Optional[bytes] = None
     mtls: bool = False
-    # Node's own client identity, presented to the researcher under mutual TLS.
+    # Node's own client identity, presented under mutual authentication.
     node_identity: Optional[NodeClientIdentity] = None
     # Whether the researcher was observed to demand certificates. None until probed.
     client_auth_enforced: Optional[bool] = None
@@ -136,7 +136,8 @@ def _researcher_requires_client_auth(host: str, port: str) -> Optional[bool]:
     gRPC hides from the client whether its certificate was requested, so this
     probes with a raw TLS handshake presenting none, and reads the server's
     first reply: a researcher accepting an anonymous client answers with its
-    HTTP/2 SETTINGS frame, one enforcing mutual TLS closes or aborts instead.
+    HTTP/2 SETTINGS frame, one enforcing mutual authentication closes or aborts
+    instead.
 
     Completing the handshake is not evidence of acceptance. Under TLS 1.3 the
     client's handshake completes before the server validates the client
@@ -211,7 +212,7 @@ class Channels:
 
     @property
     def mtls(self) -> bool:
-        """Whether the node connects to the researcher with mutual TLS."""
+        """Whether the node connects to the researcher with mutual authentication."""
         return self._researcher.mtls
 
     @property
@@ -453,9 +454,10 @@ class GrpcClient:
                     # == OK for honest but curious researcher and nodes (parties in the
                     # network instance) but subject to attack by malicious MITM at each
                     # connection to server.
-                    # Skipped under mutual TLS, where the cert is pinned, not fetched.
-                    # A researcher that does enforce mutual TLS is diagnosed from the
-                    # resulting RPC failure, so connecting never depends on the probe.
+                    # Skipped under mutual authentication, where the cert is pinned,
+                    # not fetched. A researcher that does enforce mutual
+                    # authentication is diagnosed from the resulting RPC failure, so
+                    # connecting never depends on the probe.
                     self._researcher.certificate = bytes(
                         ssl.get_server_certificate(
                             (self._researcher.host, self._researcher.port)
@@ -484,11 +486,11 @@ class GrpcClient:
                         await self._on_status_change(ClientStatus.FAILED)
                         msg = (
                             f"{ErrorNumbers.FB628.value}: This node is configured "
-                            "for mutual-TLS but the researcher does not require "
-                            "client certificates: NO node in the federation has "
-                            "its identity verified by the researcher, this one "
-                            "included. Mutual-TLS has to be enabled on the "
-                            "researcher side, with this node's certificate "
+                            "for mutual authentication but the researcher does not "
+                            "require client certificates: NO node in the federation "
+                            "has its identity verified by the researcher, this one "
+                            "included. Mutual authentication has to be enabled on "
+                            "the researcher side, with this node's certificate "
                             "registered there; otherwise disable it in this "
                             "node's `[mtls]` configuration."
                         )
@@ -690,10 +692,11 @@ class Listener:
                         await self._on_status_change(ClientStatus.DISCONNECTED)
                         if self._channels.mtls and _is_tls_handshake_error(exp):
                             self._log_tls_failure_once(
-                                f"{ErrorNumbers.FB628.value}: Mutual-TLS handshake with "
-                                f"researcher failed in {self.__class__.__name__}: "
-                                f"{exp.details()}. Check pinned/registered certificates "
-                                "and possible MITM. Retrying silently."
+                                f"{ErrorNumbers.FB628.value}: Mutual authentication "
+                                "(mTLS) handshake with researcher failed in "
+                                f"{self.__class__.__name__}: {exp.details()}. Check "
+                                "pinned/registered certificates and possible MITM. "
+                                "Retrying silently."
                             )
                         elif (
                             self._channels.mtls
@@ -729,11 +732,11 @@ class Listener:
                             await self._on_status_change(ClientStatus.FAILED)
                             msg = (
                                 f"{ErrorNumbers.FB628.value}: The researcher requires "
-                                "mutual-TLS client authentication but mutual-TLS is "
-                                "disabled on this node. Enable it in the node `[mtls]` "
-                                "configuration and register the researcher certificate "
-                                "there; this node's certificate also has to be "
-                                "registered on the researcher side."
+                                "mutual authentication but it is disabled on this "
+                                "node. Enable it in the node `[mtls]` configuration "
+                                "and register the researcher certificate there; this "
+                                "node's certificate also has to be registered on the "
+                                "researcher side."
                             )
                             logger.error(msg)
                             logger.security_event(
@@ -888,8 +891,8 @@ class TaskListener(Listener):
 
         Called from the first poll cycle that completes without a connection
         error (a received task, or a deadline with no task queued), which proves
-        the TLS handshake succeeded and, under mutual TLS, that the researcher
-        accepted this node's identity.
+        the TLS handshake succeeded and, under mutual authentication, that the
+        researcher accepted this node's identity.
         """
         if self._communication_established:
             return
@@ -897,7 +900,7 @@ class TaskListener(Listener):
 
         if self._channels.mtls and self._channels.client_auth_enforced is True:
             logger.info(
-                "Mutual-TLS communication established with researcher at "
+                "Mutually authenticated communication established with researcher at "
                 f"{self._channels.endpoint}; node identity verified by the researcher."
             )
         elif self._channels.mtls:

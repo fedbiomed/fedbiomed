@@ -170,8 +170,8 @@ class Node:
     def _researcher_credentials(self) -> ResearcherCredentials:
         """Builds the researcher connection credentials.
 
-        When mutual TLS is enabled through the `[mtls]` config section, the node
-        attaches its own client identity and pins the registered researcher
+        When mutual authentication is enabled through the `[mtls]` config section,
+        the node attaches its own client identity and pins the registered researcher
         certificate. Otherwise it trusts whichever certificate the endpoint
         presents on connect.
 
@@ -179,7 +179,7 @@ class Node:
             Credentials used to connect to the researcher gRPC server.
 
         Raises:
-            FedbiomedCertificateError: mutual TLS is enabled but required
+            FedbiomedCertificateError: mutual authentication is enabled but required
                 certificates are missing.
         """
         credentials = ResearcherCredentials(
@@ -196,11 +196,11 @@ class Node:
         return credentials
 
     def _node_identity(self) -> NodeClientIdentity:
-        """Loads the node's own mutual-TLS client identity.
+        """Loads the node's own client identity used for mutual authentication.
 
         Returns:
             The node's client identity (private key and certificate chain)
-            presented to the researcher under mutual TLS.
+            presented to the researcher under mutual authentication.
 
         Raises:
             FedbiomedCertificateError: the node's certificate or private key
@@ -213,8 +213,8 @@ class Node:
             )
         except FedbiomedError as exp:
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but this node's "
-                f"certificate or private key could not be read: {exp}"
+                f"{ErrorNumbers.FB619.value}: Mutual authentication is enabled but "
+                f"this node's certificate or private key could not be read: {exp}"
             ) from exp
 
         return NodeClientIdentity(
@@ -229,7 +229,8 @@ class Node:
         config section, so exactly one researcher certificate must be registered.
 
         Returns:
-            The researcher's public server certificate, pinned under mutual TLS.
+            The researcher's public server certificate, pinned under mutual
+            authentication.
 
         Raises:
             FedbiomedCertificateError: no researcher certificate is registered, or
@@ -246,14 +247,14 @@ class Node:
             certificate_manager.close()
         if not researcher_certificates:
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but no researcher "
-                "certificate is registered. Please register the researcher certificate "
-                "with `fedbiomed node certificate register`."
+                f"{ErrorNumbers.FB619.value}: Mutual authentication is enabled but no "
+                "researcher certificate is registered. Please register the researcher "
+                "certificate with `fedbiomed node certificate register`."
             )
 
         if len(researcher_certificates) > 1:
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Mutual TLS is enabled but "
+                f"{ErrorNumbers.FB619.value}: Mutual authentication is enabled but "
                 f"{len(researcher_certificates)} researcher certificates are "
                 "registered, so the certificate to pin for researcher "
                 f"`{self.config.get('researcher', 'ip')}` is ambiguous. Keep only "

@@ -671,13 +671,13 @@ def test_stop_on_error(policy_request):
 
 
 # -----------------------------------------------------------------------------
-# Requests under mutual TLS
+# Requests under mutual authentication
 # -----------------------------------------------------------------------------
 
 
 @pytest.fixture
 def mtls_requests_env():
-    """Trust bundle wiring of the researcher server under mutual TLS."""
+    """Trust bundle wiring of the researcher server under mutual authentication."""
     with (
         patch(
             "fedbiomed.researcher.requests._requests.GrpcServer", autospec=True

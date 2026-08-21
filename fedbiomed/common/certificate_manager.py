@@ -208,7 +208,7 @@ def validate_registering_component(
 
 
 def is_mtls_enabled(config) -> bool:
-    """Whether mutual TLS is enabled in the `[mtls]` config section.
+    """Whether mutual authentication is enabled in the `[mtls]` config section.
 
     A missing section or `enabled` entry means disabled.
 
@@ -216,7 +216,7 @@ def is_mtls_enabled(config) -> bool:
         config: Component configuration object.
 
     Returns:
-        True if mutual TLS with certificate pinning is enabled.
+        True if mutual authentication with certificate pinning is enabled.
     """
     return config.getbool("mtls", "enabled", fallback="False")
 
@@ -252,7 +252,7 @@ def _party_id_component(party_id: str) -> Optional[str]:
 
 
 class TrustedCertificateBundle:
-    """View of the certificates registered for a component type, for mutual TLS.
+    """Certificates registered for a component type, for mutual authentication.
 
     Answers the two questions the researcher asks of its registry: which
     certificates to trust (the PEM bundle, as the trusted-certificate source of
