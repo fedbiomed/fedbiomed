@@ -1,6 +1,9 @@
 
 ## Self-Hosted Runner conf
 
+The Apple Silicon machine labelled `macos-m1` is the only self-hosted runner in
+the matrices. Every other job runs on a GitHub-hosted runner.
+
 ### Python version installation
 
 Test workflows install their interpreter through `.github/actions/setup-fbm-env`.
@@ -18,34 +21,14 @@ Python and avoids the PEP 668 `externally-managed-environment` error.
 
 Interpreter installation failures are hard to read in the action output. Connect
 to the self-hosted runner and install the version manually to see the real
-error, for example `brew install python@3.14` or `sudo dnf install python3.14`.
+error, for example `brew install python@3.14`.
 
-A known Fedora failure is a missing C++ compiler; install it with
-`sudo dnf install gcc`.
+### Node.js and Yarn
 
-### Permissions
-
-The runner user should have sudo access and be able to execute installation commands without needing to enter a password. Please modify the `sudoers` file by running sudo visudo and add `ci ALL=(ALL:ALL) NOPASSWD: /usr/bin/apt-get` or `ci ALL=(ALL:ALL) NOPASSWD: /usr/bin/dnf` at the end of the file. This will allow the runner user to install necessary packages during execution.
-
-### Install Necessary Packages 
-
-#### Ubuntu
-Please install floowing packages into self hosted runner.
-```
-sudo apt update
-sudo apt install -y python3-tk \
-    gcc libgmp3-dev libmpfr-dev libmpc-dev \
-    zlib1g libjpeg-dev libpng-dev libssl-dev vim nodejs
-```
-
-Install yarn 
-
-```
-npm install -g yarn
-```
-##### Install Docker
-
-Please also fllow docker installation instructions https://docs.docker.com/engine/install/ubuntu/
+The jobs that build the node GUI install their own toolchain through
+`.github/actions/setup-node-env`, which provisions Node with nvm and Yarn with
+npm on a self-hosted runner. Nothing has to be installed by hand, but the nvm
+initialisation it appends to `~/.bash_profile` must survive between jobs.
 
 ### Setup Python: action/setup-python self-hosted runner configuration
 

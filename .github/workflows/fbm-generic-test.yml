@@ -46,9 +46,9 @@ on:
         default: '["3.11","3.14"]'
         type: string
       os-list:
-        description: 'JSON list of runner labels, e.g. ["ubuntu-latest"]'
+        description: 'JSON list of runner labels, e.g. ["ubuntu-24.04"]'
         required: false
-        default: '["ubuntu-latest","ubuntu-24-04","macos-latest","macos-m1"]'
+        default: '["ubuntu-24.04","ubuntu-26.04","macos-latest","macos-m1"]'
         type: string
       run-docs:
         description: Build documentation once

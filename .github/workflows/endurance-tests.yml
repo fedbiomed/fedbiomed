@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   endurance-test:
-    timeout-minutes: 360  # matches the GitHub-hosted runner default; prevents infinite hangs on self-hosted runners
+    timeout-minutes: 360  # matches the GitHub-hosted runner default; prevents infinite hangs
     defaults:
       run:
         shell: bash -l {0}
@@ -24,8 +24,8 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-latest
-          - ubuntu-24-04
+          - ubuntu-24.04
+          - ubuntu-26.04
         python-version:
           - "3.11"
           - "3.14"
@@ -54,7 +54,7 @@ jobs:
           wait $TEST_PID
         shell: bash -l {0}
 
-      # Kill by process group: scoped to this job, safe on shared self-hosted runners.
+      # Kill by process group: scoped to this job, so nothing else on the runner is touched.
       - name: Cleanup lingering processes
         if: always()
         run: |

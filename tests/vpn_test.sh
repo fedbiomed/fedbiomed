@@ -21,9 +21,18 @@ function assert_image_cpu_torch(){
 	[[ "${FBM_EXPECT_CPU_TORCH:-false}" == "true" ]] || return 0
 
 	local image="fedbiomed/vpn-${1}:${FBM_CONTAINER_VERSION_TAG}"
-	local actual
+	local build_user actual
 
-	if ! actual=$(docker run --rm --entrypoint python "$image" -c \
+	# pip installed as the build user, which has no write access to the system
+	# site-packages, so the packages live under that user's home. The image ends
+	# up with root as its default user, which cannot see them.
+	build_user=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$image" \
+		| sed -n 's/^CONTAINER_BUILD_USER=//p')
+	if [[ -z "$build_user" ]]; then
+		error "No CONTAINER_BUILD_USER recorded in $image"
+	fi
+
+	if ! actual=$(docker run --rm --user "$build_user" --entrypoint python "$image" -c \
 		'import torch; print("cpu" if torch.version.cuda is None else torch.version.cuda)'); then
 		error "Could not inspect PyTorch in $image"
 	fi

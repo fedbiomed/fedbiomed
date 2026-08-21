@@ -20,14 +20,21 @@ Workflow files use the following runner labels:
 
 | Label | Ownership | Purpose |
 | --- | --- | --- |
-| `ubuntu-latest` | GitHub-hosted | Primary Linux pull-request and compatibility runner |
-| `ubuntu-24-04` | Self-hosted | Project Ubuntu runner, including privileged Docker tests |
+| `ubuntu-latest` | GitHub-hosted | Primary Linux pull-request runner |
+| `ubuntu-24.04` | GitHub-hosted | Oldest supported Ubuntu, pinned for compatibility testing |
+| `ubuntu-26.04` | GitHub-hosted | Newest supported Ubuntu, a preview image |
 | `macos-latest` | GitHub-hosted | Primary macOS pull-request and compatibility runner |
 | `macos-m1` | Self-hosted | Apple Silicon compatibility runner |
 
-`ubuntu-latest` and `ubuntu-24-04` are not aliases for the same runner.
-`ubuntu-latest` creates an ephemeral GitHub-hosted virtual machine, while
-`ubuntu-24-04` is a project-defined label for a self-hosted runner.
+`ubuntu-latest` currently resolves to the same image as `ubuntu-24.04`. The
+compatibility matrices name the version explicitly so a future move of the
+`-latest` alias cannot change what they test.
+
+GitHub publishes `ubuntu-26.04` as a preview image: it carries no availability
+guarantee and its contents can change without the notice a stable image gets. A
+job that stalls in the queue or fails only on that label should be checked
+against [actions/runner-images](https://github.com/actions/runner-images) before
+anything in this repository is suspected.
 
 ## Workflow ownership
 
@@ -45,7 +52,7 @@ All workflow definitions are under `.github/workflows`.
 | `docker-deploy.yml` | Builds public base, node, and researcher docker images, and publishes them to Docker Hub when a version tag triggered the run | Version tag or manual |
 | `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
 | `codespell.yml` | Checks repository spelling and annotates errors | Pull requests targeting `develop` or `master` |
-| `runner-maintenance.yml` | Bounded cleanup of the pip cache, Homebrew downloads, cached interpreters, and end-to-end datasets on every self-hosted runner | Monday at 01:00 UTC or manual |
+| `runner-maintenance.yml` | Bounded cleanup of the pip cache, Homebrew downloads, cached interpreters, and end-to-end datasets on the self-hosted runner | Monday at 01:00 UTC or manual |
 
 The workflow filename identifies the owner of a CI lane. The reusable
 `fbm-generic-test.yml` file owns the test implementation, while small caller
@@ -69,11 +76,12 @@ For a non-draft pull request targeting `develop` or `master`:
 Monday to Friday at 18:00 UTC:
 
 - Python 3.11, 3.12, 3.13, and 3.14
-- `ubuntu-latest`, `ubuntu-24-04`, `macos-latest`, and `macos-m1`
+- `ubuntu-24.04`, `ubuntu-26.04`, `macos-latest`, and `macos-m1`
 
 The endpoint versions provide early warning for both the oldest and newest
-supported interpreters on a pull request. Intermediate versions and the
-self-hosted runners are covered by the scheduled run, within a day.
+supported interpreters on a pull request. Intermediate versions, the second
+Ubuntu, and the self-hosted runner are covered by the scheduled run, within a
+day.
 
 Superseded runs for the same pull request are cancelled. Pushing another commit
 to the pull-request branch therefore replaces an obsolete run. Scheduled runs
@@ -103,7 +111,7 @@ For a manual run, `python-version` and `os` accept JSON arrays. For example:
 
 ```text
 python-version: ["3.12"]
-os: ["ubuntu-latest"]
+os: ["ubuntu-24.04"]
 ```
 
 This workflow does not collect endurance files. Ordinary E2E environments
@@ -120,7 +128,7 @@ not for every intermediate commit.
 runs once per week, on Saturday morning, with:
 
 - Python 3.11 and Python 3.14
-- `ubuntu-latest` and `ubuntu-24-04`
+- `ubuntu-24.04` and `ubuntu-26.04`
 - only `endurance_*.py`
 - a six-hour job timeout
 - explicit process-group cleanup
@@ -171,11 +179,12 @@ failure does not fail the test job.
 
 The Actions page exposes `fbm-generic-test.yml` as **Fed-BioMed Tests
 (Reusable)**. Its manual form takes the same inputs as a workflow call, but
-defaults `os-list` to all four runners rather than the two hosted ones:
+defaults `os-list` to all four compatibility runners rather than the two
+pull-request ones:
 
 - `python-versions`: JSON list, for example `["3.11","3.14"]`
-- `os-list`: JSON list of runner labels, drawn from `ubuntu-latest`,
-  `ubuntu-24-04`, `macos-latest`, and `macos-m1`
+- `os-list`: JSON list of runner labels, drawn from `ubuntu-24.04`,
+  `ubuntu-26.04`, `macos-latest`, and `macos-m1`
 - `run-docs`, `run-unit`, `run-mnist`, `run-e2e`: one checkbox each
 
 Both lists must be valid JSON arrays; the matrices consume them through
@@ -256,7 +265,7 @@ These images are test-only and are not pushed.
 ### VPN functional test
 
 The `vpn-functional` job in `test-docker.yml` runs Python 3.11 and 3.14 on
-GitHub-hosted and self-hosted Ubuntu. It builds the VPN server, researcher,
+`ubuntu-24.04` and `ubuntu-26.04`. It builds the VPN server, researcher,
 node, and GUI images and then:
 
 - creates the WireGuard network
@@ -267,10 +276,10 @@ node, and GUI images and then:
 
 The test uses run-specific image tags, Compose project names, container names,
 and network names. Host ports are fixed, so two legs must never share a
-machine. The runner topology provides that: GitHub-hosted legs each get their
-own ephemeral virtual machine, and a self-hosted runner executes one job at a
-time. Installing a second runner service on an existing self-hosted host would
-break the assumption and cause port collisions.
+machine. The runner topology provides that: every leg gets its own ephemeral
+GitHub-hosted virtual machine. Moving a leg onto a self-hosted runner that
+accepts more than one job at a time would break the assumption and cause port
+collisions.
 
 The same constraint applies to a developer machine. Only one VPN stack can run
 at a time on a given host — `FBM_CONTAINER_INSTANCE_ID` distinguishes container
@@ -295,10 +304,8 @@ default index. The researcher and node package
 builds skip the React build because neither image serves the node GUI. Node.js,
 Yarn, and the React compilation remain in the dedicated GUI image.
 
-On the self-hosted runner, useful Docker layers persist between jobs. A bounded
-prune before and after the VPN test targets 8 GB of retained build cache
-without deleting Docker images, containers, volumes, or networks. Hosted
-runners are ephemeral and do not need persistent cache management.
+Every leg runs on an ephemeral machine, so the Docker build cache is discarded
+with the runner and needs no cache management of its own.
 
 The VPN build wrapper propagates the first failed Docker build instead of
 continuing with later images. Cleanup removes resources created by the current
@@ -363,20 +370,19 @@ combination instead of rerunning the complete scheduled matrix.
 
 ## Self-hosted runner requirements
 
-Self-hosted runners must provide the tools required by their assigned jobs:
+The Apple Silicon runner labelled `macos-m1` is the only self-hosted machine in
+the matrices. It must provide the tools required by its jobs:
 
 - a supported shell and Git
 - passwordless access for the package-manager commands used by the setup action
 - enough disk space for tox environments and test artifacts
-- Docker and Docker Compose for Docker-assigned Ubuntu runners
-- `/dev/net/tun` and the capabilities required by the VPN functional test
-- Homebrew on the self-hosted Apple Silicon runner
+- Homebrew, which the setup action uses to install interpreters
 
 Runner labels are part of the workflow interface. If a runner is renamed or
 relabelled, update every matrix that refers to its old label.
 
-GitHub cannot address every self-hosted runner in one job, so
-`runner-maintenance.yml` lists them individually. A new runner is cleaned only
-once its label is added to that matrix. A runner that is offline when the
-workflow starts keeps its job queued until GitHub cancels it, so a failing leg
+GitHub cannot address several self-hosted runners in one job, so
+`runner-maintenance.yml` names its target. An additional runner is cleaned only
+once a job for it is added to that workflow. A runner that is offline when the
+workflow starts keeps its job queued until GitHub cancels it, so a failing job
 means the machine needs attention.

@@ -1,8 +1,8 @@
 ---
 name: Self-hosted runner maintenance
 description: |
-  Self-hosted runners keep their disk between jobs, so the caches the tests fill
-  are never reclaimed. This bounds the four that grow without limit — pip,
+  The self-hosted runner keeps its disk between jobs, so the caches the tests
+  fill are never reclaimed. This bounds the four that grow without limit — pip,
   Homebrew, cached interpreters, E2E datasets — and touches nothing else.
 
 on:
@@ -29,28 +29,24 @@ env:
   DATA_CACHE_MAX_AGE_DAYS: 90
 
 jobs:
-  # GitHub cannot address every self-hosted runner at once, so each one is
-  # listed here. A runner that is offline keeps its job queued and the leg
+  # GitHub cannot address several self-hosted runners at once, so the runner is
+  # named here. A runner that is offline keeps its job queued and the job
   # eventually fails, which is the intended signal that the machine needs
   # attention.
   clean:
-    name: Clean ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        runner:
-          - macos-m1
-          - ubuntu-24-04
-    runs-on: [self-hosted, "${{ matrix.runner }}"]
+    name: Clean macos-m1
+    runs-on: [self-hosted, macos-m1]
     timeout-minutes: 30
     defaults:
       run:
-        shell: bash -leuo pipefail {0}
+        # No -u: the login profile reads an unset PS1, which under -u aborts the
+        # rest of it and leaves Homebrew off the PATH.
+        shell: bash -leo pipefail {0}
     steps:
       - name: Report disk usage before cleaning
         run: df -h
 
-      # Test jobs on these runners install into a persistent pip cache, which
+      # Test jobs on this runner install into a persistent pip cache, which
       # nothing else bounds. Emptying it costs one slower job afterwards.
       - name: Purge an oversized pip cache
         run: |
@@ -74,7 +70,7 @@ jobs:
           fi
 
       - name: Remove superseded Homebrew downloads
-        if: ${{ runner.os == 'macOS' }}
+        if: ${{ always() && runner.os == 'macOS' }}
         run: arch -arm64 brew cleanup -s
 
       # actions/setup-python keeps one directory per patch version, so the tool
@@ -84,6 +80,7 @@ jobs:
       # Anything still wanted is fetched again on its next use. Dataset root:
       # DEFAULT_DATA_CACHE in tests/end2end/helpers.
       - name: Remove stale interpreters and end-to-end datasets
+        if: always()
         run: |
           prune() {
             if [[ ! -d "$1" ]]; then
@@ -97,4 +94,5 @@ jobs:
           prune "$HOME/.cache/fedbiomed/e2e-data" "$DATA_CACHE_MAX_AGE_DAYS"
 
       - name: Report disk usage after cleaning
+        if: always()
         run: df -h
