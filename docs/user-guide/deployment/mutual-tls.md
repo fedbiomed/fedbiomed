@@ -1,12 +1,11 @@
 # Mutual authentication between nodes and researcher
 
-Fed-BioMed encrypts all gRPC traffic between nodes and the researcher with TLS, and the
-recommended production deployment additionally tunnels that traffic through a
-[WireGuard VPN](./deployment-vpn.md), which authenticates the endpoints by key and
-isolates the instance from outsiders. Mutual authentication protects the same channel at
-the application layer rather than the network layer: the researcher requires and verifies
-each node's client certificate, and each node pins the researcher's certificate instead
-of trusting whatever certificate the endpoint presents.
+Fed-BioMed encrypts all gRPC traffic between nodes and the researcher with TLS. By
+default only the researcher side is authenticated: each node trusts whichever
+certificate the endpoint presents, and the researcher accepts any node that connects.
+Mutual authentication makes the verification go both ways — the researcher requires and
+verifies each node's client certificate, and each node pins the researcher's certificate
+— so every channel is bound to a registered Fed-BioMed party.
 
 The protocol carrying it is mTLS (mutual TLS), the variant of TLS where both sides
 present a certificate. That is why the option is named `[mtls]` in the configuration
@@ -14,22 +13,21 @@ files, and why gRPC failures around it are reported as TLS handshake errors.
 
 It is meant for two situations:
 
-- **as an alternative to the VPN**, when Fed-BioMed runs on an infrastructure providing
-  its own network layer — plain Docker images, or components embedded in an existing
-  system — where nothing else authenticates the parties;
-- **alongside the VPN**, because a VPN peer is authenticated as a machine, not as a
-  Fed-BioMed party: an authenticated insider can still spoof another party at the gRPC
-  level. Mutual authentication binds each channel to a registered party identity.
+- **nothing else authenticates the parties** — Fed-BioMed running on plain Docker
+  images, or embedded in an existing system that provides no identity of its own;
+- **the surrounding infrastructure authenticates machines rather than parties**, so
+  whoever is admitted to the network can still spoof another Fed-BioMed party at the
+  gRPC level. Mutual authentication binds each channel to a registered party identity.
 
 Either way it covers the "mutual verification of other party identity during gRPC setup"
 item of the [security model](./security-model.md) (mitigating a malicious insider
 man-in-the-middle that spoofs a party inside the network).
 
 !!! info "Mutual authentication is optional and off by default"
-    When it is disabled, the node fetches and trusts the researcher certificate on
-    connect, and the researcher accepts any node — the deployment then relies on the VPN,
-    or on the surrounding infrastructure, to authenticate the parties. Nothing below is
-    required unless you explicitly enable mutual authentication.
+    When it is disabled, the channel falls back to the server-authenticated TLS
+    described above, and the deployment relies on the surrounding infrastructure to
+    authenticate the parties. Nothing below is required unless you explicitly enable
+    mutual authentication.
 
 ## What mutual authentication changes
 
