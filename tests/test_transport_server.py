@@ -67,6 +67,8 @@ def servicer_env():
     context = MagicMock()
     # No client certificate presented (mutual authentication disabled)
     context.auth_context.return_value = {}
+    # Awaited by the servicer, as `grpc.aio.ServicerContext` declares it
+    context.send_initial_metadata = AsyncMock()
 
     agent_store = MagicMock(spec=AgentStore)
     on_message = MagicMock()

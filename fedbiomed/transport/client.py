@@ -68,8 +68,6 @@ class ResearcherCredentials:
     mtls: bool = False
     # Node's own client identity, presented under mutual authentication.
     node_identity: Optional[NodeClientIdentity] = None
-    # Whether the researcher was observed to demand certificates. None until probed.
-    client_auth_enforced: Optional[bool] = None
 
 
 class ClientStatus(Enum):
@@ -91,6 +89,12 @@ GRPC_CLIENT_CONN_RETRY_TIMEOUT = 2
 
 # timeout in seconds of a request to the server for a task (payload) to run on the node
 GRPC_CLIENT_TASK_REQUEST_TIMEOUT = 3600
+
+# gRPC initial-metadata key carrying the component id the researcher resolved from the
+# certificate the node presented. Only a researcher that required, received and matched
+# that certificate can name the node, so the header proves mutual authentication is in
+# force rather than asserting it. Absent when the researcher does not enforce it.
+MTLS_PEER_ID_HEADER = "fbm-peer-component-id"
 
 
 def is_server_alive(host: str, port: str):
@@ -133,10 +137,15 @@ def _is_connection_closed_error(exp: grpc.aio.AioRpcError) -> bool:
 def _researcher_requires_client_auth(host: str, port: str) -> Optional[bool]:
     """Whether the researcher's TLS server demands a client certificate.
 
-    gRPC hides from the client whether its certificate was requested, so this
-    probes with a raw TLS handshake presenting none, and reads the server's
-    first reply: a researcher accepting an anonymous client answers with its
-    HTTP/2 SETTINGS frame, one enforcing mutual authentication closes or aborts
+    Diagnoses a node that has mutual authentication disabled while the researcher
+    requires it: the handshake never completes, so nothing the researcher sends can
+    tell the node why. A node that does have it enabled learns the researcher's
+    stance from `MTLS_PEER_ID_HEADER` on its task request instead, which needs
+    no probing.
+
+    Probes with a raw TLS handshake presenting no certificate, and reads the
+    server's first reply: a researcher accepting an anonymous client answers with
+    its HTTP/2 SETTINGS frame, one enforcing mutual authentication closes or aborts
     instead.
 
     Completing the handshake is not evidence of acceptance. Under TLS 1.3 the
@@ -229,11 +238,6 @@ class Channels:
     def port(self) -> str:
         """Researcher server port."""
         return self._researcher.port
-
-    @property
-    def client_auth_enforced(self) -> Optional[bool]:
-        """Whether the researcher was observed to demand client certificates."""
-        return self._researcher.client_auth_enforced
 
     async def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
         """Get stub for a given stub type.
@@ -455,9 +459,7 @@ class GrpcClient:
                     # network instance) but subject to attack by malicious MITM at each
                     # connection to server.
                     # Skipped under mutual authentication, where the cert is pinned,
-                    # not fetched. A researcher that does enforce mutual
-                    # authentication is diagnosed from the resulting RPC failure, so
-                    # connecting never depends on the probe.
+                    # not fetched.
                     self._researcher.certificate = bytes(
                         ssl.get_server_certificate(
                             (self._researcher.host, self._researcher.port)
@@ -473,36 +475,6 @@ class GrpcClient:
                         port=self._researcher.port,
                         detail=msg,
                     )
-                else:
-                    self._researcher.client_auth_enforced = await asyncio.to_thread(
-                        _researcher_requires_client_auth,
-                        self._researcher.host,
-                        self._researcher.port,
-                    )
-                    # Only a definite "not enforced" is acted upon; an
-                    # inconclusive probe says nothing about the researcher.
-                    if self._researcher.client_auth_enforced is False:
-                        # Static config on both sides, retry cannot help: stop.
-                        await self._on_status_change(ClientStatus.FAILED)
-                        msg = (
-                            f"{ErrorNumbers.FB628.value}: This node is configured "
-                            "for mutual authentication but the researcher does not "
-                            "require client certificates: NO node in the federation "
-                            "has its identity verified by the researcher, this one "
-                            "included. Mutual authentication has to be enabled on "
-                            "the researcher side, with this node's certificate "
-                            "registered there; otherwise disable it in this "
-                            "node's `[mtls]` configuration."
-                        )
-                        logger.error(msg)
-                        logger.security_event(
-                            operation="mtls_not_enforced_by_researcher",
-                            status="failure",
-                            host=self._researcher.host,
-                            port=self._researcher.port,
-                            detail=msg,
-                        )
-                        raise FedbiomedCommunicationError(msg)
 
                 if self._id is None:
                     # auto-detect researcher_id from the peer certificate CN= field
@@ -800,6 +772,11 @@ class Listener:
                             reconnect=True,
                         )
 
+            except FedbiomedCommunicationError:
+                # Raised by this client for a mismatch both sides are statically
+                # configured for, which retrying cannot resolve: let it stop the node
+                # instead of being retried as an unexpected error.
+                raise
             except (Exception, GeneratorExit) as exp:
                 msg = (
                     f"Unexpected error raised by node gRPC client in {self.__class__.__name__}: "
@@ -898,18 +875,10 @@ class TaskListener(Listener):
             return
         self._communication_established = True
 
-        if self._channels.mtls and self._channels.client_auth_enforced is True:
+        if self._channels.mtls:
             logger.info(
                 "Mutually authenticated communication established with researcher at "
                 f"{self._channels.endpoint}; node identity verified by the researcher."
-            )
-        elif self._channels.mtls:
-            # The probe was inconclusive: claim only what the connection proves.
-            logger.info(
-                "Communication established with researcher at "
-                f"{self._channels.endpoint} over TLS with pinned researcher "
-                "certificate; could not determine whether the researcher "
-                "verifies node identity."
             )
         else:
             logger.info(
@@ -917,6 +886,63 @@ class TaskListener(Listener):
                 f"{self._channels.endpoint} over server-authenticated TLS "
                 "(node identity not verified)."
             )
+
+    async def _require_researcher_verified_this_node(
+        self, call: grpc.aio.UnaryStreamCall
+    ) -> None:
+        """Checks the researcher named this node from the certificate it presented.
+
+        The counterpart of the researcher requiring client certificates: a node
+        configured for mutual authentication has no other way to learn whether the
+        researcher enforces it, since gRPC does not tell a client whether its
+        certificate was requested. Read from the response headers, which arrive when
+        the call starts, so an idle federation does not delay the answer.
+
+        A researcher rejects a declared id that its certificate does not resolve to
+        before answering at all, so a correct one names this node or names nobody.
+        Being named as another node is therefore not a configuration case but a
+        researcher that does not behave as one: refused rather than trusted.
+
+        Args:
+            call: The task request whose initial metadata is read.
+
+        Raises:
+            FedbiomedCommunicationError: the researcher named no node, or named
+                another one.
+        """
+        named = dict(await call.initial_metadata()).get(MTLS_PEER_ID_HEADER)
+        if named == self._node_id:
+            return
+
+        # Neither a configuration both sides hold nor a researcher answering for
+        # someone else changes by asking again: stop instead of retrying.
+        await self._on_status_change(ClientStatus.FAILED)
+        if named is None:
+            cause = (
+                "the researcher does not verify node identities: NO node in the "
+                "federation is authenticated, this one included. Enable mutual "
+                "authentication on the researcher side, with this node's "
+                "certificate registered there; otherwise disable it in this node's "
+                "`[mtls]` configuration"
+            )
+            operation = "mtls_not_enforced_by_researcher"
+        else:
+            cause = (
+                f"the researcher verified this connection as `{named}`, not as "
+                f"`{self._node_id}`: the identity it reports is not this node's"
+            )
+            operation = "mtls_verified_as_another_node"
+
+        msg = f"{ErrorNumbers.FB628.value}: {cause}."
+        logger.error(msg)
+        logger.security_event(
+            operation=operation,
+            status="failure",
+            host=self._channels.host,
+            port=self._channels.port,
+            detail=msg,
+        )
+        raise FedbiomedCommunicationError(msg)
 
     def _message_deadline_exceeded(self):
         """Task listener issues debug message when researcher does not submit task before deadline"""
@@ -948,6 +974,9 @@ class TaskListener(Listener):
             TaskRequest(node=f"{self._node_id}").to_proto(),
             timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
         )
+        if self._channels.mtls:
+            await self._require_researcher_verified_this_node(iterator)
+
         # Prepare reply
         reply = bytes()
         async for answer in iterator:

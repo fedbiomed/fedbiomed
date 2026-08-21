@@ -17,6 +17,7 @@ from fedbiomed.common.message import (
     SearchRequest,
 )
 from fedbiomed.transport.client import (
+    MTLS_PEER_ID_HEADER,
     Channels,
     ClientStatus,
     GrpcClient,
@@ -32,6 +33,8 @@ from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
 from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
 
 _RESEARCHER_A = "RESEARCHER_9c2b1d70-1111-2222-3333-444455556666"
+_NODE_A = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
+_NODE_B = "NODE_0a1b2c3d-aaaa-bbbb-cccc-ddddeeeeffff"
 
 
 def _rpc_error(code, details=None):
@@ -48,8 +51,32 @@ async def _async_iterator(items):
         yield item
 
 
-async def _one_task(bytes_):
+class _Call:
+    """Stands in for the `UnaryStreamCall` gRPC returns for `GetTaskUnary`.
+
+    Streams the given responses and answers `initial_metadata` with the headers,
+    which is where the researcher names the node it authenticated. Answers with
+    the `grpc.aio.Metadata` the real call returns, not a plain sequence of pairs,
+    so the reading code is exercised against the type it meets in production.
+    """
+
+    def __init__(self, responses, metadata=((MTLS_PEER_ID_HEADER, _NODE_A),)):
+        self._responses = responses
+        self._metadata = grpc.aio.Metadata(*metadata)
+
+    def __aiter__(self):
+        return self._responses.__aiter__()
+
+    async def initial_metadata(self):
+        return self._metadata
+
+
+async def _responses(bytes_):
     yield TaskResponse(bytes_=bytes_, iteration=0, size=0)
+
+
+def _one_task(bytes_, **kwargs):
+    return _Call(_responses(bytes_), **kwargs)
 
 
 # -----------------------------------------------------------------------------
@@ -67,7 +94,7 @@ def grpc_client():
         update_id_map = AsyncMock()
         yield SimpleNamespace(
             client=GrpcClient(
-                node_id="test-node-id",
+                node_id=_NODE_A,
                 researcher=ResearcherCredentials(port="50051", host="localhost"),
                 update_id_map=update_id_map,
             ),
@@ -113,9 +140,6 @@ async def test_grpc_client_update_id(grpc_client):
 
 
 @pytest.mark.asyncio
-@patch(
-    "fedbiomed.transport.client._researcher_requires_client_auth", return_value=False
-)
 @patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.x509.load_pem_x509_certificate", autospec=True)
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
@@ -125,7 +149,6 @@ async def test_grpc_client_connect_security_log(
     get_server_certificate,
     load_pem_x509_certificate,
     security_event,
-    requires_client_auth,
     grpc_client,
 ):
     is_server_alive.return_value = True
@@ -159,9 +182,6 @@ async def test_grpc_client_connect_security_log(
 
 
 @pytest.mark.asyncio
-@patch(
-    "fedbiomed.transport.client._researcher_requires_client_auth", return_value=False
-)
 @patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
@@ -169,7 +189,6 @@ async def test_grpc_client_channel_event_identifies_researcher_certificate(
     is_server_alive,
     get_server_certificate,
     security_event,
-    requires_client_auth,
     grpc_client,
     tmp_path,
 ):
@@ -210,12 +229,10 @@ async def test_grpc_client_connect_does_not_probe_without_mtls(
     requires_client_auth,
     grpc_client,
 ):
-    """Connecting without mutual authentication never depends on the client-auth probe.
+    """A node without mutual authentication fetches the certificate, it does not probe.
 
-    The probe cannot distinguish a busy researcher from one enforcing mutual
-    authentication, so gating on it let a transient failure stop a correctly
-    configured node from connecting at all. A researcher that does enforce
-    mutual authentication is diagnosed from the resulting RPC failure instead.
+    The probe answers one question only, and it is not one this node asks: it has
+    no identity to have verified.
     """
     is_server_alive.return_value = True
     get_server_certificate.return_value = "DUMMY-CERT"
@@ -229,31 +246,25 @@ async def test_grpc_client_connect_does_not_probe_without_mtls(
     grpc_client.client._channels.connect.assert_called_once()
 
 
-# Stop iff the researcher is known not to require the node's client certificate;
-# an inconclusive probe (None) is not evidence of anything.
 @pytest.mark.asyncio
-@pytest.mark.parametrize("requires_auth,stops", [(False, 1), (True, 0), (None, 0)])
-@patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.logger._logger.error")
-@patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
 @patch("fedbiomed.transport.client.certificate_subject_field", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
-async def test_grpc_client_connect_mtls_stops_only_when_not_enforced(
+async def test_grpc_client_connect_does_not_probe_under_mutual_authentication(
     is_server_alive,
     subject_field,
-    requires_client_auth,
-    log_error,
-    security_event,
     grpc_client,
-    requires_auth,
-    stops,
 ):
+    """Connecting no longer depends on probing the researcher.
+
+    Whether the researcher verifies node identities is answered by the identity
+    header on the task request, so the channel is created without a probe and
+    without its inconclusive case.
+    """
     is_server_alive.return_value = True
     subject_field.return_value = "test-researcher"
-    requires_client_auth.return_value = requires_auth
 
     client = GrpcClient(
-        node_id="test-node-id",
+        node_id=_NODE_A,
         researcher=ResearcherCredentials(
             port="50051", host="localhost", certificate=b"CERT", mtls=True
         ),
@@ -261,25 +272,13 @@ async def test_grpc_client_connect_mtls_stops_only_when_not_enforced(
     )
     client._channels.connect = AsyncMock()
 
-    if stops:
-        with pytest.raises(FedbiomedCommunicationError):
-            await client._connect()
-        # The channel is never created: the mismatch is fatal before connecting
-        client._channels.connect.assert_not_called()
-    else:
+    with patch(
+        "fedbiomed.transport.client._researcher_requires_client_auth", autospec=True
+    ) as probe:
         await client._connect()
-        client._channels.connect.assert_called_once()
 
-    errors = [
-        c for c in log_error.call_args_list if "NO node in the federation" in c.args[0]
-    ]
-    assert len(errors) == stops
-    audited = [
-        c
-        for c in security_event.call_args_list
-        if c.kwargs.get("operation") == "mtls_not_enforced_by_researcher"
-    ]
-    assert len(audited) == stops
+    probe.assert_not_called()
+    client._channels.connect.assert_called_once()
 
 
 # -----------------------------------------------------------------------------
@@ -303,6 +302,9 @@ def listener_env():
         channels.host = "localhost"
         channels.port = "1"
         channels.connect = AsyncMock()
+        # Off unless a test turns it on, as in a component that never enabled it:
+        # a MagicMock attribute would read as enabled and demand the identity header.
+        channels.mtls = False
 
         env = SimpleNamespace(
             serializer=serializer,
@@ -313,7 +315,7 @@ def listener_env():
         )
         env.listener = TaskListener(
             channels=channels,
-            node_id="test-node-id",
+            node_id=_NODE_A,
             on_status_change=env.on_status_change,
             update_id=env.update_id,
         )
@@ -343,11 +345,13 @@ async def test_task_listener_listen(listener_env):
     with patch("fedbiomed.transport.client.logger.debug") as logger_debug:
         request_stub = await listener_env.drain(
             [
-                _async_iterator(
-                    [
-                        TaskResponse(bytes_=b"test-1", iteration=0, size=1),
-                        TaskResponse(bytes_=b"test-2", iteration=1, size=1),
-                    ]
+                _Call(
+                    _async_iterator(
+                        [
+                            TaskResponse(bytes_=b"test-1", iteration=0, size=1),
+                            TaskResponse(bytes_=b"test-2", iteration=1, size=1),
+                        ]
+                    )
                 )
             ]
         )
@@ -455,11 +459,13 @@ async def test_task_listener_listen_non_grpc_exceptions(
 
         # Need a successful task retrieve to reset the retry counters
         request_stub.GetTaskUnary.side_effect = [
-            _async_iterator(
-                [
-                    TaskResponse(bytes_=b"test-1", iteration=0, size=1),
-                    TaskResponse(bytes_=b"test-2", iteration=1, size=1),
-                ]
+            _Call(
+                _async_iterator(
+                    [
+                        TaskResponse(bytes_=b"test-1", iteration=0, size=1),
+                        TaskResponse(bytes_=b"test-2", iteration=1, size=1),
+                    ]
+                )
             ),
             asyncio.CancelledError,
         ]
@@ -667,23 +673,70 @@ async def test_task_listener_non_mtls_node_against_mtls_researcher(
 
 
 @pytest.mark.asyncio
-@patch("fedbiomed.transport.client.logger.info")
-async def test_task_listener_announce_honest_when_enforcement_unknown(
-    log_info, listener_env
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.logger._logger.error")
+async def test_task_listener_stops_when_researcher_names_no_node(
+    log_error, security_event, listener_env
 ):
-    """An inconclusive probe claims neither that identity was verified nor that
-    it was not: the connection proves only that the channel came up."""
+    """A researcher not verifying identities is refused, however it behaves.
+
+    The header is absent exactly when the researcher required no certificate, so
+    the node stops instead of running with an identity nobody checked.
+    """
     listener_env.channels.mtls = True
-    listener_env.channels.client_auth_enforced = None
 
-    await listener_env.drain([_one_task(b"t1")])
+    await listener_env.drain(
+        [_one_task(b"t1", metadata=())],
+        expect=FedbiomedCommunicationError,
+    )
 
-    msgs = [
-        c for c in log_info.call_args_list if "Communication established" in c.args[0]
-    ]
-    assert len(msgs) == 1
-    assert "could not determine whether the researcher verifies" in msgs[0].args[0]
-    assert "NOT verified" not in msgs[0].args[0]
+    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+    assert len(errors) == 1
+    assert "does not verify node identities" in errors[0].args[0]
+    operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+    assert "mtls_not_enforced_by_researcher" in operations
+    listener_env.on_status_change.assert_awaited_with(ClientStatus.FAILED)
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.logger._logger.error")
+async def test_task_listener_stops_when_researcher_names_another_node(
+    log_error, security_event, listener_env
+):
+    """Being named as another node is refused, not taken as an authentication.
+
+    A researcher rejects a declared id its certificate does not resolve to before
+    answering, so no correct one names another node: this guards against one that
+    does not behave as a researcher, which is what makes the header worth reading.
+    """
+    listener_env.channels.mtls = True
+
+    await listener_env.drain(
+        [_one_task(b"t1", metadata=((MTLS_PEER_ID_HEADER, _NODE_B),))],
+        expect=FedbiomedCommunicationError,
+    )
+
+    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+    assert f"verified this connection as `{_NODE_B}`" in errors[0].args[0]
+    operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+    assert "mtls_verified_as_another_node" in operations
+    listener_env.on_status_change.assert_awaited_with(ClientStatus.FAILED)
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
+async def test_task_listener_ignores_the_header_without_mutual_authentication(
+    security_event, listener_env
+):
+    """A node that did not enable it does not require the researcher to name it."""
+    listener_env.channels.mtls = False
+
+    await listener_env.drain([_one_task(b"t1", metadata=())])
+
+    listener_env.callback.assert_called_once()
+    operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+    assert "mtls_not_enforced_by_researcher" not in operations
 
 
 # -----------------------------------------------------------------------------
