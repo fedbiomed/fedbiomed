@@ -91,9 +91,9 @@ def test_get_component_certificate_from_config(write_component):
     config_path = write_component("node-1", certificate="test-certificate")
 
     assert get_component_certificate_from_config(config_path) == {
-        "party_id": "node-1",
+        "component_id": "node-1",
         "certificate": "test-certificate",
-        "component": "NODE",
+        "component_type": "NODE",
     }
 
 
@@ -102,7 +102,9 @@ def test_get_component_certificate_from_config_upper_cases_component(write_compo
     # uppercase; a config written otherwise reads back the same way
     config_path = write_component("node-1", component="node")
 
-    assert get_component_certificate_from_config(config_path)["component"] == "NODE"
+    assert (
+        get_component_certificate_from_config(config_path)["component_type"] == "NODE"
+    )
 
 
 def test_get_component_certificate_from_config_raises_for_missing_certificate(
@@ -133,18 +135,20 @@ def test_get_all_existing_certificates(write_component):
     write_component("node-1", certificate="test-certificate-1")
     write_component("node-2", certificate="test-certificate-2")
 
-    certificates = sorted(get_all_existing_certificates(), key=lambda c: c["party_id"])
+    certificates = sorted(
+        get_all_existing_certificates(), key=lambda c: c["component_id"]
+    )
 
     assert certificates == [
         {
-            "party_id": "node-1",
+            "component_id": "node-1",
             "certificate": "test-certificate-1",
-            "component": "NODE",
+            "component_type": "NODE",
         },
         {
-            "party_id": "node-2",
+            "component_id": "node-2",
             "certificate": "test-certificate-2",
-            "component": "NODE",
+            "component_type": "NODE",
         },
     ]
 

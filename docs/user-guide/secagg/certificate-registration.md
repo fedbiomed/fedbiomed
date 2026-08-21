@@ -65,12 +65,12 @@ Please follow the instructions below to register this certificate:
  2- On each node, change your directory to 'fedbiomed' root
  3- Run: fedbiomed node certificate register -pk [PATH WHERE CERTIFICATE IS SAVED]
 
-The party id (RESEARCHER_e1c5c101-0c79-43b1-8bf1-d70b06b91830) is read from the certificate, so `-pi` is not needed.
+The component id (RESEARCHER_e1c5c101-0c79-43b1-8bf1-d70b06b91830) is read from the certificate, so `-ci` is not needed.
 ```
 
 The instructions name the component the certificate must be registered on: a researcher
 certificate is registered on the nodes, and a node certificate on the researcher. The
-certificate carries the party id, so only its file path (`-pk`) is required.
+certificate carries the component id, so only its file path (`-pk`) is required.
 
 
 !!! note "Certificates should be shared outside Fed-BioMed through a trusted channel."

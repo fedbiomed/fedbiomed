@@ -140,8 +140,8 @@ def certificate_fingerprint(certificate: Union[bytes, str]) -> Optional[bytes]:
         return None
 
 
-def certificate_expected_component(certificate: bytes) -> Optional[str]:
-    """Component a certificate's Extended Key Usage restricts it to.
+def certificate_expected_component_type(certificate: bytes) -> Optional[str]:
+    """Component type a certificate's Extended Key Usage restricts it to.
 
     A client-only certificate is a node's, a server-only one a researcher's.
 
@@ -160,23 +160,23 @@ def certificate_expected_component(certificate: bytes) -> Optional[str]:
         return None
     client = ExtendedKeyUsageOID.CLIENT_AUTH in usages
     server = ExtendedKeyUsageOID.SERVER_AUTH in usages
-    if client == server:  # both roles or neither: component unconstrained
+    if client == server:  # both roles or neither: component type unconstrained
         return None
     return ComponentType.NODE.name if client else ComponentType.RESEARCHER.name
 
 
 def validate_registering_component(
-    certificate: str, component: str, registering_component: str
+    certificate: str, component_type: str, registering_component_type: str
 ) -> None:
     """Checks a certificate is not of the registering component's own kind.
 
-    Parties register the certificates of the components they talk to, never of
-    their own type: a node registers researcher certificates and a researcher
+    Components register the certificates of the components they talk to, never
+    of their own type: a node registers researcher certificates and a researcher
     node ones. Two independent checks, each restrictive only for information
     actually present:
 
-    - the component the certificate is registered as must differ from the
-      registering component;
+    - the component type the certificate is registered as must differ from the
+      registering component's type;
     - when the Extended Key Usage restricts the certificate to a single TLS
       role, that role must not be the registering component's own (a node acts
       as a TLS client, a researcher as a TLS server). An absent or dual-role
@@ -186,24 +186,27 @@ def validate_registering_component(
         FedbiomedCertificateError: the certificate is identified as belonging
             to the registering component's own type.
     """
-    if component == registering_component:
+    if component_type == registering_component_type:
         raise FedbiomedCertificateError(
-            f"{ErrorNumbers.FB619.value}: Cannot register a {component} certificate "
-            f"on a {registering_component}: a component registers the certificates "
-            "of the parties it communicates with, not of its own type."
+            f"{ErrorNumbers.FB619.value}: Cannot register a {component_type} "
+            f"certificate on a {registering_component_type}: a component registers "
+            "the certificates of the components it communicates with, not of its "
+            "own type."
         )
-    eku_component = certificate_expected_component(certificate.encode("utf-8"))
-    if eku_component == registering_component:
+    eku_component_type = certificate_expected_component_type(
+        certificate.encode("utf-8")
+    )
+    if eku_component_type == registering_component_type:
         role = (
             CERT_PURPOSE_CLIENT
-            if eku_component == ComponentType.NODE.name
+            if eku_component_type == ComponentType.NODE.name
             else CERT_PURPOSE_SERVER
         )
         raise FedbiomedCertificateError(
             f"{ErrorNumbers.FB619.value}: The certificate's Extended Key Usage "
             f"restricts it to a TLS {role} certificate — the "
-            f"{registering_component}'s own role, not that of the parties it "
-            "registers."
+            f"{registering_component_type}'s own role, not that of the components "
+            "it registers."
         )
 
 
@@ -234,21 +237,22 @@ def _certificate_purpose(component_id: str) -> Optional[str]:
     return None
 
 
-def _party_id_component(party_id: str) -> Optional[str]:
-    """Component type of a party id, or None if it does not follow the pattern.
+def _component_type(component_id: str) -> Optional[str]:
+    """Component type encoded in a component id, or None if it does not follow
+    the pattern.
 
-    Party ids follow `<COMPONENT_TYPE>_<uuid4>` (see `Config.generate`); the
+    Component ids follow `<COMPONENT_TYPE>_<uuid4>` (see `Config.generate`); the
     prefix is matched case-insensitively.
     """
-    prefix, _, identifier = party_id.partition("_")
-    component = prefix.upper()
+    prefix, _, identifier = component_id.partition("_")
+    component_type = prefix.upper()
     try:
         uuid.UUID(identifier)
     except ValueError:
         return None
-    if component not in (ComponentType.NODE.name, ComponentType.RESEARCHER.name):
+    if component_type not in (ComponentType.NODE.name, ComponentType.RESEARCHER.name):
         return None
-    return component
+    return component_type
 
 
 class TrustedCertificateBundle:
@@ -256,7 +260,7 @@ class TrustedCertificateBundle:
 
     Answers the two questions the researcher asks of its registry: which
     certificates to trust (the PEM bundle, as the trusted-certificate source of
-    the gRPC server) and, for a certificate a peer presented, which party it is
+    the gRPC server) and, for a certificate a peer presented, which component it is
     registered as. Both are served from one re-read of the certificate database,
     performed only when its file changes, so they cannot disagree and so
     certificates registered after startup are picked up without a restart.
@@ -268,18 +272,18 @@ class TrustedCertificateBundle:
     sits untouched is not reported until the next registration.
     """
 
-    def __init__(self, db_path: str, component: str):
+    def __init__(self, db_path: str, component_type: str):
         """
         Args:
             db_path: Path of the certificate database.
-            component: Component type name, e.g. `ComponentType.NODE.name`.
+            component_type: Component type name, e.g. `ComponentType.NODE.name`.
         """
         self._db_path = db_path
-        self._component = component
+        self._component_type = component_type
         self._lock = threading.Lock()
         self._state: Optional[Tuple[int, int]] = None
         self._bundle: bytes = b""
-        self._party_ids: Dict[bytes, str] = {}
+        self._component_ids: Dict[bytes, str] = {}
         self._warned: set = set()
 
     def __call__(self) -> bytes:
@@ -295,20 +299,20 @@ class TrustedCertificateBundle:
         with self._lock:
             return self._state is not None
 
-    def party_id(self, certificate: Union[bytes, str]) -> Optional[str]:
-        """Party id the given certificate is registered under.
+    def component_id(self, certificate: Union[bytes, str]) -> Optional[str]:
+        """Component id the given certificate is registered under.
 
         The authoritative identity of a peer: every registered certificate has a
-        party id, taken from its own `O=` field or supplied at registration, so
+        component id, taken from its own `CN=` field or supplied at registration, so
         this also identifies certificates embedding no Fed-BioMed identity.
 
         Args:
             certificate: PEM encoded certificate, as presented by the peer.
 
         Returns:
-            The registered party id, or None if the certificate is unparsable,
+            The registered component id, or None if the certificate is unparsable,
             not registered for this component type, or registered under more than
-            one party id.
+            one component id.
         """
         fingerprint = certificate_fingerprint(certificate)
         if fingerprint is None:
@@ -316,7 +320,7 @@ class TrustedCertificateBundle:
 
         with self._lock:
             self._refresh()
-            return self._party_ids.get(fingerprint)
+            return self._component_ids.get(fingerprint)
 
     def _refresh(self) -> None:
         """Re-reads the database if its file changed. The caller holds the lock.
@@ -336,10 +340,10 @@ class TrustedCertificateBundle:
                 documents = [
                     doc
                     for doc in certificate_manager.list()
-                    if doc.get("component") == self._component
+                    if doc.get("component_type") == self._component_type
                 ]
                 expiring = certificate_manager.expiring_certificates(
-                    CERTIFICATE_EXPIRY_WARNING_DAYS, self._component
+                    CERTIFICATE_EXPIRY_WARNING_DAYS, self._component_type
                 )
             finally:
                 certificate_manager.close()
@@ -348,19 +352,22 @@ class TrustedCertificateBundle:
             for doc in documents:
                 fingerprint = certificate_fingerprint(doc["certificate"])
                 if fingerprint is not None:
-                    registrations.setdefault(fingerprint, []).append(doc["party_id"])
+                    registrations.setdefault(fingerprint, []).append(
+                        doc["component_id"]
+                    )
 
-            party_ids = {}
+            component_ids = {}
             for fingerprint, registered in registrations.items():
-                parties = sorted(set(registered))
-                # A certificate under several party ids identifies none of them:
+                registered_ids = sorted(set(registered))
+                # A certificate under several component ids identifies none of them:
                 # binding a peer to an arbitrary one of them would let each act
                 # under the others' identity. Left unmapped, so peers presenting
                 # it are refused until the registry is corrected.
-                if len(parties) > 1:
+                if len(registered_ids) > 1:
                     msg = (
-                        f"The same {self._component} certificate is registered under "
-                        f"{', '.join(f'`{p}`' for p in parties)} in {self._db_path}; "
+                        f"The same {self._component_type} certificate is registered "
+                        f"under {', '.join(f'`{p}`' for p in registered_ids)} in "
+                        f"{self._db_path}; "
                         "none of them can be authenticated with it. Delete the "
                         "duplicate registrations."
                     )
@@ -368,36 +375,37 @@ class TrustedCertificateBundle:
                     logger.security_event(
                         operation="certificate_ambiguous_identity",
                         status="warning",
-                        component=self._component,
+                        component_type=self._component_type,
                         db_path=self._db_path,
-                        party_ids=parties,
+                        component_ids=registered_ids,
                         detail=msg,
                     )
                     continue
-                party_ids[fingerprint] = parties[0]
+                component_ids[fingerprint] = registered_ids[0]
 
             self._bundle = "\n".join(d["certificate"] for d in documents).encode(
                 "utf-8"
             )
-            self._party_ids = party_ids
+            self._component_ids = component_ids
             self._state = state
             self._warn_expiring(expiring)
         except (OSError, FedbiomedError) as e:
             if self._state is None:
                 msg = (
                     f"Could not read certificate database {self._db_path}: {e}. "
-                    f"No {self._component} certificate is available."
+                    f"No {self._component_type} certificate is available."
                 )
             else:
                 msg = (
                     f"Could not read certificate database {self._db_path}: {e}. "
-                    f"Keeping the previously loaded {self._component} certificates."
+                    "Keeping the previously loaded "
+                    f"{self._component_type} certificates."
                 )
             logger.warning(msg)
             logger.security_event(
                 operation="certificate_store_unreadable",
                 status="warning",
-                component=self._component,
+                component_type=self._component_type,
                 db_path=self._db_path,
                 detail=msg,
             )
@@ -409,12 +417,12 @@ class TrustedCertificateBundle:
         it remains within the warning window.
 
         Args:
-            expiring: `(party_id, expiry)` of certificates expiring soon.
+            expiring: `(component_id, expiry)` of certificates expiring soon.
         """
-        for party_id, expiry in expiring:
-            if (party_id, expiry) not in self._warned:
+        for component_id, expiry in expiring:
+            if (component_id, expiry) not in self._warned:
                 msg = (
-                    f"{self._component} certificate `{party_id}` expires on "
+                    f"{self._component_type} certificate `{component_id}` expires on "
                     f"{expiry:%Y-%m-%d}; register an updated certificate to avoid "
                     "connection failures."
                 )
@@ -422,8 +430,8 @@ class TrustedCertificateBundle:
                 logger.security_event(
                     operation="certificate_expiring",
                     status="warning",
-                    party_id=party_id,
-                    component=self._component,
+                    component_id=component_id,
+                    component_type=self._component_type,
                     expires_on=f"{expiry:%Y-%m-%d}",
                     detail=msg,
                 )
@@ -481,31 +489,31 @@ class CertificateManager:
     def insert(
         self,
         certificate: str,
-        party_id: str,
-        component: str,
+        component_id: str,
+        component_type: str,
         upsert: bool = False,
     ) -> Union[int, list[int]]:
         """Inserts new certificate
 
         Args:
             certificate: Public-key for the FL parties
-            party_id: ID of the party
-            component: Node or researcher,
+            component_id: ID of the component
+            component_type: Node or researcher,
             upsert: Update document with new data if it is existing
 
         Returns:
             Document ID of inserted certificate
 
         Raises:
-            FedbiomedCertificateError: party is already registered
+            FedbiomedCertificateError: component is already registered
         """
-        certificate_ = self.get(party_id=party_id)
+        certificate_ = self.get(component_id=component_id)
         if not certificate_:
             return self._table.insert(
                 {
                     "certificate": certificate,
-                    "party_id": party_id,
-                    "component": component,
+                    "component_id": component_id,
+                    "component_type": component_type,
                 }
             )
 
@@ -513,54 +521,55 @@ class CertificateManager:
             return self._table.upsert(
                 {
                     "certificate": certificate,
-                    "component": component,
-                    "party_id": party_id,
+                    "component_type": component_type,
+                    "component_id": component_id,
                 },
-                self._query.party_id == party_id,
+                self._query.component_id == component_id,
             )
         raise FedbiomedCertificateError(
-            f"{ErrorNumbers.FB619.value}: Party {party_id} already registered. "
+            f"{ErrorNumbers.FB619.value}: Component {component_id} already registered. "
             "Please use `upsert=True` or '--upsert' option through CLI"
         )
 
-    def get(self, party_id: str) -> Union[dict, None]:
-        """Gets certificate/public key  of given party
+    def get(self, component_id: str) -> Union[dict, None]:
+        """Gets certificate/public key  of given component
 
         Args:
-            party_id: ID of the party which certificate will be retrieved from DB
+            component_id: ID of the component which certificate will be retrieved
+                from DB
 
         Returns:
             Certificate, dict like TinyDB document
         """
 
-        v = self._table.get(self._query.party_id == party_id)
+        v = self._table.get(self._query.component_id == component_id)
         return v
 
-    def get_by_component(self, component: str) -> List[str]:
-        """Gets certificates of all parties of a given component type.
+    def get_by_component_type(self, component_type: str) -> List[str]:
+        """Gets certificates of all components of a given type.
 
         Args:
-            component: Component type name, e.g. `ComponentType.NODE.name`.
+            component_type: Component type name, e.g. `ComponentType.NODE.name`.
 
         Returns:
             List of certificate contents (PEM strings).
         """
         return [
             doc["certificate"]
-            for doc in self._table.search(self._query.component == component)
+            for doc in self._table.search(self._query.component_type == component_type)
         ]
 
-    def delete(self, party_id) -> List[int]:
-        """Deletes given party from table
+    def delete(self, component_id) -> List[int]:
+        """Deletes given component from table
 
         Args:
-            party_id: Party id
+            component_id: Component id
 
         Returns:
             The document IDs of deleted certificates
         """
 
-        return self._table.remove(self._query.party_id == party_id)
+        return self._table.remove(self._query.component_id == component_id)
 
     def list(self, verbose: bool = False) -> List[Document]:
         """Lists registered certificates.
@@ -584,66 +593,70 @@ class CertificateManager:
         return certificates
 
     def expiring_certificates(
-        self, within_days: int, component: Optional[str] = None
+        self, within_days: int, component_type: Optional[str] = None
     ) -> List[Tuple[str, datetime]]:
-        """`(party_id, expiry)` for certs expiring within `within_days` (or expired),
-        optionally restricted to a `component` type."""
+        """`(component_id, expiry)` for certs expiring within `within_days` (or
+        expired), optionally restricted to a `component_type`."""
         threshold = datetime.now(timezone.utc) + timedelta(days=within_days)
         expiring = []
         for doc in self._table.all():
-            if component is not None and doc.get("component") != component:
+            if (
+                component_type is not None
+                and doc.get("component_type") != component_type
+            ):
                 continue
             expiry = certificate_expiry(doc["certificate"])
             if expiry is not None and expiry <= threshold:
-                expiring.append((doc["party_id"], expiry))
+                expiring.append((doc["component_id"], expiry))
         return sorted(expiring, key=lambda item: item[1])
 
     def register_certificate(
         self,
         certificate_path: str,
-        party_id: Optional[str] = None,
+        component_id: Optional[str] = None,
         upsert: bool = False,
-        registering_component: Optional[str] = None,
+        registering_component_type: Optional[str] = None,
     ) -> str:
         """Registers certificate
 
-        The party id may be recovered from the certificate's `CN=` (CommonName)
-        field. A certificate identity counts only when it is itself a valid party
-        id (`<NODE|RESEARCHER>_<uuid>`):
+        The component id may be recovered from the certificate's `CN=` (CommonName)
+        field. A certificate identity counts only when it is itself a valid
+        component id (`<NODE|RESEARCHER>_<uuid>`):
 
-        - certificate carries a valid identity, `party_id` omitted: recovered;
-        - certificate carries no valid identity: `party_id` is required and must
+        - certificate carries a valid identity, `component_id` omitted: recovered;
+        - certificate carries no valid identity: `component_id` is required and must
           follow the pattern;
         - both present: they must be the same.
 
         Args:
             certificate_path: Path where certificate/key file stored
-            party_id: ID of the FL party. Optional when the certificate embeds a
-                valid identity in `O=`; required otherwise.
-            upsert: If `True` overwrites existing certificate for specified party.  If `False`
-                and the certificate for the specified party already existing it raises error.
-            registering_component: Component type performing the registration
+            component_id: ID of the component. Optional when the certificate embeds a
+                valid identity in `CN=`; required otherwise.
+            upsert: If `True` overwrites existing certificate for specified component.
+                If `False` and the certificate for the specified component already
+                existing it raises error.
+            registering_component_type: Component type performing the registration
                 (`ComponentType.NODE.name` or `ComponentType.RESEARCHER.name`).
                 When given, certificates identified as that component's own kind
-                are rejected: parties register each other's certificates, never
+                are rejected: components register each other's certificates, never
                 their own type. A node additionally keeps a single registered
                 certificate — its researcher's. None skips these checks.
 
         Returns:
-            The party id the certificate was registered under, which the caller
+            The component id the certificate was registered under, which the caller
             may not have supplied: it is recovered from the certificate when
-            `party_id` is omitted.
+            `component_id` is omitted.
 
         Raises:
             FedbiomedCertificateError: If the certificate file does not exist; if
-                `party_id` is neither given nor recoverable from the certificate;
-                if a given `party_id` conflicts with the certificate identity; if
-                a given `party_id` does not follow `<NODE|RESEARCHER>_<uuid>`; if
-                the certificate is already registered under another party id; or,
-                when `registering_component` is given, if the certificate is
-                identified — by the party id it is registered under or by a
+                `component_id` is neither given nor recoverable from the certificate;
+                if a given `component_id` conflicts with the certificate identity; if
+                a given `component_id` does not follow `<NODE|RESEARCHER>_<uuid>`; if
+                the certificate is already registered under another component id; or,
+                when `registering_component_type` is given, if the certificate is
+                identified — by the component id it is registered under or by a
                 single-role EKU — as one of the registering component's own kind,
-                or if a node already holds a certificate for another party.
+                or if a node already holds a certificate for another component.
         """
 
         if not os.path.isfile(certificate_path):
@@ -657,67 +670,70 @@ class CertificateManager:
         certificate_id = certificate_subject_field(
             certificate_content.encode("utf-8"), NameOID.COMMON_NAME
         )
-        # A certificate identity is usable only if it is itself a valid party id.
-        certificate_component = (
-            _party_id_component(certificate_id) if certificate_id is not None else None
+        # A certificate identity is usable only if it is itself a valid component id.
+        certificate_component_type = (
+            _component_type(certificate_id) if certificate_id is not None else None
         )
 
-        # A provided party id must always follow the expected pattern, whether it
+        # A provided component id must always follow the expected pattern, whether it
         # is later used as-is or reconciled against the certificate identity.
-        given_component = (
-            _party_id_component(party_id) if party_id is not None else None
+        given_component_type = (
+            _component_type(component_id) if component_id is not None else None
         )
-        if party_id is not None and given_component is None:
+        if component_id is not None and given_component_type is None:
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Party id `{party_id}` is invalid; it "
-                "must follow `<NODE|RESEARCHER>_<uuid>`."
+                f"{ErrorNumbers.FB619.value}: Component id `{component_id}` is "
+                "invalid; it must follow `<NODE|RESEARCHER>_<uuid>`."
             )
 
-        if certificate_component is not None:
-            if party_id is not None and party_id != certificate_id:
+        if certificate_component_type is not None:
+            if component_id is not None and component_id != certificate_id:
                 raise FedbiomedCertificateError(
-                    f"{ErrorNumbers.FB619.value}: Given party id `{party_id}` does not "
-                    f"match the certificate identity `{certificate_id}`."
+                    f"{ErrorNumbers.FB619.value}: Given component id `{component_id}` "
+                    f"does not match the certificate identity `{certificate_id}`."
                 )
-            party_id, component = certificate_id, certificate_component
-        elif given_component is not None:
-            # Third-party certificate: an arbitrary `O=`, registered under the
-            # given `party_id`.
-            component = given_component
+            component_id, component_type = certificate_id, certificate_component_type
+        elif given_component_type is not None:
+            # Third-party certificate: an arbitrary `CN=`, registered under the
+            # given `component_id`.
+            component_type = given_component_type
         else:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: The certificate does not embed a valid "
-                "party identity, so `party_id` must be provided to register it."
+                "Fed-BioMed identity, so `component_id` must be provided to "
+                "register it."
             )
 
         # Rejections below mean the certificate does not belong in this trust store,
         # so they are audited; successful ones are audited by `DBTable` on insert.
         try:
-            if registering_component is not None:
+            if registering_component_type is not None:
                 validate_registering_component(
-                    certificate_content, component, registering_component
+                    certificate_content, component_type, registering_component_type
                 )
 
             # A node communicates with a single researcher, so its database holds at most one certificate
-            if registering_component == ComponentType.NODE.name:
+            if registering_component_type == ComponentType.NODE.name:
                 others = [
-                    d["party_id"] for d in self.list() if d["party_id"] != party_id
+                    d["component_id"]
+                    for d in self.list()
+                    if d["component_id"] != component_id
                 ]
                 if others:
                     registered = ", ".join(f"`{o}`" for o in others)
                     raise FedbiomedCertificateError(
                         f"{ErrorNumbers.FB619.value}: A node registers at most one "
-                        f"certificate. Cannot register `{party_id}` while other "
+                        f"certificate. Cannot register `{component_id}` while other "
                         f"certificates are registered: {registered}. Delete them first."
                     )
 
             # A researcher registers one certificate per node, so the same one
-            # under two party ids would identify neither.
+            # under two component ids would identify neither.
             fingerprint = certificate_fingerprint(certificate_content)
             duplicates = [
-                d["party_id"]
+                d["component_id"]
                 for d in self.list()
-                if d["party_id"] != party_id
+                if d["component_id"] != component_id
                 and certificate_fingerprint(d["certificate"]) == fingerprint
             ]
             if fingerprint is not None and duplicates:
@@ -725,16 +741,16 @@ class CertificateManager:
                 raise FedbiomedCertificateError(
                     f"{ErrorNumbers.FB619.value}: This certificate is already "
                     f"registered under {registered}, and a certificate identifies a "
-                    f"single party. Delete that registration, or register a "
-                    f"certificate of its own for `{party_id}`."
+                    f"single component. Delete that registration, or register a "
+                    f"certificate of its own for `{component_id}`."
                 )
         except FedbiomedCertificateError as exp:
             logger.security_event(
                 operation="certificate_registration_rejected",
                 status="failure",
-                party_id=party_id,
-                component=component,
-                registering_component=registering_component,
+                component_id=component_id,
+                component_type=component_type,
+                registering_component_type=registering_component_type,
                 certificate_path=certificate_path,
                 error_type=type(exp).__name__,
                 error_message=str(exp),
@@ -743,12 +759,12 @@ class CertificateManager:
 
         self.insert(
             certificate=certificate_content,
-            party_id=party_id,
-            component=component,
+            component_id=component_id,
+            component_type=component_type,
             upsert=upsert,
         )
 
-        return party_id
+        return component_id
 
     @staticmethod
     def _write_certificate_file(path: str, certificate: str) -> None:
@@ -789,7 +805,7 @@ class CertificateManager:
                 will be saved. Path should be absolute.
             certificate_name: Name of the certificate file.
             component_id: ID of the component
-            subject: Subject fields, `CommonName` being the party id peers register
+            subject: Subject fields, `CommonName` being the component id peers register
                 the certificate under. The subject states who a component is, never
                 where it is reached.
             san: Hosts and IP addresses the component is reached at, which peers
@@ -829,7 +845,7 @@ class CertificateManager:
         if names:
             names = list(dict.fromkeys([*names, "localhost", "127.0.0.1"]))
 
-        # The subject holds the party id alone: who the component is, not where.
+        # The subject holds the component id alone: who the component is, not where.
         name = x509.Name(
             [
                 x509.NameAttribute(

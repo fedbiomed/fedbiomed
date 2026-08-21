@@ -240,7 +240,7 @@ class Node:
             db_path=self.config.getpath("default", "db")
         )
         try:
-            researcher_certificates = certificate_manager.get_by_component(
+            researcher_certificates = certificate_manager.get_by_component_type(
                 ComponentType.RESEARCHER.name
             )
         finally:

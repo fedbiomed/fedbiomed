@@ -285,7 +285,7 @@ class CommonCLI:
 
         register_parser = certificate_sub_parsers.add_parser(
             "register",
-            help="Register certificate of specified party. Please run 'fedbiomed' "
+            help="Register certificate of specified component. Please run 'fedbiomed' "
             "[COMPONENT SPECIFICATION] certificate register --help'",
         )  # command register
 
@@ -332,21 +332,20 @@ class CommonCLI:
         )
 
         register_parser.add_argument(
-            "-pi",
-            "--party-id",
+            "-ci",
+            "--component-id",
             metavar="PUBLIC_ID",
             type=str,
             nargs="?",
             required=False,
-            help="ID of the party to which the certificate is to be registered "
-            "(component ID). Optional when the certificate embeds its identity; "
-            "required otherwise.",
+            help="ID of the component to which the certificate is to be registered. "
+            "Optional when the certificate embeds its identity; required otherwise.",
         )
 
         register_parser.add_argument(
             "--upsert",
             action="store_true",
-            help="Updates if certificate of given party id is already existing.",
+            help="Updates if certificate of given component id is already existing.",
         )
 
         generate.add_argument(
@@ -378,9 +377,9 @@ class CommonCLI:
     def _create_magic_dev_environment(self, dummy: None):
         """Registers, in every local component, the certificates it must trust.
 
-        Performs locally what parties otherwise exchange by hand: a researcher
+        Performs locally what components otherwise exchange by hand: a researcher
         registers the node certificates, a node registers the researcher's.
-        Certificates of a component's own type are skipped — a party never
+        Certificates of a component's own type are skipped — a component never
         registers its own kind, and `certificate list` reports such entries as
         an inconsistency.
         """
@@ -388,15 +387,15 @@ class CommonCLI:
         db_names = get_existing_component_db_names()
         certificates = get_all_existing_certificates()
 
-        components = {c["party_id"]: c["component"] for c in certificates}
+        component_types = {c["component_id"]: c["component_type"] for c in certificates}
         researchers = [
-            party
-            for party, type_ in components.items()
+            component_id
+            for component_id, type_ in component_types.items()
             if type_ == ComponentType.RESEARCHER.name
         ]
         nodes = [
-            party
-            for party, type_ in components.items()
+            component_id
+            for component_id, type_ in component_types.items()
             if type_ == ComponentType.NODE.name
         ]
 
@@ -419,31 +418,35 @@ class CommonCLI:
 
             for certificate in certificates:
                 # A component does not register its own kind: expected, not an error
-                if certificate["component"] == components[id_]:
+                if certificate["component_type"] == component_types[id_]:
                     continue
 
                 # Anything the shared rule still rejects is a real anomaly — a
-                # certificate whose TLS role contradicts the component it is
+                # certificate whose TLS role contradicts the component type it is
                 # declared as — so report it rather than skip it quietly.
                 try:
                     validate_registering_component(
                         certificate["certificate"],
-                        certificate["component"],
-                        components[id_],
+                        certificate["component_type"],
+                        component_types[id_],
                     )
                 except FedbiomedCertificateError as e:
                     CommonCLI.error(
-                        f"Can not register certificate for {certificate['party_id']}: {e}"
+                        "Can not register certificate for "
+                        f"{certificate['component_id']}: {e}"
                     )
 
                 try:
                     self._certificate_manager.insert(**certificate, upsert=True)
                 except FedbiomedError as e:
                     CommonCLI.error(
-                        f"Can not register certificate for {certificate['party_id']}: {e}"
+                        "Can not register certificate for "
+                        f"{certificate['component_id']}: {e}"
                     )
 
-                print(f"Certificate of {certificate['party_id']} has been registered.")
+                print(
+                    f"Certificate of {certificate['component_id']} has been registered."
+                )
 
     def _generate_certificate(self, args: argparse.Namespace):
         """Generates the certificate and private key of the current component.
@@ -520,11 +523,11 @@ class CommonCLI:
         self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
 
         try:
-            party_id = self._certificate_manager.register_certificate(
+            component_id = self._certificate_manager.register_certificate(
                 certificate_path=args.public_key,
-                party_id=args.party_id,
+                component_id=args.component_id,
                 upsert=args.upsert,
-                registering_component=self.config.COMPONENT_TYPE,
+                registering_component_type=self.config.COMPONENT_TYPE,
             )
         except FedbiomedError as exp:
             print(exp)
@@ -532,8 +535,8 @@ class CommonCLI:
         else:
             print(f"{GRN}Success!{NC}")
             print(
-                f"{BOLD}Certificate has been successfully registered for party: "
-                f"{party_id}.{NC}"
+                f"{BOLD}Certificate has been successfully registered for component: "
+                f"{component_id}.{NC}"
             )
 
     def _list_certificates(self, args: argparse.Namespace):
@@ -545,12 +548,17 @@ class CommonCLI:
 
         # Registration enforces these invariants; entries predating the checks
         # may still violate them, so flag such leftovers to the user.
-        component = self.config.COMPONENT_TYPE
-        own = [d["party_id"] for d in certificates if d.get("component") == component]
+        component_type = self.config.COMPONENT_TYPE
+        own = [
+            d["component_id"]
+            for d in certificates
+            if d.get("component_type") == component_type
+        ]
         if own:
             msg = (
                 f"Inconsistency: certificate(s) of this component's own type "
-                f"({component}) are registered: {', '.join(own)}. Parties register "
+                f"({component_type}) are registered: {', '.join(own)}. Components "
+                "register "
                 "each other's certificates, never their own type."
             )
             logger.warning(msg)
@@ -558,11 +566,11 @@ class CommonCLI:
                 operation="certificate_registry_inconsistent",
                 status="warning",
                 reason="own_component_type_registered",
-                party_ids=own,
-                component=component,
+                component_ids=own,
+                component_type=component_type,
                 detail=msg,
             )
-        if component == ComponentType.NODE.name and len(certificates) > 1:
+        if component_type == ComponentType.NODE.name and len(certificates) > 1:
             msg = (
                 "Inconsistency: a node registers at most one certificate — its "
                 f"researcher's — but {len(certificates)} are registered. Delete "
@@ -573,15 +581,15 @@ class CommonCLI:
                 operation="certificate_registry_inconsistent",
                 status="warning",
                 reason="multiple_certificates_on_node",
-                party_ids=[d["party_id"] for d in certificates],
-                component=component,
+                component_ids=[d["component_id"] for d in certificates],
+                component_type=component_type,
                 detail=msg,
             )
 
     def _delete_certificate(self, args: argparse.Namespace):
         self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
         certificates = self._certificate_manager.list(verbose=False)
-        options = [d["party_id"] for d in certificates]
+        options = [d["component_id"] for d in certificates]
         msg = "Select the certificate to delete:\n"
         msg += "\n".join([f"{i}) {d}" for i, d in enumerate(options, 1)])
         msg += "\nSelect: "
@@ -591,17 +599,17 @@ class CommonCLI:
                 opt_idx = int(input(msg)) - 1
                 assert opt_idx in range(len(certificates))
 
-                party_id = certificates[opt_idx]["party_id"]
-                self._certificate_manager.delete(party_id=party_id)
+                component_id = certificates[opt_idx]["component_id"]
+                self._certificate_manager.delete(component_id=component_id)
                 CommonCLI.success(
-                    f"Certificate for '{party_id}' has been successfully removed"
+                    f"Certificate for '{component_id}' has been successfully removed"
                 )
                 return
             except (ValueError, IndexError, AssertionError):
                 CommonCLI.error("Invalid option. Please, try again.")
 
     def _prepare_certificate_for_registration(self, args: argparse.Namespace):
-        """Prints this component's certificate and how the other parties register it."""
+        """Prints this component's certificate and how other components register it."""
 
         certificate = read_file(self.config.getpath("certificate", "public_key"))
 
@@ -613,7 +621,7 @@ class CommonCLI:
             f"{BOLD}Please follow the instructions below to register this certificate:{NC}\n\n"
         )
 
-        # A party registers the certificates of the other kind, never of its own,
+        # A component registers the certificates of the other kind, never of its own,
         # so these instructions are for the opposite component to follow.
         registers_on = (
             ComponentType.RESEARCHER.name
@@ -628,8 +636,8 @@ class CommonCLI:
             "-pk [PATH WHERE CERTIFICATE IS SAVED]"
         )
         print(
-            f"\n{BOLD}The party id ({self.config.get('default', 'id')}) is read from "
-            f"the certificate, so `-pi` is not needed.{NC}"
+            f"\n{BOLD}The component id ({self.config.get('default', 'id')}) is read "
+            f"from the certificate, so `-ci` is not needed.{NC}"
         )
 
     def parse_args(self, args_=None):

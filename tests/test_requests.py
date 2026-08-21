@@ -756,8 +756,8 @@ def test_mtls_passes_trust_bundle_provider_to_server(mtls_requests_env):
     """The server receives a provider, not a static bundle."""
     mtls_requests_env.certificate_manager.insert(
         certificate="PEM-1",
-        party_id="NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44",
-        component=ComponentType.NODE.name,
+        component_id="NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44",
+        component_type=ComponentType.NODE.name,
     )
 
     with patch(

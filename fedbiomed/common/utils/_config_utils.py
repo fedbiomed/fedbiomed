@@ -91,8 +91,9 @@ def get_component_certificate_from_config(config_path: str) -> Dict[str, str]:
         config_path: Path where config file is located.
 
     Returns:
-        Certificate object that contains  component type as `component` (uppercase),
-            party id `id`, public key content (not path)  as `certificate`
+        Certificate object that contains component type as `component_type`
+            (uppercase), component id `id`, public key content (not path) as
+            `certificate`
 
     Raises:
         FedbiomedError:
@@ -123,9 +124,9 @@ def get_component_certificate_from_config(config_path: str) -> Dict[str, str]:
     certificate = read_file(certificate_path)
 
     return {
-        "party_id": component_id,
+        "component_id": component_id,
         "certificate": certificate,
-        "component": component_type,
+        "component_type": component_type,
     }
 
 
@@ -141,8 +142,8 @@ def get_all_existing_certificates() -> List[Dict[str, str]]:
     This method parse all available configs in `etc` directory.
 
     Returns:
-        List of certificate objects that contain  component type as `component`,
-            party id `id`, public key content (not path)  as `certificate`.
+        List of certificate objects that contain  component type as `component_type`,
+            component id `id`, public key content (not path)  as `certificate`.
     """
 
     config_files = get_all_existing_config_files()

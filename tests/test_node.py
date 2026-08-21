@@ -214,7 +214,7 @@ def mtls_node_env(node_env):
 def test_node_researcher_credentials_mtls(mtls_node_env):
     """Under mutual authentication the node loads its identity and pins the cert."""
     certificate_manager = mtls_node_env.certificate_manager
-    certificate_manager.return_value.get_by_component.return_value = ["RES_CERT"]
+    certificate_manager.return_value.get_by_component_type.return_value = ["RES_CERT"]
 
     credentials = mtls_node_env.node._researcher_credentials()
 
@@ -222,7 +222,7 @@ def test_node_researcher_credentials_mtls(mtls_node_env):
     assert credentials.node_identity.private_key == b"NODE_KEY"
     assert credentials.node_identity.certificate_chain == b"NODE_CERT"
     assert credentials.certificate == b"RES_CERT"
-    certificate_manager.return_value.get_by_component.assert_called_once_with(
+    certificate_manager.return_value.get_by_component_type.assert_called_once_with(
         ComponentType.RESEARCHER.name
     )
     # The node private key must not leak through the credentials repr.
@@ -232,7 +232,7 @@ def test_node_researcher_credentials_mtls(mtls_node_env):
 def test_node_researcher_credentials_mtls_missing_researcher_cert(mtls_node_env):
     """Mutual authentication on but no registered researcher certificate is a hard
     error."""
-    mtls_node_env.certificate_manager.return_value.get_by_component.return_value = []
+    mtls_node_env.certificate_manager.return_value.get_by_component_type.return_value = []
 
     with pytest.raises(FedbiomedCertificateError):
         mtls_node_env.node._researcher_credentials()
@@ -240,7 +240,7 @@ def test_node_researcher_credentials_mtls_missing_researcher_cert(mtls_node_env)
 
 def test_node_researcher_credentials_mtls_ambiguous_researcher_cert(mtls_node_env):
     """Several registered researcher certificates make the one to pin ambiguous."""
-    mtls_node_env.certificate_manager.return_value.get_by_component.return_value = [
+    mtls_node_env.certificate_manager.return_value.get_by_component_type.return_value = [
         "RES_CERT_1",
         "RES_CERT_2",
     ]

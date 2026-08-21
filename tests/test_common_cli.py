@@ -15,11 +15,11 @@ _RESEARCHER_A = "RESEARCHER_9c2b1d70-1111-2222-3333-444455556666"
 _RESEARCHER_B = "RESEARCHER_7e6d5c40-9999-8888-7777-666655554444"
 
 # Registry rows, as `get_all_existing_certificates` returns them
-_NODE_A_ROW = {"party_id": _NODE_A, "component": "NODE"}
-_NODE_B_ROW = {"party_id": _NODE_B, "component": "NODE"}
-_NODE_C_ROW = {"party_id": _NODE_C, "component": "NODE"}
-_RESEARCHER_A_ROW = {"party_id": _RESEARCHER_A, "component": "RESEARCHER"}
-_RESEARCHER_B_ROW = {"party_id": _RESEARCHER_B, "component": "RESEARCHER"}
+_NODE_A_ROW = {"component_id": _NODE_A, "component_type": "NODE"}
+_NODE_B_ROW = {"component_id": _NODE_B, "component_type": "NODE"}
+_NODE_C_ROW = {"component_id": _NODE_C, "component_type": "NODE"}
+_RESEARCHER_A_ROW = {"component_id": _RESEARCHER_A, "component_type": "RESEARCHER"}
+_RESEARCHER_B_ROW = {"component_id": _RESEARCHER_B, "component_type": "RESEARCHER"}
 
 
 @pytest.fixture
@@ -112,7 +112,7 @@ def test_common_cli_initialize_certificate_parser(cli):
     )
 
     register_options = choices["register"]._positionals._option_string_actions
-    assert "--party-id" in register_options
+    assert "--component-id" in register_options
     assert "--public-key" in register_options
 
     generate_options = choices["generate"]._positionals._option_string_actions
@@ -141,7 +141,7 @@ def test_common_cli_create_magic_dev_environment(
     component,
     expected,
 ):
-    """Each component receives only the certificates of the parties it talks to.
+    """Each component receives only the certificates of the components it talks to.
 
     A researcher gets the node certificates; a node gets the researcher's and
     nothing else — no other node, not itself, and never a second researcher.
@@ -157,7 +157,7 @@ def test_common_cli_create_magic_dev_environment(
         cli._create_magic_dev_environment(None)
 
     assert set_db.call_count == 1
-    assert [c.kwargs["party_id"] for c in mock_cm_insert.call_args_list] == expected
+    assert [c.kwargs["component_id"] for c in mock_cm_insert.call_args_list] == expected
     assert all(c.kwargs["upsert"] is True for c in mock_cm_insert.call_args_list)
     mock_cm_error.assert_not_called()
 
@@ -194,10 +194,10 @@ def test_create_magic_dev_environment_requires_a_whole_federation(
     whose node databases would then be set up empty.
     """
     mock_get_components_db_names.return_value = {
-        c["party_id"]: "db" for c in certificates
+        c["component_id"]: "db" for c in certificates
     }
     mock_get_all_certificates.return_value = [
-        {**c, "certificate": f"cert-{c['party_id']}"} for c in certificates
+        {**c, "certificate": f"cert-{c['component_id']}"} for c in certificates
     ]
 
     with patch("builtins.print") as mock_print:
@@ -398,7 +398,7 @@ def test_common_cli_register_certificate(
 ):
     cli.initialize_certificate_parser()
     cli.config.COMPONENT_TYPE = "NODE"
-    # The party id normally comes from the certificate, not from the command line
+    # The component id normally comes from the certificate, not from the command line
     mock_register_certificate.return_value = _RESEARCHER_A
     args = cli.parser.parse_args(
         ["certificate", "register", "--public-key", "path/to/key", "--upsert"]
@@ -412,11 +412,11 @@ def test_common_cli_register_certificate(
     # component's own kind are rejected.
     mock_register_certificate.assert_called_once_with(
         certificate_path="path/to/key",
-        party_id=None,
+        component_id=None,
         upsert=True,
-        registering_component="NODE",
+        registering_component_type="NODE",
     )
-    # The party actually registered is named, whether or not it was supplied
+    # The component actually registered is named, whether or not it was supplied
     printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert _RESEARCHER_A in printed
 
@@ -464,7 +464,7 @@ def test_list_certificates_audits_inconsistencies(
     assert event["operation"] == "certificate_registry_inconsistent"
     assert event["status"] == "warning"
     assert event["reason"] == reason
-    assert event["party_ids"] == [c["party_id"] for c in certificates]
+    assert event["component_ids"] == [c["component_id"] for c in certificates]
 
 
 @patch("fedbiomed.common.cli.CertificateManager.list")
@@ -487,10 +487,10 @@ def test_common_cli_delete_certificate(
     cli.initialize_certificate_parser()
     args = cli.parser.parse_args(["certificate", "delete"])
 
-    mock_list.return_value = [{"party_id": _NODE_A}, {"party_id": _NODE_B}]
+    mock_list.return_value = [{"component_id": _NODE_A}, {"component_id": _NODE_B}]
     mock_input.return_value = 1
     cli._delete_certificate(args)
-    mock_delete.assert_called_once_with(party_id=_NODE_A)
+    mock_delete.assert_called_once_with(component_id=_NODE_A)
     mock_success.assert_called_once()
 
     mock_input.side_effect = [ValueError, 1]
@@ -510,9 +510,9 @@ def test_common_cli_delete_certificate(
 def test_common_cli_prepare_certificate_for_registration(
     mock_print, mock_open, cli, component, registers_on, not_mentioned
 ):
-    """The printed command is the one the *other* kind of party must run.
+    """The printed command is the one the *other* kind of component must run.
 
-    A party registers the certificates of the components it talks to, so telling
+    A component registers the certificates of the components it talks to, so telling
     the reader to run it on their own kind would be rejected by registration.
     """
     cli.initialize_certificate_parser()
@@ -527,8 +527,8 @@ def test_common_cli_prepare_certificate_for_registration(
     assert "test-certificate" in printed
     assert f"fedbiomed {registers_on} certificate register -pk" in printed
     assert not_mentioned not in printed
-    # `-pi` is unnecessary: the party id is embedded in the certificate
-    assert "-pi " not in printed
+    # `-ci` is unnecessary: the component id is embedded in the certificate
+    assert "-ci " not in printed
 
 
 @patch("fedbiomed.common.cli.CertificateManager.list")
