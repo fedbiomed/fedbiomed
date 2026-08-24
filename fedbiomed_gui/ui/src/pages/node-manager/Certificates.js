@@ -26,7 +26,7 @@ import {
     registerCertificate,
     resetCertificateMessages,
 } from '../../store/actions/certificatesActions'
-import {writeNodeConfigSection} from '../../store/actions/nodeConfigActions'
+import {writeNodeConfig} from '../../store/actions/nodeConfigActions'
 
 const emptyValue = '-'
 
@@ -213,11 +213,14 @@ const Certificates = (props) => {
 
     const toggleMtls = async (enabled) => {
         props.resetCertificateMessages()
-        await props.writeNodeConfigSection(
-            'authentication',
-            {mutual_authentication: enabled},
-            {mutual_authentication: certificateStatus?.mtls_enabled},
-        )
+        await props.writeNodeConfig({
+            authentication: {
+                values: {mutual_authentication: enabled},
+                base_values: {
+                    mutual_authentication: certificateStatus?.mtls_enabled,
+                },
+            },
+        })
         fetchCertificateStatus()
     }
 
@@ -573,9 +576,7 @@ const mapDispatchToProps = (dispatch) => ({
     ),
     downloadOwnCertificate: () => dispatch(downloadOwnCertificate()),
     resetCertificateMessages: () => dispatch(resetCertificateMessages()),
-    writeNodeConfigSection: (section, values, baseValues) => dispatch(
-        writeNodeConfigSection(section, values, baseValues)
-    ),
+    writeNodeConfig: (sections) => dispatch(writeNodeConfig(sections)),
 })
 
 export default connect(mapStateToProps, mapDispatchToProps)(Certificates)

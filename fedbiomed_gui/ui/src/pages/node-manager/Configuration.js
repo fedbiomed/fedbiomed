@@ -2,6 +2,7 @@ import React from 'react'
 import {connect} from 'react-redux'
 import {
     EuiButton,
+    EuiButtonEmpty,
     EuiCallOut,
     EuiFieldNumber,
     EuiFieldText,
@@ -21,7 +22,7 @@ import {
 import {
     fetchNodeConfig,
     resetNodeConfigMessages,
-    writeNodeConfigSection,
+    writeNodeConfig,
 } from '../../store/actions/nodeConfigActions'
 import {
     executeNodeAction,
@@ -78,14 +79,6 @@ const sectionIconFor = (section) => {
     }
 }
 
-const sectionMarkFor = (section) => (
-    String(section || '?').charAt(0).toUpperCase()
-)
-
-const getSectionFields = (sections, section) => (
-    sections?.[section]?.fields || {}
-)
-
 const normalizeFieldValue = (value, field) => {
     // Keep form values comparable with backend-normalized config values.
     if (!field) {
@@ -114,47 +107,77 @@ const normalizeFieldValue = (value, field) => {
     return value ?? field.default ?? ''
 }
 
-const normalizeSectionValues = (values = {}, fields = {}) => {
-    return Object.keys(fields).reduce((normalized, key) => ({
-        ...normalized,
-        [key]: normalizeFieldValue(values[key], fields[key]),
-    }), {})
-}
-
-const getSectionValues = (fields = {}) => {
-    // Extract the last values loaded from config.ini for one section.
-    return Object.keys(fields).reduce((values, key) => ({
-        ...values,
-        [key]: normalizeFieldValue(fields[key].value, fields[key]),
-    }), {})
-}
-
-const getEditableSectionValues = (current, fields) => {
-    const normalizedCurrent = normalizeSectionValues(current, fields)
-
-    // Send every editable value in the section. The backend compares all of
-    // them against the file before writing the complete section update.
-    return Object.keys(fields).reduce((values, key) => {
-        if (!fields[key].editable) {
-            return values
-        }
+const getSavedValues = (sections = {}) => {
+    // Values last loaded from config.ini, for every section at once. They are
+    // the baseline both for change detection and for backend conflict checks.
+    return Object.keys(sections).reduce((values, section) => {
+        const fields = sections[section]?.fields || {}
 
         return {
             ...values,
-            [key]: normalizedCurrent[key],
+            [section]: Object.keys(fields).reduce((sectionValues, key) => ({
+                ...sectionValues,
+                [key]: normalizeFieldValue(fields[key].value, fields[key]),
+            }), {}),
         }
     }, {})
 }
 
-const areSectionValuesEqual = (first, second, fields) => {
-    const normalizedFirst = normalizeSectionValues(first, fields)
-    const normalizedSecond = normalizeSectionValues(second, fields)
+const collectChanges = (sections = {}, draftValues = {}, savedValues = {}) => {
+    // One flat list of every editable field whose form value differs from
+    // config.ini. It drives the change count, the inline markers, the review
+    // dialog, and the request payload.
+    return Object.keys(sections).flatMap((section) => {
+        const fields = sections[section]?.fields || {}
 
-    return Object.keys(fields).every((key) => (
-        !fields[key].editable
-        ||
-        normalizedFirst[key] === normalizedSecond[key]
-    ))
+        return Object.keys(fields)
+            .filter((key) => {
+                if (!fields[key].editable) {
+                    return false
+                }
+
+                const draft = draftValues[section]?.[key]
+                return normalizeFieldValue(draft, fields[key])
+                    !== savedValues[section]?.[key]
+            })
+            .map((key) => ({
+                section,
+                sectionLabel: sections[section]?.label || labelFor(section),
+                key,
+                label: fields[key].label || labelFor(key),
+                current: savedValues[section]?.[key],
+                next: normalizeFieldValue(draftValues[section]?.[key], fields[key]),
+            }))
+    })
+}
+
+const buildSectionsPayload = (changes) => {
+    // Only changed fields are written. Their loaded values travel along as
+    // base values so the backend can reject a write over an external edit.
+    return changes.reduce((payload, change) => {
+        const section = payload[change.section] || {values: {}, base_values: {}}
+
+        return {
+            ...payload,
+            [change.section]: {
+                values: {...section.values, [change.key]: change.next},
+                base_values: {
+                    ...section.base_values,
+                    [change.key]: change.current,
+                },
+            },
+        }
+    }, {})
+}
+
+const formatValue = (value) => {
+    if (typeof value === 'boolean') {
+        return value ? 'True' : 'False'
+    }
+
+    return value === '' || value === null || value === undefined
+        ? '(empty)'
+        : String(value)
 }
 
 const Configuration = ({
@@ -171,38 +194,35 @@ const Configuration = ({
     configStartupCheckMessage,
     processState,
     fetchNodeConfig,
-    writeNodeConfigSection,
+    writeNodeConfig,
     resetNodeConfigMessages,
     executeNodeAction,
     fetchNodeProcessState,
     fetchProcessStateOnMount = true,
     embedded = false,
 }) => {
-    const [activeSection, setActiveSection] = React.useState(null)
-    // Draft values are the current form values. They may differ from config.ini
-    // until the user saves or resets the section.
+    // Draft values hold the whole form, section by section. They may differ
+    // from config.ini until the user saves or resets.
     const [draftValues, setDraftValues] = React.useState({})
+    const [reviewOpen, setReviewOpen] = React.useState(false)
     // Remember whether a conflict interrupted a Save & Restart action, so an
     // explicit overwrite can continue with restart after the forced write.
     const [restartAfterConflictWrite, setRestartAfterConflictWrite] = (
         React.useState(false)
     )
     const [restartLoading, setRestartLoading] = React.useState(false)
+
     const sectionNames = React.useMemo(
         () => Object.keys(sections || {}),
         [sections]
     )
-    const resolvedSection = activeSection || sectionNames[0]
-    const sectionInfo = sections?.[resolvedSection] || {}
-    const fields = React.useMemo(
-        () => getSectionFields(sections, resolvedSection),
-        [sections, resolvedSection]
-    )
-    // Saved values are the last values loaded from config.ini. They are used as
-    // the base for dirty-state detection and backend conflict detection.
     const savedValues = React.useMemo(
-        () => getSectionValues(fields),
-        [fields]
+        () => getSavedValues(sections),
+        [sections]
+    )
+    const changes = React.useMemo(
+        () => collectChanges(sections, draftValues, savedValues),
+        [sections, draftValues, savedValues]
     )
 
     React.useEffect(() => {
@@ -213,62 +233,45 @@ const Configuration = ({
     }, [fetchNodeConfig, fetchNodeProcessState, fetchProcessStateOnMount])
 
     React.useEffect(() => {
-        if (!activeSection && sectionNames.length) {
-            setActiveSection(sectionNames[0])
-        }
-    }, [activeSection, sectionNames])
+        setDraftValues(savedValues)
+    }, [savedValues])
 
-    React.useEffect(() => {
-        if (!resolvedSection) {
-            return
-        }
+    const updateValue = (section, key, value) => {
+        const field = sections?.[section]?.fields?.[key]
 
-        setDraftValues(normalizeSectionValues(savedValues, fields))
-    }, [fields, resolvedSection, savedValues])
-
-    const updateValue = (key, value) => {
         setDraftValues((current) => ({
             ...current,
-            [key]: normalizeFieldValue(value, fields[key]),
+            [section]: {
+                ...current[section],
+                [key]: normalizeFieldValue(value, field),
+            },
         }))
         resetNodeConfigMessages()
     }
 
-    const saveCurrentSection = async ({restart = false, force = false} = {}) => {
-        if (!resolvedSection) {
+    const saveChanges = async ({restart = false, force = false} = {}) => {
+        if (!changes.length) {
             return
         }
 
-        const normalized = normalizeSectionValues(draftValues, fields)
-
-        // Always send all editable values in the section. For overwrite, only
-        // the force flag changes so the backend bypasses conflict checks.
-        const values = getEditableSectionValues(normalized, fields)
-
-        // Base values are what the user last loaded. The backend compares them
-        // against the file before writing to detect external modifications.
-        const baseValues = Object.keys(values).reduce((base, key) => ({
-            ...base,
-            [key]: savedValues[key],
-        }), {})
-
-        const result = await writeNodeConfigSection(
-            resolvedSection,
-            values,
-            baseValues,
+        const result = await writeNodeConfig(
+            buildSectionsPayload(changes),
             {force}
         )
         if (!result) {
+            setReviewOpen(false)
             return
         }
 
         if (result.conflict) {
             // Stop here. The conflict modal lets the user refresh, cancel, or
             // retry with force before any restart is attempted.
+            setReviewOpen(false)
             setRestartAfterConflictWrite(restart)
             return
         }
 
+        setReviewOpen(false)
         setRestartAfterConflictWrite(false)
         if (restart) {
             await restartNode()
@@ -288,7 +291,7 @@ const Configuration = ({
     }
 
     const resetChanges = () => {
-        setDraftValues(normalizeSectionValues(savedValues, fields))
+        setDraftValues(savedValues)
         resetNodeConfigMessages()
     }
 
@@ -305,10 +308,7 @@ const Configuration = ({
     const overwriteAfterConflict = async () => {
         // Retry the same draft write with force=true. If the interrupted action
         // was Save & Restart, restart continues after this write succeeds.
-        await saveCurrentSection({
-            restart: restartAfterConflictWrite,
-            force: true,
-        })
+        await saveChanges({restart: restartAfterConflictWrite, force: true})
     }
 
     const cancelConflict = () => {
@@ -320,31 +320,193 @@ const Configuration = ({
         processState?.state || configNodeState || ''
     ).toLowerCase()
     const isRunning = displayNodeState === 'running'
-    // Dirty means at least one editable form value differs from the last values
-    // loaded from config.ini. It enables 'Save' and 'Save & Restart' buttons in the frontend.
-    const dirty = resolvedSection
-        && !areSectionValuesEqual(draftValues, savedValues, fields)
+    const dirty = changes.length > 0
     const actionInProgress = writing || restartLoading
-    const sectionOptions = sectionNames.map((section) => ({
-        value: section,
-        text: sections?.[section]?.label || labelFor(section),
-    }))
-    const scalarFieldKeys = Object.keys(fields).filter((key) => (
-        fields[key].type !== 'boolean'
-    ))
-    const booleanFieldKeys = Object.keys(fields).filter((key) => (
-        fields[key].type === 'boolean'
-    ))
-    const activeSectionHasEditableFields = Object.keys(fields).some((key) => (
-        fields[key].editable
-    ))
-    const conflictItems = Object.keys(writeConflict?.conflicts || {}).map(
-        // Flatten backend conflict details to display in the modal.
-        (key) => ({
-            key,
-            ...writeConflict.conflicts[key],
-        })
+    const changedKeys = new Set(
+        changes.map((change) => `${change.section}.${change.key}`)
     )
+    const conflictItems = Object.keys(writeConflict?.sections || {}).flatMap(
+        // Flatten backend conflict details to display in the modal.
+        (section) => {
+            const conflicts = writeConflict.sections[section]?.conflicts || {}
+
+            return Object.keys(conflicts).map((key) => ({
+                section,
+                key,
+                ...conflicts[key],
+            }))
+        }
+    )
+
+    const renderScalarField = (section, key, field) => {
+        const changed = changedKeys.has(`${section}.${key}`)
+        const disabled = !field.editable
+        const value = draftValues[section]?.[key] ?? ''
+        const onChange = (event) => updateValue(section, key, event.target.value)
+        let fieldControl = (
+            <EuiFieldText
+                className="node-config-input"
+                disabled={disabled}
+                value={value}
+                onChange={onChange}
+            />
+        )
+
+        if (field.type === 'integer') {
+            fieldControl = (
+                <EuiFieldNumber
+                    className="node-config-input"
+                    disabled={disabled}
+                    min={field.min ?? 0}
+                    value={value}
+                    onChange={onChange}
+                />
+            )
+        }
+
+        if (field.type === 'enum') {
+            fieldControl = (
+                <EuiSelect
+                    className="node-config-input"
+                    disabled={disabled}
+                    value={value}
+                    options={(field.options || []).map((option) => ({
+                        value: option,
+                        text: option,
+                    }))}
+                    onChange={onChange}
+                />
+            )
+        }
+
+        return (
+            <EuiFormRow
+                className={`node-config-form-row ${changed ? 'changed' : ''}`}
+                key={key}
+                label={field.label || labelFor(key)}
+                labelAppend={changed ? (
+                    <span className="node-config-change-hint">
+                        was {formatValue(savedValues[section]?.[key])}
+                    </span>
+                ) : undefined}
+            >
+                {fieldControl}
+            </EuiFormRow>
+        )
+    }
+
+    const renderBooleanField = (section, key, field) => {
+        const changed = changedKeys.has(`${section}.${key}`)
+        const disabled = !field.editable
+        const checked = Boolean(draftValues[section]?.[key])
+
+        return (
+            <article
+                className={`node-config-setting ${disabled ? 'disabled' : ''} ${
+                    changed ? 'changed' : ''
+                }`}
+                key={key}
+            >
+                <div>
+                    <div className="node-config-setting-name">
+                        {field.label || labelFor(key)}
+                    </div>
+                    <div className="node-config-setting-help">
+                        {getFieldDescription(section, key, field)}
+                    </div>
+                    {changed ? (
+                        <div className="node-config-change-hint">
+                            was {formatValue(savedValues[section]?.[key])}
+                        </div>
+                    ) : null}
+                </div>
+                <div className="node-config-segmented">
+                    <button
+                        type="button"
+                        className="true"
+                        aria-pressed={checked}
+                        disabled={disabled}
+                        onClick={() => updateValue(section, key, true)}
+                    >
+                        True
+                    </button>
+                    <button
+                        type="button"
+                        className="false"
+                        aria-pressed={!checked}
+                        disabled={disabled}
+                        onClick={() => updateValue(section, key, false)}
+                    >
+                        False
+                    </button>
+                </div>
+            </article>
+        )
+    }
+
+    const renderSection = (section) => {
+        const sectionInfo = sections[section] || {}
+        const fields = sectionInfo.fields || {}
+        const fieldKeys = Object.keys(fields)
+
+        if (!fieldKeys.length) {
+            return null
+        }
+
+        const scalarFieldKeys = fieldKeys.filter(
+            (key) => fields[key].type !== 'boolean'
+        )
+        const booleanFieldKeys = fieldKeys.filter(
+            (key) => fields[key].type === 'boolean'
+        )
+        const editable = fieldKeys.some((key) => fields[key].editable)
+        const changedCount = changes.filter(
+            (change) => change.section === section
+        ).length
+
+        return (
+            <section className="node-config-section" key={section}>
+                <header className="node-config-section-header">
+                    <div className="node-management-section-heading">
+                        <span className="node-management-section-icon">
+                            <EuiIcon type={sectionIconFor(section)} size="l" />
+                        </span>
+                        <div>
+                            <h2>{sectionInfo.label || labelFor(section)}</h2>
+                            <p>
+                                {editable
+                                    ? 'Changes are written to the node configuration file.'
+                                    : 'This section is displayed for reference.'}
+                            </p>
+                        </div>
+                    </div>
+                    {changedCount ? (
+                        <span className="node-config-section-count">
+                            {changedCount} changed
+                        </span>
+                    ) : null}
+                </header>
+
+                <EuiForm className="node-config-form" component="form">
+                    {scalarFieldKeys.length ? (
+                        <div className="node-config-fields-grid">
+                            {scalarFieldKeys.map((key) => (
+                                renderScalarField(section, key, fields[key])
+                            ))}
+                        </div>
+                    ) : null}
+
+                    {booleanFieldKeys.length ? (
+                        <div className="node-config-settings-grid">
+                            {booleanFieldKeys.map((key) => (
+                                renderBooleanField(section, key, fields[key])
+                            ))}
+                        </div>
+                    ) : null}
+                </EuiForm>
+            </section>
+        )
+    }
 
     return (
         <div className={embedded ? 'node-config-page' : 'node-management-page'}>
@@ -360,6 +522,9 @@ const Configuration = ({
                         </div>
                     </div>
                     <div className="node-management-header-actions">
+                        <span className="node-config-status">
+                            {String(displayNodeState || 'unknown').toUpperCase()}
+                        </span>
                         <EuiButton
                             iconType="refresh"
                             fill
@@ -435,229 +600,123 @@ const Configuration = ({
 
             <EuiSpacer size="m" />
 
-            <div className="node-config-layout">
-                <nav
-                    className="node-config-section-nav"
-                    aria-label="Configuration sections"
-                >
-                    {sectionOptions.map((sectionOption) => {
-                        const section = sectionOption.value
-                        const isActive = section === resolvedSection
-                        const hasEditableFields = Object.values(
-                            sections?.[section]?.fields || {}
-                        ).some((field) => field.editable)
+            <div className="node-management-card node-config-panel">
+                {sectionNames.length ? (
+                    <div className="node-config-sections">
+                        {sectionNames.map(renderSection)}
+                    </div>
+                ) : (
+                    <EuiText>
+                        <p>{loading ? 'Loading configuration...' : ''}</p>
+                    </EuiText>
+                )}
+            </div>
 
-                        return (
-                            <button
-                                type="button"
-                                className={`node-config-section-nav-item ${
-                                    isActive ? 'active' : ''
-                                } ${hasEditableFields ? '' : 'read-only'}`}
-                                key={section}
-                                onClick={() => {
-                                    setActiveSection(section)
-                                    resetNodeConfigMessages()
-                                }}
-                            >
-                                <span className="node-config-section-mark">
-                                    {sectionMarkFor(section)}
-                                </span>
-                                <span>
-                                    <strong>{sectionOption.text}</strong>
-                                    <small>
-                                        {hasEditableFields
-                                            ? 'Editable'
-                                            : 'Read-only'}
-                                    </small>
-                                </span>
-                            </button>
-                        )
-                    })}
-                </nav>
+            <div className="node-config-action-bar">
+                <span className="node-config-action-bar-summary">
+                    {dirty
+                        ? `${changes.length} unsaved change${
+                            changes.length > 1 ? 's' : ''
+                        }`
+                        : 'No unsaved changes'}
+                </span>
+                <div className="node-config-action-bar-buttons">
+                    <EuiButtonEmpty
+                        iconType="inspect"
+                        onClick={() => setReviewOpen(true)}
+                        isDisabled={!dirty}
+                    >
+                        Review
+                    </EuiButtonEmpty>
+                    <EuiButton
+                        iconType="cross"
+                        onClick={resetChanges}
+                        isDisabled={!dirty || actionInProgress}
+                    >
+                        Reset
+                    </EuiButton>
+                    {isRunning && !dirty && requiresRestart ? (
+                        <EuiButton
+                            color="warning"
+                            fill
+                            iconType="refresh"
+                            onClick={restartNode}
+                            isLoading={actionInProgress}
+                            isDisabled={actionInProgress}
+                        >
+                            Restart
+                        </EuiButton>
+                    ) : null}
+                    <EuiButton
+                        fill
+                        iconType="save"
+                        onClick={() => setReviewOpen(true)}
+                        isLoading={writing}
+                        isDisabled={!dirty || actionInProgress}
+                    >
+                        Save
+                    </EuiButton>
+                </div>
+            </div>
 
-                <section className="node-management-card node-config-panel">
-                    <div className="node-config-panel-header">
-                        <div className="node-management-section-heading">
-                            <span className="node-management-section-icon">
-                                <EuiIcon
-                                    type={sectionIconFor(resolvedSection)}
-                                    size="l"
+            {reviewOpen ? (
+                <EuiModal onClose={() => setReviewOpen(false)}>
+                    <EuiModalHeader>
+                        <EuiModalHeaderTitle>
+                            Review changes ({changes.length})
+                        </EuiModalHeaderTitle>
+                    </EuiModalHeader>
+                    <EuiModalBody>
+                        <table className="node-config-review-table">
+                            <thead>
+                                <tr>
+                                    <th>Field</th>
+                                    <th>Current</th>
+                                    <th>New</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {changes.map((change) => (
+                                    <tr key={`${change.section}.${change.key}`}>
+                                        <td>
+                                            <strong>{change.label}</strong>
+                                            <small>{change.sectionLabel}</small>
+                                        </td>
+                                        <td className="node-config-review-current">
+                                            {formatValue(change.current)}
+                                        </td>
+                                        <td className="node-config-review-next">
+                                            {formatValue(change.next)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {isRunning ? (
+                            <>
+                                <EuiSpacer size="m" />
+                                <EuiCallOut
+                                    color="warning"
+                                    iconType="refresh"
+                                    size="s"
+                                    title={
+                                        'The node is running. Changes apply after '
+                                        + 'the node restarts.'
+                                    }
                                 />
-                            </span>
-                            <div>
-                                <h2>
-                                    {sectionInfo.label
-                                        || labelFor(
-                                            resolvedSection || 'configuration'
-                                        )}
-                                </h2>
-                                <p>
-                                    {activeSectionHasEditableFields
-                                        ? 'Changes are written to the node configuration file.'
-                                        : 'This section is displayed for reference.'}
-                                </p>
-                            </div>
-                        </div>
-                        <span className="node-config-status">
-                            {String(displayNodeState || 'unknown').toUpperCase()}
-                        </span>
-                    </div>
-
-                    <div className="node-config-form-area">
-                        {resolvedSection ? (
-                            <EuiForm
-                                className="node-config-form"
-                                component="form"
-                            >
-                                {scalarFieldKeys.length ? (
-                                    <div className="node-config-fields-grid">
-                                        {scalarFieldKeys.map((key) => {
-                                            const field = fields[key]
-                                            const label = field.label || labelFor(key)
-                                            const disabled = !field.editable
-                                            let fieldControl = (
-                                                <EuiFieldText
-                                                    className="node-config-input"
-                                                    disabled={disabled}
-                                                    value={draftValues[key]}
-                                                    onChange={(event) => (
-                                                        updateValue(
-                                                            key,
-                                                            event.target.value
-                                                        )
-                                                    )}
-                                                />
-                                            )
-
-                                            if (field.type === 'integer') {
-                                                fieldControl = (
-                                                    <EuiFieldNumber
-                                                        className="node-config-input"
-                                                        disabled={disabled}
-                                                        min={field.min ?? 0}
-                                                        value={draftValues[key]}
-                                                        onChange={(event) => (
-                                                            updateValue(
-                                                                key,
-                                                                event.target.value
-                                                            )
-                                                        )}
-                                                    />
-                                                )
-                                            }
-
-                                            if (field.type === 'enum') {
-                                                fieldControl = (
-                                                    <EuiSelect
-                                                        className="node-config-input"
-                                                        disabled={disabled}
-                                                        value={draftValues[key]}
-                                                        options={(
-                                                            field.options || []
-                                                        ).map((option) => ({
-                                                            value: option,
-                                                            text: option,
-                                                        }))}
-                                                        onChange={(event) => (
-                                                            updateValue(
-                                                                key,
-                                                                event.target.value
-                                                            )
-                                                        )}
-                                                    />
-                                                )
-                                            }
-
-                                            return (
-                                                <EuiFormRow
-                                                    className="node-config-form-row"
-                                                    key={key}
-                                                    label={label}
-                                                >
-                                                    {fieldControl}
-                                                </EuiFormRow>
-                                            )
-                                        })}
-                                    </div>
-                                ) : null}
-
-                                {booleanFieldKeys.length ? (
-                                    <div className="node-config-settings-grid">
-                                        {booleanFieldKeys.map((key) => {
-                                            const field = fields[key]
-                                            const label = field.label || labelFor(key)
-                                            const disabled = !field.editable
-                                            const checked = Boolean(draftValues[key])
-
-                                            return (
-                                                <article
-                                                    className={`node-config-setting ${
-                                                        disabled ? 'disabled' : ''
-                                                    }`}
-                                                    key={key}
-                                                >
-                                                    <div>
-                                                        <div className="node-config-setting-name">
-                                                            {label}
-                                                        </div>
-                                                        <div className="node-config-setting-help">
-                                                            {getFieldDescription(
-                                                                resolvedSection,
-                                                                key,
-                                                                field
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="node-config-segmented">
-                                                        <button
-                                                            type="button"
-                                                            className="true"
-                                                            aria-pressed={checked}
-                                                            disabled={disabled}
-                                                            onClick={() => (
-                                                                updateValue(
-                                                                    key,
-                                                                    true
-                                                                )
-                                                            )}
-                                                        >
-                                                            True
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="false"
-                                                            aria-pressed={!checked}
-                                                            disabled={disabled}
-                                                            onClick={() => (
-                                                                updateValue(
-                                                                    key,
-                                                                    false
-                                                                )
-                                                            )}
-                                                        >
-                                                            False
-                                                        </button>
-                                                    </div>
-                                                </article>
-                                            )
-                                        })}
-                                    </div>
-                                ) : null}
-                            </EuiForm>
-                        ) : (
-                            <EuiText>
-                                <p>{loading ? 'Loading configuration...' : ''}</p>
-                            </EuiText>
-                        )}
-                    </div>
-
-                    <div className="node-management-header-control-actions node-config-actions">
+                            </>
+                        ) : null}
+                    </EuiModalBody>
+                    <EuiModalFooter>
+                        <EuiButton onClick={() => setReviewOpen(false)}>
+                            Back
+                        </EuiButton>
                         <EuiButton
                             fill
                             iconType="save"
-                            onClick={() => saveCurrentSection()}
+                            onClick={() => saveChanges()}
                             isLoading={writing}
-                            isDisabled={!dirty || actionInProgress}
+                            isDisabled={actionInProgress}
                         >
                             Save
                         </EuiButton>
@@ -666,30 +725,16 @@ const Configuration = ({
                                 color="warning"
                                 fill
                                 iconType="refresh"
-                                onClick={() => (
-                                    dirty
-                                        ? saveCurrentSection({restart: true})
-                                        : restartNode()
-                                )}
+                                onClick={() => saveChanges({restart: true})}
                                 isLoading={actionInProgress}
-                                isDisabled={
-                                    (!dirty && !requiresRestart)
-                                    || actionInProgress
-                                }
+                                isDisabled={actionInProgress}
                             >
-                                {dirty ? 'Save & Restart' : 'Restart'}
+                                Save & Restart
                             </EuiButton>
                         ) : null}
-                        <EuiButton
-                            iconType="cross"
-                            onClick={resetChanges}
-                            isDisabled={!dirty || actionInProgress}
-                        >
-                            Reset
-                        </EuiButton>
-                    </div>
-                </section>
-            </div>
+                    </EuiModalFooter>
+                </EuiModal>
+            ) : null}
 
             {writeConflict ? (
                 <EuiModal onClose={cancelConflict}>
@@ -706,11 +751,14 @@ const Configuration = ({
                                 refresh the form, or overwrite them.
                             </p>
                             {conflictItems.map((item) => (
-                                <p key={item.key}>
-                                    <strong>{labelFor(item.key)}:</strong>{' '}
-                                    shown value "{String(item.base)}", file
-                                    value "{String(item.current)}", requested
-                                    value "{String(item.requested)}"
+                                <p key={`${item.section}.${item.key}`}>
+                                    <strong>
+                                        {labelFor(item.section)} /{' '}
+                                        {labelFor(item.key)}:
+                                    </strong>{' '}
+                                    shown value "{formatValue(item.base)}", file
+                                    value "{formatValue(item.current)}",
+                                    requested value "{formatValue(item.requested)}"
                                 </p>
                             ))}
                         </EuiText>
@@ -756,8 +804,8 @@ const mapStateToProps = (state) => ({
 
 const mapDispatchToProps = (dispatch) => ({
     fetchNodeConfig: () => dispatch(fetchNodeConfig()),
-    writeNodeConfigSection: (section, values, baseValues, options) => dispatch(
-        writeNodeConfigSection(section, values, baseValues, options)
+    writeNodeConfig: (sections, options) => dispatch(
+        writeNodeConfig(sections, options)
     ),
     resetNodeConfigMessages: () => dispatch(resetNodeConfigMessages()),
     fetchNodeProcessState: (options) => dispatch(fetchNodeProcessState(options)),
