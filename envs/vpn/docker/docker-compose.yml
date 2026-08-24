@@ -190,6 +190,7 @@ services:
         - CONTAINER_USER
         - CONTAINER_GROUP
         - PYTHON_VERSION
+        - FBM_PYTORCH_INDEX_URL
     image: fedbiomed/vpn-gui:${FBM_CONTAINER_VERSION_TAG:-unknown}
     networks:
       - fedbiomed_gui

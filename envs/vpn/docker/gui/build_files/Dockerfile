@@ -15,6 +15,9 @@ ARG CONTAINER_UID
 ARG CONTAINER_GROUP
 ARG CONTAINER_USER
 
+# Empty selects the default index; CI points it at the CPU-only PyTorch wheels.
+ARG FBM_PYTORCH_INDEX_URL=""
+
 # assign default values even when variable exists and is empty
 # (ARG default value only applies when variable is non existent)
 # + make it persistent at runtime (pass this variable to container)
@@ -84,7 +87,8 @@ WORKDIR /fedbiomed
 USER $CONTAINER_USER:$CONTAINER_GROUP
 
 # Installs fedbiomed and necessary modules
-RUN pip install --no-warn-script-location '.[gui]'
+RUN pip install --no-warn-script-location \
+	${FBM_PYTORCH_INDEX_URL:+--extra-index-url "$FBM_PYTORCH_INDEX_URL"} '.[gui]'
 
 # Changedir to main directory
 WORKDIR /
