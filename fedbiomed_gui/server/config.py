@@ -104,7 +104,7 @@ class Config(dict):
         )
 
         # Enable debug mode
-        self.configuration["DEBUG"] = os.getenv("FBM_DEBUG", "True").lower() in (
+        self.configuration["DEBUG"] = os.getenv("FBM_DEBUG", "False").lower() in (
             "true",
             1,
             True,
