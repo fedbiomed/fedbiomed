@@ -1,19 +1,20 @@
 import React from 'react'
 import {connect} from 'react-redux'
 import {
-    EuiBadge,
     EuiButton,
     EuiButtonEmpty,
     EuiCallOut,
     EuiConfirmModal,
     EuiFieldText,
     EuiFilePicker,
-    EuiFlexGroup,
-    EuiFlexItem,
     EuiFormRow,
     EuiIcon,
+    EuiModal,
+    EuiModalBody,
+    EuiModalFooter,
+    EuiModalHeader,
+    EuiModalHeaderTitle,
     EuiSpacer,
-    EuiSwitch,
     EuiText,
     EuiTextArea,
 } from '@elastic/eui'
@@ -22,41 +23,18 @@ import {
     deleteCertificate,
     downloadOwnCertificate,
     fetchCertificateStatus,
-    fetchConnectionState,
+    generateOwnCertificate,
     registerCertificate,
+    replaceOwnCertificate,
     resetCertificateMessages,
 } from '../../store/actions/certificatesActions'
-import {writeNodeConfig} from '../../store/actions/nodeConfigActions'
 
 const emptyValue = '-'
 
-// Enough to see a connection settle or flap, without the whole retention window
-const historyShown = 5
-
-// What to do about the state the node last recorded, from the troubleshooting
-// table of the mutual-TLS guide. Keyed by the event the node recorded.
-const fixHints = {
-    mtls_handshake_failure:
-        'The pinned researcher certificate does not match the one served. '
-        + 'Register the researcher\'s current certificate; if it is already '
-        + 'current, treat this as a possible man-in-the-middle.',
-    mtls_identity_rejected:
-        'The researcher rejected this node\'s identity. Its certificate has to '
-        + 'be registered there under the id this node declares.',
-    mtls_not_enforced_by_researcher:
-        'This node requires mutual TLS but the researcher verifies no node '
-        + 'identity. Enable it on the researcher and register this node\'s '
-        + 'certificate there, or disable it here.',
-    mtls_required_by_researcher:
-        'The researcher requires mutual TLS. Enable it here, register the '
-        + 'researcher certificate, and have this node\'s certificate '
-        + 'registered there.',
-    mtls_startup_refused:
-        'The node refused to start over its certificates. Resolve the reason '
-        + 'above, then start it again.',
-    researcher_unavailable:
-        'The researcher endpoint did not answer. Check that it runs and that '
-        + 'the host and port configured here are the ones it serves.',
+// The two ways of updating this node's certificate, each behind a confirmation
+const ownCertificateActions = {
+    generate: 'generate',
+    replace: 'replace',
 }
 
 const formatValue = (value) => {
@@ -77,42 +55,16 @@ const formatDateTime = (value) => {
     return Number.isNaN(date.getTime()) ? emptyValue : date.toLocaleString()
 }
 
-/** How the recorded connection reads: its wording and its tone. */
-const connectionSummary = (connection) => {
-    const state = connection?.state
-
-    if (!state) {
-        return {
-            color: 'default',
-            label: 'No connection recorded',
-            detail: 'The node has not reported a connection yet.',
-        }
+/** Reads a picked file as text into a state setter, for a pasted-or-picked field. */
+const readFileInto = (setValue) => (files) => {
+    const file = files?.[0]
+    if (!file) {
+        return
     }
 
-    if (state.state !== 'connected') {
-        return {
-            color: state.state === 'failed' ? 'danger' : 'warning',
-            label: state.state === 'failed' ? 'Failed' : 'Disconnected',
-            detail: state.reason,
-        }
-    }
-
-    if (!state.mtls) {
-        return {
-            color: 'primary',
-            label: 'Server-authenticated TLS',
-            detail: 'Connected without mutual TLS: the researcher does not '
-                + 'verify this node\'s identity.',
-        }
-    }
-
-    // The node only reaches a connected state under mutual TLS once the researcher
-    // has named it from the certificate it presented, so this is not in doubt.
-    return {
-        color: 'success',
-        label: 'Mutual TLS, identity verified',
-        detail: 'The researcher verified this node\'s identity.',
-    }
+    const reader = new FileReader()
+    reader.onload = () => setValue(String(reader.result))
+    reader.readAsText(file)
 }
 
 const DetailItem = ({label, value}) => (
@@ -151,251 +103,57 @@ const CertificateDetails = ({certificate}) => (
     </div>
 )
 
-const Certificates = (props) => {
-    const {
-        certificateStatus,
-        connection,
-        loading,
-        writing,
-        error,
-        connectionError,
-        writeError,
-        configWriteError,
-        successMessage,
-        requiresRestart,
-        fetchCertificateStatus,
-        fetchConnectionState,
-    } = props
+/** What the last read and the last write have to say, in the order they happen. */
+const CertificateMessages = ({error, writeError, successMessage}) => (
+    <>
+        {[error, writeError].filter(Boolean).map((message) => (
+            <div className="node-management-alert error" key={message}>
+                <EuiIcon type="alert" />
+                <span>{message}</span>
+            </div>
+        ))}
 
+        {successMessage ? (
+            <div className="node-management-alert info">
+                <EuiIcon type="check" />
+                <span>{successMessage}</span>
+            </div>
+        ) : null}
+    </>
+)
+
+/**
+ * This node's own certificate: what it currently presents, and the two ways of
+ * updating it. Both write to the paths the node configuration already names.
+ */
+const OwnCertificate = ({
+    ownCertificate,
+    writing,
+    onDownload,
+    onGenerate,
+    onReplace,
+}) => {
     const [certificate, setCertificate] = React.useState('')
-    const [componentId, setComponentId] = React.useState('')
-    const [conflictingCertificate, setConflictingCertificate] = React.useState(
-        null
-    )
-    const [componentToDelete, setComponentToDelete] = React.useState(null)
+    const [privateKey, setPrivateKey] = React.useState('')
+    const [confirming, setConfirming] = React.useState(null)
 
-    React.useEffect(() => {
-        fetchCertificateStatus()
-        fetchConnectionState()
-    }, [fetchCertificateStatus, fetchConnectionState])
-
-    const refresh = () => {
-        props.resetCertificateMessages()
-        fetchCertificateStatus()
-        fetchConnectionState()
-    }
-
-    const readCertificateFile = (files) => {
-        const file = files?.[0]
-        if (!file) {
-            return
-        }
-
-        const reader = new FileReader()
-        reader.onload = () => setCertificate(String(reader.result))
-        reader.readAsText(file)
-    }
-
-    const register = async ({upsert = false} = {}) => {
-        const registered = await props.registerCertificate(certificate, {
-            upsert,
-            componentId: componentId.trim() || null,
-        })
-        if (registered) {
+    const replace = async () => {
+        setConfirming(null)
+        const replaced = await onReplace(certificate, privateKey)
+        if (replaced) {
             setCertificate('')
-            setComponentId('')
-            setConflictingCertificate(null)
-        } else if (!upsert) {
-            // The component is already registered; replacing it is the user's call
-            setConflictingCertificate(certificate)
+            setPrivateKey('')
         }
     }
 
-    const toggleMtls = async (enabled) => {
-        props.resetCertificateMessages()
-        await props.writeNodeConfig({
-            authentication: {
-                values: {mutual_authentication: enabled},
-                base_values: {
-                    mutual_authentication: certificateStatus?.mtls_enabled,
-                },
-            },
-        })
-        fetchCertificateStatus()
+    const generate = async () => {
+        setConfirming(null)
+        await onGenerate()
     }
-
-    const summary = connectionSummary(connection)
-    const recorded = connection?.state
-    const registered = certificateStatus?.registered || []
-    const ownCertificate = certificateStatus?.certificate
 
     return (
-        <section className="node-management-card node-management-certificates">
-            <div className="node-management-section-header">
-                <div className="node-management-section-heading">
-                    <span className="node-management-section-icon">
-                        <EuiIcon type="lock" size="l" />
-                    </span>
-                    <div>
-                        <h2>Certificates</h2>
-                        <p>
-                            Mutual TLS with the researcher, and the certificates
-                            this node trusts
-                        </p>
-                    </div>
-                </div>
-                <div className="node-management-process-header-actions">
-                    <EuiButton
-                        size="s"
-                        iconType="refresh"
-                        onClick={refresh}
-                        isLoading={loading}
-                    >
-                        Refresh
-                    </EuiButton>
-                </div>
-            </div>
-
-            {[error, connectionError, writeError, configWriteError]
-                .filter(Boolean)
-                .map((message) => (
-                    <div className="node-management-alert error" key={message}>
-                        <EuiIcon type="alert" />
-                        <span>{message}</span>
-                    </div>
-                ))}
-
-            {successMessage ? (
-                <div className="node-management-alert info">
-                    <EuiIcon type="check" />
-                    <span>{successMessage}</span>
-                </div>
-            ) : null}
-
-            {requiresRestart ? (
-                <div className="node-management-alert warning">
-                    <EuiIcon type="alert" />
-                    <span>
-                        The node reads its certificates when it starts, so it has
-                        to be restarted for this change to take effect.
-                    </span>
-                </div>
-            ) : null}
-
-            {(certificateStatus?.startup_problems || []).map((problem) => (
-                <EuiCallOut
-                    key={problem}
-                    color="danger"
-                    iconType="alert"
-                    title="The node cannot start"
-                    size="s"
-                >
-                    <p>{problem}</p>
-                </EuiCallOut>
-            ))}
-
-            {(certificateStatus?.warnings || []).map((warning) => (
-                <EuiCallOut
-                    key={warning}
-                    color="warning"
-                    iconType="help"
-                    title="Check the registry"
-                    size="s"
-                >
-                    <p>{warning}</p>
-                </EuiCallOut>
-            ))}
-
-            <EuiSpacer size="m" />
-
-            <h3>Connection to the researcher</h3>
-            <EuiSpacer size="s" />
-            <EuiFlexGroup gutterSize="m" alignItems="center" wrap>
-                <EuiFlexItem grow={false}>
-                    <EuiBadge color={summary.color}>{summary.label}</EuiBadge>
-                </EuiFlexItem>
-                <EuiFlexItem>
-                    <EuiText size="s">{summary.detail}</EuiText>
-                </EuiFlexItem>
-            </EuiFlexGroup>
-
-            {connection?.stale ? (
-                <EuiText size="xs" color="subdued">
-                    <p>
-                        The node is not running, so this is what it last
-                        observed, not what is true now.
-                    </p>
-                </EuiText>
-            ) : null}
-
-            {recorded ? (
-                <div className="node-management-details-grid">
-                    <DetailItem
-                        label="Researcher"
-                        value={`${formatValue(recorded.host)}:`
-                            + `${formatValue(recorded.port)}`}
-                    />
-                    <DetailItem
-                        label="Researcher id"
-                        value={formatValue(recorded.researcher_id)}
-                    />
-                    <DetailItem
-                        label="Since"
-                        value={formatDateTime(recorded.started_at)}
-                    />
-                    <DetailItem
-                        label="Last observed"
-                        value={formatDateTime(recorded.updated_at)}
-                    />
-                    <DetailItem
-                        label="Last error"
-                        value={formatValue(recorded.last_error)}
-                    />
-                </div>
-            ) : null}
-
-            {recorded && fixHints[recorded.operation] ? (
-                <EuiCallOut
-                    color="primary"
-                    iconType="help"
-                    title="What to do"
-                    size="s"
-                >
-                    <p>{fixHints[recorded.operation]}</p>
-                </EuiCallOut>
-            ) : null}
-
-            {connection?.history?.length ? (
-                <>
-                    <EuiSpacer size="s" />
-                    <EuiText size="xs" color="subdued">
-                        <p>Earlier states, most recent first</p>
-                    </EuiText>
-                    {connection.history.slice(0, historyShown).map((entry) => (
-                        <DetailItem
-                            key={`${entry.updated_at}-${entry.operation}`}
-                            label={formatDateTime(entry.updated_at)}
-                            value={`${entry.state}`
-                                + `${entry.operation ? ` - ${entry.operation}` : ''}`}
-                        />
-                    ))}
-                </>
-            ) : null}
-
-            <EuiSpacer size="l" />
-
-            <h3>Mutual TLS</h3>
-            <EuiSpacer size="s" />
-            <EuiSwitch
-                label="Require and verify certificates on both sides"
-                checked={Boolean(certificateStatus?.mtls_enabled)}
-                disabled={writing}
-                onChange={(event) => toggleMtls(event.target.checked)}
-            />
-
-            <EuiSpacer size="l" />
-
-            <h3>This node&apos;s certificate</h3>
+        <>
+            <h3>What this node presents</h3>
             <EuiText size="s" color="subdued">
                 <p>
                     Send this to the researcher, which registers it to
@@ -416,10 +174,24 @@ const Certificates = (props) => {
                         value={formatValue(ownCertificate.component_id)}
                     />
                     <CertificateDetails certificate={ownCertificate} />
+                    {ownCertificate.expiring_soon ? (
+                        <EuiCallOut
+                            color="warning"
+                            iconType="clock"
+                            title="This certificate expires soon"
+                            size="s"
+                        >
+                            <p>
+                                Update it below, then have the researcher
+                                register the new one.
+                            </p>
+                        </EuiCallOut>
+                    ) : null}
+                    <EuiSpacer size="s" />
                     <EuiButton
                         size="s"
                         iconType="download"
-                        onClick={props.downloadOwnCertificate}
+                        onClick={onDownload}
                     >
                         Download certificate
                     </EuiButton>
@@ -428,6 +200,158 @@ const Certificates = (props) => {
 
             <EuiSpacer size="l" />
 
+            <h3>Generate a new one</h3>
+            <EuiText size="s" color="subdued">
+                <p>
+                    The node issues itself a fresh certificate and private key,
+                    written where the current ones are.
+                </p>
+            </EuiText>
+            <EuiSpacer size="s" />
+            <EuiButton
+                size="s"
+                iconType="refresh"
+                isLoading={writing}
+                onClick={() => setConfirming(ownCertificateActions.generate)}
+            >
+                Regenerate
+            </EuiButton>
+
+            <EuiSpacer size="l" />
+
+            <h3>Replace with your own</h3>
+            <EuiText size="s" color="subdued">
+                <p>
+                    For a certificate issued elsewhere. Both the certificate and
+                    its private key are required, and are checked together
+                    before either replaces what the node has.
+                </p>
+            </EuiText>
+            <EuiSpacer size="s" />
+
+            <EuiFormRow
+                label="Certificate"
+                helpText="Paste it, or pick the file it came in."
+                fullWidth
+            >
+                <EuiTextArea
+                    fullWidth
+                    rows={5}
+                    placeholder="-----BEGIN CERTIFICATE-----"
+                    value={certificate}
+                    onChange={(event) => setCertificate(event.target.value)}
+                />
+            </EuiFormRow>
+            <EuiFilePicker
+                initialPromptText="Select the certificate (.pem)"
+                display="default"
+                accept=".pem,.crt,.cert"
+                onChange={readFileInto(setCertificate)}
+            />
+            <EuiSpacer size="s" />
+
+            <EuiFormRow
+                label="Private key"
+                helpText="The key this certificate was issued for, unencrypted."
+                fullWidth
+            >
+                <EuiTextArea
+                    fullWidth
+                    rows={5}
+                    placeholder="-----BEGIN PRIVATE KEY-----"
+                    value={privateKey}
+                    onChange={(event) => setPrivateKey(event.target.value)}
+                />
+            </EuiFormRow>
+            <EuiFilePicker
+                initialPromptText="Select the private key (.key)"
+                display="default"
+                accept=".pem,.key"
+                onChange={readFileInto(setPrivateKey)}
+            />
+            <EuiSpacer size="s" />
+            <EuiButton
+                size="s"
+                fill
+                iconType="save"
+                isLoading={writing}
+                isDisabled={!certificate.trim() || !privateKey.trim()}
+                onClick={() => setConfirming(ownCertificateActions.replace)}
+            >
+                Replace certificate
+            </EuiButton>
+
+            {confirming ? (
+                <EuiConfirmModal
+                    title={
+                        confirming === ownCertificateActions.generate
+                            ? 'Generate a new certificate?'
+                            : 'Replace this node\'s certificate?'
+                    }
+                    onCancel={() => setConfirming(null)}
+                    onConfirm={
+                        confirming === ownCertificateActions.generate
+                            ? generate
+                            : replace
+                    }
+                    cancelButtonText="Keep the current one"
+                    confirmButtonText={
+                        confirming === ownCertificateActions.generate
+                            ? 'Generate it'
+                            : 'Replace it'
+                    }
+                    buttonColor="danger"
+                >
+                    <p>
+                        This node stops presenting the certificate it presents
+                        now. Every component holding the old one has to register
+                        the new one, and the node has to be restarted to serve
+                        it.
+                    </p>
+                    <p>
+                        The pair being replaced is kept alongside it as a
+                        timestamped backup.
+                    </p>
+                </EuiConfirmModal>
+            ) : null}
+        </>
+    )
+}
+
+/**
+ * The certificates this node has registered, which under mutual TLS is the
+ * researcher's and the one it pins.
+ */
+const ResearcherCertificates = ({
+    registered,
+    writing,
+    onRegister,
+    onDelete,
+}) => {
+    const [certificate, setCertificate] = React.useState('')
+    const [componentId, setComponentId] = React.useState('')
+    const [conflictingCertificate, setConflictingCertificate] = React.useState(
+        null
+    )
+    const [componentToDelete, setComponentToDelete] = React.useState(null)
+
+    const register = async ({upsert = false} = {}) => {
+        const registeredOk = await onRegister(certificate, {
+            upsert,
+            componentId: componentId.trim() || null,
+        })
+        if (registeredOk) {
+            setCertificate('')
+            setComponentId('')
+            setConflictingCertificate(null)
+        } else if (!upsert) {
+            // The component is already registered; replacing it is the user's call
+            setConflictingCertificate(certificate)
+        }
+    }
+
+    return (
+        <>
             <h3>Registered researcher certificate</h3>
             <EuiText size="s" color="subdued">
                 <p>
@@ -484,7 +408,7 @@ const Certificates = (props) => {
                 initialPromptText="Select a .pem file"
                 display="default"
                 accept=".pem,.crt,.cert"
-                onChange={readCertificateFile}
+                onChange={readFileInto(setCertificate)}
             />
             <EuiSpacer size="s" />
             <EuiFormRow
@@ -534,7 +458,7 @@ const Certificates = (props) => {
                     title="Delete this certificate?"
                     onCancel={() => setComponentToDelete(null)}
                     onConfirm={() => {
-                        props.deleteCertificate(componentToDelete)
+                        onDelete(componentToDelete)
                         setComponentToDelete(null)
                     }}
                     cancelButtonText="Keep it"
@@ -547,27 +471,127 @@ const Certificates = (props) => {
                     </p>
                 </EuiConfirmModal>
             ) : null}
-        </section>
+        </>
     )
 }
 
+/**
+ * Shared frame for the certificate windows: the status is read as the window
+ * opens, and the messages a write left behind are cleared as it closes.
+ */
+const CertificateWindow = ({
+    title,
+    notice,
+    onClose,
+    error,
+    writeError,
+    successMessage,
+    fetchCertificateStatus,
+    resetCertificateMessages,
+    children,
+}) => {
+    React.useEffect(() => {
+        fetchCertificateStatus()
+    }, [fetchCertificateStatus])
+
+    const close = () => {
+        resetCertificateMessages()
+        onClose()
+    }
+
+    return (
+        <EuiModal className="node-certificate-modal" onClose={close}>
+            <EuiModalHeader>
+                <EuiModalHeaderTitle>{title}</EuiModalHeaderTitle>
+            </EuiModalHeader>
+            <EuiModalBody>
+                <CertificateMessages
+                    error={error}
+                    writeError={writeError}
+                    successMessage={successMessage}
+                />
+                <EuiCallOut
+                    color="primary"
+                    iconType="iInCircle"
+                    title="Everything here is written straight away"
+                    size="s"
+                >
+                    <p>{notice}</p>
+                </EuiCallOut>
+                <EuiSpacer size="m" />
+                {children}
+            </EuiModalBody>
+            <EuiModalFooter>
+                <EuiButton onClick={close} fill>
+                    Close
+                </EuiButton>
+            </EuiModalFooter>
+        </EuiModal>
+    )
+}
+
+const OwnCertificateWindow = (props) => (
+    <CertificateWindow
+        title="This node's certificate"
+        notice={
+            'This window does not take part in the unsaved changes of the '
+            + 'configuration page: generating or replacing the pair writes it '
+            + 'to disk at once, and Reset there does not undo it. The node '
+            + 'reads its certificates when it starts, so restart it to serve '
+            + 'a new one.'
+        }
+        onClose={props.onClose}
+        error={props.error}
+        writeError={props.writeError}
+        successMessage={props.successMessage}
+        fetchCertificateStatus={props.fetchCertificateStatus}
+        resetCertificateMessages={props.resetCertificateMessages}
+    >
+        <OwnCertificate
+            ownCertificate={props.certificateStatus?.certificate}
+            writing={props.writing}
+            onDownload={props.downloadOwnCertificate}
+            onGenerate={props.generateOwnCertificate}
+            onReplace={props.replaceOwnCertificate}
+        />
+    </CertificateWindow>
+)
+
+const ResearcherCertificateWindow = (props) => (
+    <CertificateWindow
+        title="Researcher certificate"
+        notice={
+            'Registering or deleting a certificate here writes it to disk at '
+            + 'once. The Mutual TLS switch behind this window does not: it '
+            + 'applies only once you save the configuration, and Reset there '
+            + 'discards it while leaving what you register here in place.'
+        }
+        onClose={props.onClose}
+        error={props.error}
+        writeError={props.writeError}
+        successMessage={props.successMessage}
+        fetchCertificateStatus={props.fetchCertificateStatus}
+        resetCertificateMessages={props.resetCertificateMessages}
+    >
+        <ResearcherCertificates
+            registered={props.certificateStatus?.registered || []}
+            writing={props.writing}
+            onRegister={props.registerCertificate}
+            onDelete={props.deleteCertificate}
+        />
+    </CertificateWindow>
+)
+
 const mapStateToProps = (state) => ({
     certificateStatus: state.certificates.status,
-    connection: state.certificates.connection,
-    loading: state.certificates.loading,
     writing: state.certificates.writing,
     error: state.certificates.error,
-    connectionError: state.certificates.connectionError,
     writeError: state.certificates.writeError,
-    // The mutual-TLS switch writes through the node configuration
-    configWriteError: state.node_config.writeError,
     successMessage: state.certificates.successMessage,
-    requiresRestart: state.certificates.requiresRestart,
 })
 
 const mapDispatchToProps = (dispatch) => ({
     fetchCertificateStatus: () => dispatch(fetchCertificateStatus()),
-    fetchConnectionState: () => dispatch(fetchConnectionState()),
     registerCertificate: (certificate, options) => dispatch(
         registerCertificate(certificate, options)
     ),
@@ -575,8 +599,19 @@ const mapDispatchToProps = (dispatch) => ({
         deleteCertificate(componentId)
     ),
     downloadOwnCertificate: () => dispatch(downloadOwnCertificate()),
+    generateOwnCertificate: () => dispatch(generateOwnCertificate()),
+    replaceOwnCertificate: (certificate, privateKey) => dispatch(
+        replaceOwnCertificate(certificate, privateKey)
+    ),
     resetCertificateMessages: () => dispatch(resetCertificateMessages()),
-    writeNodeConfig: (sections) => dispatch(writeNodeConfig(sections)),
 })
 
-export default connect(mapStateToProps, mapDispatchToProps)(Certificates)
+export const OwnCertificateModal = connect(
+    mapStateToProps,
+    mapDispatchToProps
+)(OwnCertificateWindow)
+
+export const ResearcherCertificateModal = connect(
+    mapStateToProps,
+    mapDispatchToProps
+)(ResearcherCertificateWindow)

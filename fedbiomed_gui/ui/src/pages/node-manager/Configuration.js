@@ -3,22 +3,23 @@ import {connect} from 'react-redux'
 import {
     EuiButton,
     EuiButtonEmpty,
-    EuiCallOut,
-    EuiFieldNumber,
-    EuiFieldText,
-    EuiForm,
-    EuiFormRow,
+    EuiButtonIcon,
     EuiIcon,
-    EuiModal,
-    EuiModalBody,
-    EuiModalFooter,
-    EuiModalHeader,
-    EuiModalHeaderTitle,
-    EuiSelect,
+    EuiNotificationBadge,
     EuiSpacer,
+    EuiTab,
+    EuiTabs,
     EuiText,
 } from '@elastic/eui'
 
+import {
+    OwnCertificateModal,
+    ResearcherCertificateModal,
+} from './Certificates'
+import {ConfigGroup, Notices} from './ConfigurationFields'
+import {ReviewChangesModal, WriteConflictModal} from './ConfigurationModals'
+import {labelFor} from './configFormat'
+import {downloadOwnCertificate} from '../../store/actions/certificatesActions'
 import {
     fetchNodeConfig,
     resetNodeConfigMessages,
@@ -29,55 +30,46 @@ import {
     fetchNodeProcessState,
 } from '../../store/actions/nodeManagementActions'
 
-const labelFor = (key) => key
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+// Sections and fields the certificate windows hang off
+const CERTIFICATE_SECTION = 'certificate'
+const RESEARCHER_SECTION = 'researcher'
+const CERTIFICATE_PUBLIC_KEY = 'public_key'
+const MTLS_SECTION = 'authentication'
+const MTLS_ENABLED = 'mutual_authentication'
 
-const securityFieldDescriptions = {
-    training_plan_approval: 'Require manual approval before a training plan can run.',
-    allow_default_training_plans: (
-        'Permit built-in training plans without extra registration.'
-    ),
-    secure_aggregation: 'Enable secure aggregation for compatible experiments.',
-    force_secure_aggregation: (
-        'Reject jobs that do not use secure aggregation.'
-    ),
-    secagg_insecure_validation: (
-        'Allow insecure validation mode for secure aggregation setup.'
-    ),
-    allow_preproc: 'Allow preprocessing steps before model training starts.',
-    allow_federated_analytics: (
-        'Permit analytics queries that do not train a model.'
-    ),
-}
-
-const getFieldDescription = (section, key, field) => {
-    if (section === 'security' && securityFieldDescriptions[key]) {
-        return securityFieldDescriptions[key]
-    }
-
-    return field.editable
-        ? 'Editable value from config.ini.'
-        : 'Read-only value from config.ini.'
-}
-
-const sectionIconFor = (section) => {
-    switch (section) {
-        case 'security':
-            return 'lock'
-        case 'default':
-            return 'node'
-        case 'certificate':
-            return 'document'
-        case 'researcher':
-            return 'users'
-        case 'syslog':
-            return 'console'
-        default:
-            return 'controlsHorizontal'
-    }
-}
+/**
+ * How the page reads, which is not the order config.ini happens to store its
+ * sections in. Settings that belong to one concern are shown together even
+ * though the file keeps them apart.
+ */
+const SECTION_GROUPS = [
+    {
+        key: 'identity',
+        label: 'Node identity',
+        icon: 'node',
+        sections: ['default'],
+    },
+    {
+        key: 'connection',
+        label: 'Connection & certificates',
+        icon: 'globe',
+        // Them, then us, then the policy binding both: mutual TLS is the only
+        // one that depends on the other two already being in place
+        sections: ['researcher', 'certificate', 'authentication'],
+    },
+    {
+        key: 'security',
+        label: 'Security',
+        icon: 'lock',
+        sections: ['security'],
+    },
+    {
+        key: 'logging',
+        label: 'Logging',
+        icon: 'console',
+        sections: ['syslog'],
+    },
+]
 
 const normalizeFieldValue = (value, field) => {
     // Keep form values comparable with backend-normalized config values.
@@ -170,14 +162,30 @@ const buildSectionsPayload = (changes) => {
     }, {})
 }
 
-const formatValue = (value) => {
-    if (typeof value === 'boolean') {
-        return value ? 'True' : 'False'
-    }
+/**
+ * The groups to render, in page order. A section the page does not place yet
+ * still gets a group of its own, so a config that grows is never hidden.
+ */
+const buildGroups = (sections = {}) => {
+    const placed = new Set(SECTION_GROUPS.flatMap((group) => group.sections))
 
-    return value === '' || value === null || value === undefined
-        ? '(empty)'
-        : String(value)
+    const groups = SECTION_GROUPS
+        .map((group) => ({
+            ...group,
+            sections: group.sections.filter((section) => sections[section]),
+        }))
+        .filter((group) => group.sections.length)
+
+    const unplaced = Object.keys(sections)
+        .filter((section) => !placed.has(section))
+        .map((section) => ({
+            key: section,
+            label: sections[section]?.label || labelFor(section),
+            icon: 'controlsHorizontal',
+            sections: [section],
+        }))
+
+    return [...groups, ...unplaced]
 }
 
 const Configuration = ({
@@ -198,6 +206,7 @@ const Configuration = ({
     resetNodeConfigMessages,
     executeNodeAction,
     fetchNodeProcessState,
+    downloadOwnCertificate,
     fetchProcessStateOnMount = true,
     embedded = false,
 }) => {
@@ -211,11 +220,13 @@ const Configuration = ({
         React.useState(false)
     )
     const [restartLoading, setRestartLoading] = React.useState(false)
-
-    const sectionNames = React.useMemo(
-        () => Object.keys(sections || {}),
-        [sections]
+    const [activeGroupKey, setActiveGroupKey] = React.useState(null)
+    const [ownCertificateOpen, setOwnCertificateOpen] = React.useState(false)
+    const [researcherCertificateOpen, setResearcherCertificateOpen] = (
+        React.useState(false)
     )
+
+    const groups = React.useMemo(() => buildGroups(sections), [sections])
     const savedValues = React.useMemo(
         () => getSavedValues(sections),
         [sections]
@@ -238,6 +249,17 @@ const Configuration = ({
 
     const updateValue = (section, key, value) => {
         const field = sections?.[section]?.fields?.[key]
+
+        // Turning mutual TLS on is what makes a researcher certificate
+        // necessary, so the window to register one comes with the switch
+        if (
+            section === MTLS_SECTION
+            && key === MTLS_ENABLED
+            && value === true
+            && !draftValues[section]?.[key]
+        ) {
+            setResearcherCertificateOpen(true)
+        }
 
         setDraftValues((current) => ({
             ...current,
@@ -338,175 +360,81 @@ const Configuration = ({
         }
     )
 
-    const renderScalarField = (section, key, field) => {
-        const changed = changedKeys.has(`${section}.${key}`)
-        const disabled = !field.editable
-        const value = draftValues[section]?.[key] ?? ''
-        const onChange = (event) => updateValue(section, key, event.target.value)
-        let fieldControl = (
-            <EuiFieldText
-                className="node-config-input"
-                disabled={disabled}
-                value={value}
-                onChange={onChange}
-            />
-        )
+    // What the file and the running process say about themselves, which is true
+    // whether or not the user has done anything yet
+    const fileNotices = [
+        {
+            color: 'warning',
+            icon: 'alert',
+            title: configModifiedAfterStartup
+                ? 'The config file config.ini has been modified after node '
+                    + 'startup. The values shown here may not represent the '
+                    + 'values effective in the current node process'
+                : null,
+        },
+        {color: 'warning', icon: 'alert', title: configStartupCheckMessage},
+    ]
 
-        if (field.type === 'integer') {
-            fieldControl = (
-                <EuiFieldNumber
-                    className="node-config-input"
-                    disabled={disabled}
-                    min={field.min ?? 0}
-                    value={value}
-                    onChange={onChange}
+    // The result of what the user just did, kept next to the buttons that did it
+    const actionNotices = [
+        {color: 'danger', icon: 'alert', title: error || writeError},
+        {color: 'success', icon: 'check', title: successMessage},
+        {
+            color: 'warning',
+            icon: 'refresh',
+            title: requiresRestart ? 'Restart required' : null,
+            body: 'Saved configuration changes will apply after the running '
+                + 'node restarts.',
+        },
+    ]
+
+    // Falls back to the first group, so the panel is never blank while the
+    // config loads or if a group disappears from a reloaded config
+    const activeGroup = groups.find((group) => group.key === activeGroupKey)
+        || groups[0]
+
+    // Unsaved changes live outside the group on screen, so every tab reports
+    // its own count and the action bar total stays traceable
+    const changedPerGroup = (group) => changes.filter((change) => (
+        group.sections.includes(change.section)
+    )).length
+
+    // Each certificate window opens from the section it belongs to: the
+    // researcher's registry under Researcher, this node's pair under its own
+    const sectionActions = {
+        [RESEARCHER_SECTION]: (
+            <EuiButton
+                size="s"
+                iconType="users"
+                onClick={() => setResearcherCertificateOpen(true)}
+            >
+                Registered certificate
+            </EuiButton>
+        ),
+        [CERTIFICATE_SECTION]: (
+            <EuiButton
+                size="s"
+                iconType="document"
+                onClick={() => setOwnCertificateOpen(true)}
+            >
+                Manage certificate
+            </EuiButton>
+        ),
+    }
+
+    // The certificate the node presents is the one it hands to a researcher
+    const appendFor = (section, key) => (
+        section === CERTIFICATE_SECTION && key === CERTIFICATE_PUBLIC_KEY
+            ? (
+                <EuiButtonIcon
+                    iconType="download"
+                    aria-label="Download certificate"
+                    title="Download this node's certificate"
+                    onClick={downloadOwnCertificate}
                 />
             )
-        }
-
-        if (field.type === 'enum') {
-            fieldControl = (
-                <EuiSelect
-                    className="node-config-input"
-                    disabled={disabled}
-                    value={value}
-                    options={(field.options || []).map((option) => ({
-                        value: option,
-                        text: option,
-                    }))}
-                    onChange={onChange}
-                />
-            )
-        }
-
-        return (
-            <EuiFormRow
-                className={`node-config-form-row ${changed ? 'changed' : ''}`}
-                key={key}
-                label={field.label || labelFor(key)}
-                labelAppend={changed ? (
-                    <span className="node-config-change-hint">
-                        was {formatValue(savedValues[section]?.[key])}
-                    </span>
-                ) : undefined}
-            >
-                {fieldControl}
-            </EuiFormRow>
-        )
-    }
-
-    const renderBooleanField = (section, key, field) => {
-        const changed = changedKeys.has(`${section}.${key}`)
-        const disabled = !field.editable
-        const checked = Boolean(draftValues[section]?.[key])
-
-        return (
-            <article
-                className={`node-config-setting ${disabled ? 'disabled' : ''} ${
-                    changed ? 'changed' : ''
-                }`}
-                key={key}
-            >
-                <div>
-                    <div className="node-config-setting-name">
-                        {field.label || labelFor(key)}
-                    </div>
-                    <div className="node-config-setting-help">
-                        {getFieldDescription(section, key, field)}
-                    </div>
-                    {changed ? (
-                        <div className="node-config-change-hint">
-                            was {formatValue(savedValues[section]?.[key])}
-                        </div>
-                    ) : null}
-                </div>
-                <div className="node-config-segmented">
-                    <button
-                        type="button"
-                        className="true"
-                        aria-pressed={checked}
-                        disabled={disabled}
-                        onClick={() => updateValue(section, key, true)}
-                    >
-                        True
-                    </button>
-                    <button
-                        type="button"
-                        className="false"
-                        aria-pressed={!checked}
-                        disabled={disabled}
-                        onClick={() => updateValue(section, key, false)}
-                    >
-                        False
-                    </button>
-                </div>
-            </article>
-        )
-    }
-
-    const renderSection = (section) => {
-        const sectionInfo = sections[section] || {}
-        const fields = sectionInfo.fields || {}
-        const fieldKeys = Object.keys(fields)
-
-        if (!fieldKeys.length) {
-            return null
-        }
-
-        const scalarFieldKeys = fieldKeys.filter(
-            (key) => fields[key].type !== 'boolean'
-        )
-        const booleanFieldKeys = fieldKeys.filter(
-            (key) => fields[key].type === 'boolean'
-        )
-        const editable = fieldKeys.some((key) => fields[key].editable)
-        const changedCount = changes.filter(
-            (change) => change.section === section
-        ).length
-
-        return (
-            <section className="node-config-section" key={section}>
-                <header className="node-config-section-header">
-                    <div className="node-management-section-heading">
-                        <span className="node-management-section-icon">
-                            <EuiIcon type={sectionIconFor(section)} size="l" />
-                        </span>
-                        <div>
-                            <h2>{sectionInfo.label || labelFor(section)}</h2>
-                            <p>
-                                {editable
-                                    ? 'Changes are written to the node configuration file.'
-                                    : 'This section is displayed for reference.'}
-                            </p>
-                        </div>
-                    </div>
-                    {changedCount ? (
-                        <span className="node-config-section-count">
-                            {changedCount} changed
-                        </span>
-                    ) : null}
-                </header>
-
-                <EuiForm className="node-config-form" component="form">
-                    {scalarFieldKeys.length ? (
-                        <div className="node-config-fields-grid">
-                            {scalarFieldKeys.map((key) => (
-                                renderScalarField(section, key, fields[key])
-                            ))}
-                        </div>
-                    ) : null}
-
-                    {booleanFieldKeys.length ? (
-                        <div className="node-config-settings-grid">
-                            {booleanFieldKeys.map((key) => (
-                                renderBooleanField(section, key, fields[key])
-                            ))}
-                        </div>
-                    ) : null}
-                </EuiForm>
-            </section>
-        )
-    }
+            : undefined
+    )
 
     return (
         <div className={embedded ? 'node-config-page' : 'node-management-page'}>
@@ -537,80 +465,54 @@ const Configuration = ({
                 </div>
             </section>
 
-            {error || writeError ? (
-                <EuiCallOut
-                    color="danger"
-                    iconType="alert"
-                    title={error || writeError}
-                />
-            ) : null}
-
-            {successMessage ? (
-                <>
-                    <EuiSpacer size="m" />
-                    <EuiCallOut
-                        color="success"
-                        iconType="check"
-                        title={successMessage}
-                    />
-                </>
-            ) : null}
-
-            {configModifiedAfterStartup ? (
-                <>
-                    <EuiSpacer size="m" />
-                    <EuiCallOut
-                        color="warning"
-                        iconType="alert"
-                        title={
-                            'The config file config.ini has been modified after node startup. '
-                            + 'The values shown here may not represent the values effective '
-                            + 'in the current node process'
-                        }
-                    />
-                </>
-            ) : null}
-
-            {configStartupCheckMessage ? (
-                <>
-                    <EuiSpacer size="m" />
-                    <EuiCallOut
-                        color="warning"
-                        iconType="alert"
-                        title={configStartupCheckMessage}
-                    />
-                </>
-            ) : null}
-
-            {requiresRestart ? (
-                <>
-                    <EuiSpacer size="m" />
-                    <EuiCallOut
-                        color="warning"
-                        iconType="refresh"
-                        title="Restart required"
-                    >
-                        <p>
-                            Saved configuration changes will apply after the
-                            running node restarts.
-                        </p>
-                    </EuiCallOut>
-                </>
-            ) : null}
+            <Notices notices={fileNotices} />
 
             <EuiSpacer size="m" />
 
             <div className="node-management-card node-config-panel">
-                {sectionNames.length ? (
-                    <div className="node-config-sections">
-                        {sectionNames.map(renderSection)}
-                    </div>
+                {activeGroup ? (
+                    <>
+                        <EuiTabs className="node-config-group-tabs">
+                            {groups.map((group) => {
+                                const changedCount = changedPerGroup(group)
+
+                                return (
+                                    <EuiTab
+                                        key={group.key}
+                                        isSelected={group.key === activeGroup.key}
+                                        onClick={() => setActiveGroupKey(group.key)}
+                                        prepend={<EuiIcon type={group.icon} />}
+                                        append={changedCount ? (
+                                            <EuiNotificationBadge color="accent">
+                                                {changedCount}
+                                            </EuiNotificationBadge>
+                                        ) : undefined}
+                                    >
+                                        {group.label}
+                                    </EuiTab>
+                                )
+                            })}
+                        </EuiTabs>
+
+                        <ConfigGroup
+                            group={activeGroup}
+                            sections={sections}
+                            sectionActions={sectionActions}
+                            draftValues={draftValues}
+                            savedValues={savedValues}
+                            changedKeys={changedKeys}
+                            onChange={updateValue}
+                            appendFor={appendFor}
+                        />
+                    </>
                 ) : (
                     <EuiText>
                         <p>{loading ? 'Loading configuration...' : ''}</p>
                     </EuiText>
                 )}
             </div>
+
+            <Notices notices={actionNotices} />
 
             <div className="node-config-action-bar">
                 <span className="node-config-action-bar-summary">
@@ -659,129 +561,39 @@ const Configuration = ({
                 </div>
             </div>
 
+            {ownCertificateOpen ? (
+                <OwnCertificateModal
+                    onClose={() => setOwnCertificateOpen(false)}
+                />
+            ) : null}
+
+            {researcherCertificateOpen ? (
+                <ResearcherCertificateModal
+                    onClose={() => setResearcherCertificateOpen(false)}
+                />
+            ) : null}
+
             {reviewOpen ? (
-                <EuiModal onClose={() => setReviewOpen(false)}>
-                    <EuiModalHeader>
-                        <EuiModalHeaderTitle>
-                            Review changes ({changes.length})
-                        </EuiModalHeaderTitle>
-                    </EuiModalHeader>
-                    <EuiModalBody>
-                        <table className="node-config-review-table">
-                            <thead>
-                                <tr>
-                                    <th>Field</th>
-                                    <th>Current</th>
-                                    <th>New</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {changes.map((change) => (
-                                    <tr key={`${change.section}.${change.key}`}>
-                                        <td>
-                                            <strong>{change.label}</strong>
-                                            <small>{change.sectionLabel}</small>
-                                        </td>
-                                        <td className="node-config-review-current">
-                                            {formatValue(change.current)}
-                                        </td>
-                                        <td className="node-config-review-next">
-                                            {formatValue(change.next)}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        {isRunning ? (
-                            <>
-                                <EuiSpacer size="m" />
-                                <EuiCallOut
-                                    color="warning"
-                                    iconType="refresh"
-                                    size="s"
-                                    title={
-                                        'The node is running. Changes apply after '
-                                        + 'the node restarts.'
-                                    }
-                                />
-                            </>
-                        ) : null}
-                    </EuiModalBody>
-                    <EuiModalFooter>
-                        <EuiButton onClick={() => setReviewOpen(false)}>
-                            Back
-                        </EuiButton>
-                        <EuiButton
-                            fill
-                            iconType="save"
-                            onClick={() => saveChanges()}
-                            isLoading={writing}
-                            isDisabled={actionInProgress}
-                        >
-                            Save
-                        </EuiButton>
-                        {isRunning ? (
-                            <EuiButton
-                                color="warning"
-                                fill
-                                iconType="refresh"
-                                onClick={() => saveChanges({restart: true})}
-                                isLoading={actionInProgress}
-                                isDisabled={actionInProgress}
-                            >
-                                Save & Restart
-                            </EuiButton>
-                        ) : null}
-                    </EuiModalFooter>
-                </EuiModal>
+                <ReviewChangesModal
+                    changes={changes}
+                    isRunning={isRunning}
+                    writing={writing}
+                    actionInProgress={actionInProgress}
+                    onCancel={() => setReviewOpen(false)}
+                    onSave={() => saveChanges()}
+                    onSaveAndRestart={() => saveChanges({restart: true})}
+                />
             ) : null}
 
             {writeConflict ? (
-                <EuiModal onClose={cancelConflict}>
-                    <EuiModalHeader>
-                        <EuiModalHeaderTitle>
-                            Configuration file changed
-                        </EuiModalHeaderTitle>
-                    </EuiModalHeader>
-                    <EuiModalBody>
-                        <EuiText size="s">
-                            <p>
-                                The configuration file was modified after this
-                                page loaded. Review the current file values,
-                                refresh the form, or overwrite them.
-                            </p>
-                            {conflictItems.map((item) => (
-                                <p key={`${item.section}.${item.key}`}>
-                                    <strong>
-                                        {labelFor(item.section)} /{' '}
-                                        {labelFor(item.key)}:
-                                    </strong>{' '}
-                                    shown value "{formatValue(item.base)}", file
-                                    value "{formatValue(item.current)}",
-                                    requested value "{formatValue(item.requested)}"
-                                </p>
-                            ))}
-                        </EuiText>
-                    </EuiModalBody>
-                    <EuiModalFooter>
-                        <EuiButton onClick={cancelConflict}>
-                            Cancel
-                        </EuiButton>
-                        <EuiButton onClick={refreshAfterConflict}>
-                            Refresh latest
-                        </EuiButton>
-                        <EuiButton
-                            color="warning"
-                            fill
-                            onClick={overwriteAfterConflict}
-                            isLoading={actionInProgress}
-                        >
-                            {restartAfterConflictWrite
-                                ? 'Overwrite & Restart'
-                                : 'Overwrite'}
-                        </EuiButton>
-                    </EuiModalFooter>
-                </EuiModal>
+                <WriteConflictModal
+                    conflictItems={conflictItems}
+                    restartAfterWrite={restartAfterConflictWrite}
+                    actionInProgress={actionInProgress}
+                    onCancel={cancelConflict}
+                    onRefresh={refreshAfterConflict}
+                    onOverwrite={overwriteAfterConflict}
+                />
             ) : null}
         </div>
     )
@@ -812,6 +624,7 @@ const mapDispatchToProps = (dispatch) => ({
     executeNodeAction: (action, nodeArgs) => dispatch(
         executeNodeAction(action, nodeArgs)
     ),
+    downloadOwnCertificate: () => dispatch(downloadOwnCertificate()),
 })
 
 export default connect(mapStateToProps, mapDispatchToProps)(Configuration)

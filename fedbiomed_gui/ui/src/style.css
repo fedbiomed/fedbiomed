@@ -895,6 +895,8 @@ a.fed-box-link{
 
 .node-management-page {
   --node-management-blue: #2563eb;
+  /* Every control in a config row is this tall, whatever its type */
+  --node-config-control-height: 48px;
   --node-management-text: #172033;
   --node-management-muted: #64748b;
   --node-management-border: #e2e8f0;
@@ -1088,34 +1090,13 @@ a.fed-box-link{
   padding: 28px 32px 32px;
 }
 
-.node-config-sections {
-  display: grid;
-  gap: 32px;
+.node-certificate-modal {
+  max-width: 90vw;
+  width: 860px;
 }
 
-.node-config-section + .node-config-section {
-  border-top: 1px solid var(--node-management-border);
-  padding-top: 32px;
-}
-
-.node-config-section-header {
-  align-items: center;
-  display: flex;
-  gap: 24px;
-  justify-content: space-between;
-  padding-bottom: 22px;
-}
-
-.node-config-section-count {
-  background: #eef3ff;
-  border-radius: 999px;
-  color: var(--node-management-blue);
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  padding: 6px 12px;
-  text-transform: uppercase;
+.node-config-group-tabs {
+  margin-bottom: 24px;
 }
 
 .node-config-status {
@@ -1129,32 +1110,99 @@ a.fed-box-link{
   padding: 8px 14px;
 }
 
-.node-config-form {
-  display: grid;
-  gap: 28px;
+/* A line means "next section" - the only boundary drawn on this page */
+.node-config-subsection + .node-config-subsection {
+  border-top: 1px solid var(--node-management-border);
+  margin-top: 28px;
+  padding-top: 28px;
 }
 
-.node-config-fields-grid {
-  align-items: end;
-  display: grid;
-  gap: 20px;
-  grid-template-columns: repeat(2, minmax(220px, 280px));
+.node-config-subsection-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  min-height: 32px;
 }
 
-.node-config-form-row {
+.node-config-subsection-heading {
+  color: var(--node-management-muted);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   margin: 0;
+  text-transform: uppercase;
+}
+
+/* Every setting reads the same way: what it is on the left, what it is set to
+   on the right, whatever its type. */
+.node-config-rows {
+  display: grid;
+  gap: 6px;
+}
+
+/* No rule between rows: a horizontal line on this page means "new group", and
+   nothing else. Each name sits against its value at the seam, so the pair reads
+   together without one. */
+.node-config-row {
+  align-items: center;
+  display: grid;
+  gap: 24px;
+  /* Fixed widths: the pair takes only the room it needs however wide the panel
+     gets, and shrinks rather than overflowing when the panel is narrow. */
+  grid-template-columns: minmax(0, 340px) minmax(0, 300px);
+  padding: 10px 8px;
+}
+
+.node-config-row.changed {
+  background: #fffaf0;
+  border-radius: 10px;
+}
+
+/* Name and value meet at the seam between the columns and read outwards */
+.node-config-row-label {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  text-align: right;
+}
+
+.node-config-row-name {
+  color: #0b1220;
+}
+
+.node-config-row-help {
+  color: #8d97a8;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.node-config-row-control {
   min-width: 0;
 }
 
-.node-config-fields-grid .euiFormRow__labelWrapper {
-  align-items: flex-end;
-  display: flex;
-  min-height: 24px;
+/* The wrapper owns the height, not the input. An appended button (the public
+   key download) makes EUI wrap the field in a bordered group, which would
+   otherwise stand taller than the plain field above it. */
+.node-config-row-control .euiFormControlLayout {
+  border-radius: 9px;
+  box-sizing: border-box;
+  height: var(--node-config-control-height);
+  width: 100%;
 }
 
-.node-config-fields-grid .euiFormControlLayout,
-.node-config-fields-grid .euiFormControlLayout__childrenWrapper {
+.node-config-row-control .euiFormControlLayout__childrenWrapper {
+  height: 100%;
   width: 100%;
+}
+
+.node-config-row-control .euiFormControlLayout__append {
+  background: #f8f9fd;
+  height: 100%;
 }
 
 .node-config-input.euiFieldText,
@@ -1162,41 +1210,8 @@ a.fed-box-link{
 .node-config-input.euiSelect {
   background: #f8f9fd;
   border-radius: 9px;
-  min-height: 48px;
+  height: 100%;
   width: 100%;
-}
-
-.node-config-settings-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(280px, 1fr));
-}
-
-.node-config-setting {
-  align-items: center;
-  background: #fff;
-  border: 1px solid var(--node-management-border);
-  border-radius: 14px;
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding: 16px;
-}
-
-.node-config-setting.disabled {
-  background: #f8fafc;
-}
-
-.node-config-setting-name {
-  color: var(--node-management-text);
-  font-weight: 750;
-  margin-bottom: 4px;
-}
-
-.node-config-setting-help {
-  color: var(--node-management-muted);
-  font-size: 14px;
-  line-height: 1.4;
 }
 
 .node-config-segmented {
@@ -1206,9 +1221,10 @@ a.fed-box-link{
   display: grid;
   gap: 4px;
   grid-template-columns: 1fr 1fr;
-  min-height: 50px;
+  height: var(--node-config-control-height);
+  max-width: 196px;
   padding: 4px;
-  width: 196px;
+  width: 100%;
 }
 
 .node-config-segmented button {
@@ -1218,7 +1234,6 @@ a.fed-box-link{
   color: #5b6678;
   cursor: pointer;
   font: inherit;
-  font-weight: 800;
   min-width: 0;
   padding: 0 12px;
 }
@@ -1267,20 +1282,11 @@ a.fed-box-link{
   width: 8px;
 }
 
-.node-config-setting .node-config-change-hint {
-  margin-top: 8px;
-}
-
-.node-config-form-row.changed .node-config-input.euiFieldText,
-.node-config-form-row.changed .node-config-input.euiFieldNumber,
-.node-config-form-row.changed .node-config-input.euiSelect {
+.node-config-row.changed .node-config-input.euiFieldText,
+.node-config-row.changed .node-config-input.euiFieldNumber,
+.node-config-row.changed .node-config-input.euiSelect {
   background: #fffaf0;
   box-shadow: inset 0 0 0 1px #f59e0b;
-}
-
-.node-config-setting.changed {
-  background: #fffaf0;
-  border-color: #f5d08a;
 }
 
 .node-config-action-bar {
@@ -1603,10 +1609,6 @@ a.fed-box-link{
 }
 
 @media (max-width: 980px) {
-  .node-config-settings-grid {
-    grid-template-columns: 1fr;
-  }
-
   .node-management-process-content {
     grid-template-columns: 1fr;
   }
@@ -1629,24 +1631,17 @@ a.fed-box-link{
     padding: 20px;
   }
 
-  .node-config-setting {
+  /* Name above value once the two columns no longer fit side by side */
+  .node-config-row {
     align-items: stretch;
+    gap: 10px;
     grid-template-columns: 1fr;
   }
 
-  .node-config-section-header,
   .node-config-action-bar {
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
-  }
-
-  .node-config-fields-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .node-config-segmented {
-    width: 100%;
   }
 
   .node-management-card {

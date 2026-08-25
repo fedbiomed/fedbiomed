@@ -4,13 +4,14 @@ import {
     EP_CERTIFICATES,
     EP_CERTIFICATES_CONNECTION,
     EP_CERTIFICATES_EXPORT,
+    EP_CERTIFICATES_GENERATE,
+    EP_CERTIFICATES_REPLACE,
     EP_CERTIFICATES_STATUS,
 } from '../../constants'
 import {
     CERTIFICATES_CONNECTION_ERROR,
     CERTIFICATES_CONNECTION_SUCCESS,
     CERTIFICATES_ERROR,
-    CERTIFICATES_LOADING,
     CERTIFICATES_RESET_MESSAGES,
     CERTIFICATES_SUCCESS,
     CERTIFICATES_WRITE_ERROR,
@@ -28,8 +29,6 @@ const getErrorMessage = (error, fallback) => {
  */
 export const fetchCertificateStatus = () => {
     return async (dispatch) => {
-        dispatch({type: CERTIFICATES_LOADING, payload: true})
-
         try {
             const response = await axios.get(EP_CERTIFICATES_STATUS)
             dispatch({
@@ -44,8 +43,6 @@ export const fetchCertificateStatus = () => {
                     'Could not get the certificate status'
                 ),
             })
-        } finally {
-            dispatch({type: CERTIFICATES_LOADING, payload: false})
         }
     }
 }
@@ -93,12 +90,7 @@ export const registerCertificate = (
             })
             dispatch({
                 type: CERTIFICATES_WRITE_SUCCESS,
-                payload: {
-                    message: response.data.message,
-                    requiresRestart: Boolean(
-                        response.data.result?.requires_restart
-                    ),
-                },
+                payload: response.data.message,
             })
             await dispatch(fetchCertificateStatus())
 
@@ -130,12 +122,7 @@ export const deleteCertificate = (componentId) => {
             )
             dispatch({
                 type: CERTIFICATES_WRITE_SUCCESS,
-                payload: {
-                    message: response.data.message,
-                    requiresRestart: Boolean(
-                        response.data.result?.requires_restart
-                    ),
-                },
+                payload: response.data.message,
             })
             await dispatch(fetchCertificateStatus())
         } catch (error) {
@@ -151,6 +138,60 @@ export const deleteCertificate = (componentId) => {
         }
     }
 }
+
+/**
+ * Runs a write that replaces the node's own certificate pair.
+ *
+ * Both ways of replacing it report what they did the same way, and the
+ * refreshed status is pulled once the write lands.
+ */
+const writeOwnCertificate = (request, fallbackMessage) => {
+    return async (dispatch) => {
+        dispatch({type: CERTIFICATES_WRITE_LOADING, payload: true})
+
+        try {
+            const response = await request()
+            dispatch({
+                type: CERTIFICATES_WRITE_SUCCESS,
+                payload: response.data.message,
+            })
+            await dispatch(fetchCertificateStatus())
+
+            return true
+        } catch (error) {
+            dispatch({
+                type: CERTIFICATES_WRITE_ERROR,
+                payload: getErrorMessage(error, fallbackMessage),
+            })
+
+            return false
+        } finally {
+            dispatch({type: CERTIFICATES_WRITE_LOADING, payload: false})
+        }
+    }
+}
+
+/** Issues this node a fresh certificate and private key. */
+export const generateOwnCertificate = () => writeOwnCertificate(
+    () => axios.post(EP_CERTIFICATES_GENERATE, {}),
+    'Could not generate a new certificate'
+)
+
+/**
+ * Replaces this node's certificate and private key with a supplied pair.
+ *
+ * Both parts are required: the server validates them together and refuses the
+ * write outright rather than leaving the node with a pair it cannot serve.
+ */
+export const replaceOwnCertificate = (certificate, privateKey) => (
+    writeOwnCertificate(
+        () => axios.post(EP_CERTIFICATES_REPLACE, {
+            certificate,
+            private_key: privateKey,
+        }),
+        'Could not replace the certificate'
+    )
+)
 
 /**
  * Downloads this node's certificate, to be shared with the other components.

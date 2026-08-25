@@ -77,6 +77,8 @@ export const EP_NODE_LOGS_DOWNLOAD = "/api/node/logs/download";
 export const EP_CERTIFICATES = "/api/certificates";
 export const EP_CERTIFICATES_STATUS = "/api/certificates/status";
 export const EP_CERTIFICATES_EXPORT = "/api/certificates/export";
+export const EP_CERTIFICATES_GENERATE = "/api/certificates/generate";
+export const EP_CERTIFICATES_REPLACE = "/api/certificates/replace";
 export const EP_CERTIFICATES_CONNECTION = "/api/certificates/connection";
 
 // Messages

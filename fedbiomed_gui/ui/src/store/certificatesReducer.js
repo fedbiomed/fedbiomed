@@ -2,7 +2,6 @@ import {
     CERTIFICATES_CONNECTION_ERROR,
     CERTIFICATES_CONNECTION_SUCCESS,
     CERTIFICATES_ERROR,
-    CERTIFICATES_LOADING,
     CERTIFICATES_RESET_MESSAGES,
     CERTIFICATES_SUCCESS,
     CERTIFICATES_WRITE_ERROR,
@@ -13,13 +12,11 @@ import {
 const initialCertificatesState = {
     status: null,
     connection: null,
-    loading: false,
     writing: false,
     error: null,
     connectionError: null,
     writeError: null,
     successMessage: null,
-    requiresRestart: false,
 }
 
 export const certificatesReducer = (
@@ -27,13 +24,6 @@ export const certificatesReducer = (
     action
 ) => {
     switch (action.type) {
-        case CERTIFICATES_LOADING:
-            return {
-                ...state,
-                loading: Boolean(action.payload),
-                error: action.payload ? null : state.error,
-            }
-
         case CERTIFICATES_SUCCESS:
             return {...state, status: action.payload, error: null}
 
@@ -57,8 +47,7 @@ export const certificatesReducer = (
         case CERTIFICATES_WRITE_SUCCESS:
             return {
                 ...state,
-                successMessage: action.payload.message,
-                requiresRestart: action.payload.requiresRestart,
+                successMessage: action.payload,
                 writeError: null,
             }
 
@@ -66,12 +55,7 @@ export const certificatesReducer = (
             return {...state, writeError: action.payload, successMessage: null}
 
         case CERTIFICATES_RESET_MESSAGES:
-            return {
-                ...state,
-                writeError: null,
-                successMessage: null,
-                requiresRestart: false,
-            }
+            return {...state, writeError: null, successMessage: null}
 
         default:
             return state
