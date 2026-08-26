@@ -1,4 +1,8 @@
+import argparse
+import configparser
+import pathlib
 import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -32,6 +36,23 @@ def set_db():
         patch("fedbiomed.common.cli.CertificateManager.set_db") as mock_set_db,
     ):
         yield mock_set_db
+
+
+def _setup_args(path="/components", force=False, enable_mutual_authentication=False):
+    """`certificate-dev-setup` arguments, defaulting to a plain run."""
+    return argparse.Namespace(
+        path=path,
+        force=force,
+        enable_mutual_authentication=enable_mutual_authentication,
+    )
+
+
+@pytest.fixture
+def registered():
+    """What a component already has registered; nothing unless a test says so."""
+    with patch("fedbiomed.common.cli.CertificateManager.get") as mock_get:
+        mock_get.return_value = None
+        yield mock_get
 
 
 @pytest.fixture
@@ -75,12 +96,13 @@ def test_common_cli_initialize_magic_dev_environment_parsers(cli):
     cli.initialize_magic_dev_environment_parsers()
 
     assert "certificate-dev-setup" in cli._subparsers.choices
-    assert (
-        cli._subparsers.choices["certificate-dev-setup"]
-        ._defaults["func"]
-        .__func__.__name__
-        == "_create_magic_dev_environment"
-    )
+    magic = cli._subparsers.choices["certificate-dev-setup"]
+    assert magic._defaults["func"].__func__.__name__ == "_create_magic_dev_environment"
+
+    options = magic._positionals._option_string_actions
+    assert "--path" in options
+    assert "--force" in options
+    assert "--enable-mutual-authentication" in options
 
 
 def test_common_cli_initialize_certificate_parser(cli):
@@ -119,6 +141,37 @@ def test_common_cli_initialize_certificate_parser(cli):
     assert "--path" in generate_options
 
 
+@pytest.fixture
+def federation(set_db, registered):
+    """A researcher and two nodes discovered under `/components`.
+
+    Each field is the mock a test overrides to describe the federation it needs;
+    `registered` says what a component already holds, nothing by default.
+    """
+    with (
+        patch("fedbiomed.common.cli.get_existing_component_db_paths") as db_paths,
+        patch("fedbiomed.common.cli.get_all_existing_certificates") as certificates,
+        patch("fedbiomed.common.cli.CertificateManager.insert") as insert,
+    ):
+        db_paths.return_value = {
+            _RESEARCHER_A: "/components/researcher/var/db.json",
+            _NODE_A: "/components/node1/var/db.json",
+            _NODE_B: "/components/node2/var/db.json",
+        }
+        certificates.return_value = [
+            {**_RESEARCHER_A_ROW, "certificate": "cert-r1"},
+            {**_NODE_A_ROW, "certificate": "cert-n1"},
+            {**_NODE_B_ROW, "certificate": "cert-n2"},
+        ]
+        yield SimpleNamespace(
+            db_paths=db_paths,
+            certificates=certificates,
+            insert=insert,
+            registered=registered,
+            set_db=set_db,
+        )
+
+
 @pytest.mark.parametrize(
     "component,expected",
     [
@@ -127,39 +180,173 @@ def test_common_cli_initialize_certificate_parser(cli):
         (_NODE_B, [_RESEARCHER_A]),
     ],
 )
-@patch("fedbiomed.common.cli.get_existing_component_db_names")
-@patch("fedbiomed.common.cli.get_all_existing_certificates")
-@patch("fedbiomed.common.cli.CertificateManager.insert")
-@patch("fedbiomed.common.cli.CommonCLI.error")
-def test_common_cli_create_magic_dev_environment(
-    mock_cm_error,
-    mock_cm_insert,
-    mock_get_all_certificates,
-    mock_get_components_db_names,
-    cli,
-    set_db,
-    component,
-    expected,
-):
+def test_common_cli_create_magic_dev_environment(cli, federation, component, expected):
     """Each component receives only the certificates of the components it talks to.
 
     A researcher gets the node certificates; a node gets the researcher's and
     nothing else — no other node, not itself, and never a second researcher.
     """
-    mock_get_components_db_names.return_value = {component: "db"}
-    mock_get_all_certificates.return_value = [
-        {**_RESEARCHER_A_ROW, "certificate": "cert-r1"},
-        {**_NODE_A_ROW, "certificate": "cert-n1"},
-        {**_NODE_B_ROW, "certificate": "cert-n2"},
+    federation.db_paths.return_value = {component: "/components/c/var/db.json"}
+
+    cli._create_magic_dev_environment(_setup_args())
+
+    # Components are looked up where the command was pointed, and each is written
+    # to the database its own configuration declares
+    federation.db_paths.assert_called_once_with("/components")
+    federation.certificates.assert_called_once_with("/components")
+    federation.set_db.assert_called_once_with("/components/c/var/db.json")
+    assert [c.kwargs["component_id"] for c in federation.insert.call_args_list] == (
+        expected
+    )
+    assert all(c.kwargs["upsert"] is True for c in federation.insert.call_args_list)
+
+
+def test_create_magic_dev_environment_names_components_by_their_directory(
+    cli, federation, capsys
+):
+    """The log reads in the directories the federation was created in.
+
+    Ids are what the certificate commands take, so each is printed once, in the
+    header of the component it belongs to.
+    """
+    cli._create_magic_dev_environment(_setup_args())
+
+    printed = capsys.readouterr().out
+    assert f"# Trust store of researcher ({_RESEARCHER_A})" in printed
+    assert f"# Trust store of node1 ({_NODE_A})" in printed
+    assert "Certificate of node1 has been registered." in printed
+    assert f"Certificate of {_NODE_A}" not in printed
+    assert "Operation successful!" in printed
+    assert "Federation of 1 researcher and 2 nodes has been set up in /components" in (
+        printed
+    )
+
+
+def test_create_magic_dev_environment_keeps_what_is_already_registered(
+    cli, federation, capsys
+):
+    """A re-run reports the registrations in place rather than rewriting them."""
+    federation.registered.return_value = {**_NODE_A_ROW, "certificate": "cert-n1"}
+
+    cli._create_magic_dev_environment(_setup_args())
+
+    federation.insert.assert_not_called()
+    assert "Certificate of node1 is already registered." in capsys.readouterr().out
+
+
+def test_create_magic_dev_environment_refuses_to_leave_an_outdated_registration(
+    cli, federation, capsys
+):
+    """A registration that no longer matches the served certificate fails the run.
+
+    Keeping it quietly would leave a federation that cannot handshake while the
+    command reported success.
+    """
+    federation.registered.return_value = {**_NODE_A_ROW, "certificate": "an-older-cert"}
+
+    with pytest.raises(SystemExit):
+        cli._create_magic_dev_environment(_setup_args())
+
+    printed = capsys.readouterr().out
+    assert "Certificate of node1 is registered but differs from the one it serves" in (
+        printed
+    )
+    # The way out is named, and nothing was written
+    assert "`--force`" in printed
+    assert "Operation successful!" not in printed
+    federation.insert.assert_not_called()
+
+
+def test_create_magic_dev_environment_force_replaces_registrations(cli, federation):
+    """`--force` rewrites a registration instead of reporting it."""
+    federation.registered.return_value = {**_NODE_A_ROW, "certificate": "an-older-cert"}
+
+    cli._create_magic_dev_environment(_setup_args(force=True))
+
+    assert _NODE_A in [
+        c.kwargs["component_id"] for c in federation.insert.call_args_list
     ]
+    assert all(c.kwargs["upsert"] is True for c in federation.insert.call_args_list)
 
-    with patch("fedbiomed.common.cli.ROOT_DIR", "path/to/root"):
-        cli._create_magic_dev_environment(None)
 
-    assert set_db.call_count == 1
-    assert [c.kwargs["component_id"] for c in mock_cm_insert.call_args_list] == expected
-    assert all(c.kwargs["upsert"] is True for c in mock_cm_insert.call_args_list)
-    mock_cm_error.assert_not_called()
+@pytest.fixture
+def component_configs(tmp_path):
+    """Writes a config per component, with mutual authentication left disabled."""
+
+    def _write(*component_ids):
+        paths = []
+        for component_id in component_ids:
+            config_path = tmp_path / f"{component_id}.ini"
+            config_path.write_text(
+                f"[default]\nid = {component_id}\n\n"
+                "[authentication]\nforce_mutual_authentication = False\n"
+            )
+            paths.append(str(config_path))
+        return paths
+
+    return _write
+
+
+def _mutual_authentication(config_path):
+    config = configparser.ConfigParser()
+    config.read(config_path)
+    return config.getboolean("authentication", "force_mutual_authentication")
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+@patch("fedbiomed.common.cli.get_all_existing_config_files")
+def test_create_magic_dev_environment_enables_mutual_authentication(
+    mock_get_config_files, cli, federation, component_configs, enabled
+):
+    """`--enable-mutual-authentication` enforces it in every component at once.
+
+    Without the flag the configurations are left alone: registering certificates
+    and demanding they be used are separate steps.
+    """
+    config_paths = component_configs(_RESEARCHER_A, _NODE_A, _NODE_B)
+    mock_get_config_files.return_value = config_paths
+
+    cli._create_magic_dev_environment(_setup_args(enable_mutual_authentication=enabled))
+
+    assert all(_mutual_authentication(p) is enabled for p in config_paths)
+
+
+@patch("fedbiomed.common.cli.get_all_existing_config_files")
+def test_create_magic_dev_environment_leaves_mutual_authentication_in_place(
+    mock_get_config_files, cli, federation, component_configs
+):
+    """A configuration already enforcing it is not rewritten.
+
+    Rewriting one costs it its comments, which configparser does not carry over.
+    """
+    (config_path,) = component_configs(_NODE_A)
+    mock_get_config_files.return_value = [config_path]
+
+    cli._create_magic_dev_environment(_setup_args(enable_mutual_authentication=True))
+    config = pathlib.Path(config_path)
+    config.write_text(config.read_text() + "\n; a comment the user added\n")
+
+    cli._create_magic_dev_environment(_setup_args(enable_mutual_authentication=True))
+
+    assert "; a comment the user added" in config.read_text()
+
+
+def test_create_magic_dev_environment_defaults_to_the_working_directory(
+    cli, federation, tmp_path, monkeypatch
+):
+    """Called without `--path`, the command sets up the federation it is run in."""
+    cli.initialize_magic_dev_environment_parsers()
+    federation.db_paths.return_value = {}
+    federation.certificates.return_value = []
+
+    monkeypatch.chdir(tmp_path)
+    with patch("builtins.print"):
+        with pytest.raises(SystemExit):
+            cli._create_magic_dev_environment(
+                cli.parser.parse_args(["certificate-dev-setup"])
+            )
+
+    federation.db_paths.assert_called_once_with(str(tmp_path))
 
 
 @pytest.mark.parametrize(
@@ -176,73 +363,48 @@ def test_common_cli_create_magic_dev_environment(
         ),
     ],
 )
-@patch("fedbiomed.common.cli.get_existing_component_db_names")
-@patch("fedbiomed.common.cli.get_all_existing_certificates")
-@patch("fedbiomed.common.cli.CertificateManager.insert")
 def test_create_magic_dev_environment_requires_a_whole_federation(
-    mock_cm_insert,
-    mock_get_all_certificates,
-    mock_get_components_db_names,
-    cli,
-    set_db,
-    certificates,
-    reported,
+    cli, federation, capsys, certificates, reported
 ):
     """One researcher and at least two nodes, checked as a shape not a count.
 
     Counting components alone would accept a clone with no researcher at all,
     whose node databases would then be set up empty.
     """
-    mock_get_components_db_names.return_value = {
-        c["component_id"]: "db" for c in certificates
-    }
-    mock_get_all_certificates.return_value = [
+    federation.certificates.return_value = [
         {**c, "certificate": f"cert-{c['component_id']}"} for c in certificates
     ]
 
-    with patch("builtins.print") as mock_print:
-        with pytest.raises(SystemExit):
-            cli._create_magic_dev_environment(None)
+    with pytest.raises(SystemExit):
+        cli._create_magic_dev_environment(_setup_args())
 
-    # The message names what is missing, and nothing was written
-    printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    # The message names what is missing and where it was looked for, and nothing
+    # was written
+    printed = capsys.readouterr().out
     assert reported in printed
-    mock_cm_insert.assert_not_called()
+    assert "/components" in printed
+    federation.insert.assert_not_called()
 
 
-@patch("fedbiomed.common.cli.get_existing_component_db_names")
-@patch("fedbiomed.common.cli.get_all_existing_certificates")
-@patch("fedbiomed.common.cli.CertificateManager.insert")
 @patch("fedbiomed.common.cli.validate_registering_component")
 def test_create_magic_dev_environment_reports_rejected_certificate(
-    mock_validate,
-    mock_cm_insert,
-    mock_get_all_certificates,
-    mock_get_components_db_names,
-    cli,
-    set_db,
+    mock_validate, cli, federation, capsys
 ):
     """A certificate the shared rule rejects is reported, never skipped quietly.
 
     Skipping a component's own kind is routine, but any other rejection means
     the certificate contradicts the component it is declared as.
     """
-    mock_get_components_db_names.return_value = {_NODE_A: "db-node-1"}
-    mock_get_all_certificates.return_value = [
-        {**_RESEARCHER_A_ROW, "certificate": "cert-r1"},
-        {**_NODE_A_ROW, "certificate": "cert-n1"},
-        {**_NODE_B_ROW, "certificate": "cert-n2"},
-    ]
+    federation.db_paths.return_value = {_NODE_A: "/components/node1/var/db.json"}
     mock_validate.side_effect = FedbiomedCertificateError("restricted to a TLS client")
 
-    with patch("builtins.print"):
-        with pytest.raises(SystemExit):
-            cli._create_magic_dev_environment(None)
+    with pytest.raises(SystemExit):
+        cli._create_magic_dev_environment(_setup_args())
 
     # Own kind is filtered before validation, so only the researcher was checked
     mock_validate.assert_called_once()
     assert mock_validate.call_args.args[1:] == ("RESEARCHER", "NODE")
-    mock_cm_insert.assert_not_called()
+    federation.insert.assert_not_called()
 
 
 def _generating_cli(cli, tmp_path, component, name):
