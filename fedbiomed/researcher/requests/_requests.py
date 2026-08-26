@@ -376,8 +376,9 @@ class Requests(metaclass=SingletonMeta):
                         "but no node certificate is registered, so the researcher "
                         "server cannot start. Register at least one node certificate "
                         "with `fedbiomed researcher certificate register`, or disable "
-                        "mutual authentication by setting `enabled = False` in the "
-                        f"`[mtls]` section of {config.config_path}."
+                        "mutual authentication by setting "
+                        "`force_mutual_authentication = False` in the "
+                        f"`[authentication]` section of {config.config_path}."
                     )
                 else:
                     msg = (

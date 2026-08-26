@@ -705,7 +705,8 @@ class Listener:
                             msg = (
                                 f"{ErrorNumbers.FB628.value}: The researcher requires "
                                 "mutual authentication but it is disabled on this "
-                                "node. Enable it in the node `[mtls]` configuration "
+                                "node. Enable it in the node `[authentication]` "
+                                "configuration "
                                 "and register the researcher certificate there; this "
                                 "node's certificate also has to be registered on the "
                                 "researcher side."
@@ -923,7 +924,7 @@ class TaskListener(Listener):
                 "federation is authenticated, this one included. Enable mutual "
                 "authentication on the researcher side, with this node's "
                 "certificate registered there; otherwise disable it in this node's "
-                "`[mtls]` configuration"
+                "`[authentication]` configuration"
             )
             operation = "mtls_not_enforced_by_researcher"
         else:

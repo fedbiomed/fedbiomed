@@ -310,7 +310,7 @@ class Config(metaclass=ABCMeta):
 
             self._cfg["default"]["db"] = os.path.relpath(db_path, config_dir)
             self._cfg["syslog"] = {"enable": "False"}
-            self._cfg["mtls"] = {"enabled": "False"}
+            self._cfg["authentication"] = {"force_mutual_authentication": "False"}
 
             # Calls child class add_parameterss
             self.add_parameters()

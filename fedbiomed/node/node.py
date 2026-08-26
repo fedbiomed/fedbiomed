@@ -170,9 +170,9 @@ class Node:
     def _researcher_credentials(self) -> ResearcherCredentials:
         """Builds the researcher connection credentials.
 
-        When mutual authentication is enabled through the `[mtls]` config section,
-        the node attaches its own client identity and pins the registered researcher
-        certificate. Otherwise it trusts whichever certificate the endpoint
+        When mutual authentication is enabled through the `[authentication]` config
+        section, the node attaches its own client identity and pins the registered
+        researcher certificate. Otherwise it trusts whichever certificate the endpoint
         presents on connect.
 
         Returns:
