@@ -250,14 +250,14 @@ def test_node_config_sections(config_env):
     assert "default" in sections
     assert "security" in sections
     assert "certificate" in sections
-    assert "mtls" in sections
+    assert "authentication" in sections
 
 
-def test_node_config_mtls_section_defaults(config_env):
+def test_node_config_authentication_section_defaults(config_env):
     config = NodeConfig(root=str(config_env))
 
     # Opt-in: disabled by default. Trusted certs live in the main component DB.
-    assert not config.getbool("mtls", "enabled")
+    assert not config.getbool("authentication", "force_mutual_authentication")
 
 
 def test_node_config_migrate_old(config_env):

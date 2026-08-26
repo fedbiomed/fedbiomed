@@ -8,8 +8,8 @@ verifies each node's client certificate, and each node pins the researcher's cer
 — so every channel is bound to a registered Fed-BioMed party.
 
 The protocol carrying it is mTLS (mutual TLS), the variant of TLS where both sides
-present a certificate. That is why the option is named `[mtls]` in the configuration
-files, and why gRPC failures around it are reported as TLS handshake errors.
+present a certificate. That is why gRPC failures around it are reported as TLS
+handshake errors.
 
 It is what establishes who the parties are, which is why a deployment cannot go without
 it. Two situations make the point:
@@ -25,10 +25,11 @@ item of the [security model](./security-model.md) (mitigating a malicious inside
 man-in-the-middle that spoofs a party inside the network).
 
 !!! warning "Mandatory for a deployment"
-    `[mtls] enabled = True` **must be present in the configuration of the researcher
-    and of every node** in a deployment. The setting is off by default, and an absent
-    `[mtls]` section reads the same as `enabled = False` — a component left that way
-    accepts an unverified peer, so it is not deployable.
+    `[authentication] force_mutual_authentication = True` **must be present in the
+    configuration of the researcher and of every node** in a deployment. The setting is
+    off by default, and an absent `[authentication]` section reads the same as
+    `force_mutual_authentication = False` — a component left that way accepts an
+    unverified peer, so it is not deployable.
 
     Leave it off only for local experimentation, where the channel falls back to the
     server-authenticated TLS described above and nothing verifies who the parties are.
@@ -41,7 +42,7 @@ man-in-the-middle that spoofs a party inside the network).
 | Researcher → node | Node identity not checked | Node **must** present a registered client cert |
 | Node identity | Declared in the message only | Every message's declared id must match the component id the presented certificate is registered under |
 | New certificates | — | Picked up on the next handshake, **no restart** (hot-add) |
-| `[mtls] enabled` | Absent or `False` — local experimentation only | `True`, **mandatory in a deployment**; read at startup, so turning it on or off takes effect only after **restarting** the component |
+| `[authentication] force_mutual_authentication` | Absent or `False` — local experimentation only | `True`, **mandatory in a deployment**; read at startup, so turning it on or off takes effect only after **restarting** the component |
 
 ## Component certificates
 
@@ -137,14 +138,14 @@ The config file (`etc/config.ini`) of **both** the researcher and every node mus
 carry, adding the section if it is not already there:
 
 ```ini
-[mtls]
-enabled = True
+[authentication]
+force_mutual_authentication = True
 ```
 
-The section is named after mTLS, the protocol that carries mutual authentication. It is
-**mandatory in a deployment**: the entry has to be present and set to `True` on every
-component. An absent `[mtls]` section reads the same as `enabled = False`, so leaving it
-out silently leaves that component unauthenticated rather than failing loudly.
+It is **mandatory in a deployment**: the entry has to be present and set to `True` on
+every component. An absent `[authentication]` section reads the same as
+`force_mutual_authentication = False`, so leaving it out silently leaves that component
+unauthenticated rather than failing loudly.
 
 Each component reads this setting when it starts, so change it while the component is
 stopped, or restart it afterwards — on the researcher, by relaunching it or restarting
@@ -172,10 +173,10 @@ researcher and at least two nodes:
 fedbiomed certificate-dev-setup
 ```
 
-This registers certificates only; you still have to set `[mtls] enabled = True` in each
-config, which remains mandatory for any deployment. The command reads the local
-installation's components, so it is for development and testing — it replaces no step of
-a real deployment.
+This registers certificates only; you still have to set
+`[authentication] force_mutual_authentication = True` in each config, which remains
+mandatory for any deployment. The command reads the local installation's components, so
+it is for development and testing — it replaces no step of a real deployment.
 
 ## Scenarios
 
@@ -184,7 +185,8 @@ a real deployment.
 The researcher re-reads its trust bundle on every handshake, so a new node can join
 **without restarting the researcher**:
 
-1. On the new node: register the researcher certificate and set `[mtls] enabled = True`.
+1. On the new node: register the researcher certificate and set
+   `[authentication] force_mutual_authentication = True`.
 2. Send the new node's certificate to the researcher.
 3. On the researcher: `fedbiomed researcher certificate register -pk /path/to/newnode.pem`.
 4. Start the new node — it is trusted on its first connection.
@@ -224,7 +226,7 @@ ones.
 
 ### Mutual authentication enabled or disabled
 
-| Node `[mtls]` | Researcher `[mtls]` | On the node | On the researcher |
+| Node `[authentication]` | Researcher `[authentication]` | On the node | On the researcher |
 |---|---|---|---|
 | off | off | Fetches the certificate the endpoint presents and trusts it: `Communication established … over server-authenticated TLS (node identity not verified)` | Accepts the node without checking its identity |
 | on | on | Pins the registered researcher certificate and presents its own: `Mutually authenticated communication established …; node identity verified by the researcher` | `Node <NODE_id> identity verified by mutual authentication` on the node's first request |
@@ -276,11 +278,11 @@ rejected node (it says so once at startup).
 | `FB619 … no researcher certificate is registered` (node won't start) | Mutual authentication on, researcher cert missing on node | Register the researcher certificate on the node |
 | `FB628 … Mutual authentication (mTLS) handshake with researcher failed` (node retries) | Pinned researcher cert wrong/outdated, or possible MITM | Re-register the current researcher certificate on the node |
 | `FB628 … reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher — rejected inside the handshake | Register the node's certificate on the researcher |
-| `FB628 … researcher requires mutual authentication but it is disabled on this node` (node stops) | Researcher has mutual authentication on, node has it off | Enable `[mtls]` on the node and register the researcher certificate there; register this node's certificate on the researcher side |
+| `FB628 … researcher requires mutual authentication but it is disabled on this node` (node stops) | Researcher has mutual authentication on, node has it off | Enable `[authentication]` on the node and register the researcher certificate there; register this node's certificate on the researcher side |
 | `FB628 … Researcher rejected this node's identity` (node stops) | Declared node id ≠ the component id the node's certificate is registered under, or that certificate was deleted on the researcher | Ensure the node id matches how its certificate is registered, and that it is still registered |
-| `FB628 … the researcher does not verify node identities: NO node in the federation is authenticated` (node stops) | Node has mutual authentication on, researcher has it off, so the researcher names no node in its task responses | Enable `[mtls]` on the researcher and register this node's certificate there. Disabling it on the node instead clears the error, but leaves the federation unauthenticated and is not deployable |
+| `FB628 … the researcher does not verify node identities: NO node in the federation is authenticated` (node stops) | Node has mutual authentication on, researcher has it off, so the researcher names no node in its task responses | Enable `[authentication]` on the researcher and register this node's certificate there. Disabling it on the node instead clears the error, but leaves the federation unauthenticated and is not deployable |
 | `FB628 … verified this connection as <other id>` (node stops) | The researcher answered naming a component that is not this node. A researcher rejects a mismatched id before answering, so this is not a configuration case — treat it as a researcher that is not behaving as one | Investigate the endpoint the node is pinned to; a certificate registered under the wrong id surfaces as `Researcher rejected this node's identity` instead |
-| `FB619 … no node certificate is registered` (researcher won't start) | Mutual authentication on, but no node certificate registered | Register at least one node certificate. Setting `[mtls] enabled = False` also starts the researcher, but unauthenticated — not an option for a deployment |
+| `FB619 … no node certificate is registered` (researcher won't start) | Mutual authentication on, but no node certificate registered | Register at least one node certificate. Setting `[authentication] force_mutual_authentication = False` also starts the researcher, but unauthenticated — not an option for a deployment |
 | `FB628 … Declared node id … does not match the identity … its certificate is registered under` (researcher error) | A node declared an id different from the one its certificate is registered under | Investigate; the node id and its registered component id must be the same component |
 | `FB628 … Refusing the node declaring id … its certificate is not registered` (researcher error) | The node completed the handshake but its certificate is absent from the registry — typically deleted while the researcher was running | Re-register the node's certificate, or leave it rejected if the removal was deliberate |
 | `FB628 … Refusing the node declaring id … its certificate registry could not be read` (researcher error) | The certificate database could not be read even once, so no node can be identified. Look for the accompanying `certificate_store_unreadable` warning | Check the path and permissions of the `db` entry in the researcher config |

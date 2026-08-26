@@ -190,7 +190,7 @@ def test_subject_field_returns_none_for_absent_oid(certs):
 
 
 # ---------------------------------------------------------------------------
-# is_mtls_enabled (config `[mtls]` section)
+# is_mtls_enabled (config `[authentication]` section)
 # ---------------------------------------------------------------------------
 
 
@@ -198,7 +198,7 @@ class _FakeConfig:
     """Minimal stand-in mirroring `Config.get`/`getbool`/`root` semantics.
 
     `values` maps `(section, key)` to the stored string; a missing entry
-    behaves like an absent `[mtls]` section (uses `fallback` or raises).
+    behaves like an absent `[authentication]` section (uses `fallback` or raises).
     """
 
     def __init__(self, root, values=None):
@@ -217,17 +217,21 @@ class _FakeConfig:
 
 
 def test_is_mtls_enabled_true_when_flag_set():
-    config = _FakeConfig("/root", {("mtls", "enabled"): "True"})
+    config = _FakeConfig(
+        "/root", {("authentication", "force_mutual_authentication"): "True"}
+    )
     assert is_mtls_enabled(config) is True
 
 
 def test_is_mtls_enabled_false_when_flag_unset():
-    config = _FakeConfig("/root", {("mtls", "enabled"): "False"})
+    config = _FakeConfig(
+        "/root", {("authentication", "force_mutual_authentication"): "False"}
+    )
     assert is_mtls_enabled(config) is False
 
 
 def test_is_mtls_enabled_false_when_section_absent():
-    # No `[mtls]` section at all -> disabled
+    # No `[authentication]` section at all -> disabled
     assert is_mtls_enabled(_FakeConfig("/root")) is False
 
 
