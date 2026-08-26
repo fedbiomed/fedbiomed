@@ -872,14 +872,52 @@ def test_node_registering_second_certificate_rejected(cert_db):
     assert len(cert_db.cm.list()) == 1
 
 
+def test_registration_is_audited_with_the_certificate_it_trusts(cert_db):
+    with patch(
+        "fedbiomed.common.certificate_manager.logger.security_event"
+    ) as security_event:
+        cert_db.cm.register_certificate(
+            certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A),
+            registering_component_type=ComponentType.NODE.name,
+        )
+
+    events = _events(security_event, "certificate_registered")
+    assert len(events) == 1
+    assert events[0].kwargs["status"] == "success"
+    assert events[0].kwargs["component_id"] == _RESEARCHER_A
+    assert events[0].kwargs["component_type"] == ComponentType.RESEARCHER.name
+    assert events[0].kwargs["replaced"] is False
+    # The certificate is identified, never emitted.
+    assert _RESEARCHER_A in events[0].kwargs["cert_subject"]
+    assert "certificate" not in events[0].kwargs
+
+
+def test_replacing_a_registered_certificate_is_marked_as_such(cert_db):
+    cert_db.cm.register_certificate(
+        certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A),
+        registering_component_type=ComponentType.NODE.name,
+    )
+    with patch(
+        "fedbiomed.common.certificate_manager.logger.security_event"
+    ) as security_event:
+        cert_db.cm.register_certificate(
+            certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A, san=("other",)),
+            registering_component_type=ComponentType.NODE.name,
+            upsert=True,
+        )
+
+    events = _events(security_event, "certificate_registered")
+    assert len(events) == 1
+    assert events[0].kwargs["replaced"] is True
+
+
 # Both rejections a node can hit: a certificate of its own type, and a second
-# certificate once one is registered.
+# certificate once one is registered. Neither changes the database, so neither
+# is audited.
 @pytest.mark.parametrize(
     "preregister,component_id", [(None, _NODE_A), (_RESEARCHER_A, _RESEARCHER_B)]
 )
-def test_registration_rejection_is_registered_as_event(
-    cert_db, preregister, component_id
-):
+def test_rejected_registration_is_not_audited(cert_db, preregister, component_id):
     if preregister:
         cert_db.cm.register_certificate(
             certificate_path=_self_signed(cert_db.tmp, preregister),
@@ -894,24 +932,34 @@ def test_registration_rejection_is_registered_as_event(
                 registering_component_type=ComponentType.NODE.name,
             )
 
-    events = _events(security_event, "certificate_registration_rejected")
-    assert len(events) == 1
-    assert events[0].kwargs["status"] == "failure"
-    assert events[0].kwargs["component_id"] == component_id
-    assert events[0].kwargs["registering_component_type"] == ComponentType.NODE.name
+    assert _events(security_event, "certificate_registered") == []
 
 
-def test_accepted_registration_is_not_rejected_event(cert_db):
-    """Successful inserts are audited by the DBTable wrapper, not by this path."""
+def test_deletion_is_audited_with_the_certificate_it_revokes(cert_db):
+    cert_db.cm.register_certificate(
+        certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A),
+        registering_component_type=ComponentType.NODE.name,
+    )
     with patch(
         "fedbiomed.common.certificate_manager.logger.security_event"
     ) as security_event:
-        cert_db.cm.register_certificate(
-            certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A),
-            registering_component_type=ComponentType.NODE.name,
-        )
+        cert_db.cm.delete(component_id=_RESEARCHER_A)
 
-    assert _events(security_event, "certificate_registration_rejected") == []
+    events = _events(security_event, "certificate_deleted")
+    assert len(events) == 1
+    assert events[0].kwargs["status"] == "success"
+    assert events[0].kwargs["component_id"] == _RESEARCHER_A
+    assert events[0].kwargs["component_type"] == ComponentType.RESEARCHER.name
+    assert _RESEARCHER_A in events[0].kwargs["cert_subject"]
+
+
+def test_deleting_an_absent_component_is_not_audited(cert_db):
+    with patch(
+        "fedbiomed.common.certificate_manager.logger.security_event"
+    ) as security_event:
+        cert_db.cm.delete(component_id=_RESEARCHER_A)
+
+    assert _events(security_event, "certificate_deleted") == []
 
 
 def test_node_reregistering_same_party_upserts(cert_db):
