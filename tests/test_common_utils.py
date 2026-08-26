@@ -17,38 +17,41 @@ from fedbiomed.common.utils._config_utils import (
     get_all_existing_config_files,
     get_component_certificate_from_config,
     get_component_config,
-    get_existing_component_db_names,
+    get_existing_component_db_paths,
 )
 
 
 @pytest.fixture()
-def write_component(tmp_path, mocker):
-    """Writes component config files in a temporary `etc` directory.
+def write_component(tmp_path):
+    """Writes component roots under a temporary directory.
 
-    The directory also stands in for `ROOT_DIR`, so the functions that discover
-    components in the Fed-BioMed root find the written components instead of the
-    ones installed on the machine running the tests.
+    Each is laid out the way a created component is, so the functions that
+    discover components under a directory find the written ones.
     """
-    mocker.patch("fedbiomed.common.utils._config_utils.ROOT_DIR", str(tmp_path))
-
-    etc = tmp_path / CONFIG_FOLDER_NAME
-    etc.mkdir()
 
     def _write(component_id, component="NODE", certificate="test-certificate"):
+        etc = tmp_path / component_id / CONFIG_FOLDER_NAME
+        etc.mkdir(parents=True)
+
         cfg = configparser.ConfigParser()
-        cfg["default"] = {"id": component_id, "component": component}
-        # Certificate paths are relative to the directory holding the config
+        # Certificate and database paths are relative to the directory holding
+        # the config
+        cfg["default"] = {
+            "id": component_id,
+            "component": component,
+            "db": os.path.join("..", VAR_FOLDER_NAME, f"db_{component_id}.json"),
+        }
         cfg["certificate"] = {
             "public_key": os.path.join("certs", f"{component_id}.pem")
         }
 
-        config_path = etc / f"{component_id}.ini"
+        config_path = etc / "config.ini"
         with open(config_path, "w") as file:
             cfg.write(file)
 
         if certificate is not None:
             cert_path = etc / "certs" / f"{component_id}.pem"
-            cert_path.parent.mkdir(exist_ok=True)
+            cert_path.parent.mkdir()
             cert_path.write_text(certificate)
 
         return str(config_path)
@@ -126,17 +129,29 @@ def test_get_component_certificate_from_config_raises_for_incomplete_config(tmp_
 
 def test_get_all_existing_config_files(tmp_path, write_component):
     config_path = write_component("node-1")
-    (tmp_path / CONFIG_FOLDER_NAME / "not-a-config.txt").write_text("")
+    # Neither a directory without a component in it nor a file is a component
+    (tmp_path / "not-a-component").mkdir()
+    (tmp_path / "not-a-component.txt").write_text("")
 
-    assert get_all_existing_config_files() == [config_path]
+    assert get_all_existing_config_files(str(tmp_path)) == [config_path]
 
 
-def test_get_all_existing_certificates(write_component):
+def test_get_all_existing_config_files_ignores_components_deeper_than_first_level(
+    tmp_path,
+):
+    nested = tmp_path / "parent" / "node-1" / CONFIG_FOLDER_NAME
+    nested.mkdir(parents=True)
+    (nested / "config.ini").write_text("[default]\nid = node-1\n")
+
+    assert get_all_existing_config_files(str(tmp_path)) == []
+
+
+def test_get_all_existing_certificates(tmp_path, write_component):
     write_component("node-1", certificate="test-certificate-1")
     write_component("node-2", certificate="test-certificate-2")
 
     certificates = sorted(
-        get_all_existing_certificates(), key=lambda c: c["component_id"]
+        get_all_existing_certificates(str(tmp_path)), key=lambda c: c["component_id"]
     )
 
     assert certificates == [
@@ -153,13 +168,13 @@ def test_get_all_existing_certificates(write_component):
     ]
 
 
-def test_get_existing_component_db_names(write_component):
+def test_get_existing_component_db_paths(tmp_path, write_component):
     write_component("node-1")
     write_component("node-2")
 
-    assert get_existing_component_db_names() == {
-        "node-1": "db_node-1",
-        "node-2": "db_node-2",
+    assert get_existing_component_db_paths(str(tmp_path)) == {
+        "node-1": str(tmp_path / "node-1" / VAR_FOLDER_NAME / "db_node-1.json"),
+        "node-2": str(tmp_path / "node-2" / VAR_FOLDER_NAME / "db_node-2.json"),
     }
 
 

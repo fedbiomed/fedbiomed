@@ -20,16 +20,16 @@ from fedbiomed.common.certificate_manager import (
 )
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
-    DB_FOLDER_NAME,
     ComponentType,
     __version__,
 )
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import (
-    ROOT_DIR,
     get_all_existing_certificates,
-    get_existing_component_db_names,
+    get_all_existing_config_files,
+    get_component_config,
+    get_existing_component_db_paths,
     get_method_spec,
     read_file,
 )
@@ -252,12 +252,33 @@ class CommonCLI:
         magic = self._subparsers.add_parser(
             "certificate-dev-setup",
             description="Prepares development environment by registering certificates "
-            "of each component created under the same Fed-BioMed installation. Parses "
-            "configuration files ends with '.ini' that are created in 'etc' "
-            "directory. This setup requires to have one 'researcher' and "
-            "at least 2 nodes.",
+            "of each component found directly under the given directory. This setup "
+            "requires to have one 'researcher' and at least 2 nodes.",
             help="Prepares development environment by registering certificates of each "
-            "component created under the same Fed-BioMed installation.",
+            "component found directly under the given directory.",
+        )
+        magic.add_argument(
+            "--path",
+            "-p",
+            nargs="?",
+            default=".",
+            metavar="COMPONENTS_DIRECTORY",
+            help="The directory the components are located in, absolute or relative "
+            "to the path where CLI is executed. Only its first level is inspected. "
+            "Defaults to the path where CLI is executed.",
+        )
+        magic.add_argument(
+            "--force",
+            action="store_true",
+            help="Replaces the certificates already registered. Without it, an "
+            "existing registration is left as it is.",
+        )
+        magic.add_argument(
+            "--enable-mutual-authentication",
+            action="store_true",
+            help="Sets `[authentication] force_mutual_authentication` to True in the "
+            "configuration of every component, once their certificates are "
+            "registered. Components already running have to be restarted to pick it up.",
         )
         magic.set_defaults(func=self._create_magic_dev_environment)
 
@@ -374,7 +395,7 @@ class CommonCLI:
             "included; give this for a researcher reachable under any other name.",
         )
 
-    def _create_magic_dev_environment(self, dummy: None):
+    def _create_magic_dev_environment(self, args: argparse.Namespace):
         """Registers, in every local component, the certificates it must trust.
 
         Performs locally what components otherwise exchange by hand: a researcher
@@ -382,10 +403,14 @@ class CommonCLI:
         Certificates of a component's own type are skipped — a component never
         registers its own kind, and `certificate list` reports such entries as
         an inconsistency.
+
+        Args:
+            args: Arguments that are passed after `certificate-dev-setup` command
         """
 
-        db_names = get_existing_component_db_names()
-        certificates = get_all_existing_certificates()
+        path = os.path.abspath(args.path)
+        db_paths = get_existing_component_db_paths(path)
+        certificates = get_all_existing_certificates(path)
 
         component_types = {c["component_id"]: c["component_type"] for c in certificates}
         researchers = [
@@ -406,15 +431,23 @@ class CommonCLI:
                 "`certificate-dev-setup` sets up one researcher and at least two "
                 f"nodes. Found {len(researchers)} researcher(s) "
                 f"({', '.join(researchers) or 'none'}) and {len(nodes)} node(s) "
-                f"({', '.join(nodes) or 'none'})."
+                f"({', '.join(nodes) or 'none'}) in {path}."
             )
 
-        for id_, db_name in db_names.items():
-            print(f"Registering certificates for component {id_} ------------------")
+        # Components are known by the directory they were created in, so the log
+        # reads in those terms rather than in ids
+        component_dirs = {
+            id_: os.path.basename(os.path.dirname(os.path.dirname(db_path)))
+            for id_, db_path in db_paths.items()
+        }
+
+        # A registration the run refused to replace, by the component holding it
+        outdated = []
+
+        for id_, db_path in db_paths.items():
+            print(f"{NC}{BOLD}# Trust store of {component_dirs[id_]} ({id_}){NC}")
             # Sets DB
-            self._certificate_manager.set_db(
-                os.path.join(ROOT_DIR, DB_FOLDER_NAME, f"{db_name}.json")
-            )
+            self._certificate_manager.set_db(db_path)
 
             for certificate in certificates:
                 # A component does not register its own kind: expected, not an error
@@ -436,6 +469,27 @@ class CommonCLI:
                         f"{certificate['component_id']}: {e}"
                     )
 
+                # Falls back to the id: a missing label must not fail a correct
+                # registration
+                owner = component_dirs.get(
+                    certificate["component_id"], certificate["component_id"]
+                )
+
+                # An existing registration is kept unless replacing it is asked
+                # for; one that no longer matches the served certificate breaks
+                # the handshake, so it is called out rather than kept quietly.
+                registered = self._certificate_manager.get(certificate["component_id"])
+                if registered and not args.force:
+                    if registered["certificate"] == certificate["certificate"]:
+                        print(f"Certificate of {owner} is already registered.")
+                    else:
+                        print(
+                            f"{YLW}Certificate of {owner} is registered but differs "
+                            f"from the one it serves.{NC}"
+                        )
+                        outdated.append(f"{owner} on {component_dirs[id_]}")
+                    continue
+
                 try:
                     self._certificate_manager.insert(**certificate, upsert=True)
                 except FedbiomedError as e:
@@ -444,9 +498,40 @@ class CommonCLI:
                         f"{certificate['component_id']}: {e}"
                     )
 
-                print(
-                    f"Certificate of {certificate['component_id']} has been registered."
-                )
+                print(f"Certificate of {owner} has been registered.")
+
+        if outdated:
+            CommonCLI.error(
+                "Registrations that no longer match the certificate the component "
+                f"serves were kept, so the federation in {path} is not ready: "
+                f"{', '.join(outdated)}. Run with `--force` to replace them."
+            )
+
+        # Enforced only once the certificates are in place: a component that
+        # demands mutual authentication without them refuses every connection.
+        if args.enable_mutual_authentication:
+            for config_path in get_all_existing_config_files(path):
+                config = get_component_config(config_path)
+                if not config.has_section("authentication"):
+                    config.add_section("authentication")
+
+                # Rewriting would only cost the file its comments, which
+                # configparser drops
+                if config.getboolean(
+                    "authentication", "force_mutual_authentication", fallback=False
+                ):
+                    continue
+
+                config.set("authentication", "force_mutual_authentication", "True")
+                with open(config_path, "w", encoding="UTF-8") as file_:
+                    config.write(file_)
+
+            print("Mutual authentication enforced in every component.")
+
+        CommonCLI.success(
+            f"Federation of 1 researcher and {len(nodes)} nodes has been set up "
+            f"in {path}"
+        )
 
     def _generate_certificate(self, args: argparse.Namespace):
         """Generates the certificate and private key of the current component.

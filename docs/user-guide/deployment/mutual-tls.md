@@ -164,19 +164,45 @@ such as:
 
 ## Development / testing shortcut
 
-When several components run locally under the same Fed-BioMed installation, one command
-replaces steps 1 and 2: it registers in each of them the certificates it must trust — the
-node certificates on the researcher, the researcher's on each node. It expects one
-researcher and at least two nodes:
+When several components sit side by side in one directory, one command replaces steps 1
+and 2: it registers in each of them the certificates it must trust — the node
+certificates on the researcher, the researcher's on each node. It expects one researcher
+and at least two nodes:
 
 ```shell
 fedbiomed certificate-dev-setup
 ```
 
-This registers certificates only; you still have to set
-`[authentication] force_mutual_authentication = True` in each config, which remains
-mandatory for any deployment. The command reads the local installation's components, so
-it is for development and testing — it replaces no step of a real deployment.
+Components are read from the directory the command is run in, and only from its first
+level — a component nested deeper is not part of the federation being set up. Give
+`--path` to point at another directory:
+
+```shell
+fedbiomed certificate-dev-setup --path /path/to/components
+```
+
+Certificates already registered are reported and left as they are, so the command can be
+re-run to complete a federation a node was added to. A registration that no longer
+matches the certificate the component serves — after regenerating one, for instance —
+fails the run instead, since it would leave a federation that cannot handshake. Replace
+those with `--force`:
+
+```shell
+fedbiomed certificate-dev-setup --force
+```
+
+This registers certificates only. Setting
+`[authentication] force_mutual_authentication = True` in each config remains mandatory
+for any deployment, and `--enable-mutual-authentication` does it for every component at
+once, after their certificates are registered:
+
+```shell
+fedbiomed certificate-dev-setup --enable-mutual-authentication
+```
+
+Components already running have to be restarted to pick the setting up. The command
+reads components that are already on the machine, so it is for development and testing
+— it replaces no step of a real deployment.
 
 ## Scenarios
 
