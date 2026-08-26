@@ -512,16 +512,15 @@ class CertificateManager:
         """
         certificate_ = self.get(component_id=component_id)
         if not certificate_:
-            return self._table.insert(
+            result = self._table.insert(
                 {
                     "certificate": certificate,
                     "component_id": component_id,
                     "component_type": component_type,
                 }
             )
-
-        if upsert:
-            return self._table.upsert(
+        elif upsert:
+            result = self._table.upsert(
                 {
                     "certificate": certificate,
                     "component_type": component_type,
@@ -529,10 +528,24 @@ class CertificateManager:
                 },
                 self._query.component_id == component_id,
             )
-        raise FedbiomedCertificateError(
-            f"{ErrorNumbers.FB619.value}: Component {component_id} already registered. "
-            "Please use `upsert=True` or '--upsert' option through CLI"
+        else:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Component {component_id} already "
+                "registered. Please use `upsert=True` or '--upsert' option through CLI"
+            )
+
+        # Audited here rather than at the callers, so every path that grants trust
+        # is recorded. `replaced` marks an existing pin being overwritten.
+        logger.security_event(
+            operation="certificate_registered",
+            status="success",
+            component_id=component_id,
+            component_type=component_type,
+            replaced=bool(certificate_),
+            **certificate_audit_fields(certificate),
         )
+
+        return result
 
     def get(self, component_id: str) -> Union[dict, None]:
         """Gets certificate/public key  of given component
@@ -572,7 +585,21 @@ class CertificateManager:
             The document IDs of deleted certificates
         """
 
-        return self._table.remove(self._query.component_id == component_id)
+        # Read before removing: revoking trust is auditable only while the entry
+        # being removed can still be described.
+        document = self.get(component_id=component_id) or {}
+        removed = self._table.remove(self._query.component_id == component_id)
+
+        if removed:
+            logger.security_event(
+                operation="certificate_deleted",
+                status="success",
+                component_id=component_id,
+                component_type=document.get("component_type"),
+                **certificate_audit_fields(document.get("certificate", "")),
+            )
+
+        return removed
 
     def list(self, verbose: bool = False) -> List[Document]:
         """Lists registered certificates.
@@ -707,58 +734,43 @@ class CertificateManager:
                 "register it."
             )
 
-        # Rejections below mean the certificate does not belong in this trust store,
-        # so they are audited; successful ones are audited by `DBTable` on insert.
-        try:
-            if registering_component_type is not None:
-                validate_registering_component(
-                    certificate_content, component_type, registering_component_type
-                )
+        if registering_component_type is not None:
+            validate_registering_component(
+                certificate_content, component_type, registering_component_type
+            )
 
-            # A node communicates with a single researcher, so its database holds at most one certificate
-            if registering_component_type == ComponentType.NODE.name:
-                others = [
-                    d["component_id"]
-                    for d in self.list()
-                    if d["component_id"] != component_id
-                ]
-                if others:
-                    registered = ", ".join(f"`{o}`" for o in others)
-                    raise FedbiomedCertificateError(
-                        f"{ErrorNumbers.FB619.value}: A node registers at most one "
-                        f"certificate. Cannot register `{component_id}` while other "
-                        f"certificates are registered: {registered}. Delete them first."
-                    )
-
-            # A researcher registers one certificate per node, so the same one
-            # under two component ids would identify neither.
-            fingerprint = certificate_fingerprint(certificate_content)
-            duplicates = [
+        # A node communicates with a single researcher, so its database holds at most one certificate
+        if registering_component_type == ComponentType.NODE.name:
+            others = [
                 d["component_id"]
                 for d in self.list()
                 if d["component_id"] != component_id
-                and certificate_fingerprint(d["certificate"]) == fingerprint
             ]
-            if fingerprint is not None and duplicates:
-                registered = ", ".join(f"`{d}`" for d in duplicates)
+            if others:
+                registered = ", ".join(f"`{o}`" for o in others)
                 raise FedbiomedCertificateError(
-                    f"{ErrorNumbers.FB619.value}: This certificate is already "
-                    f"registered under {registered}, and a certificate identifies a "
-                    f"single component. Delete that registration, or register a "
-                    f"certificate of its own for `{component_id}`."
+                    f"{ErrorNumbers.FB619.value}: A node registers at most one "
+                    f"certificate. Cannot register `{component_id}` while other "
+                    f"certificates are registered: {registered}. Delete them first."
                 )
-        except FedbiomedCertificateError as exp:
-            logger.security_event(
-                operation="certificate_registration_rejected",
-                status="failure",
-                component_id=component_id,
-                component_type=component_type,
-                registering_component_type=registering_component_type,
-                certificate_path=certificate_path,
-                error_type=type(exp).__name__,
-                error_message=str(exp),
+
+        # A researcher registers one certificate per node, so the same one
+        # under two component ids would identify neither.
+        fingerprint = certificate_fingerprint(certificate_content)
+        duplicates = [
+            d["component_id"]
+            for d in self.list()
+            if d["component_id"] != component_id
+            and certificate_fingerprint(d["certificate"]) == fingerprint
+        ]
+        if fingerprint is not None and duplicates:
+            registered = ", ".join(f"`{d}`" for d in duplicates)
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: This certificate is already "
+                f"registered under {registered}, and a certificate identifies a "
+                f"single component. Delete that registration, or register a "
+                f"certificate of its own for `{component_id}`."
             )
-            raise
 
         self.insert(
             certificate=certificate_content,
