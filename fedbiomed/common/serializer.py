@@ -4,14 +4,16 @@
 """MsgPack serialization utils, wrapped into a namespace class."""
 
 import dataclasses
+import json
 from math import ceil
 from typing import Any, Optional
 
+import declearn
 import msgpack
 import numpy as np
 import torch
 from declearn.model.api import Vector, VectorSpec
-from declearn.utils import json_pack, json_unpack
+from packaging.version import Version
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
@@ -21,6 +23,16 @@ from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 __all__ = [
     "Serializer",
 ]
+
+if Version(declearn.__version__) < Version("2.9"):
+    from declearn.utils import json_pack, json_unpack
+else:
+    from declearn.utils.serialize import json_deserialize, json_serialize
+    def json_pack(obj):
+        return json.loads(json_serialize(obj))
+
+    def json_unpack(obj):
+        return json_deserialize(json.dumps(obj))
 
 
 class Serializer:
@@ -167,7 +179,7 @@ class Serializer:
             "AuxVar"
         ):  # Declearn scaffold aux var type is AuxVar>ScaffoldAuxVar
             try:
-                # json_upack of Declearn expects the "__type__" field to be present in the dict
+                # json_unpack of Declearn expects the "__type__" field to be present in the dict
                 return json_unpack(obj)
             except Exception:
                 logger.warning("Failed to unpack AuxVar subtype.")
