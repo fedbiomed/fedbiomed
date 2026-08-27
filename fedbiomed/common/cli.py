@@ -276,7 +276,7 @@ class CommonCLI:
         magic.add_argument(
             "--enable-mutual-authentication",
             action="store_true",
-            help="Sets `[authentication] force_mutual_authentication` to True in the "
+            help="Sets `[authentication] mutual_authentication` to True in the "
             "configuration of every component, once their certificates are "
             "registered. Components already running have to be restarted to pick it up.",
         )
@@ -518,11 +518,11 @@ class CommonCLI:
                 # Rewriting would only cost the file its comments, which
                 # configparser drops
                 if config.getboolean(
-                    "authentication", "force_mutual_authentication", fallback=False
+                    "authentication", "mutual_authentication", fallback=False
                 ):
                     continue
 
-                config.set("authentication", "force_mutual_authentication", "True")
+                config.set("authentication", "mutual_authentication", "True")
                 with open(config_path, "w", encoding="UTF-8") as file_:
                     config.write(file_)
 
@@ -740,7 +740,7 @@ class CommonCLI:
         )
         print(
             f"{BOLD}Registering does not enable mutual authentication by itself: "
-            "set `[authentication] force_mutual_authentication = True` in the "
+            "set `[authentication] mutual_authentication = True` in the "
             f"configuration of this component and of every {registers_on}, then "
             f"restart them.{NC}"
         )

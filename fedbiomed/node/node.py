@@ -11,10 +11,7 @@ import traceback
 from typing import Callable, Optional, Union
 
 from fedbiomed import __version__
-from fedbiomed.common.certificate_manager import (
-    CertificateManager,
-    is_mtls_enabled,
-)
+from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
@@ -187,7 +184,9 @@ class Node:
             host=self.config.get("researcher", "ip"),
         )
 
-        if not is_mtls_enabled(self.config):
+        if not self.config.getbool(
+            "authentication", "mutual_authentication", fallback="False"
+        ):
             return credentials
 
         credentials.mtls = True

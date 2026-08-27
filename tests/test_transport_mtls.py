@@ -6,7 +6,7 @@
 Covers the mutual authentication feature end to end:
 
 * the certificate/config helpers in ``fedbiomed.common.certificate_manager``
-  (``certificate_subject_field``, ``TrustedCertificateBundle``, ``is_mtls_enabled``),
+  (``certificate_subject_field``, ``TrustedCertificateBundle``),
 * the server side wiring (``SSLCredentials.mtls``, ``_verify_peer_identity``),
   the node-identity spoofing enforcement in every ``ResearcherServicer`` RPC
   carrying a node id, and the audit events recorded for accepted and rejected
@@ -36,7 +36,6 @@ from fedbiomed.common.certificate_manager import (
     TrustedCertificateBundle,
     certificate_names,
     certificate_subject_field,
-    is_mtls_enabled,
 )
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCertificateError
@@ -187,52 +186,6 @@ def test_subject_field_returns_none_for_absent_oid(certs):
         certificate_subject_field(certs["node_cert"], x509.oid.NameOID.LOCALITY_NAME)
         is None
     )
-
-
-# ---------------------------------------------------------------------------
-# is_mtls_enabled (config `[authentication]` section)
-# ---------------------------------------------------------------------------
-
-
-class _FakeConfig:
-    """Minimal stand-in mirroring `Config.get`/`getbool`/`root` semantics.
-
-    `values` maps `(section, key)` to the stored string; a missing entry
-    behaves like an absent `[authentication]` section (uses `fallback` or raises).
-    """
-
-    def __init__(self, root, values=None):
-        self.root = root
-        self._values = values or {}
-
-    def get(self, section, key, **kwargs):
-        if (section, key) in self._values:
-            return self._values[(section, key)]
-        if "fallback" in kwargs:
-            return kwargs["fallback"]
-        raise KeyError(f"No option {key} in section {section}")
-
-    def getbool(self, section, key, **kwargs):
-        return self.get(section, key, **kwargs).lower() in ("true", "1")
-
-
-def test_is_mtls_enabled_true_when_flag_set():
-    config = _FakeConfig(
-        "/root", {("authentication", "force_mutual_authentication"): "True"}
-    )
-    assert is_mtls_enabled(config) is True
-
-
-def test_is_mtls_enabled_false_when_flag_unset():
-    config = _FakeConfig(
-        "/root", {("authentication", "force_mutual_authentication"): "False"}
-    )
-    assert is_mtls_enabled(config) is False
-
-
-def test_is_mtls_enabled_false_when_section_absent():
-    # No `[authentication]` section at all -> disabled
-    assert is_mtls_enabled(_FakeConfig("/root")) is False
 
 
 # ---------------------------------------------------------------------------

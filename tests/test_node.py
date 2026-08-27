@@ -27,7 +27,8 @@ from fedbiomed.common.message import (
     TrainingPlanStatusRequest,
     TrainRequest,
 )
-from fedbiomed.node.node import Node, NodeConfig
+from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
 
 #############################################################
@@ -196,12 +197,12 @@ def node_env():
 def mtls_node_env(node_env):
     """node_env with mutual authentication enabled and a readable node keypair."""
     with (
-        patch("fedbiomed.node.node.is_mtls_enabled", return_value=True),
         patch(
             "fedbiomed.node.node.read_file", side_effect=["NODE_KEY", "NODE_CERT"]
         ) as read_file,
         patch("fedbiomed.node.node.CertificateManager") as certificate_manager,
     ):
+        node_env.node.config._cfg["authentication"] = {"mutual_authentication": "True"}
         node_env.node.config._cfg["certificate"] = {
             "private_key": "node.key",
             "public_key": "node.pem",

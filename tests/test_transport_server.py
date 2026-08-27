@@ -11,7 +11,7 @@ from fedbiomed.common.exceptions import (
 )
 from fedbiomed.common.message import OverlayMessage, SearchReply, SearchRequest
 from fedbiomed.researcher.config import ResearcherConfig
-from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus
+from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus, NodeAgent
 from fedbiomed.transport.protocols.researcher_pb2 import (
     Empty,
     FeedbackMessage,
@@ -20,7 +20,6 @@ from fedbiomed.transport.protocols.researcher_pb2 import (
 )
 from fedbiomed.transport.server import (
     GrpcServer,
-    NodeAgent,
     ResearcherServicer,
     _GrpcAsyncServer,
 )

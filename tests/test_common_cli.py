@@ -289,7 +289,7 @@ def component_configs(tmp_path):
             config_path = tmp_path / f"{component_id}.ini"
             config_path.write_text(
                 f"[default]\nid = {component_id}\n\n"
-                "[authentication]\nforce_mutual_authentication = False\n"
+                "[authentication]\nmutual_authentication = False\n"
             )
             paths.append(str(config_path))
         return paths
@@ -300,7 +300,7 @@ def component_configs(tmp_path):
 def _mutual_authentication(config_path):
     config = configparser.ConfigParser()
     config.read(config_path)
-    return config.getboolean("authentication", "force_mutual_authentication")
+    return config.getboolean("authentication", "mutual_authentication")
 
 
 @pytest.mark.parametrize("enabled", [True, False])

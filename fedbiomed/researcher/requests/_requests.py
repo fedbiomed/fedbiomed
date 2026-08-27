@@ -16,10 +16,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.certificate_manager import (
-    TrustedCertificateBundle,
-    is_mtls_enabled,
-)
+from fedbiomed.common.certificate_manager import TrustedCertificateBundle
 from fedbiomed.common.constants import (
     REQUEST_PREFIX,
     ComponentType,
@@ -359,7 +356,7 @@ class Requests(metaclass=SingletonMeta):
 
         # Bundle of registered node certificates to pin, under mutual authentication.
         trusted_node_certificates = None
-        if is_mtls_enabled(config):
+        if config.getbool("authentication", "mutual_authentication", fallback="False"):
             db_path = config.getpath("default", "db")
             trusted_node_certificates = TrustedCertificateBundle(
                 db_path, ComponentType.NODE.name
@@ -377,7 +374,7 @@ class Requests(metaclass=SingletonMeta):
                         "server cannot start. Register at least one node certificate "
                         "with `fedbiomed researcher certificate register`, or disable "
                         "mutual authentication by setting "
-                        "`force_mutual_authentication = False` in the "
+                        "`mutual_authentication = False` in the "
                         f"`[authentication]` section of {config.config_path}."
                     )
                 else:

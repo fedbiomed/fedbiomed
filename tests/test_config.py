@@ -257,7 +257,7 @@ def test_node_config_authentication_section_defaults(config_env):
     config = NodeConfig(root=str(config_env))
 
     # Opt-in: disabled by default. Trusted certs live in the main component DB.
-    assert not config.getbool("authentication", "force_mutual_authentication")
+    assert not config.getbool("authentication", "mutual_authentication")
 
 
 def test_node_config_migrate_old(config_env):

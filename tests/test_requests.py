@@ -682,14 +682,12 @@ def mtls_requests_env():
         patch(
             "fedbiomed.researcher.requests._requests.GrpcServer", autospec=True
         ) as grpc_server_mock,
-        patch(
-            "fedbiomed.researcher.requests._requests.is_mtls_enabled",
-            return_value=True,
-        ),
         tempfile.TemporaryDirectory() as tmp,
     ):
         config_mock = MagicMock()
         config_mock.root = tmp
+        # Reads `mutual_authentication` as enabled.
+        config_mock.getbool.return_value = True
         db_path = os.path.join(tmp, "certs.json")
         config_mock.getpath.return_value = db_path
         config_mock.config_path = os.path.join(tmp, "config.ini")
