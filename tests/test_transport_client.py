@@ -1171,7 +1171,7 @@ async def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(
 ):
     """A certificate is issued when the component is created, so it cannot always
     name the address nodes reach it at."""
-    certificate_names.return_value = ["researcher-host", "fbm.hospital.org"]
+    certificate_names.return_value = ["researcher-host", "fbm.example.org"]
 
     Channels(
         researcher=ResearcherCredentials(
