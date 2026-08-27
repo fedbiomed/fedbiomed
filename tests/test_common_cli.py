@@ -45,20 +45,34 @@ def set_db():
         yield mock_set_db
 
 
-def _setup_args(path="/components", force=False, enable_mutual_authentication=False):
+def _setup_args(path="/components", prune=False, enable_mutual_authentication=False):
     """`certificate-dev-setup` arguments, defaulting to a plain run."""
     return argparse.Namespace(
         path=path,
-        force=force,
+        prune=prune,
         enable_mutual_authentication=enable_mutual_authentication,
     )
 
 
 @pytest.fixture
 def registered():
-    """What components already hold, by component id; empty unless a test fills it."""
+    """What components already hold, by component id; empty unless a test fills it.
+
+    One store stands for every component's registry, which is enough as long as a
+    test pointing at several components does not depend on them differing.
+    """
     store = {}
-    with patch("fedbiomed.common.cli.CertificateManager.get", side_effect=store.get):
+    with (
+        patch("fedbiomed.common.cli.CertificateManager.get", side_effect=store.get),
+        patch(
+            "fedbiomed.common.cli.CertificateManager.list",
+            side_effect=lambda *args, **kwargs: list(store.values()),
+        ),
+        patch(
+            "fedbiomed.common.cli.CertificateManager.delete",
+            side_effect=lambda component_id: store.pop(component_id, None),
+        ),
+    ):
         yield store
 
 
@@ -108,7 +122,7 @@ def test_common_cli_initialize_magic_dev_environment_parsers(cli):
 
     options = magic._positionals._option_string_actions
     assert "--path" in options
-    assert "--force" in options
+    assert "--prune" in options
     assert "--enable-mutual-authentication" in options
 
 
@@ -158,7 +172,7 @@ def federation(set_db, registered):
     with (
         patch("fedbiomed.common.cli.get_existing_component_db_paths") as db_paths,
         patch("fedbiomed.common.cli.get_all_existing_certificates") as certificates,
-        patch("fedbiomed.common.cli.CertificateManager.insert") as insert,
+        patch("fedbiomed.common.cli.CertificateManager.register") as register,
     ):
         db_paths.return_value = {
             _RESEARCHER_A: "/components/researcher/var/db.json",
@@ -173,7 +187,7 @@ def federation(set_db, registered):
         yield SimpleNamespace(
             db_paths=db_paths,
             certificates=certificates,
-            insert=insert,
+            register=register,
             registered=registered,
             set_db=set_db,
         )
@@ -202,10 +216,15 @@ def test_common_cli_create_magic_dev_environment(cli, federation, component, exp
     federation.db_paths.assert_called_once_with("/components")
     federation.certificates.assert_called_once_with("/components")
     federation.set_db.assert_called_once_with("/components/c/var/db.json")
-    assert [c.kwargs["component_id"] for c in federation.insert.call_args_list] == (
+    assert [c.kwargs["component_id"] for c in federation.register.call_args_list] == (
         expected
     )
-    assert all(c.kwargs["upsert"] is True for c in federation.insert.call_args_list)
+    # Each registers as itself, which is what makes a component reject its own kind
+    own_type = "RESEARCHER" if component == _RESEARCHER_A else "NODE"
+    assert all(
+        c.kwargs["registering_component_type"] == own_type
+        for c in federation.register.call_args_list
+    )
 
 
 def test_create_magic_dev_environment_names_components_by_their_directory(
@@ -237,7 +256,7 @@ def test_create_magic_dev_environment_keeps_what_is_already_registered(
 
     cli._create_magic_dev_environment(_setup_args())
 
-    federation.insert.assert_not_called()
+    federation.register.assert_not_called()
     assert "Certificate of node1 is already registered." in capsys.readouterr().out
 
 
@@ -261,22 +280,51 @@ def test_create_magic_dev_environment_refuses_to_leave_an_outdated_registration(
     )
     # The way out is named, and nothing was written
     assert "node1 on researcher" in printed
-    assert "`--force`" in printed
+    assert "`--prune`" in printed
     assert "Operation successful!" not in printed
-    federation.insert.assert_not_called()
+    federation.register.assert_not_called()
 
 
-def test_create_magic_dev_environment_force_replaces_registrations(cli, federation):
-    """`--force` rewrites a registration instead of reporting it."""
+def test_create_magic_dev_environment_prune_rebuilds_registrations(cli, federation):
+    """`--prune` clears what is registered, then registers what was found."""
+    federation.db_paths.return_value = {
+        _RESEARCHER_A: "/components/researcher/var/db.json"
+    }
     federation.registered.update(_ALL_REGISTERED)
     federation.registered[_NODE_A] = {**_NODE_A_ROW, "certificate": "an-older-cert"}
 
-    cli._create_magic_dev_environment(_setup_args(force=True))
+    cli._create_magic_dev_environment(_setup_args(prune=True))
 
-    assert _NODE_A in [
-        c.kwargs["component_id"] for c in federation.insert.call_args_list
+    assert federation.registered == {}
+    assert [c.kwargs["component_id"] for c in federation.register.call_args_list] == [
+        _NODE_A,
+        _NODE_B,
     ]
-    assert all(c.kwargs["upsert"] is True for c in federation.insert.call_args_list)
+
+
+def test_create_magic_dev_environment_prune_drops_a_departed_component(
+    cli, federation, capsys
+):
+    """A component no longer under the path stops being trusted.
+
+    Replacing a researcher used to leave the previous one registered alongside the
+    new one, which a node cannot resolve.
+    """
+    federation.db_paths.return_value = {_NODE_A: "/components/node1/var/db.json"}
+    departed = "RESEARCHER_00000000-0000-4000-8000-000000000000"
+    federation.registered[departed] = {
+        "component_id": departed,
+        "component_type": "RESEARCHER",
+        "certificate": "cert-of-a-researcher-that-left",
+    }
+
+    cli._create_magic_dev_environment(_setup_args(prune=True))
+
+    assert departed not in federation.registered
+    assert f"Certificate of {departed} has been deleted." in capsys.readouterr().out
+    assert [c.kwargs["component_id"] for c in federation.register.call_args_list] == [
+        _RESEARCHER_A
+    ]
 
 
 @pytest.fixture
@@ -393,28 +441,29 @@ def test_create_magic_dev_environment_requires_a_whole_federation(
     printed = capsys.readouterr().out
     assert reported in printed
     assert "/components" in printed
-    federation.insert.assert_not_called()
+    federation.register.assert_not_called()
 
 
-@patch("fedbiomed.common.cli.validate_registering_component")
 def test_create_magic_dev_environment_reports_rejected_certificate(
-    mock_validate, cli, federation, capsys
+    cli, federation, capsys
 ):
-    """A certificate the shared rule rejects is reported, never skipped quietly.
+    """A certificate that registration refuses is reported, never skipped quietly.
 
     Skipping a component's own kind is routine, but any other rejection means
     the certificate contradicts the component it is declared as.
     """
     federation.db_paths.return_value = {_NODE_A: "/components/node1/var/db.json"}
-    mock_validate.side_effect = FedbiomedCertificateError("restricted to a TLS client")
+    federation.register.side_effect = FedbiomedCertificateError(
+        "restricted to a TLS client"
+    )
 
     with pytest.raises(SystemExit):
         cli._create_magic_dev_environment(_setup_args())
 
-    # Own kind is filtered before validation, so only the researcher was checked
-    mock_validate.assert_called_once()
-    assert mock_validate.call_args.args[1:] == ("RESEARCHER", "NODE")
-    federation.insert.assert_not_called()
+    # Own kind is filtered before registration, so only the researcher was offered
+    federation.register.assert_called_once()
+    assert federation.register.call_args.kwargs["component_id"] == _RESEARCHER_A
+    assert "restricted to a TLS client" in capsys.readouterr().out
 
 
 def _generating_cli(cli, tmp_path, component, name):

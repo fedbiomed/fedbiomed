@@ -184,11 +184,16 @@ fedbiomed certificate-dev-setup --path /path/to/components
 Certificates already registered are reported and left as they are, so the command can be
 re-run to complete a federation a node was added to. A registration that no longer
 matches the certificate the component serves — after regenerating one, for instance —
-fails the run instead, since it would leave a federation that cannot handshake. Replace
-those with `--force`:
+fails the run instead, since it would leave a federation that cannot handshake.
+
+`--prune` clears every registration in each component before writing the ones found
+under the path, so the trust stores end up describing the components currently there and
+nothing else. Use it after replacing or removing a component: without it the departed
+component stays trusted, and a node left holding two researcher certificates cannot tell
+which one to pin.
 
 ```shell
-fedbiomed certificate-dev-setup --force
+fedbiomed certificate-dev-setup --prune
 ```
 
 This registers certificates only. Setting

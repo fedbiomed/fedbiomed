@@ -752,7 +752,7 @@ def test_mtls_without_registered_node_certificate_is_registered_as_event(
 
 def test_mtls_passes_trust_bundle_provider_to_server(mtls_requests_env):
     """The server receives a provider, not a static bundle."""
-    mtls_requests_env.certificate_manager.insert(
+    mtls_requests_env.certificate_manager._insert(
         certificate="PEM-1",
         component_id="NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44",
         component_type=ComponentType.NODE.name,

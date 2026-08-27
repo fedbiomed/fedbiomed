@@ -213,8 +213,8 @@ def validate_registering_component(
 def _certificate_purpose(component_id: str) -> Optional[str]:
     """TLS role to restrict a certificate to, from the component id prefix.
 
-    Inferred as in `register_certificate`. Ids matching neither prefix yield
-    None, allowing both roles so the handshake never breaks for such ids.
+    Inferred as in `register`. Ids matching neither prefix yield None, allowing
+    both roles so the handshake never breaks for such ids.
     """
     if component_id.upper().startswith(f"{ComponentType.NODE.name}_"):
         return CERT_PURPOSE_CLIENT
@@ -472,14 +472,17 @@ class CertificateManager:
             self._tinydb = None
             self._db = None
 
-    def insert(
+    def _insert(
         self,
         certificate: str,
         component_id: str,
         component_type: str,
         upsert: bool = False,
     ) -> Union[int, list[int]]:
-        """Inserts new certificate
+        """Writes a certificate into the table, granting it trust.
+
+        The only writer: private so that every registration goes through `register`,
+        which holds the rules a stored certificate must satisfy.
 
         Args:
             certificate: Public-key for the FL parties
@@ -630,7 +633,39 @@ class CertificateManager:
         upsert: bool = False,
         registering_component_type: Optional[str] = None,
     ) -> str:
-        """Registers certificate
+        """Registers the certificate stored at the given path.
+
+        Reads the file; `register` holds the rules, the meaning of every other
+        argument and the returned component id.
+
+        Raises:
+            FedbiomedCertificateError: the path is not a file, or `register` rejects
+                the certificate.
+        """
+        if not os.path.isfile(certificate_path):
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Certificate path does not represents a file."
+            )
+
+        return self.register(
+            certificate=read_file(certificate_path),
+            component_id=component_id,
+            upsert=upsert,
+            registering_component_type=registering_component_type,
+        )
+
+    def register(
+        self,
+        certificate: str,
+        component_id: Optional[str] = None,
+        upsert: bool = False,
+        registering_component_type: Optional[str] = None,
+    ) -> str:
+        """Registers a certificate, applying every rule a stored certificate must meet.
+
+        The single entry point for granting trust: it validates, then writes. Callers
+        holding a file use `register_certificate` instead, and no caller writes to the
+        table directly.
 
         The component id may be recovered from the certificate's `CN=` (CommonName)
         field. A certificate identity counts only when it is itself a valid
@@ -642,7 +677,7 @@ class CertificateManager:
         - both present: they must be the same.
 
         Args:
-            certificate_path: Path where certificate/key file stored
+            certificate: PEM encoded certificate to register.
             component_id: ID of the component. Optional when the certificate embeds a
                 valid identity in `CN=`; required otherwise.
             upsert: If `True` overwrites existing certificate for specified component.
@@ -661,27 +696,18 @@ class CertificateManager:
             `component_id` is omitted.
 
         Raises:
-            FedbiomedCertificateError: If the certificate file does not exist; if
-                `component_id` is neither given nor recoverable from the certificate;
-                if a given `component_id` conflicts with the certificate identity; if
-                a given `component_id` does not follow `<NODE|RESEARCHER>_<uuid>`; if
-                the certificate is already registered under another component id; or,
-                when `registering_component_type` is given, if the certificate is
+            FedbiomedCertificateError: If `component_id` is neither given nor
+                recoverable from the certificate; if a given `component_id` conflicts
+                with the certificate identity; if a given `component_id` does not
+                follow `<NODE|RESEARCHER>_<uuid>`; if the certificate is already
+                registered under another component id; or, when
+                `registering_component_type` is given, if the certificate is
                 identified — by the component id it is registered under or by a
                 single-role EKU — as one of the registering component's own kind,
                 or if a node already holds a certificate for another component.
         """
-
-        if not os.path.isfile(certificate_path):
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Certificate path does not represents a file."
-            )
-
-        # Read certificate content
-        certificate_content = read_file(certificate_path)
-
         certificate_id = certificate_subject_field(
-            certificate_content.encode("utf-8"), NameOID.COMMON_NAME
+            certificate.encode("utf-8"), NameOID.COMMON_NAME
         )
         # A certificate identity is usable only if it is itself a valid component id.
         certificate_component_type = (
@@ -719,7 +745,7 @@ class CertificateManager:
 
         if registering_component_type is not None:
             validate_registering_component(
-                certificate_content, component_type, registering_component_type
+                certificate, component_type, registering_component_type
             )
 
         # A node communicates with a single researcher, so its database holds at most one certificate
@@ -739,7 +765,7 @@ class CertificateManager:
 
         # A researcher registers one certificate per node, so the same one
         # under two component ids would identify neither.
-        fingerprint = certificate_fingerprint(certificate_content)
+        fingerprint = certificate_fingerprint(certificate)
         duplicates = [
             d["component_id"]
             for d in self.list()
@@ -755,8 +781,8 @@ class CertificateManager:
                 f"certificate of its own for `{component_id}`."
             )
 
-        self.insert(
-            certificate=certificate_content,
+        self._insert(
+            certificate=certificate,
             component_id=component_id,
             component_type=component_type,
             upsert=upsert,
