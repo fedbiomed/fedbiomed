@@ -66,7 +66,7 @@ hold — a public DNS name, a second interface — issue it for those names too:
 
 ```bash
 fedbiomed researcher certificate generate \
-    --san fbm.hospital.org --san 10.0.0.9 --force
+    --san fbm.example.org --san 10.0.0.9 --force
 ```
 
 The component was issued a certificate when it was created, so this **requires

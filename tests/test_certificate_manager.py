@@ -360,9 +360,9 @@ def test_certificate_names_ignores_the_common_name():
     something the TLS layer does not check.
     """
     certificate = _certificate(
-        common_name="not-a-host", san=[x509.DNSName("fbm.hospital.org")]
+        common_name="not-a-host", san=[x509.DNSName("fbm.example.org")]
     )
-    assert certificate_names(certificate) == ["fbm.hospital.org"]
+    assert certificate_names(certificate) == ["fbm.example.org"]
 
 
 @pytest.mark.parametrize(
@@ -507,11 +507,11 @@ def test_every_name_given_is_kept_in_order(tmp_path):
         certificate_folder=str(tmp_path),
         certificate_name="multi",
         component_id=_RESEARCHER_A,
-        san=["fbm-researcher", "fbm.hospital.org", "10.0.0.9"],
+        san=["fbm-researcher", "fbm.example.org", "10.0.0.9"],
     )
     assert certificate_names(_pem(pem_file)) == [
         "fbm-researcher",
-        "fbm.hospital.org",
+        "fbm.example.org",
         "10.0.0.9",
         "localhost",
         "127.0.0.1",

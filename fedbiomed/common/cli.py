@@ -714,15 +714,35 @@ class CommonCLI:
             else ComponentType.NODE.name
         ).lower()
 
-        print(" 1- Copy certificate content into a file e.g 'Hospital1.pem'")
-        print(f" 2- On each {registers_on}, change your directory to 'fedbiomed' root")
+        print(" 1- Copy certificate content into a file e.g 'example_node.pem'")
+        print(f" 2- On each {registers_on}, run:")
         print(
-            f" 3- Run: fedbiomed {registers_on} certificate register "
+            f"      fedbiomed {registers_on} certificate register "
             "-pk [PATH WHERE CERTIFICATE IS SAVED]"
         )
         print(
-            f"\n{BOLD}The component id ({self.config.get('default', 'id')}) is read "
-            f"from the certificate, so `-ci` is not needed.{NC}"
+            f"    from the directory the component lives in (default 'fbm-"
+            f"{registers_on}'), or add '--path [COMPONENT_DIRECTORY]' right after "
+            f"'fedbiomed {registers_on}' to point at it."
+        )
+        print(
+            "    Add '--upsert' when a certificate of this component is already "
+            "registered there, e.g. after a renewal."
+        )
+        component_id = self.config.get("default", "id")
+        # `-ci` is optional only while the certificate carries the component id in
+        # its `CN=`, which is what Fed-BioMed issues but not what a CA does.
+        print(
+            f"\n{BOLD}The component id ({component_id}) is read from the certificate "
+            "above, so `-ci` is not needed. Should this component present a "
+            "certificate issued elsewhere, carrying another `CN=`, the command needs "
+            f"`-ci {component_id}`.{NC}"
+        )
+        print(
+            f"{BOLD}Registering does not enable mutual authentication by itself: "
+            "set `[authentication] force_mutual_authentication = True` in the "
+            f"configuration of this component and of every {registers_on}, then "
+            f"restart them.{NC}"
         )
 
     def parse_args(self, args_=None):

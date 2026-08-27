@@ -504,7 +504,7 @@ def test_generate_certificate_is_silent_about_the_host_when_named(
     """The names are the ones given, so there is nothing to report about them."""
     args = _generating_cli(
         cli, tmp_path, "RESEARCHER", "server_certificate"
-    ).parser.parse_args(["certificate", "generate", "--san", "fbm.hospital.org"])
+    ).parser.parse_args(["certificate", "generate", "--san", "fbm.example.org"])
 
     cli._generate_certificate(args)
 
@@ -517,14 +517,14 @@ def test_generate_certificate_adds_the_given_names(mock_print, cli, tmp_path):
     args = _generating_cli(
         cli, tmp_path, "RESEARCHER", "server_certificate"
     ).parser.parse_args(
-        ["certificate", "generate", "--san", "fbm.hospital.org", "--san", "10.0.0.9"]
+        ["certificate", "generate", "--san", "fbm.example.org", "--san", "10.0.0.9"]
     )
 
     cli._generate_certificate(args)
 
     assert certificate_names((tmp_path / "server_certificate.pem").read_bytes()) == [
         "researcher-host",
-        "fbm.hospital.org",
+        "fbm.example.org",
         "10.0.0.9",
         "localhost",
         "127.0.0.1",
@@ -535,7 +535,7 @@ def test_generate_certificate_adds_the_given_names(mock_print, cli, tmp_path):
 def test_generate_certificate_refuses_names_on_a_node(mock_print, cli, tmp_path):
     """A node certificate is never verified by name, so naming it is a mistake."""
     args = _generating_cli(cli, tmp_path, "NODE", "FBM_certificate").parser.parse_args(
-        ["certificate", "generate", "--san", "fbm.hospital.org"]
+        ["certificate", "generate", "--san", "fbm.example.org"]
     )
 
     with pytest.raises(SystemExit):
@@ -699,8 +699,14 @@ def test_common_cli_prepare_certificate_for_registration(
     assert "test-certificate" in printed
     assert f"fedbiomed {registers_on} certificate register -pk" in printed
     assert not_mentioned not in printed
-    # `-ci` is unnecessary: the component id is embedded in the certificate
-    assert "-ci " not in printed
+    # The command to run carries no `-ci`: the component id is embedded in the
+    # certificate. It is named only as the fallback for a certificate issued
+    # outside Fed-BioMed, whose `CN=` holds something else.
+    assert (
+        f"fedbiomed {registers_on} certificate register "
+        "-pk [PATH WHERE CERTIFICATE IS SAVED]" in printed
+    )
+    assert f"-ci {component}_1" in printed
 
 
 @patch("fedbiomed.common.cli.CertificateManager.list")
