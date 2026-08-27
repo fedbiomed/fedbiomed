@@ -16,6 +16,7 @@ from declearn.optimizer import Optimizer as DeclearnOptimizer
 from declearn.optimizer.modules import OptiModule
 from declearn.optimizer.regularizers import Regularizer
 from declearn.optimizer.schedulers import Scheduler
+from packaging.version import Version
 
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.optimizers.declearn import (
@@ -207,6 +208,17 @@ class TestOptimizer(unittest.TestCase):
         Use a practical case to test so, with an Adam module and a FedProx
         regularizer.
         """
+        if Version(declearn.__version__) < Version("2.9"):
+            def json_dumps(obj):
+                return json.dumps(state, default=declearn.utils.json_pack)
+
+            def json_loads(dump):
+                return json.loads(sdump, object_hook=declearn.utils.json_unpack)
+            
+        else:
+            json_dumps = declearn.utils.serialize.json_serialize
+            json_loads = declearn.utils.serialize.json_deserialize
+
         # Set up an Optimizer and run a step to build Vector states.
         optim = Optimizer(lr=0.001, modules=["adam"], regularizers=["fedprox"])
         grads = Vector.build(
@@ -224,9 +236,9 @@ class TestOptimizer(unittest.TestCase):
         optim.step(grads, weights)
         # Check that states can be accessed, dumped to JSON and reloaded.
         state = optim.get_state()
-        sdump = json.dumps(state, default=declearn.utils.json_pack)
+        sdump = json_dumps(state)
         self.assertIsInstance(sdump, str)
-        sload = json.loads(sdump, object_hook=declearn.utils.json_unpack)
+        sload = json_loads(sdump)
         self.assertIsInstance(sload, dict)
         self.assertEqual(sload.keys(), state.keys())
 
