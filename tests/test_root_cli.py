@@ -3,8 +3,11 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import MagicMock
 
-from fedbiomed.cli import ComponentParser
+import pytest
+
+from fedbiomed.cli import ComponentParser, run
 
 
 class TestComponentParser(unittest.TestCase):
@@ -118,6 +121,38 @@ class TestComponentParser(unittest.TestCase):
             self.conf_parser._get_component_instance("any_path", "bad_component_type")
 
         sys.modules.pop("fedbiomed.researcher.config")
+
+
+@pytest.mark.parametrize("unknown", ["--force", "--totally-bogus"])
+def test_run_rejects_unknown_arguments(monkeypatch, capsys, unknown):
+    """An option the root parser does not know stops the run.
+
+    Ignoring it would carry out a different command than the one typed: a removed
+    option such as `--force` would run without it and still report success.
+    """
+    monkeypatch.setattr(sys, "argv", ["fedbiomed", "certificate-dev-setup", unknown])
+
+    with pytest.raises(SystemExit) as exc_info:
+        run()
+
+    assert exc_info.value.code == 2
+    assert f"unrecognized arguments: {unknown}" in capsys.readouterr().err
+
+
+def test_run_forwards_unparsed_arguments_to_the_component_cli(monkeypatch):
+    """Node and researcher parse their own arguments, so those are passed on as they
+    are rather than judged by the root parser."""
+    monkeypatch.setattr(
+        sys, "argv", ["fedbiomed", "node", "-p", "x", "certificate", "list"]
+    )
+    node_cli = MagicMock()
+    monkeypatch.setattr("fedbiomed.node.cli.NodeCLI", node_cli)
+
+    run()
+
+    node_cli.return_value.parse_args.assert_called_once_with(
+        ["-p", "x", "certificate", "list"]
+    )
 
 
 if __name__ == "__main__":
