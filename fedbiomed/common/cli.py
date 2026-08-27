@@ -14,16 +14,13 @@ import sys
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
-from fedbiomed.common.certificate_manager import (
-    CertificateManager,
-    validate_registering_component,
-)
+from fedbiomed.common.certificate_manager import CertificateManager
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
     ComponentType,
     __version__,
 )
-from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import (
     get_all_existing_certificates,
@@ -268,10 +265,12 @@ class CommonCLI:
             "Defaults to the path where CLI is executed.",
         )
         magic.add_argument(
-            "--force",
+            "--prune",
             action="store_true",
-            help="Replaces the certificates already registered. Without it, an "
-            "existing registration is left as it is.",
+            help="Deletes every certificate already registered in each component "
+            "before registering the ones found under the path, so a component that "
+            "left the federation stops being trusted. Without it, existing "
+            "registrations are left as they are.",
         )
         magic.add_argument(
             "--enable-mutual-authentication",
@@ -404,6 +403,10 @@ class CommonCLI:
         registers its own kind, and `certificate list` reports such entries as
         an inconsistency.
 
+        `--prune` clears each component's registrations before writing the new ones,
+        so the trust stores describe the components currently under the path and
+        nothing else. Without it, what is already registered is kept.
+
         Args:
             args: Arguments that are passed after `certificate-dev-setup` command
         """
@@ -449,25 +452,21 @@ class CommonCLI:
             # Sets DB
             self._certificate_manager.set_db(db_path)
 
+            # Rebuilt from the components found under the path: whoever is no longer
+            # there stops being trusted, which keeping the registrations would hide.
+            if args.prune:
+                for registered in self._certificate_manager.list():
+                    stale = registered["component_id"]
+                    self._certificate_manager.delete(component_id=stale)
+                    print(
+                        f"Certificate of {component_dirs.get(stale, stale)} has been "
+                        "deleted."
+                    )
+
             for certificate in certificates:
                 # A component does not register its own kind: expected, not an error
                 if certificate["component_type"] == component_types[id_]:
                     continue
-
-                # Anything the shared rule still rejects is a real anomaly — a
-                # certificate whose TLS role contradicts the component type it is
-                # declared as — so report it rather than skip it quietly.
-                try:
-                    validate_registering_component(
-                        certificate["certificate"],
-                        certificate["component_type"],
-                        component_types[id_],
-                    )
-                except FedbiomedCertificateError as e:
-                    CommonCLI.error(
-                        "Can not register certificate for "
-                        f"{certificate['component_id']}: {e}"
-                    )
 
                 # Falls back to the id: a missing label must not fail a correct
                 # registration
@@ -475,11 +474,11 @@ class CommonCLI:
                     certificate["component_id"], certificate["component_id"]
                 )
 
-                # An existing registration is kept unless replacing it is asked
-                # for; one that no longer matches the served certificate breaks
+                # Nothing survives a prune, so this is what a run without one keeps:
+                # a registration that no longer matches the served certificate breaks
                 # the handshake, so it is called out rather than kept quietly.
                 registered = self._certificate_manager.get(certificate["component_id"])
-                if registered and not args.force:
+                if registered:
                     if registered["certificate"] == certificate["certificate"]:
                         print(f"Certificate of {owner} is already registered.")
                     else:
@@ -490,8 +489,14 @@ class CommonCLI:
                         outdated.append(f"{owner} on {component_dirs[id_]}")
                     continue
 
+                # Registered through the same entry point as `certificate register`,
+                # so this setup cannot write a state that command would refuse.
                 try:
-                    self._certificate_manager.insert(**certificate, upsert=True)
+                    self._certificate_manager.register(
+                        certificate=certificate["certificate"],
+                        component_id=certificate["component_id"],
+                        registering_component_type=component_types[id_],
+                    )
                 except FedbiomedError as e:
                     CommonCLI.error(
                         "Can not register certificate for "
@@ -504,7 +509,7 @@ class CommonCLI:
             CommonCLI.error(
                 "Registrations that no longer match the certificate the component "
                 f"serves were kept, so the federation in {path} is not ready: "
-                f"{', '.join(outdated)}. Run with `--force` to replace them."
+                f"{', '.join(outdated)}. Run with `--prune` to rebuild them."
             )
 
         # Enforced only once the certificates are in place: a component that

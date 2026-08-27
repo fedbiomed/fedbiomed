@@ -244,7 +244,7 @@ def _registry(path, entries):
     manager = CertificateManager(db_path=str(path))
     try:
         for component_id, certificate in entries:
-            manager.insert(
+            manager._insert(
                 certificate=certificate.decode("utf-8"),
                 component_id=component_id,
                 component_type=ComponentType.NODE.name,
@@ -316,7 +316,7 @@ def test_component_id_picks_up_a_registration_without_restart(
 
     manager = CertificateManager(db_path=registry._db_path)
     try:
-        manager.insert(
+        manager._insert(
             certificate=certs["researcher_cert"].decode("utf-8"),
             component_id=OTHER_NODE_ID,
             component_type=ComponentType.NODE.name,

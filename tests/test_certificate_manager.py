@@ -118,7 +118,7 @@ def test_certificate_manager_initialization(tmp_path):
     db_path = str(tmp_path / "certs.json")
     cm = CertificateManager(db_path=db_path)
     try:
-        cm.insert(certificate="cert", component_id=_NODE_A, component_type="NODE")
+        cm._insert(certificate="cert", component_id=_NODE_A, component_type="NODE")
     finally:
         cm.close()
 
@@ -134,12 +134,12 @@ def test_certificate_manager_set_db_switches_database(tmp_path):
     first, second = str(tmp_path / "a.json"), str(tmp_path / "b.json")
     cm = CertificateManager(db_path=first)
     try:
-        cm.insert(certificate="cert", component_id=_NODE_A, component_type="NODE")
+        cm._insert(certificate="cert", component_id=_NODE_A, component_type="NODE")
 
         cm.set_db(db_path=second)
         assert cm.list() == []
 
-        cm.insert(certificate="other", component_id=_NODE_B, component_type="NODE")
+        cm._insert(certificate="other", component_id=_NODE_B, component_type="NODE")
         assert [d["component_id"] for d in cm.list()] == [_NODE_B]
     finally:
         cm.close()
@@ -147,8 +147,12 @@ def test_certificate_manager_set_db_switches_database(tmp_path):
 
 def test_certificate_manager_get(cert_db):
     """Only the requested component is returned; an unknown one yields nothing."""
-    cert_db.cm.insert(certificate="cert-a", component_id=_NODE_A, component_type="NODE")
-    cert_db.cm.insert(certificate="cert-b", component_id=_NODE_B, component_type="NODE")
+    cert_db.cm._insert(
+        certificate="cert-a", component_id=_NODE_A, component_type="NODE"
+    )
+    cert_db.cm._insert(
+        certificate="cert-b", component_id=_NODE_B, component_type="NODE"
+    )
 
     assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == "cert-a"
     assert cert_db.cm.get(component_id=_NODE_C) is None
@@ -156,10 +160,10 @@ def test_certificate_manager_get(cert_db):
 
 def test_certificate_manager_get_by_component_type(cert_db):
     """Only certificates of the requested component type are returned."""
-    cert_db.cm.insert(
+    cert_db.cm._insert(
         certificate="node-cert", component_id=_NODE_A, component_type="NODE"
     )
-    cert_db.cm.insert(
+    cert_db.cm._insert(
         certificate="researcher-cert",
         component_id=_RESEARCHER_A,
         component_type="RESEARCHER",
@@ -178,14 +182,14 @@ def test_certificate_manager_insert(cert_db):
     """A component can be registered once; registering again needs `upsert`."""
     entry = dict(certificate="first", component_id=_NODE_A, component_type="NODE")
 
-    cert_db.cm.insert(**entry)
+    cert_db.cm._insert(**entry)
     assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == "first"
 
     with pytest.raises(FedbiomedCertificateError):
-        cert_db.cm.insert(**{**entry, "certificate": "second"})
+        cert_db.cm._insert(**{**entry, "certificate": "second"})
     assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == "first"
 
-    cert_db.cm.insert(**{**entry, "certificate": "second"}, upsert=True)
+    cert_db.cm._insert(**{**entry, "certificate": "second"}, upsert=True)
     assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == "second"
     # Updating a component replaces its entry rather than adding one
     assert len(cert_db.cm.list()) == 1
@@ -193,8 +197,12 @@ def test_certificate_manager_insert(cert_db):
 
 def test_certificate_manager_delete(cert_db):
     """Deleting removes only the named component."""
-    cert_db.cm.insert(certificate="cert-a", component_id=_NODE_A, component_type="NODE")
-    cert_db.cm.insert(certificate="cert-b", component_id=_NODE_B, component_type="NODE")
+    cert_db.cm._insert(
+        certificate="cert-a", component_id=_NODE_A, component_type="NODE"
+    )
+    cert_db.cm._insert(
+        certificate="cert-b", component_id=_NODE_B, component_type="NODE"
+    )
 
     cert_db.cm.delete(component_id=_NODE_A)
 
@@ -203,7 +211,9 @@ def test_certificate_manager_delete(cert_db):
 
 def test_certificate_manager_list(cert_db):
     """Tests list method of certificate manager"""
-    cert_db.cm.insert(certificate="cert-a", component_id=_NODE_A, component_type="NODE")
+    cert_db.cm._insert(
+        certificate="cert-a", component_id=_NODE_A, component_type="NODE"
+    )
 
     assert [d["component_id"] for d in cert_db.cm.list()] == [_NODE_A]
 
@@ -1006,7 +1016,7 @@ def bundle_env(tmp_path):
     cm = CertificateManager(db_path=db_path)
 
     def register(component_id, pem, upsert=False):
-        cm.insert(
+        cm._insert(
             certificate=pem,
             component_id=component_id,
             component_type=ComponentType.NODE.name,
