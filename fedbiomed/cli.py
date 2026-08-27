@@ -199,6 +199,11 @@ def run():
     if hasattr(args, "func") and args.func in [node, researcher]:
         args.func(extra)
     elif hasattr(args, "func"):
+        # Commands served here take nothing beyond what the parser knows, so what is
+        # left over is a mistyped or a removed option. Running anyway would carry out
+        # something other than what was asked, and report it as a success.
+        if extra:
+            cli.parser.parse_args()
         args.func(args)
     # If there is no command provided
     else:
