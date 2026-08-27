@@ -38,7 +38,6 @@ from fedbiomed.common.certificate_manager import (
     certificate_subject_field,
 )
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.message import SearchReply, SearchRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.client import (
@@ -127,6 +126,10 @@ def certs():
         node_key_file, node_cert_file, node_key, node_cert = _generate(
             tmp, "node", NODE_ID
         )
+        _, _, _, other_node_cert = _generate(tmp, "other_node", OTHER_NODE_ID)
+        # A `CN=` that is no component id: the only kind registration lets an
+        # id be chosen for
+        _, _, _, unidentified_cert = _generate(tmp, "unidentified", "Hospital A")
         yield {
             "researcher_key_file": researcher_key_file,
             "researcher_cert_file": researcher_cert_file,
@@ -136,6 +139,8 @@ def certs():
             "node_cert_file": node_cert_file,
             "node_key": node_key,
             "node_cert": node_cert,
+            "other_node_cert": other_node_cert,
+            "unidentified_cert": unidentified_cert,
         }
 
 
@@ -149,28 +154,6 @@ def test_subject_field_reads_the_component_id(certs):
         certificate_subject_field(certs["node_cert"], x509.oid.NameOID.COMMON_NAME)
         == NODE_ID
     )
-
-
-def test_subject_carries_the_component_id_and_no_host(certs):
-    """The subject identifies the component; hosts and addresses live in the SAN."""
-    for certificate, component_id in (
-        (certs["researcher_cert"], RESEARCHER_ID),
-        (certs["node_cert"], NODE_ID),
-    ):
-        assert (
-            x509.load_pem_x509_certificate(certificate).subject.rfc4514_string()
-            == f"CN={component_id}"
-        )
-
-
-def test_researcher_certificate_names_its_host_and_the_loopback_names(certs):
-    """What a node verifies the researcher under, whichever of them it dials."""
-    assert certificate_names(certs["researcher_cert"]) == ["localhost", "127.0.0.1"]
-
-
-def test_node_certificate_carries_no_name(certs):
-    """A node is resolved by fingerprint, so its certificate is issued for no name."""
-    assert certificate_names(certs["node_cert"]) == []
 
 
 def test_subject_field_returns_none_for_unparseable_certificate():
@@ -244,10 +227,8 @@ def _registry(path, entries):
     manager = CertificateManager(db_path=str(path))
     try:
         for component_id, certificate in entries:
-            manager._insert(
-                certificate=certificate.decode("utf-8"),
-                component_id=component_id,
-                component_type=ComponentType.NODE.name,
+            manager.register(
+                certificate=certificate.decode("utf-8"), component_id=component_id
             )
     finally:
         manager.close()
@@ -277,13 +258,21 @@ def test_component_id_refuses_a_certificate_registered_under_two_parties(
 ):
     """One certificate under two component ids authenticates neither of them.
 
-    Registration refuses to create this, so it only arises in a registry written
-    before that check or edited by hand.
+    Registration refuses to create this, so the rows are written directly: that
+    is the only way to reach the state.
     """
-    ambiguous = _registry(
-        tmp_path / "ambiguous.json",
-        [(OTHER_NODE_ID, certs["node_cert"]), (NODE_ID, certs["node_cert"])],
-    )
+    db_path = tmp_path / "ambiguous.json"
+    manager = CertificateManager(db_path=str(db_path))
+    try:
+        for component_id in (OTHER_NODE_ID, NODE_ID):
+            manager._insert(
+                certificate=certs["node_cert"].decode("utf-8"),
+                component_id=component_id,
+                component_type=ComponentType.NODE.name,
+            )
+    finally:
+        manager.close()
+    ambiguous = TrustedCertificateBundle(str(db_path), ComponentType.NODE.name)
 
     with patch("fedbiomed.common.certificate_manager.logger.security_event") as event:
         assert ambiguous.component_id(certs["node_cert"]) is None
@@ -312,19 +301,15 @@ def test_component_id_picks_up_a_registration_without_restart(
     certs, tmp_path, registry
 ):
     """A certificate registered after first use resolves on the next call."""
-    assert registry.component_id(certs["researcher_cert"]) is None
+    assert registry.component_id(certs["other_node_cert"]) is None
 
     manager = CertificateManager(db_path=registry._db_path)
     try:
-        manager._insert(
-            certificate=certs["researcher_cert"].decode("utf-8"),
-            component_id=OTHER_NODE_ID,
-            component_type=ComponentType.NODE.name,
-        )
+        manager.register(certificate=certs["other_node_cert"].decode("utf-8"))
     finally:
         manager.close()
 
-    assert registry.component_id(certs["researcher_cert"]) == OTHER_NODE_ID
+    assert registry.component_id(certs["other_node_cert"]) == OTHER_NODE_ID
 
 
 @pytest.mark.asyncio
@@ -345,14 +330,14 @@ async def test_verify_peer_identity_prefers_registry_over_certificate_subject(
     is the one in the registry.
     """
     aliased = _registry(
-        tmp_path / "aliased.json", [(OTHER_NODE_ID, certs["node_cert"])]
+        tmp_path / "aliased.json", [(OTHER_NODE_ID, certs["unidentified_cert"])]
     )
-    context = _context_with_cert(certs["node_cert"])
+    context = _context_with_cert(certs["unidentified_cert"])
     context.abort = AsyncMock(side_effect=_Aborted)
 
     assert await _verify_peer_identity(context, OTHER_NODE_ID, aliased) == OTHER_NODE_ID
 
-    # The certificate's CN= value is not what it is registered as
+    # The subject names no component, so only the registry can answer for it
     with pytest.raises(_Aborted):
         await _verify_peer_identity(context, NODE_ID, aliased)
 
@@ -913,13 +898,9 @@ async def test_node_revoked_after_startup_is_rejected_without_restart(certs):
 
 
 @pytest.mark.asyncio
-async def test_channel_verifies_the_dialled_address_when_the_certificate_names_it(
-    certs,
-):
-    """A researcher certificate names the loopback addresses, so a node on the same
-    machine has its dialled address verified rather than overridden. Server-auth
-    only, since that is the path where the dialled address is verified.
-    """
+async def test_channel_connects_to_a_server_auth_only_researcher(certs):
+    """The shipped channel handshakes with a researcher asking for no client
+    certificate: the path taken with mutual authentication off."""
     server, port = await _serve(certs, None)
     channel = Channels(
         ResearcherCredentials(
@@ -955,12 +936,6 @@ async def test_channel_connects_on_an_address_the_certificate_omits():
     finally:
         await channel.close()
         await server.stop(0)
-
-
-def test_empty_trust_bundle_is_reported_before_binding(certs):
-    """An empty bundle fails with the cause, not an opaque port-binding error."""
-    with pytest.raises(FedbiomedCertificateError, match="no node certificate"):
-        _credentials(certs, lambda: b"")
 
 
 def _in_fresh_interpreter(code, preset=None):

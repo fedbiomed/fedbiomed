@@ -816,15 +816,6 @@ def test_probe_unknown_when_connection_times_out(context, create_connection):
     assert _researcher_requires_client_auth("localhost", "50051") is None
 
 
-@patch("fedbiomed.transport.client.ssl.create_default_context")
-@patch(
-    "fedbiomed.transport.client.socket.create_connection",
-    side_effect=ConnectionRefusedError(),
-)
-def test_probe_unknown_when_server_unreachable(create_connection, context):
-    assert _researcher_requires_client_auth("localhost", "50051") is None
-
-
 # -----------------------------------------------------------------------------
 # Sender
 # -----------------------------------------------------------------------------

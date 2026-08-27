@@ -259,9 +259,10 @@ async def test_grpc_async_server_mtls_requires_client_auth(async_server_env):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("bundle", [b"", None])
 async def test_grpc_async_server_mtls_empty_bundle_raises(async_server_env, bundle):
-    # An empty bundle cannot bind in gRPC, so it is reported before starting
+    """An empty bundle cannot bind in gRPC: reported with its cause before
+    starting, not as an opaque port-binding error."""
     server = _mtls_server(bundle, async_server_env)
-    with pytest.raises(FedbiomedCertificateError):
+    with pytest.raises(FedbiomedCertificateError, match="no node certificate"):
         server._server_credentials()
 
 

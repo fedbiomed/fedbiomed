@@ -56,10 +56,11 @@ def _setup_args(path="/components", prune=False, enable_mutual_authentication=Fa
 
 @pytest.fixture
 def registered():
-    """What components already hold, by component id; empty unless a test fills it.
+    """What components hold, by component id; empty unless a test fills it.
 
-    One store stands for every component's registry, which is enough as long as a
-    test pointing at several components does not depend on them differing.
+    Registering writes here, as it does in a database. One store stands for every
+    component's registry, which is enough as long as a test pointing at several
+    components does not depend on them differing.
     """
     store = {}
     with (
@@ -169,10 +170,22 @@ def federation(set_db, registered):
     Each field is the mock a test overrides to describe the federation it needs;
     `registered` says what a component already holds, nothing by default.
     """
+
+    def _register(certificate, component_id, registering_component_type=None):
+        registered[component_id] = {
+            "component_id": component_id,
+            # Derived from the id, as registration derives it
+            "component_type": component_id.split("_")[0].upper(),
+            "certificate": certificate,
+        }
+        return component_id
+
     with (
         patch("fedbiomed.common.cli.get_existing_component_db_paths") as db_paths,
         patch("fedbiomed.common.cli.get_all_existing_certificates") as certificates,
-        patch("fedbiomed.common.cli.CertificateManager.register") as register,
+        patch(
+            "fedbiomed.common.cli.CertificateManager.register", side_effect=_register
+        ) as register,
     ):
         db_paths.return_value = {
             _RESEARCHER_A: "/components/researcher/var/db.json",
@@ -295,7 +308,9 @@ def test_create_magic_dev_environment_prune_rebuilds_registrations(cli, federati
 
     cli._create_magic_dev_environment(_setup_args(prune=True))
 
-    assert federation.registered == {}
+    # The outdated entry gave way to the certificates the components serve
+    assert set(federation.registered) == {_NODE_A, _NODE_B}
+    assert federation.registered[_NODE_A]["certificate"] == "cert-n1"
     assert [c.kwargs["component_id"] for c in federation.register.call_args_list] == [
         _NODE_A,
         _NODE_B,
@@ -320,7 +335,8 @@ def test_create_magic_dev_environment_prune_drops_a_departed_component(
 
     cli._create_magic_dev_environment(_setup_args(prune=True))
 
-    assert departed not in federation.registered
+    # The node trusts the researcher that is there, and only it
+    assert set(federation.registered) == {_RESEARCHER_A}
     assert f"Certificate of {departed} has been deleted." in capsys.readouterr().out
     assert [c.kwargs["component_id"] for c in federation.register.call_args_list] == [
         _RESEARCHER_A
