@@ -210,23 +210,6 @@ def validate_registering_component(
         )
 
 
-def is_mtls_enabled(config) -> bool:
-    """Whether mutual authentication is enabled in the `[authentication]` config
-    section.
-
-    A missing section or `force_mutual_authentication` entry means disabled.
-
-    Args:
-        config: Component configuration object.
-
-    Returns:
-        True if mutual authentication with certificate pinning is enabled.
-    """
-    return config.getbool(
-        "authentication", "force_mutual_authentication", fallback="False"
-    )
-
-
 def _certificate_purpose(component_id: str) -> Optional[str]:
     """TLS role to restrict a certificate to, from the component id prefix.
 

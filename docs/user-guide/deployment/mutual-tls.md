@@ -25,10 +25,10 @@ item of the [security model](./security-model.md) (mitigating a malicious inside
 man-in-the-middle that spoofs a party inside the network).
 
 !!! warning "Mandatory for a deployment"
-    `[authentication] force_mutual_authentication = True` **must be present in the
+    `[authentication] mutual_authentication = True` **must be present in the
     configuration of the researcher and of every node** in a deployment. The setting is
     off by default, and an absent `[authentication]` section reads the same as
-    `force_mutual_authentication = False` — a component left that way accepts an
+    `mutual_authentication = False` — a component left that way accepts an
     unverified peer, so it is not deployable.
 
     Leave it off only for local experimentation, where the channel falls back to the
@@ -42,7 +42,7 @@ man-in-the-middle that spoofs a party inside the network).
 | Researcher → node | Node identity not checked | Node **must** present a registered client cert |
 | Node identity | Declared in the message only | Every message's declared id must match the component id the presented certificate is registered under |
 | New certificates | — | Picked up on the next handshake, **no restart** (hot-add) |
-| `[authentication] force_mutual_authentication` | Absent or `False` — local experimentation only | `True`, **mandatory in a deployment**; read at startup, so turning it on or off takes effect only after **restarting** the component |
+| `[authentication] mutual_authentication` | Absent or `False` — local experimentation only | `True`, **mandatory in a deployment**; read at startup, so turning it on or off takes effect only after **restarting** the component |
 
 ## Component certificates
 
@@ -139,12 +139,12 @@ carry, adding the section if it is not already there:
 
 ```ini
 [authentication]
-force_mutual_authentication = True
+mutual_authentication = True
 ```
 
 It is **mandatory in a deployment**: the entry has to be present and set to `True` on
 every component. An absent `[authentication]` section reads the same as
-`force_mutual_authentication = False`, so leaving it out silently leaves that component
+`mutual_authentication = False`, so leaving it out silently leaves that component
 unauthenticated rather than failing loudly.
 
 Each component reads this setting when it starts, so change it while the component is
@@ -192,7 +192,7 @@ fedbiomed certificate-dev-setup --force
 ```
 
 This registers certificates only. Setting
-`[authentication] force_mutual_authentication = True` in each config remains mandatory
+`[authentication] mutual_authentication = True` in each config remains mandatory
 for any deployment, and `--enable-mutual-authentication` does it for every component at
 once, after their certificates are registered:
 
@@ -212,7 +212,7 @@ The researcher re-reads its trust bundle on every handshake, so a new node can j
 **without restarting the researcher**:
 
 1. On the new node: register the researcher certificate and set
-   `[authentication] force_mutual_authentication = True`.
+   `[authentication] mutual_authentication = True`.
 2. Send the new node's certificate to the researcher.
 3. On the researcher: `fedbiomed researcher certificate register -pk /path/to/newnode.pem`.
 4. Start the new node — it is trusted on its first connection.
@@ -308,7 +308,7 @@ rejected node (it says so once at startup).
 | `FB628 … Researcher rejected this node's identity` (node stops) | Declared node id ≠ the component id the node's certificate is registered under, or that certificate was deleted on the researcher | Ensure the node id matches how its certificate is registered, and that it is still registered |
 | `FB628 … the researcher does not verify node identities: NO node in the federation is authenticated` (node stops) | Node has mutual authentication on, researcher has it off, so the researcher names no node in its task responses | Enable `[authentication]` on the researcher and register this node's certificate there. Disabling it on the node instead clears the error, but leaves the federation unauthenticated and is not deployable |
 | `FB628 … verified this connection as <other id>` (node stops) | The researcher answered naming a component that is not this node. A researcher rejects a mismatched id before answering, so this is not a configuration case — treat it as a researcher that is not behaving as one | Investigate the endpoint the node is pinned to; a certificate registered under the wrong id surfaces as `Researcher rejected this node's identity` instead |
-| `FB619 … no node certificate is registered` (researcher won't start) | Mutual authentication on, but no node certificate registered | Register at least one node certificate. Setting `[authentication] force_mutual_authentication = False` also starts the researcher, but unauthenticated — not an option for a deployment |
+| `FB619 … no node certificate is registered` (researcher won't start) | Mutual authentication on, but no node certificate registered | Register at least one node certificate. Setting `[authentication] mutual_authentication = False` also starts the researcher, but unauthenticated — not an option for a deployment |
 | `FB628 … Declared node id … does not match the identity … its certificate is registered under` (researcher error) | A node declared an id different from the one its certificate is registered under | Investigate; the node id and its registered component id must be the same component |
 | `FB628 … Refusing the node declaring id … its certificate is not registered` (researcher error) | The node completed the handshake but its certificate is absent from the registry — typically deleted while the researcher was running | Re-register the node's certificate, or leave it rejected if the removal was deliberate |
 | `FB628 … Refusing the node declaring id … its certificate registry could not be read` (researcher error) | The certificate database could not be read even once, so no node can be identified. Look for the accompanying `certificate_store_unreadable` warning | Check the path and permissions of the `db` entry in the researcher config |
