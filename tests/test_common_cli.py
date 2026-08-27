@@ -25,6 +25,13 @@ _NODE_C_ROW = {"component_id": _NODE_C, "component_type": "NODE"}
 _RESEARCHER_A_ROW = {"component_id": _RESEARCHER_A, "component_type": "RESEARCHER"}
 _RESEARCHER_B_ROW = {"component_id": _RESEARCHER_B, "component_type": "RESEARCHER"}
 
+# A federation whose components already hold the certificates they should
+_ALL_REGISTERED = {
+    _RESEARCHER_A: {**_RESEARCHER_A_ROW, "certificate": "cert-r1"},
+    _NODE_A: {**_NODE_A_ROW, "certificate": "cert-n1"},
+    _NODE_B: {**_NODE_B_ROW, "certificate": "cert-n2"},
+}
+
 
 @pytest.fixture
 def set_db():
@@ -49,10 +56,10 @@ def _setup_args(path="/components", force=False, enable_mutual_authentication=Fa
 
 @pytest.fixture
 def registered():
-    """What a component already has registered; nothing unless a test says so."""
-    with patch("fedbiomed.common.cli.CertificateManager.get") as mock_get:
-        mock_get.return_value = None
-        yield mock_get
+    """What components already hold, by component id; empty unless a test fills it."""
+    store = {}
+    with patch("fedbiomed.common.cli.CertificateManager.get", side_effect=store.get):
+        yield store
 
 
 @pytest.fixture
@@ -226,7 +233,7 @@ def test_create_magic_dev_environment_keeps_what_is_already_registered(
     cli, federation, capsys
 ):
     """A re-run reports the registrations in place rather than rewriting them."""
-    federation.registered.return_value = {**_NODE_A_ROW, "certificate": "cert-n1"}
+    federation.registered.update(_ALL_REGISTERED)
 
     cli._create_magic_dev_environment(_setup_args())
 
@@ -242,7 +249,8 @@ def test_create_magic_dev_environment_refuses_to_leave_an_outdated_registration(
     Keeping it quietly would leave a federation that cannot handshake while the
     command reported success.
     """
-    federation.registered.return_value = {**_NODE_A_ROW, "certificate": "an-older-cert"}
+    federation.registered.update(_ALL_REGISTERED)
+    federation.registered[_NODE_A] = {**_NODE_A_ROW, "certificate": "an-older-cert"}
 
     with pytest.raises(SystemExit):
         cli._create_magic_dev_environment(_setup_args())
@@ -252,6 +260,7 @@ def test_create_magic_dev_environment_refuses_to_leave_an_outdated_registration(
         printed
     )
     # The way out is named, and nothing was written
+    assert "node1 on researcher" in printed
     assert "`--force`" in printed
     assert "Operation successful!" not in printed
     federation.insert.assert_not_called()
@@ -259,7 +268,8 @@ def test_create_magic_dev_environment_refuses_to_leave_an_outdated_registration(
 
 def test_create_magic_dev_environment_force_replaces_registrations(cli, federation):
     """`--force` rewrites a registration instead of reporting it."""
-    federation.registered.return_value = {**_NODE_A_ROW, "certificate": "an-older-cert"}
+    federation.registered.update(_ALL_REGISTERED)
+    federation.registered[_NODE_A] = {**_NODE_A_ROW, "certificate": "an-older-cert"}
 
     cli._create_magic_dev_environment(_setup_args(force=True))
 

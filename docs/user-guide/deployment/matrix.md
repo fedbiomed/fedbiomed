@@ -20,6 +20,8 @@ The exception to this principle are optional direct communications between the c
 Fed-BioMed provides some optional GUI for the `node` (node configuration GUI) and the `researcher` (Jupyter notebook and Tensorboard).
 By default, these GUI components are not secured (no HTTPS and/or no certificate signed by well known authority). So they are configured by default to accept only communications from the same machine (*localhost*).
 
+All backend communications between the components are encrypted with TLS in every scenario. [Mutual authentication](./mutual-tls.md), mandatory for a deployment, additionally binds each channel to a registered party without changing the flows themselves — see [Mutual authentication (mTLS)](#mutual-authentication-mtls) below.
+
 
 ## Software installation
 
@@ -123,7 +125,7 @@ On the node component (`node` + `gui`):
 
 | dir | source              | destination          | destination port | service  | type    | status    | comment                                               |
 | --  | ------------------- | -------------------- | ---------------- | -------- | ------- | --------- | ----------------------------------------------------- |
-| out | node container      | researcher container | TCP/50051        | gRPC     | backend | mandatory | via Docker bridge network, using researcher container name |
+| out | node container      | researcher container | TCP/50051        | gRPC/TLS | backend | mandatory | via Docker bridge network, using researcher container name |
 | in  | *localhost* (host)  | node container       | TCP/8484         | HTTP     | user    | optional  | Node GUI (published to host)                          |
 
 * `node` and `gui` containers share a Docker volume and are typically co-located on the same host.
@@ -135,10 +137,29 @@ On the researcher component (`researcher`):
 
 | dir | source              | destination          | destination port | service  | type    | status    | comment                                                                        |
 | --  | ------------------- | -------------------- | ---------------- | -------- | ------- | --------- | ------------------------------------------------------------------------------ |
-| in  | node containers     | researcher container | TCP/50051        | gRPC     | backend | mandatory | inbound from any node on the Docker network (or from a remote host in cross-network setups) |
+| in  | node containers     | researcher container | TCP/50051        | gRPC/TLS | backend | mandatory | inbound from any node on the Docker network (or from a remote host in cross-network setups) |
 | in  | *localhost* (host)  | researcher container | TCP/8888         | HTTP     | user    | optional  | Jupyter notebook (published to host)                                           |
 | in  | *localhost* (host)  | researcher container | TCP/6007         | HTTP     | user    | optional  | TensorBoard (published to host via socat proxy; TensorBoard listens internally on TCP/6006) |
 
 * The TensorBoard port published to the host is **6007**, not the native 6006. Inside the researcher container a `socat` process forwards `container:6007 → localhost:6006`. TensorBoard must be started manually on port 6006 before the proxy can serve traffic.
 * In a **cross-network / public IP setup**, the researcher's host port `50051` is reachable from the internet and nodes on remote machines connect to it directly using the researcher's public IP. No additional port needs to be published on the node side as nodes always initiate the connection. See the [Docker deployment guide](./docker.md#connecting-fed-biomed-instances-across-different-networks) for configuration details.
+
+
+## Mutual authentication (mTLS)
+
+[Mutual authentication](./mutual-tls.md) changes how the two ends of an existing channel verify each other, not which channels exist. The researcher binds the same port and nodes still dial out to it, so **enabling it requires no change to the filters described above** — no port to open, no flow to add, no direction to reverse.
+
+What it changes is the service carried on the backend channel of each scenario:
+
+| deployment scenario | backend channel | without mutual authentication | with mutual authentication |
+| ------------------- | --------------- | ----------------------------- | -------------------------- |
+| [Without containers](#running-without-vpncontainers) | node → researcher, TCP/50051 | gRPC/TLS: the node trusts the certificate the endpoint presents, the researcher accepts any node | gRPC/mTLS: the node pins a registered researcher certificate, the researcher requires a registered node certificate |
+| [With Docker containers](#running-with-docker-containers-without-vpn) | node container → researcher container, TCP/50051 | gRPC/TLS | gRPC/mTLS |
+
+<br>
+
+* Where the surrounding infrastructure already authenticates the machines that reach each other, mutual authentication is a **second, independent layer**: it authenticates the Fed-BioMed parties talking over the channel, not the hosts carrying it. Neither replaces the other.
+* Certificates are exchanged **out of band** — e-mail, secure messaging, any trusted channel. Fed-BioMed opens no network flow to distribute them, so certificate exchange adds no entry to the matrix.
+* Mutual authentication imposes **no naming or DNS requirement**. A node verifies the researcher certificate it has pinned; when the address it dials is not among the names that certificate carries, it verifies against a name that is. Issuing the researcher certificate for the names nodes reach it at is [recommended](./mutual-tls.md#names-on-the-researcher-certificate), not a condition for the channel to establish.
+* A node rejected for mutual authentication is refused **inside the TLS handshake**, so the connection is dropped at the researcher rather than filtered by the network. It is not visible as a blocked packet, and the researcher logs nothing per rejected node — see [verifying and troubleshooting](./mutual-tls.md#verifying-and-troubleshooting).
 
