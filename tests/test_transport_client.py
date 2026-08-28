@@ -1,7 +1,7 @@
 import asyncio
 import ssl
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import grpc
 import pytest
@@ -506,53 +506,44 @@ async def test_task_listener_listen_non_grpc_exceptions(
 
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client.asyncio.sleep")
-async def test_task_listener_unauthenticated_stops(
-    sleep, log_error, security_event, listener_env
+async def test_task_listener_unauthenticated_retries(
+    sleep, log_warning, security_event, listener_env
 ):
-    """A researcher identity rejection (UNAUTHENTICATED) is fatal, not retried."""
-    request_stub = MagicMock()
-    listener_env.channels.stub = AsyncMock(return_value=request_stub)
-    listener_env.channels.connect.reset_mock()
+    """An identity rejection is retried: registering the node's certificate on the
+    researcher connects it with no restart."""
+    rejection = _rpc_error(
+        grpc.StatusCode.UNAUTHENTICATED,
+        "its certificate is not registered",
+    )
 
-    request_stub.GetTaskUnary.side_effect = [
-        _rpc_error(
-            grpc.StatusCode.UNAUTHENTICATED,
-            "declared node id does not match certificate",
-        ),
-    ]
+    request_stub = await listener_env.drain([rejection, rejection])
 
-    task = listener_env.listener.listen(listener_env.callback)
-    with pytest.raises(FedbiomedCommunicationError):
-        await task
-
-    # Identity rejection is permanent: no reconnect, no retry sleep, no re-poll
-    listener_env.channels.connect.assert_not_called()
-    sleep.assert_not_called()
-    assert request_stub.GetTaskUnary.call_count == 1
-    # Node is marked failed
-    listener_env.on_status_change.assert_awaited_with(ClientStatus.FAILED)
-    # Console-visible FB628 error (no security flag: flagged records are
-    # diverted to the security file and would not reach the user)
-    log_error.assert_called_once()
-    log_args, log_kwargs = log_error.call_args
-    assert "FB628" in log_args[0]
+    # The channel is closed and reopened for each new attempt
+    assert listener_env.channels.connect.await_count == 2
+    assert request_stub.GetTaskUnary.call_count == 3
+    listener_env.on_status_change.assert_any_await(ClientStatus.DISCONNECTED)
+    assert (
+        call(ClientStatus.FAILED) not in listener_env.on_status_change.await_args_list
+    )
+    # A warning, not an error: the node recovers on its own
+    log_warning.assert_called_once()
+    log_args, log_kwargs = log_warning.call_args
+    assert "not registered there" in log_args[0]
     assert not log_kwargs.get("extra", {}).get("is_security")
     # The audit event names the endpoint that rejected this node
-    rejection = security_event.call_args_list[0].kwargs
-    assert rejection["operation"] == "mtls_identity_rejected"
-    assert (rejection["host"], rejection["port"]) == ("localhost", "1")
-
-    task.cancel()
+    event = security_event.call_args_list[0].kwargs
+    assert event["operation"] == "mtls_identity_rejected"
+    assert (event["host"], event["port"]) == ("localhost", "1")
 
 
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client.asyncio.sleep")
-async def test_task_listener_unavailable_mtls_handshake_logs_error(
-    sleep, log_error, security_event, listener_env
+async def test_task_listener_unavailable_mtls_handshake_logs_warning(
+    sleep, log_warning, security_event, listener_env
 ):
     """Under mutual authentication, a handshake/pinning failure is logged loudly
     but still retried."""
@@ -567,10 +558,10 @@ async def test_task_listener_unavailable_mtls_handshake_logs_error(
         ]
     )
 
-    # Surfaced as a console-visible error (not a silent debug), still reconnects
-    log_error.assert_called_once()
-    log_args, log_kwargs = log_error.call_args
-    assert "FB628" in log_args[0]
+    # Surfaced on the console (not a silent debug), still reconnects
+    log_warning.assert_called_once()
+    log_args, log_kwargs = log_warning.call_args
+    assert "handshake with researcher failed" in log_args[0]
     assert not log_kwargs.get("extra", {}).get("is_security")
     sleep.assert_called_once()
     assert request_stub.GetTaskUnary.call_count == 2
@@ -642,11 +633,11 @@ async def test_task_listener_mtls_announce_and_reannounce_on_reconnect(
 
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.is_server_alive", return_value=True)
-@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client.logger._logger.debug")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_mtls_rejection_logged_once(
-    sleep, log_debug, log_error, alive, listener_env
+    sleep, log_debug, log_warning, alive, listener_env
 ):
     """A reachable researcher closing the connection under mutual authentication is
     reported once as a suspected certificate rejection, then demoted to debug."""
@@ -659,10 +650,9 @@ async def test_task_listener_mtls_rejection_logged_once(
         ]
     )
 
-    # One actionable console-visible error despite two identical failures
-    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
-    assert len(errors) == 1
-    assert "is not registered there" in errors[0].args[0]
+    # One actionable console-visible warning despite two identical failures
+    log_warning.assert_called_once()
+    assert "is not registered there" in log_warning.call_args[0][0]
     # The repeat went to debug with the same explanation
     assert any("TLS handshake" in c.args[0] for c in log_debug.call_args_list)
 
@@ -691,10 +681,10 @@ async def test_task_listener_announces_an_mtls_connection_on_the_headers(
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.is_server_alive", return_value=True)
-@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_reports_a_rejected_handshake_not_an_identity_answer(
-    sleep, log_error, alive, security_event, listener_env
+    sleep, log_warning, alive, security_event, listener_env
 ):
     """A call that never reached the researcher must not be read as an answer.
 
@@ -710,20 +700,20 @@ async def test_task_listener_reports_a_rejected_handshake_not_an_identity_answer
 
     await listener_env.drain([_FailedCall(error), _FailedCall(error)])
 
-    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
-    assert len(errors) == 1
-    assert "closes the connection during the TLS handshake" in errors[0].args[0]
-    assert "does not verify node identities" not in errors[0].args[0]
+    log_warning.assert_called_once()
+    assert (
+        "closes the connection during the TLS handshake" in log_warning.call_args[0][0]
+    )
     # A handshake that never completed is reported as no connection at all
     operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
     assert "researcher_channel_established" not in operations
 
 
 @pytest.mark.asyncio
-@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_reports_a_failed_tls_handshake_not_an_identity_answer(
-    sleep, log_error, listener_env
+    sleep, log_warning, listener_env
 ):
     """A researcher certificate that does not verify is reported as such."""
     listener_env.channels.mtls = True
@@ -734,10 +724,8 @@ async def test_task_listener_reports_a_failed_tls_handshake_not_an_identity_answ
 
     await listener_env.drain([_FailedCall(error)])
 
-    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
-    assert len(errors) == 1
-    assert "handshake with researcher failed" in errors[0].args[0]
-    assert "does not verify node identities" not in errors[0].args[0]
+    log_warning.assert_called_once()
+    assert "handshake with researcher failed" in log_warning.call_args[0][0]
 
 
 @pytest.mark.asyncio
@@ -772,28 +760,34 @@ async def test_task_listener_non_mtls_node_against_mtls_researcher(
 
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.logger._logger.error")
-async def test_task_listener_stops_when_researcher_names_no_node(
-    log_error, security_event, listener_env
+@patch("fedbiomed.transport.client.logger._logger.warning")
+async def test_task_listener_retries_when_researcher_names_no_node(
+    log_warning, security_event, listener_env
 ):
     """A researcher not verifying identities is refused, however it behaves.
 
-    The header is absent exactly when the researcher required no certificate, so
-    the node stops instead of running with an identity nobody checked.
+    The task is never read, so the node never runs with an identity nobody
+    checked; it keeps trying, the researcher enabling mutual authentication being
+    all that is needed to connect it.
     """
     listener_env.channels.mtls = True
+    listener_env.channels.connect.reset_mock()
 
     await listener_env.drain(
-        [_one_task(b"t1", metadata=())],
-        expect=FedbiomedCommunicationError,
+        [_one_task(b"t1", metadata=()), _one_task(b"t2", metadata=())]
     )
 
-    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
-    assert len(errors) == 1
-    assert "does not verify node identities" in errors[0].args[0]
+    listener_env.callback.assert_not_called()
+    # The channel is closed and reopened for each new attempt
+    assert listener_env.channels.connect.await_count == 2
+    log_warning.assert_called_once()
+    assert "does not verify node identities" in log_warning.call_args[0][0]
     operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
     assert "mtls_not_enforced_by_researcher" in operations
-    listener_env.on_status_change.assert_awaited_with(ClientStatus.FAILED)
+    listener_env.on_status_change.assert_any_await(ClientStatus.DISCONNECTED)
+    assert (
+        call(ClientStatus.FAILED) not in listener_env.on_status_change.await_args_list
+    )
 
 
 @pytest.mark.asyncio
