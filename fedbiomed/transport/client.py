@@ -15,7 +15,7 @@ import grpc
 from fedbiomed.common.certificate_manager import (
     certificate_audit_fields,
     certificate_component_id,
-    certificate_names,
+    certificate_san_names,
 )
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
@@ -296,7 +296,7 @@ class Channels:
         else:
             credentials = grpc.ssl_channel_credentials(self._researcher.certificate)
 
-        names = certificate_names(self._researcher.certificate)
+        san_names = certificate_san_names(self._researcher.certificate)
 
         return self._create_channel(
             port=self._researcher.port,
@@ -306,7 +306,9 @@ class Channels:
             # before the deployment address was known is verified against a name it
             # does carry.
             target_name_override=(
-                None if self._researcher.host in names else next(iter(names), None)
+                None
+                if self._researcher.host in san_names
+                else next(iter(san_names), None)
             ),
         )
 

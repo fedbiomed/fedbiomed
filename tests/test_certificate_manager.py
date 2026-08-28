@@ -19,7 +19,7 @@ from fedbiomed.common.certificate_manager import (
     certificate_audit_fields,
     certificate_component_id,
     certificate_expiry,
-    certificate_names,
+    certificate_san_names,
     generate_certificate,
 )
 from fedbiomed.common.constants import CERTS_FOLDER_NAME
@@ -325,15 +325,15 @@ def test_certificate_expiry_none_for_unparsable():
     assert certificate_expiry(b"not a certificate") is None
 
 
-def test_certificate_names_reads_the_subject_alternative_names(real_cert):
-    assert certificate_names(real_cert) == ["localhost", "127.0.0.1"]
+def test_certificate_san_names_reads_the_subject_alternative_names(real_cert):
+    assert certificate_san_names(real_cert) == ["localhost", "127.0.0.1"]
 
 
-def test_certificate_names_accepts_str(real_cert):
-    assert certificate_names(real_cert.decode()) == certificate_names(real_cert)
+def test_certificate_san_names_accepts_str(real_cert):
+    assert certificate_san_names(real_cert.decode()) == certificate_san_names(real_cert)
 
 
-def test_certificate_names_ignores_the_common_name():
+def test_certificate_san_names_ignores_the_common_name():
     """The Common Name is free text that states no host, whatever it looks like.
 
     Reading a host or an address back out of it would verify a peer against
@@ -342,20 +342,20 @@ def test_certificate_names_ignores_the_common_name():
     certificate = _certificate(
         common_name="not-a-host", san=[x509.DNSName("fbm.example.org")]
     )
-    assert certificate_names(certificate) == ["fbm.example.org"]
+    assert certificate_san_names(certificate) == ["fbm.example.org"]
 
 
 @pytest.mark.parametrize(
     "common_name", ["fbm-researcher", "10.0.0.9", "10.0.0.9:50051"]
 )
-def test_certificate_names_empty_when_only_a_common_name(common_name):
+def test_certificate_san_names_empty_when_only_a_common_name(common_name):
     """A certificate stating no SAN is valid for no name, host or address alike."""
-    assert certificate_names(_certificate(common_name=common_name)) == []
+    assert certificate_san_names(_certificate(common_name=common_name)) == []
 
 
 @pytest.mark.parametrize("certificate", [b"not a certificate", b"", None])
-def test_certificate_names_empty_for_unparsable(certificate):
-    assert certificate_names(certificate) == []
+def test_certificate_san_names_empty_for_unparsable(certificate):
+    assert certificate_san_names(certificate) == []
 
 
 def test_component_id_read_from_a_generated_certificate(real_cert):
@@ -497,7 +497,7 @@ def test_every_name_given_is_kept_in_order(tmp_path):
         purpose=CERT_PURPOSE_SERVER,
         san=["fbm-researcher", "fbm.example.org", "10.0.0.9"],
     )
-    assert certificate_names(_pem(pem_file)) == [
+    assert certificate_san_names(_pem(pem_file)) == [
         "fbm-researcher",
         "fbm.example.org",
         "10.0.0.9",
@@ -514,7 +514,7 @@ def test_names_are_not_repeated(tmp_path):
         purpose=CERT_PURPOSE_SERVER,
         san=["localhost", "127.0.0.1"],
     )
-    assert certificate_names(_pem(pem_file)) == ["localhost", "127.0.0.1"]
+    assert certificate_san_names(_pem(pem_file)) == ["localhost", "127.0.0.1"]
 
 
 def test_certificate_issued_for_no_name_carries_none(tmp_path):
