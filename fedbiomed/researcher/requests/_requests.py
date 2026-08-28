@@ -19,7 +19,6 @@ from python_minifier import minify
 from fedbiomed.common.certificate_manager import TrustedCertificateBundle
 from fedbiomed.common.constants import (
     REQUEST_PREFIX,
-    ComponentType,
     ErrorNumbers,
     MessageType,
 )
@@ -358,9 +357,7 @@ class Requests(metaclass=SingletonMeta):
         trusted_node_certificates = None
         if config.getbool("authentication", "mutual_authentication", fallback="False"):
             db_path = config.getpath("default", "db")
-            trusted_node_certificates = TrustedCertificateBundle(
-                db_path, ComponentType.NODE.name
-            )
+            trusted_node_certificates = TrustedCertificateBundle(db_path)
             # This first read also reports expiring certificates. gRPC cannot build
             # server credentials from an empty bundle: it fails to bind the port
             # rather than starting and rejecting nodes.

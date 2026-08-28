@@ -4,7 +4,10 @@
 import os
 from typing import Optional
 
-from fedbiomed.common.certificate_manager import generate_certificate
+from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_CLIENT,
+    generate_certificate,
+)
 from fedbiomed.common.config import Component, Config
 from fedbiomed.common.constants import (
     DEFAULT_CERT_NAME,
@@ -100,6 +103,7 @@ class NodeConfig(Config):
         key_file, pem_file = generate_certificate(
             root=self.root,
             component_id=self._cfg["default"]["id"],
+            purpose=CERT_PURPOSE_CLIENT,
             prefix=DEFAULT_CERT_NAME,
         )
 

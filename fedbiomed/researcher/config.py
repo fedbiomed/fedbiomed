@@ -5,7 +5,10 @@ import os
 import shutil
 from typing import Optional
 
-from fedbiomed.common.certificate_manager import generate_certificate
+from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_SERVER,
+    generate_certificate,
+)
 from fedbiomed.common.config import Component, Config
 from fedbiomed.common.constants import (
     CONFIG_FOLDER_NAME,
@@ -39,6 +42,7 @@ class ResearcherConfig(Config):
             root=self.root,
             prefix=SERVER_certificate_prefix,
             component_id=self._cfg["default"]["id"],
+            purpose=CERT_PURPOSE_SERVER,
             san=[grpc_host],
         )
 

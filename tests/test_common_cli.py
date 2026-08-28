@@ -8,7 +8,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from cryptography import x509
 
-from fedbiomed.common.certificate_manager import certificate_names
+from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_CLIENT,
+    CERT_PURPOSE_SERVER,
+    certificate_names,
+)
 from fedbiomed.common.cli import CommonCLI
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 
@@ -27,9 +31,9 @@ _RESEARCHER_B_ROW = {"component_id": _RESEARCHER_B, "component_type": "RESEARCHE
 
 # A federation whose components already hold the certificates they should
 _ALL_REGISTERED = {
-    _RESEARCHER_A: {**_RESEARCHER_A_ROW, "certificate": "cert-r1"},
-    _NODE_A: {**_NODE_A_ROW, "certificate": "cert-n1"},
-    _NODE_B: {**_NODE_B_ROW, "certificate": "cert-n2"},
+    _RESEARCHER_A: {"component_id": _RESEARCHER_A, "certificate": "cert-r1"},
+    _NODE_A: {"component_id": _NODE_A, "certificate": "cert-n1"},
+    _NODE_B: {"component_id": _NODE_B, "certificate": "cert-n2"},
 }
 
 
@@ -171,11 +175,9 @@ def federation(set_db, registered):
     `registered` says what a component already holds, nothing by default.
     """
 
-    def _register(certificate, component_id, registering_component_type=None):
+    def _register(certificate, component_id, registering_purpose=None):
         registered[component_id] = {
             "component_id": component_id,
-            # Derived from the id, as registration derives it
-            "component_type": component_id.split("_")[0].upper(),
             "certificate": certificate,
         }
         return component_id
@@ -232,10 +234,13 @@ def test_common_cli_create_magic_dev_environment(cli, federation, component, exp
     assert [c.kwargs["component_id"] for c in federation.register.call_args_list] == (
         expected
     )
-    # Each registers as itself, which is what makes a component reject its own kind
-    own_type = "RESEARCHER" if component == _RESEARCHER_A else "NODE"
+    # Each registers in its own TLS role, which is what makes a component reject
+    # certificates of its own kind
+    own_purpose = (
+        CERT_PURPOSE_SERVER if component == _RESEARCHER_A else CERT_PURPOSE_CLIENT
+    )
     assert all(
-        c.kwargs["registering_component_type"] == own_type
+        c.kwargs["registering_purpose"] == own_purpose
         for c in federation.register.call_args_list
     )
 
@@ -282,7 +287,10 @@ def test_create_magic_dev_environment_refuses_to_leave_an_outdated_registration(
     command reported success.
     """
     federation.registered.update(_ALL_REGISTERED)
-    federation.registered[_NODE_A] = {**_NODE_A_ROW, "certificate": "an-older-cert"}
+    federation.registered[_NODE_A] = {
+        "component_id": _NODE_A,
+        "certificate": "an-older-cert",
+    }
 
     with pytest.raises(SystemExit):
         cli._create_magic_dev_environment(_setup_args())
@@ -304,7 +312,10 @@ def test_create_magic_dev_environment_prune_rebuilds_registrations(cli, federati
         _RESEARCHER_A: "/components/researcher/var/db.json"
     }
     federation.registered.update(_ALL_REGISTERED)
-    federation.registered[_NODE_A] = {**_NODE_A_ROW, "certificate": "an-older-cert"}
+    federation.registered[_NODE_A] = {
+        "component_id": _NODE_A,
+        "certificate": "an-older-cert",
+    }
 
     cli._create_magic_dev_environment(_setup_args(prune=True))
 
@@ -645,13 +656,13 @@ def test_common_cli_register_certificate(
 
     # Registration targets the component's main database.
     set_db.assert_called_once_with(db_path=cli.config.getpath("default", "db"))
-    # The registering component is passed along so certificates of the
+    # The registering component's TLS role is passed along so certificates of the
     # component's own kind are rejected.
     mock_register_certificate.assert_called_once_with(
         certificate_path="path/to/key",
         component_id=None,
         upsert=True,
-        registering_component_type="NODE",
+        registering_purpose=CERT_PURPOSE_CLIENT,
     )
     # The component actually registered is named, whether or not it was supplied
     printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
@@ -675,9 +686,12 @@ def test_common_cli_list_certificates(mock_open, mock_cm_list, cli):
 @pytest.mark.parametrize(
     "certificates,reason",
     [
-        ([_NODE_A_ROW], "own_component_type_registered"),
-        ([_RESEARCHER_A_ROW, _RESEARCHER_B_ROW], "multiple_certificates_on_node"),
-        ([_RESEARCHER_A_ROW], None),  # consistent registry: nothing to audit
+        (
+            [{"component_id": _RESEARCHER_A}, {"component_id": _RESEARCHER_B}],
+            "multiple_certificates_on_node",
+        ),
+        # consistent registry: nothing to audit
+        ([{"component_id": _RESEARCHER_A}], None),
     ],
 )
 @patch("fedbiomed.common.cli.logger.security_event")
@@ -686,7 +700,7 @@ def test_common_cli_list_certificates(mock_open, mock_cm_list, cli):
 def test_list_certificates_audits_inconsistencies(
     mock_open, mock_cm_list, security_event, cli, certificates, reason
 ):
-    """Registry invariants broken by entries predating the checks are audited."""
+    """A registry invariant broken by entries predating the check is audited."""
     cli.config.COMPONENT_TYPE = "NODE"
     mock_cm_list.return_value = certificates
     cli.initialize_certificate_parser()

@@ -5,7 +5,6 @@ import copy
 import ipaddress
 import os
 import threading
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -17,11 +16,7 @@ from tabulate import tabulate
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
 
-from fedbiomed.common.constants import (
-    CERTS_FOLDER_NAME,
-    ComponentType,
-    ErrorNumbers,
-)
+from fedbiomed.common.constants import CERTS_FOLDER_NAME, ErrorNumbers
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
@@ -158,16 +153,17 @@ def certificate_fingerprint(certificate: Union[bytes, str]) -> Optional[bytes]:
         return None
 
 
-def certificate_expected_component_type(certificate: bytes) -> Optional[str]:
-    """Component type a certificate's Extended Key Usage restricts it to.
-
-    A client-only certificate is a node's, a server-only one a researcher's.
+def certificate_purpose(certificate: Union[bytes, str]) -> Optional[str]:
+    """TLS role a certificate's Extended Key Usage restricts it to.
 
     Returns:
-        `ComponentType.NODE.name` or `ComponentType.RESEARCHER.name`, or None
-        when the certificate is unparsable or its EKU does not restrict it to a
-        single role (third-party certificates need not carry one).
+        `CERT_PURPOSE_CLIENT` or `CERT_PURPOSE_SERVER`, or None when the
+        certificate is unparsable or its Extended Key Usage leaves the role open
+        — both roles, or no such extension at all, as a certificate issued
+        outside Fed-BioMed may well be.
     """
+    if isinstance(certificate, str):
+        certificate = certificate.encode("utf-8")
     try:
         usages = (
             x509.load_pem_x509_certificate(certificate)
@@ -178,89 +174,69 @@ def certificate_expected_component_type(certificate: bytes) -> Optional[str]:
         return None
     client = ExtendedKeyUsageOID.CLIENT_AUTH in usages
     server = ExtendedKeyUsageOID.SERVER_AUTH in usages
-    if client == server:  # both roles or neither: component type unconstrained
+    if client == server:  # both roles or neither: the role is unconstrained
         return None
-    return ComponentType.NODE.name if client else ComponentType.RESEARCHER.name
+    return CERT_PURPOSE_CLIENT if client else CERT_PURPOSE_SERVER
 
 
-def validate_registering_component(
-    certificate: str, component_type: str, registering_component_type: str
-) -> None:
-    """Checks a certificate is not of the registering component's own kind.
+def validate_certificate_purpose(certificate: str, registering_purpose: str) -> None:
+    """Checks a certificate carries the TLS role the registering component expects.
 
-    Components register the certificates of the components they talk to, never
-    of their own type: a node registers researcher certificates and a researcher
-    node ones. Two independent checks, each restrictive only for information
-    actually present:
+    A component registers the certificates of the components it talks to, never
+    its own: the one acting as TLS client registers server certificates, and the
+    reverse. Its own role is therefore the one role a certificate registered here
+    must not have.
 
-    - the component type the certificate is registered as must differ from the
-      registering component's type;
-    - when the Extended Key Usage restricts the certificate to a single TLS
-      role, that role must not be the registering component's own (a node acts
-      as a TLS client, a researcher as a TLS server). An absent or dual-role
-      EKU constrains nothing.
+    A certificate leaving the role open — both roles, or no Extended Key Usage,
+    which is common outside Fed-BioMed — is registered, but reported: nothing then
+    states which side of the connection it is meant for.
 
     Raises:
-        FedbiomedCertificateError: the certificate is identified as belonging
-            to the registering component's own type.
+        FedbiomedCertificateError: the registering purpose is unknown, or the
+            certificate is restricted to the registering component's own role.
     """
-    if component_type == registering_component_type:
+    if registering_purpose not in (CERT_PURPOSE_CLIENT, CERT_PURPOSE_SERVER):
         raise FedbiomedCertificateError(
-            f"{ErrorNumbers.FB619.value}: Cannot register a {component_type} "
-            f"certificate on a {registering_component_type}: a component registers "
-            "the certificates of the components it communicates with, not of its "
-            "own type."
+            f"{ErrorNumbers.FB619.value}: Unknown registering purpose "
+            f"`{registering_purpose}`; expected `{CERT_PURPOSE_CLIENT}` or "
+            f"`{CERT_PURPOSE_SERVER}`."
         )
-    eku_component_type = certificate_expected_component_type(
-        certificate.encode("utf-8")
+
+    expected = (
+        CERT_PURPOSE_SERVER
+        if registering_purpose == CERT_PURPOSE_CLIENT
+        else CERT_PURPOSE_CLIENT
     )
-    if eku_component_type == registering_component_type:
-        role = (
-            CERT_PURPOSE_CLIENT
-            if eku_component_type == ComponentType.NODE.name
-            else CERT_PURPOSE_SERVER
-        )
+    purpose = certificate_purpose(certificate)
+    if purpose == expected:
+        return
+
+    if purpose == registering_purpose:
         raise FedbiomedCertificateError(
             f"{ErrorNumbers.FB619.value}: The certificate's Extended Key Usage "
-            f"restricts it to a TLS {role} certificate — the "
-            f"{registering_component_type}'s own role, not that of the components "
-            "it registers."
+            f"restricts it to a TLS {purpose} certificate, the role this component "
+            f"acts in itself. It registers {expected} certificates, of the "
+            "components it communicates with."
         )
 
-
-def _certificate_purpose(component_id: str) -> Optional[str]:
-    """TLS role to restrict a certificate to, from the component id prefix.
-
-    Inferred as in `register`. Ids matching neither prefix yield None, allowing
-    both roles so the handshake never breaks for such ids.
-    """
-    if component_id.upper().startswith(f"{ComponentType.NODE.name}_"):
-        return CERT_PURPOSE_CLIENT
-    if component_id.upper().startswith(f"{ComponentType.RESEARCHER.name}_"):
-        return CERT_PURPOSE_SERVER
-    return None
-
-
-def _component_type(component_id: str) -> Optional[str]:
-    """Component type encoded in a component id, or None if it does not follow
-    the pattern.
-
-    Component ids follow `<COMPONENT_TYPE>_<uuid4>` (see `Config.generate`); the
-    prefix is matched case-insensitively.
-    """
-    prefix, _, identifier = component_id.partition("_")
-    component_type = prefix.upper()
-    try:
-        uuid.UUID(identifier)
-    except ValueError:
-        return None
-    if component_type not in (ComponentType.NODE.name, ComponentType.RESEARCHER.name):
-        return None
-    return component_type
+    msg = (
+        f"The certificate is not restricted to the TLS {expected} role expected "
+        "here: its Extended Key Usage allows both roles, or the certificate "
+        "declares none. Fed-BioMed issues certificates carrying the single role "
+        "they are used in."
+    )
+    logger.warning(msg)
+    logger.security_event(
+        operation="certificate_purpose_unrestricted",
+        status="warning",
+        expected_purpose=expected,
+        detail=msg,
+        **certificate_audit_fields(certificate),
+    )
 
 
 class TrustedCertificateBundle:
-    """Certificates registered for a component type, for mutual authentication.
+    """Registered certificates, for mutual authentication.
 
     Answers the two questions the researcher asks of its registry: which
     certificates to trust (the PEM bundle, as the trusted-certificate source of
@@ -276,14 +252,12 @@ class TrustedCertificateBundle:
     sits untouched is not reported until the next registration.
     """
 
-    def __init__(self, db_path: str, component_type: str):
+    def __init__(self, db_path: str):
         """
         Args:
             db_path: Path of the certificate database.
-            component_type: Component type name, e.g. `ComponentType.NODE.name`.
         """
         self._db_path = db_path
-        self._component_type = component_type
         self._lock = threading.Lock()
         self._state: Optional[Tuple[int, int]] = None
         self._bundle: bytes = b""
@@ -315,8 +289,7 @@ class TrustedCertificateBundle:
 
         Returns:
             The registered component id, or None if the certificate is unparsable,
-            not registered for this component type, or registered under more than
-            one component id.
+            not registered, or registered under more than one component id.
         """
         fingerprint = certificate_fingerprint(certificate)
         if fingerprint is None:
@@ -341,13 +314,9 @@ class TrustedCertificateBundle:
 
             certificate_manager = CertificateManager(db_path=self._db_path)
             try:
-                documents = [
-                    doc
-                    for doc in certificate_manager.list()
-                    if doc.get("component_type") == self._component_type
-                ]
+                documents = certificate_manager.list()
                 expiring = certificate_manager.expiring_certificates(
-                    CERTIFICATE_EXPIRY_WARNING_DAYS, self._component_type
+                    CERTIFICATE_EXPIRY_WARNING_DAYS
                 )
             finally:
                 certificate_manager.close()
@@ -369,7 +338,7 @@ class TrustedCertificateBundle:
                 # it are refused until the registry is corrected.
                 if len(registered_ids) > 1:
                     msg = (
-                        f"The same {self._component_type} certificate is registered "
+                        "The same certificate is registered "
                         f"under {', '.join(f'`{p}`' for p in registered_ids)} in "
                         f"{self._db_path}; "
                         "none of them can be authenticated with it. Delete the "
@@ -379,7 +348,6 @@ class TrustedCertificateBundle:
                     logger.security_event(
                         operation="certificate_ambiguous_identity",
                         status="warning",
-                        component_type=self._component_type,
                         db_path=self._db_path,
                         component_ids=registered_ids,
                         detail=msg,
@@ -397,19 +365,17 @@ class TrustedCertificateBundle:
             if self._state is None:
                 msg = (
                     f"Could not read certificate database {self._db_path}: {e}. "
-                    f"No {self._component_type} certificate is available."
+                    "No certificate is available."
                 )
             else:
                 msg = (
                     f"Could not read certificate database {self._db_path}: {e}. "
-                    "Keeping the previously loaded "
-                    f"{self._component_type} certificates."
+                    "Keeping the previously loaded certificates."
                 )
             logger.warning(msg)
             logger.security_event(
                 operation="certificate_store_unreadable",
                 status="warning",
-                component_type=self._component_type,
                 db_path=self._db_path,
                 detail=msg,
             )
@@ -426,7 +392,7 @@ class TrustedCertificateBundle:
         for component_id, expiry in expiring:
             if (component_id, expiry) not in self._warned:
                 msg = (
-                    f"{self._component_type} certificate `{component_id}` expires on "
+                    f"Certificate `{component_id}` expires on "
                     f"{expiry:%Y-%m-%d}; register an updated certificate to avoid "
                     "connection failures."
                 )
@@ -435,7 +401,6 @@ class TrustedCertificateBundle:
                     operation="certificate_expiring",
                     status="warning",
                     component_id=component_id,
-                    component_type=self._component_type,
                     expires_on=f"{expiry:%Y-%m-%d}",
                     detail=msg,
                 )
@@ -494,7 +459,6 @@ class CertificateManager:
         self,
         certificate: str,
         component_id: str,
-        component_type: str,
         upsert: bool = False,
     ) -> Union[int, list[int]]:
         """Writes a certificate into the table, granting it trust.
@@ -505,7 +469,6 @@ class CertificateManager:
         Args:
             certificate: Public-key for the FL parties
             component_id: ID of the component
-            component_type: Node or researcher,
             upsert: Update document with new data if it is existing
 
         Returns:
@@ -520,14 +483,12 @@ class CertificateManager:
                 {
                     "certificate": certificate,
                     "component_id": component_id,
-                    "component_type": component_type,
                 }
             )
         elif upsert:
             result = self._table.upsert(
                 {
                     "certificate": certificate,
-                    "component_type": component_type,
                     "component_id": component_id,
                 },
                 self._query.component_id == component_id,
@@ -544,7 +505,6 @@ class CertificateManager:
             operation="certificate_registered",
             status="success",
             component_id=component_id,
-            component_type=component_type,
             replaced=bool(certificate_),
             **certificate_audit_fields(certificate),
         )
@@ -564,20 +524,6 @@ class CertificateManager:
 
         v = self._table.get(self._query.component_id == component_id)
         return v
-
-    def get_by_component_type(self, component_type: str) -> List[str]:
-        """Gets certificates of all components of a given type.
-
-        Args:
-            component_type: Component type name, e.g. `ComponentType.NODE.name`.
-
-        Returns:
-            List of certificate contents (PEM strings).
-        """
-        return [
-            doc["certificate"]
-            for doc in self._table.search(self._query.component_type == component_type)
-        ]
 
     def delete(self, component_id) -> List[int]:
         """Deletes given component from table
@@ -599,7 +545,6 @@ class CertificateManager:
                 operation="certificate_deleted",
                 status="success",
                 component_id=component_id,
-                component_type=document.get("component_type"),
                 **certificate_audit_fields(document.get("certificate", "")),
             )
 
@@ -626,19 +571,12 @@ class CertificateManager:
 
         return certificates
 
-    def expiring_certificates(
-        self, within_days: int, component_type: Optional[str] = None
-    ) -> List[Tuple[str, datetime]]:
+    def expiring_certificates(self, within_days: int) -> List[Tuple[str, datetime]]:
         """`(component_id, expiry)` for certs expiring within `within_days` (or
-        expired), optionally restricted to a `component_type`."""
+        expired)."""
         threshold = datetime.now(timezone.utc) + timedelta(days=within_days)
         expiring = []
         for doc in self._table.all():
-            if (
-                component_type is not None
-                and doc.get("component_type") != component_type
-            ):
-                continue
             expiry = certificate_expiry(doc["certificate"])
             if expiry is not None and expiry <= threshold:
                 expiring.append((doc["component_id"], expiry))
@@ -649,7 +587,7 @@ class CertificateManager:
         certificate_path: str,
         component_id: Optional[str] = None,
         upsert: bool = False,
-        registering_component_type: Optional[str] = None,
+        registering_purpose: Optional[str] = None,
     ) -> str:
         """Registers the certificate stored at the given path.
 
@@ -669,7 +607,7 @@ class CertificateManager:
             certificate=read_file(certificate_path),
             component_id=component_id,
             upsert=upsert,
-            registering_component_type=registering_component_type,
+            registering_purpose=registering_purpose,
         )
 
     def register(
@@ -677,7 +615,7 @@ class CertificateManager:
         certificate: str,
         component_id: Optional[str] = None,
         upsert: bool = False,
-        registering_component_type: Optional[str] = None,
+        registering_purpose: Optional[str] = None,
     ) -> str:
         """Registers a certificate, applying every rule a stored certificate must meet.
 
@@ -685,28 +623,28 @@ class CertificateManager:
         holding a file use `register_certificate` instead, and no caller writes to the
         table directly.
 
-        The component id may be recovered from the certificate's `CN=` (CommonName)
-        field. A certificate identity counts only when it is itself a valid
-        component id (`<NODE|RESEARCHER>_<uuid>`):
+        The component id may be recovered from the certificate's `CN=`, but only on a
+        certificate Fed-BioMed issued (`O=Fed-BioMed`); any other issuer's `CN=` is
+        free text:
 
-        - certificate carries a valid identity, `component_id` omitted: recovered;
-        - certificate carries no valid identity: `component_id` is required and must
-          follow the pattern;
+        - certificate carries an identity, `component_id` omitted: recovered;
+        - certificate carries none: `component_id` is required;
         - both present: they must be the same.
 
         Args:
             certificate: PEM encoded certificate to register.
-            component_id: ID of the component. Optional when the certificate embeds a
-                valid identity in `CN=`; required otherwise.
+            component_id: ID of the component. Optional when the certificate embeds an
+                identity in `CN=`; required otherwise.
             upsert: If `True` overwrites existing certificate for specified component.
                 If `False` and the certificate for the specified component already
                 existing it raises error.
-            registering_component_type: Component type performing the registration
-                (`ComponentType.NODE.name` or `ComponentType.RESEARCHER.name`).
-                When given, certificates identified as that component's own kind
-                are rejected: components register each other's certificates, never
-                their own type. A node additionally keeps a single registered
-                certificate — its researcher's. None skips these checks.
+            registering_purpose: TLS role the registering component acts in
+                (`CERT_PURPOSE_CLIENT` or `CERT_PURPOSE_SERVER`). When given,
+                certificates restricted to that same role are rejected: components
+                register each other's certificates, never their own; one leaving the
+                role open is registered and reported. A TLS client additionally keeps
+                a single registered certificate — the server's. None skips these
+                checks.
 
         Returns:
             The component id the certificate was registered under, which the caller
@@ -716,79 +654,49 @@ class CertificateManager:
         Raises:
             FedbiomedCertificateError: If `component_id` is neither given nor
                 recoverable from the certificate; if a given `component_id` conflicts
-                with the certificate identity; if a given `component_id` does not
-                follow `<NODE|RESEARCHER>_<uuid>`; if the certificate is already
-                registered under another component id; or, when
-                `registering_component_type` is given, if the certificate is
-                identified — by the component id it is registered under or by a
-                single-role EKU — as one of the registering component's own kind,
-                or if a node already holds a certificate for another component.
+                with the certificate identity; if the certificate is already
+                registered under another component id; or, when `registering_purpose`
+                is given, if the certificate is restricted to that same role, or if a
+                TLS client already holds a certificate for another component.
         """
-        certificate_id = certificate_subject_field(
-            certificate.encode("utf-8"), NameOID.COMMON_NAME
-        )
-        # A certificate identity is usable only if it is itself a valid component id.
-        certificate_component_type = (
-            _component_type(certificate_id) if certificate_id is not None else None
-        )
+        certificate_id = certificate_component_id(certificate)
 
-        # A provided component id must always follow the expected pattern, whether it
-        # is later used as-is or reconciled against the certificate identity.
-        given_component_type = (
-            _component_type(component_id) if component_id is not None else None
-        )
-        if component_id is not None and given_component_type is None:
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Component id `{component_id}` is "
-                "invalid; it must follow `<NODE|RESEARCHER>_<uuid>`."
-            )
-
-        if certificate_component_type is not None:
+        if certificate_id is not None:
             if component_id is not None and component_id != certificate_id:
                 raise FedbiomedCertificateError(
                     f"{ErrorNumbers.FB619.value}: Given component id `{component_id}` "
                     f"does not match the certificate identity `{certificate_id}`."
                 )
-            component_id, component_type = certificate_id, certificate_component_type
-        elif given_component_type is not None:
-            # Third-party certificate: an arbitrary `CN=`, registered under the
-            # given `component_id`.
-            component_type = given_component_type
-        else:
+            component_id = certificate_id
+        elif component_id is None:
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: The certificate does not embed a valid "
+                f"{ErrorNumbers.FB619.value}: The certificate does not embed a "
                 "Fed-BioMed identity, so `component_id` must be provided to "
                 "register it."
             )
 
-        if registering_component_type is not None:
-            validate_registering_component(
-                certificate, component_type, registering_component_type
-            )
+        if registering_purpose is not None:
+            validate_certificate_purpose(certificate, registering_purpose)
 
-        # A node communicates with a single researcher, so its database holds at most one certificate
-        if registering_component_type == ComponentType.NODE.name:
-            others = [
-                d["component_id"]
-                for d in self.list()
-                if d["component_id"] != component_id
-            ]
-            if others:
-                registered = ", ".join(f"`{o}`" for o in others)
-                raise FedbiomedCertificateError(
-                    f"{ErrorNumbers.FB619.value}: A node registers at most one "
-                    f"certificate. Cannot register `{component_id}` while other "
-                    f"certificates are registered: {registered}. Delete them first."
-                )
+        others = [d for d in self.list() if d["component_id"] != component_id]
+
+        # The TLS client is the node, and it communicates with a single researcher,
+        # so its database holds at most one certificate
+        if registering_purpose == CERT_PURPOSE_CLIENT and others:
+            registered = ", ".join(f"`{d['component_id']}`" for d in others)
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: A node registers at most one "
+                f"certificate. Cannot register `{component_id}` while other "
+                f"certificates are registered: {registered}. Delete them first."
+            )
 
         # A researcher registers one certificate per node, so the same one
         # under two component ids would identify neither.
         fingerprint = certificate_fingerprint(certificate)
         duplicates = [
             d["component_id"]
-            for d in self.list()
-            if d["component_id"] != component_id
-            and certificate_fingerprint(d["certificate"]) == fingerprint
+            for d in others
+            if certificate_fingerprint(d["certificate"]) == fingerprint
         ]
         if fingerprint is not None and duplicates:
             registered = ", ".join(f"`{d}`" for d in duplicates)
@@ -802,7 +710,6 @@ class CertificateManager:
         self._insert(
             certificate=certificate,
             component_id=component_id,
-            component_type=component_type,
             upsert=upsert,
         )
 
@@ -832,6 +739,7 @@ class CertificateManager:
     def generate_self_signed_ssl_certificate(
         certificate_folder,
         component_id: str,
+        purpose: str,
         certificate_name: str = "FBM_",
         san: Optional[List[str]] = None,
     ) -> Tuple[str, str]:
@@ -839,13 +747,15 @@ class CertificateManager:
 
         The subject states who the component is, never where it is reached:
         `CN=<component_id>`, `O=` the organization marking it as Fed-BioMed's. The
-        Extended Key Usage restricting the certificate to a single TLS role is inferred
-        from `component_id`: a node acts as a TLS client, a researcher as a TLS server.
+        Extended Key Usage restricts the certificate to `purpose`, the single TLS role
+        the component acts in.
 
         Args:
             certificate_folder: The path where certificate files `.pem` and `.key`
                 will be saved. Path should be absolute.
             component_id: ID of the component, which the certificate identifies.
+            purpose: TLS role the certificate is restricted to, `CERT_PURPOSE_CLIENT`
+                or `CERT_PURPOSE_SERVER`.
             certificate_name: Name of the certificate file.
             san: Hosts and IP addresses the component is reached at, which peers
                 verify it under. Required for a certificate peers verify by name.
@@ -855,13 +765,20 @@ class CertificateManager:
             public_key: Certificate file
 
         Raises:
-            FedbiomedCertificateError: If certificate directory is invalid or an error
-                occurs while writing certificate files in given path.
+            FedbiomedCertificateError: If the purpose is unknown, if certificate
+                directory is invalid, or an error occurs while writing certificate
+                files in given path.
 
         !!! info "Certificate files"
                 Certificate files will be saved in the given directory as
                 `certificates.key` for private key `certificate.pem` for public key.
         """
+        if purpose not in (CERT_PURPOSE_CLIENT, CERT_PURPOSE_SERVER):
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Unknown certificate purpose `{purpose}`; "
+                f"expected `{CERT_PURPOSE_CLIENT}` or `{CERT_PURPOSE_SERVER}`."
+            )
+
         if not os.path.isabs(certificate_folder):
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Certificate path should be absolute: "
@@ -901,19 +818,12 @@ class CertificateManager:
             .not_valid_after(datetime.now(timezone.utc) + timedelta(days=5 * 365))
         )
 
-        resolved_purpose = _certificate_purpose(component_id)
-        if resolved_purpose == CERT_PURPOSE_SERVER:
+        if purpose == CERT_PURPOSE_SERVER:
             extended_key_usages = [ExtendedKeyUsageOID.SERVER_AUTH]
             key_encipherment = True
-        elif resolved_purpose == CERT_PURPOSE_CLIENT:
+        else:
             extended_key_usages = [ExtendedKeyUsageOID.CLIENT_AUTH]
             key_encipherment = False
-        else:
-            extended_key_usages = [
-                ExtendedKeyUsageOID.SERVER_AUTH,
-                ExtendedKeyUsageOID.CLIENT_AUTH,
-            ]
-            key_encipherment = True
 
         builder = (
             builder.add_extension(
@@ -981,6 +891,7 @@ class CertificateManager:
 def generate_certificate(
     root,
     component_id,
+    purpose: str,
     prefix: Optional[str] = None,
     san: Optional[List[str]] = None,
 ) -> Tuple[str, str]:
@@ -988,6 +899,8 @@ def generate_certificate(
 
     Args:
         component_id: ID of the component for which the certificate will be generated
+        purpose: TLS role the certificate is restricted to, `CERT_PURPOSE_CLIENT` or
+            `CERT_PURPOSE_SERVER`.
         san: Hosts and IP addresses the component is reached at, which peers verify
             it under.
 
@@ -1018,6 +931,7 @@ def generate_certificate(
         certificate_folder=certificate_path,
         certificate_name=prefix if prefix else "",
         component_id=component_id,
+        purpose=purpose,
         san=san,
     )
 

@@ -33,12 +33,14 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from fedbiomed.common.certificate_manager import (
     CERT_ORGANIZATION,
+    CERT_PURPOSE_CLIENT,
+    CERT_PURPOSE_SERVER,
     CertificateManager,
     TrustedCertificateBundle,
     certificate_names,
     certificate_subject_field,
 )
-from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.message import SearchReply, SearchRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.client import (
@@ -69,7 +71,7 @@ RESEARCHER_ID = f"RESEARCHER_{uuid4()}"
 OTHER_NODE_ID = f"NODE_{uuid4()}"
 
 
-def _generate(folder, name, component_id, san=None):
+def _generate(folder, name, component_id, purpose=CERT_PURPOSE_CLIENT, san=None):
     """Generates a self-signed cert, returns (key_file, cert_file, key, cert).
 
     Names are given for a researcher only, as the shipped configurations do: they
@@ -80,10 +82,28 @@ def _generate(folder, name, component_id, san=None):
         certificate_folder=folder,
         certificate_name=name,
         component_id=component_id,
+        purpose=purpose,
         san=san,
     )
     with open(key_file, "rb") as key, open(pem_file, "rb") as cert:
         return key_file, pem_file, key.read(), cert.read()
+
+
+def _third_party(common_name):
+    """A certificate issued outside Fed-BioMed, as PEM: its `CN=` is free text."""
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, common_name)])
+    return (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+        .sign(private_key=key, algorithm=hashes.SHA256())
+        .public_bytes(serialization.Encoding.PEM)
+    )
 
 
 def _naming_only(host):
@@ -122,15 +142,20 @@ def certs():
     """Generates researcher and node certificates for the whole module."""
     with tempfile.TemporaryDirectory() as tmp:
         researcher_key_file, researcher_cert_file, researcher_key, researcher_cert = (
-            _generate(tmp, "researcher", RESEARCHER_ID, san=["localhost"])
+            _generate(
+                tmp,
+                "researcher",
+                RESEARCHER_ID,
+                purpose=CERT_PURPOSE_SERVER,
+                san=["localhost"],
+            )
         )
         node_key_file, node_cert_file, node_key, node_cert = _generate(
             tmp, "node", NODE_ID
         )
         _, _, _, other_node_cert = _generate(tmp, "other_node", OTHER_NODE_ID)
-        # A `CN=` that is no component id: the only kind registration lets an
-        # id be chosen for
-        _, _, _, unidentified_cert = _generate(tmp, "unidentified", "Hospital A")
+        # Issued elsewhere, so its `CN=` is no identity
+        unidentified_cert = _third_party("Hospital A")
         yield {
             "researcher_key_file": researcher_key_file,
             "researcher_cert_file": researcher_cert_file,
@@ -233,7 +258,7 @@ def _registry(path, entries):
             )
     finally:
         manager.close()
-    return TrustedCertificateBundle(str(path), ComponentType.NODE.name)
+    return TrustedCertificateBundle(str(path))
 
 
 @pytest.fixture
@@ -249,7 +274,6 @@ def test_component_id_resolves_registered_certificate(certs, registry):
 
 
 def test_component_id_returns_none_for_unregistered_certificate(certs, registry):
-    # Registered for RESEARCHER, not the NODE bundle this view covers
     assert registry.component_id(certs["researcher_cert"]) is None
     assert registry.component_id(b"not a certificate") is None
 
@@ -269,11 +293,10 @@ def test_component_id_refuses_a_certificate_registered_under_two_parties(
             manager._insert(
                 certificate=certs["node_cert"].decode("utf-8"),
                 component_id=component_id,
-                component_type=ComponentType.NODE.name,
             )
     finally:
         manager.close()
-    ambiguous = TrustedCertificateBundle(str(db_path), ComponentType.NODE.name)
+    ambiguous = TrustedCertificateBundle(str(db_path))
 
     with patch("fedbiomed.common.certificate_manager.logger.security_event") as event:
         assert ambiguous.component_id(certs["node_cert"]) is None
@@ -362,9 +385,7 @@ async def test_refusal_distinguishes_an_unreadable_registry(certs, tmp_path):
     unreadable = tmp_path / "corrupt.json"
     unreadable.write_text("{ not json", encoding="utf-8")
 
-    fields = await _refusal(
-        context, TrustedCertificateBundle(str(unreadable), ComponentType.NODE.name)
-    )
+    fields = await _refusal(context, TrustedCertificateBundle(str(unreadable)))
 
     assert fields["reason"] == "registry_unreadable"
     assert "registry could not be read" in fields["detail"]
@@ -397,7 +418,7 @@ async def test_refusal_distinguishes_a_missing_registry(certs):
 def test_loaded_reports_whether_the_registry_was_ever_read(certs, tmp_path, registry):
     unreadable = tmp_path / "corrupt.json"
     unreadable.write_text("{ not json", encoding="utf-8")
-    broken = TrustedCertificateBundle(str(unreadable), ComponentType.NODE.name)
+    broken = TrustedCertificateBundle(str(unreadable))
 
     assert broken.component_id(certs["node_cert"]) is None
     assert broken.loaded is False
