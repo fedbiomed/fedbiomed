@@ -46,7 +46,9 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.client import (
     MTLS_PEER_ID_HEADER,
     Channels,
+    NodeClientIdentity,
     ResearcherCredentials,
+    TaskListener,
     _researcher_requires_client_auth,
 )
 from fedbiomed.transport.node_agent import AgentStore
@@ -885,6 +887,65 @@ async def test_wrong_pinned_server_cert_is_rejected(certs):
     server, port = await _serve(certs, lambda: certs["node_cert"])
     try:
         assert not await _can_connect(certs, port, True, certs["node_cert"])
+    finally:
+        await server.stop(0)
+
+
+async def _one_task_request(certs, port, pinned_server_cert):
+    """Runs one task request through the shipped listener against a real server."""
+    channels = Channels(
+        ResearcherCredentials(
+            host="127.0.0.1",
+            port=str(port),
+            certificate=pinned_server_cert,
+            mtls=True,
+            node_identity=NodeClientIdentity(
+                private_key=certs["node_key"], certificate_chain=certs["node_cert"]
+            ),
+        )
+    )
+    await channels.connect()
+    listener = TaskListener(
+        channels=channels,
+        node_id=NODE_ID,
+        on_status_change=AsyncMock(),
+        update_id=AsyncMock(),
+    )
+    try:
+        await listener._call_researcher()
+    finally:
+        for channel in channels._channels.values():
+            await channel.close()
+
+
+@pytest.mark.asyncio
+async def test_unregistered_node_gets_the_connection_error_not_an_identity_verdict(
+    certs,
+):
+    """A rejected handshake reaches the caller as the error that explains it.
+
+    gRPC answers the headers of a failed call with empty metadata, which is also
+    what a researcher verifying nobody sends: read as an answer, a rejected node
+    would be told the researcher does not enforce mutual authentication.
+    """
+    # Bundle contains only the researcher cert, so the node cert is untrusted
+    server, port = await _serve(certs, lambda: certs["researcher_cert"])
+    try:
+        with pytest.raises(grpc.aio.AioRpcError) as raised:
+            await _one_task_request(certs, port, certs["researcher_cert"])
+        assert raised.value.code() is grpc.StatusCode.UNAVAILABLE
+    finally:
+        await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_wrong_pinned_server_cert_gets_the_connection_error(certs):
+    """The node refusing the researcher certificate surfaces the same way."""
+    server, port = await _serve(certs, lambda: certs["node_cert"])
+    try:
+        with pytest.raises(grpc.aio.AioRpcError) as raised:
+            await _one_task_request(certs, port, certs["node_cert"])
+        assert raised.value.code() is grpc.StatusCode.UNAVAILABLE
     finally:
         await server.stop(0)
 

@@ -64,15 +64,48 @@ class _Call:
     so the reading code is exercised against the type it meets in production.
     """
 
-    def __init__(self, responses, metadata=((MTLS_PEER_ID_HEADER, _NODE_A),)):
+    def __init__(
+        self,
+        responses,
+        metadata=((MTLS_PEER_ID_HEADER, _NODE_A),),
+        code=grpc.StatusCode.OK,
+        done=False,
+    ):
         self._responses = responses
         self._metadata = grpc.aio.Metadata(*metadata)
+        self._code = code
+        self._done = done
 
     def __aiter__(self):
         return self._responses.__aiter__()
 
     async def initial_metadata(self):
         return self._metadata
+
+    def done(self):
+        return self._done
+
+    async def code(self):
+        return self._code
+
+
+class _FailedCall(_Call):
+    """Stands in for the call gRPC hands back when the connection never held.
+
+    Its headers are empty and it is already terminated, the connection error
+    surfacing only once it is iterated: the shape that makes empty headers
+    indistinguishable from a researcher that verified nobody.
+    """
+
+    def __init__(self, error):
+        super().__init__(None, metadata=(), code=error.code(), done=True)
+        self._error = error
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        raise self._error
 
 
 async def _responses(bytes_):
@@ -637,9 +670,57 @@ async def test_task_listener_mtls_rejection_logged_once(
     # One actionable console-visible error despite two identical failures
     errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
     assert len(errors) == 1
-    assert "Ask the researcher to register it" in errors[0].args[0]
+    assert "is not registered there" in errors[0].args[0]
     # The repeat went to debug with the same explanation
     assert any("TLS handshake" in c.args[0] for c in log_debug.call_args_list)
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.is_server_alive", return_value=True)
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_reports_a_rejected_handshake_not_an_identity_answer(
+    sleep, log_error, alive, listener_env
+):
+    """A call that never reached the researcher must not be read as an answer.
+
+    gRPC answers the headers of a failed call with empty metadata, which is what
+    the researcher sends when it verifies nobody: taken as an answer, every
+    rejected handshake would be reported as a researcher not enforcing mutual
+    authentication.
+    """
+    listener_env.channels.mtls = True
+    error = _rpc_error(
+        grpc.StatusCode.UNAVAILABLE, "ipv4:127.0.0.1:50051: Socket closed"
+    )
+
+    await listener_env.drain([_FailedCall(error), _FailedCall(error)])
+
+    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+    assert len(errors) == 1
+    assert "closes the connection during the TLS handshake" in errors[0].args[0]
+    assert "does not verify node identities" not in errors[0].args[0]
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger._logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_reports_a_failed_tls_handshake_not_an_identity_answer(
+    sleep, log_error, listener_env
+):
+    """A researcher certificate that does not verify is reported as such."""
+    listener_env.channels.mtls = True
+    error = _rpc_error(
+        grpc.StatusCode.UNAVAILABLE,
+        "Tls handshake failed (TSI_PROTOCOL_FAILURE): CERTIFICATE_VERIFY_FAILED",
+    )
+
+    await listener_env.drain([_FailedCall(error)])
+
+    errors = [c for c in log_error.call_args_list if "FB628" in c.args[0]]
+    assert len(errors) == 1
+    assert "handshake with researcher failed" in errors[0].args[0]
+    assert "does not verify node identities" not in errors[0].args[0]
 
 
 @pytest.mark.asyncio

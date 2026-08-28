@@ -663,23 +663,25 @@ class Listener:
                             self._log_tls_failure_once(
                                 f"{ErrorNumbers.FB628.value}: Mutual authentication "
                                 "(mTLS) handshake with researcher failed in "
-                                f"{self.__class__.__name__}: {exp.details()}. Check "
-                                "pinned/registered certificates and possible MITM. "
-                                "Retrying silently."
+                                f"{self.__class__.__name__}: {exp.details()}. The "
+                                "certificates the two sides hold for each other may "
+                                "not match, or a third party may be answering for "
+                                "the researcher. Retrying; repeats are logged at "
+                                "debug level."
                             )
                         elif (
                             self._channels.mtls
                             and _is_connection_closed_error(exp)
                             and self._server_reachable()
                         ):
-                            # Reachable but closing during the handshake: the
-                            # researcher does not trust this node's certificate.
                             self._log_tls_failure_once(
                                 f"{ErrorNumbers.FB628.value}: The researcher at "
                                 f"{self._channels.endpoint} is reachable but closes "
-                                "the connection during the TLS handshake: it likely "
-                                "does not recognize this node's certificate. Ask "
-                                "the researcher to register it."
+                                "the connection during the TLS handshake: "
+                                f"{exp.details()}. Most often this node's certificate "
+                                "is not registered there; a researcher that is "
+                                "restarting closes connections the same way. "
+                                "Retrying; repeats are logged at debug level."
                             )
                         elif (
                             not self._channels.mtls
@@ -901,6 +903,10 @@ class TaskListener(Listener):
         Being named as another node is therefore not a configuration case but a
         researcher that does not behave as one: refused rather than trusted.
 
+        A call that never reached the researcher carries no metadata either, which
+        gRPC reports as empty headers rather than as an error. That absence is left
+        to the RPC error handling instead of being read as an answer.
+
         Args:
             call: The task request whose initial metadata is read.
 
@@ -910,6 +916,9 @@ class TaskListener(Listener):
         """
         named = dict(await call.initial_metadata()).get(MTLS_PEER_ID_HEADER)
         if named == self._node_id:
+            return
+
+        if named is None and call.done() and await call.code() != grpc.StatusCode.OK:
             return
 
         # Neither a configuration both sides hold nor a researcher answering for
