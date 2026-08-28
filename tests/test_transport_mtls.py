@@ -37,7 +37,7 @@ from fedbiomed.common.certificate_manager import (
     CERT_PURPOSE_SERVER,
     CertificateManager,
     TrustedCertificateBundle,
-    certificate_names,
+    certificate_san_names,
     certificate_subject_field,
 )
 from fedbiomed.common.constants import ErrorNumbers
@@ -836,8 +836,8 @@ async def _can_connect(certs, port, present_client_cert, pinned_server_cert):
         certificate_chain=certs["node_cert"] if present_client_cert else None,
     )
     # As `Channels._create` picks it: none where the certificate names the address.
-    names = certificate_names(pinned_server_cert)
-    override = None if "127.0.0.1" in names else next(iter(names), None)
+    san_names = certificate_san_names(pinned_server_cert)
+    override = None if "127.0.0.1" in san_names else next(iter(san_names), None)
     channel = grpc.aio.secure_channel(
         f"127.0.0.1:{port}",
         credentials,

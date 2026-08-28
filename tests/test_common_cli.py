@@ -11,7 +11,7 @@ from cryptography import x509
 from fedbiomed.common.certificate_manager import (
     CERT_PURPOSE_CLIENT,
     CERT_PURPOSE_SERVER,
-    certificate_names,
+    certificate_san_names,
 )
 from fedbiomed.common.cli import CommonCLI
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
@@ -507,7 +507,7 @@ def _generating_cli(cli, tmp_path, component, name):
 
 
 @pytest.mark.parametrize(
-    "component,name,names",
+    "component,name,san_names",
     [
         (
             "RESEARCHER",
@@ -519,7 +519,7 @@ def _generating_cli(cli, tmp_path, component, name):
 )
 @patch("builtins.print")
 def test_generate_certificate_is_named_and_subjected_as_configured(
-    mock_print, cli, tmp_path, component, name, names
+    mock_print, cli, tmp_path, component, name, san_names
 ):
     """The certificate is written where the configuration expects, under its name.
 
@@ -534,7 +534,7 @@ def test_generate_certificate_is_named_and_subjected_as_configured(
 
     pem = tmp_path / f"{name}.pem"
     assert pem.is_file() and (tmp_path / f"{name}.key").is_file()
-    assert certificate_names(pem.read_bytes()) == names
+    assert certificate_san_names(pem.read_bytes()) == san_names
 
 
 @patch("builtins.print")
@@ -598,7 +598,8 @@ def test_generate_certificate_adds_the_given_names(mock_print, cli, tmp_path):
 
     cli._generate_certificate(args)
 
-    assert certificate_names((tmp_path / "server_certificate.pem").read_bytes()) == [
+    pem = (tmp_path / "server_certificate.pem").read_bytes()
+    assert certificate_san_names(pem) == [
         "researcher-host",
         "fbm.example.org",
         "10.0.0.9",

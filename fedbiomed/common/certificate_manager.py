@@ -69,7 +69,7 @@ def certificate_component_id(certificate: Union[bytes, str]) -> Optional[str]:
     return certificate_subject_field(certificate, NameOID.COMMON_NAME)
 
 
-def certificate_names(certificate: Union[bytes, str]) -> List[str]:
+def certificate_san_names(certificate: Union[bytes, str]) -> List[str]:
     """Hosts and addresses a certificate is valid for.
 
     Read from the Subject Alternative Name, the only place a certificate states
@@ -86,10 +86,12 @@ def certificate_names(certificate: Union[bytes, str]) -> List[str]:
         certificate = certificate.encode("utf-8")
 
     try:
-        san = x509.load_pem_x509_certificate(certificate).extensions
+        extensions = x509.load_pem_x509_certificate(certificate).extensions
         return [
-            str(name.value)
-            for name in san.get_extension_for_class(x509.SubjectAlternativeName).value
+            str(entry.value)
+            for entry in extensions.get_extension_for_class(
+                x509.SubjectAlternativeName
+            ).value
         ]
     except (x509.ExtensionNotFound, TypeError, ValueError, AttributeError):
         return []
@@ -118,12 +120,12 @@ def certificate_audit_fields(certificate: Union[bytes, str]) -> Dict[str, str]:
         return {}
 
     try:
-        san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
-        names = [str(name.value) for name in san.value]
+        extension = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        san_names = [str(entry.value) for entry in extension.value]
     except (x509.ExtensionNotFound, TypeError, ValueError, AttributeError):
-        names = []
-    if names:
-        fields["cert_san"] = ",".join(names)
+        san_names = []
+    if san_names:
+        fields["cert_san"] = ",".join(san_names)
 
     return fields
 
@@ -795,9 +797,9 @@ class CertificateManager:
         # The names given, plus the loopback names a party on the same machine dials
         # it by. A certificate issued for none — a node's, resolved by fingerprint —
         # carries no SubjectAlternativeName at all.
-        names = [entry for entry in san or [] if entry]
-        if names:
-            names = list(dict.fromkeys([*names, "localhost", "127.0.0.1"]))
+        san_names = [entry for entry in san or [] if entry]
+        if san_names:
+            san_names = list(dict.fromkeys([*san_names, "localhost", "127.0.0.1"]))
 
         # Who the component is, not where: its id, under the organization that marks
         # the certificate as issued by Fed-BioMed.
@@ -846,9 +848,9 @@ class CertificateManager:
             .add_extension(x509.ExtendedKeyUsage(extended_key_usages), critical=False)
         )
 
-        if names:
+        if san_names:
             entries: List[x509.GeneralName] = []
-            for entry in names:
+            for entry in san_names:
                 try:
                     entries.append(x509.IPAddress(ipaddress.ip_address(entry)))
                 except ValueError:

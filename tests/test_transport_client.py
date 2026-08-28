@@ -239,50 +239,17 @@ async def test_channel_event_identifies_researcher_certificate(
 
 
 @pytest.mark.asyncio
-@patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
-@patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.certificate_component_id", autospec=True)
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
-@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
-async def test_grpc_client_connect_does_not_probe_without_mtls(
-    is_server_alive,
-    get_server_certificate,
-    component_id,
-    security_event,
-    requires_client_auth,
-    grpc_client,
-):
-    """A node without mutual authentication fetches the certificate, it does not probe.
-
-    The probe answers one question only, and it is not one this node asks: it has
-    no identity to have verified.
-    """
-    is_server_alive.return_value = True
-    get_server_certificate.return_value = "DUMMY-CERT"
-    component_id.return_value = "test-researcher"
-    grpc_client.client._channels.connect = AsyncMock()  # no spec
-
-    await grpc_client.client._connect()
-
-    requires_client_auth.assert_not_called()
-    get_server_certificate.assert_called_once()
-    grpc_client.client._channels.connect.assert_called_once()
-
-
-@pytest.mark.asyncio
 @patch("fedbiomed.transport.client.certificate_component_id", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
-async def test_grpc_client_connect_does_not_probe_under_mutual_authentication(
+async def test_grpc_client_connect_pins_the_certificate_under_mutual_authentication(
     is_server_alive,
     component_id,
+    get_server_certificate,
     grpc_client,
 ):
-    """Connecting no longer depends on probing the researcher.
-
-    Whether the researcher verifies node identities is answered by the identity
-    header on the task request, so the channel is created without a probe and
-    without its inconclusive case.
-    """
+    """Under mutual authentication the researcher certificate is pinned, so the node
+    connects with the certificate it was given rather than fetching one."""
     is_server_alive.return_value = True
     component_id.return_value = "test-researcher"
 
@@ -295,12 +262,9 @@ async def test_grpc_client_connect_does_not_probe_under_mutual_authentication(
     )
     client._channels.connect = AsyncMock()
 
-    with patch(
-        "fedbiomed.transport.client._researcher_requires_client_auth", autospec=True
-    ) as probe:
-        await client._connect()
+    await client._connect()
 
-    probe.assert_not_called()
+    get_server_certificate.assert_not_called()
     client._channels.connect.assert_called_once()
 
 
@@ -614,7 +578,6 @@ async def test_task_listener_mtls_announce_and_reannounce_on_reconnect(
     """An idle deadline confirms the authenticated channel; a reconnect re-announces
     it."""
     listener_env.channels.mtls = True
-    listener_env.channels.client_auth_enforced = True
     await listener_env.drain(
         [
             _rpc_error(grpc.StatusCode.DEADLINE_EXCEEDED, "deadline"),
@@ -1170,15 +1133,14 @@ async def test_channels_connect_and_stub(channels_env):
     assert await channels_env.channels.stub("dummy") is None
 
 
-@pytest.mark.asyncio
-@patch("fedbiomed.transport.client.certificate_names")
+@patch("fedbiomed.transport.client.certificate_san_names")
 @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
-async def test_channels_create_without_mtls(
-    ssl_channel_credentials, certificate_names, channels_env
+def test_channels_create_without_mtls(
+    ssl_channel_credentials, certificate_san_names, channels_env
 ):
     """Without mutual authentication only the server certificate is pinned, and the
     researcher is still verified against a name that certificate carries."""
-    certificate_names.return_value = ["researcher-host"]
+    certificate_san_names.return_value = ["researcher-host"]
     channels = Channels(
         researcher=ResearcherCredentials(
             host="localhost", port="50051", certificate=b"server-cert"
@@ -1194,15 +1156,14 @@ async def test_channels_create_without_mtls(
     assert kwargs["certificate"] == ssl_channel_credentials.return_value
 
 
-@pytest.mark.asyncio
-@patch("fedbiomed.transport.client.certificate_names")
+@patch("fedbiomed.transport.client.certificate_san_names")
 @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
-async def test_channels_create_with_mtls(
-    ssl_channel_credentials, certificate_names, channels_env
+def test_channels_create_with_mtls(
+    ssl_channel_credentials, certificate_san_names, channels_env
 ):
     """Under mutual authentication the node presents its identity and still pins
     the name."""
-    certificate_names.return_value = ["researcher-host"]
+    certificate_san_names.return_value = ["researcher-host"]
     channels = Channels(
         researcher=ResearcherCredentials(
             host="localhost",
@@ -1223,19 +1184,18 @@ async def test_channels_create_with_mtls(
         private_key=b"node-key",
         certificate_chain=b"node-cert",
     )
-    certificate_names.assert_called_once_with(b"server-cert")
+    certificate_san_names.assert_called_once_with(b"server-cert")
     _, kwargs = channels_env.create_channel.call_args
     assert kwargs["target_name_override"] == "researcher-host"
 
 
-@pytest.mark.asyncio
-@patch("fedbiomed.transport.client.certificate_names")
-async def test_channels_verify_the_dialled_address_when_named(
-    certificate_names, channels_env
+@patch("fedbiomed.transport.client.certificate_san_names")
+def test_channels_verify_the_dialled_address_when_named(
+    certificate_san_names, channels_env
 ):
     """No override where the certificate names the address: the address dialled is
     then what TLS verifies, which is what the name check is for."""
-    certificate_names.return_value = ["researcher-host", "localhost", "127.0.0.1"]
+    certificate_san_names.return_value = ["researcher-host", "localhost", "127.0.0.1"]
 
     Channels(
         researcher=ResearcherCredentials(
@@ -1247,14 +1207,13 @@ async def test_channels_verify_the_dialled_address_when_named(
     assert kwargs["target_name_override"] is None
 
 
-@pytest.mark.asyncio
-@patch("fedbiomed.transport.client.certificate_names")
-async def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(
-    certificate_names, channels_env
+@patch("fedbiomed.transport.client.certificate_san_names")
+def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(
+    certificate_san_names, channels_env
 ):
     """A certificate is issued when the component is created, so it cannot always
     name the address nodes reach it at."""
-    certificate_names.return_value = ["researcher-host", "fbm.example.org"]
+    certificate_san_names.return_value = ["researcher-host", "fbm.example.org"]
 
     Channels(
         researcher=ResearcherCredentials(
@@ -1266,13 +1225,12 @@ async def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(
     assert kwargs["target_name_override"] == "researcher-host"
 
 
-@pytest.mark.asyncio
-@patch("fedbiomed.transport.client.certificate_names")
-async def test_channels_verify_the_dialled_address_for_a_nameless_certificate(
-    certificate_names, channels_env
+@patch("fedbiomed.transport.client.certificate_san_names")
+def test_channels_verify_the_dialled_address_for_a_nameless_certificate(
+    certificate_san_names, channels_env
 ):
     """A nameless certificate leaves nothing to override with."""
-    certificate_names.return_value = []
+    certificate_san_names.return_value = []
 
     Channels(
         researcher=ResearcherCredentials(
