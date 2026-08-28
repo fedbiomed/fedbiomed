@@ -592,13 +592,18 @@ class Listener:
             callback: Callback to execute once a task is submitted
         """
 
-    def _server_reachable(self) -> bool:
+    async def _server_reachable(self) -> bool:
         """Whether the researcher endpoint accepts TCP connections; resolution
-        failures count as unreachable."""
-        try:
-            return is_server_alive(self._channels.host, self._channels.port)
-        except OSError:
-            return False
+        failures count as unreachable. Connecting blocks, so it runs off the event
+        loop: every client of this node shares it."""
+
+        def probe() -> bool:
+            try:
+                return is_server_alive(self._channels.host, self._channels.port)
+            except OSError:
+                return False
+
+        return await asyncio.to_thread(probe)
 
     def _log_connection_failure_once(
         self, message: str, operation: str = "mtls_handshake_failure"
@@ -677,15 +682,16 @@ class Listener:
                         elif (
                             self._channels.mtls
                             and _is_connection_closed_error(exp)
-                            and self._server_reachable()
+                            and await self._server_reachable()
                         ):
                             self._log_connection_failure_once(
                                 f"The researcher at {self._channels.endpoint} is "
                                 "reachable but closes the connection during the TLS "
                                 f"handshake: {exp.details()}. Most often this node's "
-                                "certificate is not registered there; a researcher "
-                                "that is restarting closes connections the same way. "
-                                "Retrying; repeats are logged at debug level."
+                                "certificate is not registered there, or has expired; "
+                                "a researcher that is restarting closes connections "
+                                "the same way. Retrying; repeats are logged at debug "
+                                "level."
                             )
                         elif (
                             not self._channels.mtls
@@ -693,7 +699,7 @@ class Listener:
                                 _is_connection_closed_error(exp)
                                 or _is_tls_handshake_error(exp)
                             )
-                            and self._server_reachable()
+                            and await self._server_reachable()
                             and (
                                 await asyncio.to_thread(
                                     _researcher_requires_client_auth,
@@ -737,11 +743,11 @@ class Listener:
                     case grpc.StatusCode.UNAUTHENTICATED:
                         self._log_connection_failure_once(
                             "Researcher rejected this node's identity in "
-                            f"{self.__class__.__name__}: "
-                            f"{exp.details()}. This node's certificate is not "
-                            "registered there, or the node id it declares is not the "
-                            "one that certificate is registered under. Retrying; "
-                            "repeats are logged at debug level.",
+                            f"{self.__class__.__name__}: this node's certificate is "
+                            "not registered there, or the node id it declares is not "
+                            "the one that certificate is registered under. Retrying; "
+                            "repeats are logged at debug level. The researcher "
+                            f"replied: {exp.details()}",
                             operation="mtls_identity_rejected",
                         )
                         await self._handle_after_process(
