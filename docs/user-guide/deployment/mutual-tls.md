@@ -295,6 +295,7 @@ ones.
 | Pins the researcher's current certificate | Own certificate expired | Same handshake failure as an outdated pin | No node can establish a channel |
 | Declares a node id different from the component id its certificate is registered under | Certificate registered under that other component id | Stops: `FB628 … Researcher rejected this node's identity` | `FB628 … Declared node id … does not match the identity …`; the request is aborted `UNAUTHENTICATED` |
 | Running with an established connection | Its certificate is deleted while the researcher runs | Stops on the next request; reconnection attempts are refused during the handshake | `FB628 … Refusing the node declaring id …: its certificate is not registered` |
+| Running with an established connection | Restarted | Retries until the researcher answers again, at debug level; catching the restart window logs `FB628 … reachable but closes the connection during the TLS handshake` once | Authenticates the node again on its next request |
 
 ## Verifying and troubleshooting
 
@@ -321,8 +322,8 @@ rejected node (it says so once at startup).
 | Log / error | Cause | Fix |
 |---|---|---|
 | `FB619 … no researcher certificate is registered` (node won't start) | Mutual authentication on, researcher cert missing on node | Register the researcher certificate on the node |
-| `FB628 … Mutual authentication (mTLS) handshake with researcher failed` (node retries) | Pinned researcher cert wrong/outdated, or possible MITM | Re-register the current researcher certificate on the node |
-| `FB628 … reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher — rejected inside the handshake | Register the node's certificate on the researcher |
+| `FB628 … Mutual authentication (mTLS) handshake with researcher failed` (node retries) | The certificates the two sides hold for each other do not match — most often a pinned researcher certificate that is wrong or outdated — or a possible MITM | Re-register the current researcher certificate on the node, and check this node's certificate is the one registered on the researcher |
+| `FB628 … reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher — rejected inside the handshake. A researcher that is restarting closes connections the same way, and clears on its own | Register the node's certificate on the researcher; if it is registered, check whether the researcher was restarting |
 | `FB628 … researcher requires mutual authentication but it is disabled on this node` (node stops) | Researcher has mutual authentication on, node has it off | Enable `[authentication]` on the node and register the researcher certificate there; register this node's certificate on the researcher side |
 | `FB628 … Researcher rejected this node's identity` (node stops) | Declared node id ≠ the component id the node's certificate is registered under, or that certificate was deleted on the researcher | Ensure the node id matches how its certificate is registered, and that it is still registered |
 | `FB628 … the researcher does not verify node identities: NO node in the federation is authenticated` (node stops) | Node has mutual authentication on, researcher has it off, so the researcher names no node in its task responses | Enable `[authentication]` on the researcher and register this node's certificate there. Disabling it on the node instead clears the error, but leaves the federation unauthenticated and is not deployable |
