@@ -190,8 +190,7 @@ def validate_certificate_purpose(certificate: str, registering_purpose: str) -> 
     must not have.
 
     A certificate leaving the role open — both roles, or no Extended Key Usage,
-    which is common outside Fed-BioMed — is registered, but reported: nothing then
-    states which side of the connection it is meant for.
+    which is common outside Fed-BioMed — is registered.
 
     Raises:
         FedbiomedCertificateError: the registering purpose is unknown, or the
@@ -204,37 +203,19 @@ def validate_certificate_purpose(certificate: str, registering_purpose: str) -> 
             f"`{CERT_PURPOSE_SERVER}`."
         )
 
-    expected = (
-        CERT_PURPOSE_SERVER
-        if registering_purpose == CERT_PURPOSE_CLIENT
-        else CERT_PURPOSE_CLIENT
-    )
     purpose = certificate_purpose(certificate)
-    if purpose == expected:
-        return
-
     if purpose == registering_purpose:
+        expected = (
+            CERT_PURPOSE_SERVER
+            if registering_purpose == CERT_PURPOSE_CLIENT
+            else CERT_PURPOSE_CLIENT
+        )
         raise FedbiomedCertificateError(
             f"{ErrorNumbers.FB619.value}: The certificate's Extended Key Usage "
             f"restricts it to a TLS {purpose} certificate, the role this component "
             f"acts in itself. It registers {expected} certificates, of the "
             "components it communicates with."
         )
-
-    msg = (
-        f"The certificate is not restricted to the TLS {expected} role expected "
-        "here: its Extended Key Usage allows both roles, or the certificate "
-        "declares none. Fed-BioMed issues certificates carrying the single role "
-        "they are used in."
-    )
-    logger.warning(msg)
-    logger.security_event(
-        operation="certificate_purpose_unrestricted",
-        status="warning",
-        expected_purpose=expected,
-        detail=msg,
-        **certificate_audit_fields(certificate),
-    )
 
 
 class TrustedCertificateBundle:
