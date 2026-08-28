@@ -198,32 +198,19 @@ async def test_grpc_client_connect_security_log(
     await grpc_client.client._connect()
 
     grpc_client.client._channels.connect.assert_called_once()
-    # Auto-trusting the researcher certificate and establishing the channel are
-    # both registered as named audit events
+    # Auto-trusting the researcher certificate is registered; the channel is not
+    # yet established, so nothing reports it as such
     operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
-    assert operations == [
-        "server_certificate_auto_trusted",
-        "researcher_channel_established",
-    ]
-    channel_event = security_event.call_args_list[1].kwargs
-    assert channel_event["status"] == "success"
-    assert channel_event["researcher_id"] == "test-researcher"
-    assert channel_event["mtls"] is False
+    assert operations == ["server_certificate_auto_trusted"]
 
 
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
-@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
-async def test_grpc_client_channel_event_identifies_researcher_certificate(
-    is_server_alive,
-    get_server_certificate,
-    security_event,
-    grpc_client,
-    tmp_path,
+async def test_channel_event_identifies_researcher_certificate(
+    security_event, listener_env, tmp_path
 ):
-    """The node records which researcher certificate it connected with."""
-    is_server_alive.return_value = True
+    """The node records which researcher certificate it connected with, once the
+    researcher has answered."""
     _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
         certificate_folder=str(tmp_path),
         certificate_name="researcher",
@@ -231,21 +218,24 @@ async def test_grpc_client_channel_event_identifies_researcher_certificate(
         purpose=CERT_PURPOSE_SERVER,
         san=["localhost"],
     )
-    with open(pem_file, "r") as f:
-        get_server_certificate.return_value = f.read()
+    with open(pem_file, "rb") as f:
+        listener_env.channels.certificate = f.read()
 
-    grpc_client.client._channels.connect = AsyncMock()
+    await listener_env.drain([_one_task(b"t1")])
 
-    await grpc_client.client._connect()
-
-    channel_event = security_event.call_args_list[1].kwargs
-    assert channel_event["operation"] == "researcher_channel_established"
+    events = [
+        c.kwargs
+        for c in security_event.call_args_list
+        if c.kwargs.get("operation") == "researcher_channel_established"
+    ]
+    assert len(events) == 1
+    assert events[0]["status"] == "success"
     # Read off the certificate itself, the node having been given no id to start from
-    assert channel_event["researcher_id"] == _RESEARCHER_A
-    assert channel_event["cert_subject"] == f"CN={_RESEARCHER_A},O={CERT_ORGANIZATION}"
-    assert {"cert_issuer", "cert_serial", "cert_not_after"} <= channel_event.keys()
+    assert events[0]["researcher_id"] == _RESEARCHER_A
+    assert events[0]["cert_subject"] == f"CN={_RESEARCHER_A},O={CERT_ORGANIZATION}"
+    assert {"cert_issuer", "cert_serial", "cert_not_after"} <= events[0].keys()
     # The certificate itself is never emitted
-    assert not any("BEGIN CERTIFICATE" in str(v) for v in channel_event.values())
+    assert not any("BEGIN CERTIFICATE" in str(v) for v in events[0].values())
 
 
 @pytest.mark.asyncio
@@ -432,7 +422,9 @@ async def test_task_listener_listen_grpc_exceptions(
         assert event["grpc_status"] == code.name
     else:
         log_error.assert_not_called()
-        security_event.assert_not_called()
+        # A deadline with no task still reports the exchange that did complete
+        operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+        assert "grpc_client_error" not in operations
 
 
 @pytest.mark.asyncio
@@ -676,11 +668,33 @@ async def test_task_listener_mtls_rejection_logged_once(
 
 
 @pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.logger._logger.info")
+async def test_task_listener_announces_an_mtls_connection_on_the_headers(
+    log_info, security_event, listener_env
+):
+    """The headers naming this node prove the handshake, so a federation with no
+    task to send is still reported as connected."""
+    listener_env.channels.mtls = True
+    listener_env.channels.certificate = None
+
+    await listener_env.drain([_Call(_async_iterator([]))])
+
+    assert any(
+        "Mutually authenticated communication established" in c.args[0]
+        for c in log_info.call_args_list
+    )
+    operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+    assert operations.count("researcher_channel_established") == 1
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.is_server_alive", return_value=True)
 @patch("fedbiomed.transport.client.logger._logger.error")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_reports_a_rejected_handshake_not_an_identity_answer(
-    sleep, log_error, alive, listener_env
+    sleep, log_error, alive, security_event, listener_env
 ):
     """A call that never reached the researcher must not be read as an answer.
 
@@ -700,6 +714,9 @@ async def test_task_listener_reports_a_rejected_handshake_not_an_identity_answer
     assert len(errors) == 1
     assert "closes the connection during the TLS handshake" in errors[0].args[0]
     assert "does not verify node identities" not in errors[0].args[0]
+    # A handshake that never completed is reported as no connection at all
+    operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+    assert "researcher_channel_established" not in operations
 
 
 @pytest.mark.asyncio

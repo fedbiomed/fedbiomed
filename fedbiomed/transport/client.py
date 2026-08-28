@@ -224,6 +224,11 @@ class Channels:
         return self._researcher.mtls
 
     @property
+    def certificate(self) -> Optional[bytes]:
+        """Researcher server certificate the channel verifies the peer against."""
+        return self._researcher.certificate
+
+    @property
     def endpoint(self) -> str:
         """Researcher server endpoint as `host:port`."""
         return f"{self._researcher.host}:{self._researcher.port}"
@@ -483,17 +488,8 @@ class GrpcClient:
                 # Connect to channels and create stubs
                 await self._channels.connect()
                 logger.info(
-                    "Channel created to researcher server at "
+                    "Connecting to researcher server at "
                     f"{self._researcher.host}:{self._researcher.port}"
-                )
-                logger.security_event(
-                    operation="researcher_channel_established",
-                    status="success",
-                    researcher_id=self._id,
-                    host=self._researcher.host,
-                    port=self._researcher.port,
-                    mtls=self._researcher.mtls,
-                    **certificate_audit_fields(self._researcher.certificate),
                 )
 
                 break
@@ -864,12 +860,11 @@ class TaskListener(Listener):
                 await post_noretry_function(*args)
 
     def _announce_communication_established(self):
-        """Logs, once per connection, that the node reached the researcher.
+        """Reports, once per connection, that the node reached the researcher.
 
-        Called from the first poll cycle that completes without a connection
-        error (a received task, or a deadline with no task queued), which proves
-        the TLS handshake succeeded and, under mutual authentication, that the
-        researcher accepted this node's identity.
+        The only place a connection is reported established: creating a channel
+        opens none, so only an answer from the researcher proves the handshake
+        succeeded.
         """
         if self._communication_established:
             return
@@ -887,9 +882,19 @@ class TaskListener(Listener):
                 "(node identity not verified)."
             )
 
+        logger.security_event(
+            operation="researcher_channel_established",
+            status="success",
+            researcher_id=certificate_component_id(self._channels.certificate),
+            host=self._channels.host,
+            port=self._channels.port,
+            mtls=self._channels.mtls,
+            **certificate_audit_fields(self._channels.certificate),
+        )
+
     async def _require_researcher_verified_this_node(
         self, call: grpc.aio.UnaryStreamCall
-    ) -> None:
+    ) -> bool:
         """Checks the researcher named this node from the certificate it presented.
 
         The counterpart of the researcher requiring client certificates: a node
@@ -910,16 +915,20 @@ class TaskListener(Listener):
         Args:
             call: The task request whose initial metadata is read.
 
+        Returns:
+            Whether the researcher named this node; False when the call carried no
+            answer to read.
+
         Raises:
             FedbiomedCommunicationError: the researcher named no node, or named
                 another one.
         """
         named = dict(await call.initial_metadata()).get(MTLS_PEER_ID_HEADER)
         if named == self._node_id:
-            return
+            return True
 
         if named is None and call.done() and await call.code() != grpc.StatusCode.OK:
-            return
+            return False
 
         # Neither a configuration both sides hold nor a researcher answering for
         # someone else changes by asking again: stop instead of retrying.
@@ -981,8 +990,10 @@ class TaskListener(Listener):
             TaskRequest(node=f"{self._node_id}").to_proto(),
             timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
         )
-        if self._channels.mtls:
-            await self._require_researcher_verified_this_node(iterator)
+        if self._channels.mtls and await self._require_researcher_verified_this_node(
+            iterator
+        ):
+            self._announce_communication_established()
 
         # Prepare reply
         reply = bytes()
