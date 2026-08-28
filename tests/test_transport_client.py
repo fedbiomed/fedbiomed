@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import grpc
 import pytest
 
-from fedbiomed.common.certificate_manager import CertificateManager
+from fedbiomed.common.certificate_manager import CERT_ORGANIZATION, CertificateManager
 from fedbiomed.common.constants import MAX_RETRIEVE_ERROR_RETRIES, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import (
@@ -141,26 +141,19 @@ async def test_grpc_client_update_id(grpc_client):
 
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.x509.load_pem_x509_certificate", autospec=True)
+@patch("fedbiomed.transport.client.certificate_component_id", autospec=True)
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
 async def test_grpc_client_connect_security_log(
     is_server_alive,
     get_server_certificate,
-    load_pem_x509_certificate,
+    component_id,
     security_event,
     grpc_client,
 ):
     is_server_alive.return_value = True
     get_server_certificate.return_value = "DUMMY-CERT"
-
-    load_pem_x509_certificate.return_value = MagicMock(
-        subject=MagicMock(
-            get_attributes_for_oid=MagicMock(
-                return_value=[MagicMock(value="test-researcher")]
-            )
-        )
-    )
+    component_id.return_value = "test-researcher"
 
     # Avoid creating real grpc channels
     grpc_client.client._channels.connect = AsyncMock()  # no spec
@@ -209,7 +202,9 @@ async def test_grpc_client_channel_event_identifies_researcher_certificate(
 
     channel_event = security_event.call_args_list[1].kwargs
     assert channel_event["operation"] == "researcher_channel_established"
-    assert channel_event["cert_subject"] == f"CN={_RESEARCHER_A}"
+    # Read off the certificate itself, the node having been given no id to start from
+    assert channel_event["researcher_id"] == _RESEARCHER_A
+    assert channel_event["cert_subject"] == f"CN={_RESEARCHER_A},O={CERT_ORGANIZATION}"
     assert {"cert_issuer", "cert_serial", "cert_not_after"} <= channel_event.keys()
     # The certificate itself is never emitted
     assert not any("BEGIN CERTIFICATE" in str(v) for v in channel_event.values())
@@ -218,13 +213,13 @@ async def test_grpc_client_channel_event_identifies_researcher_certificate(
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client._researcher_requires_client_auth", autospec=True)
 @patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.certificate_subject_field", autospec=True)
+@patch("fedbiomed.transport.client.certificate_component_id", autospec=True)
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
 async def test_grpc_client_connect_does_not_probe_without_mtls(
     is_server_alive,
     get_server_certificate,
-    subject_field,
+    component_id,
     security_event,
     requires_client_auth,
     grpc_client,
@@ -236,7 +231,7 @@ async def test_grpc_client_connect_does_not_probe_without_mtls(
     """
     is_server_alive.return_value = True
     get_server_certificate.return_value = "DUMMY-CERT"
-    subject_field.return_value = "test-researcher"
+    component_id.return_value = "test-researcher"
     grpc_client.client._channels.connect = AsyncMock()  # no spec
 
     await grpc_client.client._connect()
@@ -247,11 +242,11 @@ async def test_grpc_client_connect_does_not_probe_without_mtls(
 
 
 @pytest.mark.asyncio
-@patch("fedbiomed.transport.client.certificate_subject_field", autospec=True)
+@patch("fedbiomed.transport.client.certificate_component_id", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
 async def test_grpc_client_connect_does_not_probe_under_mutual_authentication(
     is_server_alive,
-    subject_field,
+    component_id,
     grpc_client,
 ):
     """Connecting no longer depends on probing the researcher.
@@ -261,7 +256,7 @@ async def test_grpc_client_connect_does_not_probe_under_mutual_authentication(
     without its inconclusive case.
     """
     is_server_alive.return_value = True
-    subject_field.return_value = "test-researcher"
+    component_id.return_value = "test-researcher"
 
     client = GrpcClient(
         node_id=_NODE_A,

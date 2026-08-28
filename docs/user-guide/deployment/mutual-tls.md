@@ -48,10 +48,21 @@ man-in-the-middle that spoofs a party inside the network).
 
 Each component already owns a self-signed certificate, generated automatically when the
 component is created (recorded in the `[certificate]` section of its config, under
-`etc/`). The certificate's `CN=` (Common Name) field carries the component id
-in the form `<NODE|RESEARCHER>_<uuid>`, which is what it identifies — an id, not an
-organization. Mutual authentication reuses these certificates — you exchange and
-register them, then flip a switch.
+`etc/`). Its subject carries two fields:
+
+- `CN=` (Common Name) holds the **component id**, which is what the certificate
+  identifies — an id, not a host;
+- `O=` (Organization) is **`Fed-BioMed`**, marking a certificate Fed-BioMed itself
+  issued, so its `CN=` is read as a component id rather than as free text.
+
+Mutual authentication reuses these certificates — you exchange and register them, then
+flip a switch.
+
+`O=Fed-BioMed` records which tooling issued a certificate, not that anything verified
+it: a self-signed certificate asserts its own subject, so the field is descriptive and
+nothing treats it as a security check. A certificate issued elsewhere — by your own CA —
+carries whatever `CN=` that issuer chose, often a hostname, and its component id is
+supplied when you register it.
 
 Certificates are role-restricted via Extended Key Usage: a node certificate is
 `client`-only, a researcher certificate is `server`-only. A certificate carrying no role
