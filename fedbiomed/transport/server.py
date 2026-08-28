@@ -152,26 +152,23 @@ async def _verify_peer_identity(
             verification is disabled.
 
     Returns:
-        The registered component id of the peer, or None when no client certificate
-        was presented — under server-only TLS there is no identity to bind to.
+        The registered component id of the peer, or None where there is no identity
+        to bind to: no registry configured, or no client certificate presented, the
+        two faces of server-only TLS.
 
     Raises:
         grpc.aio.AbortError: the peer could not be resolved to a registered
             component id, or that component id is not the one declared.
     """
     certificate = _peer_certificate(context)
-    if certificate is None:
+    if certificate is None or identities is None:
         return None
 
-    peer_node_id = identities.component_id(certificate) if identities else None
+    peer_node_id = identities.component_id(certificate)
 
     if peer_node_id is None:
-        # Name which of the three ways resolution came up empty, so a broken
-        # registry does not read as an unregistered certificate.
-        if identities is None:
-            reason = "no_registry_configured"
-            cause = "no node certificate registry is configured on this researcher"
-        elif not identities.loaded:
+        # A broken registry must not read as an unregistered certificate.
+        if not identities.loaded:
             reason = "registry_unreadable"
             cause = "its certificate registry could not be read"
         else:

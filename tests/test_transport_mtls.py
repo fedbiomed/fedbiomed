@@ -406,15 +406,14 @@ async def test_refusal_distinguishes_an_unregistered_certificate(certs, tmp_path
 
 
 @pytest.mark.asyncio
-async def test_refusal_distinguishes_a_missing_registry(certs):
-    """A client certificate with no registry configured is its own failure."""
+async def test_no_registry_verifies_nobody(certs):
+    """With no registry there is no identity to bind to, as when the peer presents
+    no certificate: a researcher serving server-only TLS verifies no node."""
     context = _context_with_cert(certs["node_cert"])
     context.abort = AsyncMock(side_effect=_Aborted)
 
-    fields = await _refusal(context, None)
-
-    assert fields["reason"] == "no_registry_configured"
-    assert "no node certificate registry is configured" in fields["detail"]
+    assert await _verify_peer_identity(context, NODE_ID, None) is None
+    context.abort.assert_not_awaited()
 
 
 def test_loaded_reports_whether_the_registry_was_ever_read(certs, tmp_path, registry):
