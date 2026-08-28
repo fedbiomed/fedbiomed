@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import asyncio
-import os
 import secrets
 import uuid
 from dataclasses import dataclass, field
@@ -10,7 +9,7 @@ from typing import Optional, Tuple
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
@@ -23,6 +22,7 @@ from fedbiomed.common.constants import (
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
+    ChannelSetupReply,
     ChannelSetupRequest,
     InnerMessage,
     Message,
@@ -30,11 +30,9 @@ from fedbiomed.common.message import (
 )
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.serializer import Serializer
-from fedbiomed.common.utils import SHARE_DIR
 from fedbiomed.transport.controller import GrpcController
 
-_DEFAULT_KEY_DIR = os.path.join(SHARE_DIR, "envs", "common", "default_keys")
-_DEFAULT_N2N_KEY_FILE = "default_n2n_key.pem"
+_CHANNEL_SETUP_MESSAGES = (ChannelSetupRequest, ChannelSetupReply)
 
 
 @dataclass
@@ -212,6 +210,11 @@ class _ChannelKeys:
 class OverlayChannel:
     """Provides asyncio safe layer for sending and receiving overlay messages.
 
+    Channel setup messages exchange public keys in plaintext. Application messages are
+    signed and encrypted with the per-peer channel keys established by that exchange.
+    The setup exchange is unauthenticated and therefore assumes that the relaying
+    researcher does not modify or replace public keys.
+
     This class is not thread safe, all calls must be done within the same thread (except constructor).
     """
 
@@ -227,64 +230,6 @@ class OverlayChannel:
         self._grpc_client = grpc_client
 
         self._channel_keys = _ChannelKeys(db)
-
-        # Issue #1142 in "Crypto material management" will optionally replace current default key published with the
-        # library and used for each node for setup by a keypair generated securely for each node.
-        # Caveat: though encrypted, current implementation does not ensure a secure overlay node2node channel ...
-
-        # Default keys
-        default_private_key, default_public_key = self._load_default_n2n_key()
-        self._default_n2n_key = _N2nKeysEntry(
-            local_key=default_private_key,
-            ready_event=asyncio.Event(),
-            distant_key=default_public_key,
-        )
-
-        # Default key generation:
-        #
-        # from cryptography.hazmat.primitives.asymmetric import ec
-        # from cryptography.hazmat.primitives import serialization
-        # from cryptography.hazmat.backends import default_backend
-        # private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
-        # private_byest = private_key.private_bytes(
-        #     encoding=serialization.Encoding.PEM,
-        #     format=serialization.PrivateFormat.PKCS8,
-        #     encryption_algorithm=serialization.NoEncryption(),
-        # )
-        # with open(os.path.join(_DEFAULT_KEY_DIR, _DEFAULT_N2N_KEY_FILE), 'w') as file:
-        #     file.write(private_bytes.decode('utf-8'))
-
-    @staticmethod
-    def _load_default_n2n_key() -> Tuple[DHKey, DHKey]:
-        """Read default node to node private key from file.
-
-        Currently uses the same keypair, published with library, for each node pair.
-            To be replaced by a securely generated keypair per node, public key shared
-            with other nodes
-
-        Returns:
-            A tuple of the default private key object and the public key object
-
-        Raises:
-            FedbiomedNodeToNodeError: cannot read key from file
-        """
-        default_key_file = os.path.join(_DEFAULT_KEY_DIR, _DEFAULT_N2N_KEY_FILE)
-        try:
-            with open(default_key_file, "r", encoding="UTF-8") as file:
-                private_key_pem = bytes(file.read(), "utf-8")
-        except (FileNotFoundError, PermissionError, ValueError) as e:
-            raise FedbiomedNodeToNodeError(
-                f"{ErrorNumbers.FB324.value}: cannot read default node to node key "
-                f"from file {default_key_file}"
-            ) from e
-        private_key = DHKey(private_key_pem=private_key_pem)
-        public_key = DHKey(
-            public_key_pem=private_key.public_key.public_bytes(
-                serialization.Encoding.PEM,
-                serialization.PublicFormat.SubjectPublicKeyInfo,
-            )
-        )
-        return private_key, public_key
 
     async def get_local_public_key(self, distant_node_id: str) -> bytes:
         """Gets local public key for peering with a given distant peer node
@@ -326,9 +271,9 @@ class OverlayChannel:
         )
 
     async def _setup_use_channel_keys(
-        self, distant_node_id: str, researcher_id: str, setup: bool, salt: bytes
+        self, distant_node_id: str, researcher_id: str, salt: bytes
     ) -> Tuple[DHKey, DHKey, bytes]:
-        """Returns channel key objects for
+        """Sets up a per-peer channel if needed and returns its key material.
 
         If key object for local node does not yet exist, generate it.
         If key object for distant node is not yet known, request it.
@@ -336,8 +281,6 @@ class OverlayChannel:
         Attributes:
             distant_node: unique ID of node at the distant side of the n2n channel
             researcher_id: unique ID of researcher connecting the nodes
-            setup: False for sending a message over the channel, True for a message
-                setting up the channel
             salt: salt for symmetric encryption key generation
 
         Returns:
@@ -352,52 +295,42 @@ class OverlayChannel:
 
         logger.debug(
             f"Preparing node-to-node channel keys: node_id={self._node_id} distant_node_id={distant_node_id} "
-            f"researcher_id={researcher_id} setup={setup} salt_len={len(salt)}"
+            f"researcher_id={researcher_id} salt_len={len(salt)}"
         )
 
-        if setup:
-            # If we are doing channel setup exchange, then use the default or "master" keys
-            # for the channel
-            local_key = self._default_n2n_key.local_key
-            distant_key = self._default_n2n_key.distant_key
-        else:
+        local_key, distant_key = await self._channel_keys.get_keys(distant_node_id)
+
+        if not distant_key:
+            # Contact the peer to retrieve its per-peer public channel key. Setup
+            # messages intentionally carry public material in plaintext.
+            distant_node_message = ChannelSetupRequest(
+                request_id=REQUEST_PREFIX + str(uuid.uuid4()),
+                node_id=self._node_id,
+                dest_node_id=distant_node_id,
+            )
+
+            await self._channel_keys.add_pending_request(
+                distant_node_id, distant_node_message.request_id
+            )
+            logger.debug(
+                f"Sending channel setup request: node_id={self._node_id} distant_node_id={distant_node_id} "
+                f"request_id={distant_node_message.request_id}"
+            )
+            received = await self.send_node_setup(
+                researcher_id,
+                distant_node_id,
+                distant_node_message,
+            )
+            logger.debug(
+                f"Completed node to node channel setup with success={received} "
+                f"node_id='{self._node_id}' distant_node_id='{distant_node_id}"
+            )
+            if not received:
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: A node did not answer during channel setup: {distant_node_id}."
+                )
+
             local_key, distant_key = await self._channel_keys.get_keys(distant_node_id)
-
-            if not distant_key:
-                # Contact node to node channel peer to get its public key
-                #
-                # nota: channel setup is sequential per peer-node (not optimal in setup time,
-                # but more simple implementation, plus acceptable because executed only once for channel setup)
-                distant_node_message = ChannelSetupRequest(
-                    request_id=REQUEST_PREFIX + str(uuid.uuid4()),
-                    node_id=self._node_id,
-                    dest_node_id=distant_node_id,
-                )
-
-                await self._channel_keys.add_pending_request(
-                    distant_node_id, distant_node_message.request_id
-                )
-                logger.debug(
-                    f"Sending channel setup request: node_id={self._node_id} distant_node_id={distant_node_id} "
-                    f"request_id={distant_node_message.request_id}"
-                )
-                received = await self.send_node_setup(
-                    researcher_id,
-                    distant_node_id,
-                    distant_node_message,
-                )
-                logger.debug(
-                    f"Completed node to node channel setup with success={received} "
-                    f"node_id='{self._node_id}' distant_node_id='{distant_node_id}"
-                )
-                if not received:
-                    raise FedbiomedNodeToNodeError(
-                        f"{ErrorNumbers.FB324.value}: A node did not answer during channel setup: {distant_node_id}."
-                    )
-
-                local_key, distant_key = await self._channel_keys.get_keys(
-                    distant_node_id
-                )
 
         derived_key = DHKeyAgreement(
             node_u_id=self._node_id,
@@ -409,7 +342,7 @@ class OverlayChannel:
         )
         logger.debug(
             f"Derived node-to-node symmetric key: node_id={self._node_id} distant_node_id={distant_node_id} "
-            f"setup={setup}"
+            "from per-peer channel keys"
         )
         return local_key, distant_key, derived_key
 
@@ -418,17 +351,18 @@ class OverlayChannel:
     ) -> Tuple[bytes, bytes, bytes]:
         """Creates an overlay message payload from an inner message.
 
-        Serialize, crypt, sign the inner message
+        Serialize channel setup messages in plaintext. Serialize, sign and encrypt
+        application messages with the established per-peer channel keys.
 
         Args:
             message: Inner message to send as overlay payload
             researcher_id: unique ID of researcher connecting the nodes
-            setup: False for sending a message over the channel, True for a message
-                setting up the channel
+            setup: False for an encrypted message over the established channel, True
+                for a plaintext channel setup message
 
         Returns:
-            A tuple consisting of: payload for overlay message, salt for inner message
-                encryption key, nonce for the inner message encryption
+            A tuple consisting of payload, salt and nonce. Salt and nonce are empty for
+                plaintext channel setup messages.
 
         Raises:
             FedbiomedNodeToNodeError: bad message type
@@ -445,6 +379,21 @@ class OverlayChannel:
             f"request_id={getattr(message, 'request_id', None)} setup={setup}"
         )
 
+        if setup:
+            if not isinstance(message, _CHANNEL_SETUP_MESSAGES):
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: invalid channel setup message "
+                    f"type {message.__name__}"
+                )
+
+            overlay = Serializer.dumps(message.to_dict())
+            logger.debug(
+                f"Formatted outgoing plaintext channel setup payload: node_id={self._node_id} "
+                f"dest_node_id={message.get_param('dest_node_id')} type={message.__name__} "
+                f"request_id={getattr(message, 'request_id', None)} payload_bytes={len(overlay)}"
+            )
+            return overlay, b"", b""
+
         # Value for salting the symmetric encryption key generation for this message
         # Adjust length of `salt` depending on algorithm
         salt = secrets.token_bytes(32)
@@ -456,7 +405,7 @@ class OverlayChannel:
         nonce = secrets.token_bytes(16)
 
         local_node_private_key, _, derived_key = await self._setup_use_channel_keys(
-            message.get_param("dest_node_id"), researcher_id, setup, salt
+            message.get_param("dest_node_id"), researcher_id, salt
         )
 
         # consider encrypt-sign([message,node_id]) or other see
@@ -491,7 +440,8 @@ class OverlayChannel:
     ) -> InnerMessage:
         """Retrieves inner message from overlay message payload.
 
-        Check signature, decrypt, deserialize the inner message
+        Deserialize plaintext channel setup messages. Decrypt, verify and deserialize
+        application messages sent over an established channel.
 
         Args:
             overlay_msg: Overlay message.
@@ -501,7 +451,8 @@ class OverlayChannel:
 
         Raises:
             FedbiomedNodeToNodeError: bad message type
-            FedbiomedNodeToNodeError: cannot decrypt payload
+            FedbiomedNodeToNodeError: malformed channel setup payload
+            FedbiomedNodeToNodeError: cannot decrypt application payload
             FedbiomedNodeToNodeError: bad inner payload format
             FedbiomedNodeToNodeError: cannot verify payload integrity
             FedbiomedNodeToNodeError: sender/dest node ID don't match in overlay and inner message
@@ -517,50 +468,85 @@ class OverlayChannel:
             f"dest_node_id={overlay_msg.dest_node_id} setup={overlay_msg.setup} payload_bytes={len(overlay_msg.overlay)}"
         )
 
-        _, distant_node_public_key, derived_key = await self._setup_use_channel_keys(
-            overlay_msg.node_id,
-            overlay_msg.researcher_id,
-            overlay_msg.setup,
-            overlay_msg.salt,
-        )
+        if overlay_msg.setup:
+            if overlay_msg.salt or overlay_msg.nonce:
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: plaintext channel setup message "
+                    "must not contain encryption parameters"
+                )
+            try:
+                setup_payload = Serializer.loads(overlay_msg.overlay)
+            except (TypeError, ValueError) as e:
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: malformed plaintext channel setup "
+                    f"payload: {e}"
+                ) from e
+            if not isinstance(setup_payload, dict):
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: plaintext channel setup payload "
+                    "is not a dictionary"
+                )
+            try:
+                inner_msg = Message.from_dict(setup_payload)
+            except KeyError as e:
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: malformed plaintext channel setup "
+                    f"payload: missing field {e}"
+                ) from e
 
-        # decrypt outer payload
-        try:
-            decryptor = Cipher(
-                algorithms.ChaCha20(derived_key, overlay_msg.nonce),
-                mode=None,
-                backend=default_backend(),
-            ).decryptor()
-            decrypted_serial = (
-                decryptor.update(overlay_msg.overlay) + decryptor.finalize()
+            if not isinstance(inner_msg, _CHANNEL_SETUP_MESSAGES):
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: invalid channel setup message "
+                    f"type {inner_msg.__name__}"
+                )
+        else:
+            (
+                _,
+                distant_node_public_key,
+                derived_key,
+            ) = await self._setup_use_channel_keys(
+                overlay_msg.node_id,
+                overlay_msg.researcher_id,
+                overlay_msg.salt,
             )
-        except ValueError as e:
-            raise FedbiomedNodeToNodeError(
-                f"{ErrorNumbers.FB324.value}: cannot decrypt payload: {e}"
-            ) from e
 
-        decrypted = Serializer.loads(decrypted_serial)
-        if not isinstance(decrypted, dict) or not set(("message", "signature")) <= set(
-            decrypted
-        ):
-            raise FedbiomedNodeToNodeError(
-                f"{ErrorNumbers.FB324.value}: bad inner payload format "
-                f"in received message"
-            )
+            # decrypt outer payload
+            try:
+                decryptor = Cipher(
+                    algorithms.ChaCha20(derived_key, overlay_msg.nonce),
+                    mode=None,
+                    backend=default_backend(),
+                ).decryptor()
+                decrypted_serial = (
+                    decryptor.update(overlay_msg.overlay) + decryptor.finalize()
+                )
+            except ValueError as e:
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: cannot decrypt payload: {e}"
+                ) from e
 
-        # verify inner payload
-        try:
-            distant_node_public_key.public_key.verify(
-                decrypted["signature"],
-                Serializer.dumps(decrypted["message"]),
-                ec.ECDSA(hashes.SHA256()),
-            )
-        except InvalidSignature as e:
-            raise FedbiomedNodeToNodeError(
-                f"{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}"
-            ) from e
+            decrypted = Serializer.loads(decrypted_serial)
+            if not isinstance(decrypted, dict) or not set(
+                ("message", "signature")
+            ) <= set(decrypted):
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: bad inner payload format "
+                    f"in received message"
+                )
 
-        inner_msg = Message.from_dict(decrypted["message"])
+            # verify inner payload
+            try:
+                distant_node_public_key.public_key.verify(
+                    decrypted["signature"],
+                    Serializer.dumps(decrypted["message"]),
+                    ec.ECDSA(hashes.SHA256()),
+                )
+            except InvalidSignature as e:
+                raise FedbiomedNodeToNodeError(
+                    f"{ErrorNumbers.FB324.value}: cannot verify payload integrity: {e}"
+                ) from e
+
+            inner_msg = Message.from_dict(decrypted["message"])
 
         # Node ID mismatch reveals either (1) malicious peer forging message (2) application internal error
         if inner_msg.node_id != overlay_msg.node_id:
