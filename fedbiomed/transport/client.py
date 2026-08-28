@@ -38,6 +38,13 @@ _TLS_HANDSHAKE_ERROR_MARKERS = ("handshake", "certificate", "ssl", "tls")
 _CONNECTION_CLOSED_ERROR_MARKERS = ("socket closed", "connection reset", "broken pipe")
 
 
+class _ResearcherAuthenticationPending(Exception):
+    """The researcher has not authenticated this node, in a state only it can leave.
+
+    Signals the listen loop to close the channel and try again rather than stop.
+    """
+
+
 @dataclass
 class NodeClientIdentity:
     """The node's own client identity, presented to the researcher.
@@ -551,8 +558,8 @@ class Listener:
         """
         self._channels = channels
         self._retry_on_error = False
-        # Report the repeating TLS failure once until the connection recovers.
-        self._tls_failure_logged = False
+        # Report the repeating failure once until the connection recovers.
+        self._connection_failure_logged = False
 
     @abc.abstractmethod
     async def _handle_after_process(
@@ -593,16 +600,19 @@ class Listener:
         except OSError:
             return False
 
-    def _log_tls_failure_once(self, message: str) -> None:
-        """Logs a TLS failure at error level with a security audit event, once
-        per disconnection; the retry loop repeats it at debug only."""
-        if self._tls_failure_logged:
+    def _log_connection_failure_once(
+        self, message: str, operation: str = "mtls_handshake_failure"
+    ) -> None:
+        """Logs a connection failure the node retries, at warning level with a
+        security audit event, once per disconnection; the retry loop repeats it at
+        debug only."""
+        if self._connection_failure_logged:
             logger.debug(message)
             return
-        self._tls_failure_logged = True
-        logger.error(message)
+        self._connection_failure_logged = True
+        logger.warning(message)
         logger.security_event(
-            operation="mtls_handshake_failure",
+            operation=operation,
             status="failure",
             host=self._channels.host,
             port=self._channels.port,
@@ -656,27 +666,25 @@ class Listener:
                     case grpc.StatusCode.UNAVAILABLE:
                         await self._on_status_change(ClientStatus.DISCONNECTED)
                         if self._channels.mtls and _is_tls_handshake_error(exp):
-                            self._log_tls_failure_once(
-                                f"{ErrorNumbers.FB628.value}: Mutual authentication "
-                                "(mTLS) handshake with researcher failed in "
-                                f"{self.__class__.__name__}: {exp.details()}. The "
-                                "certificates the two sides hold for each other may "
-                                "not match, or a third party may be answering for "
-                                "the researcher. Retrying; repeats are logged at "
-                                "debug level."
+                            self._log_connection_failure_once(
+                                "Mutual authentication (mTLS) handshake with "
+                                f"researcher failed in {self.__class__.__name__}: "
+                                f"{exp.details()}. The certificates the two sides "
+                                "hold for each other may not match, or a third party "
+                                "may be answering for the researcher. Retrying; "
+                                "repeats are logged at debug level."
                             )
                         elif (
                             self._channels.mtls
                             and _is_connection_closed_error(exp)
                             and self._server_reachable()
                         ):
-                            self._log_tls_failure_once(
-                                f"{ErrorNumbers.FB628.value}: The researcher at "
-                                f"{self._channels.endpoint} is reachable but closes "
-                                "the connection during the TLS handshake: "
-                                f"{exp.details()}. Most often this node's certificate "
-                                "is not registered there; a researcher that is "
-                                "restarting closes connections the same way. "
+                            self._log_connection_failure_once(
+                                f"The researcher at {self._channels.endpoint} is "
+                                "reachable but closes the connection during the TLS "
+                                f"handshake: {exp.details()}. Most often this node's "
+                                "certificate is not registered there; a researcher "
+                                "that is restarting closes connections the same way. "
                                 "Retrying; repeats are logged at debug level."
                             )
                         elif (
@@ -727,24 +735,20 @@ class Listener:
                         )
 
                     case grpc.StatusCode.UNAUTHENTICATED:
-                        # Identity rejected by researcher; static config, retry
-                        # cannot help: stop.
-                        await self._on_status_change(ClientStatus.FAILED)
-                        msg = (
-                            f"{ErrorNumbers.FB628.value}: Researcher rejected this "
-                            f"node's identity in {self.__class__.__name__}: "
-                            f"{exp.details()}. Declared node id does not match its "
-                            "certificate, or the certificate is not registered."
-                        )
-                        logger.error(msg)
-                        logger.security_event(
+                        self._log_connection_failure_once(
+                            "Researcher rejected this node's identity in "
+                            f"{self.__class__.__name__}: "
+                            f"{exp.details()}. This node's certificate is not "
+                            "registered there, or the node id it declares is not the "
+                            "one that certificate is registered under. Retrying; "
+                            "repeats are logged at debug level.",
                             operation="mtls_identity_rejected",
-                            status="failure",
-                            host=self._channels.host,
-                            port=self._channels.port,
-                            detail=msg,
                         )
-                        raise FedbiomedCommunicationError(msg) from exp
+                        await self._handle_after_process(
+                            ClientStatus.DISCONNECTED,
+                            retry=self._retry_on_error,
+                            reconnect=True,
+                        )
 
                     case grpc.StatusCode.UNKNOWN | _:
                         msg = (
@@ -768,10 +772,17 @@ class Listener:
                             reconnect=True,
                         )
 
+            except _ResearcherAuthenticationPending as exp:
+                self._log_connection_failure_once(
+                    str(exp), operation="mtls_not_enforced_by_researcher"
+                )
+                await self._handle_after_process(
+                    ClientStatus.DISCONNECTED, reconnect=True
+                )
             except FedbiomedCommunicationError:
-                # Raised by this client for a mismatch both sides are statically
-                # configured for, which retrying cannot resolve: let it stop the node
-                # instead of being retried as an unexpected error.
+                # Raised by this client where retrying cannot resolve the problem:
+                # let it stop the node instead of being retried as an unexpected
+                # error.
                 raise
             except (Exception, GeneratorExit) as exp:
                 msg = (
@@ -792,7 +803,7 @@ class Listener:
                     ClientStatus.FAILED, True, False, self._post_handle_raise, exp
                 )
             else:
-                self._tls_failure_logged = False
+                self._connection_failure_logged = False
                 await self._handle_after_process(ClientStatus.CONNECTED)
 
 
@@ -920,8 +931,8 @@ class TaskListener(Listener):
             answer to read.
 
         Raises:
-            FedbiomedCommunicationError: the researcher named no node, or named
-                another one.
+            _ResearcherAuthenticationPending: the researcher named no node.
+            FedbiomedCommunicationError: the researcher named another node.
         """
         named = dict(await call.initial_metadata()).get(MTLS_PEER_ID_HEADER)
         if named == self._node_id:
@@ -930,29 +941,26 @@ class TaskListener(Listener):
         if named is None and call.done() and await call.code() != grpc.StatusCode.OK:
             return False
 
-        # Neither a configuration both sides hold nor a researcher answering for
-        # someone else changes by asking again: stop instead of retrying.
-        await self._on_status_change(ClientStatus.FAILED)
         if named is None:
-            cause = (
-                "the researcher does not verify node identities: NO node in the "
-                "federation is authenticated, this one included. Enable mutual "
-                "authentication on the researcher side, with this node's "
-                "certificate registered there; otherwise disable it in this node's "
-                "`[authentication]` configuration"
+            raise _ResearcherAuthenticationPending(
+                f"The researcher at {self._channels.endpoint} does not verify node "
+                "identities: NO node in the federation is authenticated, this one "
+                "included. Enable mutual authentication on the researcher side, with "
+                "this node's certificate registered there; otherwise disable it in "
+                "this node's `[authentication]` configuration. Retrying; repeats are "
+                "logged at debug level."
             )
-            operation = "mtls_not_enforced_by_researcher"
-        else:
-            cause = (
-                f"the researcher verified this connection as `{named}`, not as "
-                f"`{self._node_id}`: the identity it reports is not this node's"
-            )
-            operation = "mtls_verified_as_another_node"
 
-        msg = f"{ErrorNumbers.FB628.value}: {cause}."
+        # A researcher answering for someone else does not change by asking again.
+        await self._on_status_change(ClientStatus.FAILED)
+        msg = (
+            f"{ErrorNumbers.FB628.value}: the researcher verified this connection as "
+            f"`{named}`, not as `{self._node_id}`: the identity it reports is not "
+            "this node's."
+        )
         logger.error(msg)
         logger.security_event(
-            operation=operation,
+            operation="mtls_verified_as_another_node",
             status="failure",
             host=self._channels.host,
             port=self._channels.port,
