@@ -11,12 +11,11 @@ from enum import Enum
 from typing import Awaitable, Callable, Iterable, List, Optional
 
 import grpc
-from cryptography import x509
 
 from fedbiomed.common.certificate_manager import (
     certificate_audit_fields,
+    certificate_component_id,
     certificate_names,
-    certificate_subject_field,
 )
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
@@ -477,11 +476,9 @@ class GrpcClient:
                     )
 
                 if self._id is None:
-                    # auto-detect researcher_id from the peer certificate CN= field
-                    self._id = certificate_subject_field(
-                        self._researcher.certificate,
-                        x509.oid.NameOID.COMMON_NAME,
-                    )
+                    # auto-detect researcher_id from the peer certificate; a
+                    # certificate Fed-BioMed did not issue carries no component id
+                    self._id = certificate_component_id(self._researcher.certificate)
 
                 # Connect to channels and create stubs
                 await self._channels.connect()

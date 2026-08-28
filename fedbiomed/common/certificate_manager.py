@@ -27,11 +27,12 @@ from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedErro
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import read_file
 
-CERTIFICATE_EXPIRY_WARNING_DAYS = 30
-
+# Subject organization marking a certificate as issued by Fed-BioMed.
+CERT_ORGANIZATION = "Fed-BioMed"
 # TLS role a certificate is restricted to via Extended Key Usage.
 CERT_PURPOSE_SERVER = "server"
 CERT_PURPOSE_CLIENT = "client"
+CERTIFICATE_EXPIRY_WARNING_DAYS = 30
 
 
 def certificate_subject_field(
@@ -54,6 +55,23 @@ def certificate_subject_field(
         )
     except (IndexError, AttributeError, TypeError, ValueError):
         return None
+
+
+def certificate_component_id(certificate: Union[bytes, str]) -> Optional[str]:
+    """Component id of a PEM certificate, or None if Fed-BioMed did not issue it.
+
+    The CommonName counts as a component id only on a certificate whose organization is
+    Fed-BioMed; any other issuer puts what it likes there. Self-asserted, so it says how
+    to read the field, not that the certificate is trusted.
+    """
+    if isinstance(certificate, str):
+        certificate = certificate.encode("utf-8")
+
+    organization = certificate_subject_field(certificate, NameOID.ORGANIZATION_NAME)
+    if organization != CERT_ORGANIZATION:
+        return None
+
+    return certificate_subject_field(certificate, NameOID.COMMON_NAME)
 
 
 def certificate_names(certificate: Union[bytes, str]) -> List[str]:
@@ -813,25 +831,22 @@ class CertificateManager:
     @staticmethod
     def generate_self_signed_ssl_certificate(
         certificate_folder,
+        component_id: str,
         certificate_name: str = "FBM_",
-        component_id: str = "unknown",
-        subject: Optional[Dict[str, str]] = None,
         san: Optional[List[str]] = None,
     ) -> Tuple[str, str]:
         """Creates self-signed certificates
 
-        The Extended Key Usage restricting the certificate to a single TLS role is
-        inferred from `component_id`: a node acts as a TLS client, a researcher as
-        a TLS server.
+        The subject states who the component is, never where it is reached:
+        `CN=<component_id>`, `O=` the organization marking it as Fed-BioMed's. The
+        Extended Key Usage restricting the certificate to a single TLS role is inferred
+        from `component_id`: a node acts as a TLS client, a researcher as a TLS server.
 
         Args:
             certificate_folder: The path where certificate files `.pem` and `.key`
                 will be saved. Path should be absolute.
+            component_id: ID of the component, which the certificate identifies.
             certificate_name: Name of the certificate file.
-            component_id: ID of the component
-            subject: Subject fields, `CommonName` being the component id peers register
-                the certificate under. The subject states who a component is, never
-                where it is reached.
             san: Hosts and IP addresses the component is reached at, which peers
                 verify it under. Required for a certificate peers verify by name.
 
@@ -847,8 +862,6 @@ class CertificateManager:
                 Certificate files will be saved in the given directory as
                 `certificates.key` for private key `certificate.pem` for public key.
         """
-        subject = subject or {}
-
         if not os.path.isabs(certificate_folder):
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Certificate path should be absolute: "
@@ -869,12 +882,12 @@ class CertificateManager:
         if names:
             names = list(dict.fromkeys([*names, "localhost", "127.0.0.1"]))
 
-        # The subject holds the component id alone: who the component is, not where.
+        # Who the component is, not where: its id, under the organization that marks
+        # the certificate as issued by Fed-BioMed.
         name = x509.Name(
             [
-                x509.NameAttribute(
-                    NameOID.COMMON_NAME, subject.get("CommonName", component_id)
-                )
+                x509.NameAttribute(NameOID.ORGANIZATION_NAME, CERT_ORGANIZATION),
+                x509.NameAttribute(NameOID.COMMON_NAME, component_id),
             ]
         )
 
@@ -969,14 +982,12 @@ def generate_certificate(
     root,
     component_id,
     prefix: Optional[str] = None,
-    subject: Optional[Dict[str, str]] = None,
     san: Optional[List[str]] = None,
 ) -> Tuple[str, str]:
     """Generates certificates
 
     Args:
         component_id: ID of the component for which the certificate will be generated
-        subject: Subject fields of the certificate, stating who the component is.
         san: Hosts and IP addresses the component is reached at, which peers verify
             it under.
 
@@ -1007,7 +1018,6 @@ def generate_certificate(
         certificate_folder=certificate_path,
         certificate_name=prefix if prefix else "",
         component_id=component_id,
-        subject=subject,
         san=san,
     )
 

@@ -32,6 +32,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from fedbiomed.common.certificate_manager import (
+    CERT_ORGANIZATION,
     CertificateManager,
     TrustedCertificateBundle,
     certificate_names,
@@ -497,7 +498,7 @@ async def test_node_id_spoofing_is_registered_as_event(certs, registry):
     assert audit[0].kwargs["declared_node_id"] == "node-1"
     # A rejection identifies where it came from and which certificate was used
     assert audit[0].kwargs["source_address"] == "ipv4:127.0.0.1:51234"
-    assert audit[0].kwargs["cert_subject"] == f"CN={NODE_ID}"
+    assert audit[0].kwargs["cert_subject"] == f"CN={NODE_ID},O={CERT_ORGANIZATION}"
 
 
 async def _poll(servicer, certs, peers):
@@ -522,7 +523,7 @@ async def test_authenticated_node_event_identifies_certificate(certs, registry):
     assert fields["node_id"] == NODE_ID
     assert fields["source_address"] == "ipv4:127.0.0.1:51234"
     assert fields["destination_service"] == "researcher.ResearcherService"
-    assert fields["cert_subject"] == f"CN={NODE_ID}"
+    assert fields["cert_subject"] == f"CN={NODE_ID},O={CERT_ORGANIZATION}"
     assert {"cert_issuer", "cert_serial", "cert_not_after"} <= fields.keys()
 
 

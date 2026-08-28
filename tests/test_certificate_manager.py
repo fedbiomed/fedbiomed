@@ -11,9 +11,11 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from fedbiomed.common.certificate_manager import (
+    CERT_ORGANIZATION,
     CertificateManager,
     TrustedCertificateBundle,
     certificate_audit_fields,
+    certificate_component_id,
     certificate_expiry,
     certificate_names,
     generate_certificate,
@@ -373,10 +375,37 @@ def test_certificate_names_empty_for_unparsable(certificate):
     assert certificate_names(certificate) == []
 
 
+def test_component_id_read_from_a_generated_certificate(real_cert):
+    """What Fed-BioMed issues identifies itself, in bytes and as text alike."""
+    assert certificate_component_id(real_cert) == _NODE_A
+    assert certificate_component_id(real_cert.decode()) == _NODE_A
+
+
+@pytest.mark.parametrize("common_name", [_NODE_A, "node1.hospital-a.example.org"])
+def test_component_id_none_when_another_issuer_signed_it(common_name):
+    """Another issuer's CommonName is free text, even when it looks like an id.
+
+    Reading it as one would register a certificate under a component id nobody
+    in the federation assigned.
+    """
+    certificate = _certificate(org="Hospital", common_name=common_name)
+    assert certificate_component_id(certificate) is None
+
+
+def test_component_id_none_without_a_common_name():
+    """The organization alone identifies nothing."""
+    assert certificate_component_id(_certificate(org=CERT_ORGANIZATION)) is None
+
+
+@pytest.mark.parametrize("certificate", [b"not a certificate", b"", None])
+def test_component_id_none_for_unparsable(certificate):
+    assert certificate_component_id(certificate) is None
+
+
 def test_certificate_audit_fields_identify_the_certificate(real_cert):
     fields = certificate_audit_fields(real_cert)
-    assert fields["cert_subject"] == f"CN={_NODE_A}"
-    assert fields["cert_issuer"] == f"CN={_NODE_A}"
+    assert fields["cert_subject"] == f"CN={_NODE_A},O={CERT_ORGANIZATION}"
+    assert fields["cert_issuer"] == f"CN={_NODE_A},O={CERT_ORGANIZATION}"
     assert fields["cert_san"] == "localhost,127.0.0.1"
     # Serial as hex, expiry as an ISO-8601 instant
     assert int(fields["cert_serial"], 16) > 0
@@ -459,13 +488,13 @@ def _extensions(cert):
 
 
 @pytest.mark.parametrize("component_id", [_NODE_A, _RESEARCHER_A])
-def test_subject_carries_the_component_id_and_nothing_else(tmp_path, component_id):
-    """The subject states which component this is — an id, not an organization.
+def test_subject_carries_the_component_id_and_the_organization(tmp_path, component_id):
+    """The subject states which component this is, and that Fed-BioMed issued it.
 
     Where the component is reached is the SAN's business, and stays out of it.
     """
     subject = _load(_self_signed(str(tmp_path), component_id)).subject
-    assert subject.rfc4514_string() == f"CN={component_id}"
+    assert subject.rfc4514_string() == f"CN={component_id},O={CERT_ORGANIZATION}"
 
 
 def test_hostname_produces_dns_san(tmp_path):
@@ -480,8 +509,8 @@ def test_ip_produces_ip_san(tmp_path):
         ipaddress.ip_address("10.0.0.5"),
         ipaddress.ip_address("127.0.0.1"),
     ]
-    # The address is nowhere in the subject, which holds the component id alone
-    assert certificate.subject.rfc4514_string() == f"CN={_NODE_A}"
+    # The address is nowhere in the subject, which states who the component is
+    assert certificate.subject.rfc4514_string() == f"CN={_NODE_A},O={CERT_ORGANIZATION}"
 
 
 def test_named_certificate_also_carries_the_loopback_names(tmp_path):
