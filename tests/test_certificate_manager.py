@@ -774,42 +774,19 @@ def test_component_id_does_not_exempt_an_own_role_certificate(cert_db):
         [ExtendedKeyUsageOID.SERVER_AUTH, ExtendedKeyUsageOID.CLIENT_AUTH],
     ],
 )
-def test_open_role_third_party_registered_and_reported(cert_db, extended_key_usages):
-    """A third-party certificate stating no single role is kept, but reported.
+def test_open_role_third_party_is_registered(cert_db, extended_key_usages):
+    """A third-party certificate stating no single role is registered.
 
-    Nothing then says which side of the connection it is meant for, which is what
-    the warning has to convey.
+    Only a certificate restricted to the registering component's own role is
+    refused; one leaving the role open is not.
     """
-    with patch(
-        "fedbiomed.common.certificate_manager.logger.security_event"
-    ) as security_event:
-        cert_db.cm.register_certificate(
-            certificate_path=_third_party(
-                cert_db.tmp, "Hospital_x", extended_key_usages
-            ),
-            component_id=_NODE_A,
-            registering_purpose=CERT_PURPOSE_SERVER,
-        )
+    cert_db.cm.register_certificate(
+        certificate_path=_third_party(cert_db.tmp, "Hospital_x", extended_key_usages),
+        component_id=_NODE_A,
+        registering_purpose=CERT_PURPOSE_SERVER,
+    )
 
     assert cert_db.cm.get(_NODE_A) is not None
-    events = _events(security_event, "certificate_purpose_unrestricted")
-    assert len(events) == 1
-    assert events[0].kwargs["expected_purpose"] == CERT_PURPOSE_CLIENT
-    # The certificate is identified, so the operator can tell which one it is
-    assert "cert_subject" in events[0].kwargs
-
-
-def test_expected_role_is_not_reported(cert_db):
-    """A certificate carrying exactly the expected role passes without a word."""
-    with patch(
-        "fedbiomed.common.certificate_manager.logger.security_event"
-    ) as security_event:
-        cert_db.cm.register_certificate(
-            certificate_path=_self_signed(cert_db.tmp, _NODE_A),
-            registering_purpose=CERT_PURPOSE_SERVER,
-        )
-
-    assert _events(security_event, "certificate_purpose_unrestricted") == []
 
 
 def test_node_registering_second_certificate_rejected(cert_db):

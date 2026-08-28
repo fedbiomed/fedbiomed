@@ -644,26 +644,7 @@ class CommonCLI:
         print(f"{GRN}Listing registered certificates...{NC}")
 
         self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
-        certificates = self._certificate_manager.list(verbose=True)
-
-        # Registration enforces this invariant; entries predating the check may
-        # still violate it, so flag such leftovers to the user.
-        if self.config.COMPONENT_TYPE == ComponentType.NODE.name and (
-            len(certificates) > 1
-        ):
-            msg = (
-                "Inconsistency: a node registers at most one certificate — its "
-                f"researcher's — but {len(certificates)} are registered. Delete "
-                "the extra entries."
-            )
-            logger.warning(msg)
-            logger.security_event(
-                operation="certificate_registry_inconsistent",
-                status="warning",
-                reason="multiple_certificates_on_node",
-                component_ids=[d["component_id"] for d in certificates],
-                detail=msg,
-            )
+        self._certificate_manager.list(verbose=True)
 
     def _delete_certificate(self, args: argparse.Namespace):
         self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
