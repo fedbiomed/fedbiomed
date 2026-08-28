@@ -148,8 +148,8 @@ async def _verify_peer_identity(
     Args:
         context: RPC peer context.
         declared_node_id: Node id declared by the message being served.
-        identities: Registered certificates of the peer's component type, or
-            None when node identity verification is disabled.
+        identities: Registered certificates, or None when node identity
+            verification is disabled.
 
     Returns:
         The registered component id of the peer, or None when no client certificate

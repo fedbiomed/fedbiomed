@@ -65,8 +65,10 @@ carries whatever `CN=` that issuer chose, often a hostname, and its component id
 supplied when you register it.
 
 Certificates are role-restricted via Extended Key Usage: a node certificate is
-`client`-only, a researcher certificate is `server`-only. A certificate carrying no role
-restriction is accepted for both.
+`client`-only, a researcher certificate is `server`-only. A certificate leaving the role
+open — carrying both, or no Extended Key Usage at all, as certificates issued elsewhere
+often do — is registered, but reported: nothing in it then states which side of the
+connection it is meant for.
 
 ### Names on the researcher certificate
 
@@ -113,9 +115,9 @@ secure messaging, …). Fed-BioMed does not exchange certificates for you.
 ### 2. Register the received certificates
 
 Save each received certificate to a file and register it. The component id is read from the
-certificate's `CN=` field, so `--component-id` is optional — supply it only for a third-party
-certificate that carries no Fed-BioMed identity; given alongside an embedded identity, it
-must match it:
+`CN=` field of a certificate carrying `O=Fed-BioMed`, so `--component-id` is optional —
+supply it for a certificate issued elsewhere, whose `CN=` states no component id; given
+alongside an embedded identity, it must match it:
 
 ```shell
 # On the researcher: register each node certificate
@@ -129,19 +131,20 @@ fedbiomed node certificate register -pk /path/to/researcher.pem
 Check what is registered at any time:
 
 ```shell
-fedbiomed [node|researcher] certificate list   # shows component id, component type, expiry
+fedbiomed [node|researcher] certificate list   # shows component id and expiry
 ```
 
 Registration refuses combinations that cannot be valid:
 
-- a component cannot register a certificate of its **own type** (checked against the
-  component id and against the certificate's client/server role);
+- a component cannot register a certificate restricted to its **own TLS role** — a node
+  registers `server` certificates, a researcher `client` ones. A certificate that states
+  neither is registered, with a warning naming the role that was expected;
 - a **node registers at most one certificate** — its researcher's. Registering a second
   component is rejected; re-registering the same component goes through `--upsert`.
 
-`certificate list` reports a database that breaks either rule, and a node refuses to
-start when several researcher certificates are registered, since it cannot tell which to
-pin — delete the extras with `fedbiomed node certificate delete`.
+`certificate list` reports a node holding more than one certificate, and a node refuses
+to start in that state, since it cannot tell which to pin — delete the extras with
+`fedbiomed node certificate delete`.
 
 ### 3. Turn mutual authentication on
 
@@ -282,7 +285,7 @@ ones.
 | Researcher certificate registered, own certificate valid | Node certificate registered, own certificate valid | Connects; node identity verified | Authenticates the node |
 | Starts before its certificate is registered | Certificate registered while the researcher runs (hot-add) | Connects on a later retry, no restart | Picks the new certificate up at the next handshake, no restart |
 | No researcher certificate registered | any | Refuses to start: `FB619 … no researcher certificate is registered` | The node never connects |
-| Several researcher certificates registered | any | Refuses to start: `FB619 … researcher certificates are registered` — the one to pin is ambiguous | The node never connects |
+| Several researcher certificates registered | any | Refuses to start: `FB619 … certificates are registered` — the one to pin is ambiguous | The node never connects |
 | any | No node certificate registered | Endpoint never comes up; retries at debug level (`Researcher server is not available`) | Refuses to start: `FB619 … no node certificate is registered` |
 | Certificate valid but not registered on the researcher | Trust bundle without that node | Retries; `FB628 … reachable but closes the connection during the TLS handshake`, logged once then at debug | Rejects it inside the handshake, no per-node log |
 | Own certificate expired | Holds the expired certificate | Same as an unregistered certificate: handshake refused | Rejects it; `certificate_expiring` warnings had been raised from 30 days before that expiry |

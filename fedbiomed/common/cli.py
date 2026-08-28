@@ -14,7 +14,11 @@ import sys
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
-from fedbiomed.common.certificate_manager import CertificateManager
+from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_CLIENT,
+    CERT_PURPOSE_SERVER,
+    CertificateManager,
+)
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
     ComponentType,
@@ -36,6 +40,12 @@ YLW = "\033[1;33m"  # yellow
 GRN = "\033[1;32m"  # green
 NC = "\033[0m"  # no color
 BOLD = "\033[1m"
+
+# TLS role each component acts in: a node dials the researcher, which serves.
+COMPONENT_PURPOSE = {
+    ComponentType.NODE.name: CERT_PURPOSE_CLIENT,
+    ComponentType.RESEARCHER.name: CERT_PURPOSE_SERVER,
+}
 
 
 class CLIArgumentParser:
@@ -400,8 +410,7 @@ class CommonCLI:
         Performs locally what components otherwise exchange by hand: a researcher
         registers the node certificates, a node registers the researcher's.
         Certificates of a component's own type are skipped — a component never
-        registers its own kind, and `certificate list` reports such entries as
-        an inconsistency.
+        registers its own kind, and registration would refuse them.
 
         `--prune` clears each component's registrations before writing the new ones,
         so the trust stores describe the components currently under the path and
@@ -495,7 +504,7 @@ class CommonCLI:
                     self._certificate_manager.register(
                         certificate=certificate["certificate"],
                         component_id=certificate["component_id"],
-                        registering_component_type=component_types[id_],
+                        registering_purpose=COMPONENT_PURPOSE[component_types[id_]],
                     )
                 except FedbiomedError as e:
                     CommonCLI.error(
@@ -588,6 +597,7 @@ class CommonCLI:
                 certificate_folder=path,
                 certificate_name=name,
                 component_id=self.config.get("default", "id"),
+                purpose=COMPONENT_PURPOSE[self.config.COMPONENT_TYPE],
                 san=san,
             )
         except FedbiomedError as e:
@@ -617,7 +627,7 @@ class CommonCLI:
                 certificate_path=args.public_key,
                 component_id=args.component_id,
                 upsert=args.upsert,
-                registering_component_type=self.config.COMPONENT_TYPE,
+                registering_purpose=COMPONENT_PURPOSE[self.config.COMPONENT_TYPE],
             )
         except FedbiomedError as exp:
             print(exp)
@@ -636,31 +646,11 @@ class CommonCLI:
         self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
         certificates = self._certificate_manager.list(verbose=True)
 
-        # Registration enforces these invariants; entries predating the checks
-        # may still violate them, so flag such leftovers to the user.
-        component_type = self.config.COMPONENT_TYPE
-        own = [
-            d["component_id"]
-            for d in certificates
-            if d.get("component_type") == component_type
-        ]
-        if own:
-            msg = (
-                f"Inconsistency: certificate(s) of this component's own type "
-                f"({component_type}) are registered: {', '.join(own)}. Components "
-                "register "
-                "each other's certificates, never their own type."
-            )
-            logger.warning(msg)
-            logger.security_event(
-                operation="certificate_registry_inconsistent",
-                status="warning",
-                reason="own_component_type_registered",
-                component_ids=own,
-                component_type=component_type,
-                detail=msg,
-            )
-        if component_type == ComponentType.NODE.name and len(certificates) > 1:
+        # Registration enforces this invariant; entries predating the check may
+        # still violate it, so flag such leftovers to the user.
+        if self.config.COMPONENT_TYPE == ComponentType.NODE.name and (
+            len(certificates) > 1
+        ):
             msg = (
                 "Inconsistency: a node registers at most one certificate — its "
                 f"researcher's — but {len(certificates)} are registered. Delete "
@@ -672,7 +662,6 @@ class CommonCLI:
                 status="warning",
                 reason="multiple_certificates_on_node",
                 component_ids=[d["component_id"] for d in certificates],
-                component_type=component_type,
                 detail=msg,
             )
 
@@ -735,13 +724,13 @@ class CommonCLI:
             "registered there, e.g. after a renewal."
         )
         component_id = self.config.get("default", "id")
-        # `-ci` is optional only while the certificate carries the component id in
-        # its `CN=`, which is what Fed-BioMed issues but not what a CA does.
+        # `-ci` is optional only while the certificate is one Fed-BioMed issued: its
+        # `CN=` counts as a component id under `O=Fed-BioMed`, which a CA does not set.
         print(
             f"\n{BOLD}The component id ({component_id}) is read from the certificate "
             "above, so `-ci` is not needed. Should this component present a "
-            "certificate issued elsewhere, carrying another `CN=`, the command needs "
-            f"`-ci {component_id}`.{NC}"
+            "certificate issued elsewhere, whose `CN=` states no component id, the "
+            f"command needs `-ci {component_id}`.{NC}"
         )
         print(
             f"{BOLD}Registering does not enable mutual authentication by itself: "

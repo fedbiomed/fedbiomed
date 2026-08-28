@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import grpc
 import pytest
 
-from fedbiomed.common.certificate_manager import CERT_ORGANIZATION, CertificateManager
+from fedbiomed.common.certificate_manager import (
+    CERT_ORGANIZATION,
+    CERT_PURPOSE_SERVER,
+    CertificateManager,
+)
 from fedbiomed.common.constants import MAX_RETRIEVE_ERROR_RETRIES, MAX_SEND_RETRIES
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import (
@@ -191,6 +195,7 @@ async def test_grpc_client_channel_event_identifies_researcher_certificate(
         certificate_folder=str(tmp_path),
         certificate_name="researcher",
         component_id=_RESEARCHER_A,
+        purpose=CERT_PURPOSE_SERVER,
         san=["localhost"],
     )
     with open(pem_file, "r") as f:

@@ -225,43 +225,42 @@ class Node:
         """Resolves the registered researcher server certificate to pin.
 
         The node connects to the single researcher declared in its `[researcher]`
-        config section, so exactly one researcher certificate must be registered.
+        config section, and registers that researcher's certificate and no other,
+        so the certificate to pin is the single registered one.
 
         Returns:
             The researcher's public server certificate, pinned under mutual
             authentication.
 
         Raises:
-            FedbiomedCertificateError: no researcher certificate is registered, or
-                several are and the one to pin is ambiguous.
+            FedbiomedCertificateError: no certificate is registered, or several are
+                and the one to pin is ambiguous.
         """
         certificate_manager = CertificateManager(
             db_path=self.config.getpath("default", "db")
         )
         try:
-            researcher_certificates = certificate_manager.get_by_component_type(
-                ComponentType.RESEARCHER.name
-            )
+            certificates = certificate_manager.list()
         finally:
             certificate_manager.close()
-        if not researcher_certificates:
+        if not certificates:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Mutual authentication is enabled but no "
                 "researcher certificate is registered. Please register the researcher "
                 "certificate with `fedbiomed node certificate register`."
             )
 
-        if len(researcher_certificates) > 1:
+        if len(certificates) > 1:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Mutual authentication is enabled but "
-                f"{len(researcher_certificates)} researcher certificates are "
-                "registered, so the certificate to pin for researcher "
+                f"{len(certificates)} certificates are registered, so the certificate "
+                "to pin for researcher "
                 f"`{self.config.get('researcher', 'ip')}` is ambiguous. Keep only "
                 "the certificate of that researcher, using `fedbiomed node "
                 "certificate list` and `fedbiomed node certificate delete`."
             )
 
-        return researcher_certificates[0].encode("utf-8")
+        return certificates[0]["certificate"].encode("utf-8")
 
     @property
     def node_id(self):
