@@ -15,7 +15,7 @@ Network communications for the setup of host machines and the installation of [s
 
 Fed-BioMed network communications basic principle is that all communications between components are outbound from one `node` to the `researcher`. There is no inbound communications to a `node`.
 
-The exception to this principle are optional direct communications between the components for using the secure aggregation feature (eg. `node`/`researcher` to `node`/`researcher` communication for cryptographic material negotiation). The communications for crypto material are closed after the negotiation is completed and handle only secagg key negotiation requests.
+Secure aggregation uses logical node-to-node overlay messages, but it does not create direct network connections or additional ports between nodes. The researcher relays these messages over each node's existing gRPC connection. The initial `ChannelSetupRequest` and `ChannelSetupReply` are plaintext requests. Subsequent node-to-node payloads are signed and encrypted with keys derived through ECDH. There is no shared default node-to-node private key.
 
 Fed-BioMed provides some optional GUI for the `node` (node configuration GUI) and the `researcher` (Jupyter notebook and Tensorboard).
 By default, these GUI components are not secured (no HTTPS and/or no certificate signed by well known authority). So they are configured by default to accept only communications from the same machine (*localhost*).
