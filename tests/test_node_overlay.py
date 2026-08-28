@@ -2,7 +2,7 @@ import copy
 import os
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -10,8 +10,15 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
 from fedbiomed.common.exceptions import FedbiomedNodeToNodeError
-from fedbiomed.common.message import InnerMessage, KeyRequest, Message, OverlayMessage
-from fedbiomed.common.secagg._dh import DHKeyAgreement
+from fedbiomed.common.message import (
+    ChannelSetupReply,
+    ChannelSetupRequest,
+    InnerMessage,
+    KeyRequest,
+    Message,
+    OverlayMessage,
+)
+from fedbiomed.common.secagg._dh import DHKey
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.node.requests._overlay import OverlayChannel, _ChannelKeys
 from fedbiomed.transport.controller import GrpcController
@@ -26,9 +33,6 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
         )
         self.channel_manager_patch = patch(
             "fedbiomed.node.requests._overlay.ChannelManager", autospec=True
-        )
-        self.dhkey_agreement_patch = patch(
-            "fedbiomed.node.requests._overlay.DHKeyAgreement.agree"
         )
         self.asyncio_waitfor_patch = patch(
             "fedbiomed.node.requests._overlay.asyncio.wait_for"
@@ -57,7 +61,7 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
             db=self.db, node_id="test-node-id", grpc_client=self.grpc_controller_mock
         )
 
-        self.default_private_key, _ = self.overlay_channel._load_default_n2n_key()
+        self.private_key = DHKey()
         # needs to be 32 bytes long for ChaCha20
         self.derived_key = b"k" * 32
 
@@ -84,7 +88,7 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
             local_key1a, distant_key1a = await self.channel_keys.get_keys(node1)
             await self.channel_keys.add_pending_request(node1, request1)
             set1 = await self.channel_keys.set_distant_key(
-                node1, self.default_private_key.export_public_key(), request1
+                node1, self.private_key.export_public_key(), request1
             )
             local_key1b, distant_key1b = await self.channel_keys.get_keys(node1)
             local_public1 = await self.channel_keys.get_local_public_key(node1)
@@ -92,14 +96,14 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
             local_key2a, distant_key2a = await channel_keys2.get_keys(node2)
             await channel_keys2.add_pending_request(node2, request2)
             set2 = await self.overlay_channel.set_distant_key(
-                node2, self.default_private_key.export_public_key(), request2
+                node2, self.private_key.export_public_key(), request2
             )
             local_key2b, distant_key2b = await channel_keys2.get_keys(node2)
             local_public2 = await self.overlay_channel.get_local_public_key(node2)
 
             set3 = await self.channel_keys.set_distant_key(
                 "non existing node",
-                self.default_private_key.export_public_key(),
+                self.private_key.export_public_key(),
                 "any request",
             )
 
@@ -109,7 +113,7 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
         self.assertTrue(set1)
         self.assertEqual(
             distant_key1b.export_public_key(),
-            self.default_private_key.export_public_key(),
+            self.private_key.export_public_key(),
         )
         self.assertEqual(local_public1, local_key1a.export_public_key())
 
@@ -118,7 +122,7 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
         self.assertTrue(set2)
         self.assertEqual(
             distant_key2b.export_public_key(),
-            self.default_private_key.export_public_key(),
+            self.private_key.export_public_key(),
         )
         self.assertEqual(local_public2, local_key2a.export_public_key())
 
@@ -160,7 +164,7 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
         node2 = "node2"
         self.channel_manager_mock.return_value.list.return_value = [node1, node2]
         self.channel_manager_mock.return_value.get.return_value = {
-            "local_key": self.default_private_key.export_private_key()
+            "local_key": self.private_key.export_private_key()
         }
 
         # need to re-instantiate after mocking
@@ -172,9 +176,9 @@ class TestNodeRequestsChannelKeys(unittest.IsolatedAsyncioTestCase, unittest.Tes
         kn3 = await channel_keys.get_local_public_key("other node")
 
         # check
-        self.assertEqual(kn1, self.default_private_key.export_public_key())
-        self.assertEqual(kn2, self.default_private_key.export_public_key())
-        self.assertNotEqual(kn3, self.default_private_key.export_public_key())
+        self.assertEqual(kn1, self.private_key.export_public_key())
+        self.assertEqual(kn2, self.private_key.export_public_key())
+        self.assertNotEqual(kn3, self.private_key.export_public_key())
 
 
 class TestNodeRequestsOverlayChannel(
@@ -214,11 +218,15 @@ class TestNodeRequestsOverlayChannel(
         self.overlay_channel = OverlayChannel(
             self.db, "test-node-id", self.grpc_controller_mock
         )
-        self.default_private_key, _ = self.overlay_channel._load_default_n2n_key()
+        self.private_key = DHKey()
+        self.public_key = DHKey(public_key_pem=self.private_key.export_public_key())
 
         # needs to be 32 bytes long for ChaCha20
         self.derived_key = b"k" * 32
         self.dhkey_agreement_mock.return_value = self.derived_key
+        self.overlay_channel._setup_use_channel_keys = AsyncMock(
+            return_value=(self.private_key, self.public_key, self.derived_key)
+        )
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -228,16 +236,16 @@ class TestNodeRequestsOverlayChannel(
         self.asyncio_waitfor_patch.stop()
 
     async def test_overlay_01_format_out_in(self):
-        """Test outgoing + incoming formatting function"""
+        """Test outgoing + incoming plaintext channel setup formatting."""
         # prepare
         researcher_id = "my dummy researched id"
         node_id = "my node id"
         dest_node_id = "my dest node id"
-        src_message = KeyRequest(
+        src_message = ChannelSetupReply(
             node_id=node_id,
             dest_node_id=dest_node_id,
             request_id="my request id",
-            secagg_id="my secagg id",
+            public_key=self.private_key.export_public_key(),
         )
 
         # 1. correct message
@@ -261,6 +269,10 @@ class TestNodeRequestsOverlayChannel(
             )
 
         # check
+        self.assertEqual(Serializer.loads(payload), src_message.to_dict())
+        self.assertEqual(salt, b"")
+        self.assertEqual(nonce, b"")
+        self.overlay_channel._setup_use_channel_keys.assert_not_awaited()
         self.assertIsInstance(dest_message, InnerMessage)
         self.assertEqual(
             set(src_message.get_dict().keys()), set(dest_message.get_dict().keys())
@@ -272,7 +284,10 @@ class TestNodeRequestsOverlayChannel(
             any("Formatting outgoing overlay message" in msg for msg in debug_messages)
         )
         self.assertTrue(
-            any("Formatted outgoing overlay payload" in msg for msg in debug_messages)
+            any(
+                "Formatted outgoing plaintext channel setup payload" in msg
+                for msg in debug_messages
+            )
         )
         self.assertTrue(
             any("Formatting incoming overlay message" in msg for msg in debug_messages)
@@ -304,6 +319,18 @@ class TestNodeRequestsOverlayChannel(
                     m, "dummy_researcher_id"
                 )
 
+        with self.assertRaises(FedbiomedNodeToNodeError):
+            await self.overlay_channel.format_outgoing_overlay(
+                KeyRequest(
+                    node_id="node-1",
+                    dest_node_id="node-2",
+                    request_id="request-1",
+                    secagg_id="secagg-1",
+                ),
+                "dummy_researcher_id",
+                setup=True,
+            )
+
     async def test_overlay_03_format_incoming_failure_arguments(self):
         """Test incoming formatting function failure because of bad arguments"""
         # prepare
@@ -323,7 +350,7 @@ class TestNodeRequestsOverlayChannel(
                 await self.overlay_channel.format_incoming_overlay(m)
 
     async def test_overlay_04_format_incoming_failure_decrypt(self):
-        """Test incoming formatting function failure at decryption with bad payload"""
+        """Test incoming formatting failure for malformed plaintext setup."""
         # prepare
         payload = b"123456123456123456"
         overlay_message = OverlayMessage(
@@ -332,8 +359,8 @@ class TestNodeRequestsOverlayChannel(
             dest_node_id="dest node unique id",
             overlay=payload,
             setup=True,
-            salt=b"12345abcde",
-            nonce=b"nopqrst",
+            salt=b"",
+            nonce=b"",
         )
 
         # action + check
@@ -354,11 +381,8 @@ class TestNodeRequestsOverlayChannel(
         node_id = "another unique id"
         dest_node_id = "dest node unique id"
 
-        derived_key = DHKeyAgreement(node_id, self.default_private_key, salt).agree(
-            dest_node_id, self.default_private_key.export_public_key()
-        )
         encryptor = Cipher(
-            algorithms.ChaCha20(derived_key, nonce),
+            algorithms.ChaCha20(self.derived_key, nonce),
             mode=None,
             backend=default_backend(),
         ).encryptor()
@@ -368,7 +392,7 @@ class TestNodeRequestsOverlayChannel(
             node_id=node_id,
             dest_node_id=dest_node_id,
             overlay=payload,
-            setup=True,
+            setup=False,
             salt=salt,
             nonce=nonce,
         )
@@ -388,20 +412,14 @@ class TestNodeRequestsOverlayChannel(
         signed = Serializer.dumps(
             {
                 "message": self.inner_message.to_dict(),
-                "signature": self.default_private_key.private_key.sign(
+                "signature": self.private_key.private_key.sign(
                     Serializer.dumps(inner_message_modified.to_dict()),
                     ec.ECDSA(hashes.SHA256()),
                 ),
             }
         )
-        derived_key = DHKeyAgreement(
-            self.inner_message.node_id, self.default_private_key, salt
-        ).agree(
-            self.inner_message.dest_node_id,
-            self.default_private_key.export_public_key(),
-        )
         encryptor = Cipher(
-            algorithms.ChaCha20(derived_key, nonce),
+            algorithms.ChaCha20(self.derived_key, nonce),
             mode=None,
             backend=default_backend(),
         ).encryptor()
@@ -411,7 +429,7 @@ class TestNodeRequestsOverlayChannel(
             node_id=self.inner_message.node_id,
             dest_node_id=self.inner_message.dest_node_id,
             overlay=payload,
-            setup=True,
+            setup=False,
             salt=salt,
             nonce=nonce,
         )
@@ -419,6 +437,36 @@ class TestNodeRequestsOverlayChannel(
         # action + check
         with self.assertRaises(FedbiomedNodeToNodeError):
             await self.overlay_channel.format_incoming_overlay(overlay_message)
+
+    async def test_overlay_07_format_out_in_encrypted(self):
+        """Test formatting an application message over established channel keys."""
+        src_message = KeyRequest(
+            node_id="my node id",
+            dest_node_id="my dest node id",
+            request_id="my request id",
+            secagg_id="my secagg id",
+        )
+
+        payload, salt, nonce = await self.overlay_channel.format_outgoing_overlay(
+            src_message, "my researcher"
+        )
+        overlay_message = OverlayMessage(
+            researcher_id="my researcher",
+            node_id=src_message.node_id,
+            dest_node_id=src_message.dest_node_id,
+            overlay=payload,
+            setup=False,
+            salt=salt,
+            nonce=nonce,
+        )
+        dest_message = await self.overlay_channel.format_incoming_overlay(
+            overlay_message
+        )
+
+        self.assertEqual(len(salt), 32)
+        self.assertEqual(len(nonce), 16)
+        self.assertEqual(dest_message.to_dict(), src_message.to_dict())
+        self.assertEqual(self.overlay_channel._setup_use_channel_keys.await_count, 2)
 
     async def test_overlay_08_setup_use_channel_keys(self):
         """Test key setup function for n2n channels"""
@@ -436,11 +484,11 @@ class TestNodeRequestsOverlayChannel(
         channel_keys_mock = channel_keys_patch.start()
         channel_keys_mock.return_value.get_keys.side_effect = [
             # for case 1.
-            (self.default_private_key, None),
-            (self.default_private_key, self.default_private_key),
+            (self.private_key, None),
+            (self.private_key, self.private_key),
             # for case 2.
-            (self.default_private_key, None),
-            (self.default_private_key, self.default_private_key),
+            (self.private_key, None),
+            (self.private_key, self.private_key),
         ]
         # need to re-instantiate for mock to be active
         self.overlay_channel = OverlayChannel(
@@ -453,16 +501,16 @@ class TestNodeRequestsOverlayChannel(
             distant_key,
             derived_key,
         ) = await self.overlay_channel._setup_use_channel_keys(
-            distant_node_id, researcher_id, False, salt
+            distant_node_id, researcher_id, salt
         )
 
         # test
         self.assertEqual(
-            local_key.export_public_key(), self.default_private_key.export_public_key()
+            local_key.export_public_key(), self.private_key.export_public_key()
         )
         self.assertEqual(
             distant_key.export_public_key(),
-            self.default_private_key.export_public_key(),
+            self.private_key.export_public_key(),
         )
         self.assertEqual(derived_key, self.derived_key)
 
@@ -478,21 +526,29 @@ class TestNodeRequestsOverlayChannel(
                 distant_key,
                 derived_key,
             ) = await self.overlay_channel._setup_use_channel_keys(
-                distant_node_id, researcher_id, False, salt
+                distant_node_id, researcher_id, salt
             )
 
         # clean
         channel_keys_patch.stop()
 
-    @patch(
-        "fedbiomed.node.requests._overlay._DEFAULT_N2N_KEY_FILE",
-        "non_existing_filename",
-    )
-    async def test_overlay_10_load_default_key_failure(self):
-        """Test loading default key failure"""
-        # prepare
+    async def test_overlay_10_setup_rejects_encryption_parameters(self):
+        """Test plaintext setup rejects legacy encrypted-envelope parameters."""
+        message = ChannelSetupRequest(
+            node_id="node-1", dest_node_id="node-2", request_id="request-1"
+        )
+        overlay_message = OverlayMessage(
+            researcher_id="researcher",
+            node_id=message.node_id,
+            dest_node_id=message.dest_node_id,
+            overlay=Serializer.dumps(message.to_dict()),
+            setup=True,
+            salt=b"legacy salt",
+            nonce=b"legacy nonce",
+        )
+
         with self.assertRaises(FedbiomedNodeToNodeError):
-            await self.overlay_channel._load_default_n2n_key()
+            await self.overlay_channel.format_incoming_overlay(overlay_message)
 
 
 if __name__ == "__main__":  # pragma: no cover
