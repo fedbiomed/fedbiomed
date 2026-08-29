@@ -829,7 +829,12 @@ async def _serve(certs, trusted_node_bundle):
 
 
 async def _can_connect(certs, port, present_client_cert, pinned_server_cert):
-    """Attempts a TLS handshake, returns True if the channel becomes ready."""
+    """True if the handshake completes, False if the peer refuses it.
+
+    Probed with a real call: `channel_ready` retries a refused handshake instead
+    of reporting it, so waiting on it cannot tell a refusal from a server that
+    never answers, and a timeout would read as a refusal either way.
+    """
     credentials = grpc.ssl_channel_credentials(
         root_certificates=pinned_server_cert,
         private_key=certs["node_key"] if present_client_cert else None,
@@ -844,12 +849,15 @@ async def _can_connect(certs, port, present_client_cert, pinned_server_cert):
         options=[("grpc.ssl_target_name_override", override)] if override else [],
     )
     try:
-        await asyncio.wait_for(channel.channel_ready(), timeout=4)
-        return True
-    except (asyncio.TimeoutError, grpc.aio.AioRpcError):
-        return False
+        await asyncio.wait_for(channel.unary_unary("/probe/Probe")(b""), timeout=4)
+    except grpc.aio.AioRpcError as exp:
+        if exp.code() is grpc.StatusCode.UNAVAILABLE:
+            return False
+        # No servicer is registered, so a handshake that completed ends here.
+        assert exp.code() is grpc.StatusCode.UNIMPLEMENTED
     finally:
         await channel.close()
+    return True
 
 
 @pytest.mark.asyncio

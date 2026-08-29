@@ -192,11 +192,6 @@ class CommonCLI:
         return self._description
 
     @staticmethod
-    def config_action(this: "CommonCLI", component: ComponentType):
-        """Returns CLI argument action for config file name"""
-        return ComponentDirectoryAction
-
-    @staticmethod
     def error(message: str) -> None:
         """Prints given error message
 

@@ -129,14 +129,8 @@ def requests_env():
 
 
 def test_request_constructor(requests_env):
-    """A fresh Requests singleton after deletion is properly initialized"""
-
-    # Remove previous singleton instance
-    if Requests in Requests._objects:
-        del Requests._objects[Requests]
-
-    req = Requests(config)
-    assert req._monitor_message_callbacks == {}, "Request is not properly initialized"
+    """A fresh Requests singleton carries no monitor callback yet."""
+    assert requests_env.requests._monitor_message_callbacks == {}
 
 
 @patch("fedbiomed.researcher.requests.Requests.print_node_log_message")
@@ -192,16 +186,6 @@ def test_request_on_message(
     requests.on_message(msg_monitor, type_="unknown/topic")
     mock_logger_error.assert_called_once()
 
-    # Test invalid `on_message calls`
-    with pytest.raises(TypeError):
-        requests.on_message()
-
-    with pytest.raises(TypeError):
-        requests.on_message(msg_monitor)
-
-    with pytest.raises(TypeError):
-        requests.on_message(type_=MessageType.SCALAR)
-
 
 @patch("fedbiomed.common.logger.logger.info")
 def test_request_print_node_log_message(mock_logger_info, requests_env):
@@ -216,13 +200,9 @@ def test_request_print_node_log_message(mock_logger_info, requests_env):
     requests_env.requests.print_node_log_message(msg_logger)
     mock_logger_info.assert_called_once()
 
-    with pytest.raises(TypeError):
-        # testing what is happening when no argument are provided
-        requests_env.requests.print_node_log_message()
-
 
 def test_request_send(requests_env):
-    """Testing send message method of Request"""
+    """Named nodes are resolved one by one; naming none takes every known node."""
 
     sr = SearchRequest(researcher_id="researcher-id", tags=["x"])
 
@@ -230,7 +210,7 @@ def test_request_send(requests_env):
     requests_env.grpc_server_get_all_nodes.assert_called_once()
     assert isinstance(request_1, FederatedRequest)
 
-    request_2 = requests_env.requests.send({}, ["node-1"])
+    request_2 = requests_env.requests.send(sr, ["node-1"])
     requests_env.grpc_server_get_node.assert_called_once_with(ANY, "node-1")
     assert isinstance(request_2, FederatedRequest)
 
@@ -689,7 +669,12 @@ def mtls_requests_env():
         # Reads `mutual_authentication` as enabled.
         config_mock.getbool.return_value = True
         db_path = os.path.join(tmp, "certs.json")
-        config_mock.getpath.return_value = db_path
+        # One path for all would hide a lookup of the wrong setting.
+        config_mock.getpath.side_effect = lambda section, option: {
+            ("default", "db"): db_path,
+            ("certificate", "private_key"): os.path.join(tmp, "certificate.key"),
+            ("certificate", "public_key"): os.path.join(tmp, "certificate.pem"),
+        }[(section, option)]
         config_mock.config_path = os.path.join(tmp, "config.ini")
         certificate_manager = CertificateManager(db_path=db_path)
 

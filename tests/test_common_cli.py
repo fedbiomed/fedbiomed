@@ -113,9 +113,11 @@ def test_success_message(cli):
 
 
 def test_cli_initialize_optional(cli):
+    """Both halves: the dev-setup subparser and `--version`."""
     cli.initialize_optional()
 
     assert "certificate-dev-setup" in cli._subparsers.choices
+    assert "--version" in cli.parser._option_string_actions
 
 
 def test_common_cli_initialize_magic_dev_environment_parsers(cli):
@@ -686,33 +688,48 @@ def test_common_cli_list_certificates(mock_open, mock_cm_list, cli):
 
 @patch("fedbiomed.common.cli.CertificateManager.list")
 @patch("fedbiomed.common.cli.CertificateManager.delete")
-@patch("fedbiomed.common.cli.CommonCLI.error")
 @patch("fedbiomed.common.cli.CommonCLI.success")
 @patch("builtins.input")
 @patch("builtins.open")
 @patch("builtins.print")
 def test_common_cli_delete_certificate(
-    mock_print,
-    mock_open,
-    mock_input,
-    mock_success,
-    mock_error,
-    mock_delete,
-    mock_list,
-    cli,
+    mock_print, mock_open, mock_input, mock_success, mock_delete, mock_list, cli
 ):
     cli.initialize_certificate_parser()
     args = cli.parser.parse_args(["certificate", "delete"])
-
     mock_list.return_value = [{"component_id": _NODE_A}, {"component_id": _NODE_B}]
-    mock_input.return_value = 1
+    mock_input.return_value = "1"
+
     cli._delete_certificate(args)
+
     mock_delete.assert_called_once_with(component_id=_NODE_A)
     mock_success.assert_called_once()
 
-    mock_input.side_effect = [ValueError, 1]
-    cli._delete_certificate(args)
-    mock_error.assert_called_once()
+
+# Not a number, then out of range: the two ways the prompt is answered wrongly.
+@pytest.mark.parametrize("entry", ["not-a-number", "3"])
+@patch("fedbiomed.common.cli.CertificateManager.list")
+@patch("fedbiomed.common.cli.CertificateManager.delete")
+@patch("builtins.input")
+@patch("builtins.open")
+@patch("builtins.print")
+def test_delete_certificate_rejects_an_invalid_option(
+    mock_print, mock_open, mock_input, mock_delete, mock_list, cli, entry
+):
+    """An invalid entry ends the command: `CommonCLI.error` exits.
+
+    The second entry would be accepted if the prompt came round, so this fails
+    the day "Please, try again" becomes true.
+    """
+    cli.initialize_certificate_parser()
+    args = cli.parser.parse_args(["certificate", "delete"])
+    mock_list.return_value = [{"component_id": _NODE_A}, {"component_id": _NODE_B}]
+    mock_input.side_effect = [entry, "1"]
+
+    with pytest.raises(SystemExit):
+        cli._delete_certificate(args)
+
+    mock_delete.assert_not_called()
 
 
 @pytest.mark.parametrize(

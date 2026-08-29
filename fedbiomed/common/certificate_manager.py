@@ -699,26 +699,6 @@ class CertificateManager:
         return component_id
 
     @staticmethod
-    def _write_certificate_file(path: str, certificate: str) -> None:
-        """Writes certificate file
-
-        Args:
-            path: Filesystem path the file will be written
-            certificate: Certificate that will be written
-
-        Raises:
-            FedbiomedCertificateError: If certificate can not be written into given path
-        """
-        try:
-            with open(path, "w", encoding="UTF-8") as file:
-                file.write(certificate)
-        except Exception as e:
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Can not write certificate file {path}. "
-                f"Aborting the operation. Please check raised exception: {e}"
-            ) from e
-
-    @staticmethod
     def generate_self_signed_ssl_certificate(
         certificate_folder,
         component_id: str,
@@ -857,7 +837,7 @@ class CertificateManager:
                 )
         except Exception as e:
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Can not write public key: {e}"
+                f"{ErrorNumbers.FB619.value}: Can not write private key: {e}"
             ) from e
 
         try:

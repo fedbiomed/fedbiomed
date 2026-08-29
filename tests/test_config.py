@@ -210,20 +210,31 @@ def concrete_config(config_env):
         yield config_env
 
 
-@patch("fedbiomed.common.config.configparser.ConfigParser")
-def test_config_read(config_parser, concrete_config):
+def test_config_read_rejects_an_incompatible_version(concrete_config):
+    """A configuration written by another major version is refused."""
     config = Config(root=str(concrete_config))
-    config._CONFIG_VERSION = "0.99"
+    config._cfg["default"] = {"version": "1.0"}
+    config._CONFIG_VERSION = Version("99.0")
 
-    with pytest.raises(FedbiomedConfigurationError):
-        config.read()
+    with patch("fedbiomed.common.config.logger.security_event") as security_event:
+        with pytest.raises(FedbiomedConfigurationError):
+            config.read()
 
-    config_parser.return_value.read.assert_called_once()
+    # The raise is generic; the version that was refused is in the audit event
+    (failure,) = [
+        c
+        for c in security_event.call_args_list
+        if c.kwargs.get("operation") == "config_read"
+        and c.kwargs.get("status") == "failure"
+    ]
+    assert "found version 1.0 expected version 99.0" in failure.kwargs["error_message"]
 
-    # With autogenereate
-    with patch("fedbiomed.common.config.Config.generate") as gen:
-        config = Config(root=str(concrete_config))
-        gen.assert_called_once()
+
+def test_config_generates_when_none_exists(concrete_config):
+    with patch("fedbiomed.common.config.Config.generate") as generate:
+        Config(root=str(concrete_config))
+
+    generate.assert_called_once()
 
 
 def test_config_is_config_existing(concrete_config):
@@ -309,3 +320,13 @@ def test_researcher_config_sections(config_env):
 
     assert "server" in sections
     assert "default" in sections
+    assert "certificate" in sections
+    assert "authentication" in sections
+
+
+def test_researcher_config_authentication_section_defaults(config_env):
+    # The researcher is the side that demands client certificates, and does not
+    # until it is told to
+    config = ResearcherConfig(root=str(config_env))
+
+    assert not config.getbool("authentication", "mutual_authentication")
