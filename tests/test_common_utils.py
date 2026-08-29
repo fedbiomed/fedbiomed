@@ -119,9 +119,19 @@ def test_get_component_certificate_from_config_raises_for_missing_certificate(
         get_component_certificate_from_config(config_path)
 
 
-def test_get_component_certificate_from_config_raises_for_incomplete_config(tmp_path):
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[default]\nid = node-1\n",  # no `component`
+        "[default]\nid = node-1\ncomponent = NODE\n",  # no `[certificate]` section
+    ],
+)
+def test_get_component_certificate_from_config_raises_for_incomplete_config(
+    tmp_path, content
+):
+    """Every declaration the certificate is read from, missing one at a time."""
     config_path = tmp_path / "incomplete.ini"
-    config_path.write_text("[default]\nid = node-1\n")  # no certificate section
+    config_path.write_text(content)
 
     with pytest.raises(FedbiomedError):
         get_component_certificate_from_config(str(config_path))

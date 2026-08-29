@@ -70,7 +70,7 @@ def test_security_log_success_strips_forbidden_and_truncates(
     assert "'ok': 'value'" in logged["db_args"]
     assert "'keep': 1" in logged["db_args"]
 
-    # Truncation applied (50 chars + '...')
+    # Truncation applied (LOG_VALUE_MAX_LENGTH chars + '...')
     assert isinstance(logged["db_args"], str)
     assert logged["db_args"].endswith("...")
     assert len(logged["db_args"]) <= 253

@@ -1,6 +1,7 @@
 import configparser
 import os
 import tempfile
+from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
 
@@ -211,6 +212,16 @@ def mtls_node_env(node_env):
         yield node_env
 
 
+def test_node_researcher_credentials_without_mutual_authentication(node_env):
+    """Off by default: the node attaches no identity and pins nothing."""
+    credentials = node_env.node._researcher_credentials()
+
+    assert not credentials.mtls
+    assert credentials.node_identity is None
+    assert credentials.certificate is None
+    assert (credentials.host, credentials.port) == ("test", "5151")
+
+
 def test_node_researcher_credentials_mtls(mtls_node_env):
     """Under mutual authentication the node loads its identity and pins the cert."""
     certificate_manager = mtls_node_env.certificate_manager
@@ -290,9 +301,11 @@ def test_node_on_message_normal_case_scenario_ping(node_env):
 @patch("fedbiomed.common.tasks_queue.TasksQueue.add")
 def test_node_on_message_train_logs_request_lifecycle(task_queue_add, node_env):
     """Tests that train requests emit the new structured debug logs."""
+    # Own id: expecting it via the same getattr would compare None to None.
+    request = replace(train_request, request_id="request-1")
 
     with patch("fedbiomed.node.node.logger.debug") as logger_debug:
-        node_env.node.on_message(train_request.to_dict())
+        node_env.node.on_message(request.to_dict())
 
     task_queue_add.assert_called_once()
 
@@ -302,23 +315,18 @@ def test_node_on_message_train_logs_request_lifecycle(task_queue_add, node_env):
         == "Received researcher message type=%s req=%s researcher=%s experiment=%s dataset=%s round=%s"
         and call.args[1:]
         == (
-            train_request.__name__,
-            getattr(train_request, "request_id", None),
-            train_request.researcher_id,
-            train_request.experiment_id,
-            train_request.dataset_id,
-            train_request.round,
+            "TrainRequest",
+            "request-1",
+            request.researcher_id,
+            request.experiment_id,
+            request.dataset_id,
+            request.round,
         )
         for call in debug_calls
     )
     assert any(
         call.args[0] == "Queueing node task type=%s req=%s experiment=%s"
-        and call.args[1:]
-        == (
-            train_request.__name__,
-            getattr(train_request, "request_id", None),
-            train_request.experiment_id,
-        )
+        and call.args[1:] == ("TrainRequest", "request-1", request.experiment_id)
         for call in debug_calls
     )
 
@@ -600,17 +608,23 @@ def test_node_send_error_logs_debug_context(node_env):
 
 @patch("fedbiomed.node.node.SecaggSetup")
 def test_node_task_secagg(secagg_setup, node_env):
-    """Tests `_task_secagg` normal (successful) case"""
-    # Test .setup()execution. It is normal the get result as success False since setup will fail
-    # due to not existing certificate files
-    x = MagicMock()
-    secagg_setup.return_value.return_value = x
-    x.setup.return_value = MagicMock()
+    """A successful setup sends the reply back, tagged with the request id."""
+    setup = MagicMock()
+    secagg_setup.return_value.return_value = setup
+    reply = setup.setup.return_value
+
     node_env.node._task_secagg(secagg_request)
 
-    # Test setup error case ---------------------------------------------------------------
-    x.setup.side_effect = Exception
+    assert node_env.grpc_send.call_args.args[1] is reply
+    assert reply.request_id == secagg_request.request_id
+
+
+@patch("fedbiomed.node.node.SecaggSetup")
+def test_node_task_secagg_setup_failure_replies_with_an_error(secagg_setup, node_env):
+    secagg_setup.return_value.return_value.setup.side_effect = Exception
+
     node_env.node._task_secagg(secagg_request)
+
     error = node_env.grpc_send.call_args.args[1]
     assert isinstance(error, ErrorMessage)
 

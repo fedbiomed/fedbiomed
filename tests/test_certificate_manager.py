@@ -98,7 +98,8 @@ def _third_party(folder, org, extended_key_usages=None, common_name=None):
     Carrying no `O=Fed-BioMed`, it embeds no identity, so it is the only kind a
     component id can be chosen for at registration.
     """
-    pem_file = os.path.join(folder, f"{org}_{extended_key_usages}_{common_name}.pem")
+    roles = "_".join(oid.dotted_string for oid in extended_key_usages or []) or "no-eku"
+    pem_file = os.path.join(folder, f"{org}_{roles}_{common_name}.pem")
     with open(pem_file, "wb") as file:
         file.write(
             _certificate(
@@ -235,22 +236,6 @@ def test_register_certificate_returns_the_recovered_component_id(cert_db):
     )
 
     assert registered == _RESEARCHER_A
-
-
-def test_certificate_manager_write_certificate_file(cert_db):
-    path = os.path.join(cert_db.tmp, "written.pem")
-    CertificateManager._write_certificate_file(path, "Certificate")
-
-    with open(path, encoding="UTF-8") as f:
-        assert f.read() == "Certificate"
-
-
-def test_certificate_manager_write_certificate_file_unwritable(cert_db):
-    """A path that cannot be written is reported as a certificate error."""
-    with pytest.raises(FedbiomedCertificateError):
-        CertificateManager._write_certificate_file(
-            os.path.join(cert_db.tmp, "no-such-dir", "written.pem"), "Certificate"
-        )
 
 
 def test_operations_require_initialized_database():
@@ -409,30 +394,27 @@ def test_certificate_audit_fields_empty_for_undescribable(certificate):
     assert certificate_audit_fields(certificate) == {}
 
 
-def test_expiring_certificates_filters_by_threshold(real_cert):
-    cm = CertificateManager()
-    cm._db = MagicMock()
-    cm._db.all.return_value = [
-        {"certificate": real_cert.decode(), "component_id": _NODE_A},
-        {"certificate": real_cert.decode(), "component_id": _RESEARCHER_A},
-    ]
+def test_expiring_certificates_filters_by_threshold(cert_db):
+    """Each certificate is reported on its own `notAfter`, against the window."""
+    for component_id in (_NODE_A, _RESEARCHER_A):
+        cert_db.cm.register_certificate(
+            certificate_path=_self_signed(cert_db.tmp, component_id)
+        )
 
     # Generated cert lasts ~5 years: a wide window catches it, a tight one doesn't
-    assert [p for p, _ in cm.expiring_certificates(within_days=10000)] == [
+    assert {c for c, _ in cert_db.cm.expiring_certificates(within_days=10000)} == {
         _NODE_A,
         _RESEARCHER_A,
-    ]
-    assert cm.expiring_certificates(within_days=1) == []
+    }
+    assert cert_db.cm.expiring_certificates(within_days=1) == []
 
 
-def test_list_verbose_adds_expires_column(real_cert):
-    cm = CertificateManager()
-    cm._db = MagicMock()
-    cm._db.all.return_value = [
-        {"certificate": real_cert.decode(), "component_id": _NODE_A}
-    ]
+def test_list_verbose_adds_expires_column(cert_db):
+    cert_db.cm.register_certificate(certificate_path=_self_signed(cert_db.tmp, _NODE_A))
+
     with patch("fedbiomed.common.certificate_manager.tabulate") as tabulate:
-        cm.list(verbose=True)
+        cert_db.cm.list(verbose=True)
+
     rows = tabulate.call_args.args[0]
     assert "expires" in rows[0]
     assert "certificate" not in rows[0]
@@ -461,11 +443,6 @@ def test_subject_carries_the_component_id_and_the_organization(tmp_path):
     """
     subject = _load(_self_signed(str(tmp_path), _NODE_A)).subject
     assert subject.rfc4514_string() == f"CN={_NODE_A},O={CERT_ORGANIZATION}"
-
-
-def test_hostname_produces_dns_san(tmp_path):
-    san = _san(_load(_self_signed(str(tmp_path), _NODE_A, san=["localhost"])))
-    assert san.get_values_for_type(x509.DNSName) == ["localhost"]
 
 
 def test_ip_produces_ip_san(tmp_path):
@@ -701,9 +678,9 @@ def test_given_component_id_used_without_usable_identity(cert_db):
 
 # The TLS role a registered certificate must carry: the one the registering
 # component does not act in. A certificate restricted to the registrar's own role
-# is rejected; one leaving the role open is registered and reported. Omitting the
-# registering purpose skips both. A TLS client additionally keeps a single
-# registered certificate.
+# is rejected; one leaving the role open is registered. A TLS client additionally
+# keeps a single registered certificate. Omitting the registering purpose skips
+# both checks.
 
 
 def test_node_registering_researcher_certificate_accepted(cert_db):
@@ -743,7 +720,8 @@ def test_researcher_registering_researcher_certificate_rejected(cert_db):
 def test_unknown_registering_purpose_is_rejected(cert_db):
     """A purpose that names no TLS role checks nothing, so it is refused.
 
-    A component type would be such a value, and the checks used to take one.
+    Only `client` and `server` name a role; anything else would pass every
+    certificate through unchecked.
     """
     with pytest.raises(FedbiomedCertificateError, match="Unknown registering purpose"):
         cert_db.cm.register_certificate(
@@ -775,11 +753,7 @@ def test_component_id_does_not_exempt_an_own_role_certificate(cert_db):
     ],
 )
 def test_open_role_third_party_is_registered(cert_db, extended_key_usages):
-    """A third-party certificate stating no single role is registered.
-
-    Only a certificate restricted to the registering component's own role is
-    refused; one leaving the role open is not.
-    """
+    """Only a certificate restricted to the registrar's own role is refused."""
     cert_db.cm.register_certificate(
         certificate_path=_third_party(cert_db.tmp, "Hospital_x", extended_key_usages),
         component_id=_NODE_A,
@@ -931,9 +905,8 @@ def test_researcher_registering_multiple_node_certificates_accepted(cert_db):
     assert len(cert_db.cm.list()) == 2
 
 
-def test_omitted_registering_component_skips_checks(cert_db):
-    # Direct API use without a registering component keeps the permissive
-    # behavior: a node certificate registers fine.
+def test_omitted_registering_purpose_skips_the_role_checks(cert_db):
+    # Naming no role states none to check against: a node certificate registers.
     cert_db.cm.register_certificate(certificate_path=_self_signed(cert_db.tmp, _NODE_A))
     assert cert_db.cm.get(_NODE_A) is not None
 

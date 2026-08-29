@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import ComponentType
-from fedbiomed.researcher.config import config as researcher_config
 
 from ._execution import (
     execute_in_paralel,
@@ -312,7 +311,11 @@ def create_researcher(
         config_sections=config_sections,
     )
     os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = researcher.root
-    researcher_config.load(root=researcher.root)
+    # Imported here: the module initiates the researcher on import, and without the
+    # variable above it would do so in the working directory
+    from fedbiomed.researcher.config import config
+
+    config.load(root=researcher.root)
 
     return researcher
 
@@ -332,9 +335,11 @@ def certificate_dev_setup(directory: str, enable_mutual_authentication: bool = F
 
     fedbiomed_run(command, wait=True, on_failure=default_on_failure)
 
+    from fedbiomed.researcher.config import config
+
     # The researcher runs in this process against a configuration the command
     # has just rewritten on disk
-    researcher_config.read()
+    config.read()
 
 
 def training_plan_operation(config: Config, operation: str, training_plan_id: str):

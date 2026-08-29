@@ -151,10 +151,15 @@ async def test_researcher_servicer_GetTaskUnary_exceptions(
     node_agent.get_task.return_value = [example_task, 0, time.time()]
     task_response.side_effect = exception
 
-    async for r in servicer_env.servicer.GetTaskUnary(
-        request=servicer_env.request, context=servicer_env.context
-    ):
-        assert r is None
+    # Raised while building the first chunk, so the stream carries nothing
+    responses = [
+        r
+        async for r in servicer_env.servicer.GetTaskUnary(
+            request=servicer_env.request, context=servicer_env.context
+        )
+    ]
+
+    assert responses == []
     node_agent.send_async.assert_called_once()
 
 
@@ -237,8 +242,7 @@ async def test_grpc_async_server_server_auth_only_credentials(async_server_env):
     credentials.assert_called_once_with(((b"test", b"test"),))
 
 
-@pytest.mark.asyncio
-async def test_grpc_async_server_mtls_requires_client_auth(async_server_env):
+def test_grpc_async_server_mtls_requires_client_auth(async_server_env):
     server = _mtls_server(b"bundle", async_server_env)
 
     with (
@@ -256,9 +260,8 @@ async def test_grpc_async_server_mtls_requires_client_auth(async_server_env):
     cert_config.assert_called_with(((b"key", b"cert"),), root_certificates=b"bundle")
 
 
-@pytest.mark.asyncio
 @pytest.mark.parametrize("bundle", [b"", None])
-async def test_grpc_async_server_mtls_empty_bundle_raises(async_server_env, bundle):
+def test_grpc_async_server_mtls_empty_bundle_raises(async_server_env, bundle):
     """An empty bundle cannot bind in gRPC: reported with its cause before
     starting, not as an opaque port-binding error."""
     server = _mtls_server(bundle, async_server_env)
@@ -382,29 +385,37 @@ def mocked_asyncio(grpc_server_env):
         yield asyncio_mock
 
 
+@patch("fedbiomed.transport.server.GRPC_SERVER_SETUP_TIMEOUT", 0.5)
 @patch("fedbiomed.transport.server.GrpcServer.get_all_nodes")
 def test_grpc_server_start(get_all_nodes, grpc_server_env):
+    """The server runs in its thread and is left waiting for termination."""
     env = grpc_server_env
-    server = env.server
 
-    with patch("fedbiomed.transport.server.MAX_GRPC_SERVER_SETUP_TIMEOUT", 2):
-        server.start()
+    # Bound already spent by the setup wait, so no node is polled for
+    with patch("fedbiomed.transport.server.MAX_GRPC_SERVER_SETUP_TIMEOUT", 0.2):
+        env.server.start()
 
     env.server_mock.return_value.start.assert_called_once()
     env.server_mock.return_value.wait_for_termination.assert_called_once()
-    server._thread.join()
+    env.server._thread.join()
 
-    env.server_mock.return_value.start.reset_mock()
-    env.server_mock.return_value.wait_for_termination.reset_mock()
-    server._debug = True
 
+@patch("fedbiomed.transport.server.GRPC_SERVER_SETUP_TIMEOUT", 0.5)
+@patch("fedbiomed.transport.server.GrpcServer.get_all_nodes")
+def test_grpc_server_start_stops_waiting_once_a_node_connects(
+    get_all_nodes, grpc_server_env
+):
+    """Startup polls until a node connects, rather than always waiting the bound."""
+    env = grpc_server_env
     get_all_nodes.side_effect = [[], [1, 2]]
-    server.start()
 
-    env.server_mock.return_value.start.assert_called_once()
-    env.server_mock.return_value.wait_for_termination.assert_called_once()
+    # A bound of 6 leaves room for several polls, so stopping early is the node's
+    # doing and not the timeout's
+    with patch("fedbiomed.transport.server.MAX_GRPC_SERVER_SETUP_TIMEOUT", 6):
+        env.server.start()
 
-    server._thread.join()
+    assert get_all_nodes.call_count == 2
+    env.server._thread.join()
 
 
 def test_grpc_server_send(grpc_server_env, mocked_asyncio):
