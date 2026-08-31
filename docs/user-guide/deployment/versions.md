@@ -23,3 +23,15 @@ is equivalent to a major change.
 !!! warning "Messaging protocol incompatible versions"
     In case of version mismatch, the only solution is to upgrade the software to have the same version on researcher
     and all nodes.
+
+## Messaging protocol
+
+### Version 8
+
+Version 8 removes the packaged default node-to-node EC private key. Channel
+setup now carries only public material: `ChannelSetupRequest` and `ChannelSetupReply` are in plaintext.
+
+This setup format is incompatible with version 7, which encrypted the initial
+exchange with the repository-wide default key. Researchers and all nodes
+participating in the same federation must therefore use messaging protocol
+version 8 together.
