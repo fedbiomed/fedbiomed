@@ -270,7 +270,7 @@ class OverlayChannel:
             distant_node_id, public_key_pem, request_id
         )
 
-    async def _setup_use_channel_keys(
+    async def _setup_or_use_channel_keys(
         self, distant_node_id: str, researcher_id: str, salt: bytes
     ) -> Tuple[DHKey, DHKey, bytes]:
         """Sets up a per-peer channel if needed and returns its key material.
@@ -379,6 +379,7 @@ class OverlayChannel:
             f"request_id={getattr(message, 'request_id', None)} setup={setup}"
         )
 
+        # Unencrypted channel setup messages for sending/receiving public keys in plaintext
         if setup:
             if not isinstance(message, _CHANNEL_SETUP_MESSAGES):
                 raise FedbiomedNodeToNodeError(
@@ -404,7 +405,7 @@ class OverlayChannel:
         # Adjust the length of `nonce` depending on algorithm
         nonce = secrets.token_bytes(16)
 
-        local_node_private_key, _, derived_key = await self._setup_use_channel_keys(
+        local_node_private_key, _, derived_key = await self._setup_or_use_channel_keys(
             message.get_param("dest_node_id"), researcher_id, salt
         )
 
@@ -504,7 +505,7 @@ class OverlayChannel:
                 _,
                 distant_node_public_key,
                 derived_key,
-            ) = await self._setup_use_channel_keys(
+            ) = await self._setup_or_use_channel_keys(
                 overlay_msg.node_id,
                 overlay_msg.researcher_id,
                 overlay_msg.salt,
