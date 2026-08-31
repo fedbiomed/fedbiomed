@@ -28,10 +28,9 @@ force_secure_aggregation = False
 
 ## Node-to-node channel keys
 
-There is no default node-to-node private key to configure or replace. When a
-secure aggregation exchange first needs a channel to a peer, each node creates
+When a secure aggregation exchange first needs a channel to a peer, each node creates
 and stores its own P-256 key pair for that peer. The nodes exchange their public
-channel keys using plaintext `ChannelSetupRequest` requests and
+channel keys in plaintext `ChannelSetupRequest` requests and
 `ChannelSetupReply` responses relayed by the researcher. Subsequent LOM and
 Joye-Libert setup messages are signed and encrypted using keys derived from the
 per-peer ECDH agreement.

@@ -224,7 +224,7 @@ class TestNodeRequestsOverlayChannel(
         # needs to be 32 bytes long for ChaCha20
         self.derived_key = b"k" * 32
         self.dhkey_agreement_mock.return_value = self.derived_key
-        self.overlay_channel._setup_use_channel_keys = AsyncMock(
+        self.overlay_channel._setup_or_use_channel_keys = AsyncMock(
             return_value=(self.private_key, self.public_key, self.derived_key)
         )
 
@@ -272,7 +272,7 @@ class TestNodeRequestsOverlayChannel(
         self.assertEqual(Serializer.loads(payload), src_message.to_dict())
         self.assertEqual(salt, b"")
         self.assertEqual(nonce, b"")
-        self.overlay_channel._setup_use_channel_keys.assert_not_awaited()
+        self.overlay_channel._setup_or_use_channel_keys.assert_not_awaited()
         self.assertIsInstance(dest_message, InnerMessage)
         self.assertEqual(
             set(src_message.get_dict().keys()), set(dest_message.get_dict().keys())
@@ -466,9 +466,9 @@ class TestNodeRequestsOverlayChannel(
         self.assertEqual(len(salt), 32)
         self.assertEqual(len(nonce), 16)
         self.assertEqual(dest_message.to_dict(), src_message.to_dict())
-        self.assertEqual(self.overlay_channel._setup_use_channel_keys.await_count, 2)
+        self.assertEqual(self.overlay_channel._setup_or_use_channel_keys.await_count, 2)
 
-    async def test_overlay_08_setup_use_channel_keys(self):
+    async def test_overlay_08_setup_or_use_channel_keys(self):
         """Test key setup function for n2n channels"""
 
         # prepare
@@ -500,7 +500,7 @@ class TestNodeRequestsOverlayChannel(
             local_key,
             distant_key,
             derived_key,
-        ) = await self.overlay_channel._setup_use_channel_keys(
+        ) = await self.overlay_channel._setup_or_use_channel_keys(
             distant_node_id, researcher_id, salt
         )
 
@@ -525,7 +525,7 @@ class TestNodeRequestsOverlayChannel(
                 local_key,
                 distant_key,
                 derived_key,
-            ) = await self.overlay_channel._setup_use_channel_keys(
+            ) = await self.overlay_channel._setup_or_use_channel_keys(
                 distant_node_id, researcher_id, salt
             )
 
