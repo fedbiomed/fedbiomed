@@ -310,14 +310,18 @@ not establish, match the symptom below — diagnosis is mostly **node-side**: th
 researcher rejects untrusted nodes inside the TLS handshake and logs nothing per
 rejected node (it says so once at startup).
 
-!!! tip "Seeing rejected handshakes on the researcher"
-    A rejection is reported by gRPC itself, at INFO. Fed-BioMed lowers gRPC to `ERROR`
-    by default, because a node retrying its connection would otherwise fill the output
-    with one line every couple of seconds. To watch rejections while diagnosing, start
-    the researcher with `GRPC_VERBOSITY=INFO`, which takes precedence:
+!!! tip "Seeing failed handshakes as gRPC reports them"
+    Each end reports its own side of a failed handshake through gRPC itself, at INFO,
+    naming the OpenSSL reason: the researcher a node reached without a certificate logs
+    `PEER_DID_NOT_RETURN_A_CERTIFICATE`, the node that cannot verify the researcher
+    certificate it pinned logs `CERTIFICATE_VERIFY_FAILED`. Fed-BioMed lowers gRPC to
+    `ERROR` on both components, because a node retrying its connection would otherwise
+    add one line to each output every couple of seconds. A value set in the environment
+    takes precedence, so raise it on the side being diagnosed:
 
     ```shell
     GRPC_VERBOSITY=INFO fedbiomed researcher start
+    GRPC_VERBOSITY=INFO fedbiomed node start
     ```
 
 | Log / error | Cause | Fix |

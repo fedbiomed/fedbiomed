@@ -703,10 +703,9 @@ class CommonCLI:
         # `-ci` is optional only while the certificate is one Fed-BioMed issued: its
         # `CN=` counts as a component id under `O=Fed-BioMed`, which a CA does not set.
         print(
-            f"\n{BOLD}The component id ({component_id}) is read from the certificate "
-            "above, so `-ci` is not needed. Should this component present a "
-            "certificate issued elsewhere, whose `CN=` states no component id, the "
-            f"command needs `-ci {component_id}`.{NC}"
+            f"\n{BOLD}`-ci` is only needed for a certificate issued outside "
+            "Fed-BioMed, which embeds no component id. Register such a one with "
+            f"`-ci {component_id}`.{NC}"
         )
         print(
             f"{BOLD}Registering does not enable mutual authentication by itself: "
