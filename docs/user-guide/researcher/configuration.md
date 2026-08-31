@@ -54,7 +54,7 @@ Here is an example configuration file:
 [default]
 id = RESEARCHER_2ba562cc-6943-4430-8f79-cb3877b2ea79
 component = RESEARCHER
-version = 3.1.0
+version = 3.2.0
 db = ../var/db_RESEARCHER_2ba562cc-6943-4430-8f79-cb3877b2ea79.json
 
 [server]
