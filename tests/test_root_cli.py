@@ -1,4 +1,6 @@
 import argparse
+import contextlib
+import io
 import os
 import sys
 import tempfile
@@ -121,6 +123,29 @@ class TestComponentParser(unittest.TestCase):
             self.conf_parser._get_component_instance("any_path", "bad_component_type")
 
         sys.modules.pop("fedbiomed.researcher.config")
+
+    def test_04_component_parser_create_reports_the_component_it_created(self):
+        """Creating a component says where it was created, researcher included.
+
+        A researcher is created by importing its configuration module, which is
+        a different path through `create` than the node's.
+        """
+        for component in ("NODE", "RESEARCHER"):
+            for path in ([], ["--path", f"{component.lower()}-at-a-given-path"]):
+                with self.subTest(component=component, path=path):
+                    args = self.main_parser.parse_args(
+                        ["component", "create", "--component", component, *path]
+                    )
+
+                    printed = io.StringIO()
+                    with contextlib.redirect_stdout(printed):
+                        self.conf_parser.create(args)
+                    sys.modules.pop("fedbiomed.researcher.config", None)
+
+                    self.assertIn("Operation successful!", printed.getvalue())
+                    self.assertIn(
+                        "Component has been initialized in", printed.getvalue()
+                    )
 
 
 @pytest.mark.parametrize("unknown", ["--force", "--totally-bogus"])
