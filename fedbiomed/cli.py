@@ -136,7 +136,6 @@ class ComponentParser(CLIArgumentParser):
                     return
             else:
                 self._get_component_instance(component_path, args.component)
-                return
         else:
             component = self._get_component_instance(component_path, args.component)
             # Overwrite force configuration file
