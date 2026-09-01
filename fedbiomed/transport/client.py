@@ -733,11 +733,10 @@ class Listener:
                             msg = (
                                 f"{ErrorNumbers.FB628.value}: The researcher requires "
                                 "mutual authentication but it is disabled on this "
-                                "node. Enable it in the node `[authentication]` "
-                                "configuration "
-                                "and register the researcher certificate there; this "
-                                "node's certificate also has to be registered on the "
-                                "researcher side."
+                                "node. Enable it in this node's `[authentication]` "
+                                "configuration and register the researcher "
+                                "certificate here, then request the researcher to "
+                                "register this node's certificate."
                             )
                             logger.error(msg)
                             logger.security_event(
@@ -980,9 +979,9 @@ class TaskListener(Listener):
             raise _ResearcherAuthenticationPending(
                 f"The researcher at {self._channels.endpoint} does not verify node "
                 "identities: NO node in the federation is authenticated, this one "
-                "included. Enable mutual authentication on the researcher side, with "
-                "this node's certificate registered there; otherwise disable it in "
-                "this node's `[authentication]` configuration. Retrying; repeats are "
+                "included. Request the researcher to enable mutual authentication and "
+                "to register this node's certificate; otherwise disable it in this "
+                "node's `[authentication]` configuration. Retrying; repeats are "
                 "logged at debug level."
             )
 
