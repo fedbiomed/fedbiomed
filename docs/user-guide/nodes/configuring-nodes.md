@@ -99,6 +99,8 @@ fedbiomed node restart --background --debug
 
 A configuration file is an `ini` file that is located in the component directory. Each configuration file is unique to one node.
 
+The node reads this file when it starts, so a running node keeps the settings it started with. After editing the file, restart the node to apply the changes. The [researcher certificate registered on the node](../deployment/mutual-tls.md#2-register-the-received-certificates) is read the same way: the node pins the one it read at startup and uses it for the whole run, so registering or deleting it applies only on the next start.
+
 The configuration file is structured following the sections below:
 
 - **Default Parameters:**

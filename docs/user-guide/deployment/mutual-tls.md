@@ -41,7 +41,7 @@ man-in-the-middle that spoofs a party inside the network).
 | Node → researcher | Node fetches the server cert at connect and trusts it | Node **pins** a pre-registered researcher cert |
 | Researcher → node | Node identity not checked | Node **must** present a registered client cert |
 | Node identity | Declared in the message only | Every message's declared id must match the component id the presented certificate is registered under |
-| New certificates | — | Picked up on the next handshake, **no restart** (hot-add) |
+| New certificates | — | On the researcher: picked up on the next handshake, **no restart** (hot-add). On a node: read once at startup, so a **restart** applies them |
 
 ## Component certificates
 
@@ -133,6 +133,13 @@ Check what is registered at any time:
 fedbiomed [node|researcher] certificate list   # shows component id and expiry
 ```
 
+!!! note "On a node, the registry is read once — at startup"
+    The researcher re-reads its trust bundle on every handshake, so a certificate
+    registered or deleted there applies to the connections that follow. A node reads
+    the researcher certificate it pins when it starts and keeps it for the whole run:
+    registering, replacing (`--upsert`) or deleting a certificate on a node changes
+    nothing for the running process — **restart the node** to apply it.
+
 Registration refuses combinations that cannot be valid:
 
 - a component cannot register a certificate restricted to its **own TLS role** — a node
@@ -160,7 +167,8 @@ every component, the researcher included.
 
 Each component reads this setting when it starts, so change it while the component is
 stopped, or restart it afterwards — on the researcher, by relaunching it or restarting
-the Jupyter Notebook. Only the registered certificates are re-read while running, and a
+the Jupyter Notebook. Only the researcher re-reads its registered certificates while
+running — a node keeps the certificate it read at startup — and a
 component left on its previous setting behaves exactly as the
 [state combinations](#by-the-mutual-authentication-setting) below describe.
 
@@ -202,12 +210,17 @@ new one:
    ```shell
    fedbiomed <component> certificate generate --force
    ```
+   A component reads its own certificate and private key when it starts, so restart it
+   to present the new ones — a researcher included, whose own certificate is not part of
+   what it re-reads while running.
 2. Re-share it and re-register it on the other parties with `--upsert` to overwrite:
    ```shell
    fedbiomed researcher certificate register -pk /path/to/renewed.pem --upsert
    ```
 3. The next handshake uses the new certificate; no restart of the researcher is needed
-   for a renewed node certificate.
+   for a renewed node certificate. A renewed **researcher** certificate is the other
+   way round: every node has to re-register it and then be restarted, since a running
+   node still pins the one it read at startup.
 
 !!! info "Which expiries are watched"
     The researcher logs a warning when a registered node certificate is within 30 days
@@ -259,9 +272,10 @@ once, after their certificates are registered:
 fedbiomed certificate-dev-setup --enable-mutual-authentication
 ```
 
-Components already running have to be restarted to pick the setting up. The command
-reads components that are already on the machine, so it is for development and testing
-— it replaces no step of a real deployment.
+Components already running have to be restarted to pick the setting up, and a running
+node equally to pick up the certificates the command registered or pruned in it. The
+command reads components that are already on the machine, so it is for development and
+testing — it replaces no step of a real deployment.
 
 ## Outcome by state
 
@@ -296,6 +310,7 @@ what is logged — in [verifying and troubleshooting](#verifying-and-troubleshoo
 | Declares a node id different from the component id its certificate is registered under | Certificate registered under that other component id | Warns once, then retries at debug level | Aborts the request `UNAUTHENTICATED` |
 | Running with an established connection | Its certificate is deleted while the researcher runs | Rejected on the next request, then retries; reconnection attempts are refused during the handshake until it is registered again | Refuses the node until it is registered again |
 | Running with an established connection | Restarted | Retries until the researcher answers again, at debug level; catching the restart window warns once | Authenticates the node again on its next request |
+| Running while its own registry changes: the researcher certificate is registered, replaced or deleted on the node | any | Unaffected — it keeps pinning the certificate it read at startup. The change applies when the node is restarted | Unaffected |
 
 ## Verifying and troubleshooting
 
@@ -329,7 +344,7 @@ rejected node (it says so once at startup).
 | `FB619 … no researcher certificate is registered` (node won't start) | Mutual authentication on, researcher cert missing on node | Register the researcher certificate on the node |
 | `FB619 … certificates are registered` (node won't start) | More than one certificate is registered on the node, so the one to pin is ambiguous | Delete the extras with `fedbiomed node certificate delete`, keeping its researcher's |
 | Debug `Researcher server is not available` (node retries) | The endpoint is not up. Under mutual authentication a researcher with no node certificate registered refuses to start, so this is what a node sees of it | Check the researcher started, and that at least one node certificate is registered there |
-| Warning `Mutual authentication (mTLS) handshake with researcher failed` (node retries) | The certificates the two sides hold for each other do not match — most often a pinned researcher certificate that is wrong or outdated — or a possible MITM | Re-register the current researcher certificate on the node, and check this node's certificate is the one registered on the researcher |
+| Warning `Mutual authentication (mTLS) handshake with researcher failed` (node retries) | The certificates the two sides hold for each other do not match — most often a pinned researcher certificate that is wrong or outdated — or a possible MITM | Re-register the current researcher certificate on the node and restart it — a running node keeps the certificate it read at startup — and check this node's certificate is the one registered on the researcher |
 | Warning `… reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher, or expired — rejected inside the handshake. A researcher that is restarting closes connections the same way, and clears on its own | Register the node's certificate on the researcher; if it is registered, check its expiry, then whether the researcher was restarting |
 | `FB628 … researcher requires mutual authentication but it is disabled on this node` (node stops) | Researcher has mutual authentication on, node has it off | Enable `[authentication]` on the node and register the researcher certificate there; register this node's certificate on the researcher side |
 | Warning `Researcher rejected this node's identity` (node retries) | Its certificate is not registered on the researcher, or the node id it declares is not the one that certificate is registered under | Register the node's certificate on the researcher — the node connects with no restart — and ensure the node id matches how it is registered |

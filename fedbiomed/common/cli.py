@@ -659,6 +659,13 @@ class CommonCLI:
                 CommonCLI.success(
                     f"Certificate for '{component_id}' has been successfully removed"
                 )
+                # A node pins its certificate at startup; the researcher re-reads
+                if self.config.COMPONENT_TYPE == ComponentType.NODE.name:
+                    print(
+                        f"{YLW}A running node keeps using the certificate it read "
+                        "when it started: restart the node for this deletion to take "
+                        f"effect.{NC}"
+                    )
                 return
             except (ValueError, IndexError, AssertionError):
                 CommonCLI.error("Invalid option. Please, try again.")
