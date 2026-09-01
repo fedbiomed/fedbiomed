@@ -140,6 +140,13 @@ def _is_connection_closed_error(exp: grpc.aio.AioRpcError) -> bool:
     return any(m in detail for m in _CONNECTION_CLOSED_ERROR_MARKERS)
 
 
+def _is_connection_recycled_error(exp: grpc.aio.AioRpcError) -> bool:
+    """Whether an UNAVAILABLE RPC error is the server retiring a connection on the
+    maximum age it grants, which the client replaces rather than fails."""
+    detail = f"{exp.details()} {exp.debug_error_string()}".lower()
+    return "max connection age" in detail
+
+
 def _researcher_requires_client_auth(host: str, port: str) -> Optional[bool]:
     """Whether the researcher's TLS server demands a client certificate.
 
@@ -562,6 +569,8 @@ class Listener:
         self._retry_on_error = False
         # Report the repeating failure once until the connection recovers.
         self._connection_failure_logged = False
+        # Whether the last connection was retired on its maximum age.
+        self._connection_recycled = False
 
     @abc.abstractmethod
     async def _handle_after_process(
@@ -666,13 +675,21 @@ class Listener:
             try:
                 await self._call_researcher(callback)
             except grpc.aio.AioRpcError as exp:
+                self._connection_recycled = _is_connection_recycled_error(exp)
                 match exp.code():
                     case grpc.StatusCode.DEADLINE_EXCEEDED:
                         self._message_deadline_exceeded()
                         await self._handle_after_process(ClientStatus.DISCONNECTED)
                     case grpc.StatusCode.UNAVAILABLE:
                         await self._on_status_change(ClientStatus.DISCONNECTED)
-                        if self._channels.mtls and _is_tls_handshake_error(exp):
+                        if self._connection_recycled:
+                            # Diagnosing it would report a failure where there is none.
+                            logger.debug(
+                                f"Researcher retired the {self.__class__.__name__} "
+                                "connection on its maximum age, will reconnect in "
+                                f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
+                            )
+                        elif self._channels.mtls and _is_tls_handshake_error(exp):
                             self._log_connection_failure_once(
                                 "Mutual authentication (mTLS) handshake with "
                                 f"researcher failed in {self.__class__.__name__}: "
@@ -781,6 +798,7 @@ class Listener:
                         )
 
             except _ResearcherAuthenticationPending as exp:
+                self._connection_recycled = False
                 self._log_connection_failure_once(
                     str(exp), operation="mtls_not_enforced_by_researcher"
                 )
@@ -793,6 +811,7 @@ class Listener:
                 # error.
                 raise
             except (Exception, GeneratorExit) as exp:
+                self._connection_recycled = False
                 msg = (
                     f"Unexpected error raised by node gRPC client in {self.__class__.__name__}: "
                     f"{type(exp).__name__} : {exp} "
@@ -884,18 +903,26 @@ class TaskListener(Listener):
         The only place a connection is reported established: creating a channel
         opens none, so only an answer from the researcher proves the handshake
         succeeded.
+
+        A connection replacing one retired on its maximum age tells an operator
+        nothing the retired one did not, and is reported at debug level; the first
+        connection and any following an interruption are announced. Every connection
+        is recorded as a security event.
         """
         if self._communication_established:
             return
         self._communication_established = True
 
+        log_level = logger.debug if self._connection_recycled else logger.info
+        self._connection_recycled = False
+
         if self._channels.mtls:
-            logger.info(
+            log_level(
                 "Mutually authenticated communication established with researcher at "
                 f"{self._channels.endpoint}; node identity verified by the researcher."
             )
         else:
-            logger.info(
+            log_level(
                 "Communication established with researcher at "
                 f"{self._channels.endpoint} over server-authenticated TLS "
                 "(node identity not verified)."

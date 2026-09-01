@@ -173,6 +173,11 @@ such as:
 - Researcher: `Node <NODE_id> identity verified by mutual authentication.`
 - Node: `Mutually authenticated communication established with researcher …; node identity verified by the researcher.`
 
+The researcher retires connections once they reach a maximum age, so a node reconnects
+regularly even while nothing goes wrong. The node announces its first connection and any
+that follows an interruption; a connection merely replacing a retired one is logged at
+debug level. The security audit log records every one of them.
+
 ## Operating a running federation
 
 ### Adding a node to a running instance (hot-add)
