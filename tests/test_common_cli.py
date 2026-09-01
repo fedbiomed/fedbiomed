@@ -733,6 +733,29 @@ def test_delete_certificate_rejects_an_invalid_option(
 
 
 @pytest.mark.parametrize(
+    "component,restart_expected", [("NODE", True), ("RESEARCHER", False)]
+)
+@patch("fedbiomed.common.cli.CertificateManager.list")
+@patch("fedbiomed.common.cli.CertificateManager.delete")
+@patch("builtins.input")
+@patch("builtins.print")
+def test_delete_certificate_tells_a_node_to_restart(
+    mock_print, mock_input, mock_delete, mock_list, cli, component, restart_expected
+):
+    """Deletion applies to a running researcher, but only at the next start of a node."""
+    cli.initialize_certificate_parser()
+    cli.config.COMPONENT_TYPE = component
+    args = cli.parser.parse_args(["certificate", "delete"])
+    mock_list.return_value = [{"component_id": _NODE_A}]
+    mock_input.return_value = "1"
+
+    cli._delete_certificate(args)
+
+    printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert ("restart the node" in printed) is restart_expected
+
+
+@pytest.mark.parametrize(
     "component,registers_on,not_mentioned",
     [
         ("NODE", "researcher", "fedbiomed node certificate register"),
