@@ -595,6 +595,71 @@ async def test_task_listener_mtls_announce_and_reannounce_on_reconnect(
 
 
 @pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.logger.debug")
+@patch("fedbiomed.transport.client.logger.info")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_demotes_a_recycled_connection(
+    sleep, log_info, log_debug, security_event, listener_env
+):
+    """A researcher retiring a connection on its maximum age replaces it with an
+    identical one, which is not announced again; it is still audited."""
+    listener_env.channels.mtls = True
+    listener_env.channels.certificate = None
+
+    await listener_env.drain(
+        [
+            _Call(_async_iterator([])),
+            _rpc_error(grpc.StatusCode.UNAVAILABLE, "max connection age"),
+            _Call(_async_iterator([])),
+        ]
+    )
+
+    announced = [
+        c
+        for c in log_info.call_args_list
+        if "Mutually authenticated communication established" in c.args[0]
+    ]
+    assert len(announced) == 1
+    assert any(
+        "Mutually authenticated communication established" in c.args[0]
+        for c in log_debug.call_args_list
+    )
+    operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+    assert operations.count("researcher_channel_established") == 2
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.logger.info")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_announces_a_connection_recovered_after_a_failure(
+    sleep, log_info, security_event, listener_env
+):
+    """A connection lost to anything but a retirement is an interruption, so the
+    one that recovers from it is announced even after a retirement demoted one."""
+    listener_env.channels.mtls = True
+    listener_env.channels.certificate = None
+
+    await listener_env.drain(
+        [
+            _Call(_async_iterator([])),
+            _rpc_error(grpc.StatusCode.UNAVAILABLE, "max connection age"),
+            _Call(_async_iterator([])),
+            _rpc_error(grpc.StatusCode.UNAVAILABLE, "failed to connect"),
+            _Call(_async_iterator([])),
+        ]
+    )
+
+    announced = [
+        c
+        for c in log_info.call_args_list
+        if "Mutually authenticated communication established" in c.args[0]
+    ]
+    assert len(announced) == 2
+
+
+@pytest.mark.asyncio
 @patch("fedbiomed.transport.client.is_server_alive", return_value=True)
 @patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client.logger._logger.debug")
