@@ -21,6 +21,8 @@ from fedbiomed.common.certificate_manager import (
     certificate_expiry,
     certificate_san_names,
     generate_certificate,
+    is_loopback_name,
+    san_entry,
 )
 from fedbiomed.common.constants import CERTS_FOLDER_NAME
 from fedbiomed.common.exceptions import FedbiomedCertificateError
@@ -45,7 +47,9 @@ def _events(security_event, operation):
     ]
 
 
-def _self_signed(folder, component_id, purpose=CERT_PURPOSE_CLIENT, san=("localhost",)):
+def _self_signed(
+    folder, component_id, purpose=CERT_PURPOSE_CLIENT, san=("localhost", "127.0.0.1")
+):
     """Generates a self-signed certificate, returns its PEM file path."""
     _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
         certificate_folder=folder,
@@ -311,7 +315,7 @@ def test_certificate_expiry_none_for_unparsable():
 
 
 def test_certificate_san_names_reads_the_subject_alternative_names(real_cert):
-    assert certificate_san_names(real_cert) == ["localhost", "127.0.0.1"]
+    assert certificate_san_names(real_cert) == ["localhost", "127.0.0.1", "::1"]
 
 
 def test_certificate_san_names_accepts_str(real_cert):
@@ -374,7 +378,7 @@ def test_certificate_audit_fields_identify_the_certificate(real_cert):
     fields = certificate_audit_fields(real_cert)
     assert fields["cert_subject"] == f"CN={_NODE_A},O={CERT_ORGANIZATION}"
     assert fields["cert_issuer"] == f"CN={_NODE_A},O={CERT_ORGANIZATION}"
-    assert fields["cert_san"] == "localhost,127.0.0.1"
+    assert fields["cert_san"] == "localhost,127.0.0.1,::1"
     # Serial as hex, expiry as an ISO-8601 instant
     assert int(fields["cert_serial"], 16) > 0
     assert fields["cert_not_after"].endswith("Z")
@@ -445,24 +449,83 @@ def test_subject_carries_the_component_id_and_the_organization(tmp_path):
     assert subject.rfc4514_string() == f"CN={_NODE_A},O={CERT_ORGANIZATION}"
 
 
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("10.0.0.9", x509.IPAddress(ipaddress.ip_address("10.0.0.9"))),
+        ("127.0.0.1", x509.IPAddress(ipaddress.ip_address("127.0.0.1"))),
+        ("::1", x509.IPAddress(ipaddress.ip_address("::1"))),
+        ("localhost", x509.DNSName("localhost")),
+        ("fbm.example.org", x509.DNSName("fbm.example.org")),
+    ],
+)
+def test_san_entry_tells_an_address_from_a_name(name, expected):
+    """What a peer verifies depends on the entry type, so the two never mix."""
+    assert san_entry(name) == expected
+
+
+@pytest.mark.parametrize(
+    "name, loopback",
+    [
+        ("localhost", True),
+        ("LocalHost", True),
+        ("127.0.0.1", True),
+        ("127.0.0.53", True),
+        ("::1", True),
+        ("::ffff:127.0.0.1", True),
+        ("fbm.example.org", False),
+        ("10.0.0.9", False),
+        ("0.0.0.0", False),
+    ],
+)
+def test_is_loopback_name(name, loopback):
+    assert is_loopback_name(name) is loopback
+
+
+@pytest.mark.parametrize("given", ["localhost", "127.0.0.1", "::1"])
+def test_a_loopback_name_issues_all_three_forms(tmp_path, given):
+    """A peer on this machine dials whichever form it holds, so naming one names
+    all: the certificate carries what it is verified against."""
+    pem_file = _self_signed(str(tmp_path), _NODE_A, san=[given])
+    assert set(certificate_san_names(_pem(pem_file))) == {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    }
+    # The form given stays first, the rest follow it
+    assert certificate_san_names(_pem(pem_file))[0] == given
+
+
+def test_a_loopback_name_keeps_the_other_names_given(tmp_path):
+    """The expansion adds to what was asked for, it does not replace it."""
+    pem_file = _self_signed(
+        str(tmp_path), _NODE_A, san=["fbm.example.org", "localhost"]
+    )
+    assert certificate_san_names(_pem(pem_file)) == [
+        "fbm.example.org",
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    ]
+
+
 def test_ip_produces_ip_san(tmp_path):
     """An address is an `iPAddress` entry, the only place TLS reads one from."""
     certificate = _load(_self_signed(str(tmp_path), _NODE_A, san=["10.0.0.5"]))
     assert _san(certificate).get_values_for_type(x509.IPAddress) == [
-        ipaddress.ip_address("10.0.0.5"),
-        ipaddress.ip_address("127.0.0.1"),
+        ipaddress.ip_address("10.0.0.5")
     ]
     # The address is nowhere in the subject, which states who the component is
     assert certificate.subject.rfc4514_string() == f"CN={_NODE_A},O={CERT_ORGANIZATION}"
 
 
-def test_named_certificate_also_carries_the_loopback_names(tmp_path):
-    """A peer on the machine the component runs on dials it by a loopback name."""
+def test_only_the_names_given_are_issued(tmp_path):
+    """Nothing is added to what the caller asks for: a peer dialling the component
+    by a name it was not issued for, a loopback name included, is the caller's to
+    foresee."""
     san = _san(_load(_self_signed(str(tmp_path), _NODE_A, san=["fbm-researcher"])))
-    assert san.get_values_for_type(x509.DNSName) == ["fbm-researcher", "localhost"]
-    assert san.get_values_for_type(x509.IPAddress) == [
-        ipaddress.ip_address("127.0.0.1")
-    ]
+    assert san.get_values_for_type(x509.DNSName) == ["fbm-researcher"]
+    assert san.get_values_for_type(x509.IPAddress) == []
 
 
 def test_every_name_given_is_kept_in_order(tmp_path):
@@ -478,8 +541,6 @@ def test_every_name_given_is_kept_in_order(tmp_path):
         "fbm-researcher",
         "fbm.example.org",
         "10.0.0.9",
-        "localhost",
-        "127.0.0.1",
     ]
 
 
@@ -489,9 +550,9 @@ def test_names_are_not_repeated(tmp_path):
         certificate_name="dedup",
         component_id=_RESEARCHER_A,
         purpose=CERT_PURPOSE_SERVER,
-        san=["localhost", "127.0.0.1"],
+        san=["localhost", "127.0.0.1", "localhost"],
     )
-    assert certificate_san_names(_pem(pem_file)) == ["localhost", "127.0.0.1"]
+    assert certificate_san_names(_pem(pem_file)) == ["localhost", "127.0.0.1", "::1"]
 
 
 def test_certificate_issued_for_no_name_carries_none(tmp_path):

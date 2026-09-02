@@ -395,8 +395,8 @@ class CommonCLI:
             action="append",
             metavar="HOST",
             help="A further host name or IP address nodes reach this researcher at, "
-            "repeatable. The configured server host and the loopback names are always "
-            "included; give this for a researcher reachable under any other name.",
+            "repeatable. The configured server host is always included, and naming any "
+            "loopback form issues the certificate for all of them.",
         )
 
     def _create_magic_dev_environment(self, args: argparse.Namespace):
@@ -573,7 +573,7 @@ class CommonCLI:
         if is_researcher and not args.san:
             logger.info(
                 f"No '--san' given: issuing the certificate for the server host "
-                f"'{host}' read from {self.config.config_path}, plus the loopback names."
+                f"'{host}' read from {self.config.config_path}, and no other name."
             )
 
         existing = [

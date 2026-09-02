@@ -503,7 +503,7 @@ def _generating_cli(cli, tmp_path, component, name):
     cli.config.getpath.return_value = str(tmp_path / f"{name}.pem")
     cli.config.get.side_effect = lambda section, key: {
         ("default", "id"): _RESEARCHER_A if component == "RESEARCHER" else _NODE_A,
-        ("server", "host"): "researcher-host",
+        ("server", "host"): "fbm-researcher",
     }[(section, key)]
     return cli
 
@@ -511,11 +511,7 @@ def _generating_cli(cli, tmp_path, component, name):
 @pytest.mark.parametrize(
     "component,name,san_names",
     [
-        (
-            "RESEARCHER",
-            "server_certificate",
-            ["researcher-host", "localhost", "127.0.0.1"],
-        ),
+        ("RESEARCHER", "server_certificate", ["fbm-researcher"]),
         ("NODE", "FBM_certificate", []),
     ],
 )
@@ -552,10 +548,7 @@ def test_generate_certificate_researcher_is_pinnable(mock_print, cli, tmp_path):
         (tmp_path / "server_certificate.pem").read_bytes()
     )
     san = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
-    assert san.value.get_values_for_type(x509.DNSName) == [
-        "researcher-host",
-        "localhost",
-    ]
+    assert san.value.get_values_for_type(x509.DNSName) == ["fbm-researcher"]
 
 
 @patch("fedbiomed.common.cli.logger.info")
@@ -571,7 +564,7 @@ def test_generate_certificate_reports_the_host_it_read(
     cli._generate_certificate(args)
 
     message = mock_info.call_args.args[0]
-    assert "researcher-host" in message and cli.config.config_path in message
+    assert "fbm-researcher" in message and cli.config.config_path in message
 
 
 @patch("fedbiomed.common.cli.logger.info")
@@ -602,11 +595,28 @@ def test_generate_certificate_adds_the_given_names(mock_print, cli, tmp_path):
 
     pem = (tmp_path / "server_certificate.pem").read_bytes()
     assert certificate_san_names(pem) == [
-        "researcher-host",
+        "fbm-researcher",
         "fbm.example.org",
         "10.0.0.9",
+    ]
+
+
+@patch("builtins.print")
+def test_generate_certificate_expands_a_loopback_name_given(mock_print, cli, tmp_path):
+    """`--san localhost` reaches the same expansion as a configured loopback host:
+    a node on this machine dials whichever form its configuration holds."""
+    args = _generating_cli(
+        cli, tmp_path, "RESEARCHER", "server_certificate"
+    ).parser.parse_args(["certificate", "generate", "--san", "localhost"])
+
+    cli._generate_certificate(args)
+
+    pem = (tmp_path / "server_certificate.pem").read_bytes()
+    assert certificate_san_names(pem) == [
+        "fbm-researcher",
         "localhost",
         "127.0.0.1",
+        "::1",
     ]
 
 
