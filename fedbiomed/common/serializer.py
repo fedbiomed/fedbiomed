@@ -7,11 +7,12 @@ import dataclasses
 from math import ceil
 from typing import Any, Optional
 
+import declearn
 import msgpack
 import numpy as np
 import torch
 from declearn.model.api import Vector, VectorSpec
-from declearn.utils import json_pack, json_unpack
+from packaging.version import Version
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
@@ -21,6 +22,34 @@ from fedbiomed.common.optimizers import AuxVar, EncryptedAuxVar
 __all__ = [
     "Serializer",
 ]
+
+if Version(declearn.__version__) < Version("2.9"):
+    from declearn.utils import json_pack, json_unpack
+
+    def _pack_auxvar(obj: AuxVar) -> dict:
+        """Serialize an AuxVar using DecLearn's legacy JSON hook.
+
+        Note: the returned dictionary contains the `__type__` field.
+        """
+        return json_pack(obj)
+
+    def _unpack_auxvar(obj: dict) -> AuxVar:
+        """Deserialize an AuxVar using DecLearn's legacy JSON hook."""
+        return json_unpack(obj)
+
+else:
+    from declearn.utils.serialize import json_deserialize, json_serialize
+
+    def _pack_auxvar(obj: AuxVar) -> dict:
+        """Serialize an AuxVar into an opaque Fed-BioMed envelope."""
+        return {
+            "__type__": f"AuxVar>{type(obj).__name__}",
+            "value": json_serialize(obj),
+        }
+
+    def _unpack_auxvar(obj: dict) -> AuxVar:
+        """Deserialize an AuxVar from its opaque Fed-BioMed envelope."""
+        return json_deserialize(obj["value"])
 
 
 class Serializer:
@@ -127,9 +156,7 @@ class Serializer:
         if isinstance(obj, VectorSpec):
             return {"__type__": "VectorSpec", "value": dataclasses.asdict(obj)}
         if isinstance(obj, AuxVar):
-            return json_pack(
-                obj
-            )  # json_pack of Declearn already adds the "__type__" field
+            return _pack_auxvar(obj)  # builds a dict with a "__type__" field
         if isinstance(obj, MetricTypes):
             return {"__type__": "MetricTypes", "value": obj.name}
         if isinstance(obj, EncryptedAuxVar):
@@ -167,8 +194,8 @@ class Serializer:
             "AuxVar"
         ):  # Declearn scaffold aux var type is AuxVar>ScaffoldAuxVar
             try:
-                # json_upack of Declearn expects the "__type__" field to be present in the dict
-                return json_unpack(obj)
+                # expects the "__type__" field to be present in the dict
+                return _unpack_auxvar(obj)
             except Exception:
                 logger.warning("Failed to unpack AuxVar subtype.")
                 return obj
