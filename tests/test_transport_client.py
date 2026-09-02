@@ -39,6 +39,7 @@ from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceS
 _RESEARCHER_A = "RESEARCHER_9c2b1d70-1111-2222-3333-444455556666"
 _NODE_A = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
 _NODE_B = "NODE_0a1b2c3d-aaaa-bbbb-cccc-ddddeeeeffff"
+_RESEARCHER_B = "RESEARCHER_7e6d5c40-9999-8888-7777-666655554444"
 
 
 def _rpc_error(code, details=None):
@@ -168,12 +169,13 @@ async def test_grpc_client_on_status_change(grpc_client):
 @pytest.mark.asyncio
 async def test_grpc_client_update_id(grpc_client):
     client = grpc_client.client
-    await client._update_id(id_="test")
+    await client._update_id(id_=_RESEARCHER_A)
     # The observable effect: the endpoint is mapped to the researcher it answered as
-    grpc_client.update_id_map.assert_called_once_with("localhost:50051", "test")
+    grpc_client.update_id_map.assert_called_once_with("localhost:50051", _RESEARCHER_A)
 
+    # A second researcher answering on the endpoint the first is mapped to
     with pytest.raises(FedbiomedCommunicationError):
-        await client._update_id(id_="test-malicious")
+        await client._update_id(id_=_RESEARCHER_B)
 
 
 @pytest.mark.asyncio
@@ -190,7 +192,7 @@ async def test_grpc_client_connect_security_log(
 ):
     is_server_alive.return_value = True
     get_server_certificate.return_value = "DUMMY-CERT"
-    component_id.return_value = "test-researcher"
+    component_id.return_value = _RESEARCHER_A
 
     # Avoid creating real grpc channels
     grpc_client.client._channels.connect = AsyncMock()  # no spec
@@ -1205,7 +1207,7 @@ def test_channels_create_without_mtls(
 ):
     """Without mutual authentication only the server certificate is pinned, and the
     researcher is still verified against a name that certificate carries."""
-    certificate_san_names.return_value = ["researcher-host"]
+    certificate_san_names.return_value = ["fbm-researcher"]
     channels = Channels(
         researcher=ResearcherCredentials(
             host="localhost", port="50051", certificate=b"server-cert"
@@ -1217,7 +1219,7 @@ def test_channels_create_without_mtls(
     # Server certificate pinned, no client identity presented
     ssl_channel_credentials.assert_called_once_with(b"server-cert")
     _, kwargs = channels_env.create_channel.call_args
-    assert kwargs["target_name_override"] == "researcher-host"
+    assert kwargs["target_name_override"] == "fbm-researcher"
     assert kwargs["certificate"] == ssl_channel_credentials.return_value
 
 
@@ -1228,7 +1230,7 @@ def test_channels_create_with_mtls(
 ):
     """Under mutual authentication the node presents its identity and still pins
     the name."""
-    certificate_san_names.return_value = ["researcher-host"]
+    certificate_san_names.return_value = ["fbm-researcher"]
     channels = Channels(
         researcher=ResearcherCredentials(
             host="localhost",
@@ -1251,7 +1253,7 @@ def test_channels_create_with_mtls(
     )
     certificate_san_names.assert_called_once_with(b"server-cert")
     _, kwargs = channels_env.create_channel.call_args
-    assert kwargs["target_name_override"] == "researcher-host"
+    assert kwargs["target_name_override"] == "fbm-researcher"
 
 
 @patch("fedbiomed.transport.client.certificate_san_names")
@@ -1260,7 +1262,7 @@ def test_channels_verify_the_dialled_address_when_named(
 ):
     """No override where the certificate names the address: the address dialled is
     then what TLS verifies, which is what the name check is for."""
-    certificate_san_names.return_value = ["researcher-host", "localhost", "127.0.0.1"]
+    certificate_san_names.return_value = ["fbm-researcher", "localhost", "127.0.0.1"]
 
     Channels(
         researcher=ResearcherCredentials(
@@ -1278,7 +1280,7 @@ def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(
 ):
     """A certificate is issued when the component is created, so it cannot always
     name the address nodes reach it at."""
-    certificate_san_names.return_value = ["researcher-host", "fbm.example.org"]
+    certificate_san_names.return_value = ["fbm-researcher", "fbm.example.org"]
 
     Channels(
         researcher=ResearcherCredentials(
@@ -1287,7 +1289,7 @@ def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(
     )._create()
 
     _, kwargs = channels_env.create_channel.call_args
-    assert kwargs["target_name_override"] == "researcher-host"
+    assert kwargs["target_name_override"] == "fbm-researcher"
 
 
 @patch("fedbiomed.transport.client.certificate_san_names")
@@ -1314,10 +1316,10 @@ def test_channels_create_channel_adds_target_name_override():
             port="50051",
             host="localhost",
             certificate=MagicMock(),
-            target_name_override="researcher-cn",
+            target_name_override="fbm-researcher",
         )
     options = dict(secure_channel.call_args.kwargs["options"])
-    assert options.get("grpc.ssl_target_name_override") == "researcher-cn"
+    assert options.get("grpc.ssl_target_name_override") == "fbm-researcher"
 
 
 def test_channels_create_channel_omits_override_when_absent():

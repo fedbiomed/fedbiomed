@@ -72,14 +72,21 @@ connection it is meant for.
 ### Names on the researcher certificate
 
 A node verifies the researcher by name, so the researcher certificate is issued for the
-hosts nodes reach it at: the `[server] host` of its configuration, plus `localhost` and
-`127.0.0.1`. For a researcher also reachable under a name its configuration does not
-hold — a public DNS name, a second interface — issue it for those names too:
+hosts nodes reach it at: the `[server] host` of its configuration, and the names given
+with `--san`, and nothing else. For a researcher reachable under a name its
+configuration does not hold — a public DNS name, a second interface — issue it for those
+names too:
 
 ```bash
 fedbiomed researcher certificate generate \
     --san fbm.example.org --san 10.0.0.9 --force
 ```
+
+Each name is written as what it is: an address goes in as an `iPAddress` entry, a host
+name as a `dNSName` one, and TLS never matches one against the other. Naming any
+loopback form — `localhost`, `127.0.0.1`, `::1` — issues the certificate for all three,
+since a node on the researcher's own machine dials whichever of them its configuration
+holds.
 
 The component was issued a certificate when it was created, so this **requires
 `--force`** — without it the command refuses to overwrite. The previous private key is

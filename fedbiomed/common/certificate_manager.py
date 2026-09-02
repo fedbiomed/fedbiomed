@@ -69,6 +69,26 @@ def certificate_component_id(certificate: Union[bytes, str]) -> Optional[str]:
     return certificate_subject_field(certificate, NameOID.COMMON_NAME)
 
 
+def is_loopback_name(name: str) -> bool:
+    """Whether a host name or address is one of the forms of the local machine."""
+    try:
+        return ipaddress.ip_address(name).is_loopback
+    except ValueError:
+        return name.lower() == "localhost"
+
+
+def san_entry(name: str) -> x509.GeneralName:
+    """The SAN entry a host name or address belongs in.
+
+    TLS never matches an address against a `dNSName` entry, so an IP literal is
+    issued as an `iPAddress` and everything else as a name.
+    """
+    try:
+        return x509.IPAddress(ipaddress.ip_address(name))
+    except ValueError:
+        return x509.DNSName(name)
+
+
 def certificate_san_names(certificate: Union[bytes, str]) -> List[str]:
     """Hosts and addresses a certificate is valid for.
 
@@ -755,12 +775,16 @@ class CertificateManager:
 
         pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
-        # The names given, plus the loopback names a party on the same machine dials
-        # it by. A certificate issued for none — a node's, resolved by fingerprint —
-        # carries no SubjectAlternativeName at all.
-        san_names = [entry for entry in san or [] if entry]
-        if san_names:
-            san_names = list(dict.fromkeys([*san_names, "localhost", "127.0.0.1"]))
+        # The names given and no others. One issued for none — a node's, resolved by
+        # fingerprint — carries no SubjectAlternativeName at all.
+        san_names = list(dict.fromkeys(entry for entry in san or [] if entry))
+
+        # A peer on this machine dials it by whichever loopback form it holds, and
+        # verifies only what the certificate carries: naming one names all three.
+        if any(is_loopback_name(name) for name in san_names):
+            san_names = list(
+                dict.fromkeys([*san_names, "localhost", "127.0.0.1", "::1"])
+            )
 
         # Who the component is, not where: its id, under the organization that marks
         # the certificate as issued by Fed-BioMed.
@@ -810,14 +834,9 @@ class CertificateManager:
         )
 
         if san_names:
-            entries: List[x509.GeneralName] = []
-            for entry in san_names:
-                try:
-                    entries.append(x509.IPAddress(ipaddress.ip_address(entry)))
-                except ValueError:
-                    entries.append(x509.DNSName(entry))
             builder = builder.add_extension(
-                x509.SubjectAlternativeName(entries), critical=False
+                x509.SubjectAlternativeName([san_entry(name) for name in san_names]),
+                critical=False,
             )
 
         certificate = builder.sign(private_key=pkey, algorithm=hashes.SHA256())
