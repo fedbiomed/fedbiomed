@@ -180,19 +180,17 @@ async def test_grpc_client_update_id(grpc_client):
 
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.logger.security_event")
-@patch("fedbiomed.transport.client.certificate_component_id", autospec=True)
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
 async def test_grpc_client_connect_security_log(
     is_server_alive,
     get_server_certificate,
-    component_id,
     security_event,
     grpc_client,
+    researcher_certificate,
 ):
     is_server_alive.return_value = True
-    get_server_certificate.return_value = "DUMMY-CERT"
-    component_id.return_value = _RESEARCHER_A
+    get_server_certificate.return_value = researcher_certificate.decode()
 
     # Avoid creating real grpc channels
     grpc_client.client._channels.connect = AsyncMock()  # no spec
@@ -204,6 +202,33 @@ async def test_grpc_client_connect_security_log(
     # yet established, so nothing reports it as such
     operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
     assert operations == ["server_certificate_auto_trusted"]
+
+
+@pytest.fixture(scope="module")
+def researcher_certificate(tmp_path_factory):
+    """A researcher certificate as a node meets it: issued for the host it serves."""
+    _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(tmp_path_factory.mktemp("researcher")),
+        certificate_name="server_certificate",
+        component_id=_RESEARCHER_A,
+        purpose=CERT_PURPOSE_SERVER,
+        san=["localhost"],
+    )
+    with open(pem_file, "rb") as file:
+        return file.read()
+
+
+@pytest.fixture(scope="module")
+def certificate_without_san(tmp_path_factory):
+    """A certificate stating no host, which TLS would verify on its Common Name."""
+    _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(tmp_path_factory.mktemp("nameless")),
+        certificate_name="server_certificate",
+        component_id=_RESEARCHER_A,
+        purpose=CERT_PURPOSE_SERVER,
+    )
+    with open(pem_file, "rb") as file:
+        return file.read()
 
 
 @pytest.mark.asyncio
@@ -242,23 +267,24 @@ async def test_channel_event_identifies_researcher_certificate(
 
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
-@patch("fedbiomed.transport.client.certificate_component_id", autospec=True)
 @patch("fedbiomed.transport.client.is_server_alive", autospec=True)
 async def test_grpc_client_connect_pins_the_certificate_under_mutual_authentication(
     is_server_alive,
-    component_id,
     get_server_certificate,
     grpc_client,
+    researcher_certificate,
 ):
     """Under mutual authentication the researcher certificate is pinned, so the node
     connects with the certificate it was given rather than fetching one."""
     is_server_alive.return_value = True
-    component_id.return_value = "test-researcher"
 
     client = GrpcClient(
         node_id=_NODE_A,
         researcher=ResearcherCredentials(
-            port="50051", host="localhost", certificate=b"CERT", mtls=True
+            port="50051",
+            host="localhost",
+            certificate=researcher_certificate,
+            mtls=True,
         ),
         update_id_map=grpc_client.update_id_map,
     )
@@ -268,6 +294,127 @@ async def test_grpc_client_connect_pins_the_certificate_under_mutual_authenticat
 
     get_server_certificate.assert_not_called()
     client._channels.connect.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_refuses_a_fetched_certificate_stating_no_host(
+    is_server_alive,
+    get_server_certificate,
+    security_event,
+    grpc_client,
+    certificate_without_san,
+):
+    """A certificate carrying no name is verified on its Common Name, which states a
+    component id and no host: the node refuses it rather than connect on that."""
+    is_server_alive.return_value = True
+    get_server_certificate.return_value = certificate_without_san.decode()
+    grpc_client.client._channels.connect = AsyncMock()
+
+    with pytest.raises(FedbiomedCommunicationError, match="Subject Alternative Name"):
+        await grpc_client.client._connect()
+
+    grpc_client.client._channels.connect.assert_not_called()
+    events = [
+        c.kwargs
+        for c in security_event.call_args_list
+        if c.kwargs.get("operation") == "researcher_certificate_without_san"
+    ]
+    assert len(events) == 1
+    assert events[0]["status"] == "failure"
+    # The refused certificate is identified for whoever reads the audit log
+    assert events[0]["cert_subject"] == f"CN={_RESEARCHER_A},O={CERT_ORGANIZATION}"
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.ssl.get_server_certificate", autospec=True)
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_refuses_a_pinned_certificate_stating_no_host(
+    is_server_alive, get_server_certificate, grpc_client, certificate_without_san
+):
+    """The same rule under mutual authentication, where the certificate is registered
+    rather than fetched: pinning it would authenticate the researcher on no host."""
+    is_server_alive.return_value = True
+
+    client = GrpcClient(
+        node_id=_NODE_A,
+        researcher=ResearcherCredentials(
+            port="50051",
+            host="localhost",
+            certificate=certificate_without_san,
+            mtls=True,
+        ),
+        update_id_map=grpc_client.update_id_map,
+    )
+    client._channels.connect = AsyncMock()
+
+    with pytest.raises(FedbiomedCommunicationError, match="Subject Alternative Name"):
+        await client._connect()
+
+    client._channels.connect.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger._logger.warning")
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_reports_a_host_the_certificate_does_not_name(
+    is_server_alive, log_warning, grpc_client, researcher_certificate
+):
+    """The node connects to the host it is configured for while the certificate is
+    verified under a name of its own, and says so: both values are named."""
+    is_server_alive.return_value = True
+
+    client = GrpcClient(
+        node_id=_NODE_A,
+        researcher=ResearcherCredentials(
+            port="50051",
+            host="10.9.9.9",
+            certificate=researcher_certificate,
+            mtls=True,
+        ),
+        update_id_map=grpc_client.update_id_map,
+    )
+    client._channels.connect = AsyncMock()
+
+    await client._connect()
+
+    log_warning.assert_called_once()
+    message = log_warning.call_args.args[0]
+    # The address dialled, where it is read from, and the name verified instead
+    assert "`10.9.9.9:50051`" in message
+    assert "[researcher] ip" in message
+    assert "`localhost`" in message
+    client._channels.connect.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger._logger.warning")
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_says_nothing_of_a_loopback_form_of_the_same_machine(
+    is_server_alive, log_warning, grpc_client, researcher_certificate
+):
+    """`localhost` in the certificate and `127.0.0.1` in the configuration are the
+    same machine: nothing for an operator to act on."""
+    is_server_alive.return_value = True
+
+    client = GrpcClient(
+        node_id=_NODE_A,
+        researcher=ResearcherCredentials(
+            port="50051",
+            host="127.0.0.1",
+            certificate=researcher_certificate,
+            mtls=True,
+        ),
+        update_id_map=grpc_client.update_id_map,
+    )
+    client._channels.connect = AsyncMock()
+
+    await client._connect()
+
+    log_warning.assert_not_called()
+    client._channels.connect.assert_awaited_once()
 
 
 # -----------------------------------------------------------------------------
@@ -685,6 +832,60 @@ async def test_task_listener_mtls_rejection_logged_once(
     assert "is not registered there" in log_warning.call_args[0][0]
     # The repeat went to debug with the same explanation
     assert any("TLS handshake" in c.args[0] for c in log_debug.call_args_list)
+
+
+_NAME_CHECK_RPC_ERROR = (
+    "failed to connect to all addresses; last error: UNKNOWN: "
+    "ipv4:127.0.0.1:50051: Custom verification check failed with error: "
+    "UNAUTHENTICATED: Hostname Verification Check failed."
+)
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_stops_on_a_failed_name_check(
+    sleep, log_error, security_event, listener_env
+):
+    """The name is read from the registered certificate, so a peer failing the check
+    is serving another one: the node stops rather than retry."""
+    listener_env.channels.mtls = True
+
+    await listener_env.drain(
+        [_rpc_error(grpc.StatusCode.UNAVAILABLE, _NAME_CHECK_RPC_ERROR)],
+        expect=FedbiomedCommunicationError,
+    )
+
+    listener_env.on_status_change.assert_any_await(ClientStatus.FAILED)
+    assert (
+        "does not carry the name this node verifies it under"
+        in log_error.call_args[0][0]
+    )
+    event = security_event.call_args.kwargs
+    assert event["operation"] == "researcher_failed_name_check"
+    assert event["status"] == "failure"
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_stops_on_a_failed_name_check_without_mtls(
+    sleep, log_error, listener_env
+):
+    """A fetched certificate names the peer just as a registered one does, so the
+    check is not conditional on mutual authentication."""
+    listener_env.channels.mtls = False
+
+    await listener_env.drain(
+        [_rpc_error(grpc.StatusCode.UNAVAILABLE, _NAME_CHECK_RPC_ERROR)],
+        expect=FedbiomedCommunicationError,
+    )
+
+    assert (
+        "does not carry the name this node verifies it under"
+        in log_error.call_args[0][0]
+    )
 
 
 @pytest.mark.asyncio

@@ -16,6 +16,7 @@ from fedbiomed.common.certificate_manager import (
     certificate_audit_fields,
     certificate_component_id,
     certificate_san_names,
+    is_loopback_name,
 )
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
@@ -32,6 +33,10 @@ from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceS
 # UNAVAILABLE error-detail markers of a TLS/pinning failure (gRPC reports it
 # with the same status as an unreachable server).
 _TLS_HANDSHAKE_ERROR_MARKERS = ("handshake", "certificate", "ssl", "tls")
+
+# UNAVAILABLE error-detail marker of the peer not carrying the name it is verified
+# under; in none of the terms above, so it would read as a server that never started.
+_NAME_CHECK_ERROR_MARKER = "hostname verification"
 
 # UNAVAILABLE error-detail markers of a connection closed by the peer, the only
 # trace of a server rejecting the client certificate mid-handshake.
@@ -138,6 +143,12 @@ def _is_connection_closed_error(exp: grpc.aio.AioRpcError) -> bool:
     """Whether an UNAVAILABLE RPC error is a connection closed by the peer."""
     detail = f"{exp.details()} {exp.debug_error_string()}".lower()
     return any(m in detail for m in _CONNECTION_CLOSED_ERROR_MARKERS)
+
+
+def _is_name_check_failure(exp: grpc.aio.AioRpcError) -> bool:
+    """Whether an UNAVAILABLE RPC error is the peer failing the name check."""
+    detail = f"{exp.details()} {exp.debug_error_string()}".lower()
+    return _NAME_CHECK_ERROR_MARKER in detail
 
 
 def _is_connection_recycled_error(exp: grpc.aio.AioRpcError) -> bool:
@@ -496,6 +507,48 @@ class GrpcClient:
                         detail=msg,
                     )
 
+                san_names = certificate_san_names(self._researcher.certificate)
+
+                # Refused so no channel is built on the Common Name: TLS falls back
+                # to it where the SAN names no host, and it holds a component id.
+                if not san_names:
+                    msg = (
+                        f"{ErrorNumbers.FB628.value}: The researcher certificate at "
+                        f"{self._researcher.host}:{self._researcher.port} states no "
+                        "host: its Subject Alternative Name carries no host name and "
+                        "no address, so nothing in it says which server it is valid "
+                        "for. Request the researcher to reissue its certificate for "
+                        "the hosts nodes reach it at."
+                    )
+                    logger.error(msg)
+                    logger.security_event(
+                        operation="researcher_certificate_without_san",
+                        status="failure",
+                        host=self._researcher.host,
+                        port=self._researcher.port,
+                        detail=msg,
+                        **certificate_audit_fields(self._researcher.certificate),
+                    )
+                    raise FedbiomedCommunicationError(msg)
+
+                # Says how the channel is built, not that a connection followed:
+                # none is open yet. Two loopback forms are the same machine.
+                if self._researcher.host not in san_names and not (
+                    is_loopback_name(self._researcher.host)
+                    and any(is_loopback_name(name) for name in san_names)
+                ):
+                    logger.warning(
+                        "The address this node creates the connection at is "
+                        f"`{self._researcher.host}:{self._researcher.port}`, read "
+                        "from `[researcher] ip` and `[researcher] port` in its "
+                        "configuration. The researcher certificate is issued for "
+                        f"{', '.join(f'`{name}`' for name in san_names)}, which does "
+                        f"not include the host `{self._researcher.host}`. The channel "
+                        f"is verified under `{san_names[0]}`, the first name the "
+                        "certificate carries, rather than under the host dialled; the "
+                        "mismatch does not by itself stop the node connecting."
+                    )
+
                 if self._id is None:
                     # auto-detect researcher_id from the peer certificate; a
                     # certificate Fed-BioMed did not issue carries no component id
@@ -689,6 +742,27 @@ class Listener:
                                 "connection on its maximum age, will reconnect in "
                                 f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
                             )
+                        elif _is_name_check_failure(exp):
+                            # Verified under a name read from the registered
+                            # certificate: a peer failing it is serving another one.
+                            await self._on_status_change(ClientStatus.FAILED)
+                            msg = (
+                                f"{ErrorNumbers.FB628.value}: The researcher at "
+                                f"{self._channels.endpoint} does not carry the name "
+                                "this node verifies it under, which is read from the "
+                                "certificate registered here: it is serving a "
+                                "different certificate, or one stating a name TLS "
+                                f"cannot match. The researcher replied: {exp.details()}"
+                            )
+                            logger.error(msg)
+                            logger.security_event(
+                                operation="researcher_failed_name_check",
+                                status="failure",
+                                host=self._channels.host,
+                                port=self._channels.port,
+                                detail=msg,
+                            )
+                            raise FedbiomedCommunicationError(msg) from exp
                         elif self._channels.mtls and _is_tls_handshake_error(exp):
                             self._log_connection_failure_once(
                                 "Mutual authentication (mTLS) handshake with "

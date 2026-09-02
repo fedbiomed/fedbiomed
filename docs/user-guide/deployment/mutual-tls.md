@@ -88,9 +88,50 @@ loopback form — `localhost`, `127.0.0.1`, `::1` — issues the certificate for
 since a node on the researcher's own machine dials whichever of them its configuration
 holds.
 
+A certificate stating no host is refused, and a node holding one does not start. TLS
+falls back to the Common Name for such a certificate, and here the Common Name holds
+the component id, never a host — so the node would be verifying the researcher against
+a field that names no server. Only `dNSName` and `iPAddress` entries state a host: a
+Subject Alternative Name carrying just an e-mail address or a URI, as one issued
+outside Fed-BioMed may, states none. This applies whether the certificate is fetched
+(server-authenticated TLS) or registered (mutual authentication).
+
 The component was issued a certificate when it was created, so this **requires
 `--force`** — without it the command refuses to overwrite. The previous private key is
 lost, so every party holding the old certificate has to register the new one.
+
+### When the address and the certificate name different hosts
+
+A node dials the address in its `[researcher] ip`, and that address is what has to be
+right: nothing in a certificate changes where the connection is made. The certificate
+decides something else — the name TLS verifies the researcher under.
+
+The two need not agree. Where the configured host is not among the names the
+certificate carries, the node verifies the connection under the first name it does
+carry, and **connects**. It reports the two values once at startup, at warning level:
+
+```
+The address this node creates the connection at is `10.9.9.9:50051`, read from
+`[researcher] ip` and `[researcher] port` in its configuration. The researcher
+certificate is issued for `researcher.example.org`, which does not include the host
+`10.9.9.9`. The channel is verified under `researcher.example.org`, the first name the
+certificate carries, rather than under the host dialled; the mismatch does not by
+itself stop the node connecting.
+```
+
+Nothing else follows from it. What authenticates the researcher is the certificate the
+node registered, not the address: a party answering at that address with any other
+certificate is refused during the handshake. Two loopback forms of the same machine —
+`127.0.0.1` configured against a certificate naming `localhost` — are not reported at
+all.
+
+!!! note "When the researcher moves to another address"
+    Change `[researcher] ip` on the nodes and restart them. That is the whole
+    procedure: the certificate names hosts, not the machine's current address, and
+    keeps working. **Do not reissue the certificate for the new address** — `--force`
+    destroys its private key, and every node then has to receive and register the new
+    one before it can connect again. Reissue only on expiry, or if the key is
+    compromised.
 
 ## Enabling mutual authentication
 
@@ -350,6 +391,9 @@ rejected node (it says so once at startup).
 |---|---|---|
 | `FB619 … no researcher certificate is registered` (node won't start) | Mutual authentication on, researcher cert missing on node | Register the researcher certificate on the node |
 | `FB619 … certificates are registered` (node won't start) | More than one certificate is registered on the node, so the one to pin is ambiguous | Delete the extras with `fedbiomed node certificate delete`, keeping its researcher's |
+| `FB628 … states no host` (node stops) | The researcher certificate names no host, so TLS would verify it on its Common Name, which holds a component id. Its Subject Alternative Name is absent, or carries only entries that name no server — an e-mail address, a URI. A certificate issued elsewhere, or one from a Fed-BioMed release that did not write a SAN | Request the researcher to reissue its certificate for the hosts nodes reach it at; under mutual authentication, register the new one on the node and restart it |
+| Warning `The address this node creates the connection at is …` (node connects) | The configured `[researcher] ip` is not among the names the certificate carries, so the connection is verified under a name that is. Expected wherever a researcher is reached at an address its certificate does not name | Nothing is required — the node connects and the researcher is still authenticated by its certificate. To stop reporting it, have the researcher reissue for the address nodes dial, or set `[researcher] ip` to a name the certificate carries |
+| `FB628 … does not carry the name this node verifies it under` (node stops) | The peer failed the name check against a name read from the registered certificate, so it is serving a different certificate — or one stating a name TLS cannot match | Register the researcher's current certificate on the node and restart it. If it is already current, request the researcher to reissue it for the hosts nodes reach it at |
 | Debug `Researcher server is not available` (node retries) | The endpoint is not up. Under mutual authentication a researcher with no node certificate registered refuses to start, so this is what a node sees of it | Check the researcher started, and that at least one node certificate is registered there |
 | Warning `Mutual authentication (mTLS) handshake with researcher failed` (node retries) | The certificates the two sides hold for each other do not match — most often a pinned researcher certificate that is wrong or outdated — or a possible MITM | Re-register the current researcher certificate on the node and restart it — a running node keeps the certificate it read at startup — and check this node's certificate is the one registered on the researcher |
 | Warning `… reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher, or expired — rejected inside the handshake. A researcher that is restarting closes connections the same way, and clears on its own | Register the node's certificate on the researcher; if it is registered, check its expiry, then whether the researcher was restarting |
