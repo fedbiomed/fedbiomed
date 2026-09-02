@@ -1,6 +1,4 @@
 import configparser
-import os
-import tempfile
 from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch

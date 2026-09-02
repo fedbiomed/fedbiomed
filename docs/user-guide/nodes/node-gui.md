@@ -125,12 +125,14 @@ password = admin
 
 ## Certificates and the researcher connection
 
-The **Certificates** tab of the Node Management page holds what the node needs to
-communicate over [mutual TLS](../deployment/mutual-tls.md): its own certificate to
-send to the researcher, the researcher certificate it registers and pins, the
-`[authentication]` setting, and the state of its connection to the researcher as the node
-last observed it. It is restricted to administrators, and its actions are the ones
-`fedbiomed node certificate` offers on the command line.
+The **Configuration** tab of the Node Management page holds what the node needs to
+communicate over [mutual TLS](../deployment/mutual-tls.md), grouped under
+*Connection & certificates*: its own certificate to send to the researcher, the
+researcher certificate it registers and pins, and the `[authentication]` setting.
+The **Connection & Diagnostics** tab reads the state of the connection to the
+researcher as the node last observed it. Both are restricted to administrators, and
+the certificate actions are the ones `fedbiomed node certificate` offers on the
+command line.
 
 ## Production Mode
 

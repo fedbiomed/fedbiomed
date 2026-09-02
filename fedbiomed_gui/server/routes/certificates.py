@@ -117,6 +117,17 @@ def _startup_check(registered: List[Dict[str, Any]], mtls_enabled: bool) -> List
             "cannot start. Delete all but the researcher this node connects to."
         )
 
+    # The node verifies the researcher under a name read from its certificate, and
+    # refuses to start on one that states none.
+    for certificate in registered:
+        if not certificate["san"]:
+            problems.append(
+                f"The certificate registered for {certificate['component_id']} states "
+                "no host, so the node cannot verify the researcher and will not "
+                "start. Request the researcher to reissue it for the hosts nodes "
+                "reach it at."
+            )
+
     # The node reads both to build the identity it presents, so either one missing
     # stops it.
     for label, key in (("private key", "private_key"), ("certificate", "public_key")):

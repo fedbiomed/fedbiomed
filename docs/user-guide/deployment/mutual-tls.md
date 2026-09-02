@@ -236,20 +236,29 @@ debug level. The security audit log records every one of them.
 
 ## From the Node GUI
 
-A node does the same from the **Certificates** tab of the Node Management page of
-its [GUI](../nodes/node-gui.md), which is restricted to administrators:
+A node does the same from the **Configuration** tab of the Node Management page of
+its [GUI](../nodes/node-gui.md), which is restricted to administrators. Its
+*Connection & certificates* group holds the researcher endpoint, this node's own
+certificate and the `[authentication]` setting, each with the window it opens:
 
-- read its own certificate and download it, to send to the researcher;
-- register the researcher certificate — pasted or from a file — and delete it;
-- turn `[authentication] mutual_authentication` on and off;
-- read the state of the connection to the researcher: whether the channel is up,
-  whether it is mutually authenticated, and why it last failed.
+- **Manage certificate**, under this node's own pair: read what the node presents,
+  download it to send to the researcher, regenerate it, or replace it with a
+  certificate and private key issued elsewhere. The displaced pair is kept as a
+  timestamped backup beside it;
+- **Registered certificate**, under the researcher: register the researcher
+  certificate — pasted or from a file — and delete it. Turning
+  `mutual_authentication` on opens this window, since that is what makes a
+  registered certificate necessary.
 
-The tab reports what would stop the node from starting before you start it: mutual
+It reports what would stop the node from starting before you start it: mutual
 authentication enabled with no researcher certificate registered, several registered,
-or the node's own key or certificate file missing. Certificates are read when the node
-starts, so registering one or changing the setting takes effect when the node is
-restarted.
+a registered certificate that states no host, or the node's own key or certificate
+file missing. Certificates are read when the node starts, so registering one or
+changing the setting takes effect when the node is restarted.
+
+The **Connection & Diagnostics** tab reads the state of the connection to the
+researcher as the node last recorded it: whether the channel is up, whether it is
+mutually authenticated, why it last failed, and what to do about it.
 
 The researcher has no GUI; it is configured with the commands above.
 
