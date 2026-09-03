@@ -82,15 +82,32 @@ fedbiomed researcher certificate generate \
     --san fbm.example.org --san 10.0.0.9 --force
 ```
 
+The component was issued a certificate when it was created, so this **requires
+`--force`** — without it the command refuses to overwrite. The previous private key is
+lost, so every party holding the old certificate has to register the new one.
+
 Each name is written as what it is: an address goes in as an `iPAddress` entry, a host
 name as a `dNSName` one, and TLS never matches one against the other. Naming any
 loopback form — `localhost`, `127.0.0.1`, `::1` — issues the certificate for all three,
 since a node on the researcher's own machine dials whichever of them its configuration
-holds.
+holds. Only these two kinds of entry state a host: a Subject Alternative Name carrying
+just an e-mail address or a URI states none.
 
-The component was issued a certificate when it was created, so this **requires
-`--force`** — without it the command refuses to overwrite. The previous private key is
-lost, so every party holding the old certificate has to register the new one.
+A node refuses to register a researcher certificate that states no host, and builds no
+channel on one it was given or fetched. gRPC verifies such a certificate against its
+Common Name, which here holds the component id, and which any other issuer fills as it
+likes — a host among the rest: the researcher would be authenticated on free text.
+
+A node certificate states no host and is registered on the researcher as it is: a node
+is authenticated by the certificate registered for it, never by name.
+
+!!! note "When the address dialled is not a name the certificate carries"
+    A researcher certificate is issued for the hosts known when it was generated, which
+    need not include the `[researcher] ip` a node dials. The node then verifies the
+    connection under the first name the certificate does carry and connects, warning
+    once at startup — unless that name is a loopback form of the machine it dials, the
+    same machine under another spelling. This is a design choice and may change — what
+    authenticates the researcher is the certificate the node holds, not the address.
 
 ## Enabling mutual authentication
 
@@ -350,6 +367,9 @@ rejected node (it says so once at startup).
 |---|---|---|
 | `FB619 … no researcher certificate is registered` (node won't start) | Mutual authentication on, researcher cert missing on node | Register the researcher certificate on the node |
 | `FB619 … certificates are registered` (node won't start) | More than one certificate is registered on the node, so the one to pin is ambiguous | Delete the extras with `fedbiomed node certificate delete`, keeping its researcher's |
+| `FB619 … states no host` (registration refused on the node) | The researcher certificate names no host, so gRPC would verify it against its Common Name. Its Subject Alternative Name is absent, or carries only entries that name no server — an e-mail address, a URI | Request the researcher to reissue its certificate for the hosts nodes reach it at, then register that one |
+| `FB628 … states no host` (node stops) | The same certificate reaching the connection: one registered before this rule, or one fetched from the researcher where mutual authentication is off, since nothing registers it | Request the researcher to reissue its certificate for the hosts nodes reach it at; under mutual authentication, register the new one on the node and restart it |
+| `FB628 … does not carry the name this node verifies it under` (node stops) | gRPC accepted the researcher's certificate but refused its name. The name comes from the certificate the node holds, so this needs one that vouches for a differently named certificate — a certificate authority's, held in place of the researcher's own. A researcher simply serving another certificate is refused earlier, as the mTLS handshake failure below. Retrying cannot change either | Hold the certificate the researcher serves, not one that vouches for it: register it on the node and restart it; without mutual authentication, restart the node, which fetches it |
 | Debug `Researcher server is not available` (node retries) | The endpoint is not up. Under mutual authentication a researcher with no node certificate registered refuses to start, so this is what a node sees of it | Check the researcher started, and that at least one node certificate is registered there |
 | Warning `Mutual authentication (mTLS) handshake with researcher failed` (node retries) | The certificates the two sides hold for each other do not match — most often a pinned researcher certificate that is wrong or outdated — or a possible MITM | Re-register the current researcher certificate on the node and restart it — a running node keeps the certificate it read at startup — and check this node's certificate is the one registered on the researcher |
 | Warning `… reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher, or expired — rejected inside the handshake. A researcher that is restarting closes connections the same way, and clears on its own | Register the node's certificate on the researcher; if it is registered, check its expiry, then whether the researcher was restarting |

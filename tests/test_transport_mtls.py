@@ -41,6 +41,7 @@ from fedbiomed.common.certificate_manager import (
     certificate_subject_field,
 )
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchReply, SearchRequest
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.client import (
@@ -49,6 +50,7 @@ from fedbiomed.transport.client import (
     NodeClientIdentity,
     ResearcherCredentials,
     TaskListener,
+    _is_name_check_failure,
     _researcher_requires_client_auth,
 )
 from fedbiomed.transport.node_agent import AgentStore
@@ -57,6 +59,7 @@ from fedbiomed.transport.protocols.researcher_pb2 import (
     TaskRequest,
     TaskResult,
 )
+from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceStub
 from fedbiomed.transport.server import (
     ResearcherServicer,
     SSLCredentials,
@@ -108,15 +111,15 @@ def _third_party(common_name):
     )
 
 
-def _naming_only(host):
-    """A server certificate naming `host` alone, as PEM (key, certificate).
+def _server_certificate(common_name=RESEARCHER_ID, host=None):
+    """A server certificate issued outside Fed-BioMed, as PEM (key, certificate).
 
-    Fed-BioMed adds the loopback names to every certificate it issues, so one that
-    names none of the addresses a test can dial is necessarily issued elsewhere.
+    Names `host` if given, and holds `common_name` in `CN=`, which Fed-BioMed fills
+    with a component id and another issuer with whatever it chooses.
     """
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    name = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, RESEARCHER_ID)])
-    certificate = (
+    name = x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, common_name)])
+    builder = (
         x509.CertificateBuilder()
         .subject_name(name)
         .issuer_name(name)
@@ -124,11 +127,12 @@ def _naming_only(host):
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now(timezone.utc))
         .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
-        .add_extension(
+    )
+    if host is not None:
+        builder = builder.add_extension(
             x509.SubjectAlternativeName([x509.DNSName(host)]), critical=False
         )
-        .sign(private_key=key, algorithm=hashes.SHA256())
-    )
+    certificate = builder.sign(private_key=key, algorithm=hashes.SHA256())
     return (
         key.private_bytes(
             serialization.Encoding.PEM,
@@ -948,10 +952,12 @@ async def test_unregistered_node_gets_the_connection_error_not_an_identity_verdi
 @pytest.mark.asyncio
 async def test_wrong_pinned_server_cert_gets_the_connection_error(certs):
     """The node refusing the researcher certificate surfaces the same way."""
+    # Names a host, so the channel is built and gRPC refuses it at the handshake
+    _, wrong_certificate = _server_certificate(host="localhost")
     server, port = await _serve(certs, lambda: certs["node_cert"])
     try:
         with pytest.raises(grpc.aio.AioRpcError) as raised:
-            await _one_task_request(certs, port, certs["node_cert"])
+            await _one_task_request(certs, port, wrong_certificate)
         assert raised.value.code() is grpc.StatusCode.UNAVAILABLE
     finally:
         await server.stop(0)
@@ -996,7 +1002,7 @@ async def test_channel_connects_to_a_server_auth_only_researcher(certs):
         ResearcherCredentials(
             host="127.0.0.1", port=str(port), certificate=certs["researcher_cert"]
         )
-    )._create()
+    )._create(certificate_san_names(certs["researcher_cert"]))
     try:
         await asyncio.wait_for(channel.channel_ready(), timeout=4)
     finally:
@@ -1010,7 +1016,7 @@ async def test_channel_connects_on_an_address_the_certificate_omits():
     under the name it does carry: a certificate issued outside Fed-BioMed names
     the hosts its issuer knew, which need not be how nodes reach the researcher.
     """
-    key, cert = _naming_only("fbm-researcher")
+    key, cert = _server_certificate(host="fbm-researcher")
     server = grpc.aio.server()
     port = server.add_secure_port(
         "127.0.0.1:0", grpc.ssl_server_credentials([(key, cert)])
@@ -1020,12 +1026,80 @@ async def test_channel_connects_on_an_address_the_certificate_omits():
     # Certificate names `fbm-researcher` alone, node dials 127.0.0.1
     channel = Channels(
         ResearcherCredentials(host="127.0.0.1", port=str(port), certificate=cert)
-    )._create()
+    )._create(certificate_san_names(cert))
     try:
         await asyncio.wait_for(channel.channel_ready(), timeout=4)
     finally:
         await channel.close()
         await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_grpc_verifies_a_certificate_stating_no_host_on_its_common_name():
+    """What the refusal below is for: gRPC falls back to the Common Name where a
+    certificate states no host, and `CN=` is free text an issuer may fill with a host.
+    A gRPC dropping that fallback fails here alone, the refusal being right either way.
+    """
+    key, cert = _server_certificate(common_name="127.0.0.1")
+    server = grpc.aio.server()
+    port = server.add_secure_port(
+        "127.0.0.1:0", grpc.ssl_server_credentials([(key, cert)])
+    )
+    await server.start()
+
+    channel = grpc.aio.secure_channel(
+        f"127.0.0.1:{port}", grpc.ssl_channel_credentials(root_certificates=cert)
+    )
+    try:
+        await asyncio.wait_for(channel.channel_ready(), timeout=4)
+    finally:
+        await channel.close()
+        await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_grpc_reports_a_refused_name_the_way_the_listener_reads_it():
+    """The detail a real gRPC gives a failed name check, which the listener tells
+    apart from the handshake failure it retries. A gRPC wording it otherwise fails
+    here, rather than leaving the node retrying what no retry clears.
+    """
+    key, cert = _server_certificate(host="fbm-researcher")
+    server = grpc.aio.server()
+    port = server.add_secure_port(
+        "127.0.0.1:0", grpc.ssl_server_credentials([(key, cert)])
+    )
+    await server.start()
+
+    # Pinned to the certificate the server serves, verified under a name it omits
+    channel = grpc.aio.secure_channel(
+        f"127.0.0.1:{port}",
+        grpc.ssl_channel_credentials(root_certificates=cert),
+        options=[("grpc.ssl_target_name_override", "fbm-elsewhere")],
+    )
+    try:
+        with pytest.raises(grpc.aio.AioRpcError) as raised:
+            await (
+                ResearcherServiceStub(channel=channel)
+                .GetTaskUnary(TaskRequest(node=NODE_ID), timeout=4)
+                .read()
+            )
+        assert raised.value.code() is grpc.StatusCode.UNAVAILABLE
+        assert _is_name_check_failure(raised.value)
+    finally:
+        await channel.close()
+        await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_channel_refuses_a_certificate_stating_no_host():
+    """The researcher would be authenticated on its Common Name, so no channel is
+    built on such a certificate and no server is dialled to find out."""
+    _, cert = _server_certificate(common_name="127.0.0.1")
+
+    with pytest.raises(FedbiomedCommunicationError, match="states no host"):
+        await Channels(
+            ResearcherCredentials(host="127.0.0.1", port="50051", certificate=cert)
+        ).connect()
 
 
 def _in_fresh_interpreter(code, preset=None):
