@@ -221,13 +221,23 @@ def _researcher_requires_client_auth(host: str, port: str) -> Optional[bool]:
 class Channels:
     """Keeps gRPC server channels"""
 
-    def __init__(self, researcher: ResearcherCredentials):
+    def __init__(
+        self,
+        researcher: ResearcherCredentials,
+        on_connection_state: Optional[Callable] = None,
+    ):
         """Create channels and stubs
 
         Args:
             researcher: An instance of ResearcherCredentials
+            on_connection_state: Called with the state of this channel whenever it
+                changes, for a node that records it. None reports nothing.
         """
         self._researcher = researcher
+        self._on_connection_state = on_connection_state
+
+        # Id of the researcher on the other end, once the node learns it
+        self.researcher_id: Optional[str] = None
 
         self._channels = {}
         self._stubs = {}
@@ -267,6 +277,36 @@ class Channels:
     def port(self) -> str:
         """Researcher server port."""
         return self._researcher.port
+
+    def report_state(
+        self,
+        state: ClientStatus,
+        *,
+        operation: Optional[str] = None,
+        reason: Optional[str] = None,
+        identity_verified: Optional[bool] = None,
+    ) -> None:
+        """Reports the state of this channel to the node, when it asked to be told.
+
+        The facts of the channel itself are added here; the caller supplies what only
+        it knows. `operation` names the matching security audit event.
+        """
+        if self._on_connection_state is None:
+            return
+
+        self._on_connection_state(
+            state=state,
+            host=self.host,
+            port=self.port,
+            mtls=self.mtls,
+            researcher_id=self.researcher_id,
+            identity_verified=identity_verified,
+            operation=operation,
+            reason=reason,
+            certificate=certificate_audit_fields(self._researcher.certificate)
+            if self._researcher.certificate
+            else None,
+        )
 
     async def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
         """Get stub for a given stub type.
@@ -397,7 +437,11 @@ class GrpcClient:
     """An agent of remote researcher gRPC server."""
 
     def __init__(
-        self, node_id: str, researcher: ResearcherCredentials, update_id_map: Awaitable
+        self,
+        node_id: str,
+        researcher: ResearcherCredentials,
+        update_id_map: Awaitable,
+        on_connection_state: Optional[Callable] = None,
     ) -> None:
         """Class constructor
 
@@ -405,10 +449,12 @@ class GrpcClient:
             node_id: unique ID of this node (connection client)
             researcher: the researcher to which the node connects (connection server)
             update_id_map: awaitable to call when updating the researcher ID, needs proper prototype
+            on_connection_state: Called with the connection state whenever it changes,
+                for a node that records it. None reports nothing.
         """
         self._id = None
         self._researcher = researcher
-        self._channels = Channels(researcher)
+        self._channels = Channels(researcher, on_connection_state)
 
         self._task_listener = TaskListener(
             channels=self._channels,
@@ -529,6 +575,12 @@ class GrpcClient:
                         detail=msg,
                         **certificate_audit_fields(self._researcher.certificate),
                     )
+                    self._channels.report_state(
+                        ClientStatus.FAILED,
+                        operation="researcher_certificate_without_san",
+                        reason=msg,
+                        identity_verified=False,
+                    )
                     raise FedbiomedCommunicationError(msg)
 
                 # Says how the channel is built, not that a connection followed:
@@ -553,6 +605,7 @@ class GrpcClient:
                     # auto-detect researcher_id from the peer certificate; a
                     # certificate Fed-BioMed did not issue carries no component id
                     self._id = certificate_component_id(self._researcher.certificate)
+                    self._channels.researcher_id = self._id
 
                 # Connect to channels and create stubs
                 await self._channels.connect()
@@ -604,6 +657,7 @@ class GrpcClient:
             raise FedbiomedCommunicationError(msg)
 
         self._id = id_
+        self._channels.researcher_id = id_
         await self._update_id_map(
             f"{self._researcher.host}:{self._researcher.port}", id_
         )
@@ -687,6 +741,12 @@ class Listener:
             port=self._channels.port,
             detail=message,
         )
+        self._channels.report_state(
+            ClientStatus.DISCONNECTED,
+            operation=operation,
+            reason=message,
+            identity_verified=False,
+        )
 
     async def _post_handle_raise(self, exp: BaseException):
         """Raise a transformed exception from a base exception.
@@ -762,6 +822,12 @@ class Listener:
                                 port=self._channels.port,
                                 detail=msg,
                             )
+                            self._channels.report_state(
+                                ClientStatus.FAILED,
+                                operation="researcher_failed_name_check",
+                                reason=msg,
+                                identity_verified=False,
+                            )
                             raise FedbiomedCommunicationError(msg) from exp
                         elif self._channels.mtls and _is_tls_handshake_error(exp):
                             self._log_connection_failure_once(
@@ -820,11 +886,27 @@ class Listener:
                                 port=self._channels.port,
                                 detail=msg,
                             )
+                            self._channels.report_state(
+                                ClientStatus.FAILED,
+                                operation="mtls_required_by_researcher",
+                                reason=msg,
+                                identity_verified=False,
+                            )
                             raise FedbiomedCommunicationError(msg) from exp
                         else:
                             logger.debug(
                                 f"Researcher server is not available to {self.__class__.__name__}, will retry connect in "
                                 f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
+                            )
+                            # Reported without naming the listener, so that the two
+                            # listeners retrying report one and the same state.
+                            self._channels.report_state(
+                                ClientStatus.DISCONNECTED,
+                                operation="researcher_unavailable",
+                                reason=(
+                                    f"Researcher server at {self._channels.endpoint} "
+                                    "is not available; retrying."
+                                ),
                             )
                         await self._handle_after_process(
                             ClientStatus.DISCONNECTED,
@@ -864,6 +946,11 @@ class Listener:
                             grpc_status=exp.code().name,
                             detail=msg,
                         )
+                        self._channels.report_state(
+                            ClientStatus.FAILED,
+                            operation="grpc_client_error",
+                            reason=msg,
+                        )
                         await self._handle_after_process(
                             ClientStatus.FAILED,
                             retry=self._retry_on_error,
@@ -898,6 +985,11 @@ class Listener:
                     origin="client",
                     error_type=type(exp).__name__,
                     detail=msg,
+                )
+                self._channels.report_state(
+                    ClientStatus.FAILED,
+                    operation="grpc_client_error",
+                    reason=msg,
                 )
                 await self._handle_after_process(
                     ClientStatus.FAILED, True, False, self._post_handle_raise, exp
@@ -988,6 +1080,15 @@ class TaskListener(Listener):
 
         log_level = logger.debug if self._connection_recycled else logger.info
         self._connection_recycled = False
+
+        # Under mutual authentication the identity header is checked before this is
+        # reached, so getting here is itself the proof that the researcher verified
+        # this node; without it, no identity was verified.
+        self._channels.report_state(
+            ClientStatus.CONNECTED,
+            operation="researcher_channel_established",
+            identity_verified=self._channels.mtls,
+        )
 
         if self._channels.mtls:
             log_level(

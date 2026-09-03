@@ -374,7 +374,18 @@ class Config(metaclass=ABCMeta):
         ```
         It should update the section only if the parameter is not existing to avoid
         overwriting user defined values.
+
+        Migrations shared by every component type live here; overriding it, call
+        `super().migrate()` first.
         """
+        if not self._cfg.has_section("authentication"):
+            logger.warning(
+                "DEPRECATION: You are using a configuration file written before "
+                "mutual authentication. Please add an `authentication` section with "
+                "a 'mutual_authentication' value to it."
+            )
+
+            self._cfg["authentication"] = {"mutual_authentication": "False"}
 
 
 class Component:

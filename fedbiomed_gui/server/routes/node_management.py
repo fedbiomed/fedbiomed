@@ -202,31 +202,28 @@ def _node_config_response_payload() -> Dict[str, Any]:
 
 def _parse_config_update_request(
     payload: Any,
-) -> tuple[
-    str,
-    Dict[str, bool | int | str],
-    Optional[Dict[str, bool | int | str]],
-    bool,
-]:
+) -> Tuple[Dict[str, Dict[str, Any]], bool]:
     """Validate and normalize a node configuration PATCH request body.
-    (Parses the request body and returns the section, updates, base values, and force flag.)
 
-    The request must target one section and provide at least one editable
-    update. `base_values` are optional: the GUI sends them to enable optimistic
-    conflict detection, while direct API callers may omit them and write only
-    their requested updates. When `base_values` are present and `force` is
-    false, they must cover at least the update keys and are later compared
-    against the current file values to detect concurrent edits.
+    The request carries every section the caller wants to write under a single
+    `sections` mapping, so one save applies all pending changes together. Per
+    section, `base_values` are optional: the GUI sends them to enable
+    optimistic conflict detection, while direct API callers may omit them and
+    write only their requested updates. When `base_values` are present and
+    `force` is false, they must cover at least the update keys and are later
+    compared against the current file values to detect concurrent edits.
 
     Args:
         payload: Parsed JSON request body.
 
     Returns:
-        Tuple containing the target section, normalized requested updates,
-        normalized base values when supplied, and the overwrite flag.
+        Tuple containing the normalized updates per section and the overwrite
+        flag. Each section entry holds the requested `values` and the
+        normalized `base_values`, or `None` when conflict detection is skipped
+        for that section.
 
     Raises:
-        ValueError: If the payload shape is invalid, the section/key is
+        ValueError: If the payload shape is invalid, a section/key is
             unsupported, a read-only key is requested, or any value fails
             type validation.
     """
@@ -234,67 +231,68 @@ def _parse_config_update_request(
     if not isinstance(payload, dict):
         raise ValueError("Request body must be an object")
 
-    schema = get_config_sections_schema(config.node_config)
-    section = payload.get("section")
-    if not isinstance(section, str) or not section:
-        raise ValueError("'section' must be a non-empty string")
-    if section not in schema:
-        raise ValueError(f"Unsupported node configuration section '{section}'")
-
-    updates = payload.get("values")
-    if not isinstance(updates, dict):
-        raise ValueError("'values' must be an object")
-
-    if not updates:
+    sections = payload.get("sections")
+    if not isinstance(sections, dict):
+        raise ValueError("'sections' must be an object")
+    if not sections:
         raise ValueError("No configuration values provided")
 
-    editable_keys = {
-        key
-        for key, field in schema[section]["fields"].items()
-        if field.get("editable", True)
-    }
-    update_keys = set(updates.keys())
-    unsupported = sorted(update_keys - editable_keys)
-    if unsupported:
-        raise ValueError(
-            "Unsupported or read-only configuration value(s): " + ", ".join(unsupported)
-        )
-
-    base_values = payload.get("base_values")
+    schema = get_config_sections_schema(config.node_config)
     force = bool(payload.get("force", False))
-    has_base_values = base_values is not None
-    if has_base_values and not isinstance(base_values, dict):
-        raise ValueError("'base_values' must be an object")
-    if has_base_values and not force:
-        base_keys = set(base_values.keys())
-        missing = sorted(update_keys - base_keys)
-        if missing:
-            raise ValueError(f"Missing base value(s): {', '.join(missing)}")
+    parsed = {}
 
-    normalized_updates = {}
-    normalized_base_values = {} if has_base_values and not force else None
-    for key, value in updates.items():
-        field = _config_field_schema(section, key, schema)
-        if not field.get("editable", True):
+    for section, section_payload in sections.items():
+        if section not in schema:
+            raise ValueError(f"Unsupported node configuration section '{section}'")
+        if not isinstance(section_payload, dict):
+            raise ValueError(f"Section '{section}' must be an object")
+
+        updates = section_payload.get("values")
+        if not isinstance(updates, dict):
+            raise ValueError(f"'values' of section '{section}' must be an object")
+        if not updates:
             raise ValueError(
-                f"Node configuration key '{key}' in section '{section}' is read-only"
+                f"No configuration values provided for section '{section}'"
             )
 
-        normalized_updates[key] = _normalize_config_value(
-            section,
-            key,
-            value,
-            schema,
-        )
-        if normalized_base_values is not None:
-            normalized_base_values[key] = _normalize_config_value(
-                section,
-                key,
-                base_values[key],
-                schema,
+        editable_keys = {
+            key
+            for key, field in schema[section]["fields"].items()
+            if field.get("editable", True)
+        }
+        unsupported = sorted(set(updates.keys()) - editable_keys)
+        if unsupported:
+            raise ValueError(
+                f"Unsupported or read-only configuration value(s) in section "
+                f"'{section}': " + ", ".join(unsupported)
             )
 
-    return section, normalized_updates, normalized_base_values, force
+        base_values = section_payload.get("base_values")
+        if base_values is not None and not isinstance(base_values, dict):
+            raise ValueError(f"'base_values' of section '{section}' must be an object")
+
+        normalized_base_values = None
+        if base_values is not None and not force:
+            missing = sorted(set(updates.keys()) - set(base_values.keys()))
+            if missing:
+                raise ValueError(
+                    f"Missing base value(s) in section '{section}': "
+                    + ", ".join(missing)
+                )
+            normalized_base_values = {
+                key: _normalize_config_value(section, key, base_values[key], schema)
+                for key in updates
+            }
+
+        parsed[section] = {
+            "values": {
+                key: _normalize_config_value(section, key, value, schema)
+                for key, value in updates.items()
+            },
+            "base_values": normalized_base_values,
+        }
+
+    return parsed, force
 
 
 def _config_detect_conflicts(
@@ -505,13 +503,16 @@ def get_node_config():
 def update_node_config():
     """Write node configuration changes to `config.ini`.
 
-    The route accepts one section per request. When callers provide
-    `base_values`, it re-reads the file and compares current file values with
-    those base values before writing. If the file changed since the caller
-    loaded the values, the route returns a conflict instead of overwriting
-    external edits. Direct API callers can omit `base_values` to write only
-    the requested updates without this optimistic conflict check. A request
-    with `force` set to true also bypasses conflict detection.
+    The route accepts every section to write in one request and applies them
+    together: all sections are checked for conflicts first, and the file is
+    written only once no conflict remains, so a rejected request leaves the
+    file untouched. When callers provide `base_values` for a section, the
+    route re-reads the file and compares current file values with those base
+    values before writing. If the file changed since the caller loaded the
+    values, the route returns a conflict instead of overwriting external
+    edits. Direct API callers can omit `base_values` to write only the
+    requested updates without this optimistic conflict check. A request with
+    `force` set to true also bypasses conflict detection.
 
     Returns:
         HTTP 200 with the written fields and restart metadata, HTTP 400 for
@@ -523,42 +524,51 @@ def update_node_config():
 
     try:
         config.node_config.read()
-        section, updates, base_values, force = _parse_config_update_request(req)
+        sections, force = _parse_config_update_request(req)
     except ValueError as e:
         return error(str(e)), 400
     except Exception as e:
         return error(f"Could not update node configuration: {e}"), 500
 
     try:
-        if base_values is not None and not force:
+        conflicting_sections = {}
+        for section, section_updates in sections.items():
+            if section_updates["base_values"] is None or force:
+                continue
+
             conflicts, current_values = _config_detect_conflicts(
                 section,
-                updates,
-                base_values,
+                section_updates["values"],
+                section_updates["base_values"],
             )
             if conflicts:
-                return _conflict_response(
-                    {
-                        "section": section,
-                        "conflicts": conflicts,
-                        "current_values": current_values,
-                    },
-                    (
-                        "Configuration file has been modified. Refresh the "
-                        "latest values or confirm overwrite."
-                    ),
-                ), 409
+                conflicting_sections[section] = {
+                    "conflicts": conflicts,
+                    "current_values": current_values,
+                }
 
-        for key, value in updates.items():
-            config.node_config.set(section, key, str(value))
+        if conflicting_sections:
+            return _conflict_response(
+                {"sections": conflicting_sections},
+                (
+                    "Configuration file has been modified. Refresh the "
+                    "latest values or confirm overwrite."
+                ),
+            ), 409
+
+        for section, section_updates in sections.items():
+            for key, value in section_updates["values"].items():
+                config.node_config.set(section, key, str(value))
         config.node_config.write()
 
         node_state = node_process_manager.get_status().value
         modification_status = _config_modification_status()
         return response(
             {
-                "section": section,
-                "values": updates,
+                "sections": {
+                    section: section_updates["values"]
+                    for section, section_updates in sections.items()
+                },
                 "node_state": node_state,
                 "requires_restart": node_state == "running",
                 **modification_status,

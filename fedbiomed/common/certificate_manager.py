@@ -4,11 +4,13 @@
 import copy
 import ipaddress
 import os
+import shutil
 import threading
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Union
 
 from cryptography import x509
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
@@ -16,6 +18,7 @@ from tabulate import tabulate
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
 
+from fedbiomed.common.config import Config
 from fedbiomed.common.constants import CERTS_FOLDER_NAME, ErrorNumbers
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
@@ -242,6 +245,123 @@ def validate_certificate_purpose(certificate: str, registering_purpose: str) -> 
             f"acts in itself. It registers {expected} certificates, of the "
             "components it communicates with."
         )
+
+
+def back_up_file(path: str) -> Optional[str]:
+    """Copies a file aside under a fixed `.bak` name, returning where it went.
+
+    One backup is kept, of the file that was replaced last: a new one overwrites
+    it, so a component never accumulates the keys it has retired. A copy rather
+    than a move: the file stays readable at its own path until it is overwritten,
+    so a failure midway leaves the component with the file it was already serving.
+
+    Returns:
+        Path of the backup, or None when there was no file to back up.
+    """
+    if not os.path.isfile(path):
+        return None
+
+    backup = f"{path}.bak"
+    shutil.copy2(path, backup)
+
+    return backup
+
+
+def _public_key_bytes(key) -> bytes:
+    """A public key in the one encoding, so that two of them compare by value."""
+    return key.public_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+
+def validate_certificate_pair(certificate: str, private_key: str) -> None:
+    """Checks a certificate and private key can serve as a component's identity.
+
+    What a component would otherwise discover at startup or mid-handshake is
+    checked here instead, while the pair it currently serves is still in place.
+
+    Raises:
+        FedbiomedCertificateError: either part is unreadable, the key does not
+            belong to the certificate, or the certificate is outside its validity
+            window.
+    """
+    try:
+        parsed = x509.load_pem_x509_certificate(certificate.encode("utf-8"))
+    except (TypeError, ValueError) as exp:
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: The certificate is not readable PEM: {exp}"
+        ) from exp
+
+    try:
+        parsed_key = serialization.load_pem_private_key(
+            private_key.encode("utf-8"), password=None
+        )
+    except (TypeError, ValueError, UnsupportedAlgorithm) as exp:
+        # The underlying error is an OpenSSL dump that tells the user nothing.
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: The private key could not be read. It has "
+            "to be an unencrypted private key in PEM format."
+        ) from exp
+
+    if _public_key_bytes(parsed_key.public_key()) != _public_key_bytes(
+        parsed.public_key()
+    ):
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: The private key does not match the "
+            "certificate, so this pair could never complete a handshake."
+        )
+
+    now = datetime.now(timezone.utc)
+    if parsed.not_valid_after_utc < now:
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: The certificate expired on "
+            f"{parsed.not_valid_after_utc:%Y-%m-%d}, so every connection made with it "
+            "would fail."
+        )
+
+    if parsed.not_valid_before_utc > now:
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: The certificate is not valid before "
+            f"{parsed.not_valid_before_utc:%Y-%m-%d %H:%M} UTC, so every connection "
+            "made with it would fail until then."
+        )
+
+
+def write_certificate_pair(
+    config: Config, certificate: str, private_key: str
+) -> Dict[str, Optional[str]]:
+    """Writes a pair to the paths a component's configuration points at.
+
+    Every surface writes here rather than anywhere of its own, so the component
+    keeps reading the files its configuration already names. The pair that was in
+    place is kept as the single backup, replacing the one kept before it.
+
+    Returns:
+        Where each displaced file was backed up, by role, with None for a role
+        that had no file in place.
+    """
+    certificate_path = config.getpath("certificate", "public_key")
+    private_key_path = config.getpath("certificate", "private_key")
+
+    backups = {
+        "certificate": back_up_file(certificate_path),
+        "private_key": back_up_file(private_key_path),
+    }
+
+    for path in (certificate_path, private_key_path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    with open(certificate_path, "w") as file:
+        file.write(certificate)
+
+    with open(private_key_path, "w") as file:
+        file.write(private_key)
+    # The key may have arrived over HTTP; it is not left readable to anyone but
+    # the component.
+    os.chmod(private_key_path, 0o600)
+
+    return backups
 
 
 class TrustedCertificateBundle:

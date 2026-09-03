@@ -123,6 +123,8 @@ class NodeConfig(Config):
 
         See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
         """
+        super().migrate()
+
         if not self._cfg.has_option("default", "name"):
             logger.warning(
                 "DEPRECATION: You are using an old configuration file for the node. "

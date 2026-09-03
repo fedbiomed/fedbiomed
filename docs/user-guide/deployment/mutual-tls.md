@@ -234,6 +234,34 @@ regularly even while nothing goes wrong. The node announces its first connection
 that follows an interruption; a connection merely replacing a retired one is logged at
 debug level. The security audit log records every one of them.
 
+## From the Node GUI
+
+A node does the same from the **Configuration** tab of the Node Management page of
+its [GUI](../nodes/node-gui.md), which is restricted to administrators. Its
+*Connection & certificates* group holds the researcher endpoint, this node's own
+certificate and the `[authentication]` setting, each with the window it opens:
+
+- **Manage certificate**, under this node's own pair: read what the node presents,
+  download it to send to the researcher, regenerate it, or replace it with a
+  certificate and private key issued elsewhere. The displaced pair is kept as the
+  single `.bak` backup beside it, as `fedbiomed node certificate replace` does;
+- **Registered certificate**, under the researcher: register the researcher
+  certificate — pasted or from a file — and delete it. Turning
+  `mutual_authentication` on opens this window, since that is what makes a
+  registered certificate necessary.
+
+It reports what would stop the node from starting before you start it: mutual
+authentication enabled with no researcher certificate registered, several registered,
+a registered certificate that states no host, or the node's own key or certificate
+file missing. Certificates are read when the node starts, so registering one or
+changing the setting takes effect when the node is restarted.
+
+The **Connection & Diagnostics** tab reads the state of the connection to the
+researcher as the node last recorded it: whether the channel is up, whether it is
+mutually authenticated, why it last failed, and what to do about it.
+
+The researcher has no GUI; it is configured with the commands above.
+
 ## Operating a running federation
 
 ### Adding a node to a running instance (hot-add)

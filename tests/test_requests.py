@@ -1,5 +1,4 @@
 import os.path
-import tempfile
 import time
 from threading import Semaphore
 from types import SimpleNamespace
@@ -79,7 +78,7 @@ def _error_message(node_id, node_name):
 
 
 @pytest.fixture
-def requests_env():
+def requests_env(tmp_path):
     """Requests singleton with the gRPC server stack patched out."""
     with (
         patch.multiple(TorchTrainingPlan, __abstractmethods__=set()),
@@ -116,16 +115,14 @@ def requests_env():
         if Requests in Requests._objects:
             del Requests._objects[Requests]
 
-        temp_dir = tempfile.TemporaryDirectory()
-        config.load(root=temp_dir.name)
+        config.load(root=str(tmp_path))
         yield SimpleNamespace(
             requests=Requests(config=config),
             grpc_server_get_node=grpc_server_get_node,
             grpc_server_get_all_nodes=grpc_server_get_all_nodes,
             fed_req_enter=fed_req_enter,
-            temp_dir=temp_dir,
+            temp_dir=str(tmp_path),
         )
-        temp_dir.cleanup()
 
 
 def test_request_constructor(requests_env):
@@ -269,7 +266,7 @@ def test_request_add_monitor_callback(
     """Test adding monitor message callbacks"""
     mock_monitor_init.return_value = None
     mock_monitor_message_handler.return_value = None
-    monitor = Monitor(results_dir=requests_env.temp_dir.name)
+    monitor = Monitor(results_dir=requests_env.temp_dir)
     experiment_id = "dummy-experiment-id"
 
     # Test adding monitor callback
@@ -298,7 +295,7 @@ def test_request_remove_monitor_callback(
 
     mock_monitor_init.return_value = None
     mock_monitor_message_handler.return_value = None
-    monitor = Monitor(results_dir=requests_env.temp_dir.name)
+    monitor = Monitor(results_dir=requests_env.temp_dir)
     experiment_id = "dummy-experiment-id"
 
     requests_env.requests.add_monitor_callback(
@@ -656,14 +653,12 @@ def test_stop_on_error(policy_request):
 
 
 @pytest.fixture
-def mtls_requests_env():
+def mtls_requests_env(tmp_path):
     """Trust bundle wiring of the researcher server under mutual authentication."""
-    with (
-        patch(
-            "fedbiomed.researcher.requests._requests.GrpcServer", autospec=True
-        ) as grpc_server_mock,
-        tempfile.TemporaryDirectory() as tmp,
-    ):
+    tmp = str(tmp_path)
+    with patch(
+        "fedbiomed.researcher.requests._requests.GrpcServer", autospec=True
+    ) as grpc_server_mock:
         config_mock = MagicMock()
         config_mock.root = tmp
         # Reads `mutual_authentication` as enabled.

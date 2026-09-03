@@ -1,12 +1,16 @@
 import configparser
 import os
-import tempfile
 from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
+from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_CLIENT,
+    CERT_PURPOSE_SERVER,
+    CertificateManager,
+)
 from fedbiomed.common.constants import (
     ErrorNumbers,
     Stats,
@@ -30,6 +34,7 @@ from fedbiomed.common.message import (
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.node import Node
 from fedbiomed.node.round import Round
+from fedbiomed.transport.client import ClientStatus
 
 #############################################################
 
@@ -123,7 +128,7 @@ database_id = {
 
 
 @pytest.fixture
-def node_env():
+def node_env(tmp_path):
     """Node instance with transport, queue and manager dependencies patched."""
     with (
         patch(
@@ -166,10 +171,9 @@ def node_env():
             return_value=(database_id, "dummy_table_name")
         )
 
-        temp_dir = tempfile.TemporaryDirectory()
-        db = os.path.join(temp_dir.name, "test-db.json")
+        db = str(tmp_path / "test-db.json")
         # creating Node objects
-        node_config = NodeConfig(temp_dir.name)
+        node_config = NodeConfig(str(tmp_path))
         cfg = configparser.ConfigParser()
         cfg["default"] = {"id": "test-id", "name": "test-name", "db": db}
         cfg["researcher"] = {"ip": "test", "port": "5151"}
@@ -190,26 +194,47 @@ def node_env():
             grpc_send=grpc_send,
             model_manager=model_manager,
         )
-        temp_dir.cleanup()
 
 
 @pytest.fixture
-def mtls_node_env(node_env):
-    """node_env with mutual authentication enabled and a readable node keypair."""
-    with (
-        patch(
-            "fedbiomed.node.node.read_file", side_effect=["NODE_KEY", "NODE_CERT"]
-        ) as read_file,
-        patch("fedbiomed.node.node.CertificateManager") as certificate_manager,
-    ):
+def mtls_node_env(node_env, tmp_path):
+    """node_env with mutual authentication enabled and a real node keypair.
+
+    The keypair is generated rather than mocked because the node checks its own
+    certificate before it connects, and a placeholder string reads as unusable.
+    """
+    key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(tmp_path),
+        certificate_name="node",
+        component_id="test-id",
+        purpose=CERT_PURPOSE_CLIENT,
+    )
+    with patch("fedbiomed.node.node.CertificateManager") as certificate_manager:
         node_env.node.config._cfg["authentication"] = {"mutual_authentication": "True"}
         node_env.node.config._cfg["certificate"] = {
-            "private_key": "node.key",
-            "public_key": "node.pem",
+            "private_key": key_file,
+            "public_key": pem_file,
         }
-        node_env.read_file = read_file
+        # `certificate_diagnostics` and the credentials build share the manager.
+        certificate_manager.return_value.expiring_certificates.return_value = []
         node_env.certificate_manager = certificate_manager
+        node_env.researcher_certificate = _researcher_certificate(tmp_path, "test")
         yield node_env
+
+
+def _researcher_certificate(tmp_path, host):
+    """A researcher certificate naming `host`, as a registered one would."""
+    folder = tmp_path / f"researcher-{host}"
+    folder.mkdir()
+    _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(folder),
+        certificate_name="researcher",
+        component_id="researcher-id",
+        purpose=CERT_PURPOSE_SERVER,
+        san=[host],
+    )
+    with open(pem_file) as file:
+        return file.read()
 
 
 def test_node_researcher_credentials_without_mutual_authentication(node_env):
@@ -224,17 +249,19 @@ def test_node_researcher_credentials_without_mutual_authentication(node_env):
 
 def test_node_researcher_credentials_mtls(mtls_node_env):
     """Under mutual authentication the node loads its identity and pins the cert."""
-    certificate_manager = mtls_node_env.certificate_manager
-    certificate_manager.return_value.list.return_value = [{"certificate": "RES_CERT"}]
+    researcher_certificate = mtls_node_env.researcher_certificate
+    mtls_node_env.certificate_manager.return_value.list.return_value = [
+        {"component_id": "researcher-id", "certificate": researcher_certificate}
+    ]
 
     credentials = mtls_node_env.node._researcher_credentials()
 
     assert credentials.mtls
-    assert credentials.node_identity.private_key == b"NODE_KEY"
-    assert credentials.node_identity.certificate_chain == b"NODE_CERT"
-    assert credentials.certificate == b"RES_CERT"
+    assert b"BEGIN RSA PRIVATE KEY" in credentials.node_identity.private_key
+    assert b"BEGIN CERTIFICATE" in credentials.node_identity.certificate_chain
+    assert credentials.certificate == researcher_certificate.encode("utf-8")
     # The node private key must not leak through the credentials repr.
-    assert "NODE_KEY" not in repr(credentials)
+    assert "BEGIN RSA PRIVATE KEY" not in repr(credentials)
 
 
 def test_node_researcher_credentials_mtls_missing_researcher_cert(mtls_node_env):
@@ -248,9 +275,10 @@ def test_node_researcher_credentials_mtls_missing_researcher_cert(mtls_node_env)
 
 def test_node_researcher_credentials_mtls_ambiguous_researcher_cert(mtls_node_env):
     """Several registered certificates make the one to pin ambiguous."""
+    researcher_certificate = mtls_node_env.researcher_certificate
     mtls_node_env.certificate_manager.return_value.list.return_value = [
-        {"certificate": "RES_CERT_1"},
-        {"certificate": "RES_CERT_2"},
+        {"component_id": "researcher-1", "certificate": researcher_certificate},
+        {"component_id": "researcher-2", "certificate": researcher_certificate},
     ]
 
     with pytest.raises(FedbiomedCertificateError) as exc_info:
@@ -259,12 +287,69 @@ def test_node_researcher_credentials_mtls_ambiguous_researcher_cert(mtls_node_en
     assert "ambiguous" in str(exc_info.value)
 
 
-def test_node_researcher_credentials_mtls_unreadable_node_cert(mtls_node_env):
-    """A missing/unreadable node key or cert surfaces as FedbiomedCertificateError."""
-    mtls_node_env.read_file.side_effect = FedbiomedError("cannot read file")
+def test_node_researcher_credentials_mtls_missing_node_cert(mtls_node_env):
+    """A missing node key or certificate stops the node before it connects."""
+    mtls_node_env.certificate_manager.return_value.list.return_value = [
+        {
+            "component_id": "researcher-id",
+            "certificate": mtls_node_env.researcher_certificate,
+        }
+    ]
+    os.remove(mtls_node_env.node.config.getpath("certificate", "private_key"))
 
-    with pytest.raises(FedbiomedCertificateError):
+    with pytest.raises(FedbiomedCertificateError) as exc_info:
         mtls_node_env.node._researcher_credentials()
+
+    assert "private key is missing" in str(exc_info.value)
+
+
+def test_node_researcher_credentials_mtls_unreadable_node_cert(mtls_node_env):
+    """An unreadable node certificate surfaces as FedbiomedCertificateError."""
+    mtls_node_env.certificate_manager.return_value.list.return_value = [
+        {
+            "component_id": "researcher-id",
+            "certificate": mtls_node_env.researcher_certificate,
+        }
+    ]
+    with patch(
+        "fedbiomed.node.node.read_file", side_effect=FedbiomedError("cannot read file")
+    ):
+        with pytest.raises(FedbiomedCertificateError):
+            mtls_node_env.node._researcher_credentials()
+
+
+def test_node_forwards_connection_state_recorder(node_env):
+    """The node hands the connection-state recorder to the transport."""
+    on_connection_state = MagicMock()
+
+    with patch(
+        "fedbiomed.transport.controller.GrpcController.__init__",
+        return_value=None,
+    ) as grpc_init:
+        Node(node_env.node_config, on_connection_state=on_connection_state)
+
+    assert grpc_init.call_args.kwargs["on_connection_state"] is on_connection_state
+
+
+def test_node_records_certificate_refusal_to_start(node_env):
+    """A certificate error stopping the node is recorded as its connection state."""
+    on_connection_state = MagicMock()
+
+    with patch.object(
+        Node,
+        "_researcher_credentials",
+        side_effect=FedbiomedCertificateError("FB619: no researcher certificate"),
+    ):
+        with pytest.raises(FedbiomedCertificateError):
+            Node(node_env.node_config, on_connection_state=on_connection_state)
+
+    reported = on_connection_state.call_args.kwargs
+    assert reported["state"] is ClientStatus.FAILED
+    assert reported["operation"] == "mtls_startup_refused"
+    assert reported["mtls"] is True
+    assert reported["identity_verified"] is False
+    assert (reported["host"], reported["port"]) == ("test", "5151")
+    assert "FB619" in reported["reason"]
 
 
 @patch("fedbiomed.common.tasks_queue.TasksQueue.add")

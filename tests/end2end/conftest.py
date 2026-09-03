@@ -3,18 +3,9 @@ Module for global PyTest configuration and fixtures
 
 """
 
-import atexit
 import os
-import shutil
 import socket
 import tempfile
-
-# Redirect the researcher component created on `fedbiomed.researcher.config`
-# import to a temp dir, so tests never write it into the repository.
-if "FBM_RESEARCHER_COMPONENT_ROOT" not in os.environ:
-    _researcher_root = tempfile.mkdtemp(prefix="fbm-researcher-e2e-")
-    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = _researcher_root
-    atexit.register(shutil.rmtree, _researcher_root, ignore_errors=True)
 
 import pytest
 from helpers import (
@@ -24,6 +15,24 @@ from helpers import (
 )
 
 os.environ["FBM_DEBUG"] = "1"
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_configure(config):
+    """Redirect the researcher component to pytest's temp area.
+
+    `fedbiomed.researcher.config` creates the component when it is imported,
+    which the helpers only do from inside their functions - after this hook - so
+    the redirection is in place by then and tests never write it into the
+    repository. The directory comes from the factory behind `tmp_path`, so it
+    sits with the rest of the run and is rotated with it; `trylast` lets the
+    plugin owning that factory configure first.
+    """
+    if "FBM_RESEARCHER_COMPONENT_ROOT" in os.environ:
+        return
+
+    root = config._tmp_path_factory.mktemp("fbm-researcher")
+    os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = str(root)
 
 
 @pytest.fixture(scope="module")
