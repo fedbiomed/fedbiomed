@@ -342,6 +342,40 @@ def test_certificate_san_names_empty_when_only_a_common_name(common_name):
     assert certificate_san_names(_certificate(common_name=common_name)) == []
 
 
+def test_certificate_san_names_ignores_entries_that_name_no_host():
+    """A certificate issued elsewhere may hold an e-mail address or a URI in its
+    SAN; TLS matches a server against neither."""
+    certificate = _certificate(
+        san=[
+            x509.RFC822Name("admin@hospital.org"),
+            x509.UniformResourceIdentifier("https://hospital.org/researcher"),
+            x509.DNSName("fbm.example.org"),
+        ]
+    )
+    assert certificate_san_names(certificate) == ["fbm.example.org"]
+
+
+def test_certificate_san_names_empty_when_no_entry_names_a_host():
+    """Such a certificate states no host at all — what a node refuses to connect on."""
+    certificate = _certificate(san=[x509.RFC822Name("admin@hospital.org")])
+    assert certificate_san_names(certificate) == []
+
+
+@pytest.mark.parametrize("blank", ["", " "])
+def test_certificate_san_names_ignores_a_blank_name(blank):
+    """A blank entry states no host, and would verify a channel under an empty name."""
+    certificate = _certificate(
+        san=[x509.DNSName(blank), x509.DNSName("fbm.example.org")]
+    )
+    assert certificate_san_names(certificate) == ["fbm.example.org"]
+
+
+def test_certificate_san_names_keeps_a_name_as_it_is_written():
+    """The name is what TLS matches the peer against, so it is reported verbatim."""
+    certificate = _certificate(san=[x509.DNSName("Fbm.Example.Org")])
+    assert certificate_san_names(certificate) == ["Fbm.Example.Org"]
+
+
 @pytest.mark.parametrize("certificate", [b"not a certificate", b"", None])
 def test_certificate_san_names_empty_for_unparsable(certificate):
     assert certificate_san_names(certificate) == []
