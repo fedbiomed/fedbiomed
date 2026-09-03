@@ -243,8 +243,8 @@ certificate and the `[authentication]` setting, each with the window it opens:
 
 - **Manage certificate**, under this node's own pair: read what the node presents,
   download it to send to the researcher, regenerate it, or replace it with a
-  certificate and private key issued elsewhere. The displaced pair is kept as a
-  timestamped backup beside it;
+  certificate and private key issued elsewhere. The displaced pair is kept as the
+  single `.bak` backup beside it, as `fedbiomed node certificate replace` does;
 - **Registered certificate**, under the researcher: register the researcher
   certificate — pasted or from a file — and delete it. Turning
   `mutual_authentication` on opens this window, since that is what makes a

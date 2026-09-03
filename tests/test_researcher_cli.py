@@ -92,7 +92,11 @@ class TestResearcherCLI(unittest.TestCase):
         self.assertTrue("--public-key" in register_options)
 
         generate_options = choices["generate"]._positionals._option_string_actions
-        self.assertTrue("--path" in generate_options)
+        self.assertTrue("--force" in generate_options)
+
+        replace_options = choices["replace"]._positionals._option_string_actions
+        self.assertTrue("--public-key" in replace_options)
+        self.assertTrue("--private-key" in replace_options)
 
 
 if __name__ == "__main__":

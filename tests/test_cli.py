@@ -12,6 +12,7 @@ import pytest
 
 import fedbiomed
 import fedbiomed.node.cli_utils
+from fedbiomed.common.cli import CommonCLI
 from fedbiomed.common.constants import NODE_DATA_FOLDER
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.cli import (
@@ -26,9 +27,15 @@ from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
     get_map_modalities2folders_from_cli,
 )
-from fedbiomed.node.node import NodeContext
+from fedbiomed.node.dataset_manager._db_dataclasses import NodeConnectionStateEntry
+from fedbiomed.node.node import (
+    CertificateDiagnostic,
+    DiagnosticSeverity,
+    NodeContext,
+)
 from fedbiomed.node.node_pm import (
     NodeConnectionStateManager,
+    NodeState,
     _node_signal_trigger_term,
     _start_node_process,
 )
@@ -1103,6 +1110,149 @@ def test_node_control_restart_passes_only_supplied_overrides(
         actor={"source": "cli"},
         reason="cli_restart_command",
     )
+
+
+def _checking_cli(mocker, diagnostics):
+    """A `NodeCLI` whose certificate diagnostics are the ones given."""
+    mocker.patch("fedbiomed.node.cli.node_component.initiate")
+    cli = NodeCLI()
+    cli.config = MagicMock()
+    cli.config.getbool.return_value = True
+    cli.config.get.side_effect = lambda section, key: {
+        ("researcher", "ip"): "10.0.0.9",
+        ("researcher", "port"): "50051",
+    }[(section, key)]
+    mocker.patch("fedbiomed.node.cli.certificate_diagnostics", return_value=diagnostics)
+    return cli
+
+
+def test_node_cli_certificate_check_is_node_only(mocker):
+    """A researcher's readiness is a different question, so it has no `check`."""
+    mocker.patch("fedbiomed.node.cli.node_component.initiate")
+    node_choices = NodeCLI()._certificate_sub_parsers.choices
+
+    assert "check" in node_choices
+    assert node_choices["check"]._defaults["func"].__func__.__name__ == (
+        "_check_certificate"
+    )
+
+    common = CommonCLI()
+    common.initialize_certificate_parser()
+    assert "check" not in common._certificate_sub_parsers.choices
+    # The commands both components share are still there.
+    assert "register" in common._certificate_sub_parsers.choices
+
+
+def test_node_cli_certificate_check_exits_on_a_problem(mocker, capsys):
+    """A non-zero exit says the node would not start, for a deployment script."""
+    cli = _checking_cli(
+        mocker,
+        [
+            CertificateDiagnostic(DiagnosticSeverity.PROBLEM, "nothing registered"),
+            CertificateDiagnostic(DiagnosticSeverity.WARNING, "expires soon"),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cli._check_certificate(argparse.Namespace())
+
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
+    assert "1 problem(s) stop this node from starting" in out
+    assert "nothing registered" in out
+    assert "expires soon" in out
+
+
+def test_node_cli_certificate_check_succeeds_on_warnings(mocker, capsys):
+    """Warnings are reported but do not fail the command."""
+    cli = _checking_cli(
+        mocker, [CertificateDiagnostic(DiagnosticSeverity.WARNING, "host not in SAN")]
+    )
+
+    cli._check_certificate(argparse.Namespace())
+
+    out = capsys.readouterr().out
+    assert "1 warning(s)" in out
+    assert "host not in SAN" in out
+    assert "problem(s)" not in out
+
+
+def test_node_cli_certificate_check_reports_a_clean_node(mocker, capsys):
+    """Nothing to report is itself the answer."""
+    cli = _checking_cli(mocker, [])
+
+    cli._check_certificate(argparse.Namespace())
+
+    assert "No certificate problem found" in capsys.readouterr().out
+
+
+def _status_control(mocker, connection_state, history=()):
+    """A `NodeControl` whose process and connection state are the ones given."""
+    parser = argparse.ArgumentParser()
+    control = NodeControl(parser.add_subparsers())
+    control.initialize()
+    control._context = MagicMock()
+
+    mocker.patch(
+        "fedbiomed.node.cli.NodeProcessManager"
+    ).return_value.get_status.return_value = NodeState.STOPPED
+    manager = mocker.patch("fedbiomed.node.cli.NodeConnectionStateManager")
+    manager.return_value.get_connection_state.return_value = connection_state
+    manager.return_value.get_connection_history.return_value = list(history)
+
+    return control, parser
+
+
+def _connection_entry(**overrides):
+    fields = {
+        "node_id": "node-1",
+        "state": "connected",
+        "host": "10.0.0.9",
+        "port": "50051",
+        "mtls": True,
+        "updated_at": "2026-09-03T07:18:32Z",
+    }
+    return NodeConnectionStateEntry(**{**fields, **overrides})
+
+
+def test_node_control_status_reports_the_recorded_connection(mocker, capsys):
+    """The connection the node last observed is reported beside its process state."""
+    control, parser = _status_control(mocker, _connection_entry())
+
+    control.status(parser.parse_args(["status"]))
+
+    out = capsys.readouterr().out
+    assert "Node status: stopped" in out
+    assert "connected to 10.0.0.9:50051 (mutual authentication on)" in out
+    # Nothing is written while the node is stopped, so say the state is not current.
+    assert "not running" in out
+
+
+def test_node_control_status_without_a_recorded_connection(mocker, capsys):
+    """A node that never connected says so rather than reporting an empty state."""
+    control, parser = _status_control(mocker, None)
+
+    control.status(parser.parse_args(["status"]))
+
+    assert "none recorded yet" in capsys.readouterr().out
+
+
+def test_node_control_status_lists_history_only_when_asked(mocker, capsys):
+    """The transitions are noise on a routine status check, so `--history` asks."""
+    history = [
+        _connection_entry(operation="handshake_complete"),
+        _connection_entry(state="disconnected", operation="node_starting"),
+    ]
+    control, parser = _status_control(mocker, history[0], history)
+
+    control.status(parser.parse_args(["status"]))
+    assert "Recent connection state changes" not in capsys.readouterr().out
+
+    control.status(parser.parse_args(["status", "--history"]))
+    out = capsys.readouterr().out
+    assert "Recent connection state changes" in out
+    assert "handshake_complete" in out
+    assert "node_starting" in out
 
 
 if __name__ == "__main__":

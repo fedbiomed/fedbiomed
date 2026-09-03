@@ -11,6 +11,7 @@ from cryptography import x509
 from fedbiomed.common.certificate_manager import (
     CERT_PURPOSE_CLIENT,
     CERT_PURPOSE_SERVER,
+    CertificateManager,
     certificate_san_names,
 )
 from fedbiomed.common.cli import CommonCLI
@@ -145,6 +146,7 @@ def test_common_cli_initialize_certificate_parser(cli):
     assert "list" in choices
     assert "delete" in choices
     assert "generate" in choices
+    assert "replace" in choices
     assert "registration-instructions" in choices
 
     assert choices["register"]._defaults["func"].__func__.__name__ == (
@@ -152,6 +154,9 @@ def test_common_cli_initialize_certificate_parser(cli):
     )
     assert choices["generate"]._defaults["func"].__func__.__name__ == (
         "_generate_certificate"
+    )
+    assert choices["replace"]._defaults["func"].__func__.__name__ == (
+        "_replace_certificate"
     )
     assert choices["delete"]._defaults["func"].__func__.__name__ == (
         "_delete_certificate"
@@ -165,8 +170,15 @@ def test_common_cli_initialize_certificate_parser(cli):
     assert "--component-id" in register_options
     assert "--public-key" in register_options
 
+    # Generation only ever targets the paths the configuration names.
     generate_options = choices["generate"]._positionals._option_string_actions
-    assert "--path" in generate_options
+    assert "--path" not in generate_options
+    assert "--force" in generate_options
+    assert "--san" in generate_options
+
+    replace_options = choices["replace"]._positionals._option_string_actions
+    assert "--public-key" in replace_options
+    assert "--private-key" in replace_options
 
 
 @pytest.fixture
@@ -500,7 +512,12 @@ def _generating_cli(cli, tmp_path, component, name):
     cli.initialize_certificate_parser()
     cli.config.COMPONENT_TYPE = component
     cli.config.config_path = str(tmp_path / "etc" / "config.ini")
-    cli.config.getpath.return_value = str(tmp_path / f"{name}.pem")
+    # The two are separate configuration entries, and nothing makes them share a
+    # stem: what is written is what each names.
+    cli.config.getpath.side_effect = lambda section, key: {
+        ("certificate", "public_key"): str(tmp_path / f"{name}.pem"),
+        ("certificate", "private_key"): str(tmp_path / f"{name}.key"),
+    }[(section, key)]
     cli.config.get.side_effect = lambda section, key: {
         ("default", "id"): _RESEARCHER_A if component == "RESEARCHER" else _NODE_A,
         ("server", "host"): "fbm-researcher",
@@ -649,6 +666,98 @@ def test_generate_certificate_refuses_to_replace_without_force(
     forced = cli.parser.parse_args(["certificate", "generate", "--force"])
     cli._generate_certificate(forced)
     assert (tmp_path / "FBM_certificate.pem").read_bytes() != original
+
+
+@patch("builtins.print")
+def test_generate_certificate_keeps_the_pair_it_replaced(mock_print, cli, tmp_path):
+    """The displaced pair stays readable, under one backup per file."""
+    args = _generating_cli(cli, tmp_path, "NODE", "FBM_certificate").parser.parse_args(
+        ["certificate", "generate"]
+    )
+    cli._generate_certificate(args)
+    original = (tmp_path / "FBM_certificate.pem").read_bytes()
+
+    forced = cli.parser.parse_args(["certificate", "generate", "--force"])
+    cli._generate_certificate(forced)
+
+    assert (tmp_path / "FBM_certificate.pem.bak").read_bytes() == original
+    assert (tmp_path / "FBM_certificate.key.bak").is_file()
+
+    # A further generation overwrites that backup rather than adding another.
+    second = (tmp_path / "FBM_certificate.pem").read_bytes()
+    cli._generate_certificate(forced)
+    assert (tmp_path / "FBM_certificate.pem.bak").read_bytes() == second
+    assert len(list(tmp_path.glob("*.bak*"))) == 2
+
+
+def _replacement_pair(tmp_path, component_id):
+    """A certificate and its key, as a certificate authority would supply them."""
+    folder = tmp_path / "supplied"
+    folder.mkdir()
+    return CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(folder),
+        certificate_name="supplied",
+        component_id=component_id,
+        purpose=CERT_PURPOSE_CLIENT,
+    )
+
+
+@patch("builtins.print")
+def test_replace_certificate_installs_the_supplied_pair(mock_print, cli, tmp_path):
+    """A pair issued elsewhere becomes the pair the configuration names."""
+    key_file, pem_file = _replacement_pair(tmp_path, _NODE_A)
+    args = _generating_cli(cli, tmp_path, "NODE", "FBM_certificate").parser.parse_args(
+        ["certificate", "replace", "-pk", pem_file, "-sk", key_file]
+    )
+
+    cli._replace_certificate(args)
+
+    with open(pem_file, "rb") as file:
+        assert (tmp_path / "FBM_certificate.pem").read_bytes() == file.read()
+    with open(key_file, "rb") as file:
+        assert (tmp_path / "FBM_certificate.key").read_bytes() == file.read()
+
+
+@patch("builtins.print")
+def test_replace_certificate_refuses_a_mismatched_pair(mock_print, cli, tmp_path):
+    """A key that belongs to another certificate could never complete a handshake."""
+    _, pem_file = _replacement_pair(tmp_path, _NODE_A)
+    other_key, _ = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(tmp_path),
+        certificate_name="other",
+        component_id=_NODE_A,
+        purpose=CERT_PURPOSE_CLIENT,
+    )
+    generating = _generating_cli(cli, tmp_path, "NODE", "FBM_certificate")
+    generating._generate_certificate(
+        generating.parser.parse_args(["certificate", "generate"])
+    )
+    original = (tmp_path / "FBM_certificate.pem").read_bytes()
+
+    args = cli.parser.parse_args(
+        ["certificate", "replace", "-pk", pem_file, "-sk", other_key]
+    )
+    with pytest.raises(SystemExit):
+        cli._replace_certificate(args)
+
+    # Refused before anything was written: the component still serves its own pair.
+    assert (tmp_path / "FBM_certificate.pem").read_bytes() == original
+    assert not (tmp_path / "FBM_certificate.pem.bak").exists()
+
+
+@patch("builtins.print")
+def test_replace_certificate_refuses_an_unreadable_key(mock_print, cli, tmp_path):
+    """An encrypted or malformed key is reported, not passed on to the component."""
+    _, pem_file = _replacement_pair(tmp_path, _NODE_A)
+    key_file = tmp_path / "not-a-key.pem"
+    key_file.write_text("not a private key")
+
+    args = _generating_cli(cli, tmp_path, "NODE", "FBM_certificate").parser.parse_args(
+        ["certificate", "replace", "-pk", pem_file, "-sk", str(key_file)]
+    )
+
+    with pytest.raises(SystemExit):
+        cli._replace_certificate(args)
 
 
 @patch("fedbiomed.common.cli.CertificateManager.register_certificate")

@@ -45,6 +45,15 @@ const fixHints = {
     researcher_unavailable:
         'The researcher endpoint did not answer. Check that it runs and that '
         + 'the host and port configured here are the ones it serves.',
+    researcher_certificate_without_san:
+        'The researcher certificate states no host, so nothing in it says '
+        + 'which server it is valid for. Request the researcher to reissue it '
+        + 'for the hosts nodes reach it at, register it here, and restart.',
+    researcher_failed_name_check:
+        'The researcher is serving a certificate other than the one registered '
+        + 'here. Register its current certificate and restart; if it is already '
+        + 'current, request the researcher to reissue it for the hosts nodes '
+        + 'reach it at.',
 }
 
 const formatValue = (value) => {

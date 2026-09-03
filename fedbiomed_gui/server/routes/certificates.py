@@ -4,14 +4,10 @@
 """Certificates and researcher connection state of the node the GUI serves."""
 
 import os
-import shutil
 import tempfile
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-from cryptography import x509
-from cryptography.exceptions import UnsupportedAlgorithm
-from cryptography.hazmat.primitives import serialization
 from flask import request
 
 from fedbiomed.common.certificate_manager import (
@@ -21,6 +17,9 @@ from fedbiomed.common.certificate_manager import (
     certificate_expiry,
     certificate_fingerprint,
     certificate_san_names,
+    is_loopback_name,
+    validate_certificate_pair,
+    write_certificate_pair,
 )
 from fedbiomed.common.cli import COMPONENT_PURPOSE
 from fedbiomed.common.exceptions import FedbiomedError
@@ -166,20 +165,25 @@ def _registry_warnings(registered: List[Dict[str, Any]]) -> List[str]:
             "one."
         )
 
+    # A certificate naming no host stops the node, and is reported as a startup
+    # problem rather than here. Two loopback forms are the same machine, which the
+    # node does not report either.
     researcher_host = config.node_config.get("researcher", "ip")
     for certificate in registered:
         names = certificate["san"]
-        if not names:
-            warnings.append(
-                "The researcher certificate carries no host name, so the node "
-                f"verifies it under {researcher_host} and the connection fails. "
-                "Ask the researcher for a certificate naming the host it serves."
+        if (
+            names
+            and researcher_host not in names
+            and not (
+                is_loopback_name(researcher_host)
+                and any(is_loopback_name(name) for name in names)
             )
-        elif researcher_host not in names:
+        ):
             warnings.append(
                 f"The researcher certificate is issued for {', '.join(names)}, which "
                 f"does not include the configured researcher host {researcher_host}. "
-                "The node verifies it under the first name it carries."
+                "The node verifies it under the first name it carries and connects; "
+                "the mismatch does not by itself stop it."
             )
 
     return warnings
@@ -212,124 +216,6 @@ def _status() -> Dict[str, Any]:
     }
 
 
-def _configured_certificate_paths() -> Tuple[str, str]:
-    """The certificate and private key paths the node's config points at.
-
-    Both replacing and regenerating write here rather than anywhere of their own,
-    so the node keeps reading the files its configuration already names.
-    """
-    return (
-        config.node_config.getpath("certificate", "public_key"),
-        config.node_config.getpath("certificate", "private_key"),
-    )
-
-
-def _public_key_bytes(key: Any) -> bytes:
-    """A public key in the one encoding, so two of them compare by value."""
-    return key.public_bytes(
-        encoding=serialization.Encoding.DER,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-
-
-def _validate_certificate_pair(certificate: str, private_key: str) -> None:
-    """Check a supplied pair before it displaces the node's own.
-
-    Everything the node would only discover at startup or mid-handshake is
-    checked here instead, while the current pair is still in place.
-
-    Raises:
-        ValueError: If either file is unreadable, the key does not belong to the
-            certificate, or the certificate is outside its validity window. The
-            message is what the user is shown.
-    """
-    try:
-        parsed = x509.load_pem_x509_certificate(certificate.encode("utf-8"))
-    except (TypeError, ValueError) as exp:
-        raise ValueError(f"The certificate is not readable PEM: {exp}") from exp
-
-    try:
-        parsed_key = serialization.load_pem_private_key(
-            private_key.encode("utf-8"), password=None
-        )
-    except (TypeError, ValueError, UnsupportedAlgorithm) as exp:
-        # The underlying error is an OpenSSL dump that tells the user nothing.
-        raise ValueError(
-            "The private key could not be read. It has to be an unencrypted "
-            "private key in PEM format."
-        ) from exp
-
-    if _public_key_bytes(parsed_key.public_key()) != _public_key_bytes(
-        parsed.public_key()
-    ):
-        raise ValueError(
-            "The private key does not match the certificate, so this pair could "
-            "never complete a handshake."
-        )
-
-    now = datetime.now(timezone.utc)
-    if parsed.not_valid_after_utc < now:
-        raise ValueError(
-            f"The certificate expired on {parsed.not_valid_after_utc:%Y-%m-%d}, so "
-            "every connection made with it would fail."
-        )
-
-    if parsed.not_valid_before_utc > now:
-        raise ValueError(
-            f"The certificate is not valid before "
-            f"{parsed.not_valid_before_utc:%Y-%m-%d %H:%M} UTC, so every connection "
-            "made with it would fail until then."
-        )
-
-
-def _back_up(path: str) -> Optional[str]:
-    """Copy a file aside under a timestamped name, returning where it went.
-
-    A copy rather than a move: the file stays readable at its configured path
-    until the new one overwrites it, so a failure midway leaves the node with a
-    pair it can still serve.
-
-    Returns:
-        Path of the backup, or None when there was no file to back up.
-    """
-    if not os.path.isfile(path):
-        return None
-
-    backup = f"{path}.bak-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}"
-    shutil.copy2(path, backup)
-
-    return backup
-
-
-def _write_certificate_pair(
-    certificate: str, private_key: str
-) -> Dict[str, Optional[str]]:
-    """Write a validated pair to the paths the node's config points at.
-
-    Returns:
-        Where each displaced file was backed up, by role, with None for a role
-        that had no file in place.
-    """
-    certificate_path, private_key_path = _configured_certificate_paths()
-    backups = {
-        "certificate": _back_up(certificate_path),
-        "private_key": _back_up(private_key_path),
-    }
-
-    for path in (certificate_path, private_key_path):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-
-    with open(certificate_path, "w") as file:
-        file.write(certificate)
-
-    with open(private_key_path, "w") as file:
-        file.write(private_key)
-    # The key arrived over HTTP; it is not left readable to anyone but the node.
-    os.chmod(private_key_path, 0o600)
-
-    return backups
-
-
 def _register(certificate: str, component_id: Optional[str], upsert: bool) -> str:
     """Register a certificate, returning the component it was registered for."""
     certificate_manager = _certificate_manager()
@@ -344,7 +230,9 @@ def _register(certificate: str, component_id: Optional[str], upsert: bool) -> st
                 certificate_path=path,
                 component_id=component_id,
                 upsert=upsert,
-                registering_purpose=COMPONENT_PURPOSE[config.node_config.COMPONENT_TYPE],
+                registering_purpose=COMPONENT_PURPOSE[
+                    config.node_config.COMPONENT_TYPE
+                ],
             )
         finally:
             certificate_manager.close()
@@ -458,7 +346,7 @@ def generate_own_certificate():
 
     The pair is generated aside and then written over the configured paths, so
     a configuration naming any file gets its own file back. The displaced pair
-    is kept as a timestamped backup. The previous key stops being the node's
+    is kept as the single `.bak` backup. The previous key stops being the node's
     identity: every component holding the old certificate has to register the
     new one.
     """
@@ -479,7 +367,7 @@ def generate_own_certificate():
             with open(key_file) as file:
                 private_key = file.read()
 
-        backups = _write_certificate_pair(certificate, private_key)
+        backups = write_certificate_pair(config.node_config, certificate, private_key)
     except FedbiomedError as exp:
         return error(f"Could not generate the certificate: {exp}"), 400
     except OSError as exp:
@@ -504,7 +392,7 @@ def replace_own_certificate():
     Both parts are required and are validated together before anything on disk
     is touched, so a pair the node could not serve is refused while the current
     one still stands. The pair is written over the configured paths and the
-    displaced one is kept as a timestamped backup.
+    displaced one is kept as the single `.bak` backup.
     """
     payload = request.get_json(silent=True) or {}
     certificate = payload.get("certificate")
@@ -517,12 +405,12 @@ def replace_own_certificate():
         return error("The matching private key in PEM format is required"), 400
 
     try:
-        _validate_certificate_pair(certificate, private_key)
+        validate_certificate_pair(certificate, private_key)
     except ValueError as exp:
         return error(str(exp)), 400
 
     try:
-        backups = _write_certificate_pair(certificate, private_key)
+        backups = write_certificate_pair(config.node_config, certificate, private_key)
     except OSError as exp:
         return error(f"Could not write the new certificate: {exp}"), 500
 
