@@ -774,8 +774,8 @@ def test_given_component_id_used_without_usable_identity(cert_db):
 # The TLS role a registered certificate must carry: the one the registering
 # component does not act in. A certificate restricted to the registrar's own role
 # is rejected; one leaving the role open is registered. A TLS client additionally
-# keeps a single registered certificate. Omitting the registering purpose skips
-# both checks.
+# keeps a single registered certificate, and requires it to state a host. Omitting
+# the registering purpose skips these checks.
 
 
 def test_node_registering_researcher_certificate_accepted(cert_db):
@@ -810,6 +810,29 @@ def test_researcher_registering_researcher_certificate_rejected(cert_db):
             ),
             registering_purpose=CERT_PURPOSE_SERVER,
         )
+
+
+def test_node_registering_a_certificate_stating_no_host_rejected(cert_db):
+    """gRPC would verify it against its Common Name, which holds a component id."""
+    with pytest.raises(FedbiomedCertificateError, match="states no host"):
+        cert_db.cm.register_certificate(
+            certificate_path=_self_signed(
+                cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER, san=()
+            ),
+            registering_purpose=CERT_PURPOSE_CLIENT,
+        )
+
+    assert cert_db.cm.list() == []
+
+
+def test_researcher_registering_a_certificate_stating_no_host_accepted(cert_db):
+    """A node is authenticated by the certificate registered for it, never by name."""
+    cert_db.cm.register_certificate(
+        certificate_path=_self_signed(cert_db.tmp, _NODE_A, san=()),
+        registering_purpose=CERT_PURPOSE_SERVER,
+    )
+
+    assert cert_db.cm.get(_NODE_A) is not None
 
 
 def test_unknown_registering_purpose_is_rejected(cert_db):

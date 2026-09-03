@@ -270,6 +270,58 @@ async def test_grpc_client_connect_pins_the_certificate_under_mutual_authenticat
     client._channels.connect.assert_called_once()
 
 
+def _connecting_client(grpc_client, host):
+    client = GrpcClient(
+        node_id=_NODE_A,
+        researcher=ResearcherCredentials(
+            port="50051", host=host, certificate=b"CERT", mtls=True
+        ),
+        update_id_map=grpc_client.update_id_map,
+    )
+    client._channels.connect = AsyncMock()
+    return client
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.certificate_san_names")
+@patch("fedbiomed.transport.client.logger._logger.warning")
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_reports_a_host_the_certificate_does_not_name(
+    is_server_alive, log_warning, certificate_san_names, grpc_client
+):
+    """The certificate names hosts, the configuration says which one to dial: the
+    two need not agree, and the node says so before connecting anyway."""
+    is_server_alive.return_value = True
+    certificate_san_names.return_value = ["fbm.example.org"]
+    client = _connecting_client(grpc_client, "10.9.9.9")
+
+    await client._connect()
+
+    log_warning.assert_called_once()
+    message = log_warning.call_args.args[0]
+    assert "`10.9.9.9`" in message
+    assert "`fbm.example.org`" in message
+    client._channels.connect.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.certificate_san_names")
+@patch("fedbiomed.transport.client.logger._logger.warning")
+@patch("fedbiomed.transport.client.is_server_alive", autospec=True)
+async def test_grpc_client_says_nothing_of_a_loopback_form_of_the_same_machine(
+    is_server_alive, log_warning, certificate_san_names, grpc_client
+):
+    """`localhost` and `127.0.0.1` are the same machine, nothing to act on."""
+    is_server_alive.return_value = True
+    certificate_san_names.return_value = ["localhost"]
+    client = _connecting_client(grpc_client, "127.0.0.1")
+
+    await client._connect()
+
+    log_warning.assert_not_called()
+    client._channels.connect.assert_awaited_once()
+
+
 # -----------------------------------------------------------------------------
 # TaskListener
 # -----------------------------------------------------------------------------
@@ -685,6 +737,84 @@ async def test_task_listener_mtls_rejection_logged_once(
     assert "is not registered there" in log_warning.call_args[0][0]
     # The repeat went to debug with the same explanation
     assert any("TLS handshake" in c.args[0] for c in log_debug.call_args_list)
+
+
+# gRPC reports a failed name check inside an UNAVAILABLE, as it does an unstarted server
+_NAME_CHECK_RPC_ERROR = (
+    "failed to connect to all addresses; last error: UNKNOWN: "
+    "ipv4:127.0.0.1:50051: Custom verification check failed with error: "
+    "UNAUTHENTICATED: Hostname Verification Check failed."
+)
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_stops_on_a_failed_name_check(
+    sleep, log_error, security_event, listener_env
+):
+    """The name comes from the certificate the node holds, so retrying cannot help."""
+    listener_env.channels.mtls = True
+
+    await listener_env.drain(
+        [_rpc_error(grpc.StatusCode.UNAVAILABLE, _NAME_CHECK_RPC_ERROR)],
+        expect=FedbiomedCommunicationError,
+    )
+
+    listener_env.on_status_change.assert_any_await(ClientStatus.FAILED)
+    message = log_error.call_args[0][0]
+    assert "does not carry the name" in message
+    assert "registered researcher certificate" in message
+    assert "Register the researcher's current certificate" in message
+    event = security_event.call_args.kwargs
+    assert event["operation"] == "researcher_failed_name_check"
+    assert event["status"] == "failure"
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.error")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_stops_on_a_failed_name_check_without_mtls(
+    sleep, log_error, listener_env
+):
+    """A fetched certificate names the peer just as a registered one does, and the
+    node registers nothing here: only a restart refetches."""
+    listener_env.channels.mtls = False
+
+    await listener_env.drain(
+        [_rpc_error(grpc.StatusCode.UNAVAILABLE, _NAME_CHECK_RPC_ERROR)],
+        expect=FedbiomedCommunicationError,
+    )
+
+    message = log_error.call_args[0][0]
+    assert "does not carry the name" in message
+    assert "fetched at startup" in message
+    assert "Register" not in message
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger._logger.warning")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_retries_a_handshake_failure_that_is_not_a_name_check(
+    sleep, log_warning, listener_env
+):
+    """The name check is fatal and the handshake failure is not, so the handshake
+    terms must not carry a failure the name check owns: a detail naming a handshake
+    and a certificate, but no name check, is retried."""
+    listener_env.channels.mtls = True
+    handshake = (
+        "failed to connect to all addresses; last error: UNKNOWN: "
+        "ipv4:127.0.0.1:50051: Ssl handshake failed: SSL_ERROR_SSL: "
+        "CERTIFICATE_VERIFY_FAILED"
+    )
+
+    await listener_env.drain([_rpc_error(grpc.StatusCode.UNAVAILABLE, handshake)])
+
+    assert "handshake with researcher failed" in log_warning.call_args[0][0]
+    assert (
+        call(ClientStatus.FAILED) not in listener_env.on_status_change.await_args_list
+    )
 
 
 @pytest.mark.asyncio
@@ -1164,6 +1294,11 @@ def channels_env():
             "fedbiomed.transport.client.Channels._create_channel", autospec=True
         ) as create_channel,
         patch("fedbiomed.transport.client.ResearcherServiceStub", autospec=True),
+        # The placeholder certificate states no host, which no channel is built on
+        patch(
+            "fedbiomed.transport.client.certificate_san_names",
+            return_value=["localhost"],
+        ),
     ):
         create_channel.return_value.close = AsyncMock()
         yield SimpleNamespace(
@@ -1200,21 +1335,17 @@ async def test_channels_connect_and_stub(channels_env):
     assert await channels_env.channels.stub("dummy") is None
 
 
-@patch("fedbiomed.transport.client.certificate_san_names")
 @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
-def test_channels_create_without_mtls(
-    ssl_channel_credentials, certificate_san_names, channels_env
-):
+def test_channels_create_without_mtls(ssl_channel_credentials, channels_env):
     """Without mutual authentication only the server certificate is pinned, and the
     researcher is still verified against a name that certificate carries."""
-    certificate_san_names.return_value = ["fbm-researcher"]
     channels = Channels(
         researcher=ResearcherCredentials(
             host="localhost", port="50051", certificate=b"server-cert"
         )
     )
 
-    channels._create()
+    channels._create(["fbm-researcher"])
 
     # Server certificate pinned, no client identity presented
     ssl_channel_credentials.assert_called_once_with(b"server-cert")
@@ -1223,14 +1354,10 @@ def test_channels_create_without_mtls(
     assert kwargs["certificate"] == ssl_channel_credentials.return_value
 
 
-@patch("fedbiomed.transport.client.certificate_san_names")
 @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")
-def test_channels_create_with_mtls(
-    ssl_channel_credentials, certificate_san_names, channels_env
-):
+def test_channels_create_with_mtls(ssl_channel_credentials, channels_env):
     """Under mutual authentication the node presents its identity and still pins
     the name."""
-    certificate_san_names.return_value = ["fbm-researcher"]
     channels = Channels(
         researcher=ResearcherCredentials(
             host="localhost",
@@ -1244,69 +1371,77 @@ def test_channels_create_with_mtls(
         )
     )
 
-    channels._create()
+    channels._create(["fbm-researcher"])
 
     ssl_channel_credentials.assert_called_once_with(
         root_certificates=b"server-cert",
         private_key=b"node-key",
         certificate_chain=b"node-cert",
     )
-    certificate_san_names.assert_called_once_with(b"server-cert")
     _, kwargs = channels_env.create_channel.call_args
     assert kwargs["target_name_override"] == "fbm-researcher"
 
 
-@patch("fedbiomed.transport.client.certificate_san_names")
-def test_channels_verify_the_dialled_address_when_named(
-    certificate_san_names, channels_env
-):
+def test_channels_verify_the_dialled_address_when_named(channels_env):
     """No override where the certificate names the address: the address dialled is
     then what TLS verifies, which is what the name check is for."""
-    certificate_san_names.return_value = ["fbm-researcher", "localhost", "127.0.0.1"]
-
     Channels(
         researcher=ResearcherCredentials(
             host="localhost", port="50051", certificate=b"server-cert"
         )
-    )._create()
+    )._create(["fbm-researcher", "localhost", "127.0.0.1"])
 
     _, kwargs = channels_env.create_channel.call_args
     assert kwargs["target_name_override"] is None
 
 
-@patch("fedbiomed.transport.client.certificate_san_names")
-def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(
-    certificate_san_names, channels_env
-):
+def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(channels_env):
     """A certificate is issued when the component is created, so it cannot always
     name the address nodes reach it at."""
-    certificate_san_names.return_value = ["fbm-researcher", "fbm.example.org"]
-
     Channels(
         researcher=ResearcherCredentials(
             host="10.0.0.9", port="50051", certificate=b"server-cert"
         )
-    )._create()
+    )._create(["fbm-researcher", "fbm.example.org"])
 
     _, kwargs = channels_env.create_channel.call_args
     assert kwargs["target_name_override"] == "fbm-researcher"
 
 
-@patch("fedbiomed.transport.client.certificate_san_names")
-def test_channels_verify_the_dialled_address_for_a_nameless_certificate(
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.certificate_san_names", return_value=[])
+async def test_channels_refuse_a_certificate_stating_no_host(
     certificate_san_names, channels_env
 ):
-    """A nameless certificate leaves nothing to override with."""
-    certificate_san_names.return_value = []
+    """gRPC would verify it against its Common Name, so no channel is built on one."""
+    with pytest.raises(FedbiomedCommunicationError, match="states no host"):
+        await Channels(
+            researcher=ResearcherCredentials(
+                host="10.0.0.9", port="50051", certificate=b"server-cert"
+            )
+        ).connect()
 
-    Channels(
-        researcher=ResearcherCredentials(
-            host="10.0.0.9", port="50051", certificate=b"server-cert"
-        )
-    )._create()
+    channels_env.create_channel.assert_not_called()
 
-    _, kwargs = channels_env.create_channel.call_args
-    assert kwargs["target_name_override"] is None
+
+@pytest.mark.asyncio
+async def test_channels_keep_the_channels_open_on_a_refused_certificate(channels_env):
+    """The refusal comes before the close loop, so a certificate no channel is built
+    on tears down none of the channels in place."""
+    await channels_env.channels.connect()
+    channel = channels_env.create_channel.return_value
+
+    with patch("fedbiomed.transport.client.certificate_san_names", return_value=[]):
+        with pytest.raises(FedbiomedCommunicationError, match="states no host"):
+            await channels_env.channels.connect()
+
+    channel.close.assert_not_awaited()
+    for st in (
+        _StubType.LISTENER_TASK_STUB,
+        _StubType.SENDER_TASK_STUB,
+        _StubType.SENDER_FEEDBACK_STUB,
+    ):
+        assert await channels_env.channels.stub(st) is not None
 
 
 def test_channels_create_channel_adds_target_name_override():

@@ -656,8 +656,8 @@ class CertificateManager:
                 certificates restricted to that same role are rejected: components
                 register each other's certificates, never their own; one leaving the
                 role open is registered and reported. A TLS client additionally keeps
-                a single registered certificate — the server's. None skips these
-                checks.
+                a single registered certificate — the server's — and requires it to
+                state the hosts it is verified under. None skips these checks.
 
         Returns:
             The component id the certificate was registered under, which the caller
@@ -670,7 +670,8 @@ class CertificateManager:
                 with the certificate identity; if the certificate is already
                 registered under another component id; or, when `registering_purpose`
                 is given, if the certificate is restricted to that same role, or if a
-                TLS client already holds a certificate for another component.
+                TLS client already holds a certificate for another component or is
+                given one stating no host.
         """
         certificate_id = certificate_component_id(certificate)
 
@@ -690,6 +691,18 @@ class CertificateManager:
 
         if registering_purpose is not None:
             validate_certificate_purpose(certificate, registering_purpose)
+
+        # gRPC falls back to the Common Name, which holds the component id, not a host
+        if registering_purpose == CERT_PURPOSE_CLIENT and not certificate_san_names(
+            certificate
+        ):
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: The certificate states no host: its "
+                "Subject Alternative Name carries no host name and no address, so "
+                "nothing in it says which server it is valid for. Request the "
+                "researcher to reissue its certificate for the hosts nodes reach "
+                "it at."
+            )
 
         others = [d for d in self.list() if d["component_id"] != component_id]
 

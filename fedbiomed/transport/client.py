@@ -16,6 +16,7 @@ from fedbiomed.common.certificate_manager import (
     certificate_audit_fields,
     certificate_component_id,
     certificate_san_names,
+    is_loopback_name,
 )
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
@@ -32,6 +33,9 @@ from fedbiomed.transport.protocols.researcher_pb2_grpc import ResearcherServiceS
 # UNAVAILABLE error-detail markers of a TLS/pinning failure (gRPC reports it
 # with the same status as an unreachable server).
 _TLS_HANDSHAKE_ERROR_MARKERS = ("handshake", "certificate", "ssl", "tls")
+
+# UNAVAILABLE detail marker of a failed gRPC name check; matches none of the terms above
+_NAME_CHECK_ERROR_MARKER = "hostname verification"
 
 # UNAVAILABLE error-detail markers of a connection closed by the peer, the only
 # trace of a server rejecting the client certificate mid-handshake.
@@ -140,6 +144,12 @@ def _is_connection_closed_error(exp: grpc.aio.AioRpcError) -> bool:
     return any(m in detail for m in _CONNECTION_CLOSED_ERROR_MARKERS)
 
 
+def _is_name_check_failure(exp: grpc.aio.AioRpcError) -> bool:
+    """Whether an UNAVAILABLE RPC error is gRPC refusing the peer's name."""
+    detail = f"{exp.details()} {exp.debug_error_string()}".lower()
+    return _NAME_CHECK_ERROR_MARKER in detail
+
+
 def _is_connection_recycled_error(exp: grpc.aio.AioRpcError) -> bool:
     """Whether an UNAVAILABLE RPC error is the server retiring a connection on the
     maximum age it grants, which the client replaces rather than fails."""
@@ -205,6 +215,13 @@ def _researcher_requires_client_auth(host: str, port: str) -> Optional[bool]:
     except OSError:
         # Never got far enough to learn anything (refused, unreachable, DNS).
         return None
+
+
+def _name_verified_under(host: str, san_names: List[str]) -> Optional[str]:
+    """The certificate name a connection to `host` is verified under, None for the
+    host itself. TLS matches a name as written, so one loopback form does not
+    verify another and a name never verifies an address."""
+    return None if host in san_names else san_names[0]
 
 
 class Channels:
@@ -280,6 +297,21 @@ class Channels:
         """
 
         async with self._channels_stubs_lock:
+            san_names = certificate_san_names(self._researcher.certificate)
+
+            # gRPC would verify on the Common Name; a fetched certificate passes no
+            # registry. Refused before the close loop, so it tears down no channel.
+            if not san_names:
+                msg = (
+                    f"{ErrorNumbers.FB628.value}: The researcher certificate at "
+                    f"{self.endpoint} states no host: its Subject Alternative Name "
+                    "carries no host name and no address, so nothing in it says which "
+                    "server it is valid for. Request the researcher to reissue its "
+                    "certificate for the hosts nodes reach it at."
+                )
+                logger.error(msg)
+                raise FedbiomedCommunicationError(msg)
+
             # Closes if channels are open
             for st, channel in self._channels.items():
                 if channel and (stub_type == _StubType.ANY_STUB or stub_type == st):
@@ -288,11 +320,15 @@ class Channels:
             # Creates channels
             for st in self._channels.keys():
                 if stub_type == _StubType.ANY_STUB or stub_type == st:
-                    self._channels[st] = self._create()
+                    self._channels[st] = self._create(san_names)
                     self._stubs[st] = ResearcherServiceStub(channel=self._channels[st])
 
-    def _create(self):
-        """Creates new channel"""
+    def _create(self, san_names: List[str]):
+        """Creates new channel
+
+        Args:
+            san_names: hosts the researcher certificate states, read once per connect
+        """
         if self._researcher.mtls:
             node_identity = self._researcher.node_identity
             credentials = grpc.ssl_channel_credentials(
@@ -303,8 +339,6 @@ class Channels:
         else:
             credentials = grpc.ssl_channel_credentials(self._researcher.certificate)
 
-        san_names = certificate_san_names(self._researcher.certificate)
-
         return self._create_channel(
             port=self._researcher.port,
             host=self._researcher.host,
@@ -312,11 +346,7 @@ class Channels:
             # Verify the address dialled where the certificate names it; one issued
             # before the deployment address was known is verified against a name it
             # does carry.
-            target_name_override=(
-                None
-                if self._researcher.host in san_names
-                else next(iter(san_names), None)
-            ),
+            target_name_override=_name_verified_under(self._researcher.host, san_names),
         )
 
     @staticmethod
@@ -494,6 +524,26 @@ class GrpcClient:
                         host=self._researcher.host,
                         port=self._researcher.port,
                         detail=msg,
+                    )
+
+                # Reported here, run once, not in `_create`: per stub and per reconnect
+                san_names = certificate_san_names(self._researcher.certificate)
+                verified_under = (
+                    _name_verified_under(self._researcher.host, san_names)
+                    if san_names
+                    else None
+                )
+                # Silent when that name is a loopback form of the machine dialled
+                if verified_under and not (
+                    is_loopback_name(self._researcher.host)
+                    and is_loopback_name(verified_under)
+                ):
+                    logger.warning(
+                        "The researcher certificate does not name the host "
+                        f"`{self._researcher.host}` dialled from `[researcher] ip`; "
+                        "it is issued for "
+                        f"{', '.join(f'`{name}`' for name in san_names)}. This does "
+                        "not prevent the connection."
                     )
 
                 if self._id is None:
@@ -689,6 +739,36 @@ class Listener:
                                 "connection on its maximum age, will reconnect in "
                                 f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
                             )
+                        elif _is_name_check_failure(exp):
+                            # Verified under a name read from the certificate held here
+                            await self._on_status_change(ClientStatus.FAILED)
+                            if self._channels.mtls:
+                                msg = (
+                                    f"{ErrorNumbers.FB628.value}: gRPC refused the "
+                                    f"researcher at {self._channels.endpoint}: it does "
+                                    "not carry the name this node verifies it under, "
+                                    "read from the registered researcher certificate. "
+                                    "Register the researcher's current certificate on "
+                                    "the node and restart it."
+                                )
+                            else:
+                                msg = (
+                                    f"{ErrorNumbers.FB628.value}: gRPC refused the "
+                                    f"researcher at {self._channels.endpoint}: it does "
+                                    "not carry the name this node verifies it under, "
+                                    "read from the certificate fetched at startup. "
+                                    "Restart the node, which fetches the certificate "
+                                    "the researcher serves now."
+                                )
+                            logger.error(msg)
+                            logger.security_event(
+                                operation="researcher_failed_name_check",
+                                status="failure",
+                                host=self._channels.host,
+                                port=self._channels.port,
+                                detail=msg,
+                            )
+                            raise FedbiomedCommunicationError(msg) from exp
                         elif self._channels.mtls and _is_tls_handshake_error(exp):
                             self._log_connection_failure_once(
                                 "Mutual authentication (mTLS) handshake with "
