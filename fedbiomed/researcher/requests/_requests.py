@@ -16,7 +16,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.constants import REQUEST_PREFIX, MessageType
+from fedbiomed.common.certificate_manager import TrustedCertificateBundle
+from fedbiomed.common.constants import (
+    REQUEST_PREFIX,
+    ErrorNumbers,
+    MessageType,
+)
+from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     ApprovalRequest,
@@ -347,6 +353,43 @@ class Requests(metaclass=SingletonMeta):
         cert_priv = config.getpath("certificate", "private_key")
         cert_pub = config.getpath("certificate", "public_key")
 
+        # Bundle of registered node certificates to pin, under mutual authentication.
+        trusted_node_certificates = None
+        if config.getbool("authentication", "mutual_authentication", fallback="False"):
+            db_path = config.getpath("default", "db")
+            trusted_node_certificates = TrustedCertificateBundle(db_path)
+            # This first read also reports expiring certificates. gRPC cannot build
+            # server credentials from an empty bundle: it fails to bind the port
+            # rather than starting and rejecting nodes.
+            if not trusted_node_certificates():
+                # An empty bundle from a database that was never read means the
+                # database is missing or unreadable, not that it holds nothing.
+                if trusted_node_certificates.loaded:
+                    msg = (
+                        f"{ErrorNumbers.FB619.value}: mutual authentication is enabled "
+                        "but no node certificate is registered, so the researcher "
+                        "server cannot start. Register at least one node certificate "
+                        "with `fedbiomed researcher certificate register`, or disable "
+                        "mutual authentication by setting "
+                        "`mutual_authentication = False` in the "
+                        f"`[authentication]` section of {config.config_path}."
+                    )
+                else:
+                    msg = (
+                        f"{ErrorNumbers.FB619.value}: mutual authentication is enabled "
+                        f"but the certificate database {db_path} could not be read, so "
+                        "the researcher server cannot start. Registering a node "
+                        "certificate with `fedbiomed researcher certificate register` "
+                        "creates it, provided the `db` path of the `[default]` section "
+                        f"of {config.config_path} points into an existing directory."
+                    )
+                logger.security_event(
+                    operation="mtls_startup_aborted",
+                    status="failure",
+                    detail=msg,
+                )
+                raise FedbiomedCertificateError(msg)
+
         # Creates grpc server and starts it
         self._researcher_id = config.get("default", "id")
         self._grpc_server = GrpcServer(
@@ -354,7 +397,11 @@ class Requests(metaclass=SingletonMeta):
             port=server_port,
             config=config,
             on_message=self.on_message,
-            ssl=SSLCredentials(key=cert_priv, cert=cert_pub),
+            ssl=SSLCredentials(
+                key=cert_priv,
+                cert=cert_pub,
+                trusted_node_certificates=trusted_node_certificates,
+            ),
         )
         self.start_messaging()
 

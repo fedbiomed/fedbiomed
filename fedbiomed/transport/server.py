@@ -5,12 +5,16 @@ import asyncio
 import os
 import threading
 import time
-from typing import Any, Callable, Coroutine, Iterable, List, Optional
+from typing import Any, Callable, Coroutine, Dict, Iterable, List, Optional
 
 import grpc
 from google.protobuf.message import Message as ProtoBufMessage
 
 import fedbiomed.transport.protocols.researcher_pb2_grpc as researcher_pb2_grpc
+from fedbiomed.common.certificate_manager import (
+    TrustedCertificateBundle,
+    certificate_audit_fields,
+)
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
     MAX_MESSAGE_BYTES_LENGTH,
@@ -18,7 +22,10 @@ from fedbiomed.common.constants import (
     ErrorNumbers,
     MessageType,
 )
-from fedbiomed.common.exceptions import FedbiomedCommunicationError
+from fedbiomed.common.exceptions import (
+    FedbiomedCertificateError,
+    FedbiomedCommunicationError,
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     FeedbackMessage,
@@ -31,6 +38,7 @@ from fedbiomed.common.serializer import Serializer
 from fedbiomed.transport.client import (
     GRPC_CLIENT_CONN_RETRY_TIMEOUT,
     GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
+    MTLS_PEER_ID_HEADER,
 )
 from fedbiomed.transport.node_agent import AgentStore, NodeAgent
 from fedbiomed.transport.protocols.researcher_pb2 import Empty
@@ -45,36 +53,188 @@ server_setup_timeout = int(os.getenv("GRPC_SERVER_SETUP_TIMEOUT", 1))
 GRPC_SERVER_SETUP_TIMEOUT = GRPC_CLIENT_CONN_RETRY_TIMEOUT + server_setup_timeout
 MAX_GRPC_SERVER_SETUP_TIMEOUT = 20 * server_setup_timeout
 
+# gRPC service nodes connect to, reported as the destination of connection events.
+_SERVICE_NAME = "researcher.ResearcherService"
+
 
 class SSLCredentials:
     """Contains credentials for SSL certificate of the gRPC server"""
 
-    def __init__(self, key: str, cert: str):
+    def __init__(
+        self,
+        key: str,
+        cert: str,
+        trusted_node_certificates: Optional[TrustedCertificateBundle] = None,
+    ):
         """Reads private key and cert file
 
         Args:
             key: path to private key
             cert: path to certificate
+            trusted_node_certificates: view of the registered node certificates.
+                Called for its PEM bundle on each mTLS handshake — the protocol
+                carrying mutual authentication — so nodes registered after startup
+                are trusted without a restart, and asked which component a presented
+                certificate belongs to when serving an RPC. None disables node
+                identity verification (server-auth only).
         """
         with open(key, "rb") as f:
             self.private_key = f.read()
         with open(cert, "rb") as f:
             self.certificate = f.read()
+        self.trusted_node_certificates = trusted_node_certificates
+
+    @property
+    def mtls(self) -> bool:
+        """Whether mutual authentication (node certificate verification) is enabled."""
+        return self.trusted_node_certificates is not None
+
+
+def _peer_certificate(context: grpc.aio.ServicerContext) -> Optional[bytes]:
+    """PEM of the peer client certificate, or None when none was presented.
+
+    Args:
+        context: RPC peer context.
+
+    Returns:
+        The presented client certificate, or None under server-only TLS.
+    """
+    pem = context.auth_context().get("x509_pem_cert")
+    if not pem:
+        return None
+
+    certificate = pem[0]
+    if not isinstance(certificate, bytes):
+        certificate = certificate.encode("utf-8")
+
+    return certificate
+
+
+def _connection_audit_fields(context: grpc.aio.ServicerContext) -> Dict[str, str]:
+    """Connection facts common to every audit event of an RPC call.
+
+    Args:
+        context: RPC peer context.
+
+    Returns:
+        Origin and destination of the call, plus the identifying fields of the
+        peer certificate when one was presented.
+    """
+    return {
+        "source_address": context.peer(),
+        "destination_service": _SERVICE_NAME,
+        **certificate_audit_fields(_peer_certificate(context)),
+    }
+
+
+async def _verify_peer_identity(
+    context: grpc.aio.ServicerContext,
+    declared_node_id: Optional[str],
+    identities: Optional[TrustedCertificateBundle],
+) -> Optional[str]:
+    """Binds the node id a message declares to the peer's registered identity.
+
+    Applied to every RPC carrying a node id, so a node holding a registered
+    certificate cannot act under another node's identity. The identity is the
+    component id the presented certificate is registered under, which is
+    authoritative even for certificates embedding no Fed-BioMed identity.
+
+    Resolution goes through the same registry view that supplies the TLS trust
+    bundle, so a certificate deleted while the researcher runs stops being
+    accepted once the change is picked up. A certificate that resolves to no
+    component id is refused: the handshake proved it chains to the trusted bundle,
+    so an unresolved one means the registry and that bundle disagree.
+
+    Args:
+        context: RPC peer context.
+        declared_node_id: Node id declared by the message being served.
+        identities: Registered certificates, or None when node identity
+            verification is disabled.
+
+    Returns:
+        The registered component id of the peer, or None where there is no identity
+        to bind to: no registry configured, or no client certificate presented, the
+        two faces of server-only TLS.
+
+    Raises:
+        grpc.aio.AbortError: the peer could not be resolved to a registered
+            component id, or that component id is not the one declared.
+    """
+    certificate = _peer_certificate(context)
+    if certificate is None or identities is None:
+        return None
+
+    peer_node_id = identities.component_id(certificate)
+
+    if peer_node_id is None:
+        # A broken registry must not read as an unregistered certificate.
+        if not identities.loaded:
+            reason = "registry_unreadable"
+            cause = "its certificate registry could not be read"
+        else:
+            reason = "certificate_not_registered"
+            cause = "its certificate is not registered"
+
+        msg = (
+            f"{ErrorNumbers.FB628.value}: Refusing the node declaring id "
+            f"`{declared_node_id}`: {cause}."
+        )
+        logger.error(msg)
+        logger.security_event(
+            operation="mtls_identity_unresolved",
+            status="failure",
+            reason=reason,
+            declared_node_id=declared_node_id,
+            detail=msg,
+            **_connection_audit_fields(context),
+        )
+        await context.abort(grpc.StatusCode.UNAUTHENTICATED, msg)
+
+    if peer_node_id != declared_node_id:
+        msg = (
+            f"{ErrorNumbers.FB628.value}: Declared node id `{declared_node_id}` does "
+            f"not match the identity `{peer_node_id}` its certificate is registered "
+            "under."
+        )
+        logger.error(msg)
+        logger.security_event(
+            operation="mtls_identity_mismatch",
+            status="failure",
+            node_id=peer_node_id,
+            declared_node_id=declared_node_id,
+            detail=msg,
+            **_connection_audit_fields(context),
+        )
+        await context.abort(grpc.StatusCode.UNAUTHENTICATED, msg)
+
+    return peer_node_id
 
 
 class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     """RPC Servicer"""
 
-    def __init__(self, agent_store: AgentStore, on_message: Callable) -> None:
+    def __init__(
+        self,
+        agent_store: AgentStore,
+        on_message: Callable,
+        identities: Optional[TrustedCertificateBundle] = None,
+    ) -> None:
         """Constructor of gRPC researcher servicer
 
         Args:
             agent_store: The class that stores node agents
             on_message: Callback function to execute once a message received from the nodes
+            identities: Registered node certificates, resolving the certificate a
+                node presents to the component id it is registered under. None when
+                node identity verification is disabled (server-auth only TLS).
         """
         super().__init__()
         self._agent_store = agent_store
         self._on_message = on_message
+        self._identities = identities
+        # Last audited (certificate serial, source address) per node: a node holds
+        # one connection at a time, so a change to either is a new handshake.
+        self._peer_identity: Dict[str, tuple] = {}
 
     async def GetTaskUnary(
         self, request: ProtoBufMessage, context: grpc.aio.ServicerContext
@@ -87,6 +247,34 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         """
         task_request = TaskRequest.from_proto(request).get_dict()
         logger.debug(f"Node: {task_request.get('node')} polling for the tasks")
+
+        peer_node_id = await _verify_peer_identity(
+            context, task_request["node"], self._identities
+        )
+
+        if peer_node_id:
+            connection = _connection_audit_fields(context)
+            identity = (connection.get("cert_serial"), connection["source_address"])
+            if self._peer_identity.get(peer_node_id) != identity:
+                self._peer_identity[peer_node_id] = identity
+                logger.info(
+                    f"Node `{peer_node_id}` identity verified by mutual authentication."
+                )
+                logger.security_event(
+                    operation="mtls_node_authenticated",
+                    status="success",
+                    node_id=peer_node_id,
+                    **connection,
+                )
+
+        # Sent before the call blocks waiting for a task: the node reads it to confirm
+        # its identity was verified, and an idle federation sends no response for the
+        # whole request timeout. Headers are flushed with the first message otherwise,
+        # so sending them explicitly is what makes the answer immediate. Carries no
+        # key when no identity was verified, which is what tells the node so.
+        await context.send_initial_metadata(
+            ((MTLS_PEER_ID_HEADER, peer_node_id),) if peer_node_id else ()
+        )
 
         node_agent = await self._agent_store.retrieve(node_id=task_request["node"])
 
@@ -224,13 +412,13 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
     async def ReplyTask(
         self,
         request_iterator: Iterable[ProtoBufMessage],
-        unused_context: grpc.aio.ServicerContext,
+        context: grpc.aio.ServicerContext,
     ) -> None:
         """Gets stream replies from the nodes
 
         Args:
             request_iterator: Iterator for streaming
-            unused_context: Request service context
+            context: Request service context
         """
 
         reply = bytes()
@@ -241,6 +429,10 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
 
             # Deserialize message
             message = Serializer.loads(reply)
+
+            await _verify_peer_identity(
+                context, message.get("node_id"), self._identities
+            )
 
             logger.debug(
                 "[WIRE][N->S][RX] node=%s req=%s type=%s bytes=%d",
@@ -259,27 +451,33 @@ class ResearcherServicer(researcher_pb2_grpc.ResearcherServiceServicer):
         return Empty()
 
     async def Feedback(
-        self, request: ProtoBufMessage, unused_context: grpc.aio.ServicerContext
+        self, request: ProtoBufMessage, context: grpc.aio.ServicerContext
     ) -> None:
         """Executed for Feedback request received from the nodes
 
         Args:
             request: Feedback message
-            unused_context: Request service context
+            context: Request service context
         """
 
         # Get the type of Feedback | log or scalar
         one_of = request.WhichOneof("feedback_type")
         feedback = FeedbackMessage.from_proto(request)
+        # The node id is carried by the payload; `FeedbackMessage` has none.
+        payload = feedback.get_param(one_of)
+
+        await _verify_peer_identity(
+            context, getattr(payload, "node_id", None), self._identities
+        )
 
         logger.debug(
             "[WIRE][N->S][RX] node=%s type=Feedback oneof=%s",
-            feedback.node_id if hasattr(feedback, "node_id") else None,
+            getattr(payload, "node_id", None),
             one_of,
         )
 
         # Execute on_message assigned by the researcher.requests modules
-        self._on_message(feedback.get_param(one_of), MessageType.convert(one_of))
+        self._on_message(payload, MessageType.convert(one_of))
 
         return Empty()
 
@@ -320,6 +518,48 @@ class _GrpcAsyncServer:
         self._on_message = on_message
         self._loop = None
         self._agent_store: Optional[AgentStore] = None
+
+    def _server_credentials(self) -> grpc.ServerCredentials:
+        """Builds the gRPC server credentials.
+
+        Under mutual authentication, node client certificates are required and pinned
+        to the registered bundle. The bundle is re-read per handshake, so nodes
+        registered after startup are trusted without a restart. Otherwise server-auth
+        only.
+
+        Returns:
+            Credentials to serve the researcher endpoint with.
+
+        Raises:
+            FedbiomedCertificateError: mutual authentication is enabled but no node
+                certificate is registered.
+        """
+        key_cert_pairs = ((self._ssl.private_key, self._ssl.certificate),)
+
+        if not self._ssl.mtls:
+            return grpc.ssl_server_credentials(key_cert_pairs)
+
+        # gRPC refuses to bind the port when the trust bundle is empty, so report
+        # the cause instead of an opaque binding failure.
+        if not self._ssl.trusted_node_certificates():
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: mutual authentication is enabled but no "
+                "node certificate is registered, so the researcher server cannot start. "
+                "Register at least one node certificate with `fedbiomed researcher "
+                "certificate register`."
+            )
+
+        def certificate_configuration():
+            return grpc.ssl_server_certificate_configuration(
+                key_cert_pairs,
+                root_certificates=self._ssl.trusted_node_certificates(),
+            )
+
+        return grpc.dynamic_ssl_server_credentials(
+            certificate_configuration(),
+            certificate_configuration,
+            require_client_authentication=True,
+        )
 
     async def start(self):
         """Starts gRPC server"""
@@ -375,22 +615,25 @@ class _GrpcAsyncServer:
 
         researcher_pb2_grpc.add_ResearcherServiceServicer_to_server(
             ResearcherServicer(
-                agent_store=self._agent_store, on_message=self._on_message
+                agent_store=self._agent_store,
+                on_message=self._on_message,
+                identities=self._ssl.trusted_node_certificates,
             ),
             server=self._server,
         )
 
-        # TODO: current version does not require or check client certificate
-        # In other words: hardcoded policy that researcher does not check node identity yet.
-        # To be extended in a future version.
-        server_credentials = grpc.ssl_server_credentials(
-            ((self._ssl.private_key, self._ssl.certificate),)
-        )
-
         self._server.add_secure_port(
-            self._host + ":" + str(self._port), server_credentials
+            self._host + ":" + str(self._port), self._server_credentials()
         )
         # self._server.add_insecure_port(self._host + ':' + str(self._port))
+
+        if self._ssl.mtls:
+            # Rejections happen inside the TLS handshake, out of reach of this process
+            logger.info(
+                "Mutual authentication is enabled: nodes whose certificate is not "
+                "registered are rejected during the TLS handshake. Run with "
+                "GRPC_VERBOSITY=INFO to have gRPC report each rejection."
+            )
 
         # Starts async gRPC server
         await self._server.start()

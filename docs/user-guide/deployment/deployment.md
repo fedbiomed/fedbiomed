@@ -14,7 +14,7 @@ Fed-BioMed provides ready-to-use Docker images for each component (`fedbiomed/no
 - **Customized deployments** — use the provided images as a base and extend them with additional packages, custom datasets, or organisation-specific configuration (see [Extending Docker Images](./docker.md#extending-docker-images))
 - **Integration into larger systems** — embed Fed-BioMed nodes or researchers inside an existing infrastructure by building on top of the base images
 
-Plain Docker images do **not** provide VPN-based authentication between components. They are best suited for deployments on trusted networks or for testing purposes.
+Plain Docker images do **not** provide VPN-based authentication between components. They are best suited for deployments on trusted networks or for testing purposes. Where the parties must authenticate each other without a VPN, [mutual authentication (mTLS)](./mutual-tls.md) authenticates them at the gRPC level instead — it is off by default and has to be enabled on every component of a deployment.
 
 See the **[Docker deployment guide](./docker.md)** for full instructions.
 

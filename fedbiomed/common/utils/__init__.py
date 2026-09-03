@@ -9,7 +9,7 @@ from ._config_utils import (
     get_all_existing_config_files,
     get_component_certificate_from_config,
     get_component_config,
-    get_existing_component_db_names,
+    get_existing_component_db_paths,
 )
 from ._fa_secagg_utils import flatten_fa_output, unflatten_fa_output
 from ._secagg_utils import (
@@ -59,7 +59,7 @@ __all__ = [
     "get_default_biprime",
     "get_all_existing_config_files",
     "get_all_existing_certificates",
-    "get_existing_component_db_names",
+    "get_existing_component_db_paths",
     "create_fedbiomed_setup_folders",
     "matching_parties_servkey",
     "matching_parties_dh",

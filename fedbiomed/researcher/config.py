@@ -5,7 +5,10 @@ import os
 import shutil
 from typing import Optional
 
-from fedbiomed.common.certificate_manager import generate_certificate
+from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_SERVER,
+    generate_certificate,
+)
 from fedbiomed.common.config import Component, Config
 from fedbiomed.common.constants import (
     CONFIG_FOLDER_NAME,
@@ -34,12 +37,13 @@ class ResearcherConfig(Config):
             os.getenv("FBM_SERVER_NODE_DISCONNECTION_TIMEOUT", "10")
         )
 
-        # Generate certificate for gRPC server
+        # Generate certificate for gRPC server, issued for the host nodes reach it at
         key_file, pem_file = generate_certificate(
             root=self.root,
             prefix=SERVER_certificate_prefix,
             component_id=self._cfg["default"]["id"],
-            subject={"CommonName": grpc_host},
+            purpose=CERT_PURPOSE_SERVER,
+            san=[grpc_host],
         )
 
         self._cfg["server"] = {
