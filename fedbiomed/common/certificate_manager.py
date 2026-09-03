@@ -99,12 +99,15 @@ def certificate_san_names(certificate: Union[bytes, str]) -> List[str]:
     Read from the Subject Alternative Name, the only place a certificate states
     them: the Common Name is free text and carries no host.
 
+    Only `dNSName` and `iPAddress` entries, the two TLS matches a server name
+    against; an e-mail address, a URI or a blank entry names no server.
+
     Args:
         certificate: PEM encoded certificate.
 
     Returns:
-        The certificate's SAN entries, empty when it declares none or cannot be
-        read.
+        The host names and addresses the certificate is valid for, empty when it
+        declares none or cannot be read.
     """
     if isinstance(certificate, str):
         certificate = certificate.encode("utf-8")
@@ -116,6 +119,9 @@ def certificate_san_names(certificate: Union[bytes, str]) -> List[str]:
             for entry in extensions.get_extension_for_class(
                 x509.SubjectAlternativeName
             ).value
+            if isinstance(entry, (x509.DNSName, x509.IPAddress))
+            # Kept as written, since that is the name TLS matches
+            and str(entry.value).strip()
         ]
     except (x509.ExtensionNotFound, TypeError, ValueError, AttributeError):
         return []
