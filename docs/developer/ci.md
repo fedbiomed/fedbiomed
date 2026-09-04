@@ -297,7 +297,7 @@ to fit within CI disk limits. This is an opt-in test configuration:
 Normal VPN deployment does not set these values. It keeps the GPU-capable node
 base and standard package-index resolution.
 
-`FBM_PYTORCH_INDEX_URL` reaches the researcher and node builds as a Docker
+`FBM_PYTORCH_INDEX_URL` reaches the researcher, node, and GUI builds as a Docker
 build argument and becomes an extra package index for their `pip install`, so
 those images resolve the CPU-only PyTorch wheels. Left empty, the builds use the
 default index. The researcher and node package
