@@ -239,6 +239,15 @@ class Monitor:
         self._round_state = 0
         self._tensorboard = False
 
+    @property
+    def metric_store(self) -> MetricStore:
+        """Returns MetricStore object that stores training and validation metric values
+
+        Returns:
+            MetricStore: MetricStore object that stores training and validation metric values
+        """
+        return self._metric_store
+
     def set_round(self, round_: int) -> int:
         """Sets round number that metric results will be received for.
 
