@@ -190,6 +190,14 @@ class FedbiomedOptimizerError(FedbiomedError):
     pass
 
 
+class FedbiomedResearcherServerError(FedbiomedError):
+    """
+    Error in the researcher server (user API and its daemon)
+    """
+
+    pass
+
+
 class FedbiomedRoundError(FedbiomedError):
     """
     Exceptions specific for the node round class.

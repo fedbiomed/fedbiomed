@@ -17,11 +17,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="IXI Sample downloader and splitter")
     parser.add_argument("-f", "--root_folder", required=True, type=str)
     parser.add_argument(
-        "-F",
+        "-f",
         "--force",
         action=argparse.BooleanOptionalAction,
         required=False,
-        type=bool,
         default=False,
     )
     return parser.parse_args()

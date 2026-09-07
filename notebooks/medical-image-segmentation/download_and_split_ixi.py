@@ -21,7 +21,6 @@ def parse_args():
         "--force",
         action=argparse.BooleanOptionalAction,
         required=False,
-        type=bool,
         default=False,
     )
     return parser.parse_args()

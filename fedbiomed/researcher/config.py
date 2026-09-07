@@ -3,7 +3,7 @@
 
 import os
 import shutil
-from typing import Optional
+from typing import Dict, Optional
 
 from fedbiomed.common.certificate_manager import generate_certificate
 from fedbiomed.common.config import Component, Config
@@ -62,6 +62,23 @@ class ResearcherConfig(Config):
                 "FBM_SECURITY_SECAGG_INSECURE_VALIDATION", True
             )
         }
+        self._cfg["api"] = self._default_api_parameters()
+
+    @staticmethod
+    def _default_api_parameters() -> Dict[str, str]:
+        """Default settings of the user facing API server.
+
+        The API is bound to the loopback interface by default: it is authenticated
+        by a token stored in the component directory, which gives no protection
+        beyond the machine the daemon runs on.
+
+        Returns:
+            Values of the `api` configuration section.
+        """
+        return {
+            "host": os.getenv("FBM_API_HOST", "127.0.0.1"),
+            "port": os.getenv("FBM_API_PORT", "8000"),
+        }
 
     def migrate(self):
         """Please add migrated parameters for the new version.
@@ -70,6 +87,9 @@ class ResearcherConfig(Config):
         """
 
         super().migrate()
+
+        if "api" not in self._cfg:
+            self._cfg["api"] = self._default_api_parameters()
 
         if "node_disconnection_timeout" not in self._cfg["server"]:
             logger.warning(

@@ -127,7 +127,9 @@ researcher = [
 	"setuptools <81",
 	"tensorboard ~=2.18.0",
 	"jupyter",
-	"ipython"
+	"ipython",
+	"fastapi >=0.115,<0.120",
+	"uvicorn >=0.30,<0.40"
 ]
 
 api = [
