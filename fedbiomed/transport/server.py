@@ -623,6 +623,17 @@ class _GrpcAsyncServer:
             if self._debug:
                 logger.debug("gRPC server has stopped")
 
+    def is_started(self) -> bool:
+        """Whether the server is bound and serving.
+
+        Readable from any thread: it is the same flag the thread-safe methods of
+        `GrpcServer` check before crossing into the server event loop.
+
+        Returns:
+            True once the server accepts calls from the nodes.
+        """
+        return self._is_started.is_set()
+
     async def _on_forward(self, message: OverlayMessage) -> None:
         """Handle overlay messages received by the server by forwarding them to the destination node.
 

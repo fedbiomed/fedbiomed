@@ -445,6 +445,33 @@ class Requests(metaclass=SingletonMeta):
             )
         )
 
+    def is_ready(self) -> bool:
+        """Whether the transport layer is serving the nodes.
+
+        Returns:
+            True once the gRPC server accepts connections from the nodes.
+        """
+        return self._grpc_server.is_started()
+
+    def get_researcher_id(self) -> str:
+        """Returns the ID of the researcher component this instance speaks for"""
+        return self._researcher_id
+
+    def get_nodes(self) -> List[Dict[str, str]]:
+        """Lists the nodes the transport layer knows about.
+
+        Unlike [`ping_nodes`][fedbiomed.researcher.requests.Requests.ping_nodes] this
+        sends nothing to the nodes: it reports the connection state the server already
+        holds, including nodes that have since disconnected.
+
+        Returns:
+            One entry per known node, with its ID and its current activity status.
+        """
+        return [
+            {"node_id": agent.id, "status": agent.status.name}
+            for agent in self._grpc_server.get_all_nodes()
+        ]
+
     def ping_nodes(self) -> list:
         """Pings online nodes
 
