@@ -468,6 +468,8 @@ class Round:
                 getattr(self.training_plan, "training_data_loader", None) is not None,
             )
             results = {}  # type: Dict[str, Any]
+            rtime_before = rtime_after = time.perf_counter()
+            ptime_before = ptime_after = time.process_time()
 
             # Perform the training round.
             if self.training_plan.training_data_loader is not None:
@@ -536,9 +538,13 @@ class Round:
                         researcher_id=self.researcher_id,
                     )
 
-            # FIXME: this will fail if `self.training_plan.training_data_loader = None` (see issue )
-            results["sample_size"] = len(
-                self.training_plan.training_data_loader.dataset
+            # `training_data_loader` is None when `test_ratio` is 1
+            # It is the case where all samples are used for validation)
+            # and no sample was used for training.
+            results["sample_size"] = (
+                len(self.training_plan.training_data_loader.dataset)
+                if self.training_plan.training_data_loader is not None
+                else 0
             )
             logger.debug(
                 f"Collected round outputs before reply assembly: experiment={self.experiment_id} "
