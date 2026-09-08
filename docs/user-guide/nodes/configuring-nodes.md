@@ -205,6 +205,7 @@ The configuration file is structured following the sections below:
     - `allow_preproc`: Boolean value to enable applying pre-processing to the datasets before using them. Original dataset is not modified.
     - `allow_federated_analytics`: Boolean value to enable computing statistics and analytics on the datasets. See [Federated Analytics — Nodes](federated-analytics.md) for details.
     - `minimum_samples`: Integer value specifying the minimum number of samples required for a dataset to be registered on the node. Default is `0` (no minimum enforced).
+    - `guardian_service`: Base URL of the capability guardian service used to validate the capability sent by the researcher, for example `http://localhost:8000`. When the researcher attaches a `capabilities` argument to the experiment, the node computes the checksum of the training plan it received and asks `<guardian_service>/verify` whether the capability covers it; training and validation only run if the answer is positive. Default is empty, which disables capability validation on this node.
 
 An example for a config file is shown below;
 
@@ -232,6 +233,7 @@ secagg_insecure_validation = False
 allow_preproc = True
 allow_federated_analytics = True
 minimum_samples = 0
+guardian_service =
 
 [certificate]
 private_key = certs/FBM_certificate.key
@@ -287,7 +289,21 @@ Once the component is initialized, you can edit its configuration file located a
 
 Environment variables can be used to parameterize various options for creating the configuration file. The fields that can be controlled, along with their associated environment variables and default values, are described below.
 
+<<<<<<< HEAD
 ### Security
+=======
+```
+[security]:
+- allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, False (VPN/container mode) or True (other)
+- training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, True (VPN/container mode) or False (other)
+- secure_aggregation: FBM_SECURITY_SECURE_AGGREGATION, True
+- force_secure_aggregation: FBM_SECURITY_FORCE_SECURE_AGGREGATION, False
+- secagg_insecure_validation: FBM_SECURITY_SECAGG_INSECURE_VALIDATION, False (VPN/container mode) or True (other)
+- allow_preproc: FBM_SECURITY_ALLOW_PREPROC, False (VPN/container mode) or True (other)
+- allow_federated_analytics: FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS, False (VPN/container mode) or True (other)
+- minimum_samples: FBM_SECURITY_MINIMUM_SAMPLES, 0
+- guardian_service: FBM_SECURITY_GUARDIAN_SERVICE, empty (capability validation disabled)
+>>>>>>> 04a9ded33 (Add capability-based policy gating via node guardian service)
 
 The defaults depend on how the node is run. A node installed directly on a machine uses permissive defaults, intended for local development. The `fedbiomed/node` Docker image uses restrictive defaults, closer to what a deployment needs.
 

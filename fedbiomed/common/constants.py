@@ -393,6 +393,7 @@ class ErrorNumbers(_BaseEnum):
     FB325 = "FB325: Node federated analytics error"
     FB326 = "FB326: Node Preprocessing error"
     FB327 = "FB327: Node Process Manager error"
+    FB328 = "FB328: Node capability guardian error"
 
     # application error on researcher
 

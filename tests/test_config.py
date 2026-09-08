@@ -301,6 +301,34 @@ def test_node_config_migrate_new(config_env):
         config.migrate()
         log_warn.assert_not_called()
 
+    def test_05_node_config_guardian_service_default(self):
+        config = NodeConfig(root="test")
+
+        # Optional: capability validation is disabled unless a service is declared
+        self.assertEqual(config.get("security", "guardian_service"), "")
+
+    def test_06_node_config_guardian_service_env_override(self):
+        config = NodeConfig(root="test")
+
+        with patch.dict(
+            "os.environ", {"FBM_SECURITY_GUARDIAN_SERVICE": "http://localhost:8000"}
+        ):
+            self.assertEqual(
+                config.get("security", "guardian_service"), "http://localhost:8000"
+            )
+
+    def test_07_node_config_migrate_adds_guardian_service(self):
+        config = NodeConfig(root="test")
+
+        # Simulate a config file written before the option existed
+        config._cfg.remove_option("security", "guardian_service")
+        self.assertFalse(config._cfg.has_option("security", "guardian_service"))
+
+        config.migrate()
+
+        self.assertTrue(config._cfg.has_option("security", "guardian_service"))
+        self.assertEqual(config._cfg.get("security", "guardian_service"), "")
+
 
 def test_researcher_config_generate(config_env):
     config = ResearcherConfig(root=str(config_env))

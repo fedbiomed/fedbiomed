@@ -108,6 +108,14 @@ class FedbiomedExperimentError(FedbiomedError):
     pass
 
 
+class FedbiomedGuardianError(FedbiomedError):
+    """
+    Exception specific to the capability guardian service client.
+    """
+
+    pass
+
+
 class FedbiomedLoadingBlockError(FedbiomedError):
     """
     Exception specific to the DataLoadingBlock classes/subclasses.

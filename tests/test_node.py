@@ -544,7 +544,7 @@ def test_node_parser_task_train_initialize_arguments_failure_returns_none_and_se
 
 
 @pytest.mark.parametrize(
-    "secagg_arguments,round_",
+    "secagg_arguments,round_,capabilities",
     [
         (
             {
@@ -553,17 +553,18 @@ def test_node_parser_task_train_initialize_arguments_failure_returns_none_and_se
                 "secagg_clipping_range": None,
             },
             1,
+            {"training_plan_checksum": "abc"},
         ),
-        (None, 0),
+        (None, 0, None),
     ],
 )
 @patch("fedbiomed.node.node.Round", autospec=True)
 @patch("fedbiomed.node.history_monitor.HistoryMonitor.__init__", spec=True)
 def test_node_parser_task_train_maps_request_to_round_arguments(
-    history_monitor_patch, round_patch, node_env, secagg_arguments, round_
+    history_monitor_patch, round_patch, node_env, secagg_arguments, round_, capabilities
 ):
     """A train request is mapped field by field onto the Round constructor,
-    with and without secagg arguments."""
+    with and without secagg arguments and capabilities."""
 
     request_dict = {
         "protocol_version": str(__messaging_protocol_version__),
@@ -581,6 +582,7 @@ def test_node_parser_task_train_maps_request_to_round_arguments(
         "training": True,
         "aggregator_args": {},
         "optim_aux_var": None,
+        "capabilities": capabilities,
     }
     history_monitor_patch.return_value = None
     round_patch.return_value.initialize_arguments.return_value = None
@@ -608,6 +610,7 @@ def test_node_parser_task_train_maps_request_to_round_arguments(
         round_number=round_,
         dlp_and_loading_block_metadata=None,
         aux_vars=request_dict["optim_aux_var"],
+        capabilities=capabilities,
     )
 
 
@@ -1022,6 +1025,69 @@ def test_diagnostics_report_a_registered_certificate_by_its_expiry(
 
     assert severity in _severities(diagnostics)
     assert any(wording in d.message for d in diagnostics)
+
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
+    @patch("fedbiomed.node.node.Node.parser_task_train")
+    def test_node_task_manager_train_passes_guardian_service(
+        self, mock_parser, mock_task_done, mock_get
+    ):
+        """The node guardian service configuration reaches the round"""
+        mock_get.side_effect = [self.train_request, SystemExit]
+        self.config["security"]["secagg_insecure_validation"] = "False"
+        self.config["security"]["guardian_service"] = "http://localhost:8000"
+
+        mock_round = MagicMock(spec=Round)
+        mock_round.dataset_entry = {"dataset_id": "dataset_id_1234"}
+        mock_parser.return_value = mock_round
+
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+
+        _, kwargs = mock_round.run_model_training.call_args
+        self.assertEqual(kwargs["guardian_service"], "http://localhost:8000")
+
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
+    @patch("fedbiomed.node.node.Node.parser_task_train")
+    def test_node_task_manager_train_guardian_service_unset(
+        self, mock_parser, mock_task_done, mock_get
+    ):
+        """An unset guardian service is normalized to None, not an empty string"""
+        mock_get.side_effect = [self.train_request, SystemExit]
+        self.config["security"]["secagg_insecure_validation"] = "False"
+        self.config["security"]["guardian_service"] = ""
+
+        mock_round = MagicMock(spec=Round)
+        mock_round.dataset_entry = {"dataset_id": "dataset_id_1234"}
+        mock_parser.return_value = mock_round
+
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+
+        _, kwargs = mock_round.run_model_training.call_args
+        self.assertIsNone(kwargs["guardian_service"])
+
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
+    @patch("fedbiomed.node.node.Node.parser_task_train")
+    def test_node_task_manager_train_guardian_service_absent_from_config(
+        self, mock_parser, mock_task_done, mock_get
+    ):
+        """A config file predating the option does not break the training round"""
+        mock_get.side_effect = [self.train_request, SystemExit]
+        self.config["security"]["secagg_insecure_validation"] = "False"
+        self.assertFalse(self.config.has_option("security", "guardian_service"))
+
+        mock_round = MagicMock(spec=Round)
+        mock_round.dataset_entry = {"dataset_id": "dataset_id_1234"}
+        mock_parser.return_value = mock_round
+
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+
+        _, kwargs = mock_round.run_model_training.call_args
+        self.assertIsNone(kwargs["guardian_service"])
 
 
 @pytest.mark.parametrize(

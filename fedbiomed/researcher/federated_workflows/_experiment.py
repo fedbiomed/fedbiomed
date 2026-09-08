@@ -85,6 +85,7 @@ class Experiment(TrainingPlanWorkflow):
         tensorboard: bool = False,
         retain_full_history: bool = True,
         reduce_disk_usage: bool = False,
+        capabilities: Optional[Dict] = None,
         **kwargs,
     ) -> None:
         """Constructor of the class.
@@ -123,6 +124,10 @@ class Experiment(TrainingPlanWorkflow):
                 when retain_full_history and save_breakpoints are both False. Parameters
                 remain in memory and are saved if a checkpoint is explicitly requested.
                 Defaults to False, preserving parameter files after each round.
+            capabilities: encoded capability, issued and signed by a third party, that is
+                attached to every train request. Nodes that declare a `guardian_service` in
+                their configuration validate it before running the round. Defaults to None,
+                which means no capability is sent.
 
             *args: Extra positional arguments from parent class
                 [`TrainingPlanWorkflow`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow]
@@ -140,6 +145,7 @@ class Experiment(TrainingPlanWorkflow):
         self._training_replies: Dict = {}
         self._retain_full_history = None
         self._reduce_disk_usage = False
+        self._capabilities = None
         self._fed_preproc: Optional[FedCombatPreproc] = None
 
         # initialize object
@@ -168,6 +174,9 @@ class Experiment(TrainingPlanWorkflow):
         # whether to retain the full experiment history or not
         self.set_retain_full_history(retain_full_history)
         self.set_reduce_disk_usage(reduce_disk_usage)
+
+        # capability sent to the nodes for policy validation
+        self.set_capabilities(capabilities)
 
         # no preprocessing by default
         self.set_preprocessing(PreprocType.NONE)
@@ -322,6 +331,18 @@ class Experiment(TrainingPlanWorkflow):
             Monitor object that will always exist with experiment to retrieve feed-back from the nodes.
         """
         return self._monitor
+
+    @exp_exceptions
+    def capabilities(self) -> Optional[Dict]:
+        """Retrieves the capability that is attached to every train request.
+
+        To set or update the capability:
+        [`set_capabilities`][fedbiomed.researcher.federated_workflows.Experiment.set_capabilities].
+
+        Returns:
+            The encoded capability, or None if no capability is sent to the nodes.
+        """
+        return self._capabilities
 
     @exp_exceptions
     def aggregated_params(self) -> dict:
@@ -737,6 +758,34 @@ class Experiment(TrainingPlanWorkflow):
         self._reduce_disk_usage = reduce_disk_usage
         return self._reduce_disk_usage
 
+    def set_capabilities(self, capabilities: Optional[Dict] = None) -> Optional[Dict]:
+        """Sets the capability that is attached to every train request.
+
+        The capability is issued and signed by a third party and is not interpreted by the
+        researcher: it is forwarded unchanged to the nodes, which validate it through their
+        guardian service before running training or validation.
+
+        Args:
+            capabilities: encoded capability, or None to send no capability. Defaults to None.
+
+        Returns:
+            The capability that is set.
+
+        Raises:
+            FedbiomedTypeError: bad capabilities type
+        """
+        if capabilities is not None and not isinstance(capabilities, dict):
+            msg = (
+                ErrorNumbers.FB410.value
+                + f": capabilities should be a dict or None, instead got "
+                f"{type(capabilities)} "
+            )
+            logger.critical(msg)
+            raise FedbiomedTypeError(msg)
+
+        self._capabilities = capabilities
+        return self._capabilities
+
     @exp_exceptions
     def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
         """Sets the nodes filter + verifications on argument type
@@ -923,6 +972,7 @@ class Experiment(TrainingPlanWorkflow):
             do_training=True,
             secagg_arguments=secagg_arguments,
             optim_aux_var=optim_aux_var,
+            capabilities=self._capabilities,
         )
 
         logger.info(
@@ -1025,6 +1075,7 @@ class Experiment(TrainingPlanWorkflow):
                 nodes_state_ids=nodes_state_ids,
                 aggregator_args=aggr_args,
                 do_training=False,
+                capabilities=self._capabilities,
             )
             job.execute()
 
@@ -1359,6 +1410,7 @@ class Experiment(TrainingPlanWorkflow):
           - agg_optimizer
           - node_selection_strategy
           - aggregated_params
+          - capabilities
         """
         # need to have run at least 1 round to save a breakpoint
         if self._round_current < 1:
@@ -1404,6 +1456,7 @@ class Experiment(TrainingPlanWorkflow):
                 self._aggregated_params, breakpoint_path
             ),
             "training_replies": training_replies_bkpt,
+            "capabilities": self._capabilities,
             "preprocessing": self._fed_preproc.save_state_breakpoint()
             if self._fed_preproc
             else None,
@@ -1463,6 +1516,8 @@ class Experiment(TrainingPlanWorkflow):
         # retrieve breakpoint researcher optimizer
         bkpt_optim = Experiment._load_optimizer(saved_state.get("agg_optimizer"))
         loaded_exp.set_agg_optimizer(bkpt_optim)
+        # retrieve the capability sent to the nodes
+        loaded_exp.set_capabilities(saved_state.get("capabilities"))
         # changing `Experiment` attributes
         loaded_exp._set_round_current(saved_state.get("round_current"))
         loaded_exp._aggregated_params = loaded_exp._load_aggregated_params(

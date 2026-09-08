@@ -860,6 +860,7 @@ class Node:
             round_number=msg.get_param("round"),
             dlp_and_loading_block_metadata=dlp_and_loading_block_metadata,
             aux_vars=msg.get_param("optim_aux_var"),
+            capabilities=msg.get_param("capabilities"),
         )
 
         # the round raises an error if it cannot initialize
@@ -951,6 +952,10 @@ class Node:
                                         "security", "force_secure_aggregation"
                                     ),
                                     secagg_arguments=item.get_param("secagg_arguments"),
+                                    guardian_service=self.config.get(
+                                        "security", "guardian_service", fallback=""
+                                    )
+                                    or None,
                                 )
                                 msg.request_id = item.request_id
                                 self._grpc_client.send(msg)

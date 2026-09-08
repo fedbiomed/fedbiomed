@@ -37,6 +37,7 @@ class TrainingJob(Job):
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, AuxVar]] = None,
+        capabilities: Optional[Dict] = None,
         **kwargs,
     ):
         """Constructor of the class
@@ -59,6 +60,8 @@ class TrainingJob(Job):
                 Note that such variables may only be used if both the Experiment and node-side training plan
                 hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
                 are coherent with each other as to expected information exchange.
+            capabilities: Encoded capability attached to the request, used by the nodes to validate
+                whether this round is authorized. Defaults to None.
             **kwargs: Named arguments of parent class. Please see
                 [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]
         """
@@ -77,6 +80,7 @@ class TrainingJob(Job):
         )  # Assign empty dict to secagg arguments if it is None
         self._do_training = do_training
         self._optim_aux_var = optim_aux_var
+        self._capabilities = capabilities
         self._keep_files_dir = keep_files_dir
 
     def _get_training_results(
@@ -158,6 +162,7 @@ class TrainingJob(Job):
             "secagg_arguments": self._secagg_arguments,
             "aggregator_args": {},
             "optim_aux_var": self._optim_aux_var,
+            "capabilities": self._capabilities,
         }
 
         # Loop over nodes, add node specific data and send train request
