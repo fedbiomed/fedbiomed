@@ -93,10 +93,16 @@ since a node on the researcher's own machine dials whichever of them its configu
 holds. Only these two kinds of entry state a host: a Subject Alternative Name carrying
 just an e-mail address or a URI states none.
 
-A node refuses to register a researcher certificate that states no host, and builds no
-channel on one it was given or fetched. gRPC verifies such a certificate against its
-Common Name, which here holds the component id, and which any other issuer fills as it
-likes — a host among the rest: the researcher would be authenticated on free text.
+A node refuses to register a researcher certificate that states no host, and under mutual
+authentication builds no channel on the one it pins. gRPC verifies such a certificate
+against its Common Name, which here holds the component id, and which any other issuer
+fills as it likes — a host among the rest: the researcher would be authenticated on free
+text.
+
+Without mutual authentication the certificate is the one the endpoint served, so its name
+vouches for nothing the fetch did not already grant. It is used as it is, gRPC matching
+the host dialled against its Common Name — which is how a researcher whose certificate
+states no host is reached.
 
 A node certificate states no host and is registered on the researcher as it is: a node
 is authenticated by the certificate registered for it, never by name.
@@ -371,7 +377,7 @@ rejected node (it says so once at startup).
 | `FB619 … no researcher certificate is registered` (node won't start) | Mutual authentication on, researcher cert missing on node | Register the researcher certificate on the node |
 | `FB619 … certificates are registered` (node won't start) | More than one certificate is registered on the node, so the one to pin is ambiguous | Delete the extras with `fedbiomed node certificate delete`, keeping its researcher's |
 | `FB619 … states no host` (registration refused on the node) | The researcher certificate names no host, so gRPC would verify it against its Common Name. Its Subject Alternative Name is absent, or carries only entries that name no server — an e-mail address, a URI | Request the researcher to reissue its certificate for the hosts nodes reach it at, then register that one |
-| `FB628 … states no host` (node stops) | The same certificate reaching the connection: one registered before this rule, or one fetched from the researcher where mutual authentication is off, since nothing registers it | Request the researcher to reissue its certificate for the hosts nodes reach it at; under mutual authentication, register the new one on the node and restart it |
+| `FB628 … states no host` (node stops) | The same certificate reaching the connection under mutual authentication: one registered before this rule. Without mutual authentication the certificate is fetched, not pinned, and is used as it is | Request the researcher to reissue its certificate for the hosts nodes reach it at, register the new one on the node and restart it |
 | `FB628 … does not carry the name this node verifies it under` (node stops) | gRPC accepted the researcher's certificate but refused its name. The name comes from the certificate the node holds, so this needs one that vouches for a differently named certificate — a certificate authority's, held in place of the researcher's own. A researcher simply serving another certificate is refused earlier, as the mTLS handshake failure below. Retrying cannot change either | Hold the certificate the researcher serves, not one that vouches for it: register it on the node and restart it; without mutual authentication, restart the node, which fetches it |
 | Debug `Researcher server is not available` (node retries) | The endpoint is not up. Under mutual authentication a researcher with no node certificate registered refuses to start, so this is what a node sees of it | Check the researcher started, and that at least one node certificate is registered there |
 | Warning `Mutual authentication (mTLS) handshake with researcher failed` (node retries) | The certificates the two sides hold for each other do not match — most often a pinned researcher certificate that is wrong or outdated — or a possible MITM | Re-register the current researcher certificate on the node and restart it — a running node keeps the certificate it read at startup — and check this node's certificate is the one registered on the researcher |

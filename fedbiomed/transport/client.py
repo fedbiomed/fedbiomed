@@ -220,8 +220,10 @@ def _researcher_requires_client_auth(host: str, port: str) -> Optional[bool]:
 def _name_verified_under(host: str, san_names: List[str]) -> Optional[str]:
     """The certificate name a connection to `host` is verified under, None for the
     host itself. TLS matches a name as written, so one loopback form does not
-    verify another and a name never verifies an address."""
-    return None if host in san_names else san_names[0]
+    verify another and a name never verifies an address. A certificate stating no host
+    is verified under none, leaving gRPC to match the host dialled against its Common
+    Name."""
+    return san_names[0] if san_names and host not in san_names else None
 
 
 class Channels:
@@ -299,9 +301,11 @@ class Channels:
         async with self._channels_stubs_lock:
             san_names = certificate_san_names(self._researcher.certificate)
 
-            # gRPC would verify on the Common Name; a fetched certificate passes no
-            # registry. Refused before the close loop, so it tears down no channel.
-            if not san_names:
+            # A pinned certificate would be verified on its Common Name, free text the
+            # issuer fills as it likes. A fetched one is trusted as served, so its name
+            # protects nothing. Refused before the close loop, so it tears down no
+            # channel.
+            if self.mtls and not san_names:
                 msg = (
                     f"{ErrorNumbers.FB628.value}: The researcher certificate at "
                     f"{self.endpoint} states no host: its Subject Alternative Name "
@@ -528,11 +532,7 @@ class GrpcClient:
 
                 # Reported here, run once, not in `_create`: per stub and per reconnect
                 san_names = certificate_san_names(self._researcher.certificate)
-                verified_under = (
-                    _name_verified_under(self._researcher.host, san_names)
-                    if san_names
-                    else None
-                )
+                verified_under = _name_verified_under(self._researcher.host, san_names)
                 # Silent when that name is a loopback form of the machine dialled
                 if verified_under and not (
                     is_loopback_name(self._researcher.host)

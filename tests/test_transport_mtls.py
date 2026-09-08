@@ -1099,15 +1099,45 @@ async def test_grpc_reports_a_refused_name_the_way_the_listener_reads_it():
 
 
 @pytest.mark.asyncio
-async def test_channel_refuses_a_certificate_stating_no_host():
+async def test_channel_refuses_a_pinned_certificate_stating_no_host():
     """The researcher would be authenticated on its Common Name, so no channel is
     built on such a certificate and no server is dialled to find out."""
-    _, cert = _server_certificate(common_name="127.0.0.1")
+    key, cert = _server_certificate(common_name="127.0.0.1")
 
     with pytest.raises(FedbiomedCommunicationError, match="states no host"):
         await Channels(
-            ResearcherCredentials(host="127.0.0.1", port="50051", certificate=cert)
+            ResearcherCredentials(
+                host="127.0.0.1",
+                port="50051",
+                certificate=cert,
+                mtls=True,
+                node_identity=NodeClientIdentity(
+                    private_key=key, certificate_chain=cert
+                ),
+            )
         ).connect()
+
+
+@pytest.mark.asyncio
+async def test_channel_connects_on_a_certificate_stating_no_host():
+    """Verified under no name of its own, a fetched certificate is reached on its
+    Common Name: the researcher an earlier Fed-BioMed serves, with the host in `CN=`
+    and no Subject Alternative Name."""
+    key, cert = _server_certificate(common_name="127.0.0.1")
+    server = grpc.aio.server()
+    port = server.add_secure_port(
+        "127.0.0.1:0", grpc.ssl_server_credentials([(key, cert)])
+    )
+    await server.start()
+
+    channel = Channels(
+        ResearcherCredentials(host="127.0.0.1", port=str(port), certificate=cert)
+    )._create(certificate_san_names(cert))
+    try:
+        await asyncio.wait_for(channel.channel_ready(), timeout=4)
+    finally:
+        await channel.close()
+        await server.stop(0)
 
 
 def _in_fresh_interpreter(code, preset=None):

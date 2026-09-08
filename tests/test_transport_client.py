@@ -1408,32 +1408,60 @@ def test_channels_fall_back_to_the_first_name_for_an_unnamed_address(channels_en
     assert kwargs["target_name_override"] == "fbm-researcher"
 
 
+def _mtls_credentials(host="10.0.0.9"):
+    """Credentials of a node connecting with mutual authentication."""
+    return ResearcherCredentials(
+        host=host,
+        port="50051",
+        certificate=b"server-cert",
+        mtls=True,
+        node_identity=NodeClientIdentity(
+            private_key=b"node-key", certificate_chain=b"node-cert"
+        ),
+    )
+
+
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.certificate_san_names", return_value=[])
-async def test_channels_refuse_a_certificate_stating_no_host(
+async def test_channels_refuse_a_pinned_certificate_stating_no_host(
     certificate_san_names, channels_env
 ):
     """gRPC would verify it against its Common Name, so no channel is built on one."""
     with pytest.raises(FedbiomedCommunicationError, match="states no host"):
-        await Channels(
-            researcher=ResearcherCredentials(
-                host="10.0.0.9", port="50051", certificate=b"server-cert"
-            )
-        ).connect()
+        await Channels(researcher=_mtls_credentials()).connect()
 
     channels_env.create_channel.assert_not_called()
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.certificate_san_names", return_value=[])
+async def test_channels_build_on_a_fetched_certificate_stating_no_host(
+    certificate_san_names, channels_env
+):
+    """Without mutual authentication the certificate is the one the endpoint served.
+    Verified under no name of its own, so gRPC matches the host dialled against its
+    Common Name."""
+    await Channels(
+        researcher=ResearcherCredentials(
+            host="10.0.0.9", port="50051", certificate=b"server-cert"
+        )
+    ).connect()
+
+    _, kwargs = channels_env.create_channel.call_args
+    assert kwargs["target_name_override"] is None
 
 
 @pytest.mark.asyncio
 async def test_channels_keep_the_channels_open_on_a_refused_certificate(channels_env):
     """The refusal comes before the close loop, so a certificate no channel is built
     on tears down none of the channels in place."""
-    await channels_env.channels.connect()
+    channels = Channels(researcher=_mtls_credentials(host="localhost"))
+    await channels.connect()
     channel = channels_env.create_channel.return_value
 
     with patch("fedbiomed.transport.client.certificate_san_names", return_value=[]):
         with pytest.raises(FedbiomedCommunicationError, match="states no host"):
-            await channels_env.channels.connect()
+            await channels.connect()
 
     channel.close.assert_not_awaited()
     for st in (
@@ -1441,7 +1469,7 @@ async def test_channels_keep_the_channels_open_on_a_refused_certificate(channels
         _StubType.SENDER_TASK_STUB,
         _StubType.SENDER_FEEDBACK_STUB,
     ):
-        assert await channels_env.channels.stub(st) is not None
+        assert await channels.stub(st) is not None
 
 
 def test_channels_create_channel_adds_target_name_override():
