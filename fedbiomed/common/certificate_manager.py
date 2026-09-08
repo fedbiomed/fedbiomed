@@ -665,14 +665,23 @@ class CertificateManager:
             `component_id` is omitted.
 
         Raises:
-            FedbiomedCertificateError: If `component_id` is neither given nor
-                recoverable from the certificate; if a given `component_id` conflicts
-                with the certificate identity; if the certificate is already
-                registered under another component id; or, when `registering_purpose`
-                is given, if the certificate is restricted to that same role, or if a
-                TLS client already holds a certificate for another component or is
-                given one stating no host.
+            FedbiomedCertificateError: If the certificate cannot be read; if
+                `component_id` is neither given nor recoverable from the certificate;
+                if a given `component_id` conflicts with the certificate identity; if
+                the certificate is already registered under another component id; or,
+                when `registering_purpose` is given, if the certificate is restricted
+                to that same role, or if a TLS client already holds a certificate for
+                another component or is given one stating no host.
         """
+        # Every rule below passes on a certificate it cannot read, so reject it first.
+        fingerprint = certificate_fingerprint(certificate)
+        if fingerprint is None:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: The certificate could not be read: it is "
+                "not a PEM encoded certificate. Register the `.pem` file the component "
+                "serves."
+            )
+
         certificate_id = certificate_component_id(certificate)
 
         if certificate_id is not None:
@@ -718,13 +727,12 @@ class CertificateManager:
 
         # A researcher registers one certificate per node, so the same one
         # under two component ids would identify neither.
-        fingerprint = certificate_fingerprint(certificate)
         duplicates = [
             d["component_id"]
             for d in others
             if certificate_fingerprint(d["certificate"]) == fingerprint
         ]
-        if fingerprint is not None and duplicates:
+        if duplicates:
             registered = ", ".join(f"`{d}`" for d in duplicates)
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: This certificate is already "

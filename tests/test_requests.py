@@ -9,6 +9,7 @@ import pytest
 from testsupport.fake_training_plan import FakeTorchTrainingPlan2
 
 from fedbiomed.common.certificate_manager import (
+    CERT_PURPOSE_CLIENT,
     CertificateManager,
     TrustedCertificateBundle,
 )
@@ -678,6 +679,19 @@ def mtls_requests_env():
         config_mock.config_path = os.path.join(tmp, "config.ini")
         certificate_manager = CertificateManager(db_path=db_path)
 
+        def register_node_certificate(component_id):
+            """Registers a node certificate and returns its PEM."""
+            _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+                certificate_folder=tmp,
+                certificate_name=component_id,
+                component_id=component_id,
+                purpose=CERT_PURPOSE_CLIENT,
+            )
+            with open(pem_file) as file:
+                pem = file.read()
+            certificate_manager.register(certificate=pem, component_id=component_id)
+            return pem
+
         if Requests in Requests._objects:
             del Requests._objects[Requests]
 
@@ -685,6 +699,7 @@ def mtls_requests_env():
             grpc_server_mock=grpc_server_mock,
             config=config_mock,
             certificate_manager=certificate_manager,
+            register_node_certificate=register_node_certificate,
         )
 
         certificate_manager.close()
@@ -737,9 +752,8 @@ def test_mtls_without_registered_node_certificate_is_registered_as_event(
 
 def test_mtls_passes_trust_bundle_provider_to_server(mtls_requests_env):
     """The server receives a provider, not a static bundle."""
-    mtls_requests_env.certificate_manager.register(
-        certificate="PEM-1",
-        component_id="NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44",
+    pem = mtls_requests_env.register_node_certificate(
+        "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
     )
 
     with patch(
@@ -749,4 +763,4 @@ def test_mtls_passes_trust_bundle_provider_to_server(mtls_requests_env):
 
     bundle = ssl_credentials.call_args.kwargs["trusted_node_certificates"]
     assert isinstance(bundle, TrustedCertificateBundle)
-    assert bundle() == b"PEM-1"
+    assert bundle() == pem.encode()

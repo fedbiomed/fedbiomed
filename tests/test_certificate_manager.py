@@ -1,6 +1,8 @@
 import ipaddress
 import os
+import tempfile
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -124,82 +126,120 @@ def _load(pem_file):
     return x509.load_pem_x509_certificate(_pem(pem_file))
 
 
+# Generating the RSA key dominates this file's runtime, and a label always means the
+# same certificate, so both factories below are cached for the whole session.
+
+
+@pytest.fixture(scope="session")
+def third_party_certificate():
+    """A certificate issued outside Fed-BioMed, so it embeds no identity.
+
+    Registering one takes an explicit `component_id`; the label only tells two apart.
+    """
+
+    @lru_cache(maxsize=None)
+    def certificate(label="cert"):
+        return _certificate(common_name=label).decode("utf-8")
+
+    return certificate
+
+
+@pytest.fixture(scope="session")
+def issued_certificate():
+    """A Fed-BioMed certificate, for a test that needs no file to read it in."""
+
+    @lru_cache(maxsize=None)
+    def certificate(component_id):
+        with tempfile.TemporaryDirectory() as folder:
+            return _pem(_self_signed(folder, component_id)).decode("utf-8")
+
+    return certificate
+
+
 # -----------------------------------------------------------------------------
 # CertificateManager over a real TinyDB
 # -----------------------------------------------------------------------------
 
 
-def test_certificate_manager_initialization(tmp_path):
+def test_certificate_manager_initialization(tmp_path, third_party_certificate):
     """A manager opened on a path reads and writes that database."""
     db_path = str(tmp_path / "certs.json")
+    certificate = third_party_certificate()
     cm = CertificateManager(db_path=db_path)
     try:
-        cm.register(certificate="cert", component_id=_NODE_A)
+        cm.register(certificate=certificate, component_id=_NODE_A)
     finally:
         cm.close()
 
     reopened = CertificateManager(db_path=db_path)
     try:
-        assert reopened.get(component_id=_NODE_A)["certificate"] == "cert"
+        assert reopened.get(component_id=_NODE_A)["certificate"] == certificate
     finally:
         reopened.close()
 
 
-def test_certificate_manager_set_db_switches_database(tmp_path):
+def test_certificate_manager_set_db_switches_database(
+    tmp_path, third_party_certificate
+):
     """`set_db` moves the manager to another database, releasing the first."""
     first, second = str(tmp_path / "a.json"), str(tmp_path / "b.json")
     cm = CertificateManager(db_path=first)
     try:
-        cm.register(certificate="cert", component_id=_NODE_A)
+        cm.register(certificate=third_party_certificate("a"), component_id=_NODE_A)
 
         cm.set_db(db_path=second)
         assert cm.list() == []
 
-        cm.register(certificate="other", component_id=_NODE_B)
+        cm.register(certificate=third_party_certificate("b"), component_id=_NODE_B)
         assert [d["component_id"] for d in cm.list()] == [_NODE_B]
     finally:
         cm.close()
 
 
-def test_certificate_manager_get(cert_db):
+def test_certificate_manager_get(cert_db, third_party_certificate):
     """Only the requested component is returned; an unknown one yields nothing."""
-    cert_db.cm.register(certificate="cert-a", component_id=_NODE_A)
-    cert_db.cm.register(certificate="cert-b", component_id=_NODE_B)
+    cert_a = third_party_certificate("a")
+    cert_db.cm.register(certificate=cert_a, component_id=_NODE_A)
+    cert_db.cm.register(certificate=third_party_certificate("b"), component_id=_NODE_B)
 
-    assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == "cert-a"
+    assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == cert_a
     assert cert_db.cm.get(component_id=_NODE_C) is None
 
 
-def test_certificate_manager_registering_twice_requires_upsert(cert_db):
+def test_certificate_manager_registering_twice_requires_upsert(
+    cert_db, third_party_certificate
+):
     """A component can be registered once; registering again needs `upsert`."""
-    entry = dict(certificate="first", component_id=_NODE_A)
+    first, second = third_party_certificate("first"), third_party_certificate("second")
+    entry = dict(certificate=first, component_id=_NODE_A)
 
     cert_db.cm.register(**entry)
-    assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == "first"
+    assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == first
 
     with pytest.raises(FedbiomedCertificateError):
-        cert_db.cm.register(**{**entry, "certificate": "second"})
-    assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == "first"
+        cert_db.cm.register(**{**entry, "certificate": second})
+    assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == first
 
-    cert_db.cm.register(**{**entry, "certificate": "second"}, upsert=True)
-    assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == "second"
+    cert_db.cm.register(**{**entry, "certificate": second}, upsert=True)
+    assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == second
     # Updating a component replaces its entry rather than adding one
     assert len(cert_db.cm.list()) == 1
 
 
-def test_certificate_manager_delete(cert_db):
+def test_certificate_manager_delete(cert_db, third_party_certificate):
     """Deleting removes only the named component."""
-    cert_db.cm.register(certificate="cert-a", component_id=_NODE_A)
-    cert_db.cm.register(certificate="cert-b", component_id=_NODE_B)
+    cert_db.cm.register(certificate=third_party_certificate("a"), component_id=_NODE_A)
+    cert_db.cm.register(certificate=third_party_certificate("b"), component_id=_NODE_B)
 
     cert_db.cm.delete(component_id=_NODE_A)
 
     assert [d["component_id"] for d in cert_db.cm.list()] == [_NODE_B]
 
 
-def test_certificate_manager_list(cert_db):
+def test_certificate_manager_list(cert_db, third_party_certificate):
     """Tests list method of certificate manager"""
-    cert_db.cm.register(certificate="cert-a", component_id=_NODE_A)
+    cert_a = third_party_certificate("a")
+    cert_db.cm.register(certificate=cert_a, component_id=_NODE_A)
 
     assert [d["component_id"] for d in cert_db.cm.list()] == [_NODE_A]
 
@@ -207,7 +247,7 @@ def test_certificate_manager_list(cert_db):
         result = cert_db.cm.list(verbose=True)
         mock_print.assert_called_once()
     # Printing must not strip the certificate from what the caller receives
-    assert result[0]["certificate"] == "cert-a"
+    assert result[0]["certificate"] == cert_a
 
 
 def test_certificate_manager_register_certificate(cert_db):
@@ -679,6 +719,22 @@ def cert_db(tmp_path):
     cm.close()
 
 
+@pytest.mark.parametrize(
+    "certificate",
+    [
+        "",
+        "not a certificate",
+        "-----BEGIN CERTIFICATE-----\nnope\n-----END CERTIFICATE-----\n",
+    ],
+)
+def test_material_that_is_not_a_certificate_is_rejected(cert_db, certificate):
+    """Every other rule passes on what it cannot read, so nothing else would stop it."""
+    with pytest.raises(FedbiomedCertificateError):
+        cert_db.cm.register(certificate=certificate, component_id=_NODE_A)
+
+    assert cert_db.cm.get(_NODE_A) is None
+
+
 # `component_id` reconciliation against the certificate identity (`CN=`), which
 # counts only on a certificate carrying `O=Fed-BioMed`. The id itself is taken as
 # given, whatever its shape.
@@ -1035,25 +1091,23 @@ def test_omitted_registering_purpose_skips_the_role_checks(cert_db):
 
 
 @pytest.fixture
-def bundle_env(tmp_path):
+def bundle_env(tmp_path, issued_certificate):
     """Certificate database for the trusted-certificate provider tests."""
     db_path = str(tmp_path / "certs.json")
     cm = CertificateManager(db_path=db_path)
 
-    def register(component_id, pem, upsert=False):
+    def register(component_id, pem=None, upsert=False):
+        """Registers a certificate, generated when the test does not supply one."""
+        pem = issued_certificate(component_id) if pem is None else pem
         cm.register(certificate=pem, component_id=component_id, upsert=upsert)
-
-    def real_certificate(component_id):
-        """A real (~5 year) certificate, so expiry parsing has something to read."""
-        pem_file = _self_signed(str(tmp_path), component_id)
-        with open(pem_file) as file:
-            return file.read()
+        return pem
 
     yield SimpleNamespace(
         cm=cm,
         db_path=db_path,
         register=register,
-        real_certificate=real_certificate,
+        # A real (~5 year) certificate, so expiry parsing has something to read.
+        real_certificate=issued_certificate,
     )
     cm.close()
 
@@ -1061,20 +1115,20 @@ def bundle_env(tmp_path):
 def test_bundle_picks_up_hot_added_certificate(bundle_env):
     provider = TrustedCertificateBundle(bundle_env.db_path)
 
-    bundle_env.register(_NODE_A, "PEM-1")
+    pem_a = bundle_env.register(_NODE_A)
     first = provider()
-    assert b"PEM-1" in first
-    assert first.count(b"PEM") == 1
+    assert pem_a.encode() in first
+    assert first.count(b"BEGIN CERTIFICATE") == 1
 
-    bundle_env.register(_NODE_B, "PEM-2")
+    pem_b = bundle_env.register(_NODE_B)
     second = provider()
-    assert b"PEM-1" in second
-    assert b"PEM-2" in second
-    assert second.count(b"PEM") == 2
+    assert pem_a.encode() in second
+    assert pem_b.encode() in second
+    assert second.count(b"BEGIN CERTIFICATE") == 2
 
 
 def test_bundle_does_not_reread_when_unchanged(bundle_env):
-    bundle_env.register(_NODE_A, "PEM-1")
+    bundle_env.register(_NODE_A)
     provider = TrustedCertificateBundle(bundle_env.db_path)
     provider()
 
@@ -1084,9 +1138,9 @@ def test_bundle_does_not_reread_when_unchanged(bundle_env):
 
 
 def test_bundle_kept_while_database_is_partially_written(bundle_env):
-    bundle_env.register(_NODE_A, "PEM-1")
+    pem_a = bundle_env.register(_NODE_A)
     provider = TrustedCertificateBundle(bundle_env.db_path)
-    assert b"PEM-1" in provider()
+    assert pem_a.encode() in provider()
 
     # TinyDB writes in place, so a read concurrent with another process
     # registering a certificate can observe a truncated file.
@@ -1095,21 +1149,21 @@ def test_bundle_kept_while_database_is_partially_written(bundle_env):
     with open(bundle_env.db_path, "w") as file:
         file.write(content[: len(content) // 2])
 
-    assert b"PEM-1" in provider()
+    assert pem_a.encode() in provider()
 
     with open(bundle_env.db_path, "w") as file:
         file.write(content)
-    bundle_env.register(_NODE_B, "PEM-2")
-    assert b"PEM-2" in provider()
+    pem_b = bundle_env.register(_NODE_B)
+    assert pem_b.encode() in provider()
 
 
 def test_bundle_kept_when_database_is_missing(bundle_env):
-    bundle_env.register(_NODE_A, "PEM-1")
+    pem_a = bundle_env.register(_NODE_A)
     provider = TrustedCertificateBundle(bundle_env.db_path)
-    assert b"PEM-1" in provider()
+    assert pem_a.encode() in provider()
 
     os.remove(bundle_env.db_path)
-    assert b"PEM-1" in provider()
+    assert pem_a.encode() in provider()
 
 
 @pytest.fixture
@@ -1162,7 +1216,7 @@ def test_expiring_certificate_is_registered_as_event(bundle_expiry_env):
 def test_unreadable_certificate_store_is_registered_as_event(bundle_expiry_env):
     """A trust store that cannot be read leaves a stale bundle in use: audited."""
     env = bundle_expiry_env
-    env.register(_NODE_A, "PEM-1")
+    pem_a = env.register(_NODE_A)
     provider = TrustedCertificateBundle(env.db_path)
     provider()
 
@@ -1171,7 +1225,7 @@ def test_unreadable_certificate_store_is_registered_as_event(bundle_expiry_env):
         side_effect=OSError("database is locked"),
     ):
         # The previously loaded bundle is kept
-        assert provider() == b"PEM-1"
+        assert provider() == pem_a.encode()
 
     events = _events(env.logger.security_event, "certificate_store_unreadable")
     assert len(events) == 1
@@ -1214,13 +1268,12 @@ def test_certificate_is_not_reported_twice(bundle_expiry_env):
     provider()
 
     # A refresh triggered by an unrelated registration must not re-report node A
-    env.register(_NODE_B, "PEM-2")
+    env.register(_NODE_B)
     provider()
     provider()
 
     warned = _warned_parties(env.logger)
-    assert len(warned) == 1
-    assert _NODE_A in warned[0]
+    assert len([message for message in warned if _NODE_A in message]) == 1
 
 
 def test_renewed_certificate_is_reported_again(bundle_expiry_env):
