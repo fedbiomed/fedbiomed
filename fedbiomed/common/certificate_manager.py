@@ -622,12 +622,12 @@ class CertificateManager:
             `component_id` is omitted.
 
         Raises:
-            FedbiomedCertificateError: If the certificate cannot be read; if
-                `component_id` is neither given nor recoverable from the certificate;
-                if a given `component_id` conflicts with the certificate identity; if
-                the certificate is already registered under another component id; or,
-                on a node, if it already holds a certificate for another component or
-                is given one stating no host.
+            FedbiomedCertificateError: If the certificate cannot be read or has
+                expired; if `component_id` is neither given nor recoverable from the
+                certificate; if a given `component_id` conflicts with the certificate
+                identity; if the certificate is already registered under another
+                component id; or, on a node, if it already holds a certificate for
+                another component or is given one stating no host.
         """
         # Every rule below passes on a certificate it cannot read, so reject it first.
         fingerprint = certificate_fingerprint(certificate)
@@ -636,6 +636,20 @@ class CertificateManager:
                 f"{ErrorNumbers.FB619.value}: The certificate could not be read: it is "
                 "not a PEM encoded certificate. Register the `.pem` file the component "
                 "serves."
+            )
+
+        # An expired certificate completes no handshake, so registering it would only
+        # defer the failure to the connection, where it is reported as a dropped
+        # handshake naming no certificate. The date is there to read: the PEM the
+        # fingerprint was taken from is the one it is read from.
+        expiry = certificate_expiry(certificate)
+        now = datetime.now(timezone.utc)
+        if expiry <= now:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: The certificate expired on "
+                f"{expiry:%Y-%m-%d}, so no connection can be established with it. "
+                "Request the party it belongs to reissue its certificate, and "
+                "register the one it serves then."
             )
 
         certificate_id = certificate_component_id(certificate)
@@ -698,6 +712,14 @@ class CertificateManager:
             component_id=component_id,
             upsert=upsert,
         )
+
+        # Reported here because a node hears about the researcher certificate it pins
+        # nowhere else: only the researcher watches its registry for expiries.
+        if expiry <= now + timedelta(days=CERTIFICATE_EXPIRY_WARNING_DAYS):
+            logger.warning(
+                f"Certificate `{component_id}` expires on {expiry:%Y-%m-%d}; "
+                "register an updated certificate to avoid connection failures."
+            )
 
         return component_id
 

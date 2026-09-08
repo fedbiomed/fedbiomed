@@ -16,6 +16,7 @@ from fedbiomed.common.certificate_manager import (
     CERT_ORGANIZATION,
     CERT_PURPOSE_CLIENT,
     CERT_PURPOSE_SERVER,
+    CERTIFICATE_EXPIRY_WARNING_DAYS,
     CertificateManager,
     TrustedCertificateBundle,
     certificate_audit_fields,
@@ -64,17 +65,22 @@ def _self_signed(
     return pem_file
 
 
-def _certificate(org="Hospital", common_name=None, san=None):
+def _certificate(org="Hospital", common_name=None, san=None, valid_days=1):
     """A certificate not issued by Fed-BioMed, as PEM bytes.
 
     Subject fields and names are chosen freely, which is what a certificate issued
     elsewhere may combine in ways Fed-BioMed never generates.
+
+    `valid_days` is how many days from now the certificate expires; a negative value
+    yields one that already expired. It is issued a year before it expires, so it is
+    valid from a date in the past either way.
     """
     pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     attributes = [x509.NameAttribute(NameOID.ORGANIZATION_NAME, org)]
     if common_name is not None:
         attributes.append(x509.NameAttribute(NameOID.COMMON_NAME, common_name))
 
+    not_after = datetime.now(timezone.utc) + timedelta(days=valid_days)
     name = x509.Name(attributes)
     builder = (
         x509.CertificateBuilder()
@@ -82,8 +88,8 @@ def _certificate(org="Hospital", common_name=None, san=None):
         .issuer_name(name)
         .public_key(pkey.public_key())
         .serial_number(x509.random_serial_number())
-        .not_valid_before(datetime.now(timezone.utc))
-        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+        .not_valid_before(not_after - timedelta(days=365))
+        .not_valid_after(not_after)
     )
     if san is not None:
         builder = builder.add_extension(
@@ -1157,6 +1163,73 @@ def test_researcher_registering_multiple_node_certificates_accepted(cert_db):
     assert len(cert_db.researcher_cm.list()) == 2
 
 
+# Validity dates, read when trust is granted rather than when a connection uses it.
+
+
+def test_expired_certificate_is_rejected(cert_db):
+    with pytest.raises(FedbiomedCertificateError, match="expired on"):
+        cert_db.researcher_cm.register(
+            certificate=_certificate(valid_days=-1).decode(),
+            component_id=_NODE_A,
+        )
+
+    assert cert_db.researcher_cm.list() == []
+
+
+def test_node_registering_an_expired_certificate_rejected(cert_db):
+    with pytest.raises(FedbiomedCertificateError, match="expired on"):
+        cert_db.node_cm.register(
+            certificate=_certificate(
+                san=[x509.DNSName("localhost")], valid_days=-1
+            ).decode(),
+            component_id=_RESEARCHER_A,
+        )
+
+    assert cert_db.node_cm.list() == []
+
+
+def test_upsert_does_not_replace_a_registration_with_an_expired_certificate(cert_db):
+    """What stays registered is the certificate a peer can still authenticate with."""
+    registered = _certificate(valid_days=365).decode()
+    cert_db.researcher_cm.register(certificate=registered, component_id=_NODE_A)
+
+    with pytest.raises(FedbiomedCertificateError, match="expired on"):
+        cert_db.researcher_cm.register(
+            certificate=_certificate(valid_days=-1).decode(),
+            component_id=_NODE_A,
+            upsert=True,
+        )
+
+    assert cert_db.researcher_cm.get(_NODE_A)["certificate"] == registered
+
+
+def test_certificate_expiring_soon_is_registered_with_a_warning(cert_db):
+    with patch("fedbiomed.common.certificate_manager.logger.warning") as warning:
+        cert_db.researcher_cm.register(
+            certificate=_certificate(
+                valid_days=CERTIFICATE_EXPIRY_WARNING_DAYS - 1
+            ).decode(),
+            component_id=_NODE_A,
+        )
+
+    assert cert_db.researcher_cm.get(_NODE_A) is not None
+    warning.assert_called_once()
+    assert _NODE_A in warning.call_args.args[0]
+
+
+def test_certificate_expiring_beyond_the_window_is_registered_silently(cert_db):
+    with patch("fedbiomed.common.certificate_manager.logger.warning") as warning:
+        cert_db.researcher_cm.register(
+            certificate=_certificate(
+                valid_days=CERTIFICATE_EXPIRY_WARNING_DAYS + 1
+            ).decode(),
+            component_id=_NODE_A,
+        )
+
+    assert cert_db.researcher_cm.get(_NODE_A) is not None
+    warning.assert_not_called()
+
+
 # -----------------------------------------------------------------------------
 # Mutual authentication trusted-certificate provider
 # -----------------------------------------------------------------------------
@@ -1259,6 +1332,21 @@ def bundle_expiry_env(bundle_env):
         ),
         patch("fedbiomed.common.certificate_manager.logger") as logger,
     ):
+        bundle_register = bundle_env.register
+
+        def register(*args, **kwargs):
+            """Registers under the real expiry window.
+
+            The widened one would have registration report every certificate as
+            expiring, and these tests are about what a bundle read reports.
+            """
+            with patch(
+                "fedbiomed.common.certificate_manager.CERTIFICATE_EXPIRY_WARNING_DAYS",
+                CERTIFICATE_EXPIRY_WARNING_DAYS,
+            ):
+                return bundle_register(*args, **kwargs)
+
+        bundle_env.register = register
         bundle_env.logger = logger
         yield bundle_env
 

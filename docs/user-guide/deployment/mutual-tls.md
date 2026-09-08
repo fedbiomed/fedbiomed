@@ -164,10 +164,14 @@ fedbiomed [node|researcher] certificate list   # shows component id and expiry
     registering, replacing (`--upsert`) or deleting a certificate on a node changes
     nothing for the running process — **restart the node** to apply it.
 
+An **expired certificate is refused**, on a node and on the researcher alike: it
+completes no handshake, so registering it would only move the failure to the connection.
+A certificate within 30 days of expiry registers, with a warning naming the date.
+
 A **node registers at most one certificate** — its researcher's. Registering a second
-component is rejected; re-registering the same component goes through `--upsert`. That
-rule and the one above, that the certificate must state a host, are the only two
-registration refuses on the registering component's own account.
+component is rejected; re-registering the same component goes through `--upsert`. Those
+three — an unexpired certificate, one certificate on a node, and a certificate stating a
+host — are the only registration refuses on the registering component's own account.
 
 `certificate list` reports a node holding more than one certificate, and a node refuses
 to start in that state, since it cannot tell which to pin — delete the extras with
@@ -244,11 +248,13 @@ new one:
    node still pins the one it read at startup.
 
 !!! info "Which expiries are watched"
-    The researcher logs a warning when a registered node certificate is within 30 days
-    of expiry (re-checked whenever the trust bundle changes). Nothing warns a node about
-    its own certificate, nor about the researcher certificate it pins, and nothing warns
-    the researcher about its own — check those with
-    `fedbiomed [node|researcher] certificate list`, which prints every expiry date.
+    Registration refuses an expired certificate and warns about one within 30 days of
+    expiry, on both components — that is where a node hears about the researcher
+    certificate it pins. Afterwards, only the researcher keeps watching: it logs a
+    warning when a registered node certificate is within 30 days of expiry (re-checked
+    whenever the trust bundle changes). A running component is warned about neither its
+    own certificate nor, on a node, the researcher certificate it pins — check those
+    with `fedbiomed [node|researcher] certificate list`, which prints every expiry date.
 
 ## Development and testing shortcut: certificate-dev-setup
 
@@ -369,7 +375,7 @@ rejected node (it says so once at startup).
 | `FB628 … does not carry the name this node verifies it under` (node stops) | gRPC accepted the researcher's certificate but refused its name. The name comes from the certificate the node holds, so this needs one that vouches for a differently named certificate — a certificate authority's, held in place of the researcher's own. A researcher simply serving another certificate is refused earlier, as the mTLS handshake failure below. Retrying cannot change either | Hold the certificate the researcher serves, not one that vouches for it: register it on the node and restart it; without mutual authentication, restart the node, which fetches it |
 | Debug `Researcher server is not available` (node retries) | The endpoint is not up. Under mutual authentication a researcher with no node certificate registered refuses to start, so this is what a node sees of it | Check the researcher started, and that at least one node certificate is registered there |
 | Warning `Mutual authentication (mTLS) handshake with researcher failed` (node retries) | The certificates the two sides hold for each other do not match — most often a pinned researcher certificate that is wrong or outdated — or a possible MITM | Re-register the current researcher certificate on the node and restart it — a running node keeps the certificate it read at startup — and check this node's certificate is the one registered on the researcher |
-| Warning `… reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher, or expired — rejected inside the handshake. A researcher that is restarting closes connections the same way, and clears on its own | Register the node's certificate on the researcher; if it is registered, check its expiry, then whether the researcher was restarting |
+| Warning `… reachable but closes the connection during the TLS handshake` (node retries) | Node cert not registered on the researcher, or expired since it was registered — rejected inside the handshake. A researcher that is restarting closes connections the same way, and clears on its own | Register the node's certificate on the researcher; if it is registered, check its expiry, then whether the researcher was restarting |
 | `FB628 … researcher requires mutual authentication but it is disabled on this node` (node stops) | Researcher has mutual authentication on, node has it off | Enable `[authentication]` on the node and register the researcher certificate there, then request the researcher to register this node's certificate |
 | Warning `Researcher rejected this node's identity` (node retries) | Its certificate is not registered on the researcher, or the node id it declares is not the one that certificate is registered under | Register the node's certificate on the researcher — the node connects with no restart — and ensure the node id matches how it is registered |
 | Warning `… the researcher does not verify node identities: NO node in the federation is authenticated` (node retries) | Node has mutual authentication on, researcher has it off, so the researcher names no node in its task responses. The node refuses every task until that changes | Request the researcher to enable `[authentication]` and register this node's certificate — the node connects with no restart. Disabling it on the node instead also clears the warning, but leaves the federation unauthenticated and is not deployable |
