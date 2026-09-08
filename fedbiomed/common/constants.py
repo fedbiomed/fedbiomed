@@ -103,11 +103,11 @@ __version__ = FBM_Component_Version(__version__)  # type: ignore[assignment]  # 
 __researcher_config_version__ = FBM_Component_Version(
     "3.1.0"
 )  # researcher config file version
-__node_config_version__ = FBM_Component_Version("2.3.0")  # node config file version
+__node_config_version__ = FBM_Component_Version("2.4.0")  # node config file version
 
 __node_state_version__ = FBM_Component_Version("2")  # node state version
 __breakpoints_version__ = FBM_Component_Version("4")  # breakpoints format version
-__messaging_protocol_version__ = FBM_Component_Version("7")  # format of gRPC messages.
+__messaging_protocol_version__ = FBM_Component_Version("8")  # format of gRPC messages.
 __secagg_element_version__ = FBM_Component_Version(
     "2"
 )  # format of secagg database elements
@@ -393,6 +393,7 @@ class ErrorNumbers(_BaseEnum):
     FB325 = "FB325: Node federated analytics error"
     FB326 = "FB326: Node Preprocessing error"
     FB327 = "FB327: Node Process Manager error"
+    FB328 = "FB328: Node capability guardian error"
 
     # application error on researcher
 

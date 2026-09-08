@@ -65,6 +65,11 @@ NODE_CONFIG_SECURITY_FIELDS = {
         "env": "FBM_SECURITY_MINIMUM_SAMPLES",
         "min": 0,
     },
+    "guardian_service": {
+        "type": "string",
+        "default": "",
+        "env": "FBM_SECURITY_GUARDIAN_SERVICE",
+    },
 }
 
 
@@ -153,6 +158,11 @@ class NodeConfig(Config):
                 "of the node configuration to define the minimum number of samples required for a dataset."
             )
             self._cfg["security"].update({"minimum_samples": "0"})
+
+        if not self._cfg.has_option("security", "guardian_service"):
+            # An unset guardian service is the normal state: capability validation
+            # is simply disabled on this node.
+            self._cfg["security"].update({"guardian_service": ""})
 
         if not self._cfg.has_section("syslog"):
             logger.warning(

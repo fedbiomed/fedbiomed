@@ -1026,6 +1026,8 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
         aggregator_args: Arguments passed to the aggregator on the node side
         secagg_arguments: Arguments passed to the secure aggregation layer
         optim_aux_var: Optional dict of Optimizer auxiliary variables
+        capabilities: Optional encoded capability used by the node to validate,
+            through its guardian service, whether this round is authorized
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -1045,6 +1047,7 @@ class TrainRequest(RequestReply, RequiresProtocolVersion):
     aggregator_args: Dict
     secagg_arguments: Optional[Dict] = None
     optim_aux_var: Optional[Dict] = None
+    capabilities: Optional[Dict] = None
 
 
 @catch_dataclass_exception

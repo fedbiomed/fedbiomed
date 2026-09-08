@@ -45,6 +45,9 @@ NODE_CONFIG_FIELD_SCHEMAS = {
             "type": "integer",
             "min": 0,
         },
+        "guardian_service": {
+            "type": "string",
+        },
     },
     "researcher": {
         "port": {

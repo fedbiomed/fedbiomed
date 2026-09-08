@@ -607,6 +607,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
                 "node_selection_strategy": strat_bkpt,
                 "aggregated_params": {"agg_params": "bkpt"},
                 "training_replies": {"replies": "bkpt"},
+                "capabilities": None,
                 "preprocessing": preproc_bkpt,
             },
             2,
@@ -689,6 +690,21 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
             exp.preprocessing._harmonized_datasets, {"node1": "dataset-id-1"}
         )
         self.assertIsInstance(exp.id, str)
+
+        # a breakpoint without a "capabilities" entry (saved by an older version)
+        # loads with no capability rather than failing
+        self.assertIsNone(exp.capabilities())
+
+        # 3. Test that a saved capability is restored
+        capability = {"training_plan_checksum": "abc", "signature": "sig"}
+        breakpoint_json["capabilities"] = capability
+
+        with patch.object(
+            Experiment, "_create_object", new=create_strategy_then_aggregator
+        ):
+            exp = Experiment.load_breakpoint()
+
+        self.assertEqual(exp.capabilities(), capability)
 
     def test_experiment_11_testing_args(self):
         """Tests training arguments setter and getter"""
@@ -799,6 +815,64 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # Invalid type
         with self.assertRaises(FedbiomedExperimentError):
             exp.set_tensorboard("oops")
+
+    def test_experiment_15bis_set_capabilities(self):
+        """Tests setting the capability sent to the nodes"""
+
+        exp = Experiment()
+        # no capability by default
+        self.assertIsNone(exp.capabilities())
+
+        capability = {"training_plan_checksum": "abc", "signature": "sig"}
+        self.assertEqual(exp.set_capabilities(capability), capability)
+        self.assertEqual(exp.capabilities(), capability)
+
+        # resetting to None is allowed
+        self.assertIsNone(exp.set_capabilities(None))
+        self.assertIsNone(exp.capabilities())
+
+        # can also be given to the constructor
+        self.assertEqual(Experiment(capabilities=capability).capabilities(), capability)
+
+        # Tests setting invalid types
+        for invalid in ("a-string", 12, ["a", "b"]):
+            with self.assertRaises(FedbiomedTypeError):
+                exp.set_capabilities(invalid)
+
+    def test_experiment_15ter_capabilities_sent_to_nodes(self):
+        """Capability reaches the training job on training and validation rounds"""
+
+        capability = {"training_plan_checksum": "abc"}
+        _training_data = {
+            "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}]
+        }
+        _aggregator = MagicMock(spec=fedbiomed.researcher.aggregators.Aggregator)
+        _aggregator.aggregator_name = "mock-aggregator"
+        _strategy = MagicMock(
+            spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
+        )
+        _strategy.sample_nodes.return_value = ["node-1"]
+        _strategy.refine.return_value = (1, 2, 3, 4)
+
+        exp = Experiment(
+            training_data=_training_data,
+            aggregator=_aggregator,
+            round_limit=1,
+            training_plan_class=FakeTorchTrainingPlan,
+            node_selection_strategy=_strategy,
+            capabilities=capability,
+        )
+
+        exp.run_once(increase=False, test_after=True)
+
+        # both the training round and the validation-only round must carry it
+        self.assertEqual(self.mock_job.call_count, 2)
+        for call_ in self.mock_job.call_args_list:
+            self.assertEqual(call_[1]["capabilities"], capability)
+
+        do_training_flags = [c[1]["do_training"] for c in self.mock_job.call_args_list]
+        self.assertIn(True, do_training_flags)
+        self.assertIn(False, do_training_flags)
 
     def test_experiment_16_set_retain_full_history(self):
         """Tests setting retain full history"""

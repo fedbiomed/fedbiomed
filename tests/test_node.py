@@ -456,6 +456,7 @@ class TestNode(unittest.TestCase):
             "training": True,
             "aggregator_args": {},
             "optim_aux_var": None,
+            "capabilities": {"training_plan_checksum": "abc"},
         }
         # we convert this dataset into a string
         msg1_dataset = TrainRequest(**dict_msg_1_dataset)
@@ -491,6 +492,7 @@ class TestNode(unittest.TestCase):
             round_number=1,
             dlp_and_loading_block_metadata=None,
             aux_vars=dict_msg_1_dataset["optim_aux_var"],
+            capabilities=dict_msg_1_dataset["capabilities"],
         )
 
     @patch("fedbiomed.node.node.Round", autospec=True)
@@ -517,6 +519,7 @@ class TestNode(unittest.TestCase):
             "round": 0,
             "aggregator_args": {},
             "optim_aux_var": None,
+            "capabilities": None,
         }
 
         #
@@ -553,6 +556,7 @@ class TestNode(unittest.TestCase):
             round_number=0,
             dlp_and_loading_block_metadata=None,
             aux_vars=dict_msg_1_dataset["optim_aux_var"],
+            capabilities=dict_msg_1_dataset["capabilities"],
         )
 
     @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
@@ -765,6 +769,69 @@ class TestNode(unittest.TestCase):
 
         mock_job_instance.run.assert_called_once()
         self.grpc_send_mock.assert_called_once()
+
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
+    @patch("fedbiomed.node.node.Node.parser_task_train")
+    def test_node_task_manager_train_passes_guardian_service(
+        self, mock_parser, mock_task_done, mock_get
+    ):
+        """The node guardian service configuration reaches the round"""
+        mock_get.side_effect = [self.train_request, SystemExit]
+        self.config["security"]["secagg_insecure_validation"] = "False"
+        self.config["security"]["guardian_service"] = "http://localhost:8000"
+
+        mock_round = MagicMock(spec=Round)
+        mock_round.dataset_entry = {"dataset_id": "dataset_id_1234"}
+        mock_parser.return_value = mock_round
+
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+
+        _, kwargs = mock_round.run_model_training.call_args
+        self.assertEqual(kwargs["guardian_service"], "http://localhost:8000")
+
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
+    @patch("fedbiomed.node.node.Node.parser_task_train")
+    def test_node_task_manager_train_guardian_service_unset(
+        self, mock_parser, mock_task_done, mock_get
+    ):
+        """An unset guardian service is normalized to None, not an empty string"""
+        mock_get.side_effect = [self.train_request, SystemExit]
+        self.config["security"]["secagg_insecure_validation"] = "False"
+        self.config["security"]["guardian_service"] = ""
+
+        mock_round = MagicMock(spec=Round)
+        mock_round.dataset_entry = {"dataset_id": "dataset_id_1234"}
+        mock_parser.return_value = mock_round
+
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+
+        _, kwargs = mock_round.run_model_training.call_args
+        self.assertIsNone(kwargs["guardian_service"])
+
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.get")
+    @patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
+    @patch("fedbiomed.node.node.Node.parser_task_train")
+    def test_node_task_manager_train_guardian_service_absent_from_config(
+        self, mock_parser, mock_task_done, mock_get
+    ):
+        """A config file predating the option does not break the training round"""
+        mock_get.side_effect = [self.train_request, SystemExit]
+        self.config["security"]["secagg_insecure_validation"] = "False"
+        self.assertFalse(self.config.has_option("security", "guardian_service"))
+
+        mock_round = MagicMock(spec=Round)
+        mock_round.dataset_entry = {"dataset_id": "dataset_id_1234"}
+        mock_parser.return_value = mock_round
+
+        with self.assertRaises(SystemExit):
+            self.n1.task_manager()
+
+        _, kwargs = mock_round.run_model_training.call_args
+        self.assertIsNone(kwargs["guardian_service"])
 
 
 if __name__ == "__main__":  # pragma: no cover

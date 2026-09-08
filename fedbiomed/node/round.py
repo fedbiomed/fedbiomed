@@ -19,6 +19,7 @@ from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.datamanager import DataManager
 from fedbiomed.common.exceptions import (
     FedbiomedError,
+    FedbiomedGuardianError,
     FedbiomedOptimizerError,
     FedbiomedRoundError,
     FedbiomedSecureAggregationError,
@@ -35,6 +36,7 @@ from fedbiomed.common.optimizers import (
 )
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.training_args import TrainingArgs
+from fedbiomed.node.guardian import GuardianClient, compute_training_plan_checksum
 from fedbiomed.node.history_monitor import HistoryMonitor
 from fedbiomed.node.node_state_manager import NodeStateFileName, NodeStateManager
 from fedbiomed.node.secagg import SecaggRound
@@ -68,6 +70,7 @@ class Round:
         round_number: int = 0,
         dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
         aux_vars: Optional[Dict[str, AuxVar]] = None,
+        capabilities: Optional[Dict] = None,
     ) -> None:
         """Constructor of the class
 
@@ -99,6 +102,8 @@ class Round:
             dlp_and_loading_block_metadata: Data loading plan to apply, or None if no DLP for this round.
             round_number: number of the iteration for this experiment
             aux_vars: Optional optimizer auxiliary variables.
+            capabilities: Optional encoded capability sent by the researcher. It is validated
+                against the guardian service before training or validation is executed.
         """
         self._node_id = node_id
         self._node_name = node_name
@@ -114,6 +119,7 @@ class Round:
         self.history_monitor = history_monitor
         self.aggregator_args = aggregator_args
         self.aux_vars = aux_vars or {}
+        self.capabilities = capabilities
         self.node_args = node_args
         self.training = training
         self._dlp_and_loading_block_metadata = dlp_and_loading_block_metadata
@@ -200,6 +206,7 @@ class Round:
         secagg_active: bool,
         force_secagg: bool,
         secagg_arguments: Union[Dict[str, Any], None] = None,
+        guardian_service: Optional[str] = None,
     ) -> TrainReply:
         """Runs one round of model training
 
@@ -209,6 +216,8 @@ class Round:
             secagg_active: True if secure aggregation is enabled on node
             force_secagg: True is secure aggregation is mandatory on node
             secagg_arguments: arguments for secure aggregation, some are specific to the scheme
+            guardian_service: base URL of the guardian service used to validate the capability
+                sent by the researcher. If None, capability validation is disabled on this node.
 
         Returns:
             Returns the corresponding node message, training reply instance
@@ -277,6 +286,14 @@ class Round:
                     f"Training plan has been approved by the node "
                     f"{training_plan_['name']} researcher_id={self.researcher_id}"
                 )
+
+        # Validate the capability sent by the researcher against the guardian service.
+        # This has to happen before the training plan is imported, so that unauthorized
+        # code is never executed on this node, and it gates validation rounds as well as
+        # training rounds.
+        guardian_reply = self._verify_capabilities(guardian_service)
+        if guardian_reply is not None:
+            return guardian_reply
 
         # Import training plan, save to file, reload, instantiate a training plan
         try:
@@ -701,6 +718,104 @@ class Round:
         logger.info("Encryption was completed!", researcher_id=self.researcher_id)
 
         return encrypted_wgt, encrypted_rng, encrypted_aux
+
+    def _verify_capabilities(
+        self, guardian_service: Optional[str]
+    ) -> Optional[TrainReply]:
+        """Validates the researcher capability against the node guardian service.
+
+        The node computes the checksum of the training plan it actually received and asks
+        the guardian service whether the capability covers it. Validation is skipped when
+        the node declares no guardian service, or when the researcher sent no capability.
+
+        Args:
+            guardian_service: base URL of the guardian service, or None if the node does
+                not declare one.
+
+        Returns:
+            None if the round is authorized and may proceed, otherwise the train reply
+                describing why the round is refused.
+        """
+        if not guardian_service:
+            logger.debug(
+                "Skipping capability verification: no guardian service configured on "
+                "node=%s experiment=%s",
+                self._node_id,
+                self.experiment_id,
+            )
+            return None
+
+        if not self.capabilities:
+            logger.debug(
+                "Skipping capability verification: no capability sent by researcher=%s "
+                "for experiment=%s",
+                self.researcher_id,
+                self.experiment_id,
+            )
+            return None
+
+        try:
+            checksum = compute_training_plan_checksum(self.training_plan_source)
+            client = GuardianClient(guardian_service)
+            valid, reason = client.verify(
+                capabilities=self.capabilities,
+                checksum=checksum,
+                context={
+                    "node_id": self._node_id,
+                    "researcher_id": self.researcher_id,
+                    "experiment_id": self.experiment_id,
+                    "dataset_id": self.dataset_entry.get("dataset_id")
+                    if isinstance(self.dataset_entry, dict)
+                    else None,
+                    "training_plan_class": self.training_plan_class,
+                    "round": self._round,
+                    "training": self.training,
+                },
+            )
+        except FedbiomedGuardianError as e:
+            logger.error(repr(e))
+            logger.security_event(
+                operation="capability_verification",
+                status="error",
+                researcher_id=self.researcher_id,
+                experiment_id=self.experiment_id,
+                round_number=self._round,
+            )
+            return self._send_round_reply(
+                success=False,
+                message="Could not validate capability with the guardian service on node "
+                f"id={self._node_id} name={self._node_name}",
+            )
+
+        if not valid:
+            logger.info(
+                f"Capability rejected by the guardian service. Reason: {reason}"
+            )
+            logger.security_event(
+                operation="capability_verification",
+                status="rejected",
+                researcher_id=self.researcher_id,
+                experiment_id=self.experiment_id,
+                round_number=self._round,
+            )
+            return self._send_round_reply(
+                success=False,
+                message=f"Capability is rejected on node id={self._node_id} "
+                f"name={self._node_name}: {reason}",
+            )
+
+        logger.info(
+            f"Capability has been validated by the guardian service "
+            f"researcher_id={self.researcher_id}"
+        )
+        logger.security_event(
+            operation="capability_verification",
+            status="success",
+            researcher_id=self.researcher_id,
+            experiment_id=self.experiment_id,
+            round_number=self._round,
+        )
+        return None
 
     def _send_round_reply(
         self,
