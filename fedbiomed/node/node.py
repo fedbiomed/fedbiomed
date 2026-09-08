@@ -237,7 +237,8 @@ class Node:
                 and the one to pin is ambiguous.
         """
         certificate_manager = CertificateManager(
-            db_path=self.config.getpath("default", "db")
+            db_path=self.config.getpath("default", "db"),
+            component_type=self.config.COMPONENT_TYPE,
         )
         try:
             certificates = certificate_manager.list()

@@ -677,7 +677,9 @@ def mtls_requests_env():
             ("certificate", "public_key"): os.path.join(tmp, "certificate.pem"),
         }[(section, option)]
         config_mock.config_path = os.path.join(tmp, "config.ini")
-        certificate_manager = CertificateManager(db_path=db_path)
+        certificate_manager = CertificateManager(
+            db_path=db_path, component_type=ComponentType.RESEARCHER.name
+        )
 
         def register_node_certificate(component_id):
             """Registers a node certificate and returns its PEM."""
@@ -690,7 +692,6 @@ def mtls_requests_env():
             with open(pem_file) as file:
                 pem = file.read()
             certificate_manager.register(
-                registering_component_type=ComponentType.RESEARCHER.name,
                 certificate=pem,
                 component_id=component_id,
             )

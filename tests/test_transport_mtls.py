@@ -255,11 +255,12 @@ def _events(event_mock, operation):
 
 def _registry(path, entries):
     """Writes a certificate registry holding `(component_id, certificate)` entries."""
-    manager = CertificateManager(db_path=str(path))
+    manager = CertificateManager(
+        db_path=str(path), component_type=ComponentType.RESEARCHER.name
+    )
     try:
         for component_id, certificate in entries:
             manager.register(
-                registering_component_type=ComponentType.RESEARCHER.name,
                 certificate=certificate.decode("utf-8"),
                 component_id=component_id,
             )
@@ -294,7 +295,9 @@ def test_component_id_refuses_a_certificate_registered_under_two_parties(
     is the only way to reach the state.
     """
     db_path = tmp_path / "ambiguous.json"
-    manager = CertificateManager(db_path=str(db_path))
+    manager = CertificateManager(
+        db_path=str(db_path), component_type=ComponentType.RESEARCHER.name
+    )
     try:
         for component_id in (OTHER_NODE_ID, NODE_ID):
             manager._insert(
@@ -334,10 +337,11 @@ def test_component_id_picks_up_a_registration_without_restart(
     """A certificate registered after first use resolves on the next call."""
     assert registry.component_id(certs["other_node_cert"]) is None
 
-    manager = CertificateManager(db_path=registry._db_path)
+    manager = CertificateManager(
+        db_path=registry._db_path, component_type=ComponentType.RESEARCHER.name
+    )
     try:
         manager.register(
-            registering_component_type=ComponentType.RESEARCHER.name,
             certificate=certs["other_node_cert"].decode("utf-8"),
         )
     finally:

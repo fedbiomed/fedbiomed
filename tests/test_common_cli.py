@@ -35,15 +35,18 @@ _ALL_REGISTERED = {
 
 
 @pytest.fixture
-def set_db():
+def opened_certificate_manager():
+    """Records how each certificate manager is opened, without opening one.
+
+    The database and the component type it is opened with are what select the
+    rules its registrations are held to, so they are what the tests assert.
+    """
+    opened = MagicMock(return_value=None)
     with (
-        patch(
-            "fedbiomed.common.cli.CertificateManager.__init__",
-            MagicMock(return_value=None),
-        ),
-        patch("fedbiomed.common.cli.CertificateManager.set_db") as mock_set_db,
+        patch("fedbiomed.common.cli.CertificateManager.__init__", opened),
+        patch("fedbiomed.common.cli.CertificateManager.close"),
     ):
-        yield mock_set_db
+        yield opened
 
 
 def _setup_args(path="/components", prune=False, enable_mutual_authentication=False):
@@ -79,7 +82,7 @@ def registered():
 
 
 @pytest.fixture
-def cli(set_db):
+def cli(opened_certificate_manager):
     cli = CommonCLI()
     cli.config = MagicMock()
     return cli
@@ -167,14 +170,14 @@ def test_common_cli_initialize_certificate_parser(cli):
 
 
 @pytest.fixture
-def federation(set_db, registered):
+def federation(opened_certificate_manager, registered):
     """A researcher and two nodes discovered under `/components`.
 
     Each field is the mock a test overrides to describe the federation it needs;
     `registered` says what a component already holds, nothing by default.
     """
 
-    def _register(registering_component_type, certificate, component_id):
+    def _register(certificate, component_id):
         registered[component_id] = {
             "component_id": component_id,
             "certificate": certificate,
@@ -203,7 +206,7 @@ def federation(set_db, registered):
             certificates=certificates,
             register=register,
             registered=registered,
-            set_db=set_db,
+            opened_certificate_manager=opened_certificate_manager,
         )
 
 
@@ -229,19 +232,18 @@ def test_common_cli_create_magic_dev_environment(cli, federation, component, exp
     # to the database its own configuration declares
     federation.db_paths.assert_called_once_with("/components")
     federation.certificates.assert_called_once_with("/components")
-    federation.set_db.assert_called_once_with("/components/c/var/db.json")
     assert [c.kwargs["component_id"] for c in federation.register.call_args_list] == (
         expected
     )
-    # Each registers as what it is, which is what selects the rules applied to it
+    # Each manager is opened as the component it belongs to, which is what selects
+    # the rules applied to what is registered through it
     own_type = (
         ComponentType.RESEARCHER.name
         if component == _RESEARCHER_A
         else ComponentType.NODE.name
     )
-    assert all(
-        c.kwargs["registering_component_type"] == own_type
-        for c in federation.register.call_args_list
+    federation.opened_certificate_manager.assert_called_once_with(
+        db_path="/components/c/var/db.json", component_type=own_type
     )
 
 
@@ -653,7 +655,7 @@ def test_generate_certificate_refuses_to_replace_without_force(
 @patch("builtins.open")
 @patch("builtins.print")
 def test_common_cli_register_certificate(
-    mock_print, mock_open, mock_register_certificate, cli, set_db
+    mock_print, mock_open, mock_register_certificate, cli, opened_certificate_manager
 ):
     cli.initialize_certificate_parser()
     cli.config.COMPONENT_TYPE = "NODE"
@@ -665,11 +667,13 @@ def test_common_cli_register_certificate(
 
     cli._register_certificate(args)
 
-    # Registration targets the component's main database.
-    set_db.assert_called_once_with(db_path=cli.config.getpath("default", "db"))
-    # The registering component's own type is passed along: it selects the rules
+    # Registration targets the component's main database, opened as the component
+    # registering: that is what selects the rules the registration has to satisfy
+    opened_certificate_manager.assert_called_once_with(
+        db_path=cli.config.getpath("default", "db"),
+        component_type=ComponentType.NODE.name,
+    )
     mock_register_certificate.assert_called_once_with(
-        registering_component_type=ComponentType.NODE.name,
         certificate_path="path/to/key",
         component_id=None,
         upsert=True,

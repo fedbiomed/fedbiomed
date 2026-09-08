@@ -31,7 +31,30 @@ CERT_ORGANIZATION = "Fed-BioMed"
 # TLS role a generated certificate's Extended Key Usage declares it for.
 CERT_PURPOSE_SERVER = "server"
 CERT_PURPOSE_CLIENT = "client"
+# TLS role each component acts in: a node dials the researcher, which serves.
+_COMPONENT_PURPOSE = {
+    ComponentType.NODE.name: CERT_PURPOSE_CLIENT,
+    ComponentType.RESEARCHER.name: CERT_PURPOSE_SERVER,
+}
 CERTIFICATE_EXPIRY_WARNING_DAYS = 30
+
+
+def _validated_component_type(component_type: str) -> str:
+    """Returns the component type, which is `NODE` or `RESEARCHER` and nothing else.
+
+    Both what a component's certificate declares and the rules its registrations
+    are held to follow from this value, so anything else is refused rather than
+    falling through to the researcher's, which are the permissive ones.
+
+    Raises:
+        FedbiomedCertificateError: the value is not one of the two component types.
+    """
+    if component_type not in ComponentType.__members__:
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: `{component_type}` is not a component "
+            f"type. It is one of {', '.join(ComponentType.__members__)}."
+        )
+    return component_type
 
 
 def certificate_subject_field(
@@ -266,7 +289,10 @@ class TrustedCertificateBundle:
             if state == self._state:
                 return
 
-            certificate_manager = CertificateManager(db_path=self._db_path)
+            certificate_manager = CertificateManager(
+                db_path=self._db_path,
+                component_type=ComponentType.RESEARCHER.name,
+            )
             try:
                 documents = certificate_manager.list()
                 expiring = certificate_manager.expiring_certificates(
@@ -364,43 +390,42 @@ class TrustedCertificateBundle:
 class CertificateManager:
     """Certificate manager to manage certificates of parties
 
+    A manager is one component's, and the rules a registration has to satisfy are
+    that component's. Its type is therefore held here rather than passed at each
+    call, so that no caller registers under another component's rules.
+
     Attrs:
         _db: TinyDB database to store certificates
+        _component_type: Type of the component the manager belongs to
     """
 
-    def __init__(self, db_path: Optional[str] = None):
-        """Constructs certificate manager
+    def __init__(self, db_path: str, component_type: str):
+        """Opens a component's certificate database.
 
         Args:
-            db: The name of the DB file to connect through TinyDB
-        """
+            db_path: The name of the DB file to connect through TinyDB
+            component_type: Type of the component the manager belongs to, `NODE`
+                or `RESEARCHER`.
 
-        self._tinydb: Optional[TinyDB] = None
-        self._db: Optional[Table] = None
+        Raises:
+            FedbiomedCertificateError: the component type is neither `NODE` nor
+                `RESEARCHER`.
+        """
+        self._component_type: str = _validated_component_type(component_type)
         self._query: Query = Query()
 
-        if db_path is not None:
-            self.set_db(db_path)
+        db = TinyDB(db_path)
+        db.table_class = DBTable
+        self._tinydb: Optional[TinyDB] = db
+        self._db: Optional[Table] = db.table("Certificates")
 
     @property
     def _table(self) -> Table:
         if self._db is None:
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Database not initialized. Call set_db() first."
+                f"{ErrorNumbers.FB619.value}: The certificate database is closed."
             )
         return self._db
-
-    def set_db(self, db_path: str) -> None:
-        """Sets database
-
-        Args:
-            db_path: The path of DB file where `Certificates` table are stored
-        """
-        self.close()
-        db = TinyDB(db_path)
-        db.table_class = DBTable
-        self._tinydb = db
-        self._db = db.table("Certificates")
 
     def close(self) -> None:
         """Closes the underlying TinyDB handle and releases the open file."""
@@ -538,7 +563,6 @@ class CertificateManager:
 
     def register_certificate(
         self,
-        registering_component_type: str,
         certificate_path: str,
         component_id: Optional[str] = None,
         upsert: bool = False,
@@ -558,7 +582,6 @@ class CertificateManager:
             )
 
         return self.register(
-            registering_component_type=registering_component_type,
             certificate=read_file(certificate_path),
             component_id=component_id,
             upsert=upsert,
@@ -566,7 +589,6 @@ class CertificateManager:
 
     def register(
         self,
-        registering_component_type: str,
         certificate: str,
         component_id: Optional[str] = None,
         upsert: bool = False,
@@ -575,7 +597,9 @@ class CertificateManager:
 
         The single entry point for granting trust: it validates, then writes. Callers
         holding a file use `register_certificate` instead, and no caller writes to the
-        table directly.
+        table directly. Which rules apply follows from the component this manager was
+        opened for: a node holds one certificate, its researcher's, and requires it to
+        state a host.
 
         The component id may be recovered from the certificate's `CN=`, but only on a
         certificate Fed-BioMed issued (`O=Fed-BioMed`); any other issuer's `CN=` is
@@ -586,9 +610,6 @@ class CertificateManager:
         - both present: they must be the same.
 
         Args:
-            registering_component_type: Type of the component registering, not the
-                certificate's owner. A node holds one certificate, its researcher's,
-                and requires it to state a host.
             certificate: PEM encoded certificate to register.
             component_id: ID of the component the certificate belongs to. Optional
                 when the certificate embeds an identity in `CN=`, required otherwise.
@@ -633,7 +654,7 @@ class CertificateManager:
                 "register it."
             )
 
-        registering_on_node = registering_component_type == ComponentType.NODE.name
+        registering_on_node = self._component_type == ComponentType.NODE.name
 
         # gRPC falls back to the Common Name, which holds the component id, not a host
         if registering_on_node and not certificate_san_names(certificate):
@@ -832,21 +853,87 @@ class CertificateManager:
         return key_file, pem_file
 
 
+def generate_component_certificate(
+    component_type: str,
+    component_id: str,
+    folder: str,
+    name: str,
+    host: Optional[str] = None,
+    extra_san: Optional[List[str]] = None,
+) -> Tuple[str, str]:
+    """Issues the certificate a component serves, as its type calls for.
+
+    Both the TLS role and the hosts the certificate is issued for follow from the
+    component type alone, so every caller issuing on a component's behalf — its
+    creation, the CLI, the GUI — produces the same certificate: a researcher
+    serves and is verified by name, so it is issued for the host it is reached at;
+    a node dials and is resolved by fingerprint, so it is issued for no host.
+
+    Args:
+        component_type: Type of the component the certificate identifies, `NODE`
+            or `RESEARCHER`.
+        component_id: ID of the component, which the certificate identifies.
+        folder: Absolute path the `.key` and `.pem` files are written in.
+        name: Base name shared by both files.
+        host: Host the component is reached at, required for a researcher.
+        extra_san: Further hosts and addresses a researcher is reached at.
+
+    Returns:
+        key_file: The path where private key file is saved
+        pem_file: The path where public key file is saved
+
+    Raises:
+        FedbiomedCertificateError: the component type is neither `NODE` nor
+            `RESEARCHER`; a host is given for a component whose certificate names
+            none, or missing for one whose certificate needs it; or the files
+            cannot be written.
+    """
+    component_type = _validated_component_type(component_type)
+
+    if component_type == ComponentType.NODE.name:
+        if host or extra_san:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: A node is never verified by name, so "
+                "its certificate is issued for no host and takes none."
+            )
+        san = None
+    else:
+        if not host:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: A researcher is verified by name, so "
+                "its certificate is issued for the host nodes reach it at, which "
+                "has to be given."
+            )
+        san = [host, *(extra_san or [])]
+
+    return CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=folder,
+        certificate_name=name,
+        component_id=component_id,
+        purpose=_COMPONENT_PURPOSE[component_type],
+        san=san,
+    )
+
+
 def generate_certificate(
     root,
     component_id,
-    purpose: str,
+    component_type: str,
     prefix: Optional[str] = None,
-    san: Optional[List[str]] = None,
+    host: Optional[str] = None,
 ) -> Tuple[str, str]:
-    """Generates certificates
+    """Issues a component its certificate, under its own root, at creation.
+
+    Refuses to replace one already there: the private key that goes with it is the
+    component's identity, and the parties it talks to registered the certificate.
 
     Args:
+        root: Root directory of the component.
         component_id: ID of the component for which the certificate will be generated
-        purpose: TLS role the certificate declares, `CERT_PURPOSE_CLIENT` or
-            `CERT_PURPOSE_SERVER`.
-        san: Hosts and IP addresses the component is reached at, which peers verify
-            it under.
+        component_type: Type of that component, which decides what the certificate
+            declares and which hosts it is issued for.
+        prefix: Base name shared by the certificate files.
+        host: Host the component is reached at, required for a researcher.
 
     Returns:
         key_file: The path where private key file is saved
@@ -854,7 +941,9 @@ def generate_certificate(
 
     Raises:
         FedbiomedCertificateError: If certificate directory for the component has already
-            `certificate.pem` or `certificate.key` files generated.
+            `certificate.pem` or `certificate.key` files generated; if the component
+            type is neither `NODE` nor `RESEARCHER`; or if a host is given for a
+            component whose certificate names none, or missing for one that needs it.
     """
 
     certificate_path = os.path.join(root, CERTS_FOLDER_NAME)
@@ -871,12 +960,10 @@ def generate_certificate(
 
     os.makedirs(certificate_path, exist_ok=True)
 
-    key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
-        certificate_folder=certificate_path,
-        certificate_name=prefix if prefix else "",
+    return generate_component_certificate(
+        component_type=component_type,
         component_id=component_id,
-        purpose=purpose,
-        san=san,
+        folder=certificate_path,
+        name=prefix if prefix else "",
+        host=host,
     )
-
-    return key_file, pem_file
