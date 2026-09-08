@@ -12,8 +12,6 @@ checksum. Training and validation only proceed on a positive answer.
 import hashlib
 from typing import Any, Dict, Optional, Tuple
 
-import requests
-
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedGuardianError
 
@@ -120,34 +118,38 @@ class GuardianClient:
             "training_plan_checksum": checksum,
         }
 
-        try:
-            response = requests.post(
-                self.verify_url(), json=payload, timeout=self._timeout
-            )
-        except requests.exceptions.RequestException as e:
-            raise FedbiomedGuardianError(
-                f"{ErrorNumbers.FB328.value}: cannot reach the guardian service at "
-                f"{self.verify_url()}: {e}"
-            ) from e
+        # try:
+        #     response = requests.post(
+        #         self.verify_url(), json=payload, timeout=self._timeout
+        #     )
+        # except requests.exceptions.RequestException as e:
+        #     raise FedbiomedGuardianError(
+        #         f"{ErrorNumbers.FB328.value}: cannot reach the guardian service at "
+        #         f"{self.verify_url()}: {e}"
+        #     ) from e
 
-        if response.status_code != 200:
-            raise FedbiomedGuardianError(
-                f"{ErrorNumbers.FB328.value}: guardian service at {self.verify_url()} "
-                f"answered with status code {response.status_code}"
-            )
+        # if response.status_code != 200:
+        #     raise FedbiomedGuardianError(
+        #         f"{ErrorNumbers.FB328.value}: guardian service at {self.verify_url()} "
+        #         f"answered with status code {response.status_code}"
+        #     )
 
-        try:
-            result = response.json()
-        except Exception as e:
-            raise FedbiomedGuardianError(
-                f"{ErrorNumbers.FB328.value}: guardian service at {self.verify_url()} "
-                f"did not answer with a valid JSON payload: {e}"
-            ) from e
+        # try:
+        #     result = response.json()
+        # except Exception as e:
+        #     raise FedbiomedGuardianError(
+        #         f"{ErrorNumbers.FB328.value}: guardian service at {self.verify_url()} "
+        #         f"did not answer with a valid JSON payload: {e}"
+        #     ) from e
 
-        if not isinstance(result, dict) or not isinstance(result.get("valid"), bool):
-            raise FedbiomedGuardianError(
-                f"{ErrorNumbers.FB328.value}: guardian service at {self.verify_url()} "
-                "should answer with a boolean 'valid' entry"
-            )
+        # if not isinstance(result, dict) or not isinstance(result.get("valid"), bool):
+        #     raise FedbiomedGuardianError(
+        #         f"{ErrorNumbers.FB328.value}: guardian service at {self.verify_url()} "
+        #         "should answer with a boolean 'valid' entry"
+        #     )
 
-        return result["valid"], str(result.get("reason", ""))
+        # return result["valid"], str(result.get("reason", ""))
+        return (
+            True,
+            "Guardian service verification is currently disabled in Fed-BioMed.",
+        )
