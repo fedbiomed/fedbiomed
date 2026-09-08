@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  hosted-build-smoke:
+  github-hosted-build-smoke:
     name: Build smoke (ubuntu-latest, ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -250,7 +250,7 @@ Docker testing is split into build smoke tests and a functional VPN test.
 
 ### Public-image build smoke
 
-The `hosted-build-smoke` job in `test-docker.yml` runs on a fresh
+The `github-hosted-build-smoke` job in `test-docker.yml` runs on a fresh
 `ubuntu-latest` runner for Python 3.11 through Python 3.14. It:
 
 - builds `docker/base/Dockerfile`

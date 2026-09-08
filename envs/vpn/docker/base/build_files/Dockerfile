@@ -8,7 +8,7 @@ ARG PYTHON_VERSION="3.11"
 # - built on the older suite so its binaries stay compatible with the base image
 FROM debian:bullseye-slim AS builder
 
-RUN apt-get update && apt-get install -y git build-essential curl
+RUN apt-get -o Acquire::http::No-Cache=true update && apt-get install -y git build-essential curl
 
 # install boringtun userspace implementation of wireguard
 # 
