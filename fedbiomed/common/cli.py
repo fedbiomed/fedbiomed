@@ -644,31 +644,36 @@ class CommonCLI:
     def _delete_certificate(self, args: argparse.Namespace):
         self._certificate_manager.set_db(db_path=self.config.getpath("default", "db"))
         certificates = self._certificate_manager.list(verbose=False)
-        options = [d["component_id"] for d in certificates]
-        msg = "Select the certificate to delete:\n"
-        msg += "\n".join([f"{i}) {d}" for i, d in enumerate(options, 1)])
-        msg += "\nSelect: "
 
-        while True:
-            try:
-                opt_idx = int(input(msg)) - 1
-                assert opt_idx in range(len(certificates))
+        if not certificates:
+            print("No certificate is registered.")
+            return
 
-                component_id = certificates[opt_idx]["component_id"]
-                self._certificate_manager.delete(component_id=component_id)
-                CommonCLI.success(
-                    f"Certificate for '{component_id}' has been successfully removed"
-                )
-                # A node pins its certificate at startup; the researcher re-reads
-                if self.config.COMPONENT_TYPE == ComponentType.NODE.name:
-                    print(
-                        f"{YLW}A running node keeps using the certificate it read "
-                        "when it started: restart the node for this deletion to take "
-                        f"effect.{NC}"
-                    )
-                return
-            except (ValueError, IndexError, AssertionError):
-                CommonCLI.error("Invalid option. Please, try again.")
+        if len(certificates) == 1:
+            # Nothing to choose from, which is the state a node is meant to be in:
+            # it holds its researcher's certificate and no other
+            component_id = certificates[0]["component_id"]
+        else:
+            msg = "Select the certificate to delete:\n"
+            msg += "\n".join(
+                f"{i}) {d['component_id']}" for i, d in enumerate(certificates, 1)
+            )
+            msg += "\nSelect: "
+            answer = input(msg)
+            if not answer.isdigit() or not 1 <= int(answer) <= len(certificates):
+                CommonCLI.error(f"Invalid option `{answer}`.")
+            component_id = certificates[int(answer) - 1]["component_id"]
+
+        self._certificate_manager.delete(component_id=component_id)
+        CommonCLI.success(
+            f"Certificate for '{component_id}' has been successfully removed"
+        )
+        # A node pins its certificate at startup; the researcher re-reads
+        if self.config.COMPONENT_TYPE == ComponentType.NODE.name:
+            print(
+                f"{YLW}A running node keeps using the certificate it read when it "
+                f"started: restart the node for this deletion to take effect.{NC}"
+            )
 
     def _prepare_certificate_for_registration(self, args: argparse.Namespace):
         """Prints this component's certificate and how other components register it."""
