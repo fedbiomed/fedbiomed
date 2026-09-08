@@ -40,7 +40,7 @@ from fedbiomed.common.certificate_manager import (
     certificate_san_names,
     certificate_subject_field,
 )
-from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchReply, SearchRequest
 from fedbiomed.common.serializer import Serializer
@@ -67,9 +67,8 @@ from fedbiomed.transport.server import (
     _verify_peer_identity,
 )
 
-# Component ids as `Config.generate` builds them. The prefix is what restricts a
-# generated certificate to a single TLS role, so the shipped certificates are
-# single-role and the handshake matrix has to exercise them as such.
+# Component ids as `Config.generate` builds them. Node and researcher certificates are
+# each generated for their own role, so the matrix exercises them as they ship.
 NODE_ID = f"NODE_{uuid4()}"
 RESEARCHER_ID = f"RESEARCHER_{uuid4()}"
 # A component id other than the one the certificate registered under it carries
@@ -260,7 +259,9 @@ def _registry(path, entries):
     try:
         for component_id, certificate in entries:
             manager.register(
-                certificate=certificate.decode("utf-8"), component_id=component_id
+                registering_component_type=ComponentType.RESEARCHER.name,
+                certificate=certificate.decode("utf-8"),
+                component_id=component_id,
             )
     finally:
         manager.close()
@@ -335,7 +336,10 @@ def test_component_id_picks_up_a_registration_without_restart(
 
     manager = CertificateManager(db_path=registry._db_path)
     try:
-        manager.register(certificate=certs["other_node_cert"].decode("utf-8"))
+        manager.register(
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate=certs["other_node_cert"].decode("utf-8"),
+        )
     finally:
         manager.close()
 

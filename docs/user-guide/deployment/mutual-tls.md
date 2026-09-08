@@ -63,11 +63,11 @@ nothing treats it as a security check. A certificate issued elsewhere — by you
 carries whatever `CN=` that issuer chose, often a hostname, and its component id is
 supplied when you register it.
 
-Certificates are role-restricted via Extended Key Usage: a node certificate is
-`client`-only, a researcher certificate is `server`-only. A certificate leaving the role
-open — carrying both, or no Extended Key Usage at all, as certificates issued elsewhere
-often do — is registered, but reported: nothing in it then states which side of the
-connection it is meant for.
+A generated certificate declares its role in an Extended Key Usage: `clientAuth` on a
+node certificate, `serverAuth` on a researcher one. The field describes the credential
+rather than restricting it — gRPC applies no purpose check of its own, and a certificate
+is registered whatever role it declares, including none, as certificates issued
+elsewhere often do.
 
 ### Names on the researcher certificate
 
@@ -164,13 +164,10 @@ fedbiomed [node|researcher] certificate list   # shows component id and expiry
     registering, replacing (`--upsert`) or deleting a certificate on a node changes
     nothing for the running process — **restart the node** to apply it.
 
-Registration refuses combinations that cannot be valid:
-
-- a component cannot register a certificate restricted to its **own TLS role** — a node
-  registers `server` certificates, a researcher `client` ones. A certificate that states
-  neither is registered, with a warning naming the role that was expected;
-- a **node registers at most one certificate** — its researcher's. Registering a second
-  component is rejected; re-registering the same component goes through `--upsert`.
+A **node registers at most one certificate** — its researcher's. Registering a second
+component is rejected; re-registering the same component goes through `--upsert`. That
+rule and the one above, that the certificate must state a host, are the only two
+registration refuses on the registering component's own account.
 
 `certificate list` reports a node holding more than one certificate, and a node refuses
 to start in that state, since it cannot tell which to pin — delete the extras with

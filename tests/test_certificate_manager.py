@@ -26,7 +26,7 @@ from fedbiomed.common.certificate_manager import (
     is_loopback_name,
     san_entry,
 )
-from fedbiomed.common.constants import CERTS_FOLDER_NAME
+from fedbiomed.common.constants import CERTS_FOLDER_NAME, ComponentType
 from fedbiomed.common.exceptions import FedbiomedCertificateError
 
 _NODE_A = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
@@ -63,11 +63,11 @@ def _self_signed(
     return pem_file
 
 
-def _certificate(org="Hospital", common_name=None, san=None, extended_key_usages=None):
+def _certificate(org="Hospital", common_name=None, san=None):
     """A certificate not issued by Fed-BioMed, as PEM bytes.
 
-    Subject fields, names and TLS roles are chosen freely, which is what a
-    certificate issued elsewhere may combine in ways Fed-BioMed never generates.
+    Subject fields and names are chosen freely, which is what a certificate issued
+    elsewhere may combine in ways Fed-BioMed never generates.
     """
     pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     attributes = [x509.NameAttribute(NameOID.ORGANIZATION_NAME, org)]
@@ -84,10 +84,6 @@ def _certificate(org="Hospital", common_name=None, san=None, extended_key_usages
         .not_valid_before(datetime.now(timezone.utc))
         .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
     )
-    if extended_key_usages is not None:
-        builder = builder.add_extension(
-            x509.ExtendedKeyUsage(extended_key_usages), critical=False
-        )
     if san is not None:
         builder = builder.add_extension(
             x509.SubjectAlternativeName(san), critical=False
@@ -98,22 +94,15 @@ def _certificate(org="Hospital", common_name=None, san=None, extended_key_usages
     )
 
 
-def _third_party(folder, org, extended_key_usages=None, common_name=None):
-    """A certificate not issued by Fed-BioMed: arbitrary subject, chosen TLS roles.
+def _third_party(folder, org, common_name=None):
+    """A certificate not issued by Fed-BioMed, with an arbitrary subject.
 
     Carrying no `O=Fed-BioMed`, it embeds no identity, so it is the only kind a
     component id can be chosen for at registration.
     """
-    roles = "_".join(oid.dotted_string for oid in extended_key_usages or []) or "no-eku"
-    pem_file = os.path.join(folder, f"{org}_{roles}_{common_name}.pem")
+    pem_file = os.path.join(folder, f"{org}_{common_name}.pem")
     with open(pem_file, "wb") as file:
-        file.write(
-            _certificate(
-                org=org,
-                common_name=common_name,
-                extended_key_usages=extended_key_usages,
-            )
-        )
+        file.write(_certificate(org=org, common_name=common_name))
     return pem_file
 
 
@@ -167,7 +156,11 @@ def test_certificate_manager_initialization(tmp_path, third_party_certificate):
     certificate = third_party_certificate()
     cm = CertificateManager(db_path=db_path)
     try:
-        cm.register(certificate=certificate, component_id=_NODE_A)
+        cm.register(
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate=certificate,
+            component_id=_NODE_A,
+        )
     finally:
         cm.close()
 
@@ -185,12 +178,20 @@ def test_certificate_manager_set_db_switches_database(
     first, second = str(tmp_path / "a.json"), str(tmp_path / "b.json")
     cm = CertificateManager(db_path=first)
     try:
-        cm.register(certificate=third_party_certificate("a"), component_id=_NODE_A)
+        cm.register(
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate=third_party_certificate("a"),
+            component_id=_NODE_A,
+        )
 
         cm.set_db(db_path=second)
         assert cm.list() == []
 
-        cm.register(certificate=third_party_certificate("b"), component_id=_NODE_B)
+        cm.register(
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate=third_party_certificate("b"),
+            component_id=_NODE_B,
+        )
         assert [d["component_id"] for d in cm.list()] == [_NODE_B]
     finally:
         cm.close()
@@ -199,8 +200,16 @@ def test_certificate_manager_set_db_switches_database(
 def test_certificate_manager_get(cert_db, third_party_certificate):
     """Only the requested component is returned; an unknown one yields nothing."""
     cert_a = third_party_certificate("a")
-    cert_db.cm.register(certificate=cert_a, component_id=_NODE_A)
-    cert_db.cm.register(certificate=third_party_certificate("b"), component_id=_NODE_B)
+    cert_db.cm.register(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate=cert_a,
+        component_id=_NODE_A,
+    )
+    cert_db.cm.register(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate=third_party_certificate("b"),
+        component_id=_NODE_B,
+    )
 
     assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == cert_a
     assert cert_db.cm.get(component_id=_NODE_C) is None
@@ -211,7 +220,11 @@ def test_certificate_manager_registering_twice_requires_upsert(
 ):
     """A component can be registered once; registering again needs `upsert`."""
     first, second = third_party_certificate("first"), third_party_certificate("second")
-    entry = dict(certificate=first, component_id=_NODE_A)
+    entry = dict(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate=first,
+        component_id=_NODE_A,
+    )
 
     cert_db.cm.register(**entry)
     assert cert_db.cm.get(component_id=_NODE_A)["certificate"] == first
@@ -228,8 +241,16 @@ def test_certificate_manager_registering_twice_requires_upsert(
 
 def test_certificate_manager_delete(cert_db, third_party_certificate):
     """Deleting removes only the named component."""
-    cert_db.cm.register(certificate=third_party_certificate("a"), component_id=_NODE_A)
-    cert_db.cm.register(certificate=third_party_certificate("b"), component_id=_NODE_B)
+    cert_db.cm.register(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate=third_party_certificate("a"),
+        component_id=_NODE_A,
+    )
+    cert_db.cm.register(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate=third_party_certificate("b"),
+        component_id=_NODE_B,
+    )
 
     cert_db.cm.delete(component_id=_NODE_A)
 
@@ -239,7 +260,11 @@ def test_certificate_manager_delete(cert_db, third_party_certificate):
 def test_certificate_manager_list(cert_db, third_party_certificate):
     """Tests list method of certificate manager"""
     cert_a = third_party_certificate("a")
-    cert_db.cm.register(certificate=cert_a, component_id=_NODE_A)
+    cert_db.cm.register(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate=cert_a,
+        component_id=_NODE_A,
+    )
 
     assert [d["component_id"] for d in cert_db.cm.list()] == [_NODE_A]
 
@@ -255,13 +280,16 @@ def test_certificate_manager_register_certificate(cert_db):
 
     with pytest.raises(FedbiomedCertificateError):
         cert_db.cm.register_certificate(
+            registering_component_type=ComponentType.RESEARCHER.name,
             certificate_path=os.path.join(cert_db.tmp, "missing.pem"),
             component_id=_NODE_A,
         )
 
     pem_file = _third_party(cert_db.tmp, "Hospital")
     registered = cert_db.cm.register_certificate(
-        certificate_path=pem_file, component_id=_NODE_A
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=pem_file,
+        component_id=_NODE_A,
     )
 
     assert registered == _NODE_A
@@ -276,7 +304,8 @@ def test_register_certificate_returns_the_recovered_component_id(cert_db):
     only way to report which component a registration applied to.
     """
     registered = cert_db.cm.register_certificate(
-        certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER)
+        registering_component_type=ComponentType.NODE.name,
+        certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER),
     )
 
     assert registered == _RESEARCHER_A
@@ -476,7 +505,8 @@ def test_expiring_certificates_filters_by_threshold(cert_db):
     """Each certificate is reported on its own `notAfter`, against the window."""
     for component_id in (_NODE_A, _RESEARCHER_A):
         cert_db.cm.register_certificate(
-            certificate_path=_self_signed(cert_db.tmp, component_id)
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate_path=_self_signed(cert_db.tmp, component_id),
         )
 
     # Generated cert lasts ~5 years: a wide window catches it, a tight one doesn't
@@ -488,7 +518,10 @@ def test_expiring_certificates_filters_by_threshold(cert_db):
 
 
 def test_list_verbose_adds_expires_column(cert_db):
-    cert_db.cm.register_certificate(certificate_path=_self_signed(cert_db.tmp, _NODE_A))
+    cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=_self_signed(cert_db.tmp, _NODE_A),
+    )
 
     with patch("fedbiomed.common.certificate_manager.tabulate") as tabulate:
         cert_db.cm.list(verbose=True)
@@ -730,7 +763,11 @@ def cert_db(tmp_path):
 def test_material_that_is_not_a_certificate_is_rejected(cert_db, certificate):
     """Every other rule passes on what it cannot read, so nothing else would stop it."""
     with pytest.raises(FedbiomedCertificateError):
-        cert_db.cm.register(certificate=certificate, component_id=_NODE_A)
+        cert_db.cm.register(
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate=certificate,
+            component_id=_NODE_A,
+        )
 
     assert cert_db.cm.get(_NODE_A) is None
 
@@ -741,7 +778,10 @@ def test_material_that_is_not_a_certificate_is_rejected(cert_db, certificate):
 
 
 def test_recovers_component_id_from_certificate(cert_db):
-    cert_db.cm.register_certificate(certificate_path=_self_signed(cert_db.tmp, _NODE_A))
+    cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=_self_signed(cert_db.tmp, _NODE_A),
+    )
     assert cert_db.cm.get(_NODE_A) is not None
 
 
@@ -749,7 +789,8 @@ def test_recovers_component_id_from_certificate(cert_db):
 def test_free_form_certificate_identity_is_recovered(cert_db, component_id):
     """A `CN=` Fed-BioMed issued names a component whatever shape it has."""
     cert_db.cm.register_certificate(
-        certificate_path=_self_signed(cert_db.tmp, component_id)
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=_self_signed(cert_db.tmp, component_id),
     )
     assert cert_db.cm.get(component_id) is not None
 
@@ -763,9 +804,16 @@ def test_identity_ignored_when_another_issuer_signed_it(cert_db):
     certificate = _third_party(cert_db.tmp, "Hospital", common_name=_NODE_A)
 
     with pytest.raises(FedbiomedCertificateError):
-        cert_db.cm.register_certificate(certificate_path=certificate)
+        cert_db.cm.register_certificate(
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate_path=certificate,
+        )
 
-    cert_db.cm.register_certificate(certificate_path=certificate, component_id=_NODE_B)
+    cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=certificate,
+        component_id=_NODE_B,
+    )
 
     assert cert_db.cm.get(_NODE_A) is None
     assert cert_db.cm.get(_NODE_B) is not None
@@ -773,7 +821,9 @@ def test_identity_ignored_when_another_issuer_signed_it(cert_db):
 
 def test_matching_component_id_is_accepted(cert_db):
     cert_db.cm.register_certificate(
-        certificate_path=_self_signed(cert_db.tmp, _NODE_A), component_id=_NODE_A
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=_self_signed(cert_db.tmp, _NODE_A),
+        component_id=_NODE_A,
     )
     assert cert_db.cm.get(_NODE_A) is not None
 
@@ -781,14 +831,17 @@ def test_matching_component_id_is_accepted(cert_db):
 def test_conflicting_component_id_raises(cert_db):
     with pytest.raises(FedbiomedCertificateError):
         cert_db.cm.register_certificate(
-            certificate_path=_self_signed(cert_db.tmp, _NODE_A), component_id=_NODE_B
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate_path=_self_signed(cert_db.tmp, _NODE_A),
+            component_id=_NODE_B,
         )
 
 
 def test_component_id_required_without_usable_identity(cert_db):
     with pytest.raises(FedbiomedCertificateError):
         cert_db.cm.register_certificate(
-            certificate_path=_third_party(cert_db.tmp, "Hospital A")
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate_path=_third_party(cert_db.tmp, "Hospital A"),
         )
 
 
@@ -799,11 +852,17 @@ def test_certificate_already_registered_under_another_party_is_rejected(cert_db)
     only be registered under that identity.
     """
     certificate = _third_party(cert_db.tmp, "Hospital A")
-    cert_db.cm.register_certificate(certificate_path=certificate, component_id=_NODE_A)
+    cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=certificate,
+        component_id=_NODE_A,
+    )
 
     with pytest.raises(FedbiomedCertificateError, match=_NODE_A):
         cert_db.cm.register_certificate(
-            certificate_path=certificate, component_id=_NODE_B
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate_path=certificate,
+            component_id=_NODE_B,
         )
 
     assert cert_db.cm.get(_NODE_B) is None
@@ -812,9 +871,16 @@ def test_certificate_already_registered_under_another_party_is_rejected(cert_db)
 def test_reregistering_a_party_own_certificate_is_allowed(cert_db):
     """Renewal keeps working: the conflict is with another component, not itself."""
     certificate = _third_party(cert_db.tmp, "Hospital A")
-    cert_db.cm.register_certificate(certificate_path=certificate, component_id=_NODE_A)
     cert_db.cm.register_certificate(
-        certificate_path=certificate, component_id=_NODE_A, upsert=True
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=certificate,
+        component_id=_NODE_A,
+    )
+    cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=certificate,
+        component_id=_NODE_A,
+        upsert=True,
     )
 
     assert len(cert_db.cm.list()) == 1
@@ -822,60 +888,53 @@ def test_reregistering_a_party_own_certificate_is_allowed(cert_db):
 
 def test_given_component_id_used_without_usable_identity(cert_db):
     cert_db.cm.register_certificate(
-        certificate_path=_third_party(cert_db.tmp, "Hospital A"), component_id=_NODE_A
+        registering_component_type=ComponentType.RESEARCHER.name,
+        certificate_path=_third_party(cert_db.tmp, "Hospital A"),
+        component_id=_NODE_A,
     )
     assert cert_db.cm.get(_NODE_A) is not None
 
 
-# The TLS role a registered certificate must carry: the one the registering
-# component does not act in. A certificate restricted to the registrar's own role
-# is rejected; one leaving the role open is registered. A TLS client additionally
-# keeps a single registered certificate, and requires it to state a host. Omitting
-# the registering purpose skips these checks.
+# The rules the registering component's own type carries: a node keeps a single
+# registered certificate, and requires it to state a host. A researcher has none of
+# its own.
 
 
 def test_node_registering_researcher_certificate_accepted(cert_db):
     cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.NODE.name,
         certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER),
-        registering_purpose=CERT_PURPOSE_CLIENT,
     )
     assert cert_db.cm.get(_RESEARCHER_A) is not None
 
 
-def test_researcher_registering_node_certificate_accepted(cert_db):
+@pytest.mark.parametrize(
+    "component_type,component_id,purpose",
+    [
+        (ComponentType.RESEARCHER.name, _RESEARCHER_A, CERT_PURPOSE_SERVER),
+        (ComponentType.NODE.name, _NODE_A, CERT_PURPOSE_CLIENT),
+    ],
+)
+def test_certificate_role_is_not_read_at_registration(
+    cert_db, component_type, component_id, purpose
+):
+    """The Extended Key Usage is descriptive: a component registers a certificate
+    declaring its own role as readily as the other's."""
     cert_db.cm.register_certificate(
-        certificate_path=_self_signed(cert_db.tmp, _NODE_A),
-        registering_purpose=CERT_PURPOSE_SERVER,
+        registering_component_type=component_type,
+        certificate_path=_self_signed(cert_db.tmp, component_id, purpose),
     )
-    assert cert_db.cm.get(_NODE_A) is not None
-
-
-def test_node_registering_node_certificate_rejected(cert_db):
-    with pytest.raises(FedbiomedCertificateError):
-        cert_db.cm.register_certificate(
-            certificate_path=_self_signed(cert_db.tmp, _NODE_A),
-            registering_purpose=CERT_PURPOSE_CLIENT,
-        )
-
-
-def test_researcher_registering_researcher_certificate_rejected(cert_db):
-    with pytest.raises(FedbiomedCertificateError):
-        cert_db.cm.register_certificate(
-            certificate_path=_self_signed(
-                cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER
-            ),
-            registering_purpose=CERT_PURPOSE_SERVER,
-        )
+    assert cert_db.cm.get(component_id) is not None
 
 
 def test_node_registering_a_certificate_stating_no_host_rejected(cert_db):
     """gRPC would verify it against its Common Name, which holds a component id."""
     with pytest.raises(FedbiomedCertificateError, match="states no host"):
         cert_db.cm.register_certificate(
+            registering_component_type=ComponentType.NODE.name,
             certificate_path=_self_signed(
                 cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER, san=()
             ),
-            registering_purpose=CERT_PURPOSE_CLIENT,
         )
 
     assert cert_db.cm.list() == []
@@ -884,54 +943,8 @@ def test_node_registering_a_certificate_stating_no_host_rejected(cert_db):
 def test_researcher_registering_a_certificate_stating_no_host_accepted(cert_db):
     """A node is authenticated by the certificate registered for it, never by name."""
     cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.RESEARCHER.name,
         certificate_path=_self_signed(cert_db.tmp, _NODE_A, san=()),
-        registering_purpose=CERT_PURPOSE_SERVER,
-    )
-
-    assert cert_db.cm.get(_NODE_A) is not None
-
-
-def test_unknown_registering_purpose_is_rejected(cert_db):
-    """A purpose that names no TLS role checks nothing, so it is refused.
-
-    Only `client` and `server` name a role; anything else would pass every
-    certificate through unchecked.
-    """
-    with pytest.raises(FedbiomedCertificateError, match="Unknown registering purpose"):
-        cert_db.cm.register_certificate(
-            certificate_path=_self_signed(cert_db.tmp, _NODE_A),
-            registering_purpose="NODE",
-        )
-
-    assert cert_db.cm.list() == []
-
-
-def test_component_id_does_not_exempt_an_own_role_certificate(cert_db):
-    # Only the EKU decides: a node component id does not make a server-only
-    # certificate registrable on a researcher.
-    with pytest.raises(FedbiomedCertificateError):
-        cert_db.cm.register_certificate(
-            certificate_path=_third_party(
-                cert_db.tmp, "Hospital_x", [ExtendedKeyUsageOID.SERVER_AUTH]
-            ),
-            component_id=_NODE_A,
-            registering_purpose=CERT_PURPOSE_SERVER,
-        )
-
-
-@pytest.mark.parametrize(
-    "extended_key_usages",
-    [
-        None,  # no Extended Key Usage at all
-        [ExtendedKeyUsageOID.SERVER_AUTH, ExtendedKeyUsageOID.CLIENT_AUTH],
-    ],
-)
-def test_open_role_third_party_is_registered(cert_db, extended_key_usages):
-    """Only a certificate restricted to the registrar's own role is refused."""
-    cert_db.cm.register_certificate(
-        certificate_path=_third_party(cert_db.tmp, "Hospital_x", extended_key_usages),
-        component_id=_NODE_A,
-        registering_purpose=CERT_PURPOSE_SERVER,
     )
 
     assert cert_db.cm.get(_NODE_A) is not None
@@ -942,15 +955,15 @@ def test_node_registering_second_certificate_rejected(cert_db):
     # registered, one for another component is rejected and the database keeps
     # holding exactly one.
     cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.NODE.name,
         certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER),
-        registering_purpose=CERT_PURPOSE_CLIENT,
     )
     with pytest.raises(FedbiomedCertificateError):
         cert_db.cm.register_certificate(
+            registering_component_type=ComponentType.NODE.name,
             certificate_path=_self_signed(
                 cert_db.tmp, _RESEARCHER_B, CERT_PURPOSE_SERVER
             ),
-            registering_purpose=CERT_PURPOSE_CLIENT,
         )
     assert len(cert_db.cm.list()) == 1
 
@@ -960,10 +973,10 @@ def test_registration_is_audited_with_the_certificate_it_trusts(cert_db):
         "fedbiomed.common.certificate_manager.logger.security_event"
     ) as security_event:
         cert_db.cm.register_certificate(
+            registering_component_type=ComponentType.NODE.name,
             certificate_path=_self_signed(
                 cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER
             ),
-            registering_purpose=CERT_PURPOSE_CLIENT,
         )
 
     events = _events(security_event, "certificate_registered")
@@ -978,17 +991,17 @@ def test_registration_is_audited_with_the_certificate_it_trusts(cert_db):
 
 def test_replacing_a_registered_certificate_is_marked_as_such(cert_db):
     cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.NODE.name,
         certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER),
-        registering_purpose=CERT_PURPOSE_CLIENT,
     )
     with patch(
         "fedbiomed.common.certificate_manager.logger.security_event"
     ) as security_event:
         cert_db.cm.register_certificate(
+            registering_component_type=ComponentType.NODE.name,
             certificate_path=_self_signed(
                 cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER, san=("other",)
             ),
-            registering_purpose=CERT_PURPOSE_CLIENT,
             upsert=True,
         )
 
@@ -997,31 +1010,22 @@ def test_replacing_a_registered_certificate_is_marked_as_such(cert_db):
     assert events[0].kwargs["replaced"] is True
 
 
-# Both rejections a node can hit: a certificate restricted to its own TLS role,
-# and a second certificate once one is registered. Neither changes the database,
-# so neither is audited.
-@pytest.mark.parametrize(
-    "preregister,component_id,purpose",
-    [
-        (None, _NODE_A, CERT_PURPOSE_CLIENT),
-        (_RESEARCHER_A, _RESEARCHER_B, CERT_PURPOSE_SERVER),
-    ],
-)
-def test_rejected_registration_is_not_audited(
-    cert_db, preregister, component_id, purpose
-):
-    if preregister:
-        cert_db.cm.register_certificate(
-            certificate_path=_self_signed(cert_db.tmp, preregister, purpose),
-            registering_purpose=CERT_PURPOSE_CLIENT,
-        )
+# The rejection a node can hit: a second certificate once one is registered. It
+# leaves the database as it was, so it is not audited.
+def test_rejected_registration_is_not_audited(cert_db):
+    cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.NODE.name,
+        certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER),
+    )
     with patch(
         "fedbiomed.common.certificate_manager.logger.security_event"
     ) as security_event:
         with pytest.raises(FedbiomedCertificateError):
             cert_db.cm.register_certificate(
-                certificate_path=_self_signed(cert_db.tmp, component_id, purpose),
-                registering_purpose=CERT_PURPOSE_CLIENT,
+                registering_component_type=ComponentType.NODE.name,
+                certificate_path=_self_signed(
+                    cert_db.tmp, _RESEARCHER_B, CERT_PURPOSE_SERVER
+                ),
             )
 
     assert _events(security_event, "certificate_registered") == []
@@ -1029,8 +1033,8 @@ def test_rejected_registration_is_not_audited(
 
 def test_deletion_is_audited_with_the_certificate_it_revokes(cert_db):
     cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.NODE.name,
         certificate_path=_self_signed(cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER),
-        registering_purpose=CERT_PURPOSE_CLIENT,
     )
     with patch(
         "fedbiomed.common.certificate_manager.logger.security_event"
@@ -1057,12 +1061,12 @@ def test_node_reregistering_same_party_upserts(cert_db):
     # Same component id is not a second certificate: the usual upsert flow applies.
     certificate = _self_signed(cert_db.tmp, _RESEARCHER_A, CERT_PURPOSE_SERVER)
     cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.NODE.name,
         certificate_path=certificate,
-        registering_purpose=CERT_PURPOSE_CLIENT,
     )
     cert_db.cm.register_certificate(
+        registering_component_type=ComponentType.NODE.name,
         certificate_path=certificate,
-        registering_purpose=CERT_PURPOSE_CLIENT,
         upsert=True,
     )
     assert len(cert_db.cm.list()) == 1
@@ -1073,16 +1077,10 @@ def test_researcher_registering_multiple_node_certificates_accepted(cert_db):
     # a certificate per node.
     for node in (_NODE_A, _NODE_C):
         cert_db.cm.register_certificate(
+            registering_component_type=ComponentType.RESEARCHER.name,
             certificate_path=_self_signed(cert_db.tmp, node),
-            registering_purpose=CERT_PURPOSE_SERVER,
         )
     assert len(cert_db.cm.list()) == 2
-
-
-def test_omitted_registering_purpose_skips_the_role_checks(cert_db):
-    # Naming no role states none to check against: a node certificate registers.
-    cert_db.cm.register_certificate(certificate_path=_self_signed(cert_db.tmp, _NODE_A))
-    assert cert_db.cm.get(_NODE_A) is not None
 
 
 # -----------------------------------------------------------------------------
@@ -1099,7 +1097,12 @@ def bundle_env(tmp_path, issued_certificate):
     def register(component_id, pem=None, upsert=False):
         """Registers a certificate, generated when the test does not supply one."""
         pem = issued_certificate(component_id) if pem is None else pem
-        cm.register(certificate=pem, component_id=component_id, upsert=upsert)
+        cm.register(
+            registering_component_type=ComponentType.RESEARCHER.name,
+            certificate=pem,
+            component_id=component_id,
+            upsert=upsert,
+        )
         return pem
 
     yield SimpleNamespace(

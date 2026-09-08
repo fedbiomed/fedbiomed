@@ -16,7 +16,11 @@ from tabulate import tabulate
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
 
-from fedbiomed.common.constants import CERTS_FOLDER_NAME, ErrorNumbers
+from fedbiomed.common.constants import (
+    CERTS_FOLDER_NAME,
+    ComponentType,
+    ErrorNumbers,
+)
 from fedbiomed.common.db import DBTable
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
@@ -24,7 +28,7 @@ from fedbiomed.common.utils import read_file
 
 # Subject organization marking a certificate as issued by Fed-BioMed.
 CERT_ORGANIZATION = "Fed-BioMed"
-# TLS role a certificate is restricted to via Extended Key Usage.
+# TLS role a generated certificate's Extended Key Usage declares it for.
 CERT_PURPOSE_SERVER = "server"
 CERT_PURPOSE_CLIENT = "client"
 CERTIFICATE_EXPIRY_WARNING_DAYS = 30
@@ -183,69 +187,6 @@ def certificate_fingerprint(certificate: Union[bytes, str]) -> Optional[bytes]:
         return x509.load_pem_x509_certificate(certificate).fingerprint(hashes.SHA256())
     except (TypeError, ValueError):
         return None
-
-
-def certificate_purpose(certificate: Union[bytes, str]) -> Optional[str]:
-    """TLS role a certificate's Extended Key Usage restricts it to.
-
-    Returns:
-        `CERT_PURPOSE_CLIENT` or `CERT_PURPOSE_SERVER`, or None when the
-        certificate is unparsable or its Extended Key Usage leaves the role open
-        — both roles, or no such extension at all, as a certificate issued
-        outside Fed-BioMed may well be.
-    """
-    if isinstance(certificate, str):
-        certificate = certificate.encode("utf-8")
-    try:
-        usages = (
-            x509.load_pem_x509_certificate(certificate)
-            .extensions.get_extension_for_class(x509.ExtendedKeyUsage)
-            .value
-        )
-    except (ValueError, x509.ExtensionNotFound):
-        return None
-    client = ExtendedKeyUsageOID.CLIENT_AUTH in usages
-    server = ExtendedKeyUsageOID.SERVER_AUTH in usages
-    if client == server:  # both roles or neither: the role is unconstrained
-        return None
-    return CERT_PURPOSE_CLIENT if client else CERT_PURPOSE_SERVER
-
-
-def validate_certificate_purpose(certificate: str, registering_purpose: str) -> None:
-    """Checks a certificate carries the TLS role the registering component expects.
-
-    A component registers the certificates of the components it talks to, never
-    its own: the one acting as TLS client registers server certificates, and the
-    reverse. Its own role is therefore the one role a certificate registered here
-    must not have.
-
-    A certificate leaving the role open — both roles, or no Extended Key Usage,
-    which is common outside Fed-BioMed — is registered.
-
-    Raises:
-        FedbiomedCertificateError: the registering purpose is unknown, or the
-            certificate is restricted to the registering component's own role.
-    """
-    if registering_purpose not in (CERT_PURPOSE_CLIENT, CERT_PURPOSE_SERVER):
-        raise FedbiomedCertificateError(
-            f"{ErrorNumbers.FB619.value}: Unknown registering purpose "
-            f"`{registering_purpose}`; expected `{CERT_PURPOSE_CLIENT}` or "
-            f"`{CERT_PURPOSE_SERVER}`."
-        )
-
-    purpose = certificate_purpose(certificate)
-    if purpose == registering_purpose:
-        expected = (
-            CERT_PURPOSE_SERVER
-            if registering_purpose == CERT_PURPOSE_CLIENT
-            else CERT_PURPOSE_CLIENT
-        )
-        raise FedbiomedCertificateError(
-            f"{ErrorNumbers.FB619.value}: The certificate's Extended Key Usage "
-            f"restricts it to a TLS {purpose} certificate, the role this component "
-            f"acts in itself. It registers {expected} certificates, of the "
-            "components it communicates with."
-        )
 
 
 class TrustedCertificateBundle:
@@ -597,10 +538,10 @@ class CertificateManager:
 
     def register_certificate(
         self,
+        registering_component_type: str,
         certificate_path: str,
         component_id: Optional[str] = None,
         upsert: bool = False,
-        registering_purpose: Optional[str] = None,
     ) -> str:
         """Registers the certificate stored at the given path.
 
@@ -617,18 +558,18 @@ class CertificateManager:
             )
 
         return self.register(
+            registering_component_type=registering_component_type,
             certificate=read_file(certificate_path),
             component_id=component_id,
             upsert=upsert,
-            registering_purpose=registering_purpose,
         )
 
     def register(
         self,
+        registering_component_type: str,
         certificate: str,
         component_id: Optional[str] = None,
         upsert: bool = False,
-        registering_purpose: Optional[str] = None,
     ) -> str:
         """Registers a certificate, applying every rule a stored certificate must meet.
 
@@ -645,19 +586,14 @@ class CertificateManager:
         - both present: they must be the same.
 
         Args:
+            registering_component_type: Type of the component registering, not the
+                certificate's owner. A node holds one certificate, its researcher's,
+                and requires it to state a host.
             certificate: PEM encoded certificate to register.
-            component_id: ID of the component. Optional when the certificate embeds an
-                identity in `CN=`; required otherwise.
-            upsert: If `True` overwrites existing certificate for specified component.
-                If `False` and the certificate for the specified component already
-                existing it raises error.
-            registering_purpose: TLS role the registering component acts in
-                (`CERT_PURPOSE_CLIENT` or `CERT_PURPOSE_SERVER`). When given,
-                certificates restricted to that same role are rejected: components
-                register each other's certificates, never their own; one leaving the
-                role open is registered and reported. A TLS client additionally keeps
-                a single registered certificate — the server's — and requires it to
-                state the hosts it is verified under. None skips these checks.
+            component_id: ID of the component the certificate belongs to. Optional
+                when the certificate embeds an identity in `CN=`, required otherwise.
+            upsert: Replaces the certificate registered for that component; without
+                it, registering a component twice raises.
 
         Returns:
             The component id the certificate was registered under, which the caller
@@ -669,9 +605,8 @@ class CertificateManager:
                 `component_id` is neither given nor recoverable from the certificate;
                 if a given `component_id` conflicts with the certificate identity; if
                 the certificate is already registered under another component id; or,
-                when `registering_purpose` is given, if the certificate is restricted
-                to that same role, or if a TLS client already holds a certificate for
-                another component or is given one stating no host.
+                on a node, if it already holds a certificate for another component or
+                is given one stating no host.
         """
         # Every rule below passes on a certificate it cannot read, so reject it first.
         fingerprint = certificate_fingerprint(certificate)
@@ -698,13 +633,10 @@ class CertificateManager:
                 "register it."
             )
 
-        if registering_purpose is not None:
-            validate_certificate_purpose(certificate, registering_purpose)
+        registering_on_node = registering_component_type == ComponentType.NODE.name
 
         # gRPC falls back to the Common Name, which holds the component id, not a host
-        if registering_purpose == CERT_PURPOSE_CLIENT and not certificate_san_names(
-            certificate
-        ):
+        if registering_on_node and not certificate_san_names(certificate):
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: The certificate states no host: its "
                 "Subject Alternative Name carries no host name and no address, so "
@@ -715,9 +647,8 @@ class CertificateManager:
 
         others = [d for d in self.list() if d["component_id"] != component_id]
 
-        # The TLS client is the node, and it communicates with a single researcher,
-        # so its database holds at most one certificate
-        if registering_purpose == CERT_PURPOSE_CLIENT and others:
+        # A node communicates with a single researcher, so it holds one certificate
+        if registering_on_node and others:
             registered = ", ".join(f"`{d['component_id']}`" for d in others)
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: A node registers at most one "
@@ -761,15 +692,15 @@ class CertificateManager:
 
         The subject states who the component is, never where it is reached:
         `CN=<component_id>`, `O=` the organization marking it as Fed-BioMed's. The
-        Extended Key Usage restricts the certificate to `purpose`, the single TLS role
-        the component acts in.
+        Extended Key Usage declares `purpose`, the single TLS role the component acts
+        in.
 
         Args:
             certificate_folder: The path where certificate files `.pem` and `.key`
                 will be saved. Path should be absolute.
             component_id: ID of the component, which the certificate identifies.
-            purpose: TLS role the certificate is restricted to, `CERT_PURPOSE_CLIENT`
-                or `CERT_PURPOSE_SERVER`.
+            purpose: TLS role the certificate declares, `CERT_PURPOSE_CLIENT` or
+                `CERT_PURPOSE_SERVER`.
             certificate_name: Name of the certificate file.
             san: Hosts and IP addresses the component is reached at, which peers
                 verify it under. Required for a certificate peers verify by name.
@@ -912,7 +843,7 @@ def generate_certificate(
 
     Args:
         component_id: ID of the component for which the certificate will be generated
-        purpose: TLS role the certificate is restricted to, `CERT_PURPOSE_CLIENT` or
+        purpose: TLS role the certificate declares, `CERT_PURPOSE_CLIENT` or
             `CERT_PURPOSE_SERVER`.
         san: Hosts and IP addresses the component is reached at, which peers verify
             it under.

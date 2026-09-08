@@ -8,12 +8,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from cryptography import x509
 
-from fedbiomed.common.certificate_manager import (
-    CERT_PURPOSE_CLIENT,
-    CERT_PURPOSE_SERVER,
-    certificate_san_names,
-)
+from fedbiomed.common.certificate_manager import certificate_san_names
 from fedbiomed.common.cli import CommonCLI
+from fedbiomed.common.constants import ComponentType
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 
 _NODE_A = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
@@ -177,7 +174,7 @@ def federation(set_db, registered):
     `registered` says what a component already holds, nothing by default.
     """
 
-    def _register(certificate, component_id, registering_purpose=None):
+    def _register(registering_component_type, certificate, component_id):
         registered[component_id] = {
             "component_id": component_id,
             "certificate": certificate,
@@ -236,13 +233,14 @@ def test_common_cli_create_magic_dev_environment(cli, federation, component, exp
     assert [c.kwargs["component_id"] for c in federation.register.call_args_list] == (
         expected
     )
-    # Each registers in its own TLS role, which is what makes a component reject
-    # certificates of its own kind
-    own_purpose = (
-        CERT_PURPOSE_SERVER if component == _RESEARCHER_A else CERT_PURPOSE_CLIENT
+    # Each registers as what it is, which is what selects the rules applied to it
+    own_type = (
+        ComponentType.RESEARCHER.name
+        if component == _RESEARCHER_A
+        else ComponentType.NODE.name
     )
     assert all(
-        c.kwargs["registering_purpose"] == own_purpose
+        c.kwargs["registering_component_type"] == own_type
         for c in federation.register.call_args_list
     )
 
@@ -669,13 +667,12 @@ def test_common_cli_register_certificate(
 
     # Registration targets the component's main database.
     set_db.assert_called_once_with(db_path=cli.config.getpath("default", "db"))
-    # The registering component's TLS role is passed along so certificates of the
-    # component's own kind are rejected.
+    # The registering component's own type is passed along: it selects the rules
     mock_register_certificate.assert_called_once_with(
+        registering_component_type=ComponentType.NODE.name,
         certificate_path="path/to/key",
         component_id=None,
         upsert=True,
-        registering_purpose=CERT_PURPOSE_CLIENT,
     )
     # The component actually registered is named, whether or not it was supplied
     printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)

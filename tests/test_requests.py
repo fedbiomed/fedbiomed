@@ -13,7 +13,7 @@ from fedbiomed.common.certificate_manager import (
     CertificateManager,
     TrustedCertificateBundle,
 )
-from fedbiomed.common.constants import MessageType
+from fedbiomed.common.constants import ComponentType, MessageType
 from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.message import (
     ApprovalReply,
@@ -689,7 +689,11 @@ def mtls_requests_env():
             )
             with open(pem_file) as file:
                 pem = file.read()
-            certificate_manager.register(certificate=pem, component_id=component_id)
+            certificate_manager.register(
+                registering_component_type=ComponentType.RESEARCHER.name,
+                certificate=pem,
+                component_id=component_id,
+            )
             return pem
 
         if Requests in Requests._objects:

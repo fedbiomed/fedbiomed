@@ -497,9 +497,9 @@ class CommonCLI:
                 # so this setup cannot write a state that command would refuse.
                 try:
                     self._certificate_manager.register(
+                        registering_component_type=component_types[id_],
                         certificate=certificate["certificate"],
                         component_id=certificate["component_id"],
-                        registering_purpose=COMPONENT_PURPOSE[component_types[id_]],
                     )
                 except FedbiomedError as e:
                     CommonCLI.error(
@@ -619,10 +619,10 @@ class CommonCLI:
 
         try:
             component_id = self._certificate_manager.register_certificate(
+                registering_component_type=self.config.COMPONENT_TYPE,
                 certificate_path=args.public_key,
                 component_id=args.component_id,
                 upsert=args.upsert,
-                registering_purpose=COMPONENT_PURPOSE[self.config.COMPONENT_TYPE],
             )
         except FedbiomedError as exp:
             print(exp)
