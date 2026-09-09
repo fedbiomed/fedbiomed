@@ -1,4 +1,6 @@
 import os
+import shutil
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -23,9 +25,9 @@ def mock_nifti_reader(monkeypatch):
 
 
 @pytest.fixture
-def temp_medical_folder(request, tmp_path):
+def temp_medical_folder(request):
     """Create a temporary medical folder structure for testing"""
-    temp_dir = str(tmp_path)
+    temp_dir = tempfile.mkdtemp()
 
     match getattr(request, "param", "default"):
         case "default":
@@ -61,25 +63,28 @@ def temp_medical_folder(request, tmp_path):
         case _:
             raise Exception("Unexpected param")
 
-    # Create proper folder structure: root/patient/modality/file.nii
-    for subject, modalities in tree_dir.items():
-        for modality in modalities:
-            modality_dir = os.path.join(temp_dir, subject, modality)
-            os.makedirs(modality_dir)
-            # Create dummy NIfTI files
-            nii_file = os.path.join(modality_dir, f"{subject}_{modality}.nii")
-            with open(nii_file, "w") as f:
-                f.write("dummy nifti data")
+    try:
+        # Create proper folder structure: root/patient/modality/file.nii
+        for subject, modalities in tree_dir.items():
+            for modality in modalities:
+                modality_dir = os.path.join(temp_dir, subject, modality)
+                os.makedirs(modality_dir)
+                # Create dummy NIfTI files
+                nii_file = os.path.join(modality_dir, f"{subject}_{modality}.nii")
+                with open(nii_file, "w") as f:
+                    f.write("dummy nifti data")
 
-    # Create demographics CSV file
-    participants_file = os.path.join(temp_dir, "participants.csv")
-    with open(participants_file, "w") as f:
-        f.write("participant_id,age,gender\n")
-        f.write("patient1,30,M\n")
-        f.write("patient2,25,F\n")
-        f.write("patient3,40,M\n")
+        # Create demographics CSV file
+        participants_file = os.path.join(temp_dir, "participants.csv")
+        with open(participants_file, "w") as f:
+            f.write("participant_id,age,gender\n")
+            f.write("patient1,30,M\n")
+            f.write("patient2,25,F\n")
+            f.write("patient3,40,M\n")
 
-    return temp_dir
+        yield temp_dir
+    finally:
+        shutil.rmtree(temp_dir)
 
 
 def test_init_basic(temp_medical_folder):
@@ -240,10 +245,10 @@ def test_make_df_dir_valid_structure(temp_medical_folder):
     assert all(col in df_dir.columns for col in ["subject", "modality", "file", "path"])
 
 
-def test_make_df_dir_invalid_structure(tmp_path):
+def test_make_df_dir_invalid_structure():
     """Test _make_df_dir with invalid folder structure"""
     controller = MedicalFolderController.__new__(MedicalFolderController)
-    temp_dir = str(tmp_path)
+    temp_dir = tempfile.mkdtemp()
     # Create files directly in root without proper structure
     with open(os.path.join(temp_dir, "file.nii"), "w") as f:
         f.write("dummy")
@@ -252,9 +257,10 @@ def test_make_df_dir_invalid_structure(tmp_path):
         _ = controller._make_df_dir(Path(temp_dir))
     partial_msg = "Root folder does not match MedicalFolderDataset structure"
     assert partial_msg in str(exc_info.value)
+    shutil.rmtree(temp_dir)
 
 
-def test_make_df_dir_extra_nesting_level(tmp_path):
+def test_make_df_dir_extra_nesting_level():
     """Test _make_df_dir raises a clear error for files nested deeper than
     <subject>/<modality>/<file>
 
@@ -264,7 +270,7 @@ def test_make_df_dir_extra_nesting_level(tmp_path):
     FedbiomedError.
     """
     controller = MedicalFolderController.__new__(MedicalFolderController)
-    temp_dir = str(tmp_path)
+    temp_dir = tempfile.mkdtemp()
     os.makedirs(os.path.join(temp_dir, "patient1", "T1"))
     with open(os.path.join(temp_dir, "patient1", "T1", "file.nii"), "w") as f:
         f.write("dummy")
@@ -278,12 +284,13 @@ def test_make_df_dir_extra_nesting_level(tmp_path):
     partial_msg = "Root folder does not match MedicalFolderDataset structure"
     assert partial_msg in str(exc_info.value)
     assert "patient2/ses-01/T1/file.nii" in str(exc_info.value)
+    shutil.rmtree(temp_dir)
 
 
-def test_make_df_dir_no_valid_files(tmp_path):
+def test_make_df_dir_no_valid_files():
     """Test _make_df_dir with no valid NIfTI files"""
     controller = MedicalFolderController.__new__(MedicalFolderController)
-    temp_dir = str(tmp_path)
+    temp_dir = tempfile.mkdtemp()
     # Create proper structure but with invalid file extensions
     os.makedirs(os.path.join(temp_dir, "patient1", "T1"))
     with open(os.path.join(temp_dir, "patient1", "T1", "file.txt"), "w") as f:
@@ -293,12 +300,13 @@ def test_make_df_dir_no_valid_files(tmp_path):
         _ = controller._make_df_dir(Path(temp_dir))
     partial_msg = "Root folder does not match MedicalFolderDataset structure"
     assert partial_msg in str(exc_info.value)
+    shutil.rmtree(temp_dir)
 
 
-def test_make_df_dir_multiple_files_per_modality(tmp_path):
+def test_make_df_dir_multiple_files_per_modality():
     """Test _make_df_dir with multiple files per modality"""
     controller = MedicalFolderController.__new__(MedicalFolderController)
-    temp_dir = str(tmp_path)
+    temp_dir = tempfile.mkdtemp()
     modality_dir = os.path.join(temp_dir, "patient1", "T1")
     os.makedirs(modality_dir)
     for file in ["file1.nii", "file2.nii"]:
@@ -310,6 +318,7 @@ def test_make_df_dir_multiple_files_per_modality(tmp_path):
         _ = controller._make_df_dir(Path(temp_dir))
     partial_msg = "more than one valid file per modality"
     assert partial_msg in str(exc_info.value)
+    shutil.rmtree(temp_dir)
 
 
 # === _prepare_df_dir_for_use ===
@@ -550,43 +559,51 @@ def test_extensions_property():
     assert MedicalFolderController._extensions == (".nii", ".nii.gz")
 
 
-def test_hidden_files_ignored(tmp_path):
+def test_hidden_files_ignored():
     """Test that hidden files and folders are ignored"""
-    temp_dir = str(tmp_path)
-    # Create normal structure
-    normal_dir = os.path.join(temp_dir, "patient1", "T1")
-    os.makedirs(normal_dir)
-    with open(os.path.join(normal_dir, "file.nii"), "w") as f:
-        f.write("dummy")
+    temp_dir = tempfile.mkdtemp()
+    try:
+        # Create normal structure
+        normal_dir = os.path.join(temp_dir, "patient1", "T1")
+        os.makedirs(normal_dir)
+        with open(os.path.join(normal_dir, "file.nii"), "w") as f:
+            f.write("dummy")
 
-    # Create hidden folder structure
-    hidden_dir = os.path.join(temp_dir, ".hidden_patient", "T1")
-    os.makedirs(hidden_dir)
-    with open(os.path.join(hidden_dir, "file.nii"), "w") as f:
-        f.write("dummy")
+        # Create hidden folder structure
+        hidden_dir = os.path.join(temp_dir, ".hidden_patient", "T1")
+        os.makedirs(hidden_dir)
+        with open(os.path.join(hidden_dir, "file.nii"), "w") as f:
+            f.write("dummy")
 
-    # Create structure with hidden file
-    normal_dir2 = os.path.join(temp_dir, "patient2", "T1")
-    os.makedirs(normal_dir2)
-    with open(os.path.join(normal_dir2, ".hidden_file.nii"), "w") as f:
-        f.write("dummy")
+        # Create structure with hidden file
+        normal_dir2 = os.path.join(temp_dir, "patient2", "T1")
+        os.makedirs(normal_dir2)
+        with open(os.path.join(normal_dir2, ".hidden_file.nii"), "w") as f:
+            f.write("dummy")
 
-    controller = MedicalFolderController(root=temp_dir)
+        controller = MedicalFolderController(root=temp_dir)
 
-    # Should only find patient1, not hidden_patient or patient2 with hidden file
-    assert len(controller) == 1
+        # Should only find patient1, not hidden_patient or patient2 with hidden file
+        assert len(controller) == 1
+
+    finally:
+        shutil.rmtree(temp_dir)
 
 
-def test_nii_gz_extension_support(tmp_path):
+def test_nii_gz_extension_support():
     """Test that .nii.gz files are properly supported"""
-    temp_dir = str(tmp_path)
-    modality_dir = os.path.join(temp_dir, "patient1", "T1")
-    os.makedirs(modality_dir)
-    with open(os.path.join(modality_dir, "patient1_T1.nii.gz"), "w") as f:
-        f.write("dummy compressed nifti")
+    temp_dir = tempfile.mkdtemp()
+    try:
+        modality_dir = os.path.join(temp_dir, "patient1", "T1")
+        os.makedirs(modality_dir)
+        with open(os.path.join(modality_dir, "patient1_T1.nii.gz"), "w") as f:
+            f.write("dummy compressed nifti")
 
-    controller = MedicalFolderController(root=temp_dir)
-    assert len(controller) == 1
+        controller = MedicalFolderController(root=temp_dir)
+        assert len(controller) == 1
+
+    finally:
+        shutil.rmtree(temp_dir)
 
 
 def test_tsv_file_support(temp_medical_folder):
@@ -607,17 +624,21 @@ def test_tsv_file_support(temp_medical_folder):
     assert controller.tabular_file == Path(tsv_file).resolve()
 
 
-def test_case_insensitive_extensions(tmp_path):
+def test_case_insensitive_extensions():
     """Test that extension matching is case insensitive"""
-    temp_dir = str(tmp_path)
-    modality_dir = os.path.join(temp_dir, "patient1", "T1")
-    os.makedirs(modality_dir)
-    # Use uppercase extension
-    with open(os.path.join(modality_dir, "patient1_T1.NII"), "w") as f:
-        f.write("dummy")
+    temp_dir = tempfile.mkdtemp()
+    try:
+        modality_dir = os.path.join(temp_dir, "patient1", "T1")
+        os.makedirs(modality_dir)
+        # Use uppercase extension
+        with open(os.path.join(modality_dir, "patient1_T1.NII"), "w") as f:
+            f.write("dummy")
 
-    controller = MedicalFolderController(root=temp_dir)
-    assert len(controller) == 1
+        controller = MedicalFolderController(root=temp_dir)
+        assert len(controller) == 1
+
+    finally:
+        shutil.rmtree(temp_dir)
 
 
 def test_subject_intersection_with_demographics(temp_medical_folder):
@@ -650,7 +671,7 @@ def test_subject_intersection_with_demographics(temp_medical_folder):
     assert "patient4" not in participant_ids
 
 
-def test_numeric_subject_folder_names_with_leading_zeros(tmp_path):
+def test_numeric_subject_folder_names_with_leading_zeros():
     """Test subjects with numeric, zero-padded folder names match demographics
 
     Regression test: a demographics index column with numeric-looking values
@@ -658,30 +679,33 @@ def test_numeric_subject_folder_names_with_leading_zeros(tmp_path):
     causing the intersection with the (string) subject folder names to be
     empty for every subject.
     """
-    temp_dir = str(tmp_path)
-    for subject in ["0002", "0003", "1005"]:
-        for modality in ["T1", "T2"]:
-            modality_dir = os.path.join(temp_dir, subject, modality)
-            os.makedirs(modality_dir)
-            nii_file = os.path.join(modality_dir, f"{subject}_{modality}.nii")
-            with open(nii_file, "w") as f:
-                f.write("dummy nifti data")
+    temp_dir = tempfile.mkdtemp()
+    try:
+        for subject in ["0002", "0003", "1005"]:
+            for modality in ["T1", "T2"]:
+                modality_dir = os.path.join(temp_dir, subject, modality)
+                os.makedirs(modality_dir)
+                nii_file = os.path.join(modality_dir, f"{subject}_{modality}.nii")
+                with open(nii_file, "w") as f:
+                    f.write("dummy nifti data")
 
-    participants_file = os.path.join(temp_dir, "participants.csv")
-    with open(participants_file, "w") as f:
-        f.write("folder_name,age\n")
-        f.write("0002,30\n")
-        f.write("0003,25\n")
-        f.write("1005,40\n")
+        participants_file = os.path.join(temp_dir, "participants.csv")
+        with open(participants_file, "w") as f:
+            f.write("folder_name,age\n")
+            f.write("0002,30\n")
+            f.write("0003,25\n")
+            f.write("1005,40\n")
 
-    controller = MedicalFolderController(
-        root=temp_dir,
-        tabular_file=participants_file,
-        index_col="folder_name",
-    )
+        controller = MedicalFolderController(
+            root=temp_dir,
+            tabular_file=participants_file,
+            index_col="folder_name",
+        )
 
-    assert len(controller) == 3
-    assert set(controller.subjects) == {"0002", "0003", "1005"}
+        assert len(controller) == 3
+        assert set(controller.subjects) == {"0002", "0003", "1005"}
+    finally:
+        shutil.rmtree(temp_dir)
 
 
 @pytest.mark.parametrize(
