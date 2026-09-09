@@ -149,8 +149,11 @@ const ConnectionStatus = ({
 
     const summary = connectionSummary(connection)
     const recorded = connection?.state
-    const startupProblems = certificateStatus?.startup_problems || []
-    const warnings = certificateStatus?.warnings || []
+    // The node is the single judge of these: the severity it reports decides how
+    // each one is shown, so the two surfaces cannot disagree about what is wrong.
+    const diagnostics = certificateStatus?.diagnostics || []
+    const startupProblems = diagnostics.filter((d) => d.severity === 'problem')
+    const warnings = diagnostics.filter((d) => d.severity === 'warning')
 
     return (
         <section className="node-management-card">
@@ -246,13 +249,13 @@ const ConnectionStatus = ({
 
             {startupProblems.map((problem) => (
                 <EuiCallOut
-                    key={problem}
+                    key={problem.message}
                     color="danger"
                     iconType="alert"
                     title="The node cannot start"
                     size="s"
                 >
-                    <p>{problem}</p>
+                    <p>{problem.message}</p>
                 </EuiCallOut>
             ))}
 
@@ -269,13 +272,13 @@ const ConnectionStatus = ({
 
             {warnings.map((warning) => (
                 <EuiCallOut
-                    key={warning}
+                    key={warning.message}
                     color="warning"
                     iconType="help"
-                    title="Check the registry"
+                    title="Worth fixing"
                     size="s"
                 >
-                    <p>{warning}</p>
+                    <p>{warning.message}</p>
                 </EuiCallOut>
             ))}
 

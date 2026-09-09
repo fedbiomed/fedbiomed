@@ -92,6 +92,9 @@ def certificate_diagnostics(config: NodeConfig) -> List[CertificateDiagnostic]:
     it builds its credentials, so what any surface reports here is what the node
     itself goes on to enforce.
 
+    A message states the remedy without naming a command or a screen, so the CLI
+    and the GUI show the same text and neither sends the reader to the other.
+
     Without mutual authentication the node presents no identity and pins nothing,
     so nothing here stops it starting; what is registered is still reported, to be
     fixed before mutual authentication is turned on.
@@ -128,9 +131,8 @@ def certificate_diagnostics(config: NodeConfig) -> List[CertificateDiagnostic]:
                 blocking,
                 f"{len(registered)} certificates are registered, but a node registers "
                 "at most one -- its researcher's -- so the certificate to pin is "
-                "ambiguous. List them with `fedbiomed node certificate list`, and "
-                "delete all but the researcher this node connects to with `fedbiomed "
-                "node certificate delete`.",
+                "ambiguous. Delete all but the certificate of the researcher this "
+                "node connects to.",
             )
         )
     elif not registered and mutual_authentication:
@@ -139,7 +141,7 @@ def certificate_diagnostics(config: NodeConfig) -> List[CertificateDiagnostic]:
                 DiagnosticSeverity.PROBLEM,
                 "Mutual authentication is enabled but no researcher certificate is "
                 "registered, so the node has none to pin. Register the researcher "
-                "certificate with `fedbiomed node certificate register`.",
+                "certificate.",
             )
         )
 
@@ -237,8 +239,7 @@ def certificate_diagnostics(config: NodeConfig) -> List[CertificateDiagnostic]:
                             DiagnosticSeverity.PROBLEM,
                             f"This node's certificate at {certificate_path} is not "
                             "readable PEM, so the node cannot present its identity "
-                            "under mutual authentication. Issue a new one with "
-                            "`fedbiomed node certificate generate --force`, and send "
+                            "under mutual authentication. Issue a new one and send "
                             "it to the researcher to register.",
                         )
                     )
@@ -248,8 +249,7 @@ def certificate_diagnostics(config: NodeConfig) -> List[CertificateDiagnostic]:
                             DiagnosticSeverity.PROBLEM,
                             f"This node's certificate expired on {expiry:%Y-%m-%d}, so "
                             "the researcher refuses the connection. Issue a new one "
-                            "with `fedbiomed node certificate generate --force`, and "
-                            "send it to the researcher to register.",
+                            "and send it to the researcher to register.",
                         )
                     )
                 elif expiry <= now + timedelta(days=CERTIFICATE_EXPIRY_WARNING_DAYS):
@@ -257,8 +257,8 @@ def certificate_diagnostics(config: NodeConfig) -> List[CertificateDiagnostic]:
                         CertificateDiagnostic(
                             DiagnosticSeverity.WARNING,
                             f"This node's certificate expires on {expiry:%Y-%m-%d}. "
-                            "Issue a new one with `fedbiomed node certificate generate "
-                            "--force`, and send it to the researcher to register.",
+                            "Issue a new one and send it to the researcher to "
+                            "register.",
                         )
                     )
 

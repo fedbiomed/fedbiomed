@@ -17,12 +17,13 @@ from fedbiomed.common.certificate_manager import (
     certificate_expiry,
     certificate_fingerprint,
     certificate_san_names,
-    is_loopback_name,
+    generate_component_certificate,
     validate_certificate_pair,
     write_certificate_pair,
 )
-from fedbiomed.common.cli import COMPONENT_PURPOSE
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.utils import read_file
+from fedbiomed.node.node import certificate_diagnostics
 from fedbiomed.node.node_pm import NodeConnectionStateManager
 
 from ..config import config
@@ -34,7 +35,10 @@ from .node_management import node_process_manager
 
 def _certificate_manager() -> CertificateManager:
     """Open the node's certificate registry. The caller closes it."""
-    return CertificateManager(db_path=config.node_config.getpath("default", "db"))
+    return CertificateManager(
+        db_path=config.node_config.getpath("default", "db"),
+        component_type=config.node_config.COMPONENT_TYPE,
+    )
 
 
 def _certificate_summary(certificate: str) -> Dict[str, Any]:
@@ -80,9 +84,8 @@ def _own_certificate() -> Dict[str, Any]:
     """Summary of this node's own certificate, with the error when unreadable."""
     path = config.node_config.getpath("certificate", "public_key")
     try:
-        with open(path) as file:
-            certificate = file.read()
-    except OSError as exp:
+        certificate = read_file(path)
+    except FedbiomedError as exp:
         return {"path": path, "error": f"Could not read the node certificate: {exp}"}
 
     return {
@@ -90,103 +93,6 @@ def _own_certificate() -> Dict[str, Any]:
         "path": path,
         **_certificate_summary(certificate),
     }
-
-
-def _startup_check(registered: List[Dict[str, Any]], mtls_enabled: bool) -> List[str]:
-    """Reasons the node would refuse to start, in the state it is configured in.
-
-    Reproduces what `Node` verifies when mutual TLS is on, so the GUI can report
-    it before a start attempt rather than after it.
-    """
-    if not mtls_enabled:
-        return []
-
-    problems = []
-    # A node registers at most one certificate - its researcher's - so what is
-    # registered says on its own whether the node can pin one.
-    if not registered:
-        problems.append(
-            "Mutual TLS is enabled but no researcher certificate is registered, "
-            "so the node cannot start. Register the researcher certificate."
-        )
-    elif len(registered) > 1:
-        problems.append(
-            f"Mutual TLS is enabled and {len(registered)} certificates are "
-            "registered, so the certificate to pin is ambiguous and the node "
-            "cannot start. Delete all but the researcher this node connects to."
-        )
-
-    # The node verifies the researcher under a name read from its certificate, and
-    # refuses to start on one that states none.
-    for certificate in registered:
-        if not certificate["san"]:
-            problems.append(
-                f"The certificate registered for {certificate['component_id']} states "
-                "no host, so the node cannot verify the researcher and will not "
-                "start. Request the researcher to reissue it for the hosts nodes "
-                "reach it at."
-            )
-
-    # The node reads both to build the identity it presents, so either one missing
-    # stops it.
-    for label, key in (("private key", "private_key"), ("certificate", "public_key")):
-        path = config.node_config.getpath("certificate", key)
-        if not os.path.isfile(path):
-            problems.append(
-                f"The node {label} is missing from {path}, so the node cannot "
-                "present its identity under mutual TLS."
-            )
-
-    return problems
-
-
-def _registry_warnings(registered: List[Dict[str, Any]]) -> List[str]:
-    """Registrations that break the rules a node registry must satisfy.
-
-    Registration refuses these, so an entry breaking one predates the checks or
-    was written by hand.
-    """
-    warnings = []
-    if len(registered) > 1:
-        warnings.append(
-            "A node registers at most one certificate - its researcher's - but "
-            f"{len(registered)} are registered. Delete the extra entries."
-        )
-
-    expiring = [
-        certificate["component_id"]
-        for certificate in registered
-        if certificate["expiring_soon"]
-    ]
-    if expiring:
-        warnings.append(
-            f"Certificate(s) expiring within {CERTIFICATE_EXPIRY_WARNING_DAYS} days: "
-            f"{', '.join(expiring)}. Ask the component to renew and register the new "
-            "one."
-        )
-
-    # A certificate naming no host stops the node, and is reported as a startup
-    # problem rather than here. Two loopback forms are the same machine, which the
-    # node does not report either.
-    researcher_host = config.node_config.get("researcher", "ip")
-    for certificate in registered:
-        names = certificate["san"]
-        if (
-            names
-            and researcher_host not in names
-            and not (
-                is_loopback_name(researcher_host)
-                and any(is_loopback_name(name) for name in names)
-            )
-        ):
-            warnings.append(
-                f"The researcher certificate is issued for {', '.join(names)}, which "
-                f"does not include the configured researcher host {researcher_host}. "
-                "The node verifies it under the first name it carries and connects; "
-                "the mismatch does not by itself stop it."
-            )
-
-    return warnings
 
 
 def _restart_required() -> bool:
@@ -210,8 +116,12 @@ def _status() -> Dict[str, Any]:
         },
         "certificate": _own_certificate(),
         "registered": registered,
-        "startup_problems": _startup_check(registered, mtls_enabled),
-        "warnings": _registry_warnings(registered),
+        # What the node itself enforces as it starts, reported before a start
+        # attempt rather than after it. The node is the single judge of this.
+        "diagnostics": [
+            diagnostic.to_dict()
+            for diagnostic in certificate_diagnostics(config.node_config)
+        ],
         "node_state": node_process_manager.get_status().value,
     }
 
@@ -219,23 +129,16 @@ def _status() -> Dict[str, Any]:
 def _register(certificate: str, component_id: Optional[str], upsert: bool) -> str:
     """Register a certificate, returning the component it was registered for."""
     certificate_manager = _certificate_manager()
-    # `register_certificate` reads the certificate from a file, as the CLI hands it one
-    with tempfile.TemporaryDirectory() as directory:
-        path = os.path.join(directory, "certificate.pem")
-        try:
-            with open(path, "w") as file:
-                file.write(certificate)
-
-            return certificate_manager.register_certificate(
-                certificate_path=path,
-                component_id=component_id,
-                upsert=upsert,
-                registering_purpose=COMPONENT_PURPOSE[
-                    config.node_config.COMPONENT_TYPE
-                ],
-            )
-        finally:
-            certificate_manager.close()
+    # The GUI is handed the certificate itself, so it registers it directly;
+    # `register_certificate` is the wrapper for a caller holding a file.
+    try:
+        return certificate_manager.register(
+            certificate=certificate,
+            component_id=component_id,
+            upsert=upsert,
+        )
+    finally:
+        certificate_manager.close()
 
 
 @api.route("/certificates/status", methods=["GET"])
@@ -325,9 +228,8 @@ def export_certificate():
     """
     path = config.node_config.getpath("certificate", "public_key")
     try:
-        with open(path) as file:
-            certificate = file.read()
-    except OSError as exp:
+        certificate = read_file(path)
+    except FedbiomedError as exp:
         return error(f"Could not read the node certificate: {exp}"), 500
 
     return response(
@@ -352,20 +254,16 @@ def generate_own_certificate():
     """
     try:
         with tempfile.TemporaryDirectory() as directory:
-            # A node certificate is resolved by fingerprint and never verified by
-            # name, so it is issued for no host.
-            key_file, pem_file = (
-                CertificateManager.generate_self_signed_ssl_certificate(
-                    certificate_folder=directory,
-                    certificate_name="certificate",
-                    component_id=config.node_config.get("default", "id"),
-                    purpose=COMPONENT_PURPOSE[config.node_config.COMPONENT_TYPE],
-                )
+            # Issued through the same function the CLI and component creation use,
+            # so the TLS role and the hosts it is issued for follow from the
+            # component type here too: a node is issued a certificate for no host.
+            key_file, pem_file = generate_component_certificate(
+                component_type=config.node_config.COMPONENT_TYPE,
+                component_id=config.node_config.get("default", "id"),
+                folder=directory,
+                name="certificate",
             )
-            with open(pem_file) as file:
-                certificate = file.read()
-            with open(key_file) as file:
-                private_key = file.read()
+            certificate, private_key = read_file(pem_file), read_file(key_file)
 
         backups = write_certificate_pair(config.node_config, certificate, private_key)
     except FedbiomedError as exp:
@@ -406,7 +304,7 @@ def replace_own_certificate():
 
     try:
         validate_certificate_pair(certificate, private_key)
-    except ValueError as exp:
+    except FedbiomedError as exp:
         return error(str(exp)), 400
 
     try:

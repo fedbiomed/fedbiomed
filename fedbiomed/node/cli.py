@@ -864,6 +864,18 @@ class NodeCLI(CommonCLI):
             for diagnostic in warnings:
                 print(f"  - {diagnostic.message}")
 
+        # A finding states the remedy but names no command, so that the GUI shows
+        # the same text. The commands belong to this surface, so they are listed
+        # once here rather than repeated in every message.
+        print(
+            "\nThe commands that act on these:\n"
+            "  fedbiomed node certificate list      what is registered\n"
+            "  fedbiomed node certificate register  register the researcher's\n"
+            "  fedbiomed node certificate delete    remove a registration\n"
+            "  fedbiomed node certificate generate --force"
+            "  issue this node a new pair"
+        )
+
         if problems:
             sys.exit(1)
 
