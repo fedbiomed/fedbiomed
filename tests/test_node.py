@@ -1,6 +1,7 @@
 import configparser
 import os
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
 
@@ -32,7 +33,12 @@ from fedbiomed.common.message import (
     TrainRequest,
 )
 from fedbiomed.node.config import NodeConfig
-from fedbiomed.node.node import Node
+from fedbiomed.node.node import (
+    CertificateDiagnostic,
+    DiagnosticSeverity,
+    Node,
+    certificate_diagnostics,
+)
 from fedbiomed.node.round import Round
 from fedbiomed.transport.client import ClientStatus
 
@@ -785,3 +791,269 @@ def test_node_task_manager_preproc_request(
 
     mock_job_instance.run.assert_called_once()
     node_env.grpc_send.assert_called_once()
+
+
+@pytest.fixture
+def diagnostics_env(tmp_path):
+    """A node configuration over a real certificate registry.
+
+    Nothing is patched here: the diagnostics open the certificate database
+    themselves, and a mocked manager hides both how they open it and what the
+    rules of a real registry are.
+    """
+    own = tmp_path / "own"
+    own.mkdir()
+    key_file, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(own),
+        certificate_name="node",
+        component_id="test-id",
+        purpose=CERT_PURPOSE_CLIENT,
+    )
+
+    config = NodeConfig(str(tmp_path))
+    cfg = configparser.ConfigParser()
+    cfg["default"] = {
+        "id": "test-id",
+        "name": "test-name",
+        "db": str(tmp_path / "diagnostics-db.json"),
+    }
+    cfg["researcher"] = {"ip": "researcher.example.org", "port": "5151"}
+    cfg["authentication"] = {"mutual_authentication": "True"}
+    cfg["certificate"] = {"private_key": key_file, "public_key": pem_file}
+    config._cfg = cfg
+
+    def register(certificate, component_id, hand_written=False):
+        """Register a certificate, or write one `register` would refuse.
+
+        `hand_written` reaches past the rules, for the states the diagnostics
+        exist to report: a registry can only hold them because it predates the
+        rules or was edited by hand.
+        """
+        manager = CertificateManager(
+            db_path=config.getpath("default", "db"),
+            component_type=config.COMPONENT_TYPE,
+        )
+        try:
+            if hand_written:
+                manager._insert(
+                    certificate=certificate, component_id=component_id, upsert=True
+                )
+            else:
+                manager.register(
+                    certificate=certificate, component_id=component_id, upsert=True
+                )
+        finally:
+            manager.close()
+
+    return SimpleNamespace(
+        config=config,
+        register=register,
+        tmp_path=tmp_path,
+        certificate_path=pem_file,
+        key_path=key_file,
+        researcher_certificate=_researcher_certificate(
+            tmp_path, "researcher.example.org"
+        ),
+    )
+
+
+def _severities(diagnostics):
+    return [diagnostic.severity for diagnostic in diagnostics]
+
+
+def test_diagnostics_are_silent_on_a_node_ready_to_connect(diagnostics_env):
+    """One researcher certificate naming the host it is dialled at is the good case."""
+    diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
+
+    assert certificate_diagnostics(diagnostics_env.config) == []
+
+
+def test_diagnostics_report_no_certificate_to_pin(diagnostics_env):
+    """Mutual authentication with an empty registry stops the node."""
+    diagnostics = certificate_diagnostics(diagnostics_env.config)
+
+    assert _severities(diagnostics) == [DiagnosticSeverity.PROBLEM]
+    assert "no researcher certificate is registered" in diagnostics[0].message
+
+
+def test_diagnostics_ignore_an_empty_registry_without_mutual_authentication(
+    diagnostics_env,
+):
+    """The node pins nothing, so an empty registry is what it is meant to be."""
+    diagnostics_env.config._cfg["authentication"]["mutual_authentication"] = "False"
+
+    assert certificate_diagnostics(diagnostics_env.config) == []
+
+
+def test_diagnostics_report_an_ambiguous_registry(diagnostics_env):
+    """A node pins the single registered certificate, so several is unresolvable."""
+    diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
+    diagnostics_env.register(
+        _researcher_certificate(diagnostics_env.tmp_path, "other.example.org"),
+        "other-researcher",
+        hand_written=True,
+    )
+
+    diagnostics = certificate_diagnostics(diagnostics_env.config)
+
+    assert DiagnosticSeverity.PROBLEM in _severities(diagnostics)
+    assert "2 certificates are registered" in diagnostics[0].message
+
+
+def test_diagnostics_only_warn_about_the_registry_without_mutual_authentication(
+    diagnostics_env,
+):
+    """Nothing is pinned, so the same registry is worth fixing but stops nothing."""
+    diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
+    diagnostics_env.register(
+        _researcher_certificate(diagnostics_env.tmp_path, "other.example.org"),
+        "other-researcher",
+        hand_written=True,
+    )
+    diagnostics_env.config._cfg["authentication"]["mutual_authentication"] = "False"
+
+    assert DiagnosticSeverity.PROBLEM not in _severities(
+        certificate_diagnostics(diagnostics_env.config)
+    )
+
+
+def test_diagnostics_report_a_registered_certificate_naming_no_host(diagnostics_env):
+    """The node verifies the researcher under a name the certificate has to carry."""
+    folder = diagnostics_env.tmp_path / "no-san"
+    folder.mkdir()
+    _, pem_file = CertificateManager.generate_self_signed_ssl_certificate(
+        certificate_folder=str(folder),
+        certificate_name="researcher",
+        component_id="researcher-id",
+        purpose=CERT_PURPOSE_SERVER,
+    )
+    with open(pem_file) as file:
+        diagnostics_env.register(file.read(), "researcher-id", hand_written=True)
+
+    diagnostics = certificate_diagnostics(diagnostics_env.config)
+
+    assert DiagnosticSeverity.PROBLEM in _severities(diagnostics)
+    assert any("states no host" in d.message for d in diagnostics)
+
+
+def test_diagnostics_warn_when_the_certificate_names_another_host(diagnostics_env):
+    """The channel still connects, verified under the first name it carries."""
+    diagnostics_env.register(
+        _researcher_certificate(diagnostics_env.tmp_path, "elsewhere.example.org"),
+        "researcher-id",
+    )
+
+    diagnostics = certificate_diagnostics(diagnostics_env.config)
+
+    assert _severities(diagnostics) == [DiagnosticSeverity.WARNING]
+    assert "does not include the configured researcher host" in diagnostics[0].message
+
+
+def test_diagnostics_accept_two_loopback_forms_as_the_same_machine(diagnostics_env):
+    """A node on the researcher's own machine dials whichever form it configured."""
+    diagnostics_env.config._cfg["researcher"]["ip"] = "127.0.0.1"
+    diagnostics_env.register(
+        _researcher_certificate(diagnostics_env.tmp_path, "localhost"),
+        "researcher-id",
+    )
+
+    assert certificate_diagnostics(diagnostics_env.config) == []
+
+
+@pytest.mark.parametrize("missing", ["private_key", "public_key"])
+def test_diagnostics_report_the_node_identity_it_cannot_read(diagnostics_env, missing):
+    """The node reads both to present its identity, so either one missing stops it."""
+    diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
+    os.remove(diagnostics_env.config.getpath("certificate", missing))
+
+    diagnostics = certificate_diagnostics(diagnostics_env.config)
+
+    assert DiagnosticSeverity.PROBLEM in _severities(diagnostics)
+    assert any("is missing from" in d.message for d in diagnostics)
+
+
+def test_diagnostics_report_an_unreadable_node_certificate(diagnostics_env):
+    """A file that is not PEM cannot be presented, whatever else is in order."""
+    diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
+    with open(diagnostics_env.certificate_path, "w") as file:
+        file.write("not a certificate")
+
+    diagnostics = certificate_diagnostics(diagnostics_env.config)
+
+    assert DiagnosticSeverity.PROBLEM in _severities(diagnostics)
+    assert any("not readable PEM" in d.message for d in diagnostics)
+
+
+def test_diagnostics_leave_the_node_certificate_alone_without_mutual_authentication(
+    diagnostics_env,
+):
+    """The node presents no identity, so its own pair is not read at all."""
+    diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
+    os.remove(diagnostics_env.config.getpath("certificate", "private_key"))
+    diagnostics_env.config._cfg["authentication"]["mutual_authentication"] = "False"
+
+    assert certificate_diagnostics(diagnostics_env.config) == []
+
+
+@pytest.mark.parametrize(
+    "days, severity, wording",
+    [
+        (-1, DiagnosticSeverity.PROBLEM, "expired on"),
+        (10, DiagnosticSeverity.WARNING, "expires on"),
+    ],
+)
+def test_diagnostics_report_a_registered_certificate_by_its_expiry(
+    diagnostics_env, days, severity, wording
+):
+    """An expired certificate is refused at the handshake; a near one is a warning.
+
+    Certificates are issued with a fixed multi-year validity, so the expiry the
+    registry reports is scripted rather than generated.
+    """
+    diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
+    expiry = datetime.now(timezone.utc) + timedelta(days=days)
+
+    with patch.object(
+        CertificateManager,
+        "expiring_certificates",
+        return_value=[("researcher-id", expiry)],
+    ):
+        diagnostics = certificate_diagnostics(diagnostics_env.config)
+
+    assert severity in _severities(diagnostics)
+    assert any(wording in d.message for d in diagnostics)
+
+
+@pytest.mark.parametrize(
+    "days, severity, wording",
+    [
+        (-1, DiagnosticSeverity.PROBLEM, "expired on"),
+        (10, DiagnosticSeverity.WARNING, "expires on"),
+    ],
+)
+def test_diagnostics_report_the_node_certificate_by_its_expiry(
+    diagnostics_env, days, severity, wording
+):
+    """The researcher refuses an expired node, so the node's own expiry stops it too.
+
+    Certificates are issued with a fixed multi-year validity, so the expiry read
+    back is scripted rather than generated.
+    """
+    diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
+    expiry = datetime.now(timezone.utc) + timedelta(days=days)
+
+    with patch("fedbiomed.node.node.certificate_expiry", return_value=expiry):
+        diagnostics = certificate_diagnostics(diagnostics_env.config)
+
+    assert severity in _severities(diagnostics)
+    assert any(wording in d.message for d in diagnostics)
+
+
+def test_certificate_diagnostic_serializes_for_the_surfaces_that_send_it():
+    """The GUI sends findings as plain values; the severity travels as its name."""
+    diagnostic = CertificateDiagnostic(DiagnosticSeverity.WARNING, "something to fix")
+
+    assert diagnostic.to_dict() == {
+        "severity": "warning",
+        "message": "something to fix",
+    }
