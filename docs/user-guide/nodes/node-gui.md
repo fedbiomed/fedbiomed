@@ -125,8 +125,8 @@ password = admin
 
 ## Certificates and the researcher connection
 
-The **Configuration** tab of the Node Management page holds what the node needs to
-communicate over [mutual TLS](../deployment/mutual-tls.md), grouped under
+The **Configuration** tab of the Node Management page holds what the node needs for
+[mutual authentication](../deployment/mutual-tls.md), grouped under
 *Connection & certificates*: its own certificate to send to the researcher, the
 researcher certificate it registers and pins, and the `[authentication]` setting.
 The **Connection & Diagnostics** tab reads the state of the connection to the
