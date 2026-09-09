@@ -234,11 +234,18 @@ certificate and the `[authentication]` setting, each with the window it opens:
   `mutual_authentication` on opens this window, since that is what makes a
   registered certificate necessary.
 
-It reports what would stop the node from starting before you start it: mutual
-authentication enabled with no researcher certificate registered, several registered,
-a registered certificate that states no host, or the node's own key or certificate
-file missing. Certificates are read when the node starts, so registering one or
-changing the setting takes effect when the node is restarted.
+It reports what the node itself checks as it starts, so the same findings appear here
+and from `fedbiomed node certificate check`. It reports as a problem what stops the
+node: mutual authentication enabled with no researcher certificate registered, several
+registered, one that states no host, one that has expired, or the node's own key or
+certificate missing, unreadable or expired. It reports as a warning what the node
+tolerates but you should fix: a registered certificate naming a host other than the
+one configured, or either certificate within 30 days of expiry. With mutual
+authentication off the node pins nothing and presents nothing, so what is registered
+is still reported, as a warning, to be fixed before you turn it on.
+
+Certificates are read when the node starts, so registering one or changing the setting
+takes effect when the node is restarted.
 
 The **Connection & Diagnostics** tab reads the state of the connection to the
 researcher as the node last recorded it: whether the channel is up, whether it is
@@ -273,6 +280,17 @@ new one:
    A component reads its own certificate and private key when it starts, so restart it
    to present the new ones — a researcher included, whose own certificate is not part of
    what it re-reads while running.
+
+   A certificate issued elsewhere — by a certificate authority rather than by
+   Fed-BioMed — is installed rather than generated, together with the private key that
+   matches it. The pair is checked together before either file is written, so one the
+   component could not serve is refused while the pair it serves still stands:
+   ```shell
+   fedbiomed <component> certificate replace \
+       --public-key /path/to/certificate.pem --private-key /path/to/private.key
+   ```
+   Either way, the pair that was in place is kept beside it as a single `.bak`, which
+   the next replacement overwrites.
 2. Re-share it and re-register it on the other parties with `--upsert` to overwrite:
    ```shell
    fedbiomed researcher certificate register -pk /path/to/renewed.pem --upsert
@@ -289,7 +307,8 @@ new one:
     warning when a registered node certificate is within 30 days of expiry (reported once,
     when it enters that window). A running component is warned about neither its
     own certificate nor, on a node, the researcher certificate it pins — check those
-    with `fedbiomed [node|researcher] certificate list`, which prints every expiry date.
+    with `fedbiomed node certificate check`, which reports both, or with
+    `fedbiomed [node|researcher] certificate list`, which prints every expiry date.
 
 ## Development and testing shortcut: certificate-dev-setup
 
@@ -386,6 +405,24 @@ that stops the node is an error. If a connection does
 not establish, match the symptom below — diagnosis is mostly **node-side**: the
 researcher rejects untrusted nodes inside the TLS handshake and logs nothing per
 rejected node (it says so once at startup).
+
+Before starting a node, ask it what it checks about its certificates. The command
+reports the same findings the [GUI](#from-the-node-gui) shows, and exits non-zero when
+one of them would stop the node, so it also serves as a deployment check:
+
+```shell
+fedbiomed node certificate check
+```
+
+The node's last connection state is read back without searching the logs, and
+`--history` adds the changes it recorded recently:
+
+```shell
+fedbiomed node status --history
+```
+
+A state recorded while the node was running is reported as it was when the node
+stopped, since a stopped node records nothing.
 
 !!! tip "Seeing failed handshakes as gRPC reports them"
     Each end reports its own side of a failed handshake through gRPC itself, at INFO,
