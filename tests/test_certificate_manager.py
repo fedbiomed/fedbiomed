@@ -1,5 +1,6 @@
 import ipaddress
 import os
+import stat
 import tempfile
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
@@ -27,9 +28,11 @@ from fedbiomed.common.certificate_manager import (
     generate_component_certificate,
     is_loopback_name,
     san_entry,
+    write_certificate_pair,
 )
 from fedbiomed.common.constants import CERTS_FOLDER_NAME, ComponentType
 from fedbiomed.common.exceptions import FedbiomedCertificateError
+from fedbiomed.common.utils import read_file
 
 _NODE_A = "NODE_4f2c8a10-0e7d-4a11-9c33-8b7f0a1d2e44"
 _NODE_B = "NODE_9c2b1d70-1111-2222-3333-444455556666"
@@ -1444,3 +1447,55 @@ def test_renewed_certificate_is_reported_again(bundle_expiry_env):
     warned = _warned_parties(env.logger)
     assert len(warned) == 2
     assert f"{renewed:%Y-%m-%d}" in warned[1]
+
+
+def _mode(path):
+    """Permission bits of a file, without the file-type bits."""
+    return stat.S_IMODE(os.stat(path).st_mode)
+
+
+def _pair_config(folder):
+    """A configuration naming a pair under `folder`, as a component's does."""
+    paths = {
+        ("certificate", "public_key"): os.path.join(folder, "etc", "certs", "cert.pem"),
+        ("certificate", "private_key"): os.path.join(
+            folder, "etc", "certs", "cert.key"
+        ),
+    }
+    return SimpleNamespace(getpath=lambda section, key: paths[(section, key)])
+
+
+def test_generated_private_key_is_readable_only_by_the_component(tmp_path):
+    """The private key is the component's identity, so nobody else reads it."""
+    key_file, pem_file = _generate_in(str(tmp_path))
+
+    assert _mode(key_file) == 0o600
+    # The certificate is handed to every other party, so it stays readable.
+    assert _mode(pem_file) & 0o044
+
+
+def test_written_pair_restricts_the_private_key(tmp_path):
+    """A pair installed from elsewhere is stored under the component's own mode."""
+    key_file, pem_file = _generate_in(str(tmp_path))
+    os.chmod(key_file, 0o644)  # as a key supplied by a user may well arrive
+    config = _pair_config(str(tmp_path))
+
+    write_certificate_pair(config, read_file(pem_file), read_file(key_file))
+
+    assert _mode(config.getpath("certificate", "private_key")) == 0o600
+    # The supplied file is the user's own; it is read, not modified.
+    assert _mode(key_file) == 0o644
+
+
+def test_written_pair_restricts_the_key_it_backs_up(tmp_path):
+    """A retired key is still key material, whatever mode it was written under."""
+    key_file, pem_file = _generate_in(str(tmp_path))
+    certificate, private_key = read_file(pem_file), read_file(key_file)
+    config = _pair_config(str(tmp_path))
+
+    write_certificate_pair(config, certificate, private_key)
+    # A key issued before the mode was restricted, as an existing component holds
+    os.chmod(config.getpath("certificate", "private_key"), 0o644)
+    backups = write_certificate_pair(config, certificate, private_key)
+
+    assert _mode(backups["private_key"]) == 0o600

@@ -40,6 +40,8 @@ _COMPONENT_PURPOSE = {
     ComponentType.RESEARCHER.name: CERT_PURPOSE_SERVER,
 }
 CERTIFICATE_EXPIRY_WARNING_DAYS = 30
+# A private key is the component's identity: only the component reads it.
+_PRIVATE_KEY_FILE_MODE = 0o600
 
 
 def _validated_component_type(component_type: str) -> str:
@@ -316,6 +318,10 @@ def write_certificate_pair(
         "certificate": back_up_file(certificate_path),
         "private_key": back_up_file(private_key_path),
     }
+    # A retired key is still key material, and `back_up_file` copies the mode the
+    # file had: one issued before the mode was restricted would stay readable.
+    if backups["private_key"]:
+        os.chmod(backups["private_key"], _PRIVATE_KEY_FILE_MODE)
 
     for path in (certificate_path, private_key_path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -323,11 +329,17 @@ def write_certificate_pair(
     with open(certificate_path, "w") as file:
         file.write(certificate)
 
-    with open(private_key_path, "w") as file:
-        file.write(private_key)
     # The key may have arrived over HTTP; it is not left readable to anyone but
-    # the component.
-    os.chmod(private_key_path, 0o600)
+    # the component. Opened restricted, so it is never briefly readable either.
+    descriptor = os.open(
+        private_key_path,
+        os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+        _PRIVATE_KEY_FILE_MODE,
+    )
+    with open(descriptor, "w") as file:
+        file.write(private_key)
+    # `os.open` applies the mode only to a file it creates.
+    os.chmod(private_key_path, _PRIVATE_KEY_FILE_MODE)
 
     return backups
 
@@ -948,7 +960,14 @@ class CertificateManager:
         pem_file = os.path.join(certificate_folder, f"{certificate_name}.pem")
 
         try:
-            with open(key_file, "wb") as f:
+            # Opened restricted rather than restricted afterwards, so the key is
+            # never briefly readable to anyone but the component.
+            descriptor = os.open(
+                key_file,
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                _PRIVATE_KEY_FILE_MODE,
+            )
+            with open(descriptor, "wb") as f:
                 f.write(
                     pkey.private_bytes(
                         encoding=serialization.Encoding.PEM,
@@ -956,6 +975,8 @@ class CertificateManager:
                         encryption_algorithm=serialization.NoEncryption(),
                     )
                 )
+            # `os.open` applies the mode only to a file it creates.
+            os.chmod(key_file, _PRIVATE_KEY_FILE_MODE)
         except Exception as e:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: Can not write private key: {e}"
