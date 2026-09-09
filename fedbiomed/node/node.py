@@ -105,7 +105,10 @@ def certificate_diagnostics(config: NodeConfig) -> List[CertificateDiagnostic]:
         else DiagnosticSeverity.WARNING
     )
 
-    certificate_manager = CertificateManager(db_path=config.getpath("default", "db"))
+    certificate_manager = CertificateManager(
+        db_path=config.getpath("default", "db"),
+        component_type=config.COMPONENT_TYPE,
+    )
     try:
         registered = certificate_manager.list()
         expiring = certificate_manager.expiring_certificates(
