@@ -18,7 +18,7 @@ NODE_CONFIG_SKIPPED_SECTIONS = set()
 # the node's own pair, which the researcher's registered certificate is easily
 # confused with.
 NODE_CONFIG_SECTION_LABELS = {
-    "authentication": "Mutual TLS",
+    "authentication": "Mutual authentication",
     "certificate": "This node's certificate",
 }
 NODE_CONFIG_FIELD_SCHEMAS = {
@@ -62,7 +62,7 @@ NODE_CONFIG_FIELD_SCHEMAS = {
     "authentication": {
         "mutual_authentication": {
             "type": "boolean",
-            "label": "Mutual TLS enabled",
+            "label": "Mutual authentication enabled",
         },
     },
     "syslog": {

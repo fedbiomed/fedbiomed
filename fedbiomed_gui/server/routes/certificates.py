@@ -151,7 +151,8 @@ def _register(certificate: str, component_id: Optional[str], upsert: bool) -> st
 @api.route("/certificates/status", methods=["GET"])
 @admin_required
 def certificates_status():
-    """Return the node's mutual-TLS posture: its certificate and what it expects."""
+    """Return the node's mutual authentication posture: its certificate and what
+    it expects."""
     try:
         return response(_status()), 200
     except FedbiomedError as exp:

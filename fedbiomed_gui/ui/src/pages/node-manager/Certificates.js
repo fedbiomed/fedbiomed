@@ -319,8 +319,8 @@ const OwnCertificate = ({
 }
 
 /**
- * The certificates this node has registered, which under mutual TLS is the
- * researcher's and the one it pins.
+ * The certificates this node has registered, which under mutual authentication
+ * is the researcher's and the one it pins.
  */
 const ResearcherCertificates = ({
     registered,
@@ -356,7 +356,7 @@ const ResearcherCertificates = ({
             <EuiText size="s" color="subdued">
                 <p>
                     A node registers the certificate of the researcher it
-                    connects to, and pins it under mutual TLS.
+                    connects to, and pins it under mutual authentication.
                 </p>
             </EuiText>
             <EuiSpacer size="s" />
@@ -467,7 +467,7 @@ const ResearcherCertificates = ({
                 >
                     <p>
                         With no researcher certificate registered, a node that
-                        requires mutual TLS refuses to start.
+                        requires mutual authentication refuses to start.
                     </p>
                 </EuiConfirmModal>
             ) : null}
@@ -562,9 +562,9 @@ const ResearcherCertificateWindow = (props) => (
         title="Researcher certificate"
         notice={
             'Registering or deleting a certificate here writes it to disk at '
-            + 'once. The Mutual TLS switch behind this window does not: it '
-            + 'applies only once you save the configuration, and Reset there '
-            + 'discards it while leaving what you register here in place.'
+            + 'once. The Mutual authentication switch behind this window does '
+            + 'not: it applies only once you save the configuration, and Reset '
+            + 'there discards it while leaving what you register here in place.'
         }
         onClose={props.onClose}
         error={props.error}
