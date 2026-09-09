@@ -101,7 +101,14 @@ def _restart_required() -> bool:
 
 
 def _status() -> Dict[str, Any]:
-    """The node's mutual-TLS posture: its certificate and what it expects."""
+    """The node's mutual authentication posture: its certificate and what it expects.
+
+    The configuration is re-read first, as the configuration routes do: it is a file
+    another process writes, and reporting what the node would do on a stale copy of
+    it is reporting the wrong node.
+    """
+    config.node_config.read()
+
     mtls_enabled = config.node_config.getbool(
         "authentication", "mutual_authentication", fallback="False"
     )
@@ -149,16 +156,6 @@ def certificates_status():
         return response(_status()), 200
     except FedbiomedError as exp:
         return error(f"Could not read the certificate status: {exp}"), 500
-
-
-@api.route("/certificates", methods=["GET"])
-@admin_required
-def list_certificates():
-    """Return the certificates the node has registered, without their contents."""
-    try:
-        return response({"certificates": _registered_certificates()}), 200
-    except FedbiomedError as exp:
-        return error(f"Could not list registered certificates: {exp}"), 500
 
 
 @api.route("/certificates", methods=["POST"])
