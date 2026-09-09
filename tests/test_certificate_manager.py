@@ -20,6 +20,7 @@ from fedbiomed.common.certificate_manager import (
     CERTIFICATE_EXPIRY_WARNING_DAYS,
     CertificateManager,
     TrustedCertificateBundle,
+    back_up_file,
     certificate_audit_fields,
     certificate_component_id,
     certificate_expiry,
@@ -28,6 +29,7 @@ from fedbiomed.common.certificate_manager import (
     generate_component_certificate,
     is_loopback_name,
     san_entry,
+    validate_certificate_pair,
     write_certificate_pair,
 )
 from fedbiomed.common.constants import CERTS_FOLDER_NAME, ComponentType
@@ -1499,3 +1501,128 @@ def test_written_pair_restricts_the_key_it_backs_up(tmp_path):
     backups = write_certificate_pair(config, certificate, private_key)
 
     assert _mode(backups["private_key"]) == 0o600
+
+
+@lru_cache(maxsize=None)
+def _pem_pair(valid_from_days=-1, valid_to_days=365):
+    """A certificate and the private key that matches it, as PEM text.
+
+    Both bounds are offsets in days from now, so a negative `valid_to_days`
+    yields an expired certificate and a positive `valid_from_days` one that is
+    not valid yet. Cached: generating the key dominates the runtime, and the
+    same offsets always mean the same pair.
+    """
+    now = datetime.now(timezone.utc)
+    pkey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, _NODE_A)])
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(pkey.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now + timedelta(days=valid_from_days))
+        .not_valid_after(now + timedelta(days=valid_to_days))
+        .sign(private_key=pkey, algorithm=hashes.SHA256())
+    )
+
+    return (
+        certificate.public_bytes(serialization.Encoding.PEM).decode("utf-8"),
+        pkey.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        ).decode("utf-8"),
+    )
+
+
+def test_validate_certificate_pair_accepts_a_matching_pair():
+    """The pair a component would serve is accepted."""
+    certificate, private_key = _pem_pair()
+
+    validate_certificate_pair(certificate, private_key)
+
+
+def test_validate_certificate_pair_refuses_a_key_of_another_certificate():
+    """A readable key that simply is not this certificate's never completes a handshake."""
+    certificate, _ = _pem_pair()
+    # A second pair, so the key is valid but belongs to a different certificate
+    _, other_key = _pem_pair(valid_to_days=364)
+
+    with pytest.raises(FedbiomedCertificateError, match="does not match"):
+        validate_certificate_pair(certificate, other_key)
+
+
+def test_validate_certificate_pair_refuses_an_unreadable_certificate():
+    """Checked here rather than discovered by the component at startup."""
+    _, private_key = _pem_pair()
+
+    with pytest.raises(FedbiomedCertificateError, match="not readable PEM"):
+        validate_certificate_pair("not a certificate", private_key)
+
+
+def test_validate_certificate_pair_refuses_an_unreadable_private_key():
+    """The underlying error is an OpenSSL dump, so the message says what is wanted."""
+    certificate, _ = _pem_pair()
+
+    with pytest.raises(FedbiomedCertificateError, match="unencrypted private key"):
+        validate_certificate_pair(certificate, "not a private key")
+
+
+def test_validate_certificate_pair_refuses_an_expired_certificate():
+    """Every connection made with it would fail, so it is refused before it is installed."""
+    certificate, private_key = _pem_pair(valid_from_days=-10, valid_to_days=-1)
+
+    with pytest.raises(FedbiomedCertificateError, match="expired on"):
+        validate_certificate_pair(certificate, private_key)
+
+
+def test_validate_certificate_pair_refuses_a_certificate_valid_only_later():
+    """Nothing would connect until its start date, which is as bad as expired."""
+    certificate, private_key = _pem_pair(valid_from_days=1)
+
+    with pytest.raises(FedbiomedCertificateError, match="not valid before"):
+        validate_certificate_pair(certificate, private_key)
+
+
+def test_back_up_file_keeps_what_was_there(tmp_path):
+    """The displaced file stays readable under a fixed `.bak` name."""
+    path = tmp_path / "certificate.pem"
+    path.write_text("first")
+
+    backup = back_up_file(str(path))
+
+    assert backup == f"{path}.bak"
+    assert (tmp_path / "certificate.pem.bak").read_text() == "first"
+    # A copy, not a move: the component keeps serving the file until it is replaced
+    assert path.read_text() == "first"
+
+
+def test_back_up_file_reports_that_there_was_nothing_to_back_up(tmp_path):
+    """A component issued its first pair displaces nothing."""
+    assert back_up_file(str(tmp_path / "absent.pem")) is None
+
+
+def test_back_up_file_keeps_only_the_pair_replaced_last(tmp_path):
+    """One backup is kept, so a component never accumulates the keys it retired."""
+    path = tmp_path / "certificate.pem"
+    path.write_text("first")
+    back_up_file(str(path))
+    path.write_text("second")
+
+    back_up_file(str(path))
+
+    assert (tmp_path / "certificate.pem.bak").read_text() == "second"
+
+
+def test_written_pair_is_the_one_the_configuration_names(tmp_path):
+    """Written where the component already reads, creating the folder if needed."""
+    certificate, private_key = _pem_pair()
+    config = _pair_config(str(tmp_path))
+
+    backups = write_certificate_pair(config, certificate, private_key)
+
+    assert read_file(config.getpath("certificate", "public_key")) == certificate
+    assert read_file(config.getpath("certificate", "private_key")) == private_key
+    # Nothing was in place, so nothing was displaced
+    assert backups == {"certificate": None, "private_key": None}
