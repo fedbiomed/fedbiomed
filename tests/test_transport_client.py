@@ -832,6 +832,34 @@ async def test_task_listener_retries_a_handshake_failure_that_is_not_a_name_chec
 @pytest.mark.asyncio
 @patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.logger._logger.info")
+async def test_task_listener_announces_an_unverified_connection_on_the_headers(
+    log_info, security_event, listener_env
+):
+    """Without mutual authentication the headers are still what proves the call.
+
+    A federation with no task to send would otherwise report no connection until
+    the task poll times out an hour later, which is the state an operator reads.
+    """
+    listener_env.channels.mtls = False
+
+    await listener_env.drain([_Call(_async_iterator([]))])
+
+    assert any(
+        "Communication established" in c.args[0] for c in log_info.call_args_list
+    )
+    operations = [c.kwargs.get("operation") for c in security_event.call_args_list]
+    assert operations.count("researcher_channel_established") == 1
+
+    # Nothing verified the node, and the recorded state says so
+    reports = listener_env.channels.report_state.call_args_list
+    connected = [c for c in reports if c.args == (ClientStatus.CONNECTED,)]
+    assert len(connected) == 1
+    assert connected[0].kwargs["identity_verified"] is False
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.logger.security_event")
+@patch("fedbiomed.transport.client.logger._logger.info")
 async def test_task_listener_announces_an_mtls_connection_on_the_headers(
     log_info, security_event, listener_env
 ):

@@ -1207,9 +1207,16 @@ class TaskListener(Listener):
             TaskRequest(node=f"{self._node_id}").to_proto(),
             timeout=GRPC_CLIENT_TASK_REQUEST_TIMEOUT,
         )
-        if self._channels.mtls and await self._require_researcher_verified_this_node(
-            iterator
-        ):
+        if self._channels.mtls:
+            if await self._require_researcher_verified_this_node(iterator):
+                self._announce_communication_established()
+        else:
+            # The headers the researcher answers with are what proves it accepted the
+            # call, and are all an unverified channel has to prove: no identity was
+            # checked either way. Read here rather than when a task arrives, since a
+            # federation with nothing to send would otherwise report no connection
+            # until the poll times out an hour later.
+            await iterator.initial_metadata()
             self._announce_communication_established()
 
         # Prepare reply
