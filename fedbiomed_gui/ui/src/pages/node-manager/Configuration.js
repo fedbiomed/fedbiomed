@@ -53,8 +53,8 @@ const SECTION_GROUPS = [
         key: 'connection',
         label: 'Connection & certificates',
         icon: 'globe',
-        // Them, then us, then the policy binding both: mutual TLS is the only
-        // one that depends on the other two already being in place
+        // Them, then us, then the policy binding both: mutual authentication is
+        // the only one that depends on the other two already being in place
         sections: ['researcher', 'certificate', 'authentication'],
     },
     {
@@ -250,7 +250,7 @@ const Configuration = ({
     const updateValue = (section, key, value) => {
         const field = sections?.[section]?.fields?.[key]
 
-        // Turning mutual TLS on is what makes a researcher certificate
+        // Turning mutual authentication on is what makes a researcher certificate
         // necessary, so the window to register one comes with the switch
         if (
             section === MTLS_SECTION

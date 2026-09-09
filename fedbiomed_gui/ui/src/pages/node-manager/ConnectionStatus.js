@@ -22,7 +22,7 @@ const emptyValue = '-'
 const historyShown = 5
 
 // What to do about the state the node last recorded, from the troubleshooting
-// table of the mutual-TLS guide. Keyed by the event the node recorded.
+// table of the mutual authentication guide. Keyed by the event the node recorded.
 const fixHints = {
     mtls_handshake_failure:
         'The pinned researcher certificate does not match the one served. '
@@ -32,13 +32,13 @@ const fixHints = {
         'The researcher rejected this node\'s identity. Its certificate has to '
         + 'be registered there under the id this node declares.',
     mtls_not_enforced_by_researcher:
-        'This node requires mutual TLS but the researcher verifies no node '
-        + 'identity. Enable it on the researcher and register this node\'s '
-        + 'certificate there, or disable it here.',
+        'This node requires mutual authentication but the researcher verifies '
+        + 'no node identity. Enable it on the researcher and register this '
+        + 'node\'s certificate there, or disable it here.',
     mtls_required_by_researcher:
-        'The researcher requires mutual TLS. Enable it here, register the '
-        + 'researcher certificate, and have this node\'s certificate '
-        + 'registered there.',
+        'The researcher requires mutual authentication. Enable it here, '
+        + 'register the researcher certificate, and have this node\'s '
+        + 'certificate registered there.',
     mtls_startup_refused:
         'The node refused to start over its certificates. Resolve the reason '
         + 'above, then start it again.',
@@ -98,16 +98,17 @@ const connectionSummary = (connection) => {
         return {
             color: 'primary',
             label: 'Server-authenticated TLS',
-            detail: 'Connected without mutual TLS: the researcher does not '
-                + 'verify this node\'s identity.',
+            detail: 'Connected without mutual authentication: the researcher '
+                + 'does not verify this node\'s identity.',
         }
     }
 
-    // The node only reaches a connected state under mutual TLS once the researcher
-    // has named it from the certificate it presented, so this is not in doubt.
+    // The node only reaches a connected state under mutual authentication once
+    // the researcher has named it from the certificate it presented, so this
+    // is not in doubt.
     return {
         color: 'success',
-        label: 'Mutual TLS, identity verified',
+        label: 'Mutual authentication, identity verified',
         detail: 'The researcher verified this node\'s identity.',
     }
 }

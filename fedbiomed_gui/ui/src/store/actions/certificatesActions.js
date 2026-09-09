@@ -24,8 +24,8 @@ const getErrorMessage = (error, fallback) => {
 }
 
 /**
- * Reads the node's mutual-TLS posture: its own certificate, what it has
- * registered, and what would stop it from starting.
+ * Reads the node's mutual authentication posture: its own certificate, what it
+ * has registered, and what would stop it from starting.
  */
 export const fetchCertificateStatus = () => {
     return async (dispatch) => {
