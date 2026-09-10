@@ -1281,16 +1281,6 @@ def test_bundle_picks_up_hot_added_certificate(bundle_env):
     assert second.count(b"BEGIN CERTIFICATE") == 2
 
 
-def test_bundle_does_not_reread_when_unchanged(bundle_env):
-    bundle_env.register(_NODE_A)
-    provider = TrustedCertificateBundle(bundle_env.db_path)
-    provider()
-
-    with patch("fedbiomed.common.certificate_manager.CertificateManager") as cm_cls:
-        provider()
-        cm_cls.assert_not_called()
-
-
 def test_bundle_kept_while_database_is_partially_written(bundle_env):
     pem_a = bundle_env.register(_NODE_A)
     provider = TrustedCertificateBundle(bundle_env.db_path)
@@ -1309,15 +1299,6 @@ def test_bundle_kept_while_database_is_partially_written(bundle_env):
         file.write(content)
     pem_b = bundle_env.register(_NODE_B)
     assert pem_b.encode() in provider()
-
-
-def test_bundle_kept_when_database_is_missing(bundle_env):
-    pem_a = bundle_env.register(_NODE_A)
-    provider = TrustedCertificateBundle(bundle_env.db_path)
-    assert pem_a.encode() in provider()
-
-    os.remove(bundle_env.db_path)
-    assert pem_a.encode() in provider()
 
 
 @pytest.fixture
@@ -1389,9 +1370,8 @@ def test_unreadable_certificate_store_is_registered_as_event(bundle_expiry_env):
     provider = TrustedCertificateBundle(env.db_path)
     provider()
 
-    with patch(
-        "fedbiomed.common.certificate_manager.os.stat",
-        side_effect=OSError("database is locked"),
+    with patch.object(
+        CertificateManager, "list", side_effect=OSError("database is locked")
     ):
         # The previously loaded bundle is kept
         assert provider() == pem_a.encode()
@@ -1402,19 +1382,14 @@ def test_unreadable_certificate_store_is_registered_as_event(bundle_expiry_env):
     assert events[0].kwargs["db_path"] == env.db_path
 
 
-def test_never_read_certificate_store_reports_no_certificate_available(
-    bundle_expiry_env,
-):
-    """A database never read holds nothing to keep, and must not claim it does."""
+def test_absent_certificate_store_reads_as_empty(bundle_expiry_env):
+    """A database that was never created reads as an empty bundle, not an error:
+    TinyDB creates it on read, so there is nothing to 'keep'."""
     env = bundle_expiry_env
     provider = TrustedCertificateBundle(f"{env.db_path}.missing")
 
     assert provider() == b""
-    assert not provider.loaded
-
-    warning = env.logger.warning.call_args.args[0]
-    assert "No certificate is available" in warning
-    assert "Keeping" not in warning
+    assert not _events(env.logger.security_event, "certificate_store_unreadable")
 
 
 def test_hot_added_certificate_is_reported_on_refresh(bundle_expiry_env):

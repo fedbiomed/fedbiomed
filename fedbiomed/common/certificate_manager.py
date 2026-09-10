@@ -236,7 +236,6 @@ class TrustedCertificateBundle:
         """
         self._db_path = db_path
         self._lock = threading.Lock()
-        self._state: Optional[Tuple[int, int]] = None
         self._bundle: bytes = b""
         self._component_ids: Dict[bytes, str] = {}
         self._warned: set = set()
@@ -246,13 +245,6 @@ class TrustedCertificateBundle:
         with self._lock:
             self._refresh()
             return self._bundle
-
-    @property
-    def loaded(self) -> bool:
-        """Whether the database has been read once, so that a caller can tell a
-        certificate that is not registered from one it could not look up."""
-        with self._lock:
-            return self._state is not None
 
     def component_id(self, certificate: Union[bytes, str]) -> Optional[str]:
         """Component id the given certificate is registered under.
@@ -284,11 +276,6 @@ class TrustedCertificateBundle:
         last read is kept in that case and the read retried on the next call.
         """
         try:
-            stat = os.stat(self._db_path)
-            state = (stat.st_mtime_ns, stat.st_size)
-            if state == self._state:
-                return
-
             certificate_manager = CertificateManager(
                 db_path=self._db_path,
                 component_type=ComponentType.RESEARCHER.name,
@@ -339,19 +326,12 @@ class TrustedCertificateBundle:
                 "utf-8"
             )
             self._component_ids = component_ids
-            self._state = state
             self._warn_expiring(expiring)
         except (OSError, FedbiomedError) as e:
-            if self._state is None:
-                msg = (
-                    f"Could not read certificate database {self._db_path}: {e}. "
-                    "No certificate is available."
-                )
-            else:
-                msg = (
-                    f"Could not read certificate database {self._db_path}: {e}. "
-                    "Keeping the previously loaded certificates."
-                )
+            msg = (
+                f"Could not read certificate database {self._db_path}: {e}. "
+                "Keeping the previously loaded certificates."
+            )
             logger.warning(msg)
             logger.security_event(
                 operation="certificate_store_unreadable",

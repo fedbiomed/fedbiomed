@@ -316,21 +316,6 @@ def test_component_id_refuses_a_certificate_registered_under_two_parties(
     assert fields["component_ids"] == sorted([NODE_ID, OTHER_NODE_ID])
 
 
-def test_component_id_reads_the_registry_once_across_calls(certs, registry):
-    """Resolution is cached: an unchanged registry is read only on first use."""
-    with patch(
-        "fedbiomed.common.certificate_manager.CertificateManager.list",
-        side_effect=CertificateManager.list,
-        autospec=True,
-    ) as read:
-        for _ in range(50):
-            assert registry.component_id(certs["node_cert"]) == NODE_ID
-        # ... and the PEM bundle is served from the same single read
-        registry()
-
-    assert read.call_count == 1
-
-
 def test_component_id_picks_up_a_registration_without_restart(
     certs, tmp_path, registry
 ):
@@ -392,20 +377,6 @@ async def _refusal(context, identities):
 
 
 @pytest.mark.asyncio
-async def test_refusal_distinguishes_an_unreadable_registry(certs, tmp_path):
-    """An unreadable registry is not reported as an unregistered certificate."""
-    context = _context_with_cert(certs["node_cert"])
-    context.abort = AsyncMock(side_effect=_Aborted)
-    unreadable = tmp_path / "corrupt.json"
-    unreadable.write_text("{ not json", encoding="utf-8")
-
-    fields = await _refusal(context, TrustedCertificateBundle(str(unreadable)))
-
-    assert fields["reason"] == "registry_unreadable"
-    assert "registry could not be read" in fields["detail"]
-
-
-@pytest.mark.asyncio
 async def test_refusal_distinguishes_an_unregistered_certificate(certs, tmp_path):
     """A readable registry the certificate is absent from says exactly that."""
     context = _context_with_cert(certs["node_cert"])
@@ -426,18 +397,6 @@ async def test_no_registry_verifies_nobody(certs):
 
     assert await _verify_peer_identity(context, NODE_ID, None) is None
     context.abort.assert_not_awaited()
-
-
-def test_loaded_reports_whether_the_registry_was_ever_read(certs, tmp_path, registry):
-    unreadable = tmp_path / "corrupt.json"
-    unreadable.write_text("{ not json", encoding="utf-8")
-    broken = TrustedCertificateBundle(str(unreadable))
-
-    assert broken.component_id(certs["node_cert"]) is None
-    assert broken.loaded is False
-
-    assert registry.component_id(certs["node_cert"]) == NODE_ID
-    assert registry.loaded is True
 
 
 def test_component_id_keeps_last_read_when_registry_becomes_unreadable(certs, registry):
@@ -982,6 +941,36 @@ async def test_node_registered_after_startup_connects_without_restart(certs):
         bundle["pem"] = certs["researcher_cert"] + b"\n" + certs["node_cert"]
 
         assert await _can_connect(certs, port, True, certs["researcher_cert"])
+    finally:
+        await server.stop(0)
+
+
+@pytest.mark.asyncio
+async def test_server_starts_without_certificates_and_accepts_after_registration(certs):
+    """With no node certificate registered the server still binds: gRPC refuses an
+    empty (`b""`) trust bundle but the shipped path passes `None`, so the port comes
+    up and every node handshake is rejected until a certificate is registered, which
+    the per-handshake bundle picks up without a restart."""
+    bundle = {"pem": b""}
+    server = grpc.aio.server()
+    port = server.add_secure_port(
+        "127.0.0.1:0", _credentials(certs, lambda: bundle["pem"])
+    )
+    await server.start()
+    try:
+        # Bind succeeded on an empty bytes bundle
+        assert port != 0
+        # ... client authentication is still enforced, so a node that enabled mutual
+        # authentication does not bail thinking the researcher verifies nobody
+        assert await _probe(port) is True
+        # ... but no node can connect while it is empty
+        assert not await _can_connect(certs, port, True, certs["researcher_cert"])
+
+        bundle["pem"] = certs["node_cert"]
+        assert await _can_connect(certs, port, True, certs["researcher_cert"])
+
+        bundle["pem"] = b""
+        assert not await _can_connect(certs, port, True, certs["researcher_cert"])
     finally:
         await server.stop(0)
 

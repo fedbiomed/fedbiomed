@@ -5,10 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
-from fedbiomed.common.exceptions import (
-    FedbiomedCertificateError,
-    FedbiomedCommunicationError,
-)
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import OverlayMessage, SearchReply, SearchRequest
 from fedbiomed.researcher.config import ResearcherConfig
 from fedbiomed.transport.node_agent import AgentStore, NodeActiveStatus, NodeAgent
@@ -261,12 +258,24 @@ def test_grpc_async_server_mtls_requires_client_auth(async_server_env):
 
 
 @pytest.mark.parametrize("bundle", [b"", None])
-def test_grpc_async_server_mtls_empty_bundle_raises(async_server_env, bundle):
-    """An empty bundle cannot bind in gRPC: reported with its cause before
-    starting, not as an opaque port-binding error."""
+def test_grpc_async_server_mtls_empty_bundle_binds(async_server_env, bundle):
+    """An empty bundle still binds: gRPC refuses `b""` but accepts `None`, so the
+    server starts and rejects node handshakes until a certificate is registered."""
     server = _mtls_server(bundle, async_server_env)
-    with pytest.raises(FedbiomedCertificateError, match="no node certificate"):
+
+    with (
+        patch(
+            "fedbiomed.transport.server.grpc.dynamic_ssl_server_credentials"
+        ) as credentials,
+        patch(
+            "fedbiomed.transport.server.grpc.ssl_server_certificate_configuration"
+        ) as cert_config,
+    ):
         server._server_credentials()
+
+    _, kwargs = credentials.call_args
+    assert kwargs["require_client_authentication"]
+    cert_config.assert_called_with(((b"key", b"cert"),), root_certificates=None)
 
 
 @pytest.mark.asyncio

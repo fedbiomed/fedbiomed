@@ -376,6 +376,18 @@ class Config(metaclass=ABCMeta):
         overwriting user defined values.
         """
 
+        if not self._cfg.has_section("authentication"):
+            # TODO-DEPRECATION: Remove this migration in future version. It is added to
+            # avoid breaking backward compatibility with old configuration files.
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for researcher. "
+                "Please add the 'authentication' section and add value `mutual_authentication=False` or `mutual_authentication=True` "
+                "in the `authentication` section in the component configuration."
+            )
+
+            self._cfg.add_section("authentication")
+            self._cfg.set("authentication", "mutual_authentication", "False")
+
 
 class Component:
     config_cls: type

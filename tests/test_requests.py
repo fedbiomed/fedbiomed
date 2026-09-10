@@ -14,7 +14,6 @@ from fedbiomed.common.certificate_manager import (
     TrustedCertificateBundle,
 )
 from fedbiomed.common.constants import ComponentType, MessageType
-from fedbiomed.common.exceptions import FedbiomedCertificateError
 from fedbiomed.common.message import (
     ApprovalReply,
     ErrorMessage,
@@ -663,6 +662,7 @@ def mtls_requests_env():
         patch(
             "fedbiomed.researcher.requests._requests.GrpcServer", autospec=True
         ) as grpc_server_mock,
+        patch("fedbiomed.researcher.requests._requests.SSLCredentials"),
         tempfile.TemporaryDirectory() as tmp,
     ):
         config_mock = MagicMock()
@@ -712,28 +712,12 @@ def mtls_requests_env():
             del Requests._objects[Requests]
 
 
-def test_mtls_without_registered_node_certificate_raises(mtls_requests_env):
-    """gRPC cannot bind an empty trust bundle, so it must fail early."""
-    with pytest.raises(FedbiomedCertificateError) as exc_info:
-        Requests(config=mtls_requests_env.config)
+def test_mtls_without_registered_node_certificate_starts(mtls_requests_env):
+    """The server starts with no node certificate: gRPC binds and rejects node
+    handshakes until one is registered, picked up without a restart."""
+    Requests(config=mtls_requests_env.config)
 
-    assert "certificate register" in str(exc_info.value)
-    mtls_requests_env.grpc_server_mock.assert_not_called()
-
-
-def test_mtls_with_unreadable_certificate_database_names_the_database(
-    mtls_requests_env,
-):
-    """A database that cannot be read is reported as such, not as an empty one."""
-    db_path = mtls_requests_env.config.getpath("default", "db")
-    mtls_requests_env.certificate_manager.close()
-    os.remove(db_path)
-
-    with pytest.raises(FedbiomedCertificateError) as exc_info:
-        Requests(config=mtls_requests_env.config)
-
-    assert f"certificate database {db_path} could not be read" in str(exc_info.value)
-    mtls_requests_env.grpc_server_mock.assert_not_called()
+    mtls_requests_env.grpc_server_mock.assert_called_once()
 
 
 def test_mtls_without_registered_node_certificate_is_registered_as_event(
@@ -742,17 +726,16 @@ def test_mtls_without_registered_node_certificate_is_registered_as_event(
     with patch(
         "fedbiomed.researcher.requests._requests.logger.security_event"
     ) as security_event:
-        with pytest.raises(FedbiomedCertificateError):
-            Requests(config=mtls_requests_env.config)
+        Requests(config=mtls_requests_env.config)
 
     # `logger` is a singleton, so the patch also records `DBTable` table access
     events = [
         c
         for c in security_event.call_args_list
-        if c.kwargs.get("operation") == "mtls_startup_aborted"
+        if c.kwargs.get("operation") == "mtls_startup_without_certificates"
     ]
     assert len(events) == 1
-    assert events[0].kwargs["status"] == "failure"
+    assert events[0].kwargs["status"] == "warning"
 
 
 def test_mtls_passes_trust_bundle_provider_to_server(mtls_requests_env):

@@ -722,17 +722,18 @@ def test_common_cli_delete_certificate(
 @patch("fedbiomed.common.cli.CommonCLI.success")
 @patch("builtins.input")
 @patch("builtins.print")
-def test_delete_certificate_does_not_ask_when_there_is_one(
+def test_delete_certificate_asks_even_when_there_is_one(
     mock_print, mock_input, mock_success, mock_delete, mock_list, cli
 ):
-    """A node holds its researcher's certificate and no other: nothing to choose."""
+    """The certificate to delete is always chosen from the prompt."""
     cli.initialize_certificate_parser()
     args = cli.parser.parse_args(["certificate", "delete"])
     mock_list.return_value = [{"component_id": _RESEARCHER_A}]
+    mock_input.return_value = "1"
 
     cli._delete_certificate(args)
 
-    mock_input.assert_not_called()
+    mock_input.assert_called_once()
     mock_delete.assert_called_once_with(component_id=_RESEARCHER_A)
     mock_success.assert_called_once()
 
@@ -788,15 +789,17 @@ def test_delete_certificate_rejects_an_invalid_option(
 )
 @patch("fedbiomed.common.cli.CertificateManager.list")
 @patch("fedbiomed.common.cli.CertificateManager.delete")
+@patch("builtins.input")
 @patch("builtins.print")
 def test_delete_certificate_tells_a_node_to_restart(
-    mock_print, mock_delete, mock_list, cli, component, restart_expected
+    mock_print, mock_input, mock_delete, mock_list, cli, component, restart_expected
 ):
     """Deletion applies to a running researcher, but only at the next start of a node."""
     cli.initialize_certificate_parser()
     cli.config.COMPONENT_TYPE = component
     args = cli.parser.parse_args(["certificate", "delete"])
     mock_list.return_value = [{"component_id": _NODE_A}]
+    mock_input.return_value = "1"
 
     cli._delete_certificate(args)
 

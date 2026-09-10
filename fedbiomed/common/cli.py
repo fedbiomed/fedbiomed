@@ -646,20 +646,15 @@ class CommonCLI:
                 print("No certificate is registered.")
                 return
 
-            if len(certificates) == 1:
-                # Nothing to choose from, which is the state a node is meant to be
-                # in: it holds its researcher's certificate and no other
-                component_id = certificates[0]["component_id"]
-            else:
-                msg = "Select the certificate to delete:\n"
-                msg += "\n".join(
-                    f"{i}) {d['component_id']}" for i, d in enumerate(certificates, 1)
-                )
-                msg += "\nSelect: "
-                answer = input(msg)
-                if not answer.isdigit() or not 1 <= int(answer) <= len(certificates):
-                    CommonCLI.error(f"Invalid option `{answer}`.")
-                component_id = certificates[int(answer) - 1]["component_id"]
+            msg = "Select the certificate to delete:\n"
+            msg += "\n".join(
+                f"{i}) {d['component_id']}" for i, d in enumerate(certificates, 1)
+            )
+            msg += "\nSelect: "
+            answer = input(msg)
+            if not answer.isdigit() or not 1 <= int(answer) <= len(certificates):
+                CommonCLI.error(f"Invalid option `{answer}`.")
+            component_id = certificates[int(answer) - 1]["component_id"]
 
             certificate_manager.delete(component_id=component_id)
 

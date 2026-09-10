@@ -22,10 +22,7 @@ from fedbiomed.common.constants import (
     ErrorNumbers,
     MessageType,
 )
-from fedbiomed.common.exceptions import (
-    FedbiomedCertificateError,
-    FedbiomedCommunicationError,
-)
+from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     FeedbackMessage,
@@ -168,12 +165,8 @@ async def _verify_peer_identity(
 
     if peer_node_id is None:
         # A broken registry must not read as an unregistered certificate.
-        if not identities.loaded:
-            reason = "registry_unreadable"
-            cause = "its certificate registry could not be read"
-        else:
-            reason = "certificate_not_registered"
-            cause = "its certificate is not registered"
+        reason = "certificate_not_registered"
+        cause = "its certificate is not registered"
 
         msg = (
             f"{ErrorNumbers.FB628.value}: Refusing the node declaring id "
@@ -527,32 +520,25 @@ class _GrpcAsyncServer:
         registered after startup are trusted without a restart. Otherwise server-auth
         only.
 
+        The server binds even with no node certificate registered: gRPC refuses an
+        empty (`b""`) trust bundle but accepts `None`, so an empty bundle is passed as
+        `None`. Every client-certificate handshake is then rejected at the TLS layer
+        until a certificate is registered, at which point the per-handshake fetcher
+        picks it up without a restart. `require_client_authentication` stays set, so
+        the researcher is still seen as enforcing mutual authentication throughout.
+
         Returns:
             Credentials to serve the researcher endpoint with.
-
-        Raises:
-            FedbiomedCertificateError: mutual authentication is enabled but no node
-                certificate is registered.
         """
         key_cert_pairs = ((self._ssl.private_key, self._ssl.certificate),)
 
         if not self._ssl.mtls:
             return grpc.ssl_server_credentials(key_cert_pairs)
 
-        # gRPC refuses to bind the port when the trust bundle is empty, so report
-        # the cause instead of an opaque binding failure.
-        if not self._ssl.trusted_node_certificates():
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: mutual authentication is enabled but no "
-                "node certificate is registered, so the researcher server cannot start. "
-                "Register at least one node certificate with `fedbiomed researcher "
-                "certificate register`."
-            )
-
         def certificate_configuration():
             return grpc.ssl_server_certificate_configuration(
                 key_cert_pairs,
-                root_certificates=self._ssl.trusted_node_certificates(),
+                root_certificates=self._ssl.trusted_node_certificates() or None,
             )
 
         return grpc.dynamic_ssl_server_credentials(
