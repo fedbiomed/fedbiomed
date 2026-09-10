@@ -5,6 +5,7 @@ import {
     EP_CERTIFICATES_CONNECTION,
     EP_CERTIFICATES_EXPORT,
     EP_CERTIFICATES_GENERATE,
+    EP_CERTIFICATES_INSPECT,
     EP_CERTIFICATES_REPLACE,
     EP_CERTIFICATES_STATUS,
 } from '../../constants'
@@ -12,11 +13,8 @@ import {
     CERTIFICATES_CONNECTION_ERROR,
     CERTIFICATES_CONNECTION_SUCCESS,
     CERTIFICATES_ERROR,
-    CERTIFICATES_RESET_MESSAGES,
     CERTIFICATES_SUCCESS,
-    CERTIFICATES_WRITE_ERROR,
     CERTIFICATES_WRITE_LOADING,
-    CERTIFICATES_WRITE_SUCCESS,
 } from './actions'
 
 const getErrorMessage = (error, fallback) => {
@@ -69,35 +67,55 @@ export const fetchConnectionState = () => {
 }
 
 /**
+ * Describes a certificate without registering it: its component id, when it
+ * carries one, and its details. When it cannot be read, returns `{error}` for
+ * the window to show next to the text.
+ */
+export const inspectCertificate = (certificate) => {
+    return async () => {
+        try {
+            const response = await axios.post(EP_CERTIFICATES_INSPECT, {
+                certificate,
+            })
+
+            return response.data.result
+        } catch (error) {
+            return {
+                error: getErrorMessage(error, 'Could not read the certificate'),
+            }
+        }
+    }
+}
+
+/**
  * Registers a certificate received from another component.
  *
- * `upsert` replaces an existing registration of the same component, which the
- * user confirms once the conflict has been reported. `componentId` is needed
- * only for a certificate that carries no component id of its own.
+ * `componentId` is needed only for a certificate that carries no component id
+ * of its own.
  */
-export const registerCertificate = (
-    certificate,
-    {upsert = false, componentId = null} = {}
-) => {
+export const registerCertificate = (certificate, {componentId = null} = {}) => {
     return async (dispatch) => {
         dispatch({type: CERTIFICATES_WRITE_LOADING, payload: true})
 
         try {
             const response = await axios.post(EP_CERTIFICATES, {
                 certificate,
-                upsert,
                 component_id: componentId,
             })
             dispatch({
-                type: CERTIFICATES_WRITE_SUCCESS,
-                payload: response.data.message,
+                type: 'SUCCESS_MODAL',
+                payload: response.data.result.requires_restart
+                    ? `${response.data.message} Restart the node for this `
+                        + 'to take effect.'
+                    : `${response.data.message} This takes effect when the `
+                        + 'node next starts.',
             })
             await dispatch(fetchCertificateStatus())
 
             return true
         } catch (error) {
             dispatch({
-                type: CERTIFICATES_WRITE_ERROR,
+                type: 'ERROR_MODAL',
                 payload: getErrorMessage(
                     error,
                     'Could not register the certificate'
@@ -121,13 +139,17 @@ export const deleteCertificate = (componentId) => {
                 `${EP_CERTIFICATES}/${encodeURIComponent(componentId)}`
             )
             dispatch({
-                type: CERTIFICATES_WRITE_SUCCESS,
-                payload: response.data.message,
+                type: 'SUCCESS_MODAL',
+                payload: response.data.result.requires_restart
+                    ? `${response.data.message} Restart the node for this `
+                        + 'to take effect.'
+                    : `${response.data.message} This takes effect when the `
+                        + 'node next starts.',
             })
             await dispatch(fetchCertificateStatus())
         } catch (error) {
             dispatch({
-                type: CERTIFICATES_WRITE_ERROR,
+                type: 'ERROR_MODAL',
                 payload: getErrorMessage(
                     error,
                     'Could not delete the certificate'
@@ -152,15 +174,19 @@ const writeOwnCertificate = (request, fallbackMessage) => {
         try {
             const response = await request()
             dispatch({
-                type: CERTIFICATES_WRITE_SUCCESS,
-                payload: response.data.message,
+                type: 'SUCCESS_MODAL',
+                payload: response.data.result.requires_restart
+                    ? `${response.data.message} Restart the node for this `
+                        + 'to take effect.'
+                    : `${response.data.message} This takes effect when the `
+                        + 'node next starts.',
             })
             await dispatch(fetchCertificateStatus())
 
             return true
         } catch (error) {
             dispatch({
-                type: CERTIFICATES_WRITE_ERROR,
+                type: 'ERROR_MODAL',
                 payload: getErrorMessage(error, fallbackMessage),
             })
 
@@ -224,8 +250,4 @@ export const downloadOwnCertificate = () => {
             })
         }
     }
-}
-
-export const resetCertificateMessages = () => {
-    return {type: CERTIFICATES_RESET_MESSAGES}
 }

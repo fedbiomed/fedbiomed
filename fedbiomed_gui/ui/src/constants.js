@@ -79,6 +79,7 @@ export const EP_CERTIFICATES_STATUS = "/api/certificates/status";
 export const EP_CERTIFICATES_EXPORT = "/api/certificates/export";
 export const EP_CERTIFICATES_GENERATE = "/api/certificates/generate";
 export const EP_CERTIFICATES_REPLACE = "/api/certificates/replace";
+export const EP_CERTIFICATES_INSPECT = "/api/certificates/inspect";
 export const EP_CERTIFICATES_CONNECTION = "/api/certificates/connection";
 
 // Messages
