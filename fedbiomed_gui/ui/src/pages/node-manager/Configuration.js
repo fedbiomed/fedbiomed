@@ -417,7 +417,7 @@ const Configuration = ({
                 iconType="document"
                 onClick={() => setOwnCertificateOpen(true)}
             >
-                Manage certificate
+                Node certificate
             </EuiButton>
         ),
     }

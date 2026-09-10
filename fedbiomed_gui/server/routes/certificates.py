@@ -86,7 +86,11 @@ def _registered_certificates() -> List[Dict[str, Any]]:
 
 
 def _own_certificate() -> Dict[str, Any]:
-    """Summary of this node's own certificate, with the error when unreadable."""
+    """This node's own certificate with its summary, or the error when unreadable.
+
+    A certificate is public, so its text is returned for display too; the private
+    key never is.
+    """
     path = config.node_config.getpath("certificate", "public_key")
     try:
         certificate = read_file(path)
@@ -96,6 +100,7 @@ def _own_certificate() -> Dict[str, Any]:
     return {
         "component_id": config.node_config.get("default", "id"),
         "path": path,
+        "certificate": certificate,
         **_certificate_summary(certificate),
     }
 

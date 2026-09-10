@@ -225,7 +225,7 @@ its [GUI](../nodes/node-gui.md), which is restricted to administrators. Its
 *Connection & certificates* group holds the researcher endpoint, this node's own
 certificate and the `[authentication]` setting, each with the window it opens:
 
-- **Manage certificate**, under this node's own pair: read what the node presents,
+- **Node certificate**, under this node's own pair: read what the node presents,
   download it to send to the researcher, regenerate it, or replace it with a
   certificate and private key issued elsewhere. The displaced pair is kept as the
   single `.bak` backup beside it, as `fedbiomed node certificate replace` does;
