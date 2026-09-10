@@ -1091,9 +1091,7 @@ a.fed-box-link{
 }
 
 .node-certificate-modal {
-  /* Rendered outside the page, so it takes the page's colours itself */
-  --node-management-text: #172033;
-  --node-management-muted: #64748b;
+  /* Rendered outside the page, so it takes the page's border colour itself */
   --node-management-border: #e2e8f0;
   max-width: 90vw;
   width: 860px;

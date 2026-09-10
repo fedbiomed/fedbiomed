@@ -35,30 +35,10 @@ import {
     replaceOwnCertificate,
 } from '../../store/actions/certificatesActions'
 
-const emptyValue = '-'
-
 // The two ways of updating this node's certificate, each behind a confirmation
 const ownCertificateActions = {
     generate: 'generate',
     replace: 'replace',
-}
-
-const formatValue = (value) => {
-    if (value === null || value === undefined || value === '') {
-        return emptyValue
-    }
-
-    return String(value)
-}
-
-const formatDateTime = (value) => {
-    if (!value) {
-        return emptyValue
-    }
-
-    const date = new Date(value)
-
-    return Number.isNaN(date.getTime()) ? emptyValue : date.toLocaleString()
 }
 
 /** Reads a picked file as text into a state setter, for a pasted-or-picked field. */
@@ -73,237 +53,131 @@ const readFileInto = (setValue) => (files) => {
     reader.readAsText(file)
 }
 
-const DetailItem = ({label, value}) => (
-    <div className="node-management-detail-item">
-        <span className="node-management-detail-label">{label}</span>
-        <span className="node-management-detail-value">{value}</span>
-    </div>
-)
-
-const CertificateDetails = ({certificate}) => (
-    <div className="node-management-details-grid">
-        <DetailItem label="Subject" value={formatValue(certificate.cert_subject)} />
-        <DetailItem label="Issuer" value={formatValue(certificate.cert_issuer)} />
-        <DetailItem label="Serial" value={formatValue(certificate.cert_serial)} />
-        <DetailItem
-            label="Expires"
-            value={
-                certificate.cert_not_after
-                    ? `${formatDateTime(certificate.cert_not_after)}`
-                        + ` (${certificate.expires_in_days} days)`
-                    : emptyValue
-            }
-        />
-        <DetailItem
-            label="Valid for"
-            value={
-                certificate.san?.length
-                    ? certificate.san.join(', ')
-                    : 'no host (a client credential)'
-            }
-        />
-        <DetailItem
-            label="Fingerprint"
-            value={formatValue(certificate.fingerprint)}
-        />
-    </div>
-)
-
 /**
- * This node's own certificate: what it currently presents, and the two ways of
- * updating it. Both write to the paths the node configuration already names.
+ * The header of a certificate box: whose certificate it is, its state in the
+ * page's status pill, and until when it is valid, with the details behind (i).
+ * With no certificate to describe, just the title.
  */
-const OwnCertificate = ({
-    ownCertificate,
-    writing,
-    onDownload,
-    onGenerate,
-    onReplace,
+const CertificateHeader = ({
+    title,
+    certificate,
+    label,
+    neutral = false,
+    renewHint,
 }) => {
-    const [certificate, setCertificate] = React.useState('')
-    const [privateKey, setPrivateKey] = React.useState('')
-    const [confirming, setConfirming] = React.useState(null)
+    const [infoOpen, setInfoOpen] = React.useState(false)
 
-    const replace = async () => {
-        setConfirming(null)
-        const replaced = await onReplace(certificate, privateKey)
-        if (replaced) {
-            setCertificate('')
-            setPrivateKey('')
-        }
+    // Details left open do not carry over to the next certificate shown
+    React.useEffect(() => {
+        setInfoOpen(false)
+    }, [certificate])
+
+    if (!certificate) {
+        return (
+            <EuiTitle size="xxs">
+                <h4>{title}</h4>
+            </EuiTitle>
+        )
     }
 
-    const generate = async () => {
-        setConfirming(null)
-        await onGenerate()
-    }
+    const days = certificate.expires_in_days
+    // A certificate is refused once expired, but one written earlier expires
+    const expired = days < 0
+    const expiryDate = certificate.cert_not_after
+        ? new Date(certificate.cert_not_after).toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        })
+        : null
+    const detail = !expiryDate
+        ? null
+        : expired
+            ? `Expired ${expiryDate} — ${renewHint}`
+            : `Expires ${expiryDate} · in ${days.toLocaleString()} `
+                + `${days === 1 ? 'day' : 'days'}`
+                + (certificate.expiring_soon ? ` — ${renewHint}` : '')
+    // Shown in the page's status pill, so in the page's colours
+    const [statusIcon, statusClass] = expired
+        ? ['alert', 'danger']
+        : certificate.expiring_soon
+            ? ['clock', 'warning']
+            : neutral
+                ? ['document', 'neutral']
+                : ['check', 'success']
 
     return (
-        <>
-            <h3>What this node presents</h3>
-            <EuiText size="s" color="subdued">
-                <p>
-                    Send this to the researcher, which registers it to
-                    recognise this node. The private key never leaves the node.
-                </p>
-            </EuiText>
-            <EuiSpacer size="s" />
-
-            {ownCertificate?.error ? (
-                <div className="node-management-alert error">
-                    <EuiIcon type="alert" />
-                    <span>{ownCertificate.error}</span>
-                </div>
-            ) : ownCertificate ? (
-                <>
-                    <DetailItem
-                        label="Component id"
-                        value={formatValue(ownCertificate.component_id)}
-                    />
-                    <CertificateDetails certificate={ownCertificate} />
-                    {ownCertificate.expiring_soon ? (
-                        <EuiCallOut
-                            color="warning"
-                            iconType="clock"
-                            title="This certificate expires soon"
-                            size="s"
-                        >
-                            <p>
-                                Update it below, then have the researcher
-                                register the new one.
-                            </p>
-                        </EuiCallOut>
-                    ) : null}
-                    <EuiSpacer size="s" />
-                    <EuiButton
-                        size="s"
-                        iconType="download"
-                        onClick={onDownload}
+        <div
+            className={
+                'node-certificate-identity'
+                + (expired
+                    ? ' danger'
+                    : certificate.expiring_soon ? ' warning' : '')
+            }
+        >
+            <EuiFlexGroup gutterSize="s" alignItems="center" responsive={false}>
+                <EuiFlexItem>
+                    <EuiTitle size="xxs">
+                        <h4>{title}</h4>
+                    </EuiTitle>
+                    <EuiSpacer size="xs" />
+                    <EuiFlexGroup
+                        gutterSize="s"
+                        alignItems="center"
+                        responsive={false}
+                        wrap
                     >
-                        Download certificate
-                    </EuiButton>
-                </>
-            ) : null}
-
-            <EuiSpacer size="l" />
-
-            <h3>Generate a new one</h3>
-            <EuiText size="s" color="subdued">
-                <p>
-                    The node issues itself a fresh certificate and private key,
-                    written where the current ones are.
-                </p>
-            </EuiText>
-            <EuiSpacer size="s" />
-            <EuiButton
-                size="s"
-                iconType="refresh"
-                isLoading={writing}
-                onClick={() => setConfirming(ownCertificateActions.generate)}
-            >
-                Regenerate
-            </EuiButton>
-
-            <EuiSpacer size="l" />
-
-            <h3>Replace with your own</h3>
-            <EuiText size="s" color="subdued">
-                <p>
-                    For a certificate issued elsewhere. Both the certificate and
-                    its private key are required, and are checked together
-                    before either replaces what the node has.
-                </p>
-            </EuiText>
-            <EuiSpacer size="s" />
-
-            <EuiFormRow
-                label="Certificate"
-                helpText="Paste it, or pick the file it came in."
-                fullWidth
-            >
-                <EuiTextArea
-                    fullWidth
-                    rows={5}
-                    placeholder="-----BEGIN CERTIFICATE-----"
-                    value={certificate}
-                    onChange={(event) => setCertificate(event.target.value)}
-                />
-            </EuiFormRow>
-            <EuiFilePicker
-                initialPromptText="Select the certificate (.pem)"
-                display="default"
-                accept=".pem,.crt,.cert"
-                onChange={readFileInto(setCertificate)}
-            />
-            <EuiSpacer size="s" />
-
-            <EuiFormRow
-                label="Private key"
-                helpText="The key this certificate was issued for, unencrypted."
-                fullWidth
-            >
-                <EuiTextArea
-                    fullWidth
-                    rows={5}
-                    placeholder="-----BEGIN PRIVATE KEY-----"
-                    value={privateKey}
-                    onChange={(event) => setPrivateKey(event.target.value)}
-                />
-            </EuiFormRow>
-            <EuiFilePicker
-                initialPromptText="Select the private key (.key)"
-                display="default"
-                accept=".pem,.key"
-                onChange={readFileInto(setPrivateKey)}
-            />
-            <EuiSpacer size="s" />
-            <EuiButton
-                size="s"
-                fill
-                iconType="save"
-                isLoading={writing}
-                isDisabled={!certificate.trim() || !privateKey.trim()}
-                onClick={() => setConfirming(ownCertificateActions.replace)}
-            >
-                Replace certificate
-            </EuiButton>
-
-            {confirming ? (
-                <Popup
-                    icon="alert"
-                    iconColor="warning"
-                    title={
-                        confirming === ownCertificateActions.generate
-                            ? 'Generate a new certificate?'
-                            : 'Replace this node\'s certificate?'
-                    }
-                    onClose={() => setConfirming(null)}
-                    cancelText="Keep the current one"
-                    confirmText={
-                        confirming === ownCertificateActions.generate
-                            ? 'Generate it'
-                            : 'Replace it'
-                    }
-                    confirmColor="danger"
-                    onConfirm={
-                        confirming === ownCertificateActions.generate
-                            ? generate
-                            : replace
-                    }
-                >
-                    <p>
-                        This node stops presenting the certificate it presents
-                        now. Every component holding the old one has to register
-                        the new one, and the node has to be restarted to serve
-                        it.
-                    </p>
-                    <p>
-                        The pair being replaced is kept alongside it as a
-                        timestamped backup.
-                    </p>
-                </Popup>
-            ) : null}
-        </>
+                        <EuiFlexItem grow={false}>
+                            <span
+                                className={
+                                    'node-management-status-pill '
+                                    + `${statusClass} `
+                                    + 'node-certificate-identity-state'
+                                }
+                            >
+                                <EuiIcon type={statusIcon} size="s" />
+                                {label}
+                            </span>
+                        </EuiFlexItem>
+                        {detail ? (
+                            <EuiFlexItem>
+                                <EuiText size="xs">{detail}</EuiText>
+                            </EuiFlexItem>
+                        ) : null}
+                    </EuiFlexGroup>
+                </EuiFlexItem>
+                <EuiFlexItem grow={false}>
+                    <EuiPopover
+                        button={
+                            <EuiButtonIcon
+                                iconType="iInCircle"
+                                aria-label="Certificate details"
+                                title="Certificate details"
+                                onClick={() => setInfoOpen(!infoOpen)}
+                            />
+                        }
+                        isOpen={infoOpen}
+                        closePopover={() => setInfoOpen(false)}
+                        anchorPosition="leftUp"
+                    >
+                        <EuiCodeBlock
+                            language="json"
+                            fontSize="s"
+                            paddingSize="s"
+                            overflowHeight={400}
+                            isCopyable
+                        >
+                            {/* The text itself is in the box */}
+                            {JSON.stringify(
+                                {...certificate, certificate: undefined},
+                                null,
+                                2
+                            )}
+                        </EuiCodeBlock>
+                    </EuiPopover>
+                </EuiFlexItem>
+            </EuiFlexGroup>
+        </div>
     )
 }
 
@@ -331,7 +205,6 @@ const ResearcherCertificates = ({
     const [inspected, setInspected] = React.useState(null)
     const [inspectError, setInspectError] = React.useState(null)
     const [componentId, setComponentId] = React.useState('')
-    const [infoOpen, setInfoOpen] = React.useState(false)
     const [confirmingDelete, setConfirmingDelete] = React.useState(false)
 
     const current = registered.length === 1 ? registered[0] : null
@@ -349,43 +222,13 @@ const ResearcherCertificates = ({
     const registerComponentId = inspected?.component_id || componentId.trim()
     const canRegister = Boolean(inspected) && Boolean(registerComponentId)
 
-    // The header of the box: whose certificate it is, whether it is the
-    // registered one, and until when it is valid
-    const identityTitle = described
+    const title = described
         ? described.component_id
             || componentId.trim()
             || 'Component id to enter below'
         : editing ? 'New certificate'
             : loaded ? 'No certificate is registered'
                 : 'Reading the registered certificate…'
-    const days = described?.expires_in_days
-    // A certificate is refused once expired, but one registered earlier expires
-    const expired = days < 0
-    const expiryDate = described?.cert_not_after
-        ? new Date(described.cert_not_after).toLocaleDateString(undefined, {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-        })
-        : null
-    const identityDetail = !expiryDate
-        ? null
-        : expired
-            ? `Expired ${expiryDate} — request a renewed certificate from `
-                + 'the researcher.'
-            : `Expires ${expiryDate} · in ${days.toLocaleString()} `
-                + `${days === 1 ? 'day' : 'days'}`
-                + (described.expiring_soon
-                    ? ' — request a renewed certificate from the researcher.'
-                    : '')
-    // Shown in the page's status pill, so in the page's colours
-    const [statusIcon, statusClass] = expired
-        ? ['alert', 'danger']
-        : described?.expiring_soon
-            ? ['clock', 'warning']
-            : pending
-                ? ['document', 'neutral']
-                : ['check', 'success']
 
     // The window asks before closing on a certificate not registered yet; an
     // empty box holds nothing to lose
@@ -399,7 +242,6 @@ const ResearcherCertificates = ({
         setDraft(text)
         setInspected(null)
         setInspectError(null)
-        setInfoOpen(false)
         setEditing(true)
     }
 
@@ -462,91 +304,13 @@ const ResearcherCertificates = ({
             </EuiText>
             <EuiSpacer size="m" />
 
-            {described ? (
-                <div
-                    className={
-                        'node-certificate-identity'
-                        + (expired
-                            ? ' danger'
-                            : described.expiring_soon ? ' warning' : '')
-                    }
-                >
-                    <EuiFlexGroup
-                        gutterSize="s"
-                        alignItems="center"
-                        responsive={false}
-                    >
-                        <EuiFlexItem>
-                            <EuiTitle size="xxs">
-                                <h4>{identityTitle}</h4>
-                            </EuiTitle>
-                            <EuiSpacer size="xs" />
-                            <EuiFlexGroup
-                                gutterSize="s"
-                                alignItems="center"
-                                responsive={false}
-                                wrap
-                            >
-                                <EuiFlexItem grow={false}>
-                                    <span
-                                        className={
-                                            'node-management-status-pill '
-                                            + `${statusClass} `
-                                            + 'node-certificate-identity-state'
-                                        }
-                                    >
-                                        <EuiIcon type={statusIcon} size="s" />
-                                        {pending
-                                            ? 'Not registered yet'
-                                            : 'Registered'}
-                                    </span>
-                                </EuiFlexItem>
-                                {identityDetail ? (
-                                    <EuiFlexItem>
-                                        <EuiText size="xs">
-                                            {identityDetail}
-                                        </EuiText>
-                                    </EuiFlexItem>
-                                ) : null}
-                            </EuiFlexGroup>
-                        </EuiFlexItem>
-                        <EuiFlexItem grow={false}>
-                            <EuiPopover
-                                button={
-                                    <EuiButtonIcon
-                                        iconType="iInCircle"
-                                        aria-label="Certificate details"
-                                        title="Certificate details"
-                                        onClick={() => setInfoOpen(!infoOpen)}
-                                    />
-                                }
-                                isOpen={infoOpen}
-                                closePopover={() => setInfoOpen(false)}
-                                anchorPosition="leftUp"
-                            >
-                                <EuiCodeBlock
-                                    language="json"
-                                    fontSize="s"
-                                    paddingSize="s"
-                                    overflowHeight={400}
-                                    isCopyable
-                                >
-                                    {/* The text itself is in the box */}
-                                    {JSON.stringify(
-                                        {...described, certificate: undefined},
-                                        null,
-                                        2
-                                    )}
-                                </EuiCodeBlock>
-                            </EuiPopover>
-                        </EuiFlexItem>
-                    </EuiFlexGroup>
-                </div>
-            ) : (
-                <EuiTitle size="xxs">
-                    <h4>{identityTitle}</h4>
-                </EuiTitle>
-            )}
+            <CertificateHeader
+                title={title}
+                certificate={described}
+                label={pending ? 'Not registered yet' : 'Registered'}
+                neutral={pending}
+                renewHint="request a renewed certificate from the researcher."
+            />
             <EuiSpacer size="s" />
             <EuiFormRow
                 isInvalid={Boolean(inspectError)}
@@ -675,13 +439,14 @@ const ResearcherCertificates = ({
 /**
  * Shared frame for the certificate windows. The status is read as the window
  * opens; what a write did is reported in the global result popup. Closing on a
- * draft that is not written yet asks first.
+ * draft that is not written yet asks first. `action` is the window's own button,
+ * shown beside Close.
  */
 const CertificateWindow = ({
     title,
-    notice,
     onClose,
     hasDraft = false,
+    action,
     error,
     fetchCertificateStatus,
     children,
@@ -706,30 +471,18 @@ const CertificateWindow = ({
                         <span>{error}</span>
                     </div>
                 ) : null}
-                {notice ? (
-                    <>
-                        <EuiCallOut
-                            color="primary"
-                            iconType="iInCircle"
-                            title="Everything here is written straight away"
-                            size="s"
-                        >
-                            <p>{notice}</p>
-                        </EuiCallOut>
-                        <EuiSpacer size="m" />
-                    </>
-                ) : null}
                 {children}
             </EuiModalBody>
             <EuiModalFooter>
                 <EuiButtonEmpty onClick={close}>Close</EuiButtonEmpty>
+                {action}
             </EuiModalFooter>
 
             {confirmingClose ? (
                 <Popup
                     icon="alert"
                     iconColor="warning"
-                    title="Discard the certificate you have not registered?"
+                    title="Discard the certificate you have not saved?"
                     onClose={() => setConfirmingClose(false)}
                     cancelText="Keep editing"
                     confirmText="Discard"
@@ -741,29 +494,234 @@ const CertificateWindow = ({
     )
 }
 
-const OwnCertificateWindow = (props) => (
-    <CertificateWindow
-        title="This node's certificate"
-        notice={
-            'This window does not take part in the unsaved changes of the '
-            + 'configuration page: generating or replacing the pair writes it '
-            + 'to disk at once, and Reset there does not undo it. The node '
-            + 'reads its certificates when it starts, so restart it to serve '
-            + 'a new one.'
+/**
+ * The certificate this node presents, shown in the box, and the two ways of
+ * updating it: the node issues itself a new pair, or takes a certificate and
+ * key issued elsewhere. Both write to the paths the node configuration names.
+ */
+const OwnCertificateWindow = ({
+    certificateStatus,
+    writing,
+    error,
+    onClose,
+    fetchCertificateStatus,
+    downloadOwnCertificate,
+    generateOwnCertificate,
+    replaceOwnCertificate,
+}) => {
+    // From Replace until the pair is written, the box takes the certificate
+    // replacing the current one, and a second box its private key
+    const [replacing, setReplacing] = React.useState(false)
+    const [certificate, setCertificate] = React.useState('')
+    const [privateKey, setPrivateKey] = React.useState('')
+    const [confirming, setConfirming] = React.useState(null)
+
+    const ownCertificate = certificateStatus?.certificate
+    const loaded = Boolean(certificateStatus)
+    const readable = Boolean(ownCertificate) && !ownCertificate.error
+    const title = replacing
+        ? 'New certificate'
+        : readable
+            ? ownCertificate.component_id
+            : loaded ? 'No readable certificate' : 'Reading the node certificate…'
+    // Closing asks first once there is something typed to lose
+    const hasDraft = replacing
+        && Boolean(certificate.trim() || privateKey.trim())
+
+    const replace = async () => {
+        setConfirming(null)
+        const replaced = await replaceOwnCertificate(certificate, privateKey)
+        if (replaced) {
+            // The box shows the certificate the node presents again, now this one
+            setReplacing(false)
+            setCertificate('')
+            setPrivateKey('')
         }
-        onClose={props.onClose}
-        error={props.error}
-        fetchCertificateStatus={props.fetchCertificateStatus}
-    >
-        <OwnCertificate
-            ownCertificate={props.certificateStatus?.certificate}
-            writing={props.writing}
-            onDownload={props.downloadOwnCertificate}
-            onGenerate={props.generateOwnCertificate}
-            onReplace={props.replaceOwnCertificate}
-        />
-    </CertificateWindow>
-)
+    }
+
+    const generate = async () => {
+        setConfirming(null)
+        await generateOwnCertificate()
+    }
+
+    return (
+        <CertificateWindow
+            title="Node certificate"
+            onClose={onClose}
+            hasDraft={hasDraft}
+            action={replacing ? (
+                <EuiButton
+                    fill
+                    iconType="save"
+                    isLoading={writing}
+                    isDisabled={!certificate.trim() || !privateKey.trim()}
+                    onClick={() => setConfirming(ownCertificateActions.replace)}
+                >
+                    Replace certificate
+                </EuiButton>
+            ) : null}
+            error={error}
+            fetchCertificateStatus={fetchCertificateStatus}
+        >
+            <EuiText size="s" color="subdued">
+                <p>
+                    The certificate this node presents to the researcher, which
+                    registers it. The private key never leaves the node. Changes
+                    are written at once; restart the node to use them.
+                </p>
+            </EuiText>
+            <EuiSpacer size="m" />
+
+            {ownCertificate?.error ? (
+                <>
+                    <div className="node-management-alert error">
+                        <EuiIcon type="alert" />
+                        <span>{ownCertificate.error}</span>
+                    </div>
+                    <EuiSpacer size="s" />
+                </>
+            ) : null}
+
+            <CertificateHeader
+                title={title}
+                certificate={readable && !replacing ? ownCertificate : null}
+                label="In use"
+                renewHint={
+                    'regenerate or replace it, and request the researcher to '
+                    + 'register the new one.'
+                }
+            />
+            <EuiSpacer size="s" />
+
+            {replacing ? (
+                <>
+                    <EuiFormRow label="Certificate" fullWidth>
+                        <EuiTextArea
+                            className="node-certificate-pem"
+                            fullWidth
+                            rows={6}
+                            placeholder="Paste the certificate, or load its .pem file"
+                            value={certificate}
+                            onChange={(event) => setCertificate(event.target.value)}
+                        />
+                    </EuiFormRow>
+                    <EuiFilePicker
+                        compressed
+                        display="default"
+                        initialPromptText="Load the certificate (.pem)"
+                        accept=".pem,.crt,.cert"
+                        onChange={readFileInto(setCertificate)}
+                    />
+                    <EuiSpacer size="m" />
+                    <EuiFormRow label="Private key" fullWidth>
+                        <EuiTextArea
+                            className="node-certificate-pem"
+                            fullWidth
+                            rows={6}
+                            placeholder="Paste its private key, or load its .key file"
+                            value={privateKey}
+                            onChange={(event) => setPrivateKey(event.target.value)}
+                        />
+                    </EuiFormRow>
+                    <EuiFilePicker
+                        compressed
+                        display="default"
+                        initialPromptText="Load the private key (.key)"
+                        accept=".pem,.key"
+                        onChange={readFileInto(setPrivateKey)}
+                    />
+                </>
+            ) : (
+                <>
+                    <EuiTextArea
+                        className="node-certificate-pem"
+                        fullWidth
+                        rows={8}
+                        readOnly
+                        value={readable ? ownCertificate.certificate : ''}
+                    />
+                    <EuiSpacer size="s" />
+                    {loaded ? (
+                        <EuiFlexGroup
+                            gutterSize="s"
+                            alignItems="center"
+                            responsive={false}
+                            wrap
+                        >
+                            {readable ? (
+                                <EuiFlexItem grow={false}>
+                                    <EuiButton
+                                        size="s"
+                                        iconType="download"
+                                        onClick={downloadOwnCertificate}
+                                    >
+                                        Download
+                                    </EuiButton>
+                                </EuiFlexItem>
+                            ) : null}
+                            <EuiFlexItem grow={false}>
+                                <EuiButton
+                                    size="s"
+                                    iconType="refresh"
+                                    isLoading={writing}
+                                    onClick={() => setConfirming(ownCertificateActions.generate)}
+                                >
+                                    Regenerate
+                                </EuiButton>
+                            </EuiFlexItem>
+                            <EuiFlexItem grow={false}>
+                                <EuiButton
+                                    size="s"
+                                    iconType="pencil"
+                                    isDisabled={writing}
+                                    onClick={() => setReplacing(true)}
+                                >
+                                    Replace
+                                </EuiButton>
+                            </EuiFlexItem>
+                        </EuiFlexGroup>
+                    ) : null}
+                </>
+            )}
+
+            {confirming ? (
+                <Popup
+                    icon="alert"
+                    iconColor="warning"
+                    title={
+                        confirming === ownCertificateActions.generate
+                            ? 'Generate a new certificate?'
+                            : 'Replace this node\'s certificate?'
+                    }
+                    onClose={() => setConfirming(null)}
+                    cancelText="Keep the current one"
+                    confirmText={
+                        confirming === ownCertificateActions.generate
+                            ? 'Generate it'
+                            : 'Replace it'
+                    }
+                    confirmColor="danger"
+                    onConfirm={
+                        confirming === ownCertificateActions.generate
+                            ? generate
+                            : replace
+                    }
+                >
+                    <p>
+                        This node stops presenting the certificate it presents
+                        now. Every component holding the old one has to register
+                        the new one, and the node has to be restarted to serve
+                        it.
+                    </p>
+                    <p>
+                        The pair being replaced is kept alongside it as a
+                        timestamped backup.
+                    </p>
+                </Popup>
+            ) : null}
+        </CertificateWindow>
+    )
+}
 
 const ResearcherCertificateWindow = (props) => {
     const [hasDraft, setHasDraft] = React.useState(false)
