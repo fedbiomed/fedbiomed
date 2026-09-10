@@ -229,10 +229,11 @@ certificate and the `[authentication]` setting, each with the window it opens:
   download it to send to the researcher, regenerate it, or replace it with a
   certificate and private key issued elsewhere. The displaced pair is kept as the
   single `.bak` backup beside it, as `fedbiomed node certificate replace` does;
-- **Registered certificate**, under the researcher: register the researcher
-  certificate — pasted or from a file — and delete it. Turning
-  `mutual_authentication` on opens this window, since that is what makes a
-  registered certificate necessary.
+- **Researcher certificate**, under the researcher: read the registered researcher
+  certificate, register one — pasted or from a file — and delete it. A registered
+  certificate is deleted before another is registered; `--upsert` replaces it in
+  one step from the command line. Turning `mutual_authentication` on opens this
+  window, since that is what makes a registered certificate necessary.
 
 It reports what the node itself checks as it starts, so the same findings appear here
 and from `fedbiomed node certificate check`. It reports as a problem what stops the

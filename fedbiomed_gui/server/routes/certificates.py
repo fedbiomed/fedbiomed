@@ -14,6 +14,7 @@ from fedbiomed.common.certificate_manager import (
     CERTIFICATE_EXPIRY_WARNING_DAYS,
     CertificateManager,
     certificate_audit_fields,
+    certificate_component_id,
     certificate_expiry,
     certificate_fingerprint,
     certificate_san_names,
@@ -66,12 +67,16 @@ def _certificate_summary(certificate: str) -> Dict[str, Any]:
 
 
 def _registered_certificates() -> List[Dict[str, Any]]:
-    """Summaries of the certificates this node has registered."""
+    """The certificates this node has registered, each with its summary.
+
+    A registered certificate is public, so its text is returned for display too.
+    """
     certificate_manager = _certificate_manager()
     try:
         return [
             {
                 "component_id": document["component_id"],
+                "certificate": document["certificate"],
                 **_certificate_summary(document["certificate"]),
             }
             for document in certificate_manager.list()
@@ -133,7 +138,7 @@ def _status() -> Dict[str, Any]:
     }
 
 
-def _register(certificate: str, component_id: Optional[str], upsert: bool) -> str:
+def _register(certificate: str, component_id: Optional[str]) -> str:
     """Register a certificate, returning the component it was registered for."""
     certificate_manager = _certificate_manager()
     # The GUI is handed the certificate itself, so it registers it directly;
@@ -142,7 +147,6 @@ def _register(certificate: str, component_id: Optional[str], upsert: bool) -> st
         return certificate_manager.register(
             certificate=certificate,
             component_id=component_id,
-            upsert=upsert,
         )
     finally:
         certificate_manager.close()
@@ -165,9 +169,9 @@ def register_certificate():
     """Register a certificate the node received from another component.
 
     The certificate is sent as text, whether the user pasted it or picked a file.
-    `upsert` replaces an existing registration of the same component, which the user
-    confirms after the conflict is reported. `component_id` is required only for a
-    certificate that carries no component id of its own in `CN=`.
+    `component_id` is required only for a certificate that carries no component id
+    of its own in `CN=`. A registered certificate is not replaced here: it is
+    deleted first.
     """
     payload = request.get_json(silent=True) or {}
     certificate = payload.get("certificate")
@@ -179,9 +183,7 @@ def register_certificate():
         return error("'component_id' must be a string"), 400
 
     try:
-        registered_component_id = _register(
-            certificate, component_id, bool(payload.get("upsert", False))
-        )
+        registered_component_id = _register(certificate, component_id)
     except FedbiomedError as exp:
         return error(str(exp)), 400
     except OSError as exp:
@@ -193,6 +195,31 @@ def register_certificate():
             "requires_restart": _restart_required(),
         },
         f"Certificate of {registered_component_id} has been registered.",
+    ), 200
+
+
+@api.route("/certificates/inspect", methods=["POST"])
+@admin_required
+def inspect_certificate():
+    """Describe a certificate without registering it.
+
+    The component id is recovered as `register` recovers it: from `CN=`, only on a
+    certificate Fed-BioMed issued (`O=Fed-BioMed`). Otherwise it is null, and the
+    user supplies it.
+    """
+    payload = request.get_json(silent=True) or {}
+    certificate = payload.get("certificate")
+    if not isinstance(certificate, str) or not certificate.strip():
+        return error("A certificate in PEM format is required"), 400
+
+    if certificate_fingerprint(certificate) is None:
+        return error("The text is not a PEM encoded certificate"), 400
+
+    return response(
+        {
+            "component_id": certificate_component_id(certificate),
+            **_certificate_summary(certificate),
+        }
     ), 200
 
 

@@ -408,7 +408,7 @@ const Configuration = ({
                 iconType="users"
                 onClick={() => setResearcherCertificateOpen(true)}
             >
-                Registered certificate
+                Researcher certificate
             </EuiButton>
         ),
         [CERTIFICATE_SECTION]: (

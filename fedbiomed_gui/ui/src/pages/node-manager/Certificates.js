@@ -3,10 +3,13 @@ import {connect} from 'react-redux'
 import {
     EuiButton,
     EuiButtonEmpty,
+    EuiButtonIcon,
     EuiCallOut,
-    EuiConfirmModal,
+    EuiCodeBlock,
     EuiFieldText,
     EuiFilePicker,
+    EuiFlexGroup,
+    EuiFlexItem,
     EuiFormRow,
     EuiIcon,
     EuiModal,
@@ -14,19 +17,22 @@ import {
     EuiModalFooter,
     EuiModalHeader,
     EuiModalHeaderTitle,
+    EuiPopover,
     EuiSpacer,
     EuiText,
     EuiTextArea,
+    EuiTitle,
 } from '@elastic/eui'
 
+import Popup from '../../components/common/Popup'
 import {
     deleteCertificate,
     downloadOwnCertificate,
     fetchCertificateStatus,
     generateOwnCertificate,
+    inspectCertificate,
     registerCertificate,
     replaceOwnCertificate,
-    resetCertificateMessages,
 } from '../../store/actions/certificatesActions'
 
 const emptyValue = '-'
@@ -101,25 +107,6 @@ const CertificateDetails = ({certificate}) => (
             value={formatValue(certificate.fingerprint)}
         />
     </div>
-)
-
-/** What the last read and the last write have to say, in the order they happen. */
-const CertificateMessages = ({error, writeError, successMessage}) => (
-    <>
-        {[error, writeError].filter(Boolean).map((message) => (
-            <div className="node-management-alert error" key={message}>
-                <EuiIcon type="alert" />
-                <span>{message}</span>
-            </div>
-        ))}
-
-        {successMessage ? (
-            <div className="node-management-alert info">
-                <EuiIcon type="check" />
-                <span>{successMessage}</span>
-            </div>
-        ) : null}
-    </>
 )
 
 /**
@@ -282,25 +269,27 @@ const OwnCertificate = ({
             </EuiButton>
 
             {confirming ? (
-                <EuiConfirmModal
+                <Popup
+                    icon="alert"
+                    iconColor="warning"
                     title={
                         confirming === ownCertificateActions.generate
                             ? 'Generate a new certificate?'
                             : 'Replace this node\'s certificate?'
                     }
-                    onCancel={() => setConfirming(null)}
+                    onClose={() => setConfirming(null)}
+                    cancelText="Keep the current one"
+                    confirmText={
+                        confirming === ownCertificateActions.generate
+                            ? 'Generate it'
+                            : 'Replace it'
+                    }
+                    confirmColor="danger"
                     onConfirm={
                         confirming === ownCertificateActions.generate
                             ? generate
                             : replace
                     }
-                    cancelButtonText="Keep the current one"
-                    confirmButtonText={
-                        confirming === ownCertificateActions.generate
-                            ? 'Generate it'
-                            : 'Replace it'
-                    }
-                    buttonColor="danger"
                 >
                     <p>
                         This node stops presenting the certificate it presents
@@ -312,192 +301,398 @@ const OwnCertificate = ({
                         The pair being replaced is kept alongside it as a
                         timestamped backup.
                     </p>
-                </EuiConfirmModal>
+                </Popup>
             ) : null}
         </>
     )
 }
 
 /**
- * The certificates this node has registered, which under mutual authentication
- * is the researcher's and the one it pins.
+ * The researcher certificate this node trusts, shown in the box. With none
+ * registered, the empty box takes the certificate to register; a registered one
+ * is deleted before another is added. A node holds a single researcher
+ * certificate: more than one registered is an error, fixed from the command
+ * line.
  */
 const ResearcherCertificates = ({
     registered,
+    loaded,
     writing,
+    onInspect,
     onRegister,
     onDelete,
+    onDraftChange,
 }) => {
-    const [certificate, setCertificate] = React.useState('')
+    // The certificate being added, from its first change until it is
+    // registered; without one, the box shows the registered certificate
+    const [draft, setDraft] = React.useState(null)
+    const [editing, setEditing] = React.useState(false)
+    const [inspecting, setInspecting] = React.useState(false)
+    const [inspected, setInspected] = React.useState(null)
+    const [inspectError, setInspectError] = React.useState(null)
     const [componentId, setComponentId] = React.useState('')
-    const [conflictingCertificate, setConflictingCertificate] = React.useState(
-        null
-    )
-    const [componentToDelete, setComponentToDelete] = React.useState(null)
+    const [infoOpen, setInfoOpen] = React.useState(false)
+    const [confirmingDelete, setConfirmingDelete] = React.useState(false)
 
-    const register = async ({upsert = false} = {}) => {
-        const registeredOk = await onRegister(certificate, {
-            upsert,
-            componentId: componentId.trim() || null,
+    const current = registered.length === 1 ? registered[0] : null
+    const pending = draft !== null
+    // With nothing registered the empty box is open for the first certificate,
+    // once the status says so: until then, one may still be registered
+    const open = loaded && !current && !pending
+    const editingNow = editing || open
+    // What the header of the box and (i) describe: the draft once inspected,
+    // otherwise what is registered
+    const described = pending ? inspected : current
+    // Recovered from the certificate when Fed-BioMed issued it, typed otherwise.
+    // A draft is only inspected once its edit is done.
+    const needsComponentId = Boolean(inspected) && !inspected.component_id
+    const registerComponentId = inspected?.component_id || componentId.trim()
+    const canRegister = Boolean(inspected) && Boolean(registerComponentId)
+
+    // The header of the box: whose certificate it is, whether it is the
+    // registered one, and until when it is valid
+    const identityTitle = described
+        ? described.component_id
+            || componentId.trim()
+            || 'Component id to enter below'
+        : editing ? 'New certificate'
+            : loaded ? 'No certificate is registered'
+                : 'Reading the registered certificate…'
+    const days = described?.expires_in_days
+    // A certificate is refused once expired, but one registered earlier expires
+    const expired = days < 0
+    const expiryDate = described?.cert_not_after
+        ? new Date(described.cert_not_after).toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        })
+        : null
+    const identityDetail = !expiryDate
+        ? null
+        : expired
+            ? `Expired ${expiryDate} — request a renewed certificate from `
+                + 'the researcher.'
+            : `Expires ${expiryDate} · in ${days.toLocaleString()} `
+                + `${days === 1 ? 'day' : 'days'}`
+                + (described.expiring_soon
+                    ? ' — request a renewed certificate from the researcher.'
+                    : '')
+    // Shown in the page's status pill, so in the page's colours
+    const [statusIcon, statusClass] = expired
+        ? ['alert', 'danger']
+        : described?.expiring_soon
+            ? ['clock', 'warning']
+            : pending
+                ? ['document', 'neutral']
+                : ['check', 'success']
+
+    // The window asks before closing on a certificate not registered yet; an
+    // empty box holds nothing to lose
+    const hasDraft = Boolean(draft?.trim())
+    React.useEffect(() => {
+        onDraftChange(hasDraft)
+    }, [onDraftChange, hasDraft])
+
+    // Any change to the draft makes it one that is not checked yet
+    const edit = (text) => {
+        setDraft(text)
+        setInspected(null)
+        setInspectError(null)
+        setInfoOpen(false)
+        setEditing(true)
+    }
+
+    // Done and picking a file end the edit the same way: the node reads the text
+    // back, and names the component when the certificate carries it
+    const done = async (text) => {
+        setDraft(text)
+        setInspectError(null)
+        setInspecting(true)
+        const result = await onInspect(text)
+        setInspecting(false)
+        if (result.error) {
+            setInspectError(result.error)
+            setEditing(true)
+            return
+        }
+
+        setInspected(result)
+        setEditing(false)
+    }
+
+    const register = async () => {
+        const registeredOk = await onRegister(draft, {
+            componentId: inspected.component_id ? null : registerComponentId,
         })
         if (registeredOk) {
-            setCertificate('')
+            // The box shows the registered certificate again, now this one
+            setDraft(null)
+            setInspected(null)
             setComponentId('')
-            setConflictingCertificate(null)
-        } else if (!upsert) {
-            // The component is already registered; replacing it is the user's call
-            setConflictingCertificate(certificate)
         }
+    }
+
+    if (registered.length > 1) {
+        return (
+            <EuiCallOut
+                color="danger"
+                iconType="alert"
+                title="More than one certificate is registered"
+                size="s"
+            >
+                <p>
+                    A node holds a single researcher certificate, but{' '}
+                    {registered.map((entry) => entry.component_id).join(', ')}
+                    {' '}are registered. Remove the extra ones with{' '}
+                    <code>fedbiomed node certificate delete</code>, then reopen
+                    this window.
+                </p>
+            </EuiCallOut>
+        )
     }
 
     return (
         <>
-            <h3>Registered researcher certificate</h3>
             <EuiText size="s" color="subdued">
                 <p>
-                    A node registers the certificate of the researcher it
-                    connects to, and pins it under mutual authentication.
+                    The certificate this node trusts for its researcher. Changes
+                    are written at once; restart the node to use them.
                 </p>
             </EuiText>
+            <EuiSpacer size="m" />
+
+            {described ? (
+                <div
+                    className={
+                        'node-certificate-identity'
+                        + (expired
+                            ? ' danger'
+                            : described.expiring_soon ? ' warning' : '')
+                    }
+                >
+                    <EuiFlexGroup
+                        gutterSize="s"
+                        alignItems="center"
+                        responsive={false}
+                    >
+                        <EuiFlexItem>
+                            <EuiTitle size="xxs">
+                                <h4>{identityTitle}</h4>
+                            </EuiTitle>
+                            <EuiSpacer size="xs" />
+                            <EuiFlexGroup
+                                gutterSize="s"
+                                alignItems="center"
+                                responsive={false}
+                                wrap
+                            >
+                                <EuiFlexItem grow={false}>
+                                    <span
+                                        className={
+                                            'node-management-status-pill '
+                                            + `${statusClass} `
+                                            + 'node-certificate-identity-state'
+                                        }
+                                    >
+                                        <EuiIcon type={statusIcon} size="s" />
+                                        {pending
+                                            ? 'Not registered yet'
+                                            : 'Registered'}
+                                    </span>
+                                </EuiFlexItem>
+                                {identityDetail ? (
+                                    <EuiFlexItem>
+                                        <EuiText size="xs">
+                                            {identityDetail}
+                                        </EuiText>
+                                    </EuiFlexItem>
+                                ) : null}
+                            </EuiFlexGroup>
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiPopover
+                                button={
+                                    <EuiButtonIcon
+                                        iconType="iInCircle"
+                                        aria-label="Certificate details"
+                                        title="Certificate details"
+                                        onClick={() => setInfoOpen(!infoOpen)}
+                                    />
+                                }
+                                isOpen={infoOpen}
+                                closePopover={() => setInfoOpen(false)}
+                                anchorPosition="leftUp"
+                            >
+                                <EuiCodeBlock
+                                    language="json"
+                                    fontSize="s"
+                                    paddingSize="s"
+                                    overflowHeight={400}
+                                    isCopyable
+                                >
+                                    {/* The text itself is in the box */}
+                                    {JSON.stringify(
+                                        {...described, certificate: undefined},
+                                        null,
+                                        2
+                                    )}
+                                </EuiCodeBlock>
+                            </EuiPopover>
+                        </EuiFlexItem>
+                    </EuiFlexGroup>
+                </div>
+            ) : (
+                <EuiTitle size="xxs">
+                    <h4>{identityTitle}</h4>
+                </EuiTitle>
+            )}
+            <EuiSpacer size="s" />
+            <EuiFormRow
+                isInvalid={Boolean(inspectError)}
+                error={inspectError}
+                fullWidth
+            >
+                <EuiTextArea
+                    className="node-certificate-pem"
+                    fullWidth
+                    rows={8}
+                    readOnly={!pending && !open}
+                    isInvalid={Boolean(inspectError)}
+                    placeholder={
+                        editingNow
+                            ? 'Paste the certificate, or load its .pem file'
+                            : undefined
+                    }
+                    value={pending ? draft : current?.certificate || ''}
+                    onChange={(event) => edit(event.target.value)}
+                />
+            </EuiFormRow>
+
+            {needsComponentId ? (
+                <EuiFormRow
+                    label="Component id"
+                    helpText="This certificate does not name its component: enter the researcher's id."
+                    fullWidth
+                >
+                    <EuiFieldText
+                        fullWidth
+                        placeholder="RESEARCHER_&lt;uuid&gt;"
+                        value={componentId}
+                        onChange={(event) => setComponentId(event.target.value)}
+                    />
+                </EuiFormRow>
+            ) : null}
             <EuiSpacer size="s" />
 
-            {registered.length ? (
-                registered.map((entry) => (
-                    <div
-                        className="node-management-registered-certificate"
-                        key={entry.component_id}
-                    >
-                        <DetailItem
-                            label="Component id"
-                            value={entry.component_id}
-                        />
-                        <CertificateDetails certificate={entry} />
-                        <EuiButtonEmpty
+            <EuiFlexGroup
+                gutterSize="s"
+                alignItems="center"
+                responsive={false}
+                wrap
+            >
+                {editingNow ? (
+                    <>
+                        <EuiFlexItem>
+                            <EuiFilePicker
+                                compressed
+                                display="default"
+                                initialPromptText="Load a .pem file"
+                                accept=".pem,.crt,.cert"
+                                onChange={readFileInto(done)}
+                            />
+                        </EuiFlexItem>
+                        <EuiFlexItem grow={false}>
+                            <EuiButton
+                                size="s"
+                                fill
+                                iconType="check"
+                                isLoading={inspecting}
+                                isDisabled={!draft?.trim()}
+                                onClick={() => done(draft)}
+                            >
+                                Done
+                            </EuiButton>
+                        </EuiFlexItem>
+                    </>
+                ) : pending ? (
+                    <EuiFlexItem grow={false}>
+                        <EuiButton
+                            size="s"
+                            fill
+                            iconType="plusInCircle"
+                            isLoading={writing}
+                            isDisabled={!canRegister}
+                            onClick={register}
+                        >
+                            Register
+                        </EuiButton>
+                    </EuiFlexItem>
+                ) : current ? (
+                    <EuiFlexItem grow={false}>
+                        <EuiButton
                             size="s"
                             color="danger"
                             iconType="trash"
                             isDisabled={writing}
-                            onClick={() => setComponentToDelete(entry.component_id)}
+                            onClick={() => setConfirmingDelete(true)}
                         >
                             Delete
-                        </EuiButtonEmpty>
-                    </div>
-                ))
-            ) : (
-                <EuiText size="s">
-                    <p>No certificate is registered.</p>
-                </EuiText>
-            )}
+                        </EuiButton>
+                    </EuiFlexItem>
+                ) : null}
+            </EuiFlexGroup>
 
-            <EuiSpacer size="m" />
-
-            <EuiFormRow
-                label="Register a certificate"
-                helpText="Paste the certificate the researcher sent, or pick the file it came in."
-                fullWidth
-            >
-                <EuiTextArea
-                    fullWidth
-                    rows={6}
-                    placeholder="-----BEGIN CERTIFICATE-----"
-                    value={certificate}
-                    onChange={(event) => setCertificate(event.target.value)}
-                />
-            </EuiFormRow>
-            <EuiFilePicker
-                initialPromptText="Select a .pem file"
-                display="default"
-                accept=".pem,.crt,.cert"
-                onChange={readFileInto(setCertificate)}
-            />
-            <EuiSpacer size="s" />
-            <EuiFormRow
-                label="Component id"
-                helpText="Only for a certificate that does not name the component in its CN= field. Leave it empty otherwise."
-                fullWidth
-            >
-                <EuiFieldText
-                    fullWidth
-                    placeholder="RESEARCHER_&lt;uuid&gt;"
-                    value={componentId}
-                    onChange={(event) => setComponentId(event.target.value)}
-                />
-            </EuiFormRow>
-            <EuiSpacer size="s" />
-            <EuiButton
-                size="s"
-                fill
-                iconType="plusInCircle"
-                isLoading={writing}
-                isDisabled={!certificate.trim()}
-                onClick={() => register()}
-            >
-                Register
-            </EuiButton>
-
-            {conflictingCertificate ? (
-                <EuiConfirmModal
-                    title="Replace the registered certificate?"
-                    onCancel={() => setConflictingCertificate(null)}
-                    onConfirm={() => register({upsert: true})}
-                    cancelButtonText="Keep the current one"
-                    confirmButtonText="Replace it"
-                    buttonColor="danger"
+            {confirmingDelete ? (
+                <Popup
+                    icon="trash"
+                    iconColor="danger"
+                    title="Delete the researcher certificate?"
+                    onClose={() => setConfirmingDelete(false)}
+                    cancelText="Keep it"
+                    confirmText="Delete"
+                    confirmColor="danger"
+                    onConfirm={() => {
+                        onDelete(current.component_id)
+                        setConfirmingDelete(false)
+                    }}
                 >
                     <p>
-                        This component already has a certificate registered.
-                        Replacing it means the node trusts the new one only:
-                        do it when the component renewed its certificate, and
-                        check that it came from them.
+                        The node stops trusting the certificate of{' '}
+                        <code>{current.component_id}</code>. A running node
+                        keeps trusting it until it is restarted.
                     </p>
-                </EuiConfirmModal>
-            ) : null}
-
-            {componentToDelete ? (
-                <EuiConfirmModal
-                    title="Delete this certificate?"
-                    onCancel={() => setComponentToDelete(null)}
-                    onConfirm={() => {
-                        onDelete(componentToDelete)
-                        setComponentToDelete(null)
-                    }}
-                    cancelButtonText="Keep it"
-                    confirmButtonText="Delete"
-                    buttonColor="danger"
-                >
                     <p>
                         With no researcher certificate registered, a node that
                         requires mutual authentication refuses to start.
                     </p>
-                </EuiConfirmModal>
+                </Popup>
             ) : null}
         </>
     )
 }
 
 /**
- * Shared frame for the certificate windows: the status is read as the window
- * opens, and the messages a write left behind are cleared as it closes.
+ * Shared frame for the certificate windows. The status is read as the window
+ * opens; what a write did is reported in the global result popup. Closing on a
+ * draft that is not written yet asks first.
  */
 const CertificateWindow = ({
     title,
     notice,
     onClose,
+    hasDraft = false,
     error,
-    writeError,
-    successMessage,
     fetchCertificateStatus,
-    resetCertificateMessages,
     children,
 }) => {
+    const [confirmingClose, setConfirmingClose] = React.useState(false)
+
     React.useEffect(() => {
         fetchCertificateStatus()
     }, [fetchCertificateStatus])
 
-    const close = () => {
-        resetCertificateMessages()
-        onClose()
-    }
+    const close = () => (hasDraft ? setConfirmingClose(true) : onClose())
 
     return (
         <EuiModal className="node-certificate-modal" onClose={close}>
@@ -505,27 +700,43 @@ const CertificateWindow = ({
                 <EuiModalHeaderTitle>{title}</EuiModalHeaderTitle>
             </EuiModalHeader>
             <EuiModalBody>
-                <CertificateMessages
-                    error={error}
-                    writeError={writeError}
-                    successMessage={successMessage}
-                />
-                <EuiCallOut
-                    color="primary"
-                    iconType="iInCircle"
-                    title="Everything here is written straight away"
-                    size="s"
-                >
-                    <p>{notice}</p>
-                </EuiCallOut>
-                <EuiSpacer size="m" />
+                {error ? (
+                    <div className="node-management-alert error">
+                        <EuiIcon type="alert" />
+                        <span>{error}</span>
+                    </div>
+                ) : null}
+                {notice ? (
+                    <>
+                        <EuiCallOut
+                            color="primary"
+                            iconType="iInCircle"
+                            title="Everything here is written straight away"
+                            size="s"
+                        >
+                            <p>{notice}</p>
+                        </EuiCallOut>
+                        <EuiSpacer size="m" />
+                    </>
+                ) : null}
                 {children}
             </EuiModalBody>
             <EuiModalFooter>
-                <EuiButton onClick={close} fill>
-                    Close
-                </EuiButton>
+                <EuiButtonEmpty onClick={close}>Close</EuiButtonEmpty>
             </EuiModalFooter>
+
+            {confirmingClose ? (
+                <Popup
+                    icon="alert"
+                    iconColor="warning"
+                    title="Discard the certificate you have not registered?"
+                    onClose={() => setConfirmingClose(false)}
+                    cancelText="Keep editing"
+                    confirmText="Discard"
+                    confirmColor="danger"
+                    onConfirm={onClose}
+                />
+            ) : null}
         </EuiModal>
     )
 }
@@ -542,10 +753,7 @@ const OwnCertificateWindow = (props) => (
         }
         onClose={props.onClose}
         error={props.error}
-        writeError={props.writeError}
-        successMessage={props.successMessage}
         fetchCertificateStatus={props.fetchCertificateStatus}
-        resetCertificateMessages={props.resetCertificateMessages}
     >
         <OwnCertificate
             ownCertificate={props.certificateStatus?.certificate}
@@ -557,41 +765,41 @@ const OwnCertificateWindow = (props) => (
     </CertificateWindow>
 )
 
-const ResearcherCertificateWindow = (props) => (
-    <CertificateWindow
-        title="Researcher certificate"
-        notice={
-            'Registering or deleting a certificate here writes it to disk at '
-            + 'once. The Mutual authentication switch behind this window does '
-            + 'not: it applies only once you save the configuration, and Reset '
-            + 'there discards it while leaving what you register here in place.'
-        }
-        onClose={props.onClose}
-        error={props.error}
-        writeError={props.writeError}
-        successMessage={props.successMessage}
-        fetchCertificateStatus={props.fetchCertificateStatus}
-        resetCertificateMessages={props.resetCertificateMessages}
-    >
-        <ResearcherCertificates
-            registered={props.certificateStatus?.registered || []}
-            writing={props.writing}
-            onRegister={props.registerCertificate}
-            onDelete={props.deleteCertificate}
-        />
-    </CertificateWindow>
-)
+const ResearcherCertificateWindow = (props) => {
+    const [hasDraft, setHasDraft] = React.useState(false)
+
+    return (
+        <CertificateWindow
+            title="Researcher certificate"
+            onClose={props.onClose}
+            hasDraft={hasDraft}
+            error={props.error}
+            fetchCertificateStatus={props.fetchCertificateStatus}
+        >
+            <ResearcherCertificates
+                registered={props.certificateStatus?.registered || []}
+                loaded={Boolean(props.certificateStatus)}
+                writing={props.writing}
+                onInspect={props.inspectCertificate}
+                onRegister={props.registerCertificate}
+                onDelete={props.deleteCertificate}
+                onDraftChange={setHasDraft}
+            />
+        </CertificateWindow>
+    )
+}
 
 const mapStateToProps = (state) => ({
     certificateStatus: state.certificates.status,
     writing: state.certificates.writing,
     error: state.certificates.error,
-    writeError: state.certificates.writeError,
-    successMessage: state.certificates.successMessage,
 })
 
 const mapDispatchToProps = (dispatch) => ({
     fetchCertificateStatus: () => dispatch(fetchCertificateStatus()),
+    inspectCertificate: (certificate) => dispatch(
+        inspectCertificate(certificate)
+    ),
     registerCertificate: (certificate, options) => dispatch(
         registerCertificate(certificate, options)
     ),
@@ -603,7 +811,6 @@ const mapDispatchToProps = (dispatch) => ({
     replaceOwnCertificate: (certificate, privateKey) => dispatch(
         replaceOwnCertificate(certificate, privateKey)
     ),
-    resetCertificateMessages: () => dispatch(resetCertificateMessages()),
 })
 
 export const OwnCertificateModal = connect(

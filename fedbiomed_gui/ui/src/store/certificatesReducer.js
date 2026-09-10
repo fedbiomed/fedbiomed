@@ -2,11 +2,8 @@ import {
     CERTIFICATES_CONNECTION_ERROR,
     CERTIFICATES_CONNECTION_SUCCESS,
     CERTIFICATES_ERROR,
-    CERTIFICATES_RESET_MESSAGES,
     CERTIFICATES_SUCCESS,
-    CERTIFICATES_WRITE_ERROR,
     CERTIFICATES_WRITE_LOADING,
-    CERTIFICATES_WRITE_SUCCESS,
 } from './actions/actions'
 
 const initialCertificatesState = {
@@ -15,8 +12,6 @@ const initialCertificatesState = {
     writing: false,
     error: null,
     connectionError: null,
-    writeError: null,
-    successMessage: null,
 }
 
 export const certificatesReducer = (
@@ -37,25 +32,7 @@ export const certificatesReducer = (
             return {...state, connectionError: action.payload}
 
         case CERTIFICATES_WRITE_LOADING:
-            return {
-                ...state,
-                writing: Boolean(action.payload),
-                writeError: action.payload ? null : state.writeError,
-                successMessage: action.payload ? null : state.successMessage,
-            }
-
-        case CERTIFICATES_WRITE_SUCCESS:
-            return {
-                ...state,
-                successMessage: action.payload,
-                writeError: null,
-            }
-
-        case CERTIFICATES_WRITE_ERROR:
-            return {...state, writeError: action.payload, successMessage: null}
-
-        case CERTIFICATES_RESET_MESSAGES:
-            return {...state, writeError: null, successMessage: null}
+            return {...state, writing: Boolean(action.payload)}
 
         default:
             return state

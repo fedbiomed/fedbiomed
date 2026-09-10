@@ -1091,8 +1091,56 @@ a.fed-box-link{
 }
 
 .node-certificate-modal {
+  /* Rendered outside the page, so it takes the page's colours itself */
+  --node-management-text: #172033;
+  --node-management-muted: #64748b;
+  --node-management-border: #e2e8f0;
   max-width: 90vw;
   width: 860px;
+}
+
+/* Two classes, to win over the EUI text area's own font */
+.node-certificate-modal .node-certificate-pem {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+  font-size: 12px;
+}
+
+/* The header of the researcher certificate box, in the page's palette */
+.node-certificate-identity {
+  background: #fff;
+  border: 1px solid var(--node-management-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.node-certificate-identity.warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.node-certificate-identity.danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+/* The page's status pill, sized for a line of text */
+.node-management-status-pill.node-certificate-identity-state {
+  font-size: 11px;
+  gap: 6px;
+  padding: 4px 10px;
+  text-transform: none;
+}
+
+/* One font across the certificate windows and the popups: buttons, inputs
+   and code, which EUI gives fonts of their own, take the page's. The
+   certificate text and its details keep their monospace. */
+.node-certificate-modal button,
+.node-certificate-modal input,
+.node-certificate-modal code,
+.popup button,
+.popup code {
+  font-family: inherit;
 }
 
 .node-config-group-tabs {
@@ -1430,13 +1478,6 @@ a.fed-box-link{
 
 .node-management-detail-item:nth-child(odd) {
   border-right: 1px solid var(--node-management-border);
-}
-
-.node-management-registered-certificate {
-  border: 1px solid var(--node-management-border);
-  border-radius: 8px;
-  margin-bottom: 12px;
-  padding: 12px 16px;
 }
 
 .node-management-detail-icon {
