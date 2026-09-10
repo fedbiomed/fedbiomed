@@ -16,6 +16,24 @@ from fedbiomed.common.exceptions import FedbiomedError
 from ._controller import Controller
 
 
+def download_mnist(root: Union[str, Path]) -> None:
+    """Downloads the MNIST files into `root`, unless they are already there.
+
+    Deploying a dataset is the one moment its files may legitimately be missing,
+    so it is the only step that fetches them by default.
+
+    Raises:
+        FedbiomedError: if the files could not be downloaded or extracted
+    """
+    try:
+        MNIST(root=root, download=True)
+    except Exception as e:
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB632.value}: The following error raised while "
+            f"downloading MNIST into {root}. {e}"
+        ) from e
+
+
 class MnistController(Controller):
     """Generic Mnist controller where the data is arranged in this way:
     root
@@ -31,14 +49,16 @@ class MnistController(Controller):
         self,
         root: Union[str, Path],
         train: bool = True,
-        download: bool = True,
+        download: bool = False,
     ) -> None:
         """Constructor of the class
 
         Args:
             root: Root directory path
             train: If true then train files are used
-            download: If true then downloads and extracts the files if they do not exist
+            download: If true then downloads and extracts the files if they do not
+                exist. Off by default: a deployed dataset is already under `root`,
+                so reading it back reports missing files instead of fetching them.
 
         Raises:
             FedbiomedError: if `torchvision.datasets.MNIST` can not be initialized
@@ -53,11 +73,8 @@ class MnistController(Controller):
                 f"Failed to instantiate MnistDataset object. {e}"
             ) from e
 
-        self._controller_kwargs = {
-            "root": str(self.root),
-            "train": train,
-            "download": False,
-        }
+        # The entry locates the dataset; `train`/`download` are not recorded
+        self._controller_kwargs = {"root": str(self.root)}
 
     def get_sample(self, index: int) -> Dict[str, Any]:
         """Retrieve a data sample without applying transforms"""

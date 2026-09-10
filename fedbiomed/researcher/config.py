@@ -34,12 +34,13 @@ class ResearcherConfig(Config):
             os.getenv("FBM_SERVER_NODE_DISCONNECTION_TIMEOUT", "10")
         )
 
-        # Generate certificate for gRPC server
+        # Generate certificate for gRPC server, issued for the host nodes reach it at
         key_file, pem_file = generate_certificate(
             root=self.root,
             prefix=SERVER_certificate_prefix,
             component_id=self._cfg["default"]["id"],
-            subject={"CommonName": grpc_host},
+            component_type=self.COMPONENT_TYPE,
+            host=grpc_host,
         )
 
         self._cfg["server"] = {
@@ -67,6 +68,9 @@ class ResearcherConfig(Config):
 
         See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
         """
+
+        super().migrate()
+
         if "node_disconnection_timeout" not in self._cfg["server"]:
             logger.warning(
                 "DEPRECATION: You are using an old configuration file for researcher. "

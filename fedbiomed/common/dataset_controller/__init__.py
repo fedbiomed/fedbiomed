@@ -13,7 +13,7 @@ from ._medical_folder_controller import (
     MedicalFolderLoadingBlockTypes,
 )
 from ._mednist_controller import MedNistController
-from ._mnist_controller import MnistController
+from ._mnist_controller import MnistController, download_mnist
 from ._tabular_controller import TabularController
 
 __all__ = [
@@ -25,4 +25,5 @@ __all__ = [
     "MnistController",
     "TabularController",
     "CustomController",
+    "download_mnist",
 ]

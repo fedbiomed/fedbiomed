@@ -1,8 +1,9 @@
-import unittest
 import argparse
+import unittest
 from unittest.mock import patch
-from fedbiomed.researcher.cli import ResearcherCLI, ResearcherControl
+
 from fedbiomed.common.cli import CommonCLI
+from fedbiomed.researcher.cli import ResearcherCLI, ResearcherControl
 
 
 class TestResearcherControl(unittest.TestCase):
@@ -87,7 +88,7 @@ class TestResearcherCLI(unittest.TestCase):
         )
 
         register_options = choices["register"]._positionals._option_string_actions
-        self.assertTrue("--party-id" in register_options)
+        self.assertTrue("--component-id" in register_options)
         self.assertTrue("--public-key" in register_options)
 
         generate_options = choices["generate"]._positionals._option_string_actions

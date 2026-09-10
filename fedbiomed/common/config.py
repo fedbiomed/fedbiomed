@@ -303,13 +303,14 @@ class Config(metaclass=ABCMeta):
                 "version": str(self._CONFIG_VERSION),
             }
 
+            config_dir = os.path.join(self.root, CONFIG_FOLDER_NAME)
             db_path = os.path.join(
                 self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json"
             )
-            self._cfg["default"]["db"] = os.path.relpath(
-                db_path, os.path.join(self.root, CONFIG_FOLDER_NAME)
-            )
+
+            self._cfg["default"]["db"] = os.path.relpath(db_path, config_dir)
             self._cfg["syslog"] = {"enable": "False"}
+            self._cfg["authentication"] = {"mutual_authentication": "False"}
 
             # Calls child class add_parameterss
             self.add_parameters()
@@ -374,6 +375,18 @@ class Config(metaclass=ABCMeta):
         It should update the section only if the parameter is not existing to avoid
         overwriting user defined values.
         """
+
+        if not self._cfg.has_section("authentication"):
+            # TODO-DEPRECATION: Remove this migration in future version. It is added to
+            # avoid breaking backward compatibility with old configuration files.
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for researcher. "
+                "Please add the 'authentication' section and add value `mutual_authentication=False` or `mutual_authentication=True` "
+                "in the `authentication` section in the component configuration."
+            )
+
+            self._cfg.add_section("authentication")
+            self._cfg.set("authentication", "mutual_authentication", "False")
 
 
 class Component:

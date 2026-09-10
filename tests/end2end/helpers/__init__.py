@@ -6,6 +6,7 @@ from ._execution import kill_registered_subprocesses
 from ._helpers import (
     Federation,
     add_dataset_to_node,
+    certificate_dev_setup,
     clear_experiment_data,
     create_federation,
     create_researcher,
@@ -17,6 +18,7 @@ from ._helpers import (
 __all__ = [
     "Federation",
     "add_dataset_to_node",
+    "certificate_dev_setup",
     "clear_experiment_data",
     "create_federation",
     "create_researcher",
