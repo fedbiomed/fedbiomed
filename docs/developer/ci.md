@@ -262,55 +262,6 @@ The `hosted-build-smoke` job in `test-docker.yml` runs on a fresh
 
 These images are test-only and are not pushed.
 
-### VPN functional test
-
-The `vpn-functional` job in `test-docker.yml` runs Python 3.11 and 3.14 on
-`ubuntu-24.04` and `ubuntu-26.04`. It builds the VPN server, researcher,
-node, and GUI images and then:
-
-- creates the WireGuard network
-- connects a researcher and two nodes
-- registers datasets on both nodes
-- converts notebook 101 to a Python script
-- runs a federated training experiment
-
-The test uses run-specific image tags, Compose project names, container names,
-and network names. Host ports are fixed, so two legs must never share a
-machine. The runner topology provides that: every leg gets its own ephemeral
-GitHub-hosted virtual machine. Moving a leg onto a self-hosted runner that
-accepts more than one job at a time would break the assumption and cause port
-collisions.
-
-The same constraint applies to a developer machine. Only one VPN stack can run
-at a time on a given host — `FBM_CONTAINER_INSTANCE_ID` distinguishes container
-and network names, but not host ports.
-
-Runs are superseded per ref, so a manual run replaces an in-flight scheduled one
-instead of queueing behind it.
-
-Compatibility CI explicitly selects the non-GPU node base and CPU-only PyTorch
-to fit within CI disk limits. This is an opt-in test configuration:
-
-- `FBM_VPN_NODE_BASE_SERVICE=basenode-no-gpu`
-- `FBM_PYTORCH_INDEX_URL=https://download.pytorch.org/whl/cpu`
-
-Normal VPN deployment does not set these values. It keeps the GPU-capable node
-base and standard package-index resolution.
-
-`FBM_PYTORCH_INDEX_URL` reaches the researcher and node builds as a Docker
-build argument and becomes an extra package index for their `pip install`, so
-those images resolve the CPU-only PyTorch wheels. Left empty, the builds use the
-default index. The researcher and node package
-builds skip the React build because neither image serves the node GUI. Node.js,
-Yarn, and the React compilation remain in the dedicated GUI image.
-
-Every leg runs on an ephemeral machine, so the Docker build cache is discarded
-with the runner and needs no cache management of its own.
-
-The VPN build wrapper propagates the first failed Docker build instead of
-continuing with later images. Cleanup removes resources created by the current
-run and does not execute a broad `docker system prune`.
-
 ### Docker publication
 
 `docker-deploy.yml` owns publication of the public base, node, and researcher
