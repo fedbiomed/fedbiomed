@@ -218,6 +218,34 @@ regularly even while nothing goes wrong. The node announces its first connection
 that follows an interruption; a connection merely replacing a retired one is logged at
 debug level. The security audit log records every one of them.
 
+## From the Node GUI
+
+A node does the same from the **Configuration** tab of the Node Management page of
+its [GUI](../nodes/node-gui.md), which is restricted to administrators. Its
+*Connection & certificates* group holds the researcher endpoint, this node's own
+certificate and the `[authentication]` setting, each with the window it opens:
+
+- **Manage certificate**, under this node's own pair: read what the node presents,
+  download it to send to the researcher, regenerate it, or replace it with a
+  certificate and private key issued elsewhere. The displaced pair is kept as the
+  single `.bak` backup beside it, as `fedbiomed node certificate replace` does;
+- **Registered certificate**, under the researcher: register the researcher
+  certificate — pasted or from a file — and delete it. Turning
+  `mutual_authentication` on opens this window, since that is what makes a
+  registered certificate necessary.
+
+It reports what would stop the node from starting before you start it: mutual
+authentication enabled with no researcher certificate registered, several registered,
+a registered certificate that states no host, or the node's own key or certificate
+file missing. Certificates are read when the node starts, so registering one or
+changing the setting takes effect when the node is restarted.
+
+The **Connection & Diagnostics** tab reads the state of the connection to the
+researcher as the node last recorded it: whether the channel is up, whether it is
+mutually authenticated, why it last failed, and what to do about it.
+
+The researcher has no GUI; it is configured with the commands above.
+
 ## Operating a running federation
 
 ### Adding a node to a running instance (hot-add)
@@ -258,8 +286,8 @@ new one:
     Registration refuses an expired certificate and warns about one within 30 days of
     expiry, on both components — that is where a node hears about the researcher
     certificate it pins. Afterwards, only the researcher keeps watching: it logs a
-    warning when a registered node certificate is within 30 days of expiry (re-checked
-    whenever the trust bundle changes). A running component is warned about neither its
+    warning when a registered node certificate is within 30 days of expiry (reported once,
+    when it enters that window). A running component is warned about neither its
     own certificate nor, on a node, the researcher certificate it pins — check those
     with `fedbiomed [node|researcher] certificate list`, which prints every expiry date.
 
@@ -336,9 +364,9 @@ what is logged — in [verifying and troubleshooting](#verifying-and-troubleshoo
 | Starts before its certificate is registered | Certificate registered while the researcher runs (hot-add) | Connects on a later retry, no restart | Picks the new certificate up at the next handshake, no restart |
 | No researcher certificate registered | any | Refuses to start | The node never connects |
 | Several researcher certificates registered | any | Refuses to start: the one to pin is ambiguous | The node never connects |
-| any | No node certificate registered | Rejected in the handshake, retries at debug level; connects once a certificate is registered, no restart | Starts and binds the port, warns that mutual authentication is on with no node certificate registered, and rejects every node handshake until one is — picked up with no restart |
+| any | No node certificate registered | Warns once, then retries at debug level. Registering its certificate connects the node with no restart | Starts and binds the port, warns that mutual authentication is on with no node certificate registered, and rejects every node handshake until one is — picked up with no restart |
 | No valid certificate of this node on the researcher: never registered, expired, or regenerated with `--force` and not re-shared | Trust bundle holding no current certificate for that node | Warns once, then retries at debug level. Registering the current certificate connects the node with no restart | Rejects it inside the handshake, no per-node log. An expiry had been announced by `certificate_expiring` warnings from 30 days before; a regenerated certificate is registered with `--upsert` |
-| Certificate within 30 days of expiry | Holds that certificate | Connects normally | Warns when the trust bundle is re-read |
+| Certificate within 30 days of expiry | Holds that certificate | Connects normally | Warns once |
 | Pins an outdated or wrong researcher certificate | Serves its current certificate | Warns once, then retries at debug level — treat as possible MITM | Handshake aborted by the node, nothing logged |
 | Pins the researcher's current certificate | Own certificate expired | Same handshake failure as an outdated pin | No node can establish a channel |
 | Declares a node id different from the component id its certificate is registered under | Certificate registered under that other component id | Warns once, then retries at debug level | Aborts the request `UNAUTHENTICATED` |
@@ -388,10 +416,9 @@ rejected node (it says so once at startup).
 | Warning `… the researcher does not verify node identities: NO node in the federation is authenticated` (node retries) | Node has mutual authentication on, researcher has it off, so the researcher names no node in its task responses. The node refuses every task until that changes | Request the researcher to enable `[authentication]` and register this node's certificate — the node connects with no restart. Disabling it on the node instead also clears the warning, but leaves the federation unauthenticated and is not deployable |
 | `FB628 … verified this connection as <other id>` (node stops) | The researcher answered naming a component that is not this node. A researcher rejects a mismatched id before answering, so this is not a configuration case — treat it as a researcher that is not behaving as one | Investigate the endpoint the node is pinned to; a certificate registered under the wrong id surfaces as `Researcher rejected this node's identity` instead |
 | Warning `Mutual authentication is enabled but no node certificate is registered` (researcher starts) | Mutual authentication on, but no node certificate registered yet | Register at least one node certificate — the researcher picks it up with no restart. Until then it binds the port but rejects every node handshake |
-| Warning `Certificate <component_id> expires on <date>` (researcher) | A registered node certificate is within 30 days of expiry; re-checked whenever the trust bundle changes | Renew it on that node, share it again, and re-register it with `--upsert` before that date |
+| Warning `Certificate <component_id> expires on <date>` (researcher) | A registered node certificate is within 30 days of expiry; reported once, when it enters that window | Renew it on that node, share it again, and re-register it with `--upsert` before that date |
 | `FB628 … Declared node id … does not match the identity … its certificate is registered under` (researcher error) | A node declared an id different from the one its certificate is registered under | Investigate; the node id and its registered component id must be the same component |
 | `FB628 … Refusing the node declaring id … its certificate is not registered` (researcher error) | The node completed the handshake but its certificate is absent from the registry — typically deleted while the researcher was running | Re-register the node's certificate, or leave it rejected if the removal was deliberate |
-| `FB628 … Refusing the node declaring id … its certificate registry could not be read` (researcher error) | The certificate database could not be read even once, so no node can be identified. Look for the accompanying `certificate_store_unreadable` warning | Check the path and permissions of the `db` entry in the researcher config |
 
 !!! danger "A handshake failure may be an attack"
     Under mutual authentication a failed handshake is not silently retried as "server

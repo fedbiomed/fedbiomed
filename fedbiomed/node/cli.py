@@ -34,8 +34,16 @@ from fedbiomed.node.cli_utils import (
     view_training_plan,
 )
 from fedbiomed.node.config import node_component
-from fedbiomed.node.node import NodeContext
-from fedbiomed.node.node_pm import NodeProcessManager
+from fedbiomed.node.node import (
+    DiagnosticSeverity,
+    NodeContext,
+    certificate_diagnostics,
+)
+from fedbiomed.node.node_pm import (
+    NodeConnectionStateManager,
+    NodeProcessManager,
+    NodeState,
+)
 
 # Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -442,6 +450,13 @@ class NodeControl(CLIArgumentParser):
         status = self._subparser.add_parser("status", help="Shows the node status")
         status.set_defaults(func=self.status)
 
+        status.add_argument(
+            "--history",
+            action="store_true",
+            required=False,
+            help="Also lists the connection state changes the node recorded recently.",
+        )
+
     def start(self, args):
         """Starts the node"""
         intro()
@@ -513,11 +528,54 @@ class NodeControl(CLIArgumentParser):
             reason="cli_restart_command",
         )
 
-    def status(self):
-        """Shows the node status"""
+    def status(self, args):
+        """Shows the node status, and the connection it last recorded.
+
+        The node writes its connection state as it observes its channel, so what
+        is reported here is only current while the node runs.
+        """
         node_process_manager = NodeProcessManager(self._context.config)
         status = node_process_manager.get_status()
-        print(f"Node status: {status}")
+        print(f"Node status: {status.value}")
+
+        connection_state = NodeConnectionStateManager(
+            self._context.config
+        ).get_connection_state()
+        if connection_state is None:
+            print("Connection:  none recorded yet")
+        else:
+            print(
+                f"Connection:  {connection_state.state} to {connection_state.host}:"
+                f"{connection_state.port} "
+                f"(mutual authentication {'on' if connection_state.mtls else 'off'})"
+            )
+            if connection_state.updated_at:
+                print(f"Recorded:    {connection_state.updated_at}")
+            if connection_state.reason:
+                print(f"Reason:      {connection_state.reason}")
+            if status is not NodeState.RUNNING:
+                print(
+                    "             The node is not running, so this is the state it "
+                    "was in when it stopped."
+                )
+
+        if not args.history:
+            return
+
+        history = NodeConnectionStateManager(
+            self._context.config
+        ).get_connection_history()
+        if not history:
+            print("\nNo connection state change recorded.")
+            return
+
+        print("\nRecent connection state changes, newest first:")
+        for entry in history:
+            print(
+                f"  {entry.updated_at or '-'}  {entry.state}"
+                + (f"  {entry.operation}" if entry.operation else "")
+                + (f"  {entry.reason}" if entry.reason else "")
+            )
 
 
 class GUIControl(CLIArgumentParser):
@@ -748,6 +806,66 @@ class NodeCLI(CommonCLI):
             help="The path were component is located. It can be absolute or "
             "relative to the path where CLI is executed.",
         )
+
+    def initialize_certificate_parser(self):
+        """Adds `certificate check`, which only a node has.
+
+        What readiness means differs by component: a node pins the one researcher
+        certificate it registers, where a researcher trusts the several it holds.
+        """
+        super().initialize_certificate_parser()
+
+        check = self._certificate_sub_parsers.add_parser(
+            "check",
+            help="Reports what stops this node connecting under mutual "
+            "authentication, and what it tolerates but an operator should fix. "
+            "Exits 1 when the node would not start.",
+        )
+        check.set_defaults(func=self._check_certificate)
+
+    def _check_certificate(self, args: argparse.Namespace):
+        """Reports the node's certificate diagnostics, as the node itself reads them.
+
+        Args:
+            args: Arguments that are passed after `certificate check` command
+        """
+        enabled = self.config.getbool(
+            "authentication", "mutual_authentication", fallback="False"
+        )
+        print(f"Mutual authentication: {'enabled' if enabled else 'disabled'}")
+        print(
+            f"Researcher:            {self.config.get('researcher', 'ip')}:"
+            f"{self.config.get('researcher', 'port')}"
+        )
+
+        diagnostics = certificate_diagnostics(self.config)
+        problems = [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.severity is DiagnosticSeverity.PROBLEM
+        ]
+        warnings = [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.severity is DiagnosticSeverity.WARNING
+        ]
+
+        if not diagnostics:
+            CommonCLI.success("\nNo certificate problem found.")
+            return
+
+        if problems:
+            print(f"\n{len(problems)} problem(s) stop this node from starting:")
+            for diagnostic in problems:
+                print(f"  - {diagnostic.message}")
+
+        if warnings:
+            print(f"\n{len(warnings)} warning(s):")
+            for diagnostic in warnings:
+                print(f"  - {diagnostic.message}")
+
+        if problems:
+            sys.exit(1)
 
 
 if __name__ == "__main__":

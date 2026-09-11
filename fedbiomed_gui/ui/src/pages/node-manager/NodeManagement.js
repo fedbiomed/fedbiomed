@@ -14,6 +14,7 @@ import {
 } from '@elastic/eui'
 
 import ApplicationLogs from './ApplicationLogs'
+import ConnectionStatus from './ConnectionStatus'
 import ProcessDetails from './ProcessDetails'
 import Configuration from './Configuration'
 import {
@@ -57,6 +58,7 @@ const areNodeArgsEqual = (firstNodeArgs, secondNodeArgs) => {
 const nodeManagementTabs = {
     process: 'process',
     logs: 'logs',
+    connection: 'connection',
 }
 
 const mainTabs = {
@@ -664,6 +666,16 @@ const NodeManagementContent = ({
                     >
                         Application Logs
                     </EuiTab>
+                    <EuiTab
+                        isSelected={
+                            activeTab === nodeManagementTabs.connection
+                        }
+                        onClick={() => (
+                            setActiveTab(nodeManagementTabs.connection)
+                        )}
+                    >
+                        Connection &amp; Diagnostics
+                    </EuiTab>
                 </EuiTabs>
             </section>
 
@@ -686,6 +698,8 @@ const NodeManagementContent = ({
                     StatusPill={StatusPill}
                     SummaryCard={SummaryCard}
                 />
+            ) : activeTab === nodeManagementTabs.connection ? (
+                <ConnectionStatus />
             ) : (
                 <ApplicationLogs
                     downloadNodeLogFile={downloadNodeLogFile}

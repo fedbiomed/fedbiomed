@@ -374,6 +374,9 @@ class Config(metaclass=ABCMeta):
         ```
         It should update the section only if the parameter is not existing to avoid
         overwriting user defined values.
+
+        Migrations shared by every component type live here; overriding it, call
+        `super().migrate()` first.
         """
 
         if not self._cfg.has_section("authentication"):

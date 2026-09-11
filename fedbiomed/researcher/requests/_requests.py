@@ -356,13 +356,8 @@ class Requests(metaclass=SingletonMeta):
         if config.getbool("authentication", "mutual_authentication", fallback="False"):
             db_path = config.getpath("default", "db")
             trusted_node_certificates = TrustedCertificateBundle(db_path)
-            # This first read also reports expiring certificates. The server starts
-            # with no node certificate registered: gRPC binds the port, then rejects
-            # every node handshake until a certificate is registered, which the
-            # per-handshake trust bundle picks up without a restart.
+            # The first read also reports expiring certificates.
             if not trusted_node_certificates():
-                # An empty bundle from a database that was never read means the
-                # database is missing or unreadable, not that it holds nothing.
                 msg = (
                     "Mutual authentication is enabled but no node certificate is "
                     "registered: nodes cannot connect until one is registered with "

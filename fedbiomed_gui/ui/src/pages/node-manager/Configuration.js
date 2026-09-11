@@ -2,89 +2,74 @@ import React from 'react'
 import {connect} from 'react-redux'
 import {
     EuiButton,
-    EuiCallOut,
-    EuiFieldNumber,
-    EuiFieldText,
-    EuiForm,
-    EuiFormRow,
+    EuiButtonEmpty,
+    EuiButtonIcon,
     EuiIcon,
-    EuiModal,
-    EuiModalBody,
-    EuiModalFooter,
-    EuiModalHeader,
-    EuiModalHeaderTitle,
-    EuiSelect,
+    EuiNotificationBadge,
     EuiSpacer,
+    EuiTab,
+    EuiTabs,
     EuiText,
 } from '@elastic/eui'
 
 import {
+    OwnCertificateModal,
+    ResearcherCertificateModal,
+} from './Certificates'
+import {ConfigGroup, Notices} from './ConfigurationFields'
+import {ReviewChangesModal, WriteConflictModal} from './ConfigurationModals'
+import {labelFor} from './configFormat'
+import {downloadOwnCertificate} from '../../store/actions/certificatesActions'
+import {
     fetchNodeConfig,
     resetNodeConfigMessages,
-    writeNodeConfigSection,
+    writeNodeConfig,
 } from '../../store/actions/nodeConfigActions'
 import {
     executeNodeAction,
     fetchNodeProcessState,
 } from '../../store/actions/nodeManagementActions'
 
-const labelFor = (key) => key
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
+// Sections and fields the certificate windows hang off
+const CERTIFICATE_SECTION = 'certificate'
+const RESEARCHER_SECTION = 'researcher'
+const CERTIFICATE_PUBLIC_KEY = 'public_key'
+const MTLS_SECTION = 'authentication'
+const MTLS_ENABLED = 'mutual_authentication'
 
-const securityFieldDescriptions = {
-    training_plan_approval: 'Require manual approval before a training plan can run.',
-    allow_default_training_plans: (
-        'Permit built-in training plans without extra registration.'
-    ),
-    secure_aggregation: 'Enable secure aggregation for compatible experiments.',
-    force_secure_aggregation: (
-        'Reject jobs that do not use secure aggregation.'
-    ),
-    secagg_insecure_validation: (
-        'Allow insecure validation mode for secure aggregation setup.'
-    ),
-    allow_preproc: 'Allow preprocessing steps before model training starts.',
-    allow_federated_analytics: (
-        'Permit analytics queries that do not train a model.'
-    ),
-}
-
-const getFieldDescription = (section, key, field) => {
-    if (section === 'security' && securityFieldDescriptions[key]) {
-        return securityFieldDescriptions[key]
-    }
-
-    return field.editable
-        ? 'Editable value from config.ini.'
-        : 'Read-only value from config.ini.'
-}
-
-const sectionIconFor = (section) => {
-    switch (section) {
-        case 'security':
-            return 'lock'
-        case 'default':
-            return 'node'
-        case 'certificate':
-            return 'document'
-        case 'researcher':
-            return 'users'
-        case 'syslog':
-            return 'console'
-        default:
-            return 'controlsHorizontal'
-    }
-}
-
-const sectionMarkFor = (section) => (
-    String(section || '?').charAt(0).toUpperCase()
-)
-
-const getSectionFields = (sections, section) => (
-    sections?.[section]?.fields || {}
-)
+/**
+ * How the page reads, which is not the order config.ini happens to store its
+ * sections in. Settings that belong to one concern are shown together even
+ * though the file keeps them apart.
+ */
+const SECTION_GROUPS = [
+    {
+        key: 'identity',
+        label: 'Node identity',
+        icon: 'node',
+        sections: ['default'],
+    },
+    {
+        key: 'connection',
+        label: 'Connection & certificates',
+        icon: 'globe',
+        // Them, then us, then the policy binding both: mutual TLS is the only
+        // one that depends on the other two already being in place
+        sections: ['researcher', 'certificate', 'authentication'],
+    },
+    {
+        key: 'security',
+        label: 'Security',
+        icon: 'lock',
+        sections: ['security'],
+    },
+    {
+        key: 'logging',
+        label: 'Logging',
+        icon: 'console',
+        sections: ['syslog'],
+    },
+]
 
 const normalizeFieldValue = (value, field) => {
     // Keep form values comparable with backend-normalized config values.
@@ -114,47 +99,93 @@ const normalizeFieldValue = (value, field) => {
     return value ?? field.default ?? ''
 }
 
-const normalizeSectionValues = (values = {}, fields = {}) => {
-    return Object.keys(fields).reduce((normalized, key) => ({
-        ...normalized,
-        [key]: normalizeFieldValue(values[key], fields[key]),
-    }), {})
-}
-
-const getSectionValues = (fields = {}) => {
-    // Extract the last values loaded from config.ini for one section.
-    return Object.keys(fields).reduce((values, key) => ({
-        ...values,
-        [key]: normalizeFieldValue(fields[key].value, fields[key]),
-    }), {})
-}
-
-const getEditableSectionValues = (current, fields) => {
-    const normalizedCurrent = normalizeSectionValues(current, fields)
-
-    // Send every editable value in the section. The backend compares all of
-    // them against the file before writing the complete section update.
-    return Object.keys(fields).reduce((values, key) => {
-        if (!fields[key].editable) {
-            return values
-        }
+const getSavedValues = (sections = {}) => {
+    // Values last loaded from config.ini, for every section at once. They are
+    // the baseline both for change detection and for backend conflict checks.
+    return Object.keys(sections).reduce((values, section) => {
+        const fields = sections[section]?.fields || {}
 
         return {
             ...values,
-            [key]: normalizedCurrent[key],
+            [section]: Object.keys(fields).reduce((sectionValues, key) => ({
+                ...sectionValues,
+                [key]: normalizeFieldValue(fields[key].value, fields[key]),
+            }), {}),
         }
     }, {})
 }
 
-const areSectionValuesEqual = (first, second, fields) => {
-    const normalizedFirst = normalizeSectionValues(first, fields)
-    const normalizedSecond = normalizeSectionValues(second, fields)
+const collectChanges = (sections = {}, draftValues = {}, savedValues = {}) => {
+    // One flat list of every editable field whose form value differs from
+    // config.ini. It drives the change count, the inline markers, the review
+    // dialog, and the request payload.
+    return Object.keys(sections).flatMap((section) => {
+        const fields = sections[section]?.fields || {}
 
-    return Object.keys(fields).every((key) => (
-        !fields[key].editable
-        ||
-        normalizedFirst[key] === normalizedSecond[key]
-    ))
+        return Object.keys(fields)
+            .filter((key) => {
+                if (!fields[key].editable) {
+                    return false
+                }
+
+                const draft = draftValues[section]?.[key]
+                return normalizeFieldValue(draft, fields[key])
+                    !== savedValues[section]?.[key]
+            })
+            .map((key) => ({
+                section,
+                sectionLabel: sections[section]?.label || labelFor(section),
+                key,
+                label: fields[key].label || labelFor(key),
+                current: savedValues[section]?.[key],
+                next: normalizeFieldValue(draftValues[section]?.[key], fields[key]),
+            }))
+    })
+}
+
+const buildSectionsPayload = (changes) => {
+    // Only changed fields are written. Their loaded values travel along as
+    // base values so the backend can reject a write over an external edit.
+    return changes.reduce((payload, change) => {
+        const section = payload[change.section] || {values: {}, base_values: {}}
+
+        return {
+            ...payload,
+            [change.section]: {
+                values: {...section.values, [change.key]: change.next},
+                base_values: {
+                    ...section.base_values,
+                    [change.key]: change.current,
+                },
+            },
+        }
+    }, {})
+}
+
+/**
+ * The groups to render, in page order. A section the page does not place yet
+ * still gets a group of its own, so a config that grows is never hidden.
+ */
+const buildGroups = (sections = {}) => {
+    const placed = new Set(SECTION_GROUPS.flatMap((group) => group.sections))
+
+    const groups = SECTION_GROUPS
+        .map((group) => ({
+            ...group,
+            sections: group.sections.filter((section) => sections[section]),
+        }))
+        .filter((group) => group.sections.length)
+
+    const unplaced = Object.keys(sections)
+        .filter((section) => !placed.has(section))
+        .map((section) => ({
+            key: section,
+            label: sections[section]?.label || labelFor(section),
+            icon: 'controlsHorizontal',
+            sections: [section],
+        }))
+
+    return [...groups, ...unplaced]
 }
 
 const Configuration = ({
@@ -171,38 +202,38 @@ const Configuration = ({
     configStartupCheckMessage,
     processState,
     fetchNodeConfig,
-    writeNodeConfigSection,
+    writeNodeConfig,
     resetNodeConfigMessages,
     executeNodeAction,
     fetchNodeProcessState,
+    downloadOwnCertificate,
     fetchProcessStateOnMount = true,
     embedded = false,
 }) => {
-    const [activeSection, setActiveSection] = React.useState(null)
-    // Draft values are the current form values. They may differ from config.ini
-    // until the user saves or resets the section.
+    // Draft values hold the whole form, section by section. They may differ
+    // from config.ini until the user saves or resets.
     const [draftValues, setDraftValues] = React.useState({})
+    const [reviewOpen, setReviewOpen] = React.useState(false)
     // Remember whether a conflict interrupted a Save & Restart action, so an
     // explicit overwrite can continue with restart after the forced write.
     const [restartAfterConflictWrite, setRestartAfterConflictWrite] = (
         React.useState(false)
     )
     const [restartLoading, setRestartLoading] = React.useState(false)
-    const sectionNames = React.useMemo(
-        () => Object.keys(sections || {}),
+    const [activeGroupKey, setActiveGroupKey] = React.useState(null)
+    const [ownCertificateOpen, setOwnCertificateOpen] = React.useState(false)
+    const [researcherCertificateOpen, setResearcherCertificateOpen] = (
+        React.useState(false)
+    )
+
+    const groups = React.useMemo(() => buildGroups(sections), [sections])
+    const savedValues = React.useMemo(
+        () => getSavedValues(sections),
         [sections]
     )
-    const resolvedSection = activeSection || sectionNames[0]
-    const sectionInfo = sections?.[resolvedSection] || {}
-    const fields = React.useMemo(
-        () => getSectionFields(sections, resolvedSection),
-        [sections, resolvedSection]
-    )
-    // Saved values are the last values loaded from config.ini. They are used as
-    // the base for dirty-state detection and backend conflict detection.
-    const savedValues = React.useMemo(
-        () => getSectionValues(fields),
-        [fields]
+    const changes = React.useMemo(
+        () => collectChanges(sections, draftValues, savedValues),
+        [sections, draftValues, savedValues]
     )
 
     React.useEffect(() => {
@@ -213,62 +244,56 @@ const Configuration = ({
     }, [fetchNodeConfig, fetchNodeProcessState, fetchProcessStateOnMount])
 
     React.useEffect(() => {
-        if (!activeSection && sectionNames.length) {
-            setActiveSection(sectionNames[0])
+        setDraftValues(savedValues)
+    }, [savedValues])
+
+    const updateValue = (section, key, value) => {
+        const field = sections?.[section]?.fields?.[key]
+
+        // Turning mutual TLS on is what makes a researcher certificate
+        // necessary, so the window to register one comes with the switch
+        if (
+            section === MTLS_SECTION
+            && key === MTLS_ENABLED
+            && value === true
+            && !draftValues[section]?.[key]
+        ) {
+            setResearcherCertificateOpen(true)
         }
-    }, [activeSection, sectionNames])
 
-    React.useEffect(() => {
-        if (!resolvedSection) {
-            return
-        }
-
-        setDraftValues(normalizeSectionValues(savedValues, fields))
-    }, [fields, resolvedSection, savedValues])
-
-    const updateValue = (key, value) => {
         setDraftValues((current) => ({
             ...current,
-            [key]: normalizeFieldValue(value, fields[key]),
+            [section]: {
+                ...current[section],
+                [key]: normalizeFieldValue(value, field),
+            },
         }))
         resetNodeConfigMessages()
     }
 
-    const saveCurrentSection = async ({restart = false, force = false} = {}) => {
-        if (!resolvedSection) {
+    const saveChanges = async ({restart = false, force = false} = {}) => {
+        if (!changes.length) {
             return
         }
 
-        const normalized = normalizeSectionValues(draftValues, fields)
-
-        // Always send all editable values in the section. For overwrite, only
-        // the force flag changes so the backend bypasses conflict checks.
-        const values = getEditableSectionValues(normalized, fields)
-
-        // Base values are what the user last loaded. The backend compares them
-        // against the file before writing to detect external modifications.
-        const baseValues = Object.keys(values).reduce((base, key) => ({
-            ...base,
-            [key]: savedValues[key],
-        }), {})
-
-        const result = await writeNodeConfigSection(
-            resolvedSection,
-            values,
-            baseValues,
+        const result = await writeNodeConfig(
+            buildSectionsPayload(changes),
             {force}
         )
         if (!result) {
+            setReviewOpen(false)
             return
         }
 
         if (result.conflict) {
             // Stop here. The conflict modal lets the user refresh, cancel, or
             // retry with force before any restart is attempted.
+            setReviewOpen(false)
             setRestartAfterConflictWrite(restart)
             return
         }
 
+        setReviewOpen(false)
         setRestartAfterConflictWrite(false)
         if (restart) {
             await restartNode()
@@ -288,7 +313,7 @@ const Configuration = ({
     }
 
     const resetChanges = () => {
-        setDraftValues(normalizeSectionValues(savedValues, fields))
+        setDraftValues(savedValues)
         resetNodeConfigMessages()
     }
 
@@ -305,10 +330,7 @@ const Configuration = ({
     const overwriteAfterConflict = async () => {
         // Retry the same draft write with force=true. If the interrupted action
         // was Save & Restart, restart continues after this write succeeds.
-        await saveCurrentSection({
-            restart: restartAfterConflictWrite,
-            force: true,
-        })
+        await saveChanges({restart: restartAfterConflictWrite, force: true})
     }
 
     const cancelConflict = () => {
@@ -320,30 +342,98 @@ const Configuration = ({
         processState?.state || configNodeState || ''
     ).toLowerCase()
     const isRunning = displayNodeState === 'running'
-    // Dirty means at least one editable form value differs from the last values
-    // loaded from config.ini. It enables 'Save' and 'Save & Restart' buttons in the frontend.
-    const dirty = resolvedSection
-        && !areSectionValuesEqual(draftValues, savedValues, fields)
+    const dirty = changes.length > 0
     const actionInProgress = writing || restartLoading
-    const sectionOptions = sectionNames.map((section) => ({
-        value: section,
-        text: sections?.[section]?.label || labelFor(section),
-    }))
-    const scalarFieldKeys = Object.keys(fields).filter((key) => (
-        fields[key].type !== 'boolean'
-    ))
-    const booleanFieldKeys = Object.keys(fields).filter((key) => (
-        fields[key].type === 'boolean'
-    ))
-    const activeSectionHasEditableFields = Object.keys(fields).some((key) => (
-        fields[key].editable
-    ))
-    const conflictItems = Object.keys(writeConflict?.conflicts || {}).map(
+    const changedKeys = new Set(
+        changes.map((change) => `${change.section}.${change.key}`)
+    )
+    const conflictItems = Object.keys(writeConflict?.sections || {}).flatMap(
         // Flatten backend conflict details to display in the modal.
-        (key) => ({
-            key,
-            ...writeConflict.conflicts[key],
-        })
+        (section) => {
+            const conflicts = writeConflict.sections[section]?.conflicts || {}
+
+            return Object.keys(conflicts).map((key) => ({
+                section,
+                key,
+                ...conflicts[key],
+            }))
+        }
+    )
+
+    // What the file and the running process say about themselves, which is true
+    // whether or not the user has done anything yet
+    const fileNotices = [
+        {
+            color: 'warning',
+            icon: 'alert',
+            title: configModifiedAfterStartup
+                ? 'The config file config.ini has been modified after node '
+                    + 'startup. The values shown here may not represent the '
+                    + 'values effective in the current node process'
+                : null,
+        },
+        {color: 'warning', icon: 'alert', title: configStartupCheckMessage},
+    ]
+
+    // The result of what the user just did, kept next to the buttons that did it
+    const actionNotices = [
+        {color: 'danger', icon: 'alert', title: error || writeError},
+        {color: 'success', icon: 'check', title: successMessage},
+        {
+            color: 'warning',
+            icon: 'refresh',
+            title: requiresRestart ? 'Restart required' : null,
+            body: 'Saved configuration changes will apply after the running '
+                + 'node restarts.',
+        },
+    ]
+
+    // Falls back to the first group, so the panel is never blank while the
+    // config loads or if a group disappears from a reloaded config
+    const activeGroup = groups.find((group) => group.key === activeGroupKey)
+        || groups[0]
+
+    // Unsaved changes live outside the group on screen, so every tab reports
+    // its own count and the action bar total stays traceable
+    const changedPerGroup = (group) => changes.filter((change) => (
+        group.sections.includes(change.section)
+    )).length
+
+    // Each certificate window opens from the section it belongs to: the
+    // researcher's registry under Researcher, this node's pair under its own
+    const sectionActions = {
+        [RESEARCHER_SECTION]: (
+            <EuiButton
+                size="s"
+                iconType="users"
+                onClick={() => setResearcherCertificateOpen(true)}
+            >
+                Registered certificate
+            </EuiButton>
+        ),
+        [CERTIFICATE_SECTION]: (
+            <EuiButton
+                size="s"
+                iconType="document"
+                onClick={() => setOwnCertificateOpen(true)}
+            >
+                Manage certificate
+            </EuiButton>
+        ),
+    }
+
+    // The certificate the node presents is the one it hands to a researcher
+    const appendFor = (section, key) => (
+        section === CERTIFICATE_SECTION && key === CERTIFICATE_PUBLIC_KEY
+            ? (
+                <EuiButtonIcon
+                    iconType="download"
+                    aria-label="Download certificate"
+                    title="Download this node's certificate"
+                    onClick={downloadOwnCertificate}
+                />
+            )
+            : undefined
     )
 
     return (
@@ -360,6 +450,9 @@ const Configuration = ({
                         </div>
                     </div>
                     <div className="node-management-header-actions">
+                        <span className="node-config-status">
+                            {String(displayNodeState || 'unknown').toUpperCase()}
+                        </span>
                         <EuiButton
                             iconType="refresh"
                             fill
@@ -372,368 +465,135 @@ const Configuration = ({
                 </div>
             </section>
 
-            {error || writeError ? (
-                <EuiCallOut
-                    color="danger"
-                    iconType="alert"
-                    title={error || writeError}
-                />
-            ) : null}
-
-            {successMessage ? (
-                <>
-                    <EuiSpacer size="m" />
-                    <EuiCallOut
-                        color="success"
-                        iconType="check"
-                        title={successMessage}
-                    />
-                </>
-            ) : null}
-
-            {configModifiedAfterStartup ? (
-                <>
-                    <EuiSpacer size="m" />
-                    <EuiCallOut
-                        color="warning"
-                        iconType="alert"
-                        title={
-                            'The config file config.ini has been modified after node startup. '
-                            + 'The values shown here may not represent the values effective '
-                            + 'in the current node process'
-                        }
-                    />
-                </>
-            ) : null}
-
-            {configStartupCheckMessage ? (
-                <>
-                    <EuiSpacer size="m" />
-                    <EuiCallOut
-                        color="warning"
-                        iconType="alert"
-                        title={configStartupCheckMessage}
-                    />
-                </>
-            ) : null}
-
-            {requiresRestart ? (
-                <>
-                    <EuiSpacer size="m" />
-                    <EuiCallOut
-                        color="warning"
-                        iconType="refresh"
-                        title="Restart required"
-                    >
-                        <p>
-                            Saved configuration changes will apply after the
-                            running node restarts.
-                        </p>
-                    </EuiCallOut>
-                </>
-            ) : null}
+            <Notices notices={fileNotices} />
 
             <EuiSpacer size="m" />
 
-            <div className="node-config-layout">
-                <nav
-                    className="node-config-section-nav"
-                    aria-label="Configuration sections"
-                >
-                    {sectionOptions.map((sectionOption) => {
-                        const section = sectionOption.value
-                        const isActive = section === resolvedSection
-                        const hasEditableFields = Object.values(
-                            sections?.[section]?.fields || {}
-                        ).some((field) => field.editable)
+            <div className="node-management-card node-config-panel">
+                {activeGroup ? (
+                    <>
+                        <EuiTabs className="node-config-group-tabs">
+                            {groups.map((group) => {
+                                const changedCount = changedPerGroup(group)
 
-                        return (
-                            <button
-                                type="button"
-                                className={`node-config-section-nav-item ${
-                                    isActive ? 'active' : ''
-                                } ${hasEditableFields ? '' : 'read-only'}`}
-                                key={section}
-                                onClick={() => {
-                                    setActiveSection(section)
-                                    resetNodeConfigMessages()
-                                }}
-                            >
-                                <span className="node-config-section-mark">
-                                    {sectionMarkFor(section)}
-                                </span>
-                                <span>
-                                    <strong>{sectionOption.text}</strong>
-                                    <small>
-                                        {hasEditableFields
-                                            ? 'Editable'
-                                            : 'Read-only'}
-                                    </small>
-                                </span>
-                            </button>
-                        )
-                    })}
-                </nav>
+                                return (
+                                    <EuiTab
+                                        key={group.key}
+                                        isSelected={group.key === activeGroup.key}
+                                        onClick={() => setActiveGroupKey(group.key)}
+                                        prepend={<EuiIcon type={group.icon} />}
+                                        append={changedCount ? (
+                                            <EuiNotificationBadge color="accent">
+                                                {changedCount}
+                                            </EuiNotificationBadge>
+                                        ) : undefined}
+                                    >
+                                        {group.label}
+                                    </EuiTab>
+                                )
+                            })}
+                        </EuiTabs>
 
-                <section className="node-management-card node-config-panel">
-                    <div className="node-config-panel-header">
-                        <div className="node-management-section-heading">
-                            <span className="node-management-section-icon">
-                                <EuiIcon
-                                    type={sectionIconFor(resolvedSection)}
-                                    size="l"
-                                />
-                            </span>
-                            <div>
-                                <h2>
-                                    {sectionInfo.label
-                                        || labelFor(
-                                            resolvedSection || 'configuration'
-                                        )}
-                                </h2>
-                                <p>
-                                    {activeSectionHasEditableFields
-                                        ? 'Changes are written to the node configuration file.'
-                                        : 'This section is displayed for reference.'}
-                                </p>
-                            </div>
-                        </div>
-                        <span className="node-config-status">
-                            {String(displayNodeState || 'unknown').toUpperCase()}
-                        </span>
-                    </div>
-
-                    <div className="node-config-form-area">
-                        {resolvedSection ? (
-                            <EuiForm
-                                className="node-config-form"
-                                component="form"
-                            >
-                                {scalarFieldKeys.length ? (
-                                    <div className="node-config-fields-grid">
-                                        {scalarFieldKeys.map((key) => {
-                                            const field = fields[key]
-                                            const label = field.label || labelFor(key)
-                                            const disabled = !field.editable
-                                            let fieldControl = (
-                                                <EuiFieldText
-                                                    className="node-config-input"
-                                                    disabled={disabled}
-                                                    value={draftValues[key]}
-                                                    onChange={(event) => (
-                                                        updateValue(
-                                                            key,
-                                                            event.target.value
-                                                        )
-                                                    )}
-                                                />
-                                            )
-
-                                            if (field.type === 'integer') {
-                                                fieldControl = (
-                                                    <EuiFieldNumber
-                                                        className="node-config-input"
-                                                        disabled={disabled}
-                                                        min={field.min ?? 0}
-                                                        value={draftValues[key]}
-                                                        onChange={(event) => (
-                                                            updateValue(
-                                                                key,
-                                                                event.target.value
-                                                            )
-                                                        )}
-                                                    />
-                                                )
-                                            }
-
-                                            if (field.type === 'enum') {
-                                                fieldControl = (
-                                                    <EuiSelect
-                                                        className="node-config-input"
-                                                        disabled={disabled}
-                                                        value={draftValues[key]}
-                                                        options={(
-                                                            field.options || []
-                                                        ).map((option) => ({
-                                                            value: option,
-                                                            text: option,
-                                                        }))}
-                                                        onChange={(event) => (
-                                                            updateValue(
-                                                                key,
-                                                                event.target.value
-                                                            )
-                                                        )}
-                                                    />
-                                                )
-                                            }
-
-                                            return (
-                                                <EuiFormRow
-                                                    className="node-config-form-row"
-                                                    key={key}
-                                                    label={label}
-                                                >
-                                                    {fieldControl}
-                                                </EuiFormRow>
-                                            )
-                                        })}
-                                    </div>
-                                ) : null}
-
-                                {booleanFieldKeys.length ? (
-                                    <div className="node-config-settings-grid">
-                                        {booleanFieldKeys.map((key) => {
-                                            const field = fields[key]
-                                            const label = field.label || labelFor(key)
-                                            const disabled = !field.editable
-                                            const checked = Boolean(draftValues[key])
-
-                                            return (
-                                                <article
-                                                    className={`node-config-setting ${
-                                                        disabled ? 'disabled' : ''
-                                                    }`}
-                                                    key={key}
-                                                >
-                                                    <div>
-                                                        <div className="node-config-setting-name">
-                                                            {label}
-                                                        </div>
-                                                        <div className="node-config-setting-help">
-                                                            {getFieldDescription(
-                                                                resolvedSection,
-                                                                key,
-                                                                field
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="node-config-segmented">
-                                                        <button
-                                                            type="button"
-                                                            className="true"
-                                                            aria-pressed={checked}
-                                                            disabled={disabled}
-                                                            onClick={() => (
-                                                                updateValue(
-                                                                    key,
-                                                                    true
-                                                                )
-                                                            )}
-                                                        >
-                                                            True
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="false"
-                                                            aria-pressed={!checked}
-                                                            disabled={disabled}
-                                                            onClick={() => (
-                                                                updateValue(
-                                                                    key,
-                                                                    false
-                                                                )
-                                                            )}
-                                                        >
-                                                            False
-                                                        </button>
-                                                    </div>
-                                                </article>
-                                            )
-                                        })}
-                                    </div>
-                                ) : null}
-                            </EuiForm>
-                        ) : (
-                            <EuiText>
-                                <p>{loading ? 'Loading configuration...' : ''}</p>
-                            </EuiText>
-                        )}
-                    </div>
-
-                    <div className="node-management-header-control-actions node-config-actions">
-                        <EuiButton
-                            fill
-                            iconType="save"
-                            onClick={() => saveCurrentSection()}
-                            isLoading={writing}
-                            isDisabled={!dirty || actionInProgress}
-                        >
-                            Save
-                        </EuiButton>
-                        {isRunning ? (
-                            <EuiButton
-                                color="warning"
-                                fill
-                                iconType="refresh"
-                                onClick={() => (
-                                    dirty
-                                        ? saveCurrentSection({restart: true})
-                                        : restartNode()
-                                )}
-                                isLoading={actionInProgress}
-                                isDisabled={
-                                    (!dirty && !requiresRestart)
-                                    || actionInProgress
-                                }
-                            >
-                                {dirty ? 'Save & Restart' : 'Restart'}
-                            </EuiButton>
-                        ) : null}
-                        <EuiButton
-                            iconType="cross"
-                            onClick={resetChanges}
-                            isDisabled={!dirty || actionInProgress}
-                        >
-                            Reset
-                        </EuiButton>
-                    </div>
-                </section>
+                        <ConfigGroup
+                            group={activeGroup}
+                            sections={sections}
+                            sectionActions={sectionActions}
+                            draftValues={draftValues}
+                            savedValues={savedValues}
+                            changedKeys={changedKeys}
+                            onChange={updateValue}
+                            appendFor={appendFor}
+                        />
+                    </>
+                ) : (
+                    <EuiText>
+                        <p>{loading ? 'Loading configuration...' : ''}</p>
+                    </EuiText>
+                )}
             </div>
 
-            {writeConflict ? (
-                <EuiModal onClose={cancelConflict}>
-                    <EuiModalHeader>
-                        <EuiModalHeaderTitle>
-                            Configuration file changed
-                        </EuiModalHeaderTitle>
-                    </EuiModalHeader>
-                    <EuiModalBody>
-                        <EuiText size="s">
-                            <p>
-                                The configuration file was modified after this
-                                page loaded. Review the current file values,
-                                refresh the form, or overwrite them.
-                            </p>
-                            {conflictItems.map((item) => (
-                                <p key={item.key}>
-                                    <strong>{labelFor(item.key)}:</strong>{' '}
-                                    shown value "{String(item.base)}", file
-                                    value "{String(item.current)}", requested
-                                    value "{String(item.requested)}"
-                                </p>
-                            ))}
-                        </EuiText>
-                    </EuiModalBody>
-                    <EuiModalFooter>
-                        <EuiButton onClick={cancelConflict}>
-                            Cancel
-                        </EuiButton>
-                        <EuiButton onClick={refreshAfterConflict}>
-                            Refresh latest
-                        </EuiButton>
+            <Notices notices={actionNotices} />
+
+            <div className="node-config-action-bar">
+                <span className="node-config-action-bar-summary">
+                    {dirty
+                        ? `${changes.length} unsaved change${
+                            changes.length > 1 ? 's' : ''
+                        }`
+                        : 'No unsaved changes'}
+                </span>
+                <div className="node-config-action-bar-buttons">
+                    <EuiButtonEmpty
+                        iconType="inspect"
+                        onClick={() => setReviewOpen(true)}
+                        isDisabled={!dirty}
+                    >
+                        Review
+                    </EuiButtonEmpty>
+                    <EuiButton
+                        iconType="cross"
+                        onClick={resetChanges}
+                        isDisabled={!dirty || actionInProgress}
+                    >
+                        Reset
+                    </EuiButton>
+                    {isRunning && !dirty && requiresRestart ? (
                         <EuiButton
                             color="warning"
                             fill
-                            onClick={overwriteAfterConflict}
+                            iconType="refresh"
+                            onClick={restartNode}
                             isLoading={actionInProgress}
+                            isDisabled={actionInProgress}
                         >
-                            {restartAfterConflictWrite
-                                ? 'Overwrite & Restart'
-                                : 'Overwrite'}
+                            Restart
                         </EuiButton>
-                    </EuiModalFooter>
-                </EuiModal>
+                    ) : null}
+                    <EuiButton
+                        fill
+                        iconType="save"
+                        onClick={() => setReviewOpen(true)}
+                        isLoading={writing}
+                        isDisabled={!dirty || actionInProgress}
+                    >
+                        Save
+                    </EuiButton>
+                </div>
+            </div>
+
+            {ownCertificateOpen ? (
+                <OwnCertificateModal
+                    onClose={() => setOwnCertificateOpen(false)}
+                />
+            ) : null}
+
+            {researcherCertificateOpen ? (
+                <ResearcherCertificateModal
+                    onClose={() => setResearcherCertificateOpen(false)}
+                />
+            ) : null}
+
+            {reviewOpen ? (
+                <ReviewChangesModal
+                    changes={changes}
+                    isRunning={isRunning}
+                    writing={writing}
+                    actionInProgress={actionInProgress}
+                    onCancel={() => setReviewOpen(false)}
+                    onSave={() => saveChanges()}
+                    onSaveAndRestart={() => saveChanges({restart: true})}
+                />
+            ) : null}
+
+            {writeConflict ? (
+                <WriteConflictModal
+                    conflictItems={conflictItems}
+                    restartAfterWrite={restartAfterConflictWrite}
+                    actionInProgress={actionInProgress}
+                    onCancel={cancelConflict}
+                    onRefresh={refreshAfterConflict}
+                    onOverwrite={overwriteAfterConflict}
+                />
             ) : null}
         </div>
     )
@@ -756,14 +616,15 @@ const mapStateToProps = (state) => ({
 
 const mapDispatchToProps = (dispatch) => ({
     fetchNodeConfig: () => dispatch(fetchNodeConfig()),
-    writeNodeConfigSection: (section, values, baseValues, options) => dispatch(
-        writeNodeConfigSection(section, values, baseValues, options)
+    writeNodeConfig: (sections, options) => dispatch(
+        writeNodeConfig(sections, options)
     ),
     resetNodeConfigMessages: () => dispatch(resetNodeConfigMessages()),
     fetchNodeProcessState: (options) => dispatch(fetchNodeProcessState(options)),
     executeNodeAction: (action, nodeArgs) => dispatch(
         executeNodeAction(action, nodeArgs)
     ),
+    downloadOwnCertificate: () => dispatch(downloadOwnCertificate()),
 })
 
 export default connect(mapStateToProps, mapDispatchToProps)(Configuration)

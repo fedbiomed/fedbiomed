@@ -11,6 +11,7 @@ This module includes common CLI methods and parser extension
 import argparse
 import os
 import sys
+import tempfile
 from abc import ABC, abstractmethod
 from contextlib import closing
 from typing import Dict, List
@@ -18,6 +19,8 @@ from typing import Dict, List
 from fedbiomed.common.certificate_manager import (
     CertificateManager,
     generate_component_certificate,
+    validate_certificate_pair,
+    write_certificate_pair,
 )
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
@@ -300,6 +303,8 @@ class CommonCLI:
             description="Commands that can be used with the option `certificate`",
             title="Subcommands",
         )
+        # Kept so that a component CLI can add the certificate commands only it has.
+        self._certificate_sub_parsers = certificate_sub_parsers
 
         register_parser = certificate_sub_parsers.add_parser(
             "register",
@@ -319,10 +324,17 @@ class CommonCLI:
             "generate",
             help="Generates the certificate of the current component, where its "
             "configuration expects it. Refuses to replace an existing one unless "
-            "'--force' is given. Uses an alternate directory if '--path DIRECTORY' "
-            "is given.\n"
+            "'--force' is given.\n"
             "Certificate are here referring to the public certificate and its associated private key "
             "(the latter should remain secret and not shared to other parties).",
+        )
+
+        # Command `certificate replace`
+        replace = certificate_sub_parsers.add_parser(
+            "replace",
+            help="Installs a certificate and its private key as this component's own, "
+            "where its configuration expects them. For a certificate issued elsewhere, "
+            "by a certificate authority rather than by 'certificate generate'.",
         )
 
         # Command `certificate generate`
@@ -336,6 +348,7 @@ class CommonCLI:
         list_parser.set_defaults(func=self._list_certificates)
         delete_parser.set_defaults(func=self._delete_certificate)
         generate.set_defaults(func=self._generate_certificate)
+        replace.set_defaults(func=self._replace_certificate)
         prepare.set_defaults(func=self._prepare_certificate_for_registration)
 
         # Add arguments
@@ -366,13 +379,25 @@ class CommonCLI:
             help="Updates if certificate of given component id is already existing.",
         )
 
-        generate.add_argument(
-            "--path",
+        replace.add_argument(
+            "-pk",
+            "--public-key",
+            metavar="PUBLIC_KEY",
             type=str,
             nargs="?",
-            required=False,
-            help="The path to the RESEARCHER|NODE component, in which certificate will be saved."
-            " Defaults to the directory the component configuration points at.",
+            required=True,
+            help="Certificate this component presents to the others.",
+        )
+
+        replace.add_argument(
+            "-sk",
+            "--private-key",
+            metavar="PRIVATE_KEY",
+            type=str,
+            nargs="?",
+            required=True,
+            help="Private key of that certificate, unencrypted and in PEM format. It "
+            "stays on this component and is shared with no other party.",
         )
 
         generate.add_argument(
@@ -543,17 +568,16 @@ class CommonCLI:
     def _generate_certificate(self, args: argparse.Namespace):
         """Generates the certificate and private key of the current component.
 
-        Written under the name and in the directory the component's configuration
-        already points at, so the result is the certificate it serves. Replacing
-        an existing one requires `--force`: the previous private key is lost, and
-        every party holding the old certificate has to register the new one.
+        Written to the paths the component's configuration already points at, so
+        the result is the pair it serves. Replacing an existing one requires
+        `--force`: the previous private key stops being the component's identity,
+        and every party holding the old certificate has to register the new one.
 
         Args:
             args: Arguments that are passed after `certificate generate` command
         """
-        configured = self.config.getpath("certificate", "public_key")
-        path = args.path or os.path.dirname(configured)
-        name = os.path.splitext(os.path.basename(configured))[0]
+        certificate_path = self.config.getpath("certificate", "public_key")
+        private_key_path = self.config.getpath("certificate", "private_key")
 
         # Only a researcher configuration declares a host; what the certificate is
         # issued for is decided in `generate_component_certificate`
@@ -567,37 +591,95 @@ class CommonCLI:
             )
 
         existing = [
-            file
-            for file in (f"{name}.key", f"{name}.pem")
-            if os.path.isfile(os.path.join(path, file))
+            path
+            for path in (private_key_path, certificate_path)
+            if os.path.isfile(path)
         ]
         if existing and not args.force:
             CommonCLI.error(
-                f"Certificate already exists in {path}: {', '.join(existing)}. "
-                "Use '--force' to replace it."
+                f"Certificate already exists: {', '.join(existing)}. Use '--force' to "
+                "replace it."
             )
 
         try:
-            key, pem = generate_component_certificate(
-                component_type=self.config.COMPONENT_TYPE,
-                component_id=self.config.get("default", "id"),
-                folder=path,
-                name=name,
-                host=host,
-                extra_san=args.san,
-            )
+            # Generated aside and then written over the configured paths, so that a
+            # configuration naming any file gets its own file back.
+            with tempfile.TemporaryDirectory() as directory:
+                key, pem = generate_component_certificate(
+                    component_type=self.config.COMPONENT_TYPE,
+                    component_id=self.config.get("default", "id"),
+                    folder=directory,
+                    name="certificate",
+                    host=host,
+                    extra_san=args.san,
+                )
+                certificate, private_key = read_file(pem), read_file(key)
+
+            backups = write_certificate_pair(self.config, certificate, private_key)
         except FedbiomedError as e:
             CommonCLI.error(f"Can not generate certificate. Please see: {e}")
+        except OSError as e:
+            CommonCLI.error(f"Can not write the new certificate: {e}")
 
-        CommonCLI.success(f"Certificate has been successfully generated in : {path} \n")
+        CommonCLI.success("Certificate has been successfully generated\n")
 
         print(
-            f"{BOLD}Certificates are saved in {NC}\n"
-            f"{key} \n"
-            f"{pem} \n\n"
-            f"{YLW}IMPORTANT:{NC}\n"
-            f"{BOLD}Since the certificate is renewed please ask other parties "
-            f"to register your new certificate.{NC}\n"
+            f"{BOLD}Certificate and private key are saved in{NC}\n"
+            f"{certificate_path}\n"
+            f"{private_key_path}\n"
+        )
+        displaced = [path for path in backups.values() if path]
+        if displaced:
+            print(f"{BOLD}The pair replaced is kept in{NC}\n" + "\n".join(displaced))
+        print(
+            f"\n{YLW}IMPORTANT:{NC}\n"
+            f"{BOLD}Since the certificate is renewed please ask other parties to "
+            "register your new certificate. A running component keeps serving the "
+            f"certificate it read when it started: restart it.{NC}\n"
+        )
+
+    def _replace_certificate(self, args: argparse.Namespace):
+        """Installs a supplied pair as this component's certificate and private key.
+
+        For a certificate issued outside Fed-BioMed, which `certificate generate`
+        cannot produce. The pair is validated together before anything on disk is
+        touched, so one the component could not serve is refused while the pair it
+        currently serves still stands.
+
+        Args:
+            args: Arguments that are passed after `certificate replace` command
+        """
+        try:
+            certificate = read_file(args.public_key)
+            private_key = read_file(args.private_key)
+        except FedbiomedError as e:
+            CommonCLI.error(f"Can not read the certificate or the private key: {e}")
+
+        try:
+            validate_certificate_pair(certificate, private_key)
+        except FedbiomedError as e:
+            CommonCLI.error(str(e))
+
+        try:
+            backups = write_certificate_pair(self.config, certificate, private_key)
+        except OSError as e:
+            CommonCLI.error(f"Can not write the new certificate: {e}")
+
+        CommonCLI.success("The certificate has been replaced\n")
+
+        print(
+            f"{BOLD}Certificate and private key are saved in{NC}\n"
+            f"{self.config.getpath('certificate', 'public_key')}\n"
+            f"{self.config.getpath('certificate', 'private_key')}\n"
+        )
+        displaced = [path for path in backups.values() if path]
+        if displaced:
+            print(f"{BOLD}The pair replaced is kept in{NC}\n" + "\n".join(displaced))
+        print(
+            f"\n{YLW}IMPORTANT:{NC}\n"
+            f"{BOLD}Please ask other parties to register your new certificate. A "
+            "running component keeps serving the certificate it read when it "
+            f"started: restart it.{NC}\n"
         )
 
     def _open_certificate_manager(self) -> CertificateManager:
@@ -638,7 +720,7 @@ class CommonCLI:
             certificate_manager.list(verbose=True)
 
     def _delete_certificate(self, args: argparse.Namespace):
-        """Removes a registered certificate, asking which one when several are registered."""
+        """Removes a registered certificate chosen from a prompt."""
         with closing(self._open_certificate_manager()) as certificate_manager:
             certificates = certificate_manager.list(verbose=False)
 

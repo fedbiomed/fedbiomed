@@ -14,7 +14,7 @@ from ..schemas import (
     TrainingPlanPreviewRequest,
 )
 from ..utils import error, response, success, validate_request_data
-from . import api
+from .api import api
 
 TP_SECURITY_MANAGER = TrainingPlanSecurityManager(
     db=config["NODE_DB_PATH"],

@@ -24,6 +24,27 @@ const initialNodeConfigState = {
     configStartupCheckMessage: null,
 }
 
+const applyWrittenValues = (sections, writtenSections = {}) => {
+    // Fold the values confirmed by the backend back into the loaded sections so
+    // they become the new baseline for change detection.
+    return Object.keys(writtenSections).reduce((updated, section) => ({
+        ...updated,
+        [section]: {
+            ...(sections[section] || {}),
+            fields: Object.keys(writtenSections[section]).reduce(
+                (fields, key) => ({
+                    ...fields,
+                    [key]: {
+                        ...(sections[section]?.fields?.[key] || {}),
+                        value: writtenSections[section][key],
+                    },
+                }),
+                sections[section]?.fields || {}
+            ),
+        },
+    }), sections)
+}
+
 export const nodeConfigReducer = (
     state = initialNodeConfigState,
     action
@@ -68,25 +89,10 @@ export const nodeConfigReducer = (
         case NODE_CONFIG_WRITE_SUCCESS:
             return {
                 ...state,
-                sections: {
-                    ...state.sections,
-                    [action.payload.section]: {
-                        ...(state.sections[action.payload.section] || {}),
-                        fields: Object.keys(action.payload.values || {}).reduce(
-                            (fields, key) => ({
-                                ...fields,
-                                [key]: {
-                                    ...(
-                                        state.sections[action.payload.section]
-                                            ?.fields?.[key] || {}
-                                    ),
-                                    value: action.payload.values[key],
-                                },
-                            }),
-                            state.sections[action.payload.section]?.fields || {}
-                        ),
-                    },
-                },
+                sections: applyWrittenValues(
+                    state.sections,
+                    action.payload.sections
+                ),
                 nodeState: action.payload.nodeState || state.nodeState,
                 requiresRestart: Boolean(action.payload.requiresRestart),
                 configModifiedAfterStartup: Boolean(
