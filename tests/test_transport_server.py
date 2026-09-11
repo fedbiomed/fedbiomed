@@ -219,8 +219,8 @@ async def test_grpc_async_server_start(async_server_env):
 async def test_grpc_async_server_gives_servicer_the_trusted_bundle(async_server_env):
     """The servicer resolves identities through the bundle the TLS layer trusts.
 
-    Sharing the one instance is what keeps the trust bundle and the identities
-    derived from a single read of the registry, so they cannot disagree.
+    Sharing the one instance keeps both reading the same registry, under one lock
+    and one fallback to the last read.
     """
     with patch("fedbiomed.transport.server.ResearcherServicer") as servicer:
         await async_server_env.server.start()

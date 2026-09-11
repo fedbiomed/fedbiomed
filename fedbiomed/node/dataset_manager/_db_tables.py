@@ -13,9 +13,32 @@ from ._db_dataclasses import (
     DlbEntry,
     DlpEntry,
     DynamicDatasetEntry,
+    NodeConnectionStateEntry,
+    NodeConnectionStateHistoryEntry,
     NodeProcessStateEntry,
     NodeProcessStateHistoryEntry,
 )
+
+
+def _delete_older_than(table, query, cutoff: str) -> List[int]:
+    """Remove history entries updated before an ISO-8601 UTC instant.
+
+    Entries are searched before being removed: TinyDB rewrites the whole database
+    file on a removal, matching or not.
+
+    Args:
+        table: Table holding entries stamped with `updated_at`.
+        query: Query object of that table.
+        cutoff: Retention limit, formatted as the entries' `updated_at`.
+
+    Returns:
+        The document IDs of the removed entries.
+    """
+    condition = query.updated_at.exists() & (query.updated_at < cutoff)
+    if not table.search(condition, stacklevel=5):
+        return []
+
+    return table.remove(condition, stacklevel=5)
 
 
 class BaseTable(TinyTableConnector):
@@ -269,3 +292,61 @@ class NodeProcessStateHistoryTable(BaseTable):
         """Insert a history entry, allowing multiple entries for the same node_id."""
         validated_entry = super()._validate_and_convert_to_dict(entry)
         return self._table.insert(validated_entry, stacklevel=4)
+
+    def delete_older_than(self, cutoff: str) -> List[int]:
+        """Remove entries updated before the given ISO-8601 UTC instant.
+
+        Args:
+            cutoff: Retention limit, formatted as the entries' `updated_at`.
+
+        Returns:
+            The document IDs of the removed entries.
+        """
+        return _delete_older_than(self._table, self._query, cutoff)
+
+
+class NodeConnectionStateTable(BaseTable):
+    """Database table for the node's current connection state."""
+
+    _table_name = "NodeConnectionState"
+    _id_name = "node_id"
+    _dataclass = NodeConnectionStateEntry
+
+    def replace_by_id(self, node_id: str, entry: dict):
+        """Replace the connection state of a node, or insert it if absent.
+
+        Replaces rather than merges, so that fields the previous state carried and
+        the new one does not - a failure reason, a peer certificate - do not survive it.
+        """
+        if self._id_name in entry and entry[self._id_name] != node_id:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Cannot change the field '{self._id_name}'"
+            )
+
+        entry[self._id_name] = node_id
+        self.delete_by_id(node_id)
+        return super().insert(entry)
+
+
+class NodeConnectionStateHistoryTable(BaseTable):
+    """Append-only database table for node connection state history."""
+
+    _table_name = "NodeConnectionStateHistory"
+    _id_name = "node_id"
+    _dataclass = NodeConnectionStateHistoryEntry
+
+    def insert(self, entry: dict) -> int:
+        """Insert a history entry, allowing multiple entries for the same node_id."""
+        validated_entry = super()._validate_and_convert_to_dict(entry)
+        return self._table.insert(validated_entry, stacklevel=4)
+
+    def delete_older_than(self, cutoff: str) -> List[int]:
+        """Remove entries updated before the given ISO-8601 UTC instant.
+
+        Args:
+            cutoff: Retention limit, formatted as the entries' `updated_at`.
+
+        Returns:
+            The document IDs of the removed entries.
+        """
+        return _delete_older_than(self._table, self._query, cutoff)

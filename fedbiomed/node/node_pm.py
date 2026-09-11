@@ -13,7 +13,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from types import FrameType
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import psutil
 
@@ -21,12 +21,19 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import DEFAULT_APPLICATION_LOG_FILE, logger
 from fedbiomed.node.config import NodeConfig
-from fedbiomed.node.dataset_manager._db_dataclasses import NodeProcessStateEntry
+from fedbiomed.node.dataset_manager._db_dataclasses import (
+    NodeConnectionStateEntry,
+    NodeConnectionStateHistoryEntry,
+    NodeProcessStateEntry,
+)
 from fedbiomed.node.dataset_manager._db_tables import (
+    NodeConnectionStateHistoryTable,
+    NodeConnectionStateTable,
     NodeProcessStateHistoryTable,
     NodeProcessStateTable,
 )
 from fedbiomed.node.node import Node
+from fedbiomed.transport.client import ClientStatus
 
 DEFAULT_NODE_ARGS = {
     "gpu": False,
@@ -43,14 +50,14 @@ class NodeState(enum.Enum):
     UNKNOWN = "unknown"  # used only in route layer as a fallback
 
 
+def _utc_isoformat(moment: datetime) -> str:
+    """Return the given UTC time as an ISO-8601 string."""
+    return moment.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def _utc_now() -> str:
     """Return the current UTC time as an ISO-8601 string."""
-    return (
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return _utc_isoformat(datetime.now(timezone.utc))
 
 
 def _node_signal_trigger_term() -> None:
@@ -67,6 +74,7 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
     """
     config = NodeConfig(root=config_path)
     node_args = json.loads(node_args) if isinstance(node_args, str) else node_args
+    connection_state = NodeConnectionStateManager(config)
 
     # Built inside the try below: building it can fail on a bad configuration.
     _node: Optional[Node] = None
@@ -91,6 +99,16 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
                     reason="signal_received",
                     signal_number=signum,
                 )
+                connection_state.set_state(
+                    state=ClientStatus.DISCONNECTED,
+                    host=config.get("researcher", "ip"),
+                    port=config.get("researcher", "port"),
+                    mtls=config.getbool(
+                        "authentication", "mutual_authentication", fallback="False"
+                    ),
+                    operation="node_stopped",
+                    reason="signal_received",
+                )
 
                 _node.send_error(
                     ErrorNumbers.FB312, extra_msg="Node is stopped", broadcast=True
@@ -110,8 +128,20 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
             time.sleep(0.5)
             sys.exit(signum)
 
+    # Recorded before the node is built, so that the state of the previous run is
+    # not read as the current one while this one starts.
+    connection_state.set_state(
+        state=ClientStatus.DISCONNECTED,
+        host=config.get("researcher", "ip"),
+        port=config.get("researcher", "port"),
+        mtls=config.getbool(
+            "authentication", "mutual_authentication", fallback="False"
+        ),
+        operation="node_starting",
+    )
+
     try:
-        _node = Node(config, node_args)
+        _node = Node(config, node_args, on_connection_state=connection_state.set_state)
 
         logger.info(str(_node))
         logger.info(f"Node name: {_node.config.get('default', 'name')}")
@@ -182,9 +212,6 @@ class NodeProcessManager:
         self._config = config
         self._node_id: str | None = config.get("default", "id")
         self._node_name: str | None = config.get("default", "name")
-        self._cleanup_process_state_history(
-            days=30
-        )  # Clean up old history entries on initialization
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -204,30 +231,10 @@ class NodeProcessManager:
         Args:
             days: Number of days to retain. Defaults to 30.
         """
-        cutoff = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(
-            days=days
-        )
+        cutoff = _utc_isoformat(datetime.now(timezone.utc) - timedelta(days=days))
 
         try:
-            entries = self._get_history_table().all()
-            for entry in entries:
-                updated_at = entry.get("updated_at")
-                if not updated_at:
-                    continue
-
-                try:
-                    entry_date = datetime.fromisoformat(
-                        updated_at.replace("Z", "+00:00")
-                    )
-                except ValueError:
-                    logger.warning(
-                        f"Could not parse process-state history timestamp: {updated_at}"
-                    )
-                    continue
-
-                if entry_date < cutoff:
-                    self._get_history_table().remove(doc_ids=[entry.doc_id])
-
+            self._get_history_table().delete_older_than(cutoff)
         except Exception as e:
             logger.warning(f"Could not clean up old node process history entries: {e}")
 
@@ -345,6 +352,7 @@ class NodeProcessManager:
                 self._node_id, entry.to_dict()
             )
             self._get_history_table().insert(entry.to_dict())
+            self._cleanup_process_state_history()
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
 
@@ -654,6 +662,163 @@ class NodeProcessManager:
 
         state_entry = state_entry.from_dict(dict(stored_state))
         return state_entry
+
+
+class NodeConnectionStateManager:
+    """Records what the node observes on its channel to the researcher.
+
+    The node process writes here as its connection state changes, so that another
+    process - typically the GUI - reads the last known state without parsing logs.
+    Constructing one writes nothing, so a reader leaves the database untouched.
+    """
+
+    def __init__(self, config: NodeConfig) -> None:
+        """Initialize the NodeConnectionStateManager with the given configuration.
+
+        Args:
+            config: Node configuration object providing the node id and database.
+        """
+        self._config = config
+        self._node_id: str | None = config.get("default", "id")
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _get_state_table(self) -> NodeConnectionStateTable:
+        """Get the state table instance."""
+        return NodeConnectionStateTable(self._config.getpath("default", "db"))
+
+    def _get_history_table(self) -> NodeConnectionStateHistoryTable:
+        """Get the history table instance."""
+        return NodeConnectionStateHistoryTable(self._config.getpath("default", "db"))
+
+    def _cleanup_connection_state_history(self, days: int = 30) -> None:
+        """Remove connection-state history entries older than the given number of days.
+
+        Args:
+            days: Number of days to retain. Defaults to 30.
+        """
+        cutoff = _utc_isoformat(datetime.now(timezone.utc) - timedelta(days=days))
+
+        try:
+            self._get_history_table().delete_older_than(cutoff)
+        except Exception as e:
+            logger.warning(
+                f"Could not clean up old node connection history entries: {e}"
+            )
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def set_state(
+        self,
+        *,
+        state: ClientStatus,
+        host: str,
+        port: str,
+        mtls: bool,
+        researcher_id: Optional[str] = None,
+        identity_verified: Optional[bool] = None,
+        operation: Optional[str] = None,
+        reason: Optional[str] = None,
+        certificate: Optional[Dict[str, str]] = None,
+    ) -> None:
+        """Persist the connection state the node just observed.
+
+        A state repeating itself appends no history and refreshes `updated_at` at
+        most every few minutes: an unreachable researcher is retried every couple
+        of seconds, and every write rewrites the whole database file.
+
+        Args:
+            state: Status of the channel, as the transport reports it.
+            host: Researcher host the node connects to.
+            port: Researcher port the node connects to.
+            mtls: Whether mutual TLS is enabled on this node.
+            researcher_id: Id of the researcher, once known.
+            identity_verified: Whether the researcher accepted this node's identity.
+            operation: Name of the underlying event, as recorded in the security audit.
+            reason: Readable detail, typically the error message.
+            certificate: Audit fields of the peer certificate.
+        """
+        if not self._node_id:
+            return
+
+        try:
+            now = _utc_now()
+            existing = self._get_state_table().get_by_id(self._node_id) or {}
+
+            if (
+                existing.get("state") == state.name.lower()
+                and existing.get("operation") == operation
+                and existing.get("reason") == reason
+            ):
+                # Same instant format throughout, so the strings compare as the
+                # instants do. Five minutes keeps "last observed" meaningful while
+                # a researcher down for a day costs 12 writes an hour, not 1800.
+                stale_before = _utc_isoformat(
+                    datetime.now(timezone.utc) - timedelta(minutes=5)
+                )
+                if existing.get("updated_at", "") < stale_before:
+                    self._get_state_table().update_by_id(
+                        self._node_id, {"updated_at": now}
+                    )
+                return
+
+            failed = state is ClientStatus.FAILED
+            entry = NodeConnectionStateEntry(
+                node_id=self._node_id,
+                state=state.name.lower(),
+                host=host,
+                port=port,
+                researcher_id=researcher_id,
+                mtls=mtls,
+                identity_verified=identity_verified,
+                operation=operation,
+                reason=reason,
+                certificate=certificate,
+                started_at=now,
+                updated_at=now,
+                last_error=reason if failed else existing.get("last_error"),
+                last_error_at=now if failed else existing.get("last_error_at"),
+            )
+
+            self._get_state_table().replace_by_id(self._node_id, entry.to_dict())
+            self._get_history_table().insert(entry.to_dict())
+            self._cleanup_connection_state_history()
+        except Exception as e:
+            logger.warning(f"Could not persist node connection state: {e}")
+
+    def get_connection_state(self) -> Optional[NodeConnectionStateEntry]:
+        """Get the last known connection state, or None when none was recorded yet."""
+        if not self._node_id:
+            return None
+
+        stored_state = self._get_state_table().get_by_id(self._node_id)
+        if not stored_state:
+            return None
+
+        return NodeConnectionStateEntry.from_dict(dict(stored_state))
+
+    def get_connection_history(
+        self, limit: int = 20
+    ) -> List[NodeConnectionStateHistoryEntry]:
+        """Get the latest connection state changes, newest first.
+
+        Args:
+            limit: Maximum number of entries to return.
+        """
+        if not self._node_id:
+            return []
+
+        entries = self._get_history_table().get_all_by_value("node_id", self._node_id)
+
+        # Appended as they happen, so the tail holds the latest ones.
+        return [
+            NodeConnectionStateHistoryEntry.from_dict(dict(entry))
+            for entry in reversed(entries[-limit:])
+        ]
 
 
 if __name__ == "__main__":
