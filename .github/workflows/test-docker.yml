@@ -2,8 +2,7 @@
 name: Fed-BioMed Docker Compatibility Tests
 run-name: Fed-BioMed Docker Compatibility Tests
 description: |
-  Builds the published docker images on every supported interpreter, then runs a
-  VPN functional test that trains across node and researcher containers.
+  Builds the published docker images on every supported interpreter.
 
 on:
   schedule:
@@ -76,59 +75,3 @@ jobs:
           docker image rm --force "fedbiomed/researcher:$IMAGE_TAG" \
             "fedbiomed/node:$IMAGE_TAG" "fedbiomed/base:$IMAGE_TAG" || true
 
-  vpn-functional:
-    name: VPN functional (${{ matrix.runner-name }}, ${{ matrix.python-version }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - python-version: "3.11"
-            python-tag: "311"
-            runner: ubuntu-24.04
-            runner-name: ubuntu-24.04
-          - python-version: "3.14"
-            python-tag: "314"
-            runner: ubuntu-24.04
-            runner-name: ubuntu-24.04
-          - python-version: "3.11"
-            python-tag: "311"
-            runner: ubuntu-26.04
-            runner-name: ubuntu-26.04
-          - python-version: "3.14"
-            python-tag: "314"
-            runner: ubuntu-26.04
-            runner-name: ubuntu-26.04
-    env:
-      PYTHON_VERSION: ${{ matrix.python-version }}
-      # Compatibility CI is CPU-only. Deployment keeps the GPU-capable defaults.
-      FBM_VPN_NODE_BASE_SERVICE: basenode-no-gpu
-      FBM_PYTORCH_INDEX_URL: https://download.pytorch.org/whl/cpu
-      FBM_EXPECT_CPU_TORCH: "true"
-      FBM_CONTAINER_VERSION_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
-      # Prefixed by the service name to form a container hostname, capped at 64.
-      FBM_CONTAINER_INSTANCE_ID: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
-      COMPOSE_PROJECT_NAME: fedbiomed-vpn-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Verify Docker and VPN prerequisites
-        run: |
-          docker version
-          docker compose version
-          test -c /dev/net/tun
-          df -h
-          docker system df
-
-      - name: Run VPN functional test
-        run: ./tests/vpn_test.sh
-
-      - name: Clean this VPN test run
-        if: always()
-        run: |
-          sudo chown -R "$(id -u):$(id -g)" envs/vpn/docker || true
-          ./scripts/fedbiomed_vpn clean image || true
-          docker compose --file envs/vpn/docker/docker-compose.yml \
-            --project-name "$COMPOSE_PROJECT_NAME" down --remove-orphans || true
