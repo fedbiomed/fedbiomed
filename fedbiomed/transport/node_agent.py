@@ -4,6 +4,7 @@
 import asyncio
 import copy
 import time
+from collections import OrderedDict
 from datetime import datetime
 from enum import Enum
 from typing import Awaitable, Callable, Dict, Optional
@@ -33,6 +34,9 @@ class Replies(dict):
 
 
 class NodeAgentAsync:
+    # Keep diagnostic IDs only; evicted IDs still take the unexpected-reply path.
+    _MAX_CLOSED_REQUESTS = 1024
+
     def __init__(
         self,
         id: str,
@@ -51,7 +55,7 @@ class NodeAgentAsync:
         self._on_forward = on_forward
         self._last_request: Optional[datetime] = None
         self._replies = Replies()
-        self._stopped_request_ids = []
+        self._closed_request_ids = OrderedDict()
         # Node should be active when it is first instantiated
         self._status: NodeActiveStatus = NodeActiveStatus.ACTIVE
 
@@ -62,10 +66,7 @@ class NodeAgentAsync:
         # protect read/write operations on self._status + self._status_task)
         self._status_lock = asyncio.Lock()
         self._replies_lock = asyncio.Lock()
-        self._stopped_request_ids_lock = asyncio.Lock()
         self._node_disconnection_timeout = node_disconnection_timeout
-        self._flushed_request_ids = set()  # ← Track flushed requests
-        self._flushed_request_ids_lock = asyncio.Lock()
 
     async def status_async(self) -> NodeActiveStatus:
         """Getter for node status.
@@ -94,17 +95,12 @@ class NodeAgentAsync:
             stopped: the request was stopped during processing
         """
         async with self._replies_lock:
-            if request_id in self._replies:
-                if stopped and self._replies[request_id]["reply"] is None:
-                    async with self._stopped_request_ids_lock:
-                        self._stopped_request_ids.append(request_id)
-
-                # Don't remove immediately, mark as flushed
-                async with self._flushed_request_ids_lock:
-                    self._flushed_request_ids.add(request_id)
-
-                # Optional: Clean up old flushed requests after some time
-                # Keep last N flushed requests to handle late replies
+            if self._replies.pop(request_id, None) is not None:
+                # Release the reply and bound callback (which owns the request
+                # model). Only retain metadata for diagnosing late replies.
+                self._closed_request_ids[request_id] = stopped
+                if len(self._closed_request_ids) > self._MAX_CLOSED_REQUESTS:
+                    self._closed_request_ids.popitem(last=False)
                 logger.debug(
                     f"NodeAgent: Flushed request {request_id} for node {self._id}, "
                     f"stopped={stopped}"
@@ -138,15 +134,6 @@ class NodeAgentAsync:
 
         async with self._replies_lock:
             if message.request_id in self._replies:
-                # Check if already flushed
-                async with self._flushed_request_ids_lock:
-                    if message.request_id in self._flushed_request_ids:
-                        logger.info(
-                            f"Received late reply for already flushed request {message.request_id} "
-                            f"from node {self._id}. This reply will be ignored."
-                        )
-                        return
-
                 reply_info = self._replies[message.request_id]
                 if reply_info["reply"] is None:
                     reply_info["reply"] = message
@@ -156,27 +143,18 @@ class NodeAgentAsync:
                         f"Received multiple replies for request {message.request_id}. "
                         "Keep first reply, ignore subsequent replies"
                     )
+            elif message.request_id in self._closed_request_ids:
+                logger.info(
+                    "Ignoring late reply for closed request %s from node %s (stopped=%s)",
+                    message.request_id,
+                    self._id,
+                    self._closed_request_ids[message.request_id],
+                )
             else:
-                # Request not found in _replies at all
-                async with self._stopped_request_ids_lock:
-                    if message.request_id in self._stopped_request_ids:
-                        logger.info(
-                            f"Received a reply from a stopped request: {message.request_id}"
-                        )
-                        self._stopped_request_ids.remove(message.request_id)
-                    else:
-                        async with self._flushed_request_ids_lock:
-                            if message.request_id in self._flushed_request_ids:
-                                logger.warning(
-                                    f"Received LATE reply for flushed request {message.request_id} "
-                                    f"from node {self._id}. Message type: {message.__class__.__name__}. "
-                                    f"This indicates the reply arrived after the request was completed/timed out."
-                                )
-                            else:
-                                logger.warning(
-                                    f"Received a reply from an unexpected request: {message.request_id}. "
-                                    f"This request was never registered or is from a different session."
-                                )
+                logger.warning(
+                    f"Received a reply from an unexpected request: {message.request_id}. "
+                    "This request was never registered or is no longer tracked."
+                )
 
     async def send_async(
         self,
@@ -212,6 +190,9 @@ class NodeAgentAsync:
         # Note: as forwarded messages don't have a `request_id` field we don't have to test
         # if this is an OverlayMessage but check whether the field exists
         async with self._replies_lock:
+            # A transport retry must not recreate a flushed callback entry.
+            if getattr(message, "request_id", None) in self._closed_request_ids:
+                return
             # update replies only for (1) request-response messages
             # (2) that are not yet registered as pending request
             if (
