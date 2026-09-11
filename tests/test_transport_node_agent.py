@@ -1,5 +1,8 @@
 import asyncio
+import gc
 import unittest
+import weakref
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -144,8 +147,8 @@ def test_node_agent_flush_marks_stopped_request(node_agent):
         NodeAgentAsync.flush(node_agent.node_agent, "req-1", stopped=True)
     )
 
-    assert "req-1" in node_agent.node_agent._replies
-    assert "req-1" in node_agent.node_agent._stopped_request_ids
+    assert "req-1" not in node_agent.node_agent._replies
+    assert node_agent.node_agent._closed_request_ids["req-1"] is True
 
 
 def test_node_agent_on_reply_pending_request(monkeypatch, node_agent):
@@ -244,11 +247,16 @@ def test_node_agent_on_reply_none_request_id_unexpected_warning(
     assert warnings["count"] == 1
 
 
-def test_node_agent_on_reply_stopped_request(monkeypatch, node_agent):
+@pytest.mark.parametrize("stopped", [False, True])
+def test_node_agent_on_reply_closed_request(monkeypatch, node_agent, stopped):
     class DummyReply:
         request_id = "req-3"
 
-    node_agent.node_agent._stopped_request_ids.append("req-3")
+    callback = MagicMock()
+    node_agent.node_agent._replies["req-3"] = {"reply": None, "callback": callback}
+    node_agent.loop.run_until_complete(
+        NodeAgentAsync.flush(node_agent.node_agent, "req-3", stopped=stopped)
+    )
 
     monkeypatch.setattr(
         "fedbiomed.transport.node_agent.Message.from_dict",
@@ -257,7 +265,10 @@ def test_node_agent_on_reply_stopped_request(monkeypatch, node_agent):
 
     node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
 
-    assert "req-3" not in node_agent.node_agent._stopped_request_ids
+    node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
+    callback.assert_not_called()
+    assert "req-3" not in node_agent.node_agent._replies
+    assert node_agent.node_agent._closed_request_ids["req-3"] is stopped
 
 
 def test_node_agent_on_reply_unexpected_request(monkeypatch, node_agent):
@@ -278,6 +289,72 @@ def test_node_agent_on_reply_unexpected_request(monkeypatch, node_agent):
     node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
 
     assert warnings["count"] >= 1
+
+
+@pytest.mark.parametrize("stopped", [False, True])
+def test_flush_releases_reply_and_callback_models(monkeypatch, node_agent, stopped):
+    class Model:
+        pass
+
+    class Request:
+        def __init__(self):
+            self.model = Model()
+
+        def on_reply(self, reply):
+            self.reply = reply
+
+    agent = node_agent.node_agent
+
+    async def run_round(index):
+        request = Request()
+        reply = SimpleNamespace(request_id=str(index), model=Model())
+        refs = weakref.ref(request.model), weakref.ref(reply.model)
+        message = SimpleNamespace(request_id=str(index), model=request.model)
+        await agent.send_async(message, request.on_reply)
+        await agent.get_task()
+        agent.task_done()
+        if not stopped:
+            with patch(
+                "fedbiomed.transport.node_agent.Message.from_dict", return_value=reply
+            ):
+                await agent.on_reply({})
+        await NodeAgentAsync.flush(agent, str(index), stopped=stopped)
+        return refs
+
+    for index in range(3):
+        refs = node_agent.loop.run_until_complete(run_round(index))
+        gc.collect()
+        assert all(ref() is None for ref in refs)
+        assert not agent._replies
+
+
+def test_closed_request_cache_eviction_and_retry(monkeypatch, node_agent):
+    agent = node_agent.node_agent
+    monkeypatch.setattr(agent, "_MAX_CLOSED_REQUESTS", 2)
+    callback = MagicMock()
+
+    async def exercise():
+        for request_id in ("old", "middle", "new"):
+            agent._replies[request_id] = {"reply": None, "callback": callback}
+            await NodeAgentAsync.flush(agent, request_id)
+        assert list(agent._closed_request_ids) == ["middle", "new"]
+        # Repeated/unknown flushes must not grow the cache.
+        await NodeAgentAsync.flush(agent, "new")
+        await NodeAgentAsync.flush(agent, "unknown")
+        assert len(agent._closed_request_ids) == 2
+        # A retry of a recently closed request must not re-register it.
+        await agent.send_async(SimpleNamespace(request_id="new"), callback)
+        assert agent._queue.empty()
+        for request_id in ("old", "middle", "new"):
+            with patch(
+                "fedbiomed.transport.node_agent.Message.from_dict",
+                return_value=SimpleNamespace(request_id=request_id),
+            ):
+                await agent.on_reply({})
+        assert not agent._replies
+        callback.assert_not_called()
+
+    node_agent.loop.run_until_complete(exercise())
 
 
 if __name__ == "__main__":
