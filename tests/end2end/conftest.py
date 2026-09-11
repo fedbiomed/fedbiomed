@@ -23,7 +23,9 @@ from helpers import (
     stop_researcher_server,
 )
 
-os.environ["FBM_DEBUG"] = "1"
+os.environ["FBM_DEBUG"] = (
+    "1"  # Set to 1 for debug information, 0 for less verbose output.
+)
 
 
 @pytest.fixture(scope="module")
