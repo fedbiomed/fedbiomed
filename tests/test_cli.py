@@ -3,10 +3,12 @@ import io
 import json
 import os
 import signal
+import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import MagicMock, mock_open, patch
+from pathlib import Path
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import pytest
 
@@ -566,6 +568,111 @@ class TestGUIControl(unittest.TestCase):
         )
         with self.assertRaises(FedbiomedError):
             self.control.forward(args, [])
+
+    def _recreate_args(self):
+        return argparse.Namespace(
+            path="/some/fedbiomed/path",
+            data_folder="/test/data",
+            key_file=None,
+            cert_file=None,
+            development=False,
+            host="localhost",
+            port="8484",
+            debug=False,
+            recreate=True,
+        )
+
+    @patch("fedbiomed.node.cli.shutil.which", return_value="/usr/bin/yarn")
+    @patch("pathlib.Path.is_file", return_value=True)
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("os.path.isdir", return_value=True)
+    def test_06_gui_control_forward_recreate_builds_before_launching(
+        self, mock_isdir, mock_importlib, mock_subprocess, mock_is_file, mock_which
+    ):
+        """Tests --recreate installs and builds the ui, then launches the server."""
+        self.control.initialize()
+        self.context.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
+
+        self.control.forward(self._recreate_args(), [])
+
+        ui_folder = Path("/path/to/fedbiomed_gui/ui")
+        self.assertEqual(
+            mock_subprocess.run.call_args_list,
+            [
+                call(["/usr/bin/yarn", "install"], cwd=ui_folder, check=True),
+                call(["/usr/bin/yarn", "build"], cwd=ui_folder, check=True),
+            ],
+        )
+        mock_subprocess.Popen.assert_called_once()
+
+    @patch("pathlib.Path.is_file", return_value=False)
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("os.path.isdir", return_value=True)
+    def test_07_gui_control_forward_recreate_without_sources(
+        self, mock_isdir, mock_importlib, mock_subprocess, mock_is_file
+    ):
+        """Tests --recreate raises, and launches nothing, without the ui sources."""
+        self.control.initialize()
+        self.context.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
+
+        with self.assertRaises(FedbiomedError):
+            self.control.forward(self._recreate_args(), [])
+
+        mock_subprocess.run.assert_not_called()
+        mock_subprocess.Popen.assert_not_called()
+
+    @patch("fedbiomed.node.cli.shutil.which", return_value=None)
+    @patch("pathlib.Path.is_file", return_value=True)
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("os.path.isdir", return_value=True)
+    def test_08_gui_control_forward_recreate_without_yarn(
+        self, mock_isdir, mock_importlib, mock_subprocess, mock_is_file, mock_which
+    ):
+        """Tests --recreate raises, and launches nothing, when yarn is missing."""
+        self.control.initialize()
+        self.context.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
+
+        with self.assertRaises(FedbiomedError):
+            self.control.forward(self._recreate_args(), [])
+
+        mock_subprocess.Popen.assert_not_called()
+
+    @patch("fedbiomed.node.cli.shutil.which", return_value="/usr/bin/yarn")
+    @patch("pathlib.Path.is_file", return_value=True)
+    @patch("fedbiomed.node.cli.subprocess")
+    @patch("fedbiomed.node.cli.importlib")
+    @patch("os.path.isdir", return_value=True)
+    def test_09_gui_control_forward_recreate_build_fails(
+        self, mock_isdir, mock_importlib, mock_subprocess, mock_is_file, mock_which
+    ):
+        """Tests a failed build raises, and launches nothing."""
+        self.control.initialize()
+        self.context.config.root = "/node/root"
+        mock_importlib.import_module.return_value.__file__ = (
+            "/path/to/fedbiomed_gui/__init__.py"
+        )
+        mock_subprocess.CalledProcessError = subprocess.CalledProcessError
+        mock_subprocess.run.side_effect = [
+            None,
+            subprocess.CalledProcessError(1, ["/usr/bin/yarn", "build"]),
+        ]
+
+        with self.assertRaisesRegex(FedbiomedError, "yarn build"):
+            self.control.forward(self._recreate_args(), [])
+
+        mock_subprocess.Popen.assert_not_called()
 
 
 class TestStartNodeProcess(unittest.TestCase):

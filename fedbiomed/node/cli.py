@@ -9,6 +9,7 @@ import argparse
 import importlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -657,7 +658,8 @@ class GUIControl(CLIArgumentParser):
             "-rc",
             action="store_true",
             required=False,
-            help="Re-creates gui build",
+            help="Rebuilds the user interface from its sources (`yarn install`, "
+            "`yarn build`) before starting the GUI",
         )
 
         start.add_argument(
@@ -699,6 +701,28 @@ class GUIControl(CLIArgumentParser):
         fedbiomed_gui = importlib.import_module("fedbiomed_gui")
         server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
         print("path to server", server_app)
+
+        # The server serves the bundle built from `ui`, so changes to its sources
+        # show only once it is rebuilt, the way `hatch_build.py` builds it
+        if args.recreate:
+            ui_folder = server_app / "ui"
+            if not (ui_folder / "package.json").is_file():
+                raise FedbiomedError(
+                    f"Cannot rebuild the GUI: its sources are not in {ui_folder}."
+                )
+
+            yarn = shutil.which("yarn")
+            if yarn is None:
+                raise FedbiomedError("NodeJS `yarn` is required to rebuild the GUI.")
+
+            try:
+                subprocess.run([yarn, "install"], cwd=ui_folder, check=True)
+                subprocess.run([yarn, "build"], cwd=ui_folder, check=True)
+            except subprocess.CalledProcessError as exp:
+                raise FedbiomedError(
+                    f"Rebuilding the GUI failed: `yarn {exp.cmd[1]}` exited with "
+                    f"code {exp.returncode}."
+                ) from exp
 
         host_port = ["--host", args.host, "--port", args.port]
         if args.development:

@@ -75,6 +75,14 @@ $ fedbiomed node --path ./my-third-node gui start --port 5003
 
 If it is desired they can share the same data folder.
 
+#### Rebuilding the user interface
+
+The GUI serves a user interface built from its sources in `fedbiomed_gui/ui`. After they change, `--recreate` rebuilds it before the GUI starts. This requires NodeJS `yarn` and the GUI sources, as in a [development environment](../../developer/development-environment.md).
+
+```shell
+$ fedbiomed node gui start --recreate
+```
+
 
 ## Configuration file
 
