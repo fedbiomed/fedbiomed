@@ -117,6 +117,8 @@ class Experiment(TrainingPlanWorkflow):
             retain_full_history: whether to retain in memory the full history
                 of node replies and aggregated params for the experiment. If False, only the
                 last round's replies and aggregated params will be available. Defaults to True.
+                If False and save_breakpoints is False, node parameters are not written
+                to disk until a checkpoint is explicitly saved.
 
             *args: Extra positional arguments from parent class
                 [`TrainingPlanWorkflow`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow]
@@ -870,7 +872,11 @@ class Experiment(TrainingPlanWorkflow):
             researcher_id=self._researcher_id,
             requests=self._reqs,
             nodes=training_nodes,
-            keep_files_dir=self.experimentation_path(),
+            keep_files_dir=(
+                self.experimentation_path()
+                if self._retain_full_history or self._save_breakpoints
+                else None
+            ),
             experiment_id=self._experiment_id,
             round_=self._round_current,
             training_plan=self.training_plan(),
@@ -968,7 +974,11 @@ class Experiment(TrainingPlanWorkflow):
                 researcher_id=self._researcher_id,
                 requests=self._reqs,
                 nodes=training_nodes,
-                keep_files_dir=self.experimentation_path(),
+                keep_files_dir=(
+                    self.experimentation_path()
+                    if self._retain_full_history or self._save_breakpoints
+                    else None
+                ),
                 experiment_id=self._experiment_id,
                 round_=self._round_current,
                 training_plan=self.training_plan(),
@@ -1714,6 +1724,12 @@ class Experiment(TrainingPlanWorkflow):
         for training_reply in converted_training_replies.values():
             # we want to strip some fields for the breakpoint
             for reply in training_reply.values():
+                # Manual checkpoints may follow rounds run without disk history.
+                if "params" in reply and "params_path" not in reply:
+                    reply["params_path"] = os.path.join(
+                        self.experimentation_path(), f"params_{uuid.uuid4()}.mpk"
+                    )
+                    Serializer.dump(reply["params"], reply["params_path"])
                 reply.pop("params", None)
                 reply.pop("optim_aux_var", None)
         return converted_training_replies
