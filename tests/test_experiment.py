@@ -1,5 +1,7 @@
+import tempfile
 import unittest
 from itertools import product
+from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 from declearn.model.api import Vector
@@ -515,19 +517,70 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp = Experiment()
         _ = exp.info()
 
+    def test_reply_storage_flags(self):
+        for history, breakpoints in product([False, True], repeat=2):
+            with self.subTest(history=history, breakpoints=breakpoints):
+                strategy = MagicMock(spec=DefaultStrategy)
+                strategy.sample_nodes.return_value = ["node"]
+                strategy.refine.return_value = ({}, {}, 1, {})
+                aggregator = MagicMock(spec=Aggregator)
+                aggregator.aggregator_name = "mock"
+                exp = Experiment(
+                    training_data={
+                        "node": [{"dataset_id": "dataset", "shape": [10, 1]}]
+                    },
+                    training_plan_class=FakeTorchTrainingPlan,
+                    node_selection_strategy=strategy,
+                    aggregator=aggregator,
+                    retain_full_history=history,
+                    save_breakpoints=breakpoints,
+                    training_args={"test_on_global_updates": True},
+                    round_limit=1,
+                )
+                self.mock_job.reset_mock()
+                with patch.object(exp, "breakpoint"):
+                    exp.run_once(test_after=True)
+                self.assertEqual(self.mock_job.call_count, 2)
+                for call in self.mock_job.call_args_list:
+                    self.assertEqual(
+                        call.kwargs["keep_files_dir"],
+                        exp.experimentation_path() if history or breakpoints else None,
+                    )
+
+    def test_manual_checkpoint_saves_in_memory_replies(self):
+        exp = Experiment(retain_full_history=False, save_breakpoints=False)
+        params = {"weight": [1.0, 2.0]}
+        exp._training_replies = {0: {"node": {"params": params}}}
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(exp, "experimentation_path", return_value=directory):
+                saved = exp.save_training_replies()
+            self.assertTrue(Path(saved[0]["node"]["params_path"]).is_file())
+            self.assertNotIn("params", saved[0]["node"])
+            exp.load_training_replies(saved)
+            self.assertEqual(exp.training_replies()[0]["node"]["params"], params)
+
     def test_experiment_08_save_training_replies(self):
         """Test info method of the experiment"""
 
         exp = Experiment()
         exp._training_replies = {
-            0: {"node1": {"params": "params", "other": "metadata"}},
+            0: {
+                "node1": {
+                    "params": "params",
+                    "params_path": "saved.mpk",
+                    "other": "metadata",
+                }
+            },
             1: {"node1": {"only": "metadata"}},
         }
 
         replies_to_save = exp.save_training_replies()
         self.assertDictEqual(
             replies_to_save,
-            {0: {"node1": {"other": "metadata"}}, 1: {"node1": {"only": "metadata"}}},
+            {
+                0: {"node1": {"params_path": "saved.mpk", "other": "metadata"}},
+                1: {"node1": {"only": "metadata"}},
+            },
         )
 
     @patch(
