@@ -333,7 +333,9 @@ def replace_own_certificate():
         return error("The matching private key in PEM format is required"), 400
 
     try:
-        validate_certificate_pair(certificate, private_key)
+        validate_certificate_pair(
+            certificate, private_key, config.node_config.get("default", "id")
+        )
     except FedbiomedError as exp:
         return error(str(exp)), 400
 

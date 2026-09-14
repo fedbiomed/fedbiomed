@@ -18,6 +18,7 @@ from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import (
     CertificateManager,
+    certificate_san_names,
     generate_component_certificate,
     validate_certificate_pair,
     write_certificate_pair,
@@ -334,7 +335,9 @@ class CommonCLI:
             "replace",
             help="Installs a certificate and its private key as this component's own, "
             "where its configuration expects them. For a certificate issued elsewhere, "
-            "by a certificate authority rather than by 'certificate generate'.",
+            "by a certificate authority rather than by 'certificate generate'. "
+            "Refuses to overwrite the backup of a previous pair unless '--force' is "
+            "given.",
         )
 
         # Command `certificate generate`
@@ -398,6 +401,13 @@ class CommonCLI:
             required=True,
             help="Private key of that certificate, unencrypted and in PEM format. It "
             "stays on this component and is shared with no other party.",
+        )
+
+        replace.add_argument(
+            "--force",
+            action="store_true",
+            help="Replaces the certificate even though a backup of a previous pair "
+            "exists. A single backup is kept, so the pair it holds is lost.",
         )
 
         generate.add_argument(
@@ -649,6 +659,22 @@ class CommonCLI:
         Args:
             args: Arguments that are passed after `certificate replace` command
         """
+        # A single backup is kept, so overwriting it loses the pair it holds
+        existing = [
+            f"{path}.bak"
+            for path in (
+                self.config.getpath("certificate", "private_key"),
+                self.config.getpath("certificate", "public_key"),
+            )
+            if os.path.isfile(f"{path}.bak")
+        ]
+        if existing and not args.force:
+            CommonCLI.error(
+                f"A backup of a previous pair already exists: {', '.join(existing)}. "
+                "Replacing the certificate overwrites it with the pair in place now, "
+                "and the pair it holds is lost. Use '--force' to replace it anyway."
+            )
+
         try:
             certificate = read_file(args.public_key)
             private_key = read_file(args.private_key)
@@ -656,9 +682,20 @@ class CommonCLI:
             CommonCLI.error(f"Can not read the certificate or the private key: {e}")
 
         try:
-            validate_certificate_pair(certificate, private_key)
+            validate_certificate_pair(
+                certificate, private_key, self.config.get("default", "id")
+            )
         except FedbiomedError as e:
             CommonCLI.error(str(e))
+
+        # Nodes refuse to register a researcher certificate that states no host
+        is_researcher = self.config.COMPONENT_TYPE == ComponentType.RESEARCHER.name
+        if is_researcher and not certificate_san_names(certificate):
+            CommonCLI.error(
+                "The certificate states no host: its Subject Alternative Name carries "
+                "no host name and no address, so no node can verify this researcher "
+                "with it. Install a certificate issued for the hosts nodes reach it at."
+            )
 
         try:
             backups = write_certificate_pair(self.config, certificate, private_key)

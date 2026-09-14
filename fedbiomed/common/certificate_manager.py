@@ -245,7 +245,9 @@ def _public_key_bytes(key) -> bytes:
     )
 
 
-def validate_certificate_pair(certificate: str, private_key: str) -> None:
+def validate_certificate_pair(
+    certificate: str, private_key: str, component_id: Optional[str] = None
+) -> None:
     """Checks a certificate and private key can serve as a component's identity.
 
     What a component would otherwise discover at startup or mid-handshake is
@@ -253,8 +255,9 @@ def validate_certificate_pair(certificate: str, private_key: str) -> None:
 
     Raises:
         FedbiomedCertificateError: either part is unreadable, the key does not
-            belong to the certificate, or the certificate is outside its validity
-            window.
+            belong to the certificate, the certificate is outside its validity
+            window, or Fed-BioMed issued it for a component other than
+            `component_id`.
     """
     try:
         parsed = x509.load_pem_x509_certificate(certificate.encode("utf-8"))
@@ -295,6 +298,14 @@ def validate_certificate_pair(certificate: str, private_key: str) -> None:
             f"{ErrorNumbers.FB619.value}: The certificate is not valid before "
             f"{parsed.not_valid_before_utc:%Y-%m-%d %H:%M} UTC, so every connection "
             "made with it would fail until then."
+        )
+
+    certificate_id = certificate_component_id(certificate)
+    if component_id is not None and certificate_id not in (None, component_id):
+        raise FedbiomedCertificateError(
+            f"{ErrorNumbers.FB619.value}: The certificate was issued by Fed-BioMed "
+            f"for `{certificate_id}`, not for this component, `{component_id}`. "
+            "Install a pair issued for this component."
         )
 
 

@@ -763,6 +763,64 @@ def test_replace_certificate_refuses_an_unreadable_key(mock_print, cli, tmp_path
         cli._replace_certificate(args)
 
 
+@patch("builtins.print")
+def test_replace_certificate_refuses_a_researcher_certificate_stating_no_host(
+    mock_print, cli, tmp_path
+):
+    """Nodes refuse to register a researcher certificate naming no host."""
+    key_file, pem_file = _replacement_pair(tmp_path, _RESEARCHER_A)
+    args = _generating_cli(
+        cli, tmp_path, "RESEARCHER", "server_certificate"
+    ).parser.parse_args(["certificate", "replace", "-pk", pem_file, "-sk", key_file])
+
+    with pytest.raises(SystemExit):
+        cli._replace_certificate(args)
+    assert not (tmp_path / "server_certificate.pem").exists()
+
+
+@patch("builtins.print")
+def test_replace_certificate_refuses_a_pair_of_another_component(
+    mock_print, cli, tmp_path
+):
+    """A Fed-BioMed certificate identifies the component it was issued for."""
+    key_file, pem_file = _replacement_pair(tmp_path, _NODE_B)
+    args = _generating_cli(cli, tmp_path, "NODE", "FBM_certificate").parser.parse_args(
+        ["certificate", "replace", "-pk", pem_file, "-sk", key_file]
+    )
+
+    with pytest.raises(SystemExit):
+        cli._replace_certificate(args)
+    assert not (tmp_path / "FBM_certificate.pem").exists()
+
+
+@patch("builtins.print")
+def test_replace_certificate_refuses_to_overwrite_a_backup_without_force(
+    mock_print, cli, tmp_path
+):
+    """A single backup is kept, so it is not overwritten by accident."""
+    generating = _generating_cli(cli, tmp_path, "NODE", "FBM_certificate")
+    generating._generate_certificate(
+        generating.parser.parse_args(["certificate", "generate"])
+    )
+    original = (tmp_path / "FBM_certificate.pem").read_bytes()
+    key_file, pem_file = _replacement_pair(tmp_path, _NODE_A)
+    args = cli.parser.parse_args(
+        ["certificate", "replace", "-pk", pem_file, "-sk", key_file]
+    )
+    cli._replace_certificate(args)
+    assert (tmp_path / "FBM_certificate.pem.bak").read_bytes() == original
+
+    with pytest.raises(SystemExit):
+        cli._replace_certificate(args)
+    assert (tmp_path / "FBM_certificate.pem.bak").read_bytes() == original
+
+    forced = cli.parser.parse_args(
+        ["certificate", "replace", "-pk", pem_file, "-sk", key_file, "--force"]
+    )
+    cli._replace_certificate(forced)
+    assert (tmp_path / "FBM_certificate.pem.bak").read_bytes() != original
+
+
 @patch("fedbiomed.common.cli.CertificateManager.register_certificate")
 @patch("builtins.open")
 @patch("builtins.print")

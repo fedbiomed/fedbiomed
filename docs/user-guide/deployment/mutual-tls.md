@@ -291,7 +291,8 @@ new one:
        --public-key /path/to/certificate.pem --private-key /path/to/private.key
    ```
    Either way, the pair that was in place is kept beside it as a single `.bak`, which
-   the next replacement overwrites.
+   the next replacement overwrites: `certificate replace` refuses to do so unless
+   `--force` is given.
 2. Re-share it and re-register it on the other parties with `--upsert` to overwrite:
    ```shell
    fedbiomed researcher certificate register -pk /path/to/renewed.pem --upsert

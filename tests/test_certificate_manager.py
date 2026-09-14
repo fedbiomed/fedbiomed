@@ -1585,6 +1585,16 @@ def test_validate_certificate_pair_refuses_a_certificate_valid_only_later():
         validate_certificate_pair(certificate, private_key)
 
 
+def test_validate_certificate_pair_refuses_a_pair_of_another_component(tmp_path):
+    """Peers identify a Fed-BioMed certificate by the component id it embeds."""
+    key_file, pem_file = _generate_in(str(tmp_path))
+    certificate, private_key = read_file(pem_file), read_file(key_file)
+
+    validate_certificate_pair(certificate, private_key, _NODE_A)
+    with pytest.raises(FedbiomedCertificateError, match="issued by Fed-BioMed"):
+        validate_certificate_pair(certificate, private_key, "NODE_other")
+
+
 def test_back_up_file_keeps_what_was_there(tmp_path):
     """The displaced file stays readable under a fixed `.bak` name."""
     path = tmp_path / "certificate.pem"
