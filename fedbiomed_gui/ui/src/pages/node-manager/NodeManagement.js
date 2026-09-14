@@ -699,7 +699,11 @@ const NodeManagementContent = ({
                     SummaryCard={SummaryCard}
                 />
             ) : activeTab === nodeManagementTabs.connection ? (
-                <ConnectionStatus />
+                <ConnectionStatus
+                    DetailItem={DetailItem}
+                    formatDateTime={formatDateTime}
+                    formatValue={formatValue}
+                />
             ) : (
                 <ApplicationLogs
                     downloadNodeLogFile={downloadNodeLogFile}

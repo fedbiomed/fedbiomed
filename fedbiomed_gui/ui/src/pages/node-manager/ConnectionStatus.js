@@ -16,8 +16,6 @@ import {
     fetchConnectionState,
 } from '../../store/actions/certificatesActions'
 
-const emptyValue = '-'
-
 // Enough to see a connection settle or flap, without the whole retention window
 const historyShown = 5
 
@@ -50,24 +48,6 @@ const fixHints = {
         + 'registered here. Register its latest certificate and restart; if it '
         + 'is already registered, request the server to reissue it for the '
         + 'hosts nodes connect to.',
-}
-
-const formatValue = (value) => {
-    if (value === null || value === undefined || value === '') {
-        return emptyValue
-    }
-
-    return String(value)
-}
-
-const formatDateTime = (value) => {
-    if (!value) {
-        return emptyValue
-    }
-
-    const date = new Date(value)
-
-    return Number.isNaN(date.getTime()) ? emptyValue : date.toLocaleString()
 }
 
 /** How the recorded connection reads: its wording and its tone. */
@@ -110,20 +90,16 @@ const connectionSummary = (connection) => {
     }
 }
 
-const DetailItem = ({label, value}) => (
-    <div className="node-management-detail-item">
-        <span className="node-management-detail-label">{label}</span>
-        <span className="node-management-detail-value">{value}</span>
-    </div>
-)
-
 const ConnectionStatus = ({
     connection,
     connectionError,
     certificateStatus,
     certificateError,
+    DetailItem,
     fetchConnectionState,
     fetchCertificateStatus,
+    formatDateTime,
+    formatValue,
 }) => {
     const [refreshing, setRefreshing] = React.useState(false)
 
@@ -210,25 +186,30 @@ const ConnectionStatus = ({
             {recorded ? (
                 <div className="node-management-details-grid">
                     <DetailItem
+                        icon="globe"
                         label="Federation server"
                         value={`${formatValue(recorded.host)}:`
                             + `${formatValue(recorded.port)}`}
                     />
                     <DetailItem
+                        icon="tokenKey"
                         label="Federation server id"
-                        value={formatValue(recorded.researcher_id)}
+                        value={recorded.researcher_id}
                     />
                     <DetailItem
+                        icon="calendar"
                         label="Since"
                         value={formatDateTime(recorded.started_at)}
                     />
                     <DetailItem
+                        icon="refresh"
                         label="Last observed"
                         value={formatDateTime(recorded.updated_at)}
                     />
                     <DetailItem
+                        icon="alert"
                         label="Last error"
-                        value={formatValue(recorded.last_error)}
+                        value={recorded.last_error}
                     />
                 </div>
             ) : null}
@@ -288,6 +269,7 @@ const ConnectionStatus = ({
                     {connection.history.slice(0, historyShown).map((entry) => (
                         <DetailItem
                             key={`${entry.updated_at}-${entry.operation}`}
+                            icon="clock"
                             label={formatDateTime(entry.updated_at)}
                             value={`${entry.state}`
                                 + `${entry.operation ? ` - ${entry.operation}` : ''}`}
