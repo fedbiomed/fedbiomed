@@ -25,35 +25,31 @@ const historyShown = 5
 // table of the mutual authentication guide. Keyed by the event the node recorded.
 const fixHints = {
     mtls_handshake_failure:
-        'The pinned researcher certificate does not match the one served. '
-        + 'Register the researcher\'s current certificate; if it is already '
-        + 'current, treat this as a possible man-in-the-middle.',
+        'The federation server presents a certificate other than the one pinned '
+        + 'here. Register its latest certificate; if that is the one already '
+        + 'pinned, treat this as a possible man-in-the-middle.',
     mtls_identity_rejected:
-        'The researcher rejected this node\'s identity. Its certificate has to '
-        + 'be registered there under the id this node declares.',
+        'The federation server rejected this node\'s identity. Request the '
+        + 'server to register the node certificate under the id declared here.',
     mtls_not_enforced_by_researcher:
-        'This node requires mutual authentication but the researcher verifies '
-        + 'no node identity. Enable it on the researcher and register this '
-        + 'node\'s certificate there, or disable it here.',
+        'This node requires mutual authentication, which the federation server '
+        + 'does not enforce. Disable it here, or request the server to enforce '
+        + 'it and register the node certificate.',
     mtls_required_by_researcher:
-        'The researcher requires mutual authentication. Enable it here, '
-        + 'register the researcher certificate, and have this node\'s '
-        + 'certificate registered there.',
+        'The federation server requires mutual authentication. Enable it here, '
+        + 'register the server certificate, and request the server to register '
+        + 'the node certificate.',
     mtls_startup_refused:
-        'The node refused to start over its certificates. Resolve the reason '
-        + 'above, then start it again.',
+        'The node refused to start because of its certificates. Resolve the '
+        + 'problem above and try again.',
     researcher_unavailable:
-        'The researcher endpoint did not answer. Check that it runs and that '
-        + 'the host and port configured here are the ones it serves.',
-    researcher_certificate_without_san:
-        'The researcher certificate states no host, so nothing in it says '
-        + 'which server it is valid for. Request the researcher to reissue it '
-        + 'for the hosts nodes reach it at, register it here, and restart.',
+        'The federation server did not answer. Check that it is running at the '
+        + 'host and port configured here.',
     researcher_failed_name_check:
-        'The researcher is serving a certificate other than the one registered '
-        + 'here. Register its current certificate and restart; if it is already '
-        + 'current, request the researcher to reissue it for the hosts nodes '
-        + 'reach it at.',
+        'The federation server presents a certificate other than the one '
+        + 'registered here. Register its latest certificate and restart; if it '
+        + 'is already registered, request the server to reissue it for the '
+        + 'hosts nodes connect to.',
 }
 
 const formatValue = (value) => {
@@ -98,18 +94,19 @@ const connectionSummary = (connection) => {
         return {
             color: 'primary',
             label: 'Server-authenticated TLS',
-            detail: 'Connected without mutual authentication: the researcher '
-                + 'does not verify this node\'s identity.',
+            detail: 'Connected without mutual authentication: the federation '
+                + 'server does not verify this node\'s identity.',
         }
     }
 
     // The node only reaches a connected state under mutual authentication once
-    // the researcher has named it from the certificate it presented, so this
-    // is not in doubt.
+    // the federation server has named it from the certificate it presented, so
+    // this is not in doubt.
     return {
         color: 'success',
         label: 'Mutual authentication, identity verified',
-        detail: 'The researcher verified this node\'s identity.',
+        detail: 'The node and the federation server verified each other\'s '
+            + 'certificates.',
     }
 }
 
@@ -166,9 +163,8 @@ const ConnectionStatus = ({
                     <div>
                         <h2>Connection &amp; Diagnostics</h2>
                         <p>
-                            The connection to the researcher as the node
-                            recorded it, what it did before, and what would
-                            stop it from connecting at all
+                            Connection to the federation server, its history,
+                            and what prevents it
                         </p>
                     </div>
                 </div>
@@ -214,12 +210,12 @@ const ConnectionStatus = ({
             {recorded ? (
                 <div className="node-management-details-grid">
                     <DetailItem
-                        label="Researcher"
+                        label="Federation server"
                         value={`${formatValue(recorded.host)}:`
                             + `${formatValue(recorded.port)}`}
                     />
                     <DetailItem
-                        label="Researcher id"
+                        label="Federation server id"
                         value={formatValue(recorded.researcher_id)}
                     />
                     <DetailItem
