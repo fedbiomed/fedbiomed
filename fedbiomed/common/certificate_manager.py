@@ -795,9 +795,12 @@ class CertificateManager:
         if registering_on_node and others:
             registered = ", ".join(f"`{d['component_id']}`" for d in others)
             raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: A node registers at most one "
-                f"certificate. Cannot register `{component_id}` while other "
-                f"certificates are registered: {registered}. Delete them first."
+                f"{ErrorNumbers.FB619.value}: This node already has a certificate "
+                f"registered for {registered}, and the one given belongs to another "
+                f"component, `{component_id}`. A node connects to a single researcher, "
+                "so it holds only that researcher's certificate: to register this one "
+                f"instead, delete the certificate registered for {registered} first. "
+                "Replacing a registered certificate only applies to the same component."
             )
 
         # A researcher registers one certificate per node, so the same one
