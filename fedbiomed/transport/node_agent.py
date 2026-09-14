@@ -195,10 +195,12 @@ class NodeAgentAsync:
                 return
             # update replies only for (1) request-response messages
             # (2) that are not yet registered as pending request
+            # (3) that have a callback to execute on reply
             if (
                 hasattr(message, "request_id")
                 and message.request_id
                 and message.request_id not in self._replies
+                and on_reply is not None
             ):
                 self._replies.update(
                     {message.request_id: {"callback": on_reply, "reply": None}}

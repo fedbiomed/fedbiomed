@@ -137,7 +137,7 @@ class TestAgentStore(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.id, "node-id-1")
 
 
-def test_node_agent_flush_marks_stopped_request(node_agent):
+def test_node_agent_flush_removes_and_records_request(node_agent):
     node_agent.node_agent._replies["req-1"] = {
         "reply": None,
         "callback": lambda msg: None,
@@ -263,10 +263,17 @@ def test_node_agent_on_reply_closed_request(monkeypatch, node_agent, stopped):
         lambda _: DummyReply(),
     )
 
-    node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
+    logger = MagicMock()
+    monkeypatch.setattr("fedbiomed.transport.node_agent.logger", logger)
 
+    # Two late replies: neither may reach the callback or re-register the request
+    node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
     node_agent.loop.run_until_complete(node_agent.node_agent.on_reply({}))
     callback.assert_not_called()
+    # Both take the late-reply path, not the unexpected-request one
+    assert logger.info.call_count == 2
+    assert all(call.args[-1] is stopped for call in logger.info.call_args_list)
+    logger.warning.assert_not_called()
     assert "req-3" not in node_agent.node_agent._replies
     assert node_agent.node_agent._closed_request_ids["req-3"] is stopped
 
@@ -292,7 +299,7 @@ def test_node_agent_on_reply_unexpected_request(monkeypatch, node_agent):
 
 
 @pytest.mark.parametrize("stopped", [False, True])
-def test_flush_releases_reply_and_callback_models(monkeypatch, node_agent, stopped):
+def test_flush_releases_reply_and_callback_models(node_agent, stopped):
     class Model:
         pass
 
@@ -345,14 +352,44 @@ def test_closed_request_cache_eviction_and_retry(monkeypatch, node_agent):
         # A retry of a recently closed request must not re-register it.
         await agent.send_async(SimpleNamespace(request_id="new"), callback)
         assert agent._queue.empty()
-        for request_id in ("old", "middle", "new"):
-            with patch(
-                "fedbiomed.transport.node_agent.Message.from_dict",
-                return_value=SimpleNamespace(request_id=request_id),
+        # Evicted IDs take the unexpected-reply path (warning), tracked IDs the
+        # late-reply path (info). No callback runs in either case.
+        for request_id, expected, unexpected in (
+            ("old", "warning", "info"),
+            ("middle", "info", "warning"),
+            ("new", "info", "warning"),
+        ):
+            with (
+                patch(
+                    "fedbiomed.transport.node_agent.Message.from_dict",
+                    return_value=SimpleNamespace(request_id=request_id),
+                ),
+                patch("fedbiomed.transport.node_agent.logger") as logger,
             ):
                 await agent.on_reply({})
+            getattr(logger, expected).assert_called_once()
+            getattr(logger, unexpected).assert_not_called()
         assert not agent._replies
         callback.assert_not_called()
+
+    node_agent.loop.run_until_complete(exercise())
+
+
+def test_send_without_callback_does_not_register_reply(node_agent):
+    agent = node_agent.node_agent
+
+    async def exercise():
+        # e.g. a transport retry (on_reply=None) of a request no longer tracked
+        await agent.send_async(SimpleNamespace(request_id="req-no-cb"))
+        assert "req-no-cb" not in agent._replies
+        assert not agent._queue.empty()
+        # A reply must not try to call a None callback
+        with patch(
+            "fedbiomed.transport.node_agent.Message.from_dict",
+            return_value=SimpleNamespace(request_id="req-no-cb"),
+        ):
+            await agent.on_reply({})
+        assert "req-no-cb" not in agent._replies
 
     node_agent.loop.run_until_complete(exercise())
 
