@@ -4,9 +4,7 @@ import shutil
 import tempfile
 
 # Default researcher workflow tests to debug-mode exception behavior.
-os.environ.setdefault(
-    "FBM_DEBUG", "1"
-)  # Set to 1 for debug information, 0 for less verbose output.
+os.environ.setdefault("FBM_DEBUG", "1")
 
 # Redirect the researcher component created on `fedbiomed.researcher.config`
 # import to a temp dir, so tests never write it into the repository.
