@@ -75,6 +75,14 @@ $ fedbiomed node --path ./my-third-node gui start --port 5003
 
 If it is desired they can share the same data folder.
 
+#### Rebuilding the user interface
+
+The GUI serves a user interface built from its sources in `fedbiomed_gui/ui`. After they change, `--recreate` rebuilds it before the GUI starts. This requires NodeJS `yarn` and the GUI sources, as in a [development environment](../../developer/development-environment.md).
+
+```shell
+$ fedbiomed node gui start --recreate
+```
+
 
 ## Configuration file
 
@@ -122,6 +130,17 @@ password = admin
 !!! note "e-mail addresses"
     Currently, e-mail addresses are only used a login name by Fed-BioMed GUI. This is neither a user
     identity existing in the whole Fed-BioMed instance, nor used to send e-mails to the GUI user.
+
+## Certificates and the researcher connection
+
+The **Configuration** tab of the Node Management page holds what the node needs for
+[mutual authentication](../deployment/mutual-tls.md), grouped under
+*Connection & certificates*: its own certificate to send to the researcher, the
+researcher certificate it registers and pins, and the `[authentication]` setting.
+The **Connection & Diagnostics** tab reads the state of the connection to the
+researcher as the node last observed it. Both are restricted to administrators, and
+the certificate actions are the ones `fedbiomed node certificate` offers on the
+command line.
 
 ## Production Mode
 

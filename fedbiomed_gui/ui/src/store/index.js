@@ -12,6 +12,7 @@ import {accountRequestReducer } from "./accountRequestReducer";
 import { securityLogsReducer } from "./securityLogsReducer";
 import {nodeManagementReducer} from "./nodeManagementReducer";
 import {nodeConfigReducer} from "./nodeConfigReducer";
+import {certificatesReducer} from "./certificatesReducer";
 
 
 /**
@@ -32,4 +33,5 @@ export default combineReducers({
     security_logs           : securityLogsReducer,
     node_management         : nodeManagementReducer,
     node_config             : nodeConfigReducer,
+    certificates            : certificatesReducer,
   })

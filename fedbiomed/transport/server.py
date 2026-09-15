@@ -164,19 +164,15 @@ async def _verify_peer_identity(
     peer_node_id = identities.component_id(certificate)
 
     if peer_node_id is None:
-        # A broken registry must not read as an unregistered certificate.
-        reason = "certificate_not_registered"
-        cause = "its certificate is not registered"
-
         msg = (
             f"{ErrorNumbers.FB628.value}: Refusing the node declaring id "
-            f"`{declared_node_id}`: {cause}."
+            f"`{declared_node_id}`: its certificate is not registered."
         )
         logger.error(msg)
         logger.security_event(
             operation="mtls_identity_unresolved",
             status="failure",
-            reason=reason,
+            reason="certificate_not_registered",
             declared_node_id=declared_node_id,
             detail=msg,
             **_connection_audit_fields(context),
@@ -516,16 +512,10 @@ class _GrpcAsyncServer:
         """Builds the gRPC server credentials.
 
         Under mutual authentication, node client certificates are required and pinned
-        to the registered bundle. The bundle is re-read per handshake, so nodes
-        registered after startup are trusted without a restart. Otherwise server-auth
-        only.
-
-        The server binds even with no node certificate registered: gRPC refuses an
-        empty (`b""`) trust bundle but accepts `None`, so an empty bundle is passed as
-        `None`. Every client-certificate handshake is then rejected at the TLS layer
-        until a certificate is registered, at which point the per-handshake fetcher
-        picks it up without a restart. `require_client_authentication` stays set, so
-        the researcher is still seen as enforcing mutual authentication throughout.
+        to the registered bundle, fetched per handshake so nodes registered after
+        startup are trusted without a restart. gRPC refuses an empty (`b""`) bundle
+        but accepts `None`, which rejects every client certificate: the server then
+        binds with no node certificate registered. Otherwise server-auth only.
 
         Returns:
             Credentials to serve the researcher endpoint with.
