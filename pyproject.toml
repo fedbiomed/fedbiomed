@@ -95,7 +95,7 @@ dependencies = [
 	"pandas  >=2.0.1",
 	"polars ~=1.32.0",
 	"python-minifier  >=2.11,<=3.2.0",
-	"declearn[torch]  >=2.0,<2.9",
+	"declearn[torch]  >=2.9, <2.10",
 	"gmpy2  >=2.1.2,<=2.3.1",
 	"grpcio  ~=1.82.0",
 	"grpcio-tools  ~=1.82.0",

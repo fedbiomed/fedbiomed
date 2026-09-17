@@ -7,12 +7,11 @@ import dataclasses
 from math import ceil
 from typing import Any, Optional
 
-import declearn
 import msgpack
 import numpy as np
 import torch
 from declearn.model.api import Vector, VectorSpec
-from packaging.version import Version
+from declearn.utils.serialize import json_deserialize, json_serialize
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
 from fedbiomed.common.logger import logger
@@ -23,33 +22,18 @@ __all__ = [
     "Serializer",
 ]
 
-if Version(declearn.__version__) < Version("2.9"):
-    from declearn.utils import json_pack, json_unpack
 
-    def _pack_auxvar(obj: AuxVar) -> dict:
-        """Serialize an AuxVar using DecLearn's legacy JSON hook.
+def _pack_auxvar(obj: AuxVar) -> dict:
+    """Serialize an AuxVar into an opaque Fed-BioMed envelope."""
+    return {
+        "__type__": f"AuxVar>{type(obj).__name__}",
+        "value": json_serialize(obj),
+    }
 
-        Note: the returned dictionary contains the `__type__` field.
-        """
-        return json_pack(obj)
 
-    def _unpack_auxvar(obj: dict) -> AuxVar:
-        """Deserialize an AuxVar using DecLearn's legacy JSON hook."""
-        return json_unpack(obj)
-
-else:
-    from declearn.utils.serialize import json_deserialize, json_serialize
-
-    def _pack_auxvar(obj: AuxVar) -> dict:
-        """Serialize an AuxVar into an opaque Fed-BioMed envelope."""
-        return {
-            "__type__": f"AuxVar>{type(obj).__name__}",
-            "value": json_serialize(obj),
-        }
-
-    def _unpack_auxvar(obj: dict) -> AuxVar:
-        """Deserialize an AuxVar from its opaque Fed-BioMed envelope."""
-        return json_deserialize(obj["value"])
+def _unpack_auxvar(obj: dict) -> AuxVar:
+    """Deserialize an AuxVar from its opaque Fed-BioMed envelope."""
+    return json_deserialize(obj["value"])
 
 
 class Serializer:
