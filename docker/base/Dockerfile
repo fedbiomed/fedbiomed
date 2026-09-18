@@ -11,8 +11,10 @@ COPY fedbiomed_gui/ui/package.json fedbiomed_gui/ui/yarn.lock* ./
 RUN yarn install --frozen-lockfile && \
     yarn cache clean
 
-# Copy UI source and build
-COPY fedbiomed_gui/ui/ ./
+# Copy UI source only. Copying the whole ui/ directory would overlay the host
+# node_modules (built for the host OS/arch) on top of the install above.
+COPY fedbiomed_gui/ui/src ./src
+COPY fedbiomed_gui/ui/public ./public
 RUN yarn build
 
 # Stage 2: Build Python package without hatch hook
