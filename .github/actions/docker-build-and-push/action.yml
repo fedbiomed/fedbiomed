@@ -65,6 +65,14 @@ runs:
       uses: docker/setup-qemu-action@v3
 
     - name: Set up Docker Buildx
+      # Only for publishing: this creates a docker-container driver builder
+      # (an isolated BuildKit instance) to get QEMU multi-platform support.
+      # That builder can't see the runner's Docker daemon image store, so a
+      # test build's `--load` result wouldn't be visible to the next stage's
+      # `FROM fedbiomed/base:...` if this ran unconditionally. Test builds
+      # stay on the runner's default docker-driver builder instead, which
+      # shares the daemon store and needs no setup.
+      if: ${{ inputs.test == false || inputs.test == 'false' }}
       uses: docker/setup-buildx-action@v3
 
     - name: Build (and push) the image
