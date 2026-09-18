@@ -1,10 +1,12 @@
 ---
 name: Tests and Publish Fed-BioMed Docker Images
 description: |
-  Builds the Fed-BioMed docker images. A pushed version tag publishes them to
-  Docker Hub. A manual run builds whichever branch/ref it is launched on and
-  can either test-build it or, with push enabled, publish it under the given
-  tag. Every other trigger builds them as a test and publishes nothing.
+  Builds the Fed-BioMed docker images. A push matching the triggers below (a
+  version tag, or one of the watched branches) publishes them to Docker Hub.
+  A pull request into master only test-builds it. A manual run builds
+  whichever branch/ref it is launched on and can either test-build it or,
+  with push enabled, publish it under the given tag. Every other trigger
+  builds them as a test and publishes nothing.
 
 on:
   push:
@@ -12,6 +14,9 @@ on:
       - 'v*.*.*'  # Triggers on tags like v1.2.3
     branches:
       - feature/multi-platform-docker-build
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
     inputs:
       push:
@@ -45,11 +50,15 @@ jobs:
       - name: Check if image has to be pushed
         id: test
         run: |
-          # A pushed tag publishes. A manual run also publishes, but only if
-          # explicitly asked to via the "push" input, and that requires a
-          # "tag" too. Every other trigger builds without pushing, so a
-          # trigger added later cannot reach Docker Hub by omission.
-          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_EVENT_NAME" == "push" ]]; then
+          # Any push event that reached this job already matched the
+          # `on.push` filter above (a version tag, or a watched branch), so
+          # it publishes. A pull request (into master) always test-builds,
+          # regardless of the condition below. A manual run also publishes,
+          # but only if explicitly asked to via the "push" input, and that
+          # requires a "tag" too. Every other trigger builds without
+          # pushing, so a trigger added later cannot reach Docker Hub by
+          # omission.
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
             echo "TEST_BUILD=false" >> $GITHUB_OUTPUT
           elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "${{ inputs.push }}" == "true" ]]; then
             if [[ -z "${{ inputs.tag }}" ]]; then
