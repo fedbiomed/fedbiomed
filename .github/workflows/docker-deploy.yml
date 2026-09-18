@@ -2,13 +2,30 @@
 name: Tests and Publish Fed-BioMed Docker Images
 description: |
   Builds the Fed-BioMed docker images. A pushed version tag publishes them to
-  Docker Hub; every other trigger builds them as a test and publishes nothing.
+  Docker Hub. A manual run builds whichever branch/ref it is launched on and
+  can either test-build it or, with push enabled, publish it under the given
+  tag. Every other trigger builds them as a test and publishes nothing.
 
 on:
   push:
     tags:
       - 'v*.*.*'  # Triggers on tags like v1.2.3
+    branches:
+      - feature/multi-platform-docker-build
   workflow_dispatch:
+    inputs:
+      push:
+        description: Publish the images to Docker Hub (requires "tag" below).
+        required: false
+        type: boolean
+        default: false
+      tag:
+        description: |
+          Docker tag for the images (e.g. "dev", "my-feature"). Used as the
+          published tag when "push" is enabled; with "push" off, it just
+          labels the local test build instead of the default branch/sha tags.
+        required: false
+        type: string
 
 jobs:
   build-and-push:
@@ -28,9 +45,17 @@ jobs:
       - name: Check if image has to be pushed
         id: test
         run: |
-          # Only a pushed tag publishes. Every other trigger builds without
-          # pushing, so a trigger added later cannot reach Docker Hub by omission.
+          # A pushed tag publishes. A manual run also publishes, but only if
+          # explicitly asked to via the "push" input, and that requires a
+          # "tag" too. Every other trigger builds without pushing, so a
+          # trigger added later cannot reach Docker Hub by omission.
           if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_EVENT_NAME" == "push" ]]; then
+            echo "TEST_BUILD=false" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "${{ inputs.push }}" == "true" ]]; then
+            if [[ -z "${{ inputs.tag }}" ]]; then
+              echo "::error::push is enabled but no tag was given; re-run with a tag input." >&2
+              exit 1
+            fi
             echo "TEST_BUILD=false" >> $GITHUB_OUTPUT
           else
             echo "TEST_BUILD=true" >> $GITHUB_OUTPUT
@@ -42,6 +67,7 @@ jobs:
           image-names: fedbiomed/base
           file: docker/base/Dockerfile
           test: ${{ steps.test.outputs.TEST_BUILD }}
+          image-tag: ${{ inputs.tag }}
 
       - name: Build and Publish/Test Fed-BioMed Node Image
         uses: ./.github/actions/docker-build-and-push
@@ -49,10 +75,12 @@ jobs:
           image-names: fedbiomed/node
           file: docker/node/Dockerfile
           test: ${{ steps.test.outputs.TEST_BUILD }}
-      
+          image-tag: ${{ inputs.tag }}
+
       - name: Build and Publish/Test Researcher Image
         uses: ./.github/actions/docker-build-and-push
         with:
           image-names: fedbiomed/researcher
           file: docker/researcher/Dockerfile
           test: ${{ steps.test.outputs.TEST_BUILD }}
+          image-tag: ${{ inputs.tag }}
