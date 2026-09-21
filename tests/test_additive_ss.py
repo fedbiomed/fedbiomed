@@ -1,14 +1,35 @@
+import random
 import unittest
-from fedbiomed.common.exceptions import FedbiomedValueError, FedbiomedTypeError
+from unittest.mock import patch
+
+from fedbiomed.common.exceptions import FedbiomedTypeError, FedbiomedValueError
 from fedbiomed.common.secagg._additive_ss import (
     AdditiveSecret,
     AdditiveShare,
     AdditiveShares,
 )
-import random
 
 
 class TestAdditiveSecret(unittest.TestCase):
+    def test_split_secure_sampling_boundaries(self):
+        """Secure sampling preserves inclusive bounds and exact reconstruction."""
+        for value in (42, [42, 17]):
+            for sampled in (0, 2**10):
+                with (
+                    self.subTest(secret=value, sampled=sampled),
+                    patch(
+                        "fedbiomed.common.secagg._additive_ss.secrets.randbelow",
+                        return_value=sampled,
+                    ) as randbelow,
+                ):
+                    shares = AdditiveSecret(value).split(3, bit_length=10)
+                    self.assertEqual(shares.reconstruct(), value)
+                    self.assertEqual(
+                        randbelow.call_count, 2 if isinstance(value, int) else 4
+                    )
+                    for call in randbelow.call_args_list:
+                        self.assertEqual(call.args, (2**10 + 1,))
+
     def test_secret_initialization_valid_int(self):
         """Test initializing AdditiveSecret with a valid integer."""
         secret = AdditiveSecret(123)

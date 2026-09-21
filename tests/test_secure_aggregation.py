@@ -57,6 +57,28 @@ class TestJLSecureAggregation(MockRequestModule, unittest.TestCase):
         with self.assertRaises(FedbiomedSecureAggregationError):
             JoyeLibertSecureAggregation(clipping_range=[True])
 
+    def test_round_secure_random_validation(self):
+        """Each enabled round samples a fresh value and preserves rounding."""
+        with (
+            patch(
+                "fedbiomed.researcher.secagg._secure_aggregation.secrets.SystemRandom"
+            ) as random_source,
+            patch.object(self.secagg, "_set_secagg_contexts"),
+        ):
+            uniform = random_source.return_value.uniform
+            uniform.side_effect = [0.1234, 0.9876]
+            for expected in (0.123, 0.988):
+                self.secagg._configure_round(test_id, ["node-1", "node-2"], "exp-id")
+                self.assertEqual(self.secagg._secagg_random, expected)
+                uniform.assert_called_with(0, 1)
+            self.assertEqual(uniform.call_count, 2)
+
+            self.secagg._configure_round(
+                test_id, ["node-1", "node-2"], "exp-id", insecure_validation=False
+            )
+            self.assertIsNone(self.secagg._secagg_random)
+            self.assertEqual(uniform.call_count, 2)
+
     def test_jl_secure_aggregation_02_activate(self):
         """Tests secure aggregation activation"""
 
