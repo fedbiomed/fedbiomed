@@ -1193,6 +1193,18 @@ def test_node_registering_an_expired_certificate_rejected(cert_db):
     assert cert_db.node_cm.list() == []
 
 
+@pytest.mark.parametrize("separator", ["", " "])
+def test_certificate_pasted_on_one_line_is_registered_as_pem(cert_db, separator):
+    """OpenSSL, which gRPC loads the certificate with, reads only the PEM form."""
+    certificate = _certificate(valid_days=365).decode()
+
+    cert_db.researcher_cm.register(
+        certificate=certificate.replace("\n", separator), component_id=_NODE_A
+    )
+
+    assert cert_db.researcher_cm.get(_NODE_A)["certificate"] == certificate
+
+
 def test_upsert_does_not_replace_a_registration_with_an_expired_certificate(cert_db):
     """What stays registered is the certificate a peer can still authenticate with."""
     registered = _certificate(valid_days=365).decode()
@@ -1636,3 +1648,13 @@ def test_written_pair_is_the_one_the_configuration_names(tmp_path):
     assert read_file(config.getpath("certificate", "private_key")) == private_key
     # Nothing was in place, so nothing was displaced
     assert backups == {"certificate": None, "private_key": None}
+
+
+def test_written_pair_stores_a_one_line_certificate_as_pem(tmp_path):
+    """OpenSSL, which gRPC loads the certificate with, reads only the PEM form."""
+    certificate, private_key = _pem_pair()
+    config = _pair_config(str(tmp_path))
+
+    write_certificate_pair(config, certificate.replace("\n", ""), private_key)
+
+    assert read_file(config.getpath("certificate", "public_key")) == certificate
