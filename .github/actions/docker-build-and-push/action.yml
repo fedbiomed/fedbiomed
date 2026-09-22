@@ -102,12 +102,18 @@ runs:
 
     # BuildKit keeps every intermediate layer of every platform in its cache:
     # the wheel directory and the unpacked image layers, per platform, for a
-    # torch-sized image. Three of these in one job do not fit on the runner.
-    # Nothing here is reused by the next image either - docker/node and
-    # docker/researcher start FROM the base *image*, which prune does not
-    # touch, not from its build cache.
+    # torch-sized image. Three of those in one job are what fills the runner.
+    #
+    # Publishing only: the next image in the job resolves `FROM
+    # fedbiomed/base:...` from Docker Hub, which the step above just pushed,
+    # so there is nothing local left to invalidate. A test build instead
+    # keeps its result in the daemon image store with --load, and that image
+    # *is* the next image's input - so the cache is left alone there rather
+    # than resting on the distinction between an image and the build cache
+    # that produced it. Test builds are single-platform, and so not the ones
+    # that run out of disk.
     - name: Prune the build cache
-      if: always()
+      if: ${{ always() && (inputs.test == false || inputs.test == 'false') }}
       run: |
         docker buildx prune --all --force || true
         docker builder prune --all --force || true
