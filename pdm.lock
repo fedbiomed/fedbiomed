@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs", "gui", "node", "researcher", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.1"
-content_hash = "sha256:2cc86aa17b8bcbea67e0bec0f8e886395a1cfe32bb40b6a8e558d086f06c95b8"
+content_hash = "sha256:22138b9d3d6af6ef16c19c21d260d5963b515c0c9ef278b3792b1abef54e44b3"
 
 [[metadata.targets]]
 requires_python = ">=3.11,<3.15"
@@ -3435,6 +3435,20 @@ files = [
 ]
 
 [[package]]
+name = "prettytable"
+version = "3.18.0"
+requires_python = ">=3.10"
+summary = "A simple Python library for easily displaying tabular data in a visually appealing ASCII table format"
+groups = ["default"]
+dependencies = [
+    "wcwidth>=0.3.5",
+]
+files = [
+    {file = "prettytable-3.18.0-py3-none-any.whl", hash = "sha256:b3346e0e6f79180833aebaac088ae926340586cf6d7d991b9eb125b65f72313a"},
+    {file = "prettytable-3.18.0.tar.gz", hash = "sha256:439217116152244369caf3d9f1caf2f9fe29b03bd79e88d2928c8e718c95d680"},
+]
+
+[[package]]
 name = "prometheus-client"
 version = "0.26.0"
 requires_python = ">=3.9"
@@ -4278,6 +4292,24 @@ files = [
 ]
 
 [[package]]
+name = "skops"
+version = "0.15.0"
+requires_python = ">=3.9"
+summary = "A set of tools, related to machine learning in production."
+groups = ["default"]
+dependencies = [
+    "numpy>=1.25.0",
+    "packaging>=17.0",
+    "prettytable>=3.9",
+    "scikit-learn>=1.2",
+    "scipy>=1.10.0",
+]
+files = [
+    {file = "skops-0.15.0-py3-none-any.whl", hash = "sha256:5984ac51d9b4a12af69a9e9e5f6961379933a293941197fac59a6371865f375c"},
+    {file = "skops-0.15.0.tar.gz", hash = "sha256:29bb4585d254e895b37f74d3274a17a21ef9910702675b244e1c5edd90cd8a75"},
+]
+
+[[package]]
 name = "soupsieve"
 version = "2.9.2"
 requires_python = ">=3.10"
@@ -4749,7 +4781,7 @@ name = "wcwidth"
 version = "0.8.2"
 requires_python = ">=3.8"
 summary = "Measures the displayed width of unicode strings in a terminal"
-groups = ["docs", "researcher"]
+groups = ["default", "docs", "researcher"]
 files = [
     {file = "wcwidth-0.8.2-py3-none-any.whl", hash = "sha256:d63947694a0539a1d51e01eda7caf800c291020e6cdd7e28ad7b14dd33ad4f85"},
     {file = "wcwidth-0.8.2.tar.gz", hash = "sha256:91fbef97204b96a3d4d421609b80340b760cf33e26da123ff243d76b1fda8dda"},

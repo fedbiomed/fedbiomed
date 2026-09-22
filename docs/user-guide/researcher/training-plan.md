@@ -362,14 +362,16 @@ Of course, loaded model needs to be identical to the training plan's model.
 
 
 !!! info "`export_model()` and `import_model()` actions depends on framework"
-    With PyTorch, these methods save and load the model parameters (`model.state_dict()`) with `torch.save()`/`torch.load()` as it is a [common practice](https://pytorch.org/tutorials/beginner/saving_loading_models.html)
+    With PyTorch, these methods save and load the model parameters (`model.state_dict()`) with `torch.save()`/`torch.load(weights_only=True)` as it is a [common practice](https://pytorch.org/tutorials/beginner/saving_loading_models.html)
 
-    With scikit-learn, these methods save and load the whole model with `joblib.dump()`/`joblib.load()` as it is also a [common practice](https://scikit-learn.org/stable/model_persistence.html)
+    With scikit-learn, these methods save and load the whole model with `skops.io.dump()`/`skops.io.load()`. Unknown types are rejected using Skops defaults.
 
 !!! warning "Security notice"
     Only use `import_model()` with a trusted model file (trained by a trusted source, transmitted via secure channel).
 
-    In both PyTorch and scikit-learn, the model saving and loading facility are based on [pickle](https://docs.python.org/3/library/pickle.html). While it is the recommended way of saving models in these frameworks, a malicious pickle model can execute arbitrary code on your machine when loaded. Thus make sure you are loading a model from a reliable source.
+    PyTorch imports use the restricted weights-only loader; custom objects in checkpoints are rejected. Scikit-learn imports use Skops without additional trusted types. Neither loader falls back to unrestricted pickle loading.
+
+    Legacy Joblib exports cannot be imported directly. In a trusted environment, explicitly load a trusted legacy file with `joblib.load()` and save the estimator with `skops.io.dump()`. Never perform this conversion on an untrusted file.
 
 !!! warning "Usage through `Experiment`"
     Both **exports** and **imports** must be used through [Experiment](../../researcher/experiment) interface. Indeed, `Experiment` class has methods to load Training Plans and for initializing Model. Once the Model is initialized, you can
