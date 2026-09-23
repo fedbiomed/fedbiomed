@@ -38,6 +38,11 @@ on:
         required: false
         default: false
         type: boolean
+      e2e-files:
+        description: JSON list of end-to-end test files to run; empty discovers every tests/end2end/e2e_*.py file
+        required: false
+        default: ''
+        type: string
   workflow_dispatch:
     inputs:
       python-versions:
@@ -70,6 +75,11 @@ on:
         required: false
         default: false
         type: boolean
+      e2e-files:
+        description: 'JSON list of end-to-end test files to run, e.g. ["e2e_analytics.py"]; empty discovers every tests/end2end/e2e_*.py file'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -224,8 +234,29 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  resolve-e2e-files:
+    name: Resolve end-to-end test files
+    if: ${{ inputs.run-e2e }}
+    runs-on: ubuntu-latest
+    outputs:
+      files: ${{ steps.resolve.outputs.files }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve end-to-end test files
+        id: resolve
+        run: |
+          if [ -n "${{ inputs.e2e-files }}" ]; then
+            files='${{ inputs.e2e-files }}'
+          else
+            files=$(python3 -c "import glob, json, os; print(json.dumps(sorted(os.path.basename(f) for f in glob.glob('tests/end2end/e2e_*.py'))))")
+          fi
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+
   e2e-test:
     name: E2E (${{ matrix.e2e-file }}, ${{ matrix.os }}, ${{ matrix.python-version }})
+    needs: resolve-e2e-files
     if: ${{ inputs.run-e2e }}
     timeout-minutes: 180
     defaults:
@@ -236,16 +267,7 @@ jobs:
       matrix:
         os: ${{ fromJSON(inputs.os-list) }}
         python-version: ${{ fromJSON(inputs.python-versions) }}
-        e2e-file:
-          - e2e_analytics.py
-          - e2e_declearn_modules.py
-          - e2e_declearn_modules_sklearn.py
-          - e2e_image_folder_pytorch.py
-          - e2e_ixi_brain_segmentation.py
-          - e2e_mnist_pytorch.py
-          - e2e_secure_aggregation.py
-          - e2e_sklearn.py
-          - e2e_training_plan_approval.py
+        e2e-file: ${{ fromJSON(needs.resolve-e2e-files.outputs.files) }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
