@@ -201,14 +201,19 @@ class _GrpcFormatter(logging.Formatter):
     def format(self, record):
         """Formats the message/data that is going to be send to remote party through gRPC"""
         record2 = copy.copy(record)
+        # Keep diagnostic traceback metadata local, including cached exception text.
+        record2.exc_info = None
+        record2.exc_text = None
+        record2.stack_info = None
         json_message = {
             "asctime": self.formatTime(record2),
             "node_id": self._node_id,
             "name": record2.__dict__["name"],
             "level": record2.__dict__["levelname"],
-            "message": record2.__dict__["message"],
+            "message": record.getMessage(),
         }
         record2.msg = json.dumps(json_message)
+        record2.args = ()
         return super().format(record2)
 
 
@@ -242,7 +247,9 @@ class _GrpcHandler(logging.Handler):
             record: is automatically passed by the logger class
         """
 
-        if hasattr(record, "broadcast") or hasattr(record, "researcher_id"):
+        broadcast = getattr(record, "broadcast", False) is True
+        researcher_id = getattr(record, "researcher_id", None)
+        if broadcast or researcher_id:
             msg = dict(
                 level=record.__dict__["levelname"],
                 msg=self.format(record),
@@ -253,11 +260,11 @@ class _GrpcHandler(logging.Handler):
             import fedbiomed.common.message as message
 
             feedback = message.FeedbackMessage(
-                researcher_id=record.researcher_id, log=message.Log(**msg)
+                researcher_id=researcher_id, log=message.Log(**msg)
             )
 
             try:
-                self._on_log(feedback, record.broadcast)
+                self._on_log(feedback, broadcast)
             except Exception:
                 logging.error("Not able to send log message to remote party")
 
