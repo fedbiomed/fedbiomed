@@ -12,8 +12,6 @@ on:
   push:
     tags:
       - 'v*.*.*'  # Triggers on tags like v1.2.3
-    branches:
-      - feature/multi-platform-docker-build
   pull_request:
     branches:
       - master
