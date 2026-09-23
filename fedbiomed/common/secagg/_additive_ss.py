@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import random
+import secrets
 from math import log2
 from typing import List, Optional, Union
 
@@ -93,7 +93,7 @@ class AdditiveSecret:
             )
         bit_length = secret.bit_length() if bit_length is None else bit_length
 
-        shares = [random.randint(0, 2**bit_length) for _ in range(num_shares - 1)]
+        shares = [secrets.randbelow(2**bit_length + 1) for _ in range(num_shares - 1)]
 
         return [*shares, secret - sum(shares)]
 
