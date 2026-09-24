@@ -1724,3 +1724,16 @@ a.fed-box-link{
     border-radius: 0 0 12px 12px;
   }
 }
+
+.node-management-subsection-title {
+  color: var(--node-management-text);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.node-management-callout-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
