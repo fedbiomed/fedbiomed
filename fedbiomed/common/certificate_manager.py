@@ -316,12 +316,21 @@ def write_certificate_pair(
 
     Every surface writes here rather than anywhere of its own, so the component
     keeps reading the files its configuration already names. The pair that was in
-    place is kept as the single backup, replacing the one kept before it.
+    place is kept as the single backup, replacing the one kept before it. The
+    certificate is written re-encoded as PEM.
 
     Returns:
         Where each displaced file was backed up, by role, with None for a role
         that had no file in place.
     """
+    # `cryptography` reads a PEM whose line breaks were lost, e.g. pasted on one
+    # line, which the OpenSSL gRPC loads it with does not: written re-encoded.
+    certificate = (
+        x509.load_pem_x509_certificate(certificate.encode("utf-8"))
+        .public_bytes(serialization.Encoding.PEM)
+        .decode("utf-8")
+    )
+
     certificate_path = config.getpath("certificate", "public_key")
     private_key_path = config.getpath("certificate", "private_key")
 
@@ -719,7 +728,7 @@ class CertificateManager:
         holding a file use `register_certificate` instead, and no caller writes to the
         table directly. Which rules apply follows from the component this manager was
         opened for: a node holds one certificate, its researcher's, and requires it to
-        state a host.
+        state a host. The certificate is stored re-encoded as PEM.
 
         The component id may be recovered from the certificate's `CN=`, but only on a
         certificate Fed-BioMed issued (`O=Fed-BioMed`); any other issuer's `CN=` is
@@ -750,13 +759,21 @@ class CertificateManager:
                 another component or is given one stating no host.
         """
         # Every rule below passes on a certificate it cannot read, so reject it first.
-        fingerprint = certificate_fingerprint(certificate)
-        if fingerprint is None:
+        try:
+            # `cryptography` reads a PEM whose line breaks were lost, e.g. pasted on
+            # one line, which the OpenSSL gRPC hands it to does not: stored re-encoded.
+            certificate = (
+                x509.load_pem_x509_certificate(certificate.encode("utf-8"))
+                .public_bytes(serialization.Encoding.PEM)
+                .decode("utf-8")
+            )
+        except (TypeError, ValueError) as exp:
             raise FedbiomedCertificateError(
                 f"{ErrorNumbers.FB619.value}: The certificate could not be read: it is "
                 "not a PEM encoded certificate. Register the `.pem` file the component "
                 "serves."
-            )
+            ) from exp
+        fingerprint = certificate_fingerprint(certificate)
 
         # An expired certificate completes no handshake, so registering it would only
         # defer the failure to the connection, where it is reported as a dropped

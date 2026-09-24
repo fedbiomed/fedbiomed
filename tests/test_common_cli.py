@@ -722,6 +722,25 @@ def test_replace_certificate_installs_the_supplied_pair(mock_print, cli, tmp_pat
 
 
 @patch("builtins.print")
+def test_replace_certificate_installs_a_one_line_certificate_as_pem(
+    mock_print, cli, tmp_path
+):
+    """OpenSSL, which gRPC loads the certificate with, reads only the PEM form."""
+    key_file, pem_file = _replacement_pair(tmp_path, _NODE_A)
+    with open(pem_file) as file:
+        certificate = file.read()
+    one_line = tmp_path / "one_line.pem"
+    one_line.write_text(certificate.replace("\n", ""))
+    args = _generating_cli(cli, tmp_path, "NODE", "FBM_certificate").parser.parse_args(
+        ["certificate", "replace", "-pk", str(one_line), "-sk", key_file]
+    )
+
+    cli._replace_certificate(args)
+
+    assert (tmp_path / "FBM_certificate.pem").read_text() == certificate
+
+
+@patch("builtins.print")
 def test_replace_certificate_refuses_a_mismatched_pair(mock_print, cli, tmp_path):
     """A key that belongs to another certificate could never complete a handshake."""
     _, pem_file = _replacement_pair(tmp_path, _NODE_A)
