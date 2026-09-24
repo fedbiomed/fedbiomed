@@ -1,5 +1,7 @@
 import asyncio
+import socket
 import ssl
+import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -31,6 +33,7 @@ from fedbiomed.transport.client import (
     TaskListener,
     _is_tls_handshake_error,
     _researcher_requires_client_auth,
+    _server_speaks_tls,
     _StubType,
 )
 from fedbiomed.transport.protocols.researcher_pb2 import TaskResponse
@@ -562,11 +565,12 @@ async def test_task_listener_unauthenticated_retries(
 
 
 @pytest.mark.asyncio
+@patch("fedbiomed.transport.client.is_server_alive", return_value=True)
 @patch("fedbiomed.transport.client.logger.security_event")
 @patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_unavailable_mtls_handshake_logs_warning(
-    sleep, log_warning, security_event, listener_env
+    sleep, log_warning, security_event, alive, listener_env
 ):
     """Under mutual authentication, a handshake/pinning failure is logged loudly
     but still retried."""
@@ -592,6 +596,33 @@ async def test_task_listener_unavailable_mtls_handshake_logs_warning(
     failure = security_event.call_args_list[0].kwargs
     assert failure["operation"] == "mtls_handshake_failure"
     assert (failure["host"], failure["port"]) == ("localhost", "1")
+
+
+@pytest.mark.asyncio
+@patch("fedbiomed.transport.client.is_server_alive", return_value=False)
+@patch("fedbiomed.transport.client.logger._logger.warning")
+@patch("fedbiomed.transport.client.asyncio.sleep")
+async def test_task_listener_mtls_handshake_error_with_server_down_is_unavailable(
+    sleep, log_warning, alive, listener_env
+):
+    """A handshake-looking error while nothing accepts connections on the endpoint
+    is a researcher that is not running, not a certificate mismatch."""
+    listener_env.channels.mtls = True
+
+    await listener_env.drain(
+        [
+            _rpc_error(
+                grpc.StatusCode.UNAVAILABLE,
+                "failed to connect to all addresses; last error: UNAVAILABLE: "
+                "ipv4:127.0.0.1:50051: Handshake read failed (Socket closed)",
+            )
+        ]
+    )
+
+    log_warning.assert_not_called()
+    reported = listener_env.channels.report_state.call_args
+    assert reported.args == (ClientStatus.DISCONNECTED,)
+    assert reported.kwargs["operation"] == "researcher_unavailable"
 
 
 @pytest.mark.asyncio
@@ -806,10 +837,11 @@ async def test_task_listener_stops_on_a_failed_name_check_without_mtls(
 
 
 @pytest.mark.asyncio
+@patch("fedbiomed.transport.client.is_server_alive", return_value=True)
 @patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_retries_a_handshake_failure_that_is_not_a_name_check(
-    sleep, log_warning, listener_env
+    sleep, log_warning, alive, listener_env
 ):
     """The name check is fatal and the handshake failure is not, so the handshake
     terms must not carry a failure the name check owns: a detail naming a handshake
@@ -910,10 +942,11 @@ async def test_task_listener_reports_a_rejected_handshake_not_an_identity_answer
 
 
 @pytest.mark.asyncio
+@patch("fedbiomed.transport.client.is_server_alive", return_value=True)
 @patch("fedbiomed.transport.client.logger._logger.warning")
 @patch("fedbiomed.transport.client.asyncio.sleep")
 async def test_task_listener_reports_a_failed_tls_handshake_not_an_identity_answer(
-    sleep, log_warning, listener_env
+    sleep, log_warning, alive, listener_env
 ):
     """A researcher certificate that does not verify is reported as such."""
     listener_env.channels.mtls = True
@@ -1583,3 +1616,37 @@ def test_channels_report_state_without_a_listener(audit_fields):
     channels.report_state(ClientStatus.CONNECTED)
 
     audit_fields.assert_not_called()
+
+
+def test_server_speaks_tls_false_for_a_port_forward_without_backend():
+    """A listener that accepts TCP then closes, as a docker port forward does once
+    the researcher behind it is stopped, is not a TLS server."""
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(5)
+
+    def accept_and_close():
+        while True:
+            try:
+                conn, _ = server.accept()
+            except OSError:
+                return
+            conn.close()
+
+    threading.Thread(target=accept_and_close, daemon=True).start()
+    try:
+        assert _server_speaks_tls("127.0.0.1", str(server.getsockname()[1])) is False
+    finally:
+        server.close()
+
+
+@patch("fedbiomed.transport.client.socket.create_connection")
+def test_server_speaks_tls_true_when_a_tls_alert_answers(create_connection):
+    """A TLS alert (e.g. a demanded client certificate) is a TLS server replying."""
+    create_connection.return_value.__enter__.return_value = MagicMock()
+    with patch("fedbiomed.transport.client.ssl.create_default_context") as context:
+        wrap = context.return_value.wrap_socket
+        wrap.side_effect = ssl.SSLError("alert handshake failure")
+        assert _server_speaks_tls("localhost", "1") is True
+        wrap.side_effect = ssl.SSLEOFError("EOF")
+        assert _server_speaks_tls("localhost", "1") is False

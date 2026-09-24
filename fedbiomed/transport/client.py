@@ -132,6 +132,48 @@ def is_server_alive(host: str, port: str):
                 return True
 
 
+def _server_speaks_tls(host: str, port: str) -> bool:
+    """Whether a TLS server answers on the endpoint, not only a TCP listener.
+
+    A port forward (docker, VPN, NAT) keeps accepting connections after the server
+    behind it is gone, then closes them; a TCP connect cannot tell. A live
+    researcher, even one rejecting this node's certificate, always replies to a
+    ClientHello, whereas a forward without a backend closes before any reply.
+
+    Blocking: run it off the event loop.
+
+    Args:
+        host: The host/ip of the researcher server.
+        port: Port number of the researcher server.
+
+    Returns:
+        False if the connection is closed before the server replies to the TLS
+        handshake, True otherwise. A slow server counts as answering, so only a
+        definite absence is reported.
+    """
+    context = ssl.create_default_context()
+    # Only whether a TLS server is there, not whether it can be trusted.
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
+    context.set_alpn_protocols(["h2"])
+    try:
+        with socket.create_connection(
+            (host, int(port)), timeout=GRPC_CLIENT_CONN_RETRY_TIMEOUT
+        ) as sock:
+            with context.wrap_socket(sock, server_hostname=host):
+                return True
+    except ssl.SSLEOFError:
+        return False
+    except ssl.SSLError:
+        # A TLS alert, e.g. a client certificate demanded: a TLS server replied.
+        return True
+    except (ConnectionResetError, BrokenPipeError):
+        return False
+    except OSError:
+        # Timeout or refusal: nothing definite about a TLS server.
+        return True
+
+
 def _is_tls_handshake_error(exp: grpc.aio.AioRpcError) -> bool:
     """Whether an UNAVAILABLE RPC error is really a TLS/pinning failure."""
     detail = f"{exp.details()} {exp.debug_error_string()}".lower()
@@ -702,13 +744,17 @@ class Listener:
         """
 
     async def _server_reachable(self) -> bool:
-        """Whether the researcher endpoint accepts TCP connections; resolution
-        failures count as unreachable. Connecting blocks, so it runs off the event
-        loop: every client of this node shares it."""
+        """Whether a TLS server answers at the researcher endpoint; resolution
+        failures count as unreachable. A port forward that outlives the server
+        accepts TCP, so the TLS handshake is what tells a live researcher apart.
+        Connecting blocks, so it runs off the event loop: every client of this node
+        shares it."""
 
         def probe() -> bool:
             try:
-                return is_server_alive(self._channels.host, self._channels.port)
+                return is_server_alive(
+                    self._channels.host, self._channels.port
+                ) and _server_speaks_tls(self._channels.host, self._channels.port)
             except OSError:
                 return False
 
@@ -786,6 +832,7 @@ class Listener:
                         await self._handle_after_process(ClientStatus.DISCONNECTED)
                     case grpc.StatusCode.UNAVAILABLE:
                         await self._on_status_change(ClientStatus.DISCONNECTED)
+
                         if self._connection_recycled:
                             # Diagnosing it would report a failure where there is none.
                             logger.debug(
@@ -829,7 +876,11 @@ class Listener:
                                 identity_verified=False,
                             )
                             raise FedbiomedCommunicationError(msg) from exp
-                        elif self._channels.mtls and _is_tls_handshake_error(exp):
+                        elif (
+                            self._channels.mtls
+                            and _is_tls_handshake_error(exp)
+                            and await self._server_reachable()
+                        ):
                             self._log_connection_failure_once(
                                 "Mutual authentication (mTLS) handshake with "
                                 f"researcher failed in {self.__class__.__name__}: "
