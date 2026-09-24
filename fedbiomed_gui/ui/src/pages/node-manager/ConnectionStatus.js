@@ -4,8 +4,6 @@ import {
     EuiBadge,
     EuiButton,
     EuiCallOut,
-    EuiFlexGroup,
-    EuiFlexItem,
     EuiIcon,
     EuiSpacer,
     EuiText,
@@ -165,15 +163,6 @@ const ConnectionStatus = ({
 
             <EuiSpacer size="m" />
 
-            <EuiFlexGroup gutterSize="m" alignItems="center" wrap>
-                <EuiFlexItem grow={false}>
-                    <EuiBadge color={summary.color}>{summary.label}</EuiBadge>
-                </EuiFlexItem>
-                <EuiFlexItem>
-                    <EuiText size="s">{summary.detail}</EuiText>
-                </EuiFlexItem>
-            </EuiFlexGroup>
-
             {connection?.stale ? (
                 <EuiText size="xs" color="subdued">
                     <p>
@@ -183,8 +172,21 @@ const ConnectionStatus = ({
                 </EuiText>
             ) : null}
 
-            {recorded ? (
-                <div className="node-management-details-grid">
+            <div className="node-management-details-grid">
+                <DetailItem
+                    icon="check"
+                    label="Connection status"
+                    valueContent={
+                        <EuiBadge color={summary.color}>{summary.label}</EuiBadge>
+                    }
+                />
+                <DetailItem
+                    icon="iInCircle"
+                    label="Detail"
+                    value={summary.detail}
+                />
+                {recorded ? (
+                    <>
                     <DetailItem
                         icon="globe"
                         label="Federation server"
@@ -211,61 +213,62 @@ const ConnectionStatus = ({
                         label="Last error"
                         value={recorded.last_error}
                     />
-                </div>
-            ) : null}
+                    </>
+                ) : null}
+            </div>
 
             <EuiSpacer size="m" />
 
-            <EuiText size="xs" color="subdued">
-                <p>
-                    {startupProblems.length || warnings.length
-                        || (recorded && fixHints[recorded.operation])
-                        ? 'Problems'
-                        : 'No problem found'}
-                </p>
-            </EuiText>
+            <h3 className="node-management-subsection-title">
+                {startupProblems.length || warnings.length
+                    || (recorded && fixHints[recorded.operation])
+                    ? 'Problems'
+                    : 'No problem found'}
+            </h3>
 
-            {startupProblems.map((problem) => (
-                <EuiCallOut
-                    key={problem.message}
-                    color="danger"
-                    iconType="alert"
-                    title="The node cannot start"
-                    size="s"
-                >
-                    <p>{problem.message}</p>
-                </EuiCallOut>
-            ))}
+            <div className="node-management-callout-stack">
+                {startupProblems.map((problem) => (
+                    <EuiCallOut
+                        key={problem.message}
+                        color="danger"
+                        iconType="alert"
+                        title="The node cannot start"
+                        size="s"
+                    >
+                        <p>{problem.message}</p>
+                    </EuiCallOut>
+                ))}
 
-            {recorded && fixHints[recorded.operation] ? (
-                <EuiCallOut
-                    color="primary"
-                    iconType="help"
-                    title="What to do"
-                    size="s"
-                >
-                    <p>{fixHints[recorded.operation]}</p>
-                </EuiCallOut>
-            ) : null}
+                {recorded && fixHints[recorded.operation] ? (
+                    <EuiCallOut
+                        color="primary"
+                        iconType="help"
+                        title="What to do"
+                        size="s"
+                    >
+                        <p>{fixHints[recorded.operation]}</p>
+                    </EuiCallOut>
+                ) : null}
 
-            {warnings.map((warning) => (
-                <EuiCallOut
-                    key={warning.message}
-                    color="warning"
-                    iconType="help"
-                    title="Worth fixing"
-                    size="s"
-                >
-                    <p>{warning.message}</p>
-                </EuiCallOut>
-            ))}
+                {warnings.map((warning) => (
+                    <EuiCallOut
+                        key={warning.message}
+                        color="warning"
+                        iconType="help"
+                        title="Worth fixing"
+                        size="s"
+                    >
+                        <p>{warning.message}</p>
+                    </EuiCallOut>
+                ))}
+            </div>
 
             {connection?.history?.length ? (
                 <>
-                    <EuiSpacer size="s" />
-                    <EuiText size="xs" color="subdued">
-                        <p>Earlier states, most recent first</p>
-                    </EuiText>
+                    <EuiSpacer size="m" />
+                    <h3 className="node-management-subsection-title">
+                        Earlier states, most recent first
+                    </h3>
                     {connection.history.slice(0, historyShown).map((entry) => (
                         <DetailItem
                             key={`${entry.updated_at}-${entry.operation}`}
