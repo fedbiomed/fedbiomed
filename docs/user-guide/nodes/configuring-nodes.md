@@ -76,6 +76,10 @@ To see the node status, run:
 fedbiomed node status
 ```
 
+The command also prints a table with the node's connection to the researcher: state, host,
+port, whether the researcher identity was verified, whether mutual authentication (mTLS) is
+on, the reason for the current state, and when the connection was established and last updated.
+
 You can also similarly stop or restart the node as well:
 
 ```bash
