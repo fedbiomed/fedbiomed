@@ -13,7 +13,9 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+from tabulate import tabulate
 
 from fedbiomed.common.cli import (
     CLIArgumentParser,
@@ -336,6 +338,74 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
         update_training_plan(self._context.tp_security_manager)
 
 
+def _yes_no(value: Optional[bool], yes: str = "Yes", no: str = "No") -> str:
+    """Renders a tri-state flag, `Unknown` when it was not recorded."""
+    if value is None:
+        return "Unknown"
+    return yes if value else no
+
+
+def _connection_rows(entry) -> List[List[str]]:
+    """Builds the rows of the connection status table.
+
+    Args:
+        entry: Connection state recorded by the node.
+
+    Returns:
+        Rows of `[field name, value]`.
+    """
+    return [
+        ["State", entry.state],
+        ["Host", entry.host],
+        ["Port", entry.port],
+        ["Identity verified", _yes_no(entry.identity_verified)],
+        ["Mutual authentication (mTLS)", _yes_no(entry.mtls, "On", "Off")],
+        ["Reason", entry.reason or "-"],
+        ["Connected since", entry.started_at or "-"],
+        ["Last update", entry.updated_at or "-"],
+    ]
+
+
+_STATE_COLORS = {
+    NodeState.RUNNING: "\033[32m",  # green
+    NodeState.STOPPED: "\033[31m",  # red
+}
+
+
+def _colored_state(state: NodeState) -> str:
+    """Renders a node process state, colored when the output is a terminal.
+
+    Args:
+        state: Node process state.
+
+    Returns:
+        The state value, in green when running and red when stopped. Left plain when
+        output is redirected or `NO_COLOR` is set.
+    """
+    color = _STATE_COLORS.get(state)
+    if color is None or not sys.stdout.isatty() or os.environ.get("NO_COLOR"):
+        return state.value
+    return f"{color}{state.value}\033[0m"
+
+
+def _print_table(title: str, rows: List[List[str]]) -> None:
+    """Prints a titled two-column table.
+
+    Args:
+        title: Title printed above the table.
+        rows: Rows of `[field name, value]`.
+    """
+    print(f"{title}:")
+    print(
+        tabulate(
+            rows,
+            headers=["Field", "Value"],
+            tablefmt="presto",
+            maxcolwidths=[None, 60],
+        )
+    )
+
+
 class NodeControl(CLIArgumentParser):
     """CLI argument parser for starting the node"""
 
@@ -537,26 +607,19 @@ class NodeControl(CLIArgumentParser):
         """
         node_process_manager = NodeProcessManager(self._context.config)
         status = node_process_manager.get_status()
-        print(f"Node status: {status.value}")
+        _print_table("Node process", [["State", _colored_state(status)]])
+        print()
 
         connection_state = NodeConnectionStateManager(
             self._context.config
         ).get_connection_state()
         if connection_state is None:
-            print("Connection:  none recorded yet")
+            print("Connection to researcher: none recorded yet")
         else:
-            print(
-                f"Connection:  {connection_state.state} to {connection_state.host}:"
-                f"{connection_state.port} "
-                f"(mutual authentication {'on' if connection_state.mtls else 'off'})"
-            )
-            if connection_state.updated_at:
-                print(f"Recorded:    {connection_state.updated_at}")
-            if connection_state.reason:
-                print(f"Reason:      {connection_state.reason}")
+            _print_table("Connection to researcher", _connection_rows(connection_state))
             if status is not NodeState.RUNNING:
                 print(
-                    "             The node is not running, so this is the state it "
+                    "The node is not running, so this is the state it "
                     "was in when it stopped."
                 )
 

@@ -7,6 +7,7 @@ import socket
 import ssl
 import time
 from dataclasses import dataclass, field
+from datetime import timedelta
 from enum import Enum
 from typing import Awaitable, Callable, Iterable, List, Optional
 
@@ -96,6 +97,12 @@ class _StubType(Enum):
 
 # timeout in seconds for retrying connection to the server when it does not reply or returns an error
 GRPC_CLIENT_CONN_RETRY_TIMEOUT = 2
+
+# minimum delay in seconds between two INFO logs saying the researcher is unavailable
+RESEARCHER_UNAVAILABLE_LOG_INTERVAL = 5 * 60
+
+# minimum delay between two refreshes of the recorded "researcher unavailable" state
+RESEARCHER_UNAVAILABLE_STATE_REFRESH = timedelta(minutes=30)
 
 # timeout in seconds of a request to the server for a task (payload) to run on the node
 GRPC_CLIENT_TASK_REQUEST_TIMEOUT = 3600
@@ -247,6 +254,9 @@ class Channels:
         # Id of the researcher on the other end, once the node learns it
         self.researcher_id: Optional[str] = None
 
+        # Last time the researcher was logged as unavailable at INFO level
+        self._unavailable_logged_at: Optional[float] = None
+
         self._channels = {}
         self._stubs = {}
         self._stub_types = [
@@ -293,15 +303,21 @@ class Channels:
         operation: Optional[str] = None,
         reason: Optional[str] = None,
         identity_verified: Optional[bool] = None,
+        refresh_interval: Optional[timedelta] = None,
     ) -> None:
         """Reports the state of this channel to the node, when it asked to be told.
 
         The facts of the channel itself are added here; the caller supplies what only
         it knows. `operation` names the matching security audit event.
+        `refresh_interval` tells how rarely the node may refresh this state while it
+        repeats itself; the node's default applies when None.
         """
         if self._on_connection_state is None:
             return
 
+        extra = (
+            {} if refresh_interval is None else {"refresh_interval": refresh_interval}
+        )
         self._on_connection_state(
             state=state,
             host=self.host,
@@ -314,6 +330,33 @@ class Channels:
             certificate=certificate_audit_fields(self._researcher.certificate)
             if self._researcher.certificate
             else None,
+            **extra,
+        )
+
+    def report_researcher_unavailable(self) -> None:
+        """Reports that the researcher server does not answer while it is retried.
+
+        The node retries every few seconds, so the recorded state is refreshed
+        rarely and the INFO log is emitted only every few minutes; the retries
+        themselves are logged at DEBUG by the callers.
+        """
+        endpoint = self.endpoint
+        now = time.monotonic()
+        if (
+            self._unavailable_logged_at is None
+            or now - self._unavailable_logged_at >= RESEARCHER_UNAVAILABLE_LOG_INTERVAL
+        ):
+            self._unavailable_logged_at = now
+            logger.info(
+                f"Researcher server at {endpoint} is not available, "
+                "the node keeps retrying to connect."
+            )
+
+        self.report_state(
+            ClientStatus.DISCONNECTED,
+            operation="researcher_unavailable",
+            reason=f"Researcher server at {endpoint} is not available; retrying.",
+            refresh_interval=RESEARCHER_UNAVAILABLE_STATE_REFRESH,
         )
 
     async def stub(self, stub_type: _StubType) -> ResearcherServiceStub:
@@ -611,6 +654,7 @@ class GrpcClient:
                     "Researcher server is not available, will retry connecting in "
                     f"{GRPC_CLIENT_CONN_RETRY_TIMEOUT} seconds"
                 )
+                self._channels.report_researcher_unavailable()
                 await asyncio.sleep(
                     max(
                         0,
@@ -900,14 +944,7 @@ class Listener:
                             )
                             # Reported without naming the listener, so that the two
                             # listeners retrying report one and the same state.
-                            self._channels.report_state(
-                                ClientStatus.DISCONNECTED,
-                                operation="researcher_unavailable",
-                                reason=(
-                                    f"Researcher server at {self._channels.endpoint} "
-                                    "is not available; retrying."
-                                ),
-                            )
+                            self._channels.report_researcher_unavailable()
                         await self._handle_after_process(
                             ClientStatus.DISCONNECTED,
                             retry=self._retry_on_error,
