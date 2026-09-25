@@ -1,5 +1,6 @@
 import asyncio
 import ssl
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -1373,6 +1374,34 @@ async def test_channels_connect_and_stub(channels_env):
 
     # test non existing stub
     assert await channels_env.channels.stub("dummy") is None
+
+
+@patch("fedbiomed.transport.client.time.monotonic")
+@patch("fedbiomed.transport.client.logger")
+def test_channels_report_researcher_unavailable_is_throttled(logger, monotonic):
+    """Every retry records the state, but the INFO log comes once every 5 minutes."""
+    on_state = MagicMock()
+    channels = Channels(
+        researcher=ResearcherCredentials(host="localhost", port="50051"),
+        on_connection_state=on_state,
+    )
+
+    monotonic.return_value = 1000.0
+    channels.report_researcher_unavailable()
+    monotonic.return_value = 1002.0
+    channels.report_researcher_unavailable()
+    assert logger.info.call_count == 1
+
+    monotonic.return_value = 1000.0 + 5 * 60
+    channels.report_researcher_unavailable()
+    assert logger.info.call_count == 2
+
+    assert on_state.call_count == 3
+    kwargs = on_state.call_args.kwargs
+    assert kwargs["operation"] == "researcher_unavailable"
+    assert "localhost:50051" in kwargs["reason"]
+    # Refreshed at most every 30 minutes in the node database
+    assert kwargs["refresh_interval"] == timedelta(minutes=30)
 
 
 @patch("fedbiomed.transport.client.grpc.ssl_channel_credentials")

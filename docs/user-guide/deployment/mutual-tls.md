@@ -416,8 +416,8 @@ one of them would stop the node, so it also serves as a deployment check:
 fedbiomed node certificate check
 ```
 
-The node's last connection state is read back without searching the logs, and
-`--history` adds the changes it recorded recently:
+`fedbiomed node status` reads the node's last connection state back as a table, without
+searching the logs, and `--history` adds the changes it recorded recently:
 
 ```shell
 fedbiomed node status --history
