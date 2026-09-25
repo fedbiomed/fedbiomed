@@ -15,6 +15,12 @@ The protocol files need to be compiled using **the lowest supported version of `
 For example, you can run `protoc.py` from a development environment installed with this minimal version (eg `pdm lock -G :all --strategy direct_minimal_versions ; pdm install`)
 
 
+### gRPC logging verbosity
+
+`fedbiomed/__init__.py` sets `GRPC_VERBOSITY` to `ERROR`, unless the environment already carries a value, for every component. gRPC reports a failed TLS handshake at INFO, and a node retrying its connection repeats that line on the node and on the researcher every couple of seconds.
+
+The gRPC C core reads the variable once, at `import grpc`, and dependencies (`declearn`) import gRPC well before `fedbiomed.transport` — hence the top level package, which runs ahead of every import. Keep it there: set from a transport module it would come too late to apply. Users raise the level from the environment, as [gRPC logging](../support/troubleshooting.md#grpc-logging) describes.
+
 ### Example protocol messages and corresponding data classes in the application layer
 
 In `researcher.proto`, the message `TaskResponse` and `TaskResult` is a general format representing the bytes of messages. These messages are converted to corresponding `Message` dataclass of Fed-BioMed after they are received by node or researcher server (e.g `fedbiomed.common.message.TaskResponse`). `TaskResponse` or `TaskResult` can wrap the message related to tasks as bytes. For example, The `bytes_` field of `TaskResult` can contain bytes of `TrainReply` or `SearchReply`. The reason that these messages are typed as bytes is that they can be big message that needs to be sent as stream. Please see the following train request example to understand the workflow in message serialization;

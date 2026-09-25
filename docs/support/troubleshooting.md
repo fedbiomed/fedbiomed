@@ -85,3 +85,19 @@ $ fedbiomed node start
 ```
 
 The debug mode includes more detailed information in component initializations, training round starts and finishes, database operations (such as for datasets, training plans...) and the connection information between nodes-researcher and node-to-node.
+
+## gRPC Logging
+
+gRPC logs on its own, next to the Fed-BioMed logger, and the debug mode above does not raise it: `--debug` and `FBM_DEBUG` reach the Fed-BioMed logger only. Fed-BioMed sets `GRPC_VERBOSITY` to `ERROR` on the Node and on the Researcher alike, so gRPC prints errors only. It reports a failed TLS handshake at INFO, which a node retrying its connection repeats every couple of seconds on both ends.
+
+A value set in the environment takes precedence. Raise it to read what gRPC itself reports, such as the OpenSSL reason a connection is refused:
+
+```bash
+$ GRPC_VERBOSITY=INFO fedbiomed node start
+```
+
+```bash
+$ GRPC_VERBOSITY=INFO fedbiomed researcher start
+```
+
+gRPC reads this variable once, when it is imported, so it has to be set before the component starts. Diagnosing a connection that never establishes is covered in [mutual authentication](../user-guide/deployment/mutual-tls.md#verifying-and-troubleshooting).

@@ -1025,9 +1025,9 @@ class TestTorchnn(unittest.TestCase):
         with self.assertRaises(FedbiomedTrainingPlanError):
             tp.export_model("file.pt")
 
-        temp = tempfile.mkdtemp()  # creating file to load model from
-        with self.assertRaises(FedbiomedTrainingPlanError):
-            tp.export_model(temp)
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaises(FedbiomedTrainingPlanError):
+                tp.export_model(temp)
 
 
 class TestSendToDevice(unittest.TestCase):

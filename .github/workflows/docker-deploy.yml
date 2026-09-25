@@ -1,14 +1,34 @@
 ---
 name: Tests and Publish Fed-BioMed Docker Images
 description: |
-  Builds the Fed-BioMed docker images. A pushed version tag publishes them to
-  Docker Hub; every other trigger builds them as a test and publishes nothing.
+  Builds the Fed-BioMed docker images. A push matching the triggers below (a
+  version tag, or one of the watched branches) publishes them to Docker Hub.
+  A pull request into master only test-builds it. A manual run builds
+  whichever branch/ref it is launched on and can either test-build it or,
+  with push enabled, publish it under the given tag. Every other trigger
+  builds them as a test and publishes nothing.
 
 on:
   push:
     tags:
       - 'v*.*.*'  # Triggers on tags like v1.2.3
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
+    inputs:
+      push:
+        description: Publish the images to Docker Hub (requires "tag" below).
+        required: false
+        type: boolean
+        default: false
+      tag:
+        description: |
+          Docker tag for the images (e.g. "dev", "my-feature"). Used as the
+          published tag when "push" is enabled; with "push" off, it just
+          labels the local test build instead of the default branch/sha tags.
+        required: false
+        type: string
 
 jobs:
   build-and-push:
@@ -19,6 +39,34 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # This job builds three images for two platforms in a row, and each one
+      # carries torch and its CUDA dependencies. A GitHub-hosted runner ships
+      # ~25 GB of toolchains none of that needs, on the same filesystem as
+      # /var/lib/docker, so they are removed before the first build rather
+      # than after the disk has already filled. Skipped on a self-hosted
+      # runner, whose system directories are not ours to delete; the prune
+      # after each image is what bounds the disk there.
+      - name: Free disk space on the runner
+        if: ${{ runner.environment == 'github-hosted' }}
+        run: |
+          echo "::group::Disk usage before"
+          df -h /
+          echo "::endgroup::"
+
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /usr/local/share/boost \
+            /usr/local/share/powershell \
+            /usr/local/lib/node_modules \
+            "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
+          docker image prune --all --force || true
+
+          echo "::group::Disk usage after"
+          df -h /
+          echo "::endgroup::"
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -28,9 +76,21 @@ jobs:
       - name: Check if image has to be pushed
         id: test
         run: |
-          # Only a pushed tag publishes. Every other trigger builds without
-          # pushing, so a trigger added later cannot reach Docker Hub by omission.
-          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_EVENT_NAME" == "push" ]]; then
+          # Any push event that reached this job already matched the
+          # `on.push` filter above (a version tag, or a watched branch), so
+          # it publishes. A pull request (into master) always test-builds,
+          # regardless of the condition below. A manual run also publishes,
+          # but only if explicitly asked to via the "push" input, and that
+          # requires a "tag" too. Every other trigger builds without
+          # pushing, so a trigger added later cannot reach Docker Hub by
+          # omission.
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            echo "TEST_BUILD=false" >> $GITHUB_OUTPUT
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "${{ inputs.push }}" == "true" ]]; then
+            if [[ -z "${{ inputs.tag }}" ]]; then
+              echo "::error::push is enabled but no tag was given; re-run with a tag input." >&2
+              exit 1
+            fi
             echo "TEST_BUILD=false" >> $GITHUB_OUTPUT
           else
             echo "TEST_BUILD=true" >> $GITHUB_OUTPUT
@@ -42,6 +102,7 @@ jobs:
           image-names: fedbiomed/base
           file: docker/base/Dockerfile
           test: ${{ steps.test.outputs.TEST_BUILD }}
+          image-tag: ${{ inputs.tag }}
 
       - name: Build and Publish/Test Fed-BioMed Node Image
         uses: ./.github/actions/docker-build-and-push
@@ -49,10 +110,12 @@ jobs:
           image-names: fedbiomed/node
           file: docker/node/Dockerfile
           test: ${{ steps.test.outputs.TEST_BUILD }}
-      
+          image-tag: ${{ inputs.tag }}
+
       - name: Build and Publish/Test Researcher Image
         uses: ./.github/actions/docker-build-and-push
         with:
           image-names: fedbiomed/researcher
           file: docker/researcher/Dockerfile
           test: ${{ steps.test.outputs.TEST_BUILD }}
+          image-tag: ${{ inputs.tag }}

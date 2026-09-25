@@ -16,6 +16,10 @@ on:
         description: 'JSON list of runner labels, e.g. ["ubuntu-24.04"]; empty uses all four targets'
         required: false
         type: string
+      e2e-file:
+        description: 'Single end-to-end test file to run, e.g. e2e_analytics.py; empty runs the full suite'
+        required: false
+        type: string
   schedule:
     # Monday to Friday at 23:00 UTC.
     - cron: "0 23 * * 1-5"
@@ -39,3 +43,4 @@ jobs:
       python-versions: ${{ github.event.inputs.python-version || '["3.11","3.14"]' }}
       os-list: ${{ github.event.inputs.os || '["ubuntu-24.04","ubuntu-26.04","macos-latest","macos-m1"]' }}
       run-e2e: true
+      e2e-files: ${{ github.event.inputs.e2e-file && format('["{0}"]', github.event.inputs.e2e-file) || '' }}

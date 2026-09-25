@@ -13,26 +13,24 @@ from fedbiomed.common.exceptions import FedbiomedError, FedbiomedUserInputError
 
 # --- Fixtures ---
 @pytest.fixture
-def sample_csv():
-    csv_path = Path(__file__).parent / "test-data" / "csv" / "data.csv"
+def sample_csv(tmp_path):
+    csv_path = tmp_path / "data.csv"
     csv_path.write_text(
         "id,name,age\n1,Alice,30\n2,Bob,40\n3,Charlie,50\n",
         encoding="utf-8",
     )
-    yield csv_path
-    csv_path.unlink()
+    return csv_path
 
 
 @pytest.fixture
-def no_header_csv():
+def no_header_csv(tmp_path):
     # No header; 3 columns, 3 rows
-    csv_path = Path(__file__).parent / "test-data" / "csv" / "no_header.csv"
+    csv_path = tmp_path / "no_header.csv"
     csv_path.write_text(
         "1,Alice,30\n2,Bob,40\n3,Charlie,50\n",
         encoding="utf-8",
     )
-    yield csv_path
-    csv_path.unlink()
+    return csv_path
 
 
 # --- _pre_parse tests ---

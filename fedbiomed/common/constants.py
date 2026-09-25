@@ -101,9 +101,9 @@ __version__ = FBM_Component_Version(__version__)  # type: ignore[assignment]  # 
 `[ResearcherConfig](./fedbiomed/researcher/config.py)` and `[NodeConfig](./fedbiomed/researcher/config.py)` contain a `migrate` method used to introduce new configuration variables without breaking backward compatibility for minor versions and patches. However, if a major version of the researcher or node configuration is released (config version not Fed-BioMed version), it indicates that previous configurations are no longer compatible with the new version. In such cases, the migration logic is no longer necessary and can be removed after the major release.  
 """
 __researcher_config_version__ = FBM_Component_Version(
-    "3.1.0"
+    "3.2.0"
 )  # researcher config file version
-__node_config_version__ = FBM_Component_Version("2.3.0")  # node config file version
+__node_config_version__ = FBM_Component_Version("2.4.0")  # node config file version
 
 __node_state_version__ = FBM_Component_Version("2")  # node state version
 __breakpoints_version__ = FBM_Component_Version("4")  # breakpoints format version

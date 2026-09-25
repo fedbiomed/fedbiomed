@@ -100,6 +100,7 @@ class NodeConfig(Config):
         key_file, pem_file = generate_certificate(
             root=self.root,
             component_id=self._cfg["default"]["id"],
+            component_type=self.COMPONENT_TYPE,
             prefix=DEFAULT_CERT_NAME,
         )
 
@@ -119,6 +120,9 @@ class NodeConfig(Config):
 
         See [`Config.migrate`][fedbiomed.common.config.Config.migrate] for more information
         """
+
+        super().migrate()
+
         if not self._cfg.has_option("default", "name"):
             logger.warning(
                 "DEPRECATION: You are using an old configuration file for the node. "

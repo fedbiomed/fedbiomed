@@ -15,6 +15,13 @@ inputs:
     required: false
     default: 'false'
 
+  image-tag:
+    description: |
+      Explicit tag to publish under (from workflow_dispatch). When set, this
+      is the only tag used, overriding the branch/sha tags below.
+    required: false
+    default: ''
+
 runs:
   using: "composite"
   steps:
@@ -24,14 +31,16 @@ runs:
       with:
         # list of Docker images to use as base name for tags
         images: ${{ inputs.image-names }}
-        # A version tag produces the three semver tags; a manual run from a
-        # branch produces the branch name. Every run also carries its commit.
+        # A version tag produces the three semver tags. A manual run from a
+        # branch produces the branch name and commit sha, unless image-tag
+        # overrides them with a single explicit tag.
         tags: |
-          type=ref,event=branch
+          type=ref,event=branch,enable=${{ inputs.image-tag == '' }}
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
-          type=sha
+          type=sha,enable=${{ inputs.image-tag == '' }}
+          type=raw,value=${{ inputs.image-tag }},enable=${{ inputs.image-tag != '' }}
         flavor: |
           latest=false
     
@@ -51,15 +60,62 @@ runs:
         echo "TAG_ARGS=$TAG_ARGS" >> $GITHUB_OUTPUT
       shell: bash -l {0}
 
-    - name: Build the image
-      run: |
-        docker build ${{ steps.tag-args.outputs.TAG_ARGS }} \
-          --build-arg FBM_IMAGE_VERSION=${{ steps.meta.outputs.version }} \
-          -f ${{ inputs.file }} . 
-      shell: bash -l {0}
-    
-    - name: Push the image
+    - name: Set up QEMU
       if: ${{ inputs.test == false || inputs.test == 'false' }}
-      run: | 
-        docker push --all-tags ${{ inputs.image-names }}
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      # Only for publishing: this creates a docker-container driver builder
+      # (an isolated BuildKit instance) to get QEMU multi-platform support.
+      # That builder can't see the runner's Docker daemon image store, so a
+      # test build's `--load` result wouldn't be visible to the next stage's
+      # `FROM fedbiomed/base:...` if this ran unconditionally. Test builds
+      # stay on the runner's default docker-driver builder instead, which
+      # shares the daemon store and needs no setup.
+      if: ${{ inputs.test == false || inputs.test == 'false' }}
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build (and push) the image
+      run: |
+        # Publishing builds both platforms and pushes straight from buildx,
+        # since a multi-platform result cannot be loaded into the local
+        # image store. Test builds stay single-platform (native runner arch)
+        # and load locally, so a later stage's `FROM fedbiomed/base:...` in
+        # this same job still resolves to the image just built, unpushed.
+        if [[ "${{ inputs.test }}" == "false" ]]; then
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            ${{ steps.tag-args.outputs.TAG_ARGS }} \
+            --build-arg FBM_IMAGE_VERSION=${{ steps.meta.outputs.version }} \
+            -f ${{ inputs.file }} \
+            --push \
+            .
+        else
+          docker buildx build \
+            ${{ steps.tag-args.outputs.TAG_ARGS }} \
+            --build-arg FBM_IMAGE_VERSION=${{ steps.meta.outputs.version }} \
+            -f ${{ inputs.file }} \
+            --load \
+            .
+        fi
+      shell: bash -l {0}
+
+    # BuildKit keeps every intermediate layer of every platform in its cache:
+    # the wheel directory and the unpacked image layers, per platform, for a
+    # torch-sized image. Three of those in one job are what fills the runner.
+    #
+    # Publishing only: the next image in the job resolves `FROM
+    # fedbiomed/base:...` from Docker Hub, which the step above just pushed,
+    # so there is nothing local left to invalidate. A test build instead
+    # keeps its result in the daemon image store with --load, and that image
+    # *is* the next image's input - so the cache is left alone there rather
+    # than resting on the distinction between an image and the build cache
+    # that produced it. Test builds are single-platform, and so not the ones
+    # that run out of disk.
+    - name: Prune the build cache
+      if: ${{ always() && (inputs.test == false || inputs.test == 'false') }}
+      run: |
+        docker buildx prune --all --force || true
+        docker builder prune --all --force || true
+        df -h /
       shell: bash -l {0}

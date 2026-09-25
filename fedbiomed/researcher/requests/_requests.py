@@ -16,7 +16,11 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import tabulate
 from python_minifier import minify
 
-from fedbiomed.common.constants import REQUEST_PREFIX, MessageType
+from fedbiomed.common.certificate_manager import TrustedCertificateBundle
+from fedbiomed.common.constants import (
+    REQUEST_PREFIX,
+    MessageType,
+)
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     ApprovalRequest,
@@ -347,6 +351,27 @@ class Requests(metaclass=SingletonMeta):
         cert_priv = config.getpath("certificate", "private_key")
         cert_pub = config.getpath("certificate", "public_key")
 
+        # Bundle of registered node certificates to pin, under mutual authentication.
+        trusted_node_certificates = None
+        if config.getbool("authentication", "mutual_authentication", fallback="False"):
+            db_path = config.getpath("default", "db")
+            trusted_node_certificates = TrustedCertificateBundle(db_path)
+            # The first read also reports expiring certificates.
+            if not trusted_node_certificates():
+                msg = (
+                    "Mutual authentication is enabled but no node certificate is "
+                    "registered: nodes cannot connect until one is registered with "
+                    "`fedbiomed researcher certificate register`. The researcher "
+                    "server starts and picks up certificates registered afterward "
+                    "without a restart."
+                )
+                logger.warning(msg)
+                logger.security_event(
+                    operation="mtls_startup_without_certificates",
+                    status="warning",
+                    detail=msg,
+                )
+
         # Creates grpc server and starts it
         self._researcher_id = config.get("default", "id")
         self._grpc_server = GrpcServer(
@@ -354,7 +379,11 @@ class Requests(metaclass=SingletonMeta):
             port=server_port,
             config=config,
             on_message=self.on_message,
-            ssl=SSLCredentials(key=cert_priv, cert=cert_pub),
+            ssl=SSLCredentials(
+                key=cert_priv,
+                cert=cert_pub,
+                trusted_node_certificates=trusted_node_certificates,
+            ),
         )
         self.start_messaging()
 

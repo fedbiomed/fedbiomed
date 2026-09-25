@@ -10,7 +10,6 @@ from typing import Dict, List
 from fedbiomed.common.constants import (
     CACHE_FOLDER_NAME,
     CONFIG_FOLDER_NAME,
-    DB_PREFIX,
     TMP_FOLDER_NAME,
     VAR_FOLDER_NAME,
 )
@@ -70,11 +69,14 @@ def get_component_config(config_path: str) -> configparser.ConfigParser:
     """
     config = configparser.ConfigParser()
 
+    if not os.path.isfile(config_path):
+        raise FedbiomedError(f"Config file is not existing. {config_path}")
+
     try:
         config.read(config_path)
     except Exception as e:
         raise FedbiomedError(
-            f"Can not read config file. Please make sure it is existing or it has valid format. "
+            f"Can not read config file. Please make sure it has valid format. "
             f"{config_path}"
         ) from e
 
@@ -88,21 +90,29 @@ def get_component_certificate_from_config(config_path: str) -> Dict[str, str]:
         config_path: Path where config file is located.
 
     Returns:
-        Certificate object that contains  component type as `component`, party id `id`, public key content
-            (not path)  as `certificate`
+        Certificate object that contains component type as `component_type`
+            (uppercase), component id `id`, public key content (not path) as
+            `certificate`
 
     Raises:
         FedbiomedError:
-            - If config file does not contain `node_id` or `researcher_id` under `default` section.
-            - If config file does not contain `public_key` under `ssl` section.
+            - If config file does not contain `id` or `component` under `default` section.
+            - If config file does not contain `public_key` under `certificate` section.
             - If certificate file is not found or not readable
     """
 
     config = get_component_config(config_path)
-    component_id = config.get("default", "id")
-    component_type = config.get("default", "component")
 
-    certificate = config.get("certificate", "public_key")
+    try:
+        component_id = config.get("default", "id")
+        component_type = config.get("default", "component").upper()
+        certificate = config.get("certificate", "public_key")
+    except configparser.Error as e:
+        raise FedbiomedError(
+            f"Config file is missing component or certificate declarations. "
+            f"{config_path}: {e}"
+        ) from e
+
     certificate_path = os.path.join(os.path.dirname(config_path), certificate)
 
     if not os.path.isfile(certificate_path):
@@ -113,29 +123,45 @@ def get_component_certificate_from_config(config_path: str) -> Dict[str, str]:
     certificate = read_file(certificate_path)
 
     return {
-        "party_id": component_id,
+        "component_id": component_id,
         "certificate": certificate,
-        "component": component_type,
+        "component_type": component_type,
     }
 
 
-def get_all_existing_config_files():
-    """Gets all existing config files from Fed-BioMed `etc` directory"""
-    etc = os.path.join(ROOT_DIR, CONFIG_FOLDER_NAME, "")
-    return [file for file in glob.glob(f"{etc}*.ini")]
+def get_all_existing_config_files(path: str) -> List[str]:
+    """Gets config files of the components directly under the given directory.
 
+    Only the first level is inspected.
 
-def get_all_existing_certificates() -> List[Dict[str, str]]:
-    """Gets all existing certificates from Fed-BioMed `etc` directory.
-
-    This method parse all available configs in `etc` directory.
+    Args:
+        path: Directory the components are located in.
 
     Returns:
-        List of certificate objects that contain  component type as `component`,
-            party id `id`, public key content (not path)  as `certificate`.
+        Paths of the configuration files found, one per component.
+    """
+    config_files = []
+    for entry in sorted(glob.glob(os.path.join(path, "*"))):
+        # Every component root keeps its configuration under this name
+        config_file = os.path.join(entry, CONFIG_FOLDER_NAME, "config.ini")
+        if os.path.isfile(config_file):
+            config_files.append(config_file)
+
+    return config_files
+
+
+def get_all_existing_certificates(path: str) -> List[Dict[str, str]]:
+    """Gets certificates of the components directly under the given directory.
+
+    Args:
+        path: Directory the components are located in.
+
+    Returns:
+        List of certificate objects that contain  component type as `component_type`,
+            component id `id`, public key content (not path)  as `certificate`.
     """
 
-    config_files = get_all_existing_config_files()
+    config_files = get_all_existing_config_files(path)
 
     certificates = []
     for config in config_files:
@@ -144,20 +170,31 @@ def get_all_existing_certificates() -> List[Dict[str, str]]:
     return certificates
 
 
-def get_existing_component_db_names():
-    """Gets DB_PATHs of all existing components in Fed-BioMed root"""
+def get_existing_component_db_paths(path: str) -> Dict[str, str]:
+    """Gets database paths of the components directly under the given directory.
 
-    config_files = get_all_existing_config_files()
-    db_names = {}
+    Taken from each component's own configuration, so it is the database it
+    reads at runtime.
+
+    Args:
+        path: Directory the components are located in.
+
+    Returns:
+        Absolute database path of each component, by component id.
+    """
+
+    config_files = get_all_existing_config_files(path)
+    db_paths = {}
 
     for _config in config_files:
         config = get_component_config(_config)
         component_id = config["default"]["id"]
 
-        db_name = f"{DB_PREFIX}{component_id}"
-        db_names = {**db_names, component_id: db_name}
+        db_paths[component_id] = os.path.abspath(
+            os.path.join(os.path.dirname(_config), config["default"]["db"])
+        )
 
-    return db_names
+    return db_paths
 
 
 def create_fedbiomed_setup_folders(root: str):

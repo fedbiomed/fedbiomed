@@ -311,11 +311,35 @@ def create_researcher(
         config_sections=config_sections,
     )
     os.environ["FBM_RESEARCHER_COMPONENT_ROOT"] = researcher.root
+    # Imported here: the module initiates the researcher on import, and without the
+    # variable above it would do so in the working directory
     from fedbiomed.researcher.config import config
 
     config.load(root=researcher.root)
 
     return researcher
+
+
+def certificate_dev_setup(directory: str, enable_mutual_authentication: bool = False):
+    """Registers, in every component under the directory, the certificates it trusts.
+
+    Args:
+        directory: Directory holding the components, one per sub-directory.
+        enable_mutual_authentication: Also enforces mutual authentication in every
+            component's configuration.
+    """
+
+    command = ["certificate-dev-setup", "--path", directory]
+    if enable_mutual_authentication:
+        command.append("--enable-mutual-authentication")
+
+    fedbiomed_run(command, wait=True, on_failure=default_on_failure)
+
+    from fedbiomed.researcher.config import config
+
+    # The researcher runs in this process against a configuration the command
+    # has just rewritten on disk
+    config.read()
 
 
 def training_plan_operation(config: Config, operation: str, training_plan_id: str):

@@ -9,14 +9,15 @@ import unittest
 from typing import Any, Callable, Optional
 from unittest import mock
 
+import msgpack
 import numpy as np
 import torch
 from declearn.model.sklearn import NumpyVector
 from declearn.model.torch import TorchVector
 
 from fedbiomed.common.exceptions import FedbiomedTypeError
-from fedbiomed.common.serializer import Serializer
 from fedbiomed.common.optimizers.declearn import ScaffoldAuxVar
+from fedbiomed.common.serializer import Serializer
 
 
 class TestSerializer(unittest.TestCase):
@@ -101,7 +102,10 @@ class TestSerializer(unittest.TestCase):
         self.assertEqual(data["tuples"], datb["tuples"])
         self.assertTrue(bool(torch.all(data["tensor"] == datb["tensor"])))
         self.assertTrue(
-            all(np.all(a == b) for a, b in zip(data["arrays"], datb["arrays"]))
+            all(
+                np.all(a == b)
+                for a, b in zip(data["arrays"], datb["arrays"], strict=True)
+            )
         )
 
     def test_serializer_06_numpy_vector(self) -> None:
@@ -194,6 +198,21 @@ class TestSerializer(unittest.TestCase):
         )
         auxvar = ScaffoldAuxVar(state=vector)
         self.assert_serializable(auxvar)
+
+    def test_serializer_auxvar_opaque_payload(self) -> None:
+        """Keep DecLearn's nested wrappers opaque to MsgPack's object hook."""
+        for vector in (
+            NumpyVector({"weights": np.array([1.0, 2.0])}),
+            TorchVector({"weights": torch.tensor([1.0, 2.0])}),
+        ):
+            with self.subTest(vector=type(vector).__name__):
+                auxvar = ScaffoldAuxVar(state=vector)
+                data = Serializer.dumps(auxvar)
+                envelope = msgpack.unpackb(data)
+                self.assertEqual(set(envelope), {"__type__", "value"})
+                self.assertEqual(envelope["__type__"], "AuxVar>ScaffoldAuxVar")
+                self.assertIsInstance(envelope["value"], str)
+                self.assertEqual(Serializer.loads(data), auxvar)
 
 
 if __name__ == "__main__":

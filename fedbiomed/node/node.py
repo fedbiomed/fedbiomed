@@ -5,14 +5,24 @@
 Core code of the node component.
 """
 
+import enum
 import os
 import time
 import traceback
-from typing import Callable, Optional, Union
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from typing import Callable, Dict, List, Optional, Union
 
 from fedbiomed import __version__
+from fedbiomed.common.certificate_manager import (
+    CERTIFICATE_EXPIRY_WARNING_DAYS,
+    CertificateManager,
+    certificate_expiry,
+    certificate_san_names,
+    is_loopback_name,
+)
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
     AdditiveSSSetupRequest,
@@ -37,6 +47,7 @@ from fedbiomed.common.message import (
 )
 from fedbiomed.common.synchro import EventWaitExchange
 from fedbiomed.common.tasks_queue import TasksQueue
+from fedbiomed.common.utils import read_file
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.history_monitor import HistoryMonitor
@@ -46,8 +57,212 @@ from fedbiomed.node.round import Round
 from fedbiomed.node.secagg import SecaggSetup
 from fedbiomed.node.secagg_manager import SecaggManager
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
-from fedbiomed.transport.client import ResearcherCredentials
+from fedbiomed.transport.client import (
+    ClientStatus,
+    NodeClientIdentity,
+    ResearcherCredentials,
+)
 from fedbiomed.transport.controller import GrpcController
+
+
+class DiagnosticSeverity(enum.Enum):
+    """How much a certificate finding matters to a node that is starting."""
+
+    PROBLEM = "problem"
+    WARNING = "warning"
+
+
+@dataclass(frozen=True)
+class CertificateDiagnostic:
+    """One finding about the certificates a node holds."""
+
+    severity: DiagnosticSeverity
+    message: str
+
+    def to_dict(self) -> Dict[str, str]:
+        """The finding as plain values, for surfaces that serialize it."""
+        return {"severity": self.severity.value, "message": self.message}
+
+
+def certificate_diagnostics(config: NodeConfig) -> List[CertificateDiagnostic]:
+    """What is wrong with the certificates a node holds, before it starts.
+
+    Reports as a problem what stops the node from connecting, and as a warning
+    what it tolerates but an operator should fix. `Node` raises on the problems as
+    it builds its credentials, so what any surface reports here is what the node
+    itself goes on to enforce.
+
+    A message states the remedy without naming a command or a screen, so the CLI
+    and the GUI show the same text and neither sends the reader to the other.
+
+    Without mutual authentication the node presents no identity and pins nothing,
+    so nothing here stops it starting; what is registered is still reported, to be
+    fixed before mutual authentication is turned on.
+    """
+    mutual_authentication = config.getbool(
+        "authentication", "mutual_authentication", fallback="False"
+    )
+    blocking = (
+        DiagnosticSeverity.PROBLEM
+        if mutual_authentication
+        else DiagnosticSeverity.WARNING
+    )
+
+    certificate_manager = CertificateManager(
+        db_path=config.getpath("default", "db"),
+        component_type=config.COMPONENT_TYPE,
+    )
+    try:
+        registered = certificate_manager.list()
+        expiring = certificate_manager.expiring_certificates(
+            CERTIFICATE_EXPIRY_WARNING_DAYS
+        )
+    finally:
+        certificate_manager.close()
+
+    diagnostics = []
+    researcher_host = config.get("researcher", "ip")
+
+    # A node registers at most one certificate -- its researcher's -- so what is
+    # registered says on its own whether the node can pin one.
+    if len(registered) > 1:
+        diagnostics.append(
+            CertificateDiagnostic(
+                blocking,
+                f"{len(registered)} certificates are registered, but a node registers "
+                "at most one -- its researcher's -- so the certificate to pin is "
+                "ambiguous. Delete all but the certificate of the researcher this "
+                "node connects to.",
+            )
+        )
+    elif not registered and mutual_authentication:
+        diagnostics.append(
+            CertificateDiagnostic(
+                DiagnosticSeverity.PROBLEM,
+                "Mutual authentication is enabled but no researcher certificate is "
+                "registered, so the node has none to pin. Register the researcher "
+                "certificate.",
+            )
+        )
+
+    for document in registered:
+        component_id = document["component_id"]
+        san_names = certificate_san_names(document["certificate"])
+
+        # The node verifies the researcher under a name read from its certificate,
+        # and refuses a certificate that states none.
+        if not san_names:
+            diagnostics.append(
+                CertificateDiagnostic(
+                    blocking,
+                    f"The certificate registered for {component_id} states no host, so "
+                    "the node cannot verify the researcher under the address it dials. "
+                    "Request the researcher to reissue it for the hosts nodes reach it "
+                    "at.",
+                )
+            )
+        # Two loopback forms are the same machine, which the channel resolves for
+        # itself, so they are not a mismatch.
+        elif researcher_host not in san_names and not (
+            is_loopback_name(researcher_host)
+            and any(is_loopback_name(name) for name in san_names)
+        ):
+            diagnostics.append(
+                CertificateDiagnostic(
+                    DiagnosticSeverity.WARNING,
+                    f"The certificate registered for {component_id} is issued for "
+                    f"{', '.join(san_names)}, which does not include the configured "
+                    f"researcher host {researcher_host}. The channel is verified under "
+                    f"{san_names[0]}, the first name the certificate carries.",
+                )
+            )
+
+    # An expired certificate is refused at the handshake, so it stops the node
+    # rather than merely warning it.
+    now = datetime.now(timezone.utc)
+    for component_id, expiry in expiring:
+        if expiry <= now:
+            diagnostics.append(
+                CertificateDiagnostic(
+                    blocking,
+                    f"The certificate registered for {component_id} expired on "
+                    f"{expiry:%Y-%m-%d}, so the researcher's identity is refused at "
+                    "the handshake. Request the researcher to renew it, and register "
+                    "the new certificate here.",
+                )
+            )
+        else:
+            diagnostics.append(
+                CertificateDiagnostic(
+                    DiagnosticSeverity.WARNING,
+                    f"The certificate registered for {component_id} expires on "
+                    f"{expiry:%Y-%m-%d}. Request the researcher to renew it, and "
+                    "register the new certificate here.",
+                )
+            )
+
+    # The node reads both to build the identity it presents, so either one missing
+    # stops it.
+    if mutual_authentication:
+        for label, key in (
+            ("private key", "private_key"),
+            ("certificate", "public_key"),
+        ):
+            path = config.getpath("certificate", key)
+            if not os.path.isfile(path):
+                diagnostics.append(
+                    CertificateDiagnostic(
+                        DiagnosticSeverity.PROBLEM,
+                        f"The node {label} is missing from {path}, so the node cannot "
+                        "present its identity under mutual authentication.",
+                    )
+                )
+
+        # The researcher verifies the certificate the node presents, so the node's
+        # own expiry stops it just as the researcher's does.
+        certificate_path = config.getpath("certificate", "public_key")
+        if os.path.isfile(certificate_path):
+            try:
+                expiry = certificate_expiry(read_file(certificate_path))
+            except FedbiomedError as exp:
+                diagnostics.append(
+                    CertificateDiagnostic(
+                        DiagnosticSeverity.PROBLEM,
+                        f"This node's certificate at {certificate_path} could not be "
+                        f"read: {exp}",
+                    )
+                )
+            else:
+                if expiry is None:
+                    diagnostics.append(
+                        CertificateDiagnostic(
+                            DiagnosticSeverity.PROBLEM,
+                            f"This node's certificate at {certificate_path} is not "
+                            "readable PEM, so the node cannot present its identity "
+                            "under mutual authentication. Issue a new one and send "
+                            "it to the researcher to register.",
+                        )
+                    )
+                elif expiry <= now:
+                    diagnostics.append(
+                        CertificateDiagnostic(
+                            DiagnosticSeverity.PROBLEM,
+                            f"This node's certificate expired on {expiry:%Y-%m-%d}, so "
+                            "the researcher refuses the connection. Issue a new one "
+                            "and send it to the researcher to register.",
+                        )
+                    )
+                elif expiry <= now + timedelta(days=CERTIFICATE_EXPIRY_WARNING_DAYS):
+                    diagnostics.append(
+                        CertificateDiagnostic(
+                            DiagnosticSeverity.WARNING,
+                            f"This node's certificate expires on {expiry:%Y-%m-%d}. "
+                            "Issue a new one and send it to the researcher to "
+                            "register.",
+                        )
+                    )
+
+    return diagnostics
 
 
 class NodeContext:
@@ -107,14 +322,18 @@ class Node:
         self,
         config: NodeConfig,
         node_args: Union[dict, None] = None,
+        on_connection_state: Optional[Callable] = None,
     ):
         """Constructor of the class.
 
         Attributes:
             config: Node configuration
             node_args: Command line arguments for node.
+            on_connection_state: Called with the state of the researcher connection
+                whenever it changes. None records nothing.
         """
         self.node_args = node_args or {}
+        self._on_connection_state = on_connection_state
         self._debug = bool(self.node_args.get("debug", False)) or os.environ.get(
             "FBM_DEBUG", ""
         ).lower() in ("1", "true", "yes")
@@ -128,15 +347,28 @@ class Node:
             str(os.path.join(self.config.root, "var", "tmp")),
         )
 
+        try:
+            researcher = self._researcher_credentials()
+        except FedbiomedCertificateError as exp:
+            # The node stops here, so the reason is recorded where the connection
+            # state is read from, and not only in the logs.
+            if self._on_connection_state:
+                self._on_connection_state(
+                    state=ClientStatus.FAILED,
+                    host=self.config.get("researcher", "ip"),
+                    port=self.config.get("researcher", "port"),
+                    mtls=True,
+                    identity_verified=False,
+                    operation="mtls_startup_refused",
+                    reason=str(exp),
+                )
+            raise
+
         self._grpc_client = GrpcController(
             node_id=self._node_id,
-            researchers=[
-                ResearcherCredentials(
-                    port=self.config.get("researcher", "port"),
-                    host=self.config.get("researcher", "ip"),
-                )
-            ],
+            researchers=[researcher],
             on_message=self.on_message,
+            on_connection_state=on_connection_state,
         )
 
         self._pending_requests = EventWaitExchange(remove_delivered=True)
@@ -166,6 +398,98 @@ class Node:
             node_name=self._node_name,
             config_path=self.config.root,
         )
+
+    def _researcher_credentials(self) -> ResearcherCredentials:
+        """Builds the researcher connection credentials.
+
+        When mutual authentication is enabled through the `[authentication]` config
+        section, the node attaches its own client identity and pins the registered
+        researcher certificate. Otherwise it trusts whichever certificate the endpoint
+        presents on connect.
+
+        Returns:
+            Credentials used to connect to the researcher gRPC server.
+
+        Raises:
+            FedbiomedCertificateError: mutual authentication is enabled but the
+                certificates the node needs are missing or unusable.
+        """
+        credentials = ResearcherCredentials(
+            port=self.config.get("researcher", "port"),
+            host=self.config.get("researcher", "ip"),
+        )
+
+        if not self.config.getbool(
+            "authentication", "mutual_authentication", fallback="False"
+        ):
+            return credentials
+
+        problems = [
+            diagnostic.message
+            for diagnostic in certificate_diagnostics(self.config)
+            if diagnostic.severity is DiagnosticSeverity.PROBLEM
+        ]
+        if problems:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: The node cannot connect under mutual "
+                "authentication: " + " ".join(problems)
+            )
+
+        credentials.mtls = True
+        credentials.node_identity = self._node_identity()
+        credentials.certificate = self._pinned_researcher_certificate()
+        return credentials
+
+    def _node_identity(self) -> NodeClientIdentity:
+        """Loads the node's own client identity used for mutual authentication.
+
+        Returns:
+            The node's client identity (private key and certificate chain)
+            presented to the researcher under mutual authentication.
+
+        Raises:
+            FedbiomedCertificateError: the node's certificate or private key
+                could not be read.
+        """
+        try:
+            private_key = read_file(self.config.getpath("certificate", "private_key"))
+            certificate_chain = read_file(
+                self.config.getpath("certificate", "public_key")
+            )
+        except FedbiomedError as exp:
+            raise FedbiomedCertificateError(
+                f"{ErrorNumbers.FB619.value}: Mutual authentication is enabled but "
+                f"this node's certificate or private key could not be read: {exp}"
+            ) from exp
+
+        return NodeClientIdentity(
+            private_key=private_key.encode("utf-8"),
+            certificate_chain=certificate_chain.encode("utf-8"),
+        )
+
+    def _pinned_researcher_certificate(self) -> bytes:
+        """Resolves the registered researcher server certificate to pin.
+
+        The node connects to the single researcher declared in its `[researcher]`
+        config section, and registers that researcher's certificate and no other,
+        so the certificate to pin is the single registered one. That there is
+        exactly one is established by `certificate_diagnostics`, which the caller
+        runs first.
+
+        Returns:
+            The researcher's public server certificate, pinned under mutual
+            authentication.
+        """
+        certificate_manager = CertificateManager(
+            db_path=self.config.getpath("default", "db"),
+            component_type=self.config.COMPONENT_TYPE,
+        )
+        try:
+            certificates = certificate_manager.list()
+        finally:
+            certificate_manager.close()
+
+        return certificates[0]["certificate"].encode("utf-8")
 
     @property
     def node_id(self):

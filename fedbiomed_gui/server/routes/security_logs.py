@@ -8,7 +8,7 @@ from flask import request
 from ..config import config
 from ..helpers.auth_helpers import admin_required
 from ..utils import error, response
-from . import api
+from .api import api
 
 _SECURITY_LOG_BASENAME = "security_audit.log"
 
