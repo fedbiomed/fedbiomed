@@ -8,6 +8,41 @@ on aggregator level, and researcher (component) or/and end-user will only have t
 
 Fed-BioMed supports two different secure aggregation schemes: Joye-Libert and Low-Overhead Masking (LOM). While Joye-Libert is an additive homomorphic encryption scheme, LOM is based on a masking approach.
 
+## Node-to-node overlay channel
+
+Both secure aggregation schemes exchange setup material through Fed-BioMed's
+logical node-to-node overlay. Nodes do not open a direct network connection to
+one another: the researcher relays the overlay messages over the existing gRPC
+connections.
+
+The first message to a peer sets up the overlay channel as follows:
+
+1. Each node creates a distinct NIST P-256 key pair for that peer. The local
+   private key is stored in the node's channel database.
+2. A plaintext `ChannelSetupRequest` asks for the peer's public channel key,
+   and a plaintext `ChannelSetupReply` returns it. These messages contain no
+   encryption salt or nonce. The public key is not secret, but this initial
+   exchange is not authenticated end-to-end by the overlay protocol.
+3. For each later overlay message, the sender performs ECDH with its local
+   channel private key and the peer's public channel key. A fresh salt and the
+   ordered node identifiers are used to derive a 32-byte message key. The inner
+   message is signed with ECDSA and encrypted with ChaCha20. The salt and nonce
+   travel in the outer overlay message; they are public parameters and do not
+   reveal the derived key.
+
+!!! warning "Channel setup trust assumption"
+    The researcher can observe the plaintext public channel keys, salts,
+    nonces, and encrypted overlay messages, but an honest-but-curious
+    researcher cannot derive the ECDH message keys. Because the initial public
+    keys are not authenticated end-to-end, an active relay that replaces those
+    keys can perform a man-in-the-middle attack. The current secure aggregation
+    channel therefore assumes that the researcher relays channel setup
+    messages without modification.
+
+The overlay channel keys only protect node-to-node messages in transit. They
+are separate from the LOM pairwise masking keys and the Joye-Libert private
+keys and secret shares described below.
+
 ### Low-Overhead Masking (LOM)
 
 LOM is a secure aggregation scheme based on masking. It protects user inputs by applying masks using pairwise keys agreed upon by participating nodes. These pairwise keys are applied to private inputs in such a way that when all user inputs are summed at the aggregator level, the masks cancel out. One advantage of this scheme is that it does not require a setup phase for each training round, leading to faster training rounds.
@@ -16,7 +51,7 @@ LOM is a secure aggregation scheme based on masking. It protects user inputs by 
 
 LOM consists of three phases: setup, protect, and aggregate. The setup phase is triggered by the first training request, the protect phase is applied on each node after each training, and aggregation is performed on the researcher's side over protected/encrypted model weights or other inputs, such as auxiliary variables, depending on the type of training, optimizer, etc.
 
-During the setup phase, all participating nodes agree on pairwise secrets using the Diffie-Hellman key exchange. These pairwise key agreements are established once per experiment, meaning that the agreed-upon keys can be used for multiple rounds within the same experiment. If a new node joins the experiment, all other participating nodes perform a key agreement with the new node. All these operations are coordinated by the researcher component.
+During the setup phase, all participating nodes agree on pairwise secrets using a second, secure-aggregation-specific Diffie-Hellman key exchange. Its `KeyRequest` and `KeyReply` messages are carried inside the encrypted node-to-node overlay channel described above. The resulting LOM pairwise secrets are distinct from the overlay channel keys and are established once per experiment, meaning that they can be used for multiple rounds within the same experiment. If a new node joins the experiment, all other participating nodes perform a key agreement with the new node. All these operations are coordinated by the researcher component.
 
 Before the first training round, the researcher checks if the secure aggregation context (pairwise keys) is set up on the nodes. If not, the researcher sends secure aggregation setup request to the nodes. With this request, nodes receive a list of all nodes that will participate in the training, as well as the scheme that will be used for secure aggregation. Depending on the secure aggregation scheme (e.g., LOM), each node sends key agreement requests to the other participating nodes to create the pairwise secrets that will be used for the training.
 
@@ -58,7 +93,7 @@ Researcher sends a request for generating private key of each node and the corre
 ##### 3. Execute Additive Secret Sharing
 
 
-The nodes that receives secure aggregation setup request to generate keys to protect model parameters (or any other private value that can be aggregated) launches Additive Secret Sharing algorithm to calculate server key that is going to be used for aggregating private protected data.
+The nodes that receive a secure aggregation setup request launch the Additive Secret Sharing algorithm to calculate the server key used for aggregating protected private data. Each node's individual share for another node is sent in an `AdditiveSSharingReply` through the established encrypted node-to-node overlay channel. The Joye-Libert key and its shares are not used as transport-encryption keys.
 
 
 ##### 4. Encrypting model parameters
@@ -77,7 +112,7 @@ After the encryption is done and the encrypted model parameters are received by 
 
 Joye-Libert was the first secure aggregation algorithm implemented in Fed-BioMed. Later, the LOM scheme was introduced to simplify certain operations, such as the pre-setup phase and speed up encryption processing. While there are similarities between the two, there are also key differences.
 
-In LOM, unlike Joye-Libert, secure aggregation does not require parties to perform certificate registration. Communication among the nodes is managed by the researcher using an honest-but-curious security model. This approach eliminates the need for the complicated and time-consuming pre-setup of Fed-BioMed nodes, where each party manually registers the certificates of other parties.
+Secure aggregation does not require parties to provision a shared default node-to-node key. Each node automatically creates per-peer overlay channel keys, and public keys are exchanged when the channel is first used. Communication among the nodes is relayed by the researcher using the honest-but-curious assumption described above. This avoids distributing shared private key material or requiring manual registration of peer certificates for the overlay channel.
 
 Another difference between the two schemes is that Joye-Libert requires the server/aggregator to possess a key to aggregate encrypted model inputs. In contrast, LOM does not require the aggregator to have an encryption key; the sum of the encrypted inputs directly results in the sum of the inputs. This makes Joye-Libert preferable in scenarios where it is necessary to explicitly identify a party that is allowed to perform the aggregation. In LOM, any party with access to all the masked inputs can obtain the aggregated inputs. This is not a concern in setups where all parties have equal rights to access the aggregated inputs.
 
@@ -93,4 +128,3 @@ The security model implemented in Fed-BioMed's secure aggregation primarily targ
   instances for secure aggregation.
 
 - [Activating secure aggregation](./researcher-interface.md) for the training through researcher component.
-
