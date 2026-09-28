@@ -68,6 +68,7 @@ def test_01_mnist_pytorch_big_model_training_dry_run():
         aggregator=FedAverage(),
         node_selection_strategy=None,
         retain_full_history=False,
+        reduce_disk_usage=True,
     )
 
     exp.run()
@@ -98,6 +99,7 @@ def test_02_mnist_pytorch_big_model_training_dry_run_native_scaffold():
         aggregator=Scaffold(),
         node_selection_strategy=None,
         retain_full_history=False,
+        reduce_disk_usage=True,
     )
 
     exp.run()
