@@ -1,4 +1,4 @@
-"""Backward-compatible GUI WSGI entry point."""
+"""API-only WSGI entry point: fedbiomed_node_api.wsgi:app."""
 
 from .application import create_app
 

@@ -6,14 +6,15 @@ from flask_jwt_extended import (
     get_jwt,
     verify_jwt_in_request,
 )
+from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import UserRoleType
 
 from ..db import user_database
 from ..utils import error
 
-user_table = user_database.table("Users")
-query = user_database.query()
+user_table = LocalProxy(lambda: user_database.table("Users"))
+query = LocalProxy(lambda: user_database.query())
 
 
 def set_password_hash(password: str) -> str:
