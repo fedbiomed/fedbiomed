@@ -4,25 +4,18 @@ from flask import request
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
-from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
-from ..config import config
 from ..schemas import (
     ApproveRejectTrainingPlanRequest,
     DeleteTrainingPlanRequest,
     ListTrainingPlanRequest,
     TrainingPlanPreviewRequest,
 )
+from ..services import service_proxy
 from ..utils import error, response, success, validate_request_data
 from .api import api
 
-TP_SECURITY_MANAGER = TrainingPlanSecurityManager(
-    db=config["NODE_DB_PATH"],
-    node_name=config.node_config.get("default", "name"),
-    node_id=config["ID"],
-    hashing=config.node_config.get("security", "hashing_algorithm"),
-    tp_approval=config.node_config.getbool("security", "training_plan_approval"),
-)
+TP_SECURITY_MANAGER = service_proxy("training_plan_manager")
 
 TIME_OF_LAST_CALL = datetime.now()
 

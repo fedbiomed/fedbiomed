@@ -146,6 +146,7 @@ include = [
 	"docs/tutorials",
 	"fedbiomed",
 	"fedbiomed_gui",
+	"fedbiomed_node_api",
 	"notebooks",
 	"envs",
 	"docs/tutorials"
@@ -159,7 +160,7 @@ exclude = [
 [tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.wheel]
-packages = ["fedbiomed", "fedbiomed_gui"]
+packages = ["fedbiomed", "fedbiomed_gui", "fedbiomed_node_api"]
 artifacts = [
   "fedbiomed_gui/ui/build"
 ]
