@@ -84,6 +84,7 @@ class Experiment(TrainingPlanWorkflow):
         round_limit: Union[int, None] = None,
         tensorboard: bool = False,
         retain_full_history: bool = True,
+        reduce_disk_usage: bool = False,
         **kwargs,
     ) -> None:
         """Constructor of the class.
@@ -117,8 +118,11 @@ class Experiment(TrainingPlanWorkflow):
             retain_full_history: whether to retain in memory the full history
                 of node replies and aggregated params for the experiment. If False, only the
                 last round's replies and aggregated params will be available. Defaults to True.
-                If False and save_breakpoints is False, node parameters are not written
-                to disk until a checkpoint is explicitly saved.
+
+            reduce_disk_usage: whether to avoid writing node parameters to disk when
+                retain_full_history and save_breakpoints are both False. Parameters
+                remain in memory and are saved if a checkpoint is explicitly requested.
+                Defaults to False, preserving parameter files after each round.
 
             *args: Extra positional arguments from parent class
                 [`TrainingPlanWorkflow`][fedbiomed.researcher.federated_workflows.TrainingPlanWorkflow]
@@ -135,6 +139,7 @@ class Experiment(TrainingPlanWorkflow):
         self._aggregated_params = {}
         self._training_replies: Dict = {}
         self._retain_full_history = None
+        self._reduce_disk_usage = False
         self._fed_preproc: Optional[FedCombatPreproc] = None
 
         # initialize object
@@ -162,6 +167,7 @@ class Experiment(TrainingPlanWorkflow):
 
         # whether to retain the full experiment history or not
         self.set_retain_full_history(retain_full_history)
+        self.set_reduce_disk_usage(reduce_disk_usage)
 
         # no preprocessing by default
         self.set_preprocessing(PreprocType.NONE)
@@ -343,6 +349,11 @@ class Experiment(TrainingPlanWorkflow):
     def retain_full_history(self):
         """Retrieves the status of whether the full experiment history should be kept in memory."""
         return self._retain_full_history
+
+    @exp_exceptions
+    def reduce_disk_usage(self) -> bool:
+        """Returns whether reduced disk usage is enabled."""
+        return self._reduce_disk_usage
 
     @property
     def preprocessing(self) -> Union[FedCombatPreproc, None]:
@@ -705,6 +716,28 @@ class Experiment(TrainingPlanWorkflow):
         return self._retain_full_history
 
     @exp_exceptions
+    def set_reduce_disk_usage(self, reduce_disk_usage: bool = False) -> bool:
+        """Controls optional reduction of node parameter files.
+
+        Files are skipped only when this flag is True and both
+        retain_full_history and save_breakpoints are False. Explicit checkpoints
+        still save the parameters needed to resume training.
+
+        Args:
+            reduce_disk_usage: Whether to enable reduced disk usage. Defaults to False.
+
+        Returns:
+            Whether reduced disk usage is enabled.
+        """
+        if not isinstance(reduce_disk_usage, bool):
+            raise FedbiomedTypeError(
+                ErrorNumbers.FB410.value
+                + f": reduce_disk_usage should be a bool, instead got {type(reduce_disk_usage)}"
+            )
+        self._reduce_disk_usage = reduce_disk_usage
+        return self._reduce_disk_usage
+
+    @exp_exceptions
     def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
         """Sets the nodes filter + verifications on argument type
 
@@ -874,7 +907,9 @@ class Experiment(TrainingPlanWorkflow):
             nodes=training_nodes,
             keep_files_dir=(
                 self.experimentation_path()
-                if self._retain_full_history or self._save_breakpoints
+                if not self._reduce_disk_usage
+                or self._retain_full_history
+                or self._save_breakpoints
                 else None
             ),
             experiment_id=self._experiment_id,
@@ -976,7 +1011,9 @@ class Experiment(TrainingPlanWorkflow):
                 nodes=training_nodes,
                 keep_files_dir=(
                     self.experimentation_path()
-                    if self._retain_full_history or self._save_breakpoints
+                    if not self._reduce_disk_usage
+                    or self._retain_full_history
+                    or self._save_breakpoints
                     else None
                 ),
                 experiment_id=self._experiment_id,

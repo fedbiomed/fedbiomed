@@ -517,9 +517,22 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp = Experiment()
         _ = exp.info()
 
+    def test_reduce_disk_usage_flag(self):
+        exp = Experiment(retain_full_history=False, save_breakpoints=False)
+        self.assertFalse(exp.reduce_disk_usage())
+        self.assertTrue(exp.set_reduce_disk_usage(True))
+        self.assertTrue(exp.reduce_disk_usage())
+        self.assertFalse(exp.set_reduce_disk_usage(False))
+        for invalid in (None, 0, 1, "true"):
+            with self.subTest(value=invalid):
+                with self.assertRaises(FedbiomedTypeError):
+                    Experiment(reduce_disk_usage=invalid)
+
     def test_reply_storage_flags(self):
-        for history, breakpoints in product([False, True], repeat=2):
-            with self.subTest(history=history, breakpoints=breakpoints):
+        for history, breakpoints, reduce_disk in product([False, True], repeat=3):
+            with self.subTest(
+                history=history, breakpoints=breakpoints, reduce_disk=reduce_disk
+            ):
                 strategy = MagicMock(spec=DefaultStrategy)
                 strategy.sample_nodes.return_value = ["node"]
                 strategy.refine.return_value = ({}, {}, 1, {})
@@ -533,6 +546,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
                     node_selection_strategy=strategy,
                     aggregator=aggregator,
                     retain_full_history=history,
+                    reduce_disk_usage=reduce_disk,
                     save_breakpoints=breakpoints,
                     training_args={"test_on_global_updates": True},
                     round_limit=1,
@@ -544,11 +558,15 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
                 for call in self.mock_job.call_args_list:
                     self.assertEqual(
                         call.kwargs["keep_files_dir"],
-                        exp.experimentation_path() if history or breakpoints else None,
+                        exp.experimentation_path()
+                        if not reduce_disk or history or breakpoints
+                        else None,
                     )
 
     def test_manual_checkpoint_saves_in_memory_replies(self):
-        exp = Experiment(retain_full_history=False, save_breakpoints=False)
+        exp = Experiment(
+            retain_full_history=False, save_breakpoints=False, reduce_disk_usage=True
+        )
         params = {"weight": [1.0, 2.0]}
         exp._training_replies = {0: {"node": {"params": params}}}
         with tempfile.TemporaryDirectory() as directory:
