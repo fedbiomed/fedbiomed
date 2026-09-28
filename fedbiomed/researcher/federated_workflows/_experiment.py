@@ -119,8 +119,8 @@ class Experiment(TrainingPlanWorkflow):
                 of node replies and aggregated params for the experiment. If False, only the
                 last round's replies and aggregated params will be available. Defaults to True.
 
-            reduce_disk_usage: whether to avoid writing node parameters to disk when
-                retain_full_history and save_breakpoints are both False. Parameters
+            reduce_disk_usage: whether to avoid writing node parameters to disk after every round, ONLY
+                when retain_full_history and save_breakpoints are both False. Parameters
                 remain in memory and are saved if a checkpoint is explicitly requested.
                 Defaults to False, preserving parameter files after each round.
 
@@ -719,9 +719,9 @@ class Experiment(TrainingPlanWorkflow):
     def set_reduce_disk_usage(self, reduce_disk_usage: bool = False) -> bool:
         """Controls optional reduction of node parameter files.
 
-        Files are skipped only when this flag is True and both
-        retain_full_history and save_breakpoints are False. Explicit checkpoints
-        still save the parameters needed to resume training.
+        Model parameters are not written to disk at each round, ONLY
+        when this flag is True and both retain_full_history and save_breakpoints are False.
+        Explicit checkpoints still save the parameters needed to resume training.
 
         Args:
             reduce_disk_usage: Whether to enable reduced disk usage. Defaults to False.
