@@ -4,19 +4,66 @@ Run with pytest and hatchling installed, using --noconftest -c /dev/null to
 avoid runtime fixtures. No runtime dependencies or Yarn are needed.
 """
 
+import ast
 import os
 import shutil
 import subprocess
 import sys
 import tarfile
 import zipfile
+from email.parser import BytesParser
 from pathlib import Path
 
 import pytest
+import tomllib
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 pytest.importorskip("hatchling")
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def core_version():
+    module = ast.parse((ROOT / "fedbiomed" / "__init__.py").read_text())
+    for node in module.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "__version__"
+            for target in node.targets
+        ):
+            return Version(ast.literal_eval(node.value))
+    raise AssertionError("Core version is missing")
+
+
+def test_coordinated_versions_and_pins():
+    version = core_version()
+    core = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+    for folder, dependency in (
+        ("fedbiomed_node_api", "fedbiomed"),
+        ("fedbiomed_gui", "fedbiomed-node-api"),
+    ):
+        project = tomllib.loads((ROOT / folder / "pyproject.toml").read_text())[
+            "project"
+        ]
+        assert Version(project["version"]) == version
+        requirement = next(
+            Requirement(value)
+            for value in project["dependencies"]
+            if canonicalize_name(Requirement(value).name) == dependency
+        )
+        assert str(requirement.specifier) == f"=={version}"
+        assert requirement.url is None
+    for extra, dependency in (
+        ("node-api", "fedbiomed-node-api"),
+        ("gui", "fedbiomed-gui"),
+    ):
+        requirements = core["optional-dependencies"][extra]
+        assert len(requirements) == 1
+        requirement = Requirement(requirements[0])
+        assert requirement.name == dependency
+        assert str(requirement.specifier) == f"=={version}"
+        assert requirement.url is None
 
 
 @pytest.mark.parametrize(
@@ -82,6 +129,48 @@ def test_distribution_contents_and_sdist_rebuild(package, tmp_path):
     def check_wheel(wheel):
         with zipfile.ZipFile(wheel) as archive:
             names = set(archive.namelist())
+            metadata = BytesParser().parsebytes(
+                archive.read(
+                    next(name for name in names if name.endswith(".dist-info/METADATA"))
+                )
+            )
+            assert Version(metadata["Version"]) == core_version()
+            requirements = [
+                Requirement(value) for value in metadata.get_all("Requires-Dist", [])
+            ]
+            assert all(requirement.url is None for requirement in requirements)
+
+            def selected(extra=""):
+                return {
+                    canonicalize_name(requirement.name): requirement
+                    for requirement in requirements
+                    if requirement.marker is None
+                    or requirement.marker.evaluate({"extra": extra})
+                }
+
+            web = {"flask", "flask-jwt-extended", "jsonschema", "cachelib", "gunicorn"}
+            if package == "fedbiomed":
+                assert (
+                    not (web | {"fedbiomed-gui", "fedbiomed-node-api"})
+                    & selected().keys()
+                )
+                for extra, dependency in (
+                    ("node-api", "fedbiomed-node-api"),
+                    ("gui", "fedbiomed-gui"),
+                ):
+                    assert (
+                        str(selected(extra)[dependency].specifier)
+                        == f"=={core_version()}"
+                    )
+            elif package == "fedbiomed_node_api":
+                assert selected().keys() == web | {"fedbiomed"}
+                assert str(selected()["fedbiomed"].specifier) == f"=={core_version()}"
+            else:
+                assert set(selected()) == {"fedbiomed-node-api"}
+                assert (
+                    str(selected()["fedbiomed-node-api"].specifier)
+                    == f"=={core_version()}"
+                )
             assert f"{package}/__init__.py" in names
             for other in {"fedbiomed", "fedbiomed_node_api", "fedbiomed_gui"} - {
                 package
@@ -119,3 +208,24 @@ def test_distribution_contents_and_sdist_rebuild(package, tmp_path):
     rebuilt = next(extracted.iterdir())
     build(rebuilt, "wheel")
     check_wheel(next((rebuilt / "dist").glob("*.whl")))
+
+    if package != "fedbiomed":
+        editable = tmp_path / "editable"
+        editable.mkdir()
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; from hatchling.build import build_editable; build_editable(sys.argv[1])",
+                str(editable),
+            ],
+            cwd=staged,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        with zipfile.ZipFile(next(editable.glob("*.whl"))) as archive:
+            paths = [name for name in archive.namelist() if name.endswith(".pth")]
+            assert len(paths) == 1
+            assert Path(archive.read(paths[0]).decode().strip()) == staged.parent
