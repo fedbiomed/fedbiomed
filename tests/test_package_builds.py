@@ -4,11 +4,8 @@ Run with pytest and hatchling installed, using --noconftest -c /dev/null to
 avoid runtime fixtures. No runtime dependencies or Yarn are needed.
 """
 
-<<<<<<< HEAD
 import ast
 import configparser
-=======
->>>>>>> 1478709cc (build(packaging): separate core, node API, and GUI distributions)
 import os
 import shutil
 import subprocess
