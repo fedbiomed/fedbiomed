@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs", "gui", "node", "researcher", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.1"
-content_hash = "sha256:2cc86aa17b8bcbea67e0bec0f8e886395a1cfe32bb40b6a8e558d086f06c95b8"
+content_hash = "sha256:5bfba047bdda20bae0165889149cf6423a44b06b6e4189e919a5e0831ad74100"
 
 [[metadata.targets]]
 requires_python = ">=3.11,<3.15"
@@ -1339,6 +1339,25 @@ groups = ["researcher"]
 files = [
     {file = "h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86"},
     {file = "h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1"},
+]
+
+[[package]]
+name = "hatchling"
+version = "1.32.4"
+requires_python = ">=3.10"
+summary = "Modern, extensible Python build backend"
+groups = ["test"]
+dependencies = [
+    "packaging>=24.2",
+    "pathspec>=0.10.1",
+    "pluggy>=1.0.0",
+    "tomli>=1.2.2; python_version < \"3.11\"",
+    "tomlkit>=0.11.1",
+    "trove-classifiers",
+]
+files = [
+    {file = "hatchling-1.32.4-py3-none-any.whl", hash = "sha256:08ecf7548fb48205e7f213d70c71e67b8271b7242093dc3f1da578b42c734a2c"},
+    {file = "hatchling-1.32.4.tar.gz", hash = "sha256:c4468f73144c054d2aab4ef0f0378c43b9878bf07f8ffd6b79690e970d375f07"},
 ]
 
 [[package]]
@@ -3271,7 +3290,7 @@ name = "pathspec"
 version = "1.1.1"
 requires_python = ">=3.9"
 summary = "Utility library for gitignore style pattern matching of file paths."
-groups = ["docs"]
+groups = ["docs", "test"]
 files = [
     {file = "pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"},
     {file = "pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a"},
@@ -4429,6 +4448,17 @@ files = [
 ]
 
 [[package]]
+name = "tomlkit"
+version = "0.15.1"
+requires_python = ">=3.9"
+summary = "Style preserving TOML library"
+groups = ["test"]
+files = [
+    {file = "tomlkit-0.15.1-py3-none-any.whl", hash = "sha256:177a05aece5a8ca5266fd3c448abb47b8d352f09d477d3ca8332db4d89b24304"},
+    {file = "tomlkit-0.15.1.tar.gz", hash = "sha256:e25bbf38843005246210a12982776f27f99cb9be67160e14434d0c0d21ee1e97"},
+]
+
+[[package]]
 name = "torch"
 version = "2.10.0"
 requires_python = ">=3.10"
@@ -4625,6 +4655,16 @@ files = [
     {file = "triton-3.6.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a17a5d5985f0ac494ed8a8e54568f092f7057ef60e1b0fa09d3fd1512064e803"},
     {file = "triton-3.6.0-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0b3a97e8ed304dfa9bd23bb41ca04cdf6b2e617d5e782a8653d616037a5d537d"},
     {file = "triton-3.6.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:46bd1c1af4b6704e554cad2eeb3b0a6513a980d470ccfa63189737340c7746a7"},
+]
+
+[[package]]
+name = "trove-classifiers"
+version = "2026.9.21.13"
+summary = "Canonical source for classifiers on PyPI (pypi.org)."
+groups = ["test"]
+files = [
+    {file = "trove_classifiers-2026.9.21.13-py3-none-any.whl", hash = "sha256:8b1ff4f9c191b1040b71c37f1e445ab99732911e3cd91de52838453a854d7a17"},
+    {file = "trove_classifiers-2026.9.21.13.tar.gz", hash = "sha256:0a9ebc8d4e2f3e8a22848c5258033035bec17a3012ac3fea16dbaa764489eb71"},
 ]
 
 [[package]]

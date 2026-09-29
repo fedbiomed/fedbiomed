@@ -1,8 +1,12 @@
 # Node HTTP API
 
-The API backend lives here independently of the React frontend. It is still
-shipped in the existing Fed-BioMed distribution during the packaging migration;
-install `fedbiomed[gui]` to obtain its current Python dependencies.
+The API backend lives here independently of the React frontend and builds as
+the separate `fedbiomed-node-api` distribution. Build from the repository root
+with `pdm build -p fedbiomed_node_api`; no frontend tools or assets are needed.
+
+Package dependency declarations and installation extras are introduced in the
+next migration step. Until then, these build artifacts are for packaging
+verification, not standalone installation.
 
 Run the API without frontend assets against an existing node:
 
@@ -23,4 +27,4 @@ active Flask application context. Importing the factory does not initialize a no
 
 Existing `config_gui.ini` files, GUI environment variables, user databases, and
 HTTP routes remain compatible. The default configuration template now belongs
-to the API. Separate distributions and installation extras are a later change.
+to the API. Installation extras are a later change.
