@@ -217,9 +217,40 @@ You may encounter some common issues during installation or after the installati
     More troubleshooting for `pyenv` can be found [here](https://github.com/pyenv/pyenv/wiki#suggested-build-environment).
 
 
+### Building the distributions
+
+Core, Node API, and GUI have separate build configurations. From the repository
+root, build their wheels and source archives with:
+
+```sh
+pdm build
+pdm build -p fedbiomed_node_api
+pdm build -p fedbiomed_gui
+```
+
+Core includes `fedbiomed` and its existing shared resources; the API includes
+`fedbiomed_node_api` and its configuration template; the GUI includes
+`fedbiomed_gui` and compiled frontend assets. Only the GUI build invokes Yarn.
+Its source archive also contains the frontend sources and build hook.
+
+To reuse a prebuilt `fedbiomed_gui/ui/build` directory, run
+`FBM_SKIP_FRONTEND_BUILD=1 pdm build -p fedbiomed_gui`.
+
+This is the build-separation stage of the packaging migration. The API and GUI
+currently declare version `6.4.1`; coordinated version management, dependency
+declarations, and installation extras follow in step 4. These artifacts are
+not yet ready for independent installation or publication.
+
+To check package contents and rebuild wheels from source archives, use an
+environment with `pytest` and `hatchling` installed:
+
+```sh
+python -m pytest --noconftest -c /dev/null tests/test_package_builds.py -q
+```
+
+These packaging checks run without application dependencies or frontend tools.
+
 ### Building Fed-BioMed Takes too Long
 
 Some static files located in the root Fed-BioMed source directory (e.g., notebooks, tests, etc.) are also included in the final distribution. Therefore, having large data files or artifacts left from operations for testing and development purposes can increase the loading time. Please ensure that such data files are cleared before building the Fed-BioMed package to reduce build time.
-
-
 

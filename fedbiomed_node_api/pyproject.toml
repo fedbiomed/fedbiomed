@@ -1,0 +1,22 @@
+[project]
+name = "fedbiomed-node-api"
+version = "6.4.1"
+description = "Fed-BioMed Node HTTP API"
+requires-python = ">=3.11,<3.15"
+readme = "README.md"
+license = {text = "Apache 2.0"}
+
+[project.urls]
+Homepage = "https://fedbiomed.org"
+Repository = "https://github.com/fedbiomed/fedbiomed"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = ["/*.py", "/config_gui.ini", "/helpers", "/middlewares", "/routes"]
+exclude = ["__pycache__", "*.pyc"]
+
+[tool.hatch.build.targets.wheel.sources]
+"" = "fedbiomed_node_api"
