@@ -5,6 +5,7 @@ description = "Fed-BioMed Node GUI launcher and frontend"
 requires-python = ">=3.11,<3.15"
 readme = "README.md"
 license = {text = "Apache 2.0"}
+dependencies = ["fedbiomed-node-api==6.4.1"]
 
 [project.urls]
 Homepage = "https://fedbiomed.org"
@@ -15,6 +16,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
+# Sources live directly in this project directory, so editable imports use its parent.
+dev-mode-dirs = [".."]
 exclude = ["__pycache__", "*.pyc", "node_modules"]
 artifacts = ["/ui/build/**"]
 
