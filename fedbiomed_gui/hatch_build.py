@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import time
+from pathlib import Path
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
@@ -32,15 +33,15 @@ class CustomBuildHook(BuildHookInterface):
                 "NodeJS `yarn` is required for building Fed-BioMed front-end application"
             )
 
-        os.chdir("fedbiomed_gui/ui")
+        ui_dir = Path(self.root) / "ui"
         for attempt in range(3):
             try:
                 logger.info(
                     "### Yarn: Installation front-end dependencies to prepare build.\n"
                 )
-                subprocess.run([yarn, "install"], check=True)
+                subprocess.run([yarn, "install"], cwd=ui_dir, check=True)
                 logger.info("\n### Yarn: Building front-end application run.\n")
-                subprocess.run([yarn, "build"], check=True)
+                subprocess.run([yarn, "build"], cwd=ui_dir, check=True)
             except subprocess.CalledProcessError:
                 if attempt < 2:
                     time.sleep(5)
@@ -48,5 +49,3 @@ class CustomBuildHook(BuildHookInterface):
                     raise
             else:
                 break
-
-        os.chdir("../../")

@@ -1,0 +1,32 @@
+[project]
+name = "fedbiomed-node-api"
+version = "6.4.1"
+description = "Fed-BioMed Node HTTP API"
+requires-python = ">=3.11,<3.15"
+readme = "README.md"
+license = {text = "Apache 2.0"}
+dependencies = [
+    "fedbiomed==6.4.1",
+    "flask >=2.3.1,<24.0",
+    "jsonschema ~=4.18.0",
+    "Flask-JWT-Extended >=4.4.4,<4.5.0",
+    "cachelib >=0.10.2,<0.11.0",
+    "gunicorn ~=23.0.0",
+]
+
+[project.urls]
+Homepage = "https://fedbiomed.org"
+Repository = "https://github.com/fedbiomed/fedbiomed"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+# Sources live directly in this project directory, so editable imports use its parent.
+dev-mode-dirs = [".."]
+include = ["/*.py", "/config_gui.ini", "/helpers", "/middlewares", "/routes"]
+exclude = ["__pycache__", "*.pyc"]
+
+[tool.hatch.build.targets.wheel.sources]
+"" = "fedbiomed_node_api"
