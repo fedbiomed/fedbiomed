@@ -2,10 +2,10 @@
 # It is not intended for manual editing.
 
 [metadata]
-groups = ["default", "dev", "docs", "gui", "node", "researcher", "test"]
+groups = ["default", "dev", "docs", "gui", "local", "node", "node-api", "researcher", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.1"
-content_hash = "sha256:5bfba047bdda20bae0165889149cf6423a44b06b6e4189e919a5e0831ad74100"
+content_hash = "sha256:cb2d87fbb19fbd2d7ca6c2909ff8b359896411287772bf51e99eb30e582744f1"
 
 [[metadata.targets]]
 requires_python = ">=3.11,<3.15"
@@ -143,7 +143,7 @@ name = "attrs"
 version = "26.1.0"
 requires_python = ">=3.9"
 summary = "Classes Without Boilerplate"
-groups = ["docs", "gui", "researcher"]
+groups = ["docs", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"},
     {file = "attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32"},
@@ -227,7 +227,7 @@ name = "blinker"
 version = "1.9.0"
 requires_python = ">=3.9"
 summary = "Fast, simple object-to-object and broadcast signaling"
-groups = ["gui"]
+groups = ["gui", "local", "node-api"]
 files = [
     {file = "blinker-1.9.0-py3-none-any.whl", hash = "sha256:ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc"},
     {file = "blinker-1.9.0.tar.gz", hash = "sha256:b4ce2265a7abece45e7cc896e98dbebe6cead56bcf805a3d23136d145f5445bf"},
@@ -238,7 +238,7 @@ name = "cachelib"
 version = "0.10.2"
 requires_python = ">=3.7"
 summary = "A collection of cache libraries in the same API interface."
-groups = ["gui"]
+groups = ["gui", "local", "node-api"]
 files = [
     {file = "cachelib-0.10.2-py3-none-any.whl", hash = "sha256:42d49f2fad9310dd946d7be73d46776bcd4d5fde4f49ad210cfdd447fbdfc346"},
     {file = "cachelib-0.10.2.tar.gz", hash = "sha256:593faeee62a7c037d50fc835617a01b887503f972fb52b188ae7e50e9cb69740"},
@@ -260,7 +260,7 @@ name = "certifi"
 version = "2026.7.22"
 requires_python = ">=3.7"
 summary = "Python package for providing Mozilla's CA Bundle."
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "certifi-2026.7.22-py3-none-any.whl", hash = "sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775"},
     {file = "certifi-2026.7.22.tar.gz", hash = "sha256:741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55"},
@@ -271,7 +271,7 @@ name = "cffi"
 version = "2.1.1"
 requires_python = ">=3.10"
 summary = "Foreign Function Interface for Python calling C code."
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 dependencies = [
     "pycparser; implementation_name != \"PyPy\"",
 ]
@@ -397,7 +397,7 @@ name = "charset-normalizer"
 version = "3.4.9"
 requires_python = ">=3.7"
 summary = "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet."
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "charset_normalizer-3.4.9-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:0e94703ec9684807f20cfb5eed95c70f67f2a8f21ad620146d7b5a13677b93e5"},
     {file = "charset_normalizer-3.4.9-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2a441ea71902098ffe78c5abe6c494f44160b4af614ed16c3d9a3b1d17fd8ee2"},
@@ -473,7 +473,7 @@ name = "click"
 version = "8.4.2"
 requires_python = ">=3.10"
 summary = "Composable command line interface toolkit"
-groups = ["docs", "gui"]
+groups = ["docs", "gui", "local", "node-api"]
 dependencies = [
     "colorama; platform_system == \"Windows\"",
 ]
@@ -487,7 +487,7 @@ name = "cloudpickle"
 version = "3.1.2"
 requires_python = ">=3.8"
 summary = "Pickler class to extend the standard pickle.Pickler functionality"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "cloudpickle-3.1.2-py3-none-any.whl", hash = "sha256:9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a"},
     {file = "cloudpickle-3.1.2.tar.gz", hash = "sha256:7fda9eb655c9c230dab534f1983763de5835249750e85fbcef43aaa30a9a2414"},
@@ -498,7 +498,7 @@ name = "colorama"
 version = "0.4.6"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 summary = "Cross-platform colored terminal text."
-groups = ["default", "docs", "gui", "researcher", "test"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher", "test"]
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
@@ -781,7 +781,7 @@ name = "cryptography"
 version = "42.0.8"
 requires_python = ">=3.7"
 summary = "cryptography is a package which provides cryptographic recipes and primitives to Python developers."
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "cffi>=1.12; platform_python_implementation != \"PyPy\"",
 ]
@@ -825,7 +825,7 @@ files = [
 name = "cuda-bindings"
 version = "12.9.4"
 summary = "Python bindings for CUDA"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 dependencies = [
     "cuda-pathfinder~=1.1",
@@ -856,7 +856,7 @@ name = "cuda-pathfinder"
 version = "1.6.0"
 requires_python = ">=3.10"
 summary = "Pathfinder for CUDA components"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "cuda_pathfinder-1.6.0-py3-none-any.whl", hash = "sha256:1503af579d8379c24bdd65528379bc57039b0455be9f5f9686cf8e473a1fce51"},
@@ -905,7 +905,7 @@ name = "declearn"
 version = "2.9.1"
 requires_python = ">=3.11"
 summary = "A modular and extensible framework for Federated Learning."
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "cryptography>=35.0",
     "fire~=0.4",
@@ -927,7 +927,7 @@ version = "2.9.1"
 extras = ["torch"]
 requires_python = ">=3.11"
 summary = "A modular and extensible framework for Federated Learning."
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "declearn==2.9.1",
     "torch~=2.0",
@@ -992,11 +992,40 @@ files = [
 ]
 
 [[package]]
+name = "fedbiomed-gui"
+version = "6.4.1"
+requires_python = ">=3.11,<3.15"
+editable = true
+path = "./fedbiomed_gui"
+summary = "Fed-BioMed Node GUI launcher and frontend"
+groups = ["gui", "local"]
+dependencies = [
+    "fedbiomed-node-api==6.4.1",
+]
+
+[[package]]
+name = "fedbiomed-node-api"
+version = "6.4.1"
+requires_python = ">=3.11,<3.15"
+editable = true
+path = "./fedbiomed_node_api"
+summary = "Fed-BioMed Node HTTP API"
+groups = ["gui", "local", "node-api"]
+dependencies = [
+    "Flask-JWT-Extended<4.5.0,>=4.4.4",
+    "cachelib<0.11.0,>=0.10.2",
+    "fedbiomed==6.4.1",
+    "flask<24.0,>=2.3.1",
+    "gunicorn~=23.0.0",
+    "jsonschema~=4.18.0",
+]
+
+[[package]]
 name = "filelock"
 version = "3.32.2"
 requires_python = ">=3.10"
 summary = "A platform independent file lock."
-groups = ["default", "dev", "test"]
+groups = ["default", "dev", "gui", "local", "node-api", "test"]
 files = [
     {file = "filelock-3.32.2-py3-none-any.whl", hash = "sha256:87dd94cf281e586d135fa51132b8e3d9a598b316e90377a288663c9321036c82"},
     {file = "filelock-3.32.2.tar.gz", hash = "sha256:c33351e1f49cae33414acbc6d56784e6ecee82514ec90795da1161fc4836b5b8"},
@@ -1007,7 +1036,7 @@ name = "fire"
 version = "0.7.1"
 requires_python = ">=3.7"
 summary = "A library for automatically generating command line interfaces."
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "termcolor",
 ]
@@ -1021,7 +1050,7 @@ name = "flask"
 version = "2.3.3"
 requires_python = ">=3.8"
 summary = "A simple framework for building complex web applications."
-groups = ["gui"]
+groups = ["gui", "local", "node-api"]
 dependencies = [
     "Jinja2>=3.1.2",
     "Werkzeug>=2.3.7",
@@ -1040,7 +1069,7 @@ name = "flask-jwt-extended"
 version = "4.4.4"
 requires_python = ">=3.7,<4"
 summary = "Extended JWT integration with Flask"
-groups = ["gui"]
+groups = ["gui", "local", "node-api"]
 dependencies = [
     "Flask<3.0,>=2.0",
     "PyJWT<3.0,>=2.0",
@@ -1122,7 +1151,7 @@ name = "fsspec"
 version = "2026.7.0"
 requires_python = ">=3.10"
 summary = "File-system specification"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "fsspec-2026.7.0-py3-none-any.whl", hash = "sha256:b57ddbafedfaef7018c1ecab32aa200a9d7ca26b77965f64e48b70061249d279"},
     {file = "fsspec-2026.7.0.tar.gz", hash = "sha256:c803c40f4cf860b49dea58ee3e1c33cb9c790520e233537e1340049f89b82a88"},
@@ -1146,7 +1175,7 @@ name = "gmpy2"
 version = "2.3.1"
 requires_python = ">=3.9"
 summary = "gmpy2 interface to GMP, MPFR, and MPC for Python"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "gmpy2-2.3.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:48ead9abf937929eeeab5562c98e2feaba23fe6fe342346feb19938a83b14985"},
     {file = "gmpy2-2.3.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:63c867ad5bf43486dc4d7e4b6bafb04bd2b50bce400130f4c49fa4bf4325076e"},
@@ -1212,7 +1241,7 @@ name = "grpcio"
 version = "1.82.2"
 requires_python = ">=3.10"
 summary = "HTTP/2-based RPC framework"
-groups = ["default", "researcher"]
+groups = ["default", "gui", "local", "node-api", "researcher"]
 dependencies = [
     "typing-extensions~=4.12",
 ]
@@ -1265,7 +1294,7 @@ name = "grpcio-tools"
 version = "1.82.2"
 requires_python = ">=3.10"
 summary = "Protobuf code generator for gRPC"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "grpcio>=1.82.2",
     "protobuf<8.0.0,>=7.35.1",
@@ -1320,7 +1349,7 @@ name = "gunicorn"
 version = "23.0.0"
 requires_python = ">=3.7"
 summary = "WSGI HTTP Server for UNIX"
-groups = ["gui"]
+groups = ["gui", "local", "node-api"]
 dependencies = [
     "importlib-metadata; python_version < \"3.8\"",
     "packaging",
@@ -1417,7 +1446,7 @@ name = "idna"
 version = "3.18"
 requires_python = ">=3.9"
 summary = "Internationalized Domain Names in Applications (IDNA)"
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "idna-3.18-py3-none-any.whl", hash = "sha256:7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2"},
     {file = "idna-3.18.tar.gz", hash = "sha256:ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848"},
@@ -1428,7 +1457,7 @@ name = "importlib-resources"
 version = "7.1.0"
 requires_python = ">=3.10"
 summary = "Read resources from Python packages"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "python_version < \"3.12\""
 dependencies = [
     "zipp>=3.1.0; python_version < \"3.10\"",
@@ -1550,7 +1579,7 @@ name = "itk"
 version = "5.4.7"
 requires_python = ">=3.8"
 summary = "ITK is an open-source toolkit for multidimensional image analysis"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "itk-core==5.4.7",
     "itk-filtering==5.4.7",
@@ -1574,7 +1603,7 @@ name = "itk-core"
 version = "5.4.7"
 requires_python = ">=3.8"
 summary = "ITK is an open-source toolkit for multidimensional image analysis"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "numpy",
 ]
@@ -1592,7 +1621,7 @@ name = "itk-filtering"
 version = "5.4.7"
 requires_python = ">=3.8"
 summary = "ITK is an open-source toolkit for multidimensional image analysis"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "itk-numerics==5.4.7",
 ]
@@ -1610,7 +1639,7 @@ name = "itk-io"
 version = "5.4.7"
 requires_python = ">=3.8"
 summary = "ITK is an open-source toolkit for multidimensional image analysis"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "itk-core==5.4.7",
 ]
@@ -1628,7 +1657,7 @@ name = "itk-numerics"
 version = "5.4.7"
 requires_python = ">=3.8"
 summary = "ITK is an open-source toolkit for multidimensional image analysis"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "itk-core==5.4.7",
 ]
@@ -1646,7 +1675,7 @@ name = "itk-registration"
 version = "5.4.7"
 requires_python = ">=3.8"
 summary = "ITK is an open-source toolkit for multidimensional image analysis"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "itk-filtering==5.4.7",
 ]
@@ -1664,7 +1693,7 @@ name = "itk-segmentation"
 version = "5.4.7"
 requires_python = ">=3.8"
 summary = "ITK is an open-source toolkit for multidimensional image analysis"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "itk-filtering==5.4.7",
 ]
@@ -1682,7 +1711,7 @@ name = "itsdangerous"
 version = "2.2.0"
 requires_python = ">=3.8"
 summary = "Safely pass data to untrusted environments and back."
-groups = ["gui"]
+groups = ["gui", "local", "node-api"]
 files = [
     {file = "itsdangerous-2.2.0-py3-none-any.whl", hash = "sha256:c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef"},
     {file = "itsdangerous-2.2.0.tar.gz", hash = "sha256:e0050c0b7da1eea53ffaf149c0cfbb5c6e2e2b69c4bef22c81fa6eb73e5f6173"},
@@ -1707,7 +1736,7 @@ name = "jinja2"
 version = "3.1.6"
 requires_python = ">=3.7"
 summary = "A very fast and expressive template engine."
-groups = ["default", "docs", "gui", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 dependencies = [
     "MarkupSafe>=2.0",
 ]
@@ -1721,7 +1750,7 @@ name = "joblib"
 version = "1.6.0"
 requires_python = ">=3.10"
 summary = "Lightweight pipelining with Python functions"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "cloudpickle>=3.0",
 ]
@@ -1766,7 +1795,7 @@ name = "jsonschema"
 version = "4.18.6"
 requires_python = ">=3.8"
 summary = "An implementation of JSON Schema validation for Python"
-groups = ["docs", "gui", "researcher"]
+groups = ["docs", "gui", "local", "node-api", "researcher"]
 dependencies = [
     "attrs>=22.2.0",
     "importlib-resources>=1.4.0; python_version < \"3.9\"",
@@ -1785,7 +1814,7 @@ name = "jsonschema-specifications"
 version = "2025.9.1"
 requires_python = ">=3.9"
 summary = "The JSON Schema meta-schemas and vocabularies, exposed as a Registry"
-groups = ["docs", "gui", "researcher"]
+groups = ["docs", "gui", "local", "node-api", "researcher"]
 dependencies = [
     "referencing>=0.31.0",
 ]
@@ -2213,7 +2242,7 @@ name = "markupsafe"
 version = "3.0.3"
 requires_python = ">=3.9"
 summary = "Safely add untrusted strings to HTML/XML markup."
-groups = ["default", "docs", "gui", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "markupsafe-3.0.3-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:1cc7ea17a6824959616c525620e387f6dd30fec8cb44f649e31712db02123dad"},
     {file = "markupsafe-3.0.3-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:4bd4cd07944443f5a265608cc6aab442e4f74dff8088b0dfc8238647b8f6ae9a"},
@@ -2614,7 +2643,7 @@ name = "monai"
 version = "1.6.0"
 requires_python = ">=3.10"
 summary = "AI Toolkit for Healthcare Imaging"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "numpy<3.0,>=1.24",
     "torch>=2.8.0",
@@ -2628,7 +2657,7 @@ files = [
 name = "mpmath"
 version = "1.3.0"
 summary = "Python library for arbitrary-precision floating-point arithmetic"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "mpmath-1.3.0-py3-none-any.whl", hash = "sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"},
     {file = "mpmath-1.3.0.tar.gz", hash = "sha256:7a28eb2a9774d00c7bc92411c19a89209d5da7c4c9a9e227be8330a23a25b91f"},
@@ -2639,7 +2668,7 @@ name = "msgpack"
 version = "1.2.2"
 requires_python = ">=3.10"
 summary = "MessagePack serializer"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "msgpack-1.2.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:9d7fb25b4442fae0cb2590272d06ab4f6caa526ee36a994edb81e946b874813e"},
     {file = "msgpack-1.2.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:7fe374ba76eb0ecca13a1703daa8fa85825a6ddddbb52d4c1a732fa524194683"},
@@ -2704,7 +2733,7 @@ name = "narwhals"
 version = "2.24.0"
 requires_python = ">=3.10"
 summary = "Extremely lightweight compatibility layer between dataframe libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "narwhals-2.24.0-py3-none-any.whl", hash = "sha256:42fdedf44e5b2ca7505630d45b4ac3058f38d8485cba9fe1652ca23152df7489"},
     {file = "narwhals-2.24.0.tar.gz", hash = "sha256:b5c0f684ccd9d7475b564111e319a4964abcf2baf79d3cf6b1003d06ac9b828d"},
@@ -2788,7 +2817,7 @@ name = "networkx"
 version = "3.6"
 requires_python = ">=3.11"
 summary = "Python package for creating and manipulating graphs and networks"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "networkx-3.6-py3-none-any.whl", hash = "sha256:cdb395b105806062473d3be36458d8f1459a4e4b98e236a66c3a48996e07684f"},
     {file = "networkx-3.6.tar.gz", hash = "sha256:285276002ad1f7f7da0f7b42f004bcba70d381e936559166363707fdad3d72ad"},
@@ -2799,7 +2828,7 @@ name = "nibabel"
 version = "5.4.2"
 requires_python = ">=3.10"
 summary = "Access a multitude of neuroimaging data formats"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "importlib-resources>=5.12; python_version < \"3.12\"",
     "numpy>=1.25",
@@ -2860,7 +2889,7 @@ name = "numpy"
 version = "2.4.6"
 requires_python = ">=3.11"
 summary = "Fundamental package for array computing in Python"
-groups = ["default", "researcher"]
+groups = ["default", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "numpy-2.4.6-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:0280e0356c0829a18d9de1cb7eee50ec22ca639878d7240307ca0943d73cd2c4"},
     {file = "numpy-2.4.6-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:110f8b71aacb688ec69062bb7f6938a0f8acb01b7c1c4beb453c65b6d234584d"},
@@ -2941,7 +2970,7 @@ name = "nvidia-cublas-cu12"
 version = "12.8.4.1"
 requires_python = ">=3"
 summary = "CUBLAS native runtime libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_cublas_cu12-12.8.4.1-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:b86f6dd8935884615a0683b663891d43781b819ac4f2ba2b0c9604676af346d0"},
@@ -2954,7 +2983,7 @@ name = "nvidia-cuda-cupti-cu12"
 version = "12.8.90"
 requires_python = ">=3"
 summary = "CUDA profiling tools runtime libs."
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_cuda_cupti_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:4412396548808ddfed3f17a467b104ba7751e6b58678a4b840675c56d21cf7ed"},
@@ -2967,7 +2996,7 @@ name = "nvidia-cuda-nvrtc-cu12"
 version = "12.8.93"
 requires_python = ">=3"
 summary = "NVRTC native runtime libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:a7756528852ef889772a84c6cd89d41dfa74667e24cca16bb31f8f061e3e9994"},
@@ -2980,7 +3009,7 @@ name = "nvidia-cuda-runtime-cu12"
 version = "12.8.90"
 requires_python = ">=3"
 summary = "CUDA Runtime native Libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_cuda_runtime_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:52bf7bbee900262ffefe5e9d5a2a69a30d97e2bc5bb6cc866688caa976966e3d"},
@@ -2993,7 +3022,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 requires_python = ">=3"
 summary = "cuDNN runtime libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 dependencies = [
     "nvidia-cublas-cu12",
@@ -3009,7 +3038,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 requires_python = ">=3"
 summary = "CUFFT native runtime libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 dependencies = [
     "nvidia-nvjitlink-cu12",
@@ -3025,7 +3054,7 @@ name = "nvidia-cufile-cu12"
 version = "1.13.1.3"
 requires_python = ">=3"
 summary = "cuFile GPUDirect libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_cufile_cu12-1.13.1.3-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:1d069003be650e131b21c932ec3d8969c1715379251f8d23a1860554b1cb24fc"},
@@ -3037,7 +3066,7 @@ name = "nvidia-curand-cu12"
 version = "10.3.9.90"
 requires_python = ">=3"
 summary = "CURAND native runtime libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_curand_cu12-10.3.9.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:dfab99248034673b779bc6decafdc3404a8a6f502462201f2f31f11354204acd"},
@@ -3050,7 +3079,7 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 requires_python = ">=3"
 summary = "CUDA solver native runtime libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 dependencies = [
     "nvidia-cublas-cu12",
@@ -3068,7 +3097,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 requires_python = ">=3"
 summary = "CUSPARSE native runtime libraries"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 dependencies = [
     "nvidia-nvjitlink-cu12",
@@ -3083,7 +3112,7 @@ files = [
 name = "nvidia-cusparselt-cu12"
 version = "0.7.1"
 summary = "NVIDIA cuSPARSELt"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_cusparselt_cu12-0.7.1-py3-none-manylinux2014_aarch64.whl", hash = "sha256:8878dce784d0fac90131b6817b607e803c36e629ba34dc5b433471382196b6a5"},
@@ -3096,7 +3125,7 @@ name = "nvidia-nccl-cu12"
 version = "2.27.5"
 requires_python = ">=3"
 summary = "NVIDIA Collective Communication Library (NCCL) Runtime"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_nccl_cu12-2.27.5-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:31432ad4d1fb1004eb0c56203dc9bc2178a1ba69d1d9e02d64a6938ab5e40e7a"},
@@ -3108,7 +3137,7 @@ name = "nvidia-nvjitlink-cu12"
 version = "12.8.93"
 requires_python = ">=3"
 summary = "Nvidia JIT LTO Library"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_nvjitlink_cu12-12.8.93-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl", hash = "sha256:81ff63371a7ebd6e6451970684f916be2eab07321b73c9d244dc2b4da7f73b88"},
@@ -3121,7 +3150,7 @@ name = "nvidia-nvshmem-cu12"
 version = "3.4.5"
 requires_python = ">=3"
 summary = "NVSHMEM creates a global address space that provides efficient and scalable communication for NVIDIA GPU clusters."
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_nvshmem_cu12-3.4.5-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:0b48363fc6964dede448029434c6abed6c5e37f823cb43c3bcde7ecfc0457e15"},
@@ -3133,7 +3162,7 @@ name = "nvidia-nvtx-cu12"
 version = "12.8.90"
 requires_python = ">=3"
 summary = "NVIDIA Tools Extension"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 files = [
     {file = "nvidia_nvtx_cu12-12.8.90-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:d7ad891da111ebafbf7e015d34879f7112832fc239ff0d7d776b6cb685274615"},
@@ -3146,7 +3175,7 @@ name = "opacus"
 version = "1.6.0"
 requires_python = ">=3.7.5"
 summary = "Train PyTorch models with Differential Privacy"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "numpy>=1.15",
     "opt-einsum>=3.3.0",
@@ -3163,7 +3192,7 @@ name = "opt-einsum"
 version = "3.4.0"
 requires_python = ">=3.8"
 summary = "Path optimization of einsum functions."
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "opt_einsum-3.4.0-py3-none-any.whl", hash = "sha256:69bb92469f86a1565195ece4ac0323943e83477171b91d24c35afe028a90d7cd"},
     {file = "opt_einsum-3.4.0.tar.gz", hash = "sha256:96ca72f1b886d148241348783498194c577fa30a8faac108586b14f1ba4473ac"},
@@ -3189,7 +3218,7 @@ name = "packaging"
 version = "24.2"
 requires_python = ">=3.8"
 summary = "Core utilities for Python packages"
-groups = ["default", "docs", "gui", "researcher", "test"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher", "test"]
 files = [
     {file = "packaging-24.2-py3-none-any.whl", hash = "sha256:09abb1bccd265c01f4a3aa3f7a7db064b36514d2cba19a2f694fe6150451a759"},
     {file = "packaging-24.2.tar.gz", hash = "sha256:c228a6dc5e932d346bc5739379109d49e8853dd8223571c7c5b55260edc0b97f"},
@@ -3210,7 +3239,7 @@ name = "pandas"
 version = "2.3.3"
 requires_python = ">=3.9"
 summary = "Powerful data structures for data analysis, time series, and statistics"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "numpy>=1.22.4; python_version < \"3.11\"",
     "numpy>=1.23.2; python_version == \"3.11\"",
@@ -3311,7 +3340,7 @@ files = [
 name = "persist-queue"
 version = "0.5.1"
 summary = "A thread-safe disk based persistent queue in Python."
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "persist-queue-0.5.1.tar.gz", hash = "sha256:27a44e6376bdaff1375f09ba6e14f633192cd2bdc593b948a752d80edea4d68c"},
     {file = "persist_queue-0.5.1-py2.py3-none-any.whl", hash = "sha256:9e2890660305847609bcbfa814ce38229b3629ea98e6fd8fb858bf9533a98d83"},
@@ -3336,7 +3365,7 @@ name = "pillow"
 version = "12.3.0"
 requires_python = ">=3.10"
 summary = "Python Imaging Library (fork)"
-groups = ["default", "researcher"]
+groups = ["default", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "pillow-12.3.0-cp311-cp311-macosx_10_10_x86_64.whl", hash = "sha256:00808c5e14ef63ac5161091d242999076604ff74b883423a11e5d7bbb38bf756"},
     {file = "pillow-12.3.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:37d6d0a00072fd2948eb22bce7e1475f34569d90c87c59f7a2ec59541b77f7a6"},
@@ -3424,7 +3453,7 @@ name = "polars"
 version = "1.32.3"
 requires_python = ">=3.9"
 summary = "Blazingly fast DataFrame library"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "polars-1.32.3-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:c7c472ea1d50a5104079cb64e34f78f85774bcc69b875ba8daf21233f4c70d42"},
     {file = "polars-1.32.3-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:fd87275f0cc795e72a2030b58293198cfa748d4b009cf52218e27db5397ed07f"},
@@ -3509,7 +3538,7 @@ name = "protobuf"
 version = "7.35.1"
 requires_python = ">=3.10"
 summary = ""
-groups = ["default", "researcher"]
+groups = ["default", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "protobuf-7.35.1-cp310-abi3-macosx_10_9_universal2.whl", hash = "sha256:24f857477359a85c0c235261b8ba905fd51b2562f4a64ca1df5473f29850cbf6"},
     {file = "protobuf-7.35.1-cp310-abi3-manylinux2014_aarch64.whl", hash = "sha256:11d6b0ec246892d85215b0a13ca6e0233cf5284b68f0ac02646427f4ff88a799"},
@@ -3526,7 +3555,7 @@ name = "psutil"
 version = "6.0.0"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=2.7"
 summary = "Cross-platform lib for process and system monitoring in Python."
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "psutil-6.0.0-cp36-abi3-macosx_10_9_x86_64.whl", hash = "sha256:c588a7e9b1173b6e866756dde596fd4cad94f9399daf99ad8c3258b3cb2b47a0"},
     {file = "psutil-6.0.0-cp36-abi3-manylinux_2_12_i686.manylinux2010_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:6ed2440ada7ef7d0d608f20ad89a04ec47d2d3ab7190896cd62ca5fc4fe08bf0"},
@@ -3564,7 +3593,7 @@ name = "pyarrow"
 version = "25.0.1"
 requires_python = ">=3.10"
 summary = "Python library for Apache Arrow"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "pyarrow-25.0.1-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:51093dd9e10325fbdb3c10a2ae7c4806e5c822d94e74ae4938b26524a3323fee"},
     {file = "pyarrow-25.0.1-cp311-cp311-macosx_12_0_x86_64.whl", hash = "sha256:eb6203482ff3746a5632303a7279ae0b5a304c46985b49ed1378cb350ea6728d"},
@@ -3609,7 +3638,7 @@ name = "pycparser"
 version = "3.0"
 requires_python = ">=3.10"
 summary = "C parser in Python"
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 marker = "implementation_name != \"PyPy\""
 files = [
     {file = "pycparser-3.0-py3-none-any.whl", hash = "sha256:b727414169a36b7d524c1c3e31839a521725078d7b2ff038656844266160a992"},
@@ -3621,7 +3650,7 @@ name = "pygments"
 version = "2.18.0"
 requires_python = ">=3.8"
 summary = "Pygments is a syntax highlighting package written in Python."
-groups = ["default", "docs", "researcher", "test"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher", "test"]
 files = [
     {file = "pygments-2.18.0-py3-none-any.whl", hash = "sha256:b8e6aca0523f3ab76fee51799c488e38782ac06eafcf95e7ba832985c8e7b13a"},
     {file = "pygments-2.18.0.tar.gz", hash = "sha256:786ff802f32e91311bff3889f6e9a86e81505fe99f2735bb6d60ae0c5004f199"},
@@ -3632,7 +3661,7 @@ name = "pyjwt"
 version = "2.13.0"
 requires_python = ">=3.9"
 summary = "JSON Web Token implementation in Python"
-groups = ["gui"]
+groups = ["gui", "local", "node-api"]
 dependencies = [
     "typing-extensions>=4.0; python_version < \"3.11\"",
 ]
@@ -3753,7 +3782,7 @@ name = "python-dateutil"
 version = "2.9.0.post0"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 summary = "Extensions to the standard Python datetime module"
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 dependencies = [
     "six>=1.5",
 ]
@@ -3792,7 +3821,7 @@ name = "python-minifier"
 version = "3.2.0"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,<3.15,>=2.7"
 summary = "Transform Python source code into it's most compact representation"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "python_minifier-3.2.0-py3-none-any.whl", hash = "sha256:b8486b1dc15980d1d833f72a8a8696616a611f1a10fb72aaf96e2de891beb4c2"},
     {file = "python_minifier-3.2.0.tar.gz", hash = "sha256:d39d4aa9655206870b89b41099a84725e1845319aa5a8bea6a1046b5644cd413"},
@@ -3802,7 +3831,7 @@ files = [
 name = "pytz"
 version = "2026.3.post1"
 summary = "World timezone definitions, modern and historical"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "pytz-2026.3.post1-py2.py3-none-any.whl", hash = "sha256:dd95840dd199baea12d9cc096a1d452caa6596a1c1e4b5f3dbd1541855d5e815"},
     {file = "pytz-2026.3.post1.tar.gz", hash = "sha256:2211d3fcf9a797d3405cac96ac7f61d80e6a644f72a3309607282fe8a2010c5d"},
@@ -3967,7 +3996,7 @@ name = "referencing"
 version = "0.37.0"
 requires_python = ">=3.10"
 summary = "JSON Referencing + Python"
-groups = ["docs", "gui", "researcher"]
+groups = ["docs", "gui", "local", "node-api", "researcher"]
 dependencies = [
     "attrs>=22.2.0",
     "rpds-py>=0.7.0",
@@ -3983,7 +4012,7 @@ name = "requests"
 version = "2.34.2"
 requires_python = ">=3.10"
 summary = "Python HTTP for Humans."
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 dependencies = [
     "certifi>=2023.5.7",
     "charset-normalizer<4,>=2",
@@ -4025,7 +4054,7 @@ name = "rpds-py"
 version = "2026.6.3"
 requires_python = ">=3.11"
 summary = "Python bindings to Rust's persistent data structures (rpds)"
-groups = ["docs", "gui", "researcher"]
+groups = ["docs", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "rpds_py-2026.6.3-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:7b689145a1485c335569bd056464f3243a29af7ed3871c7be31ad624ba239bc7"},
     {file = "rpds_py-2026.6.3-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:db08f45aecde626498fb3df07bcf6d2ec040af42e859a4f5040d79c200342911"},
@@ -4148,7 +4177,7 @@ name = "scikit-learn"
 version = "1.9.1"
 requires_python = ">=3.11"
 summary = "A set of python modules for machine learning and data mining"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "joblib>=1.4.0",
     "narwhals>=2.0.1",
@@ -4195,7 +4224,7 @@ name = "scipy"
 version = "1.17.1"
 requires_python = ">=3.11"
 summary = "Fundamental algorithms for scientific computing in Python"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "numpy<2.7,>=1.26.4",
 ]
@@ -4279,7 +4308,7 @@ name = "setuptools"
 version = "80.10.2"
 requires_python = ">=3.9"
 summary = "Easily download, build, install, upgrade, and uninstall Python packages"
-groups = ["default", "researcher"]
+groups = ["default", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "setuptools-80.10.2-py3-none-any.whl", hash = "sha256:95b30ddfb717250edb492926c92b5221f7ef3fbcc2b07579bcd4a27da21d0173"},
     {file = "setuptools-80.10.2.tar.gz", hash = "sha256:8b0e9d10c784bf7d262c4e5ec5d4ec94127ce206e8738f29a437945fbc219b70"},
@@ -4290,7 +4319,7 @@ name = "six"
 version = "1.17.0"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 summary = "Python 2 and 3 compatibility utilities"
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
     {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
@@ -4327,7 +4356,7 @@ name = "sympy"
 version = "1.14.0"
 requires_python = ">=3.9"
 summary = "Computer algebra system (CAS) in Python"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "mpmath<1.4,>=1.1.0",
 ]
@@ -4341,7 +4370,7 @@ name = "tabulate"
 version = "0.9.0"
 requires_python = ">=3.7"
 summary = "Pretty-print tabular data"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "tabulate-0.9.0-py3-none-any.whl", hash = "sha256:024ca478df22e9340661486f85298cff5f6dcdba14f3813e8830015b9ed1948f"},
     {file = "tabulate-0.9.0.tar.gz", hash = "sha256:0095b12bf5966de529c0feb1fa08671671b3368eec77d7ef7ab114be2c068b3c"},
@@ -4386,7 +4415,7 @@ name = "termcolor"
 version = "3.3.0"
 requires_python = ">=3.10"
 summary = "ANSI color formatting for output in terminal"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "termcolor-3.3.0-py3-none-any.whl", hash = "sha256:cf642efadaf0a8ebbbf4bc7a31cec2f9b5f21a9f726f4ccbb08192c9c26f43a5"},
     {file = "termcolor-3.3.0.tar.gz", hash = "sha256:348871ca648ec6a9a983a13ab626c0acce02f515b9e1983332b17af7979521c5"},
@@ -4413,7 +4442,7 @@ name = "threadpoolctl"
 version = "3.6.0"
 requires_python = ">=3.9"
 summary = "threadpoolctl"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 files = [
     {file = "threadpoolctl-3.6.0-py3-none-any.whl", hash = "sha256:43a0b8fd5a2928500110039e43a5eed8480b918967083ea48dc3ab9f13c4a7fb"},
     {file = "threadpoolctl-3.6.0.tar.gz", hash = "sha256:8ab8b4aa3491d812b623328249fab5302a68d2d71745c8a4c719a2fcaba9f44e"},
@@ -4438,7 +4467,7 @@ name = "tinydb"
 version = "4.7.1"
 requires_python = ">=3.7,<4.0"
 summary = "TinyDB is a tiny, document oriented database optimized for your happiness :)"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "typing-extensions<5.0.0,>=3.10.0; python_full_version <= \"3.7.0\"",
 ]
@@ -4463,7 +4492,7 @@ name = "torch"
 version = "2.10.0"
 requires_python = ">=3.10"
 summary = "Tensors and Dynamic neural networks in Python with strong GPU acceleration"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "cuda-bindings==12.9.4; platform_system == \"Linux\" and platform_machine == \"x86_64\"",
     "filelock",
@@ -4531,7 +4560,7 @@ name = "torchvision"
 version = "0.25.0"
 requires_python = ">=3.10"
 summary = "image and video datasets and models for torch deep learning"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "numpy",
     "pillow!=8.3.*,>=5.3.0",
@@ -4612,7 +4641,7 @@ name = "tqdm"
 version = "4.70.0"
 requires_python = ">=3.8"
 summary = "Fast, Extensible Progress Meter"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "colorama; platform_system == \"Windows\"",
 ]
@@ -4637,7 +4666,7 @@ name = "triton"
 version = "3.6.0"
 requires_python = "<3.15,>=3.10"
 summary = "A language and compiler for custom Deep Learning operations"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 marker = "platform_system == \"Linux\" and platform_machine == \"x86_64\""
 dependencies = [
     "importlib-metadata; python_version < \"3.10\"",
@@ -4672,7 +4701,7 @@ name = "typing-extensions"
 version = "4.16.0"
 requires_python = ">=3.9"
 summary = "Backported and Experimental Type Hints for Python 3.9+"
-groups = ["default", "docs", "gui", "researcher", "test"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher", "test"]
 files = [
     {file = "typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"},
     {file = "typing_extensions-4.16.0.tar.gz", hash = "sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5"},
@@ -4683,7 +4712,7 @@ name = "tzdata"
 version = "2026.3"
 requires_python = ">=2"
 summary = "Provider of IANA time zone data"
-groups = ["default", "researcher"]
+groups = ["default", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "tzdata-2026.3-py2.py3-none-any.whl", hash = "sha256:dc096730c87af6cab1b171c9d532be840741ff5d459015e7f6947bd7d7e54931"},
     {file = "tzdata-2026.3.tar.gz", hash = "sha256:4a1518b8993086a7982523e071643f3c0e5f213e75b21318e78bcabfff9d1415"},
@@ -4694,7 +4723,7 @@ name = "unet"
 version = "0.7.9"
 requires_python = ">=3.6"
 summary = "PyTorch implementation of 2D and 3D U-Net"
-groups = ["default"]
+groups = ["default", "gui", "local", "node-api"]
 dependencies = [
     "torch",
 ]
@@ -4720,7 +4749,7 @@ name = "urllib3"
 version = "2.7.0"
 requires_python = ">=3.10"
 summary = "HTTP library with thread-safe connection pooling, file post, and more."
-groups = ["default", "docs", "researcher"]
+groups = ["default", "docs", "gui", "local", "node-api", "researcher"]
 files = [
     {file = "urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897"},
     {file = "urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c"},
@@ -4832,7 +4861,7 @@ name = "werkzeug"
 version = "3.1.8"
 requires_python = ">=3.9"
 summary = "The comprehensive WSGI web application library."
-groups = ["gui", "researcher"]
+groups = ["gui", "local", "node-api", "researcher"]
 dependencies = [
     "markupsafe>=2.1.1",
 ]

@@ -4,9 +4,12 @@ The API backend lives here independently of the React frontend and builds as
 the separate `fedbiomed-node-api` distribution. Build from the repository root
 with `pdm build -p fedbiomed_node_api`; no frontend tools or assets are needed.
 
-Package dependency declarations and installation extras are introduced in the
-next migration step. Until then, these build artifacts are for packaging
-verification, not standalone installation.
+This package depends on the matching `fedbiomed` version and the backend web
+dependencies. Core's `node-api` extra selects this distribution. Until it is
+published, install from the repository using `pdm sync --prod -G node-api`.
+The checked-in lockfile selects the local editable API package without the GUI.
+The development-only `local` group supplies sibling paths when regenerating
+the lockfile with `pdm lock -G :all --update-reuse`.
 
 Run the API without frontend assets against an existing node:
 
@@ -27,4 +30,4 @@ active Flask application context. Importing the factory does not initialize a no
 
 Existing `config_gui.ini` files, GUI environment variables, user databases, and
 HTTP routes remain compatible. The default configuration template now belongs
-to the API. Installation extras are a later change.
+to the API.
