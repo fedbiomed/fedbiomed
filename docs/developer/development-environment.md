@@ -236,10 +236,27 @@ Its source archive also contains the frontend sources and build hook.
 To reuse a prebuilt `fedbiomed_gui/ui/build` directory, run
 `FBM_SKIP_FRONTEND_BUILD=1 pdm build -p fedbiomed_gui`.
 
-This is the build-separation stage of the packaging migration. The API and GUI
-currently declare version `6.4.1`; coordinated version management, dependency
-declarations, and installation extras follow in step 4. These artifacts are
-not yet ready for independent installation or publication.
+The dependency chain is `fedbiomed-gui` → `fedbiomed-node-api` → `fedbiomed`.
+Core's `node-api` and `gui` extras select the corresponding distributions;
+the web dependencies belong to the API. All three versions initially match,
+with exact dependency pins. When updating the version, update core's
+`fedbiomed/__init__.py`, both sibling `pyproject.toml` versions, and the pins
+in all three project files. Packaging tests check their consistency.
+
+Before these distributions are published, PDM resolves the siblings from the
+development-only `local` group as editable packages. From the repository root:
+
+```sh
+pdm lock -G :all --update-reuse
+pdm sync -G gui -G local -G test
+```
+
+The GUI build invokes Yarn during installation. If frontend assets already
+exist, prefix the sync command with `FBM_SKIP_FRONTEND_BUILD=1`. Editable Python
+changes are available immediately; frontend changes still require rebuilding.
+Local paths are confined to development configuration and the lockfile;
+wheel dependency metadata uses regular package names and version constraints.
+Launch-command changes and release automation follow in steps 5 and 6.
 
 To check package contents and rebuild wheels from source archives, use an
 environment with `pytest` and `hatchling` installed:
@@ -253,4 +270,3 @@ These packaging checks run without application dependencies or frontend tools.
 ### Building Fed-BioMed Takes too Long
 
 Some static files located in the root Fed-BioMed source directory (e.g., notebooks, tests, etc.) are also included in the final distribution. Therefore, having large data files or artifacts left from operations for testing and development purposes can increase the loading time. Please ensure that such data files are cleared before building the Fed-BioMed package to reduce build time.
-
