@@ -273,9 +273,6 @@ If frontend assets are missing or you have changed the frontend sources, add
 `--recreate` to either command:
 
 ```shell
-<<<<<<< HEAD
-# use the Python environment selected above
-=======
 fedbiomed-gui --path /path/to/my-node --recreate
 fedbiomed node --path /path/to/my-node gui start --recreate
 ```
@@ -309,12 +306,10 @@ fedbiomed-node-api --path /path/to/my-node --development --debug
 In another terminal, start React's development server:
 
 ```shell
->>>>>>> c103b77c2 (feat(cli): add standalone API and GUI launchers)
 cd ${FEDBIOMED_DIR}/fedbiomed_gui/ui
 yarn start
 ```
 
-<<<<<<< HEAD
 After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
 in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
@@ -324,16 +319,12 @@ After development/debugging is done, rebuild the React app to see the changes on
 the built UI files. `--recreate` rebuilds it before starting the server:
 
 ```shell
+fedbiomed-gui --path /path/to/my-node --recreate
+```
+(or in the previous versions)
+```shell
 fedbiomed node gui start --recreate
 ```
-=======
-Open `http://localhost:3000`. Changes in `fedbiomed_gui/ui/src` appear automatically,
-without `--recreate`. Keep the API on `localhost:8484`, which the frontend uses
-for API requests. Backend sources live in `fedbiomed_node_api`.
-
-Install `fedbiomed[gui]` or `fedbiomed[node-api]` when the corresponding package
-is missing. Until publication, use the local PDM setup below.
->>>>>>> c103b77c2 (feat(cli): add standalone API and GUI launchers)
 
 ## Building the distributions
 
@@ -390,56 +381,6 @@ You may encounter some common issues during installation or after the installati
     - For other issues, `pyenv` comes with an utility [`pyenv-doctor`](https://github.com/pyenv/pyenv-doctor), made for checking `pyenv` installation and dependencies, and can be run with: `pyenv doctor`. It will try to find the issue with your installation and proposes appropriate solutions to your issue.
 
     More troubleshooting for `pyenv` can be found [here](https://github.com/pyenv/pyenv/wiki#suggested-build-environment).
-
-
-### Building the distributions
-
-Core, Node API, and GUI have separate build configurations. From the repository
-root, build their wheels and source archives with:
-
-```sh
-pdm build
-pdm build -p fedbiomed_node_api
-pdm build -p fedbiomed_gui
-```
-
-Core includes `fedbiomed` and its existing shared resources; the API includes
-`fedbiomed_node_api` and its configuration template; the GUI includes
-`fedbiomed_gui` and compiled frontend assets. Only the GUI build invokes Yarn.
-Its source archive also contains the frontend sources and build hook.
-
-To reuse a prebuilt `fedbiomed_gui/ui/build` directory, run
-`FBM_SKIP_FRONTEND_BUILD=1 pdm build -p fedbiomed_gui`.
-
-The dependency chain is `fedbiomed-gui` → `fedbiomed-node-api` → `fedbiomed`.
-Core's `node-api` and `gui` extras select the corresponding distributions;
-the web dependencies belong to the API. All three versions initially match,
-with exact dependency pins. When updating the version, update core's
-`fedbiomed/__init__.py`, both sibling `pyproject.toml` versions, and the pins
-in all three project files. Packaging tests check their consistency.
-
-Before these distributions are published, PDM resolves the siblings from the
-development-only `local` group as editable packages. From the repository root:
-
-```sh
-pdm lock -G :all --update-reuse
-pdm sync -G gui -G local -G test
-```
-
-The GUI build invokes Yarn during installation. If frontend assets already
-exist, prefix the sync command with `FBM_SKIP_FRONTEND_BUILD=1`. Editable Python
-changes are available immediately; frontend changes still require rebuilding.
-Local paths are confined to development configuration and the lockfile;
-wheel dependency metadata uses regular package names and version constraints.
-
-To check package contents and rebuild wheels from source archives, use an
-environment with `pytest` and `hatchling` installed:
-
-```sh
-python -m pytest --noconftest -c /dev/null tests/test_package_builds.py -q
-```
-
-These packaging checks run without application dependencies or frontend tools.
 
 ### Building Fed-BioMed Takes too Long
 
