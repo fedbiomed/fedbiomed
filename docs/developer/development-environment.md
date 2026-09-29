@@ -216,6 +216,10 @@ Since Flask is already started in debug mode, you can do your development/update
 After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves the built UI files. `--recreate` rebuilds it before starting the server:
 
 ```shell
+fedbiomed-gui --path /path/to/my-node --recreate
+```
+(or in the previous versions)
+```shell
 fedbiomed node gui start --recreate
 ```
 
