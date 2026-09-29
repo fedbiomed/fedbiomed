@@ -1,7 +1,6 @@
 # Node HTTP API
 
-The API backend builds as the separate `fedbiomed-node-api` distribution and
-depends on the matching `fedbiomed` version. Core's `node-api` extra selects it; `gui` selects the GUI distribution, which also depends on the API.
+The API backend builds as the separate `fedbiomed-node-api` distribution and depends on the matching `fedbiomed` version. It doesn't require the frontend packages or assets from the `gui` package.
 
 Build from the repository root with `pdm build -p fedbiomed_node_api` or with `pdm build -p local` to install `node`, `node-api` and the node `gui` packages and their dependencies all in one command.
 
