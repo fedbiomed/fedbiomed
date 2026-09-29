@@ -95,7 +95,7 @@ Core and API builds do not require frontend tools.
 !!! warning "Important" 
     Installing a released GUI wheel uses its bundled frontend assets and does not require Yarn, unless the user explicitly commands to rebuild the GUI. If you wish to rebuild the GUI for frontend development, install Yarn and NodeJS through their official documentations [Node.js](https://nodejs.org/en/download) and [Yarn Classic](https://classic.yarnpkg.com/en/)
 
-## Using PDM
+## Developer Installation Using PDM
 
 ### Projects, workspace, and dependency groups
 
