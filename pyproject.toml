@@ -148,7 +148,6 @@ researcher = [
 node-api = ["fedbiomed-node-api==6.4.1"]
 gui = ["fedbiomed-gui==6.4.1"]
 
-
 [tool.hatch.metadata]
 allow-direct-references = true
 
