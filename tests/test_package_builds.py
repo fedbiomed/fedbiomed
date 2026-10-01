@@ -5,6 +5,7 @@ avoid runtime fixtures. No runtime dependencies or Yarn are needed.
 """
 
 import ast
+import configparser
 import os
 import shutil
 import subprocess
@@ -172,6 +173,24 @@ def test_distribution_contents_and_sdist_rebuild(package, tmp_path):
                     == f"=={core_version()}"
                 )
             assert f"{package}/__init__.py" in names
+            if package != "fedbiomed":
+                # Wheels must ship the launcher module and register the executable
+                # that the installer creates for the corresponding distribution.
+                assert f"{package}/cli.py" in names
+                entry_points = configparser.ConfigParser()
+                entry_points.read_string(
+                    archive.read(
+                        next(
+                            name
+                            for name in names
+                            if name.endswith(".dist-info/entry_points.txt")
+                        )
+                    ).decode()
+                )
+                assert (
+                    entry_points["console_scripts"][package.replace("_", "-")]
+                    == f"{package}.cli:run"
+                )
             for other in {"fedbiomed", "fedbiomed_node_api", "fedbiomed_gui"} - {
                 package
             }:
