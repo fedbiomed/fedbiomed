@@ -53,7 +53,7 @@ class SKLearnTrainingPlan(BaseTrainingPlan, metaclass=ABCMeta):
 
     !!! info "Notes"
         The trained model may be exported via the `export_model` method,
-        resulting in a dump file that may be reloded using `joblib.load`
+        resulting in a Skops file that may be reloaded using `skops.io.load`
         outside of Fed-BioMed.
     """
 

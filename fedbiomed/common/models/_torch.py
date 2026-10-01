@@ -333,7 +333,7 @@ class TorchModel(Model):
         Raises:
             FedbiomedModelError: if the reloaded instance is of unproper type.
         """
-        weights = torch.load(filename)
+        weights = torch.load(filename, weights_only=True)
         # check format of weights and apply them to the model
         self.set_weights(weights, local_params=local_params)
 
@@ -347,4 +347,4 @@ class TorchModel(Model):
             model: reloaded model instance to be wrapped, that will be type-
                 checked as part of the calling `reload` method.
         """
-        return torch.load(filename)
+        return torch.load(filename, weights_only=True)
