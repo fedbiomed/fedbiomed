@@ -9,10 +9,7 @@ import argparse
 import importlib
 import json
 import os
-import shutil
-import subprocess
 import sys
-from pathlib import Path
 from typing import Dict, List
 
 from fedbiomed.common.cli import (
@@ -580,184 +577,51 @@ class NodeControl(CLIArgumentParser):
 
 
 class GUIControl(CLIArgumentParser):
-    _context: NodeContext
+    """Compatibility wrapper for the optional GUI package."""
+
+    command = "gui"
+    package = "fedbiomed_gui"
+    extra = "gui"
 
     def initialize(self):
-        """Initializes GUI commands"""
-        self._parser = self._subparser.add_parser(
-            "gui",  # add_help=False,
-            help="Action to manage Node user interface",
-        )
+        from fedbiomed.common.web_cli import add_server_arguments
 
-        gui_subparsers = self._parser.add_subparsers(title="start GUI")
-        start = gui_subparsers.add_parser(
-            "start", help="Launch the server (defaults on localhost:8484)"
-        )
-
+        self._parser = self._subparser.add_parser(self.command)
+        start = self._parser.add_subparsers().add_parser("start")
+        add_server_arguments(start, gui=(self.command == "gui"))
         start.set_defaults(func=self.forward)
 
-        start.add_argument(
-            "--data-folder",
-            "-df",
-            type=str,
-            nargs="?",
-            default="",  # data folder in root directory
-            required=False,
-        )
-
-        start.add_argument(
-            "--cert-file",
-            "-cf",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of the certificate to use in order to enable HTTPS. "
-            "If cert file doesn't exist script will raise an error.",
-        )
-
-        start.add_argument(
-            "--key-file",
-            "-kf",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of the private key for the SSL certificate. "
-            "If the key file doesn't exist, the script will raise an error.",
-        )
-
-        start.add_argument(
-            "--port",
-            "-p",
-            type=str,
-            nargs="?",
-            default="8484",
-            required=False,
-            help="HTTP port that GUI will be served. Default is `8484`",
-        )
-
-        start.add_argument(
-            "--host",
-            "-ho",
-            type=str,
-            default="localhost",
-            nargs="?",
-            required=False,
-            help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)",
-        )
-
-        start.add_argument(
-            "--debug",
-            "-dbg",
-            action="store_true",
-            required=False,
-            help="Debug mode for the GUI. Default is `False`",
-        )
-
-        start.add_argument(
-            "--recreate",
-            "-rc",
-            action="store_true",
-            required=False,
-            help="Rebuilds the user interface from its sources (`yarn install`, "
-            "`yarn build`) before starting the GUI",
-        )
-
-        start.add_argument(
-            "--development",
-            "-dev",
-            action="store_true",
-            required=False,
-            help="If it is set, GUI will start in development mode.",
-        )
-
-    def forward(self, args: argparse.Namespace, extra_args):
-        """Launches Fed-BioMed Node GUI
-
-        Args:
-            args: parser argument's namespace
-        """
-
-        fedbiomed_root = os.path.abspath(args.path)
-
-        if args.data_folder == "":
-            data_folder = os.path.join(self._context.config.root, NODE_DATA_FOLDER)
-        else:
-            data_folder = os.path.abspath(args.data_folder)
-        if not os.path.isdir(data_folder):
-            raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
-        os.environ.update(
-            {
-                "DATA_PATH": data_folder,
-                "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
-            }
-        )
-        current_env = os.environ.copy()
-
-        if args.key_file and args.cert_file:
-            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file]
-        else:
-            certificate = []
-
-        fedbiomed_gui = importlib.import_module("fedbiomed_gui")
-        server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
-        print("path to server", server_app)
-
-        # The server serves the bundle built from `ui`, so changes to its sources
-        # show only once it is rebuilt, the way `hatch_build.py` builds it
-        if args.recreate:
-            ui_folder = server_app / "ui"
-            if not (ui_folder / "package.json").is_file():
-                raise FedbiomedError(
-                    f"Cannot rebuild the GUI: its sources are not in {ui_folder}."
-                )
-
-            yarn = shutil.which("yarn")
-            if yarn is None:
-                raise FedbiomedError("NodeJS `yarn` is required to rebuild the GUI.")
-
-            try:
-                subprocess.run([yarn, "install"], cwd=ui_folder, check=True)
-                subprocess.run([yarn, "build"], cwd=ui_folder, check=True)
-            except subprocess.CalledProcessError as exp:
-                raise FedbiomedError(
-                    f"Rebuilding the GUI failed: `yarn {exp.cmd[1]}` exited with "
-                    f"code {exp.returncode}."
-                ) from exp
-
-        host_port = ["--host", args.host, "--port", args.port]
-        if args.development:
-            command = [
-                "FLASK_ENV=development",
-                f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
-                "flask",
-                "run",
-                *host_port,
-                *certificate,
-            ]
-        else:
-            command = [
-                "gunicorn",
-                "--workers",
-                "1",
-                # str(os.cpu_count()),
-                *certificate,
-                "-b",
-                f"{args.host}:{args.port}",
-                "--access-logfile",
-                "-",
-                "fedbiomed_gui.server.wsgi:app",
-            ]
-
+    def forward(self, args, extra_args):
+        if extra_args:
+            self._parser.error("unrecognized arguments: " + " ".join(extra_args))
         try:
-            with subprocess.Popen(
-                " ".join(command), env=current_env, shell=True
-            ) as proc:
-                try:
-                    proc.wait()
-                except KeyboardInterrupt:
-                    proc.wait()
-        except Exception as e:
-            print(e)
+            # Import the optional package only when the user asks for it, so that
+            # the core CLI can show help and installation guidance even when the
+            # package is not installed.
+
+            # Launch either the GUI or the API, depending on which subclass is used. The
+            # package name is stored in the class attribute `package`, so that the
+            # subclass can override it without rewriting this method.
+            launcher = importlib.import_module(f"{self.package}.cli")
+        except ModuleNotFoundError as exc:
+            if exc.name not in {self.package, "fedbiomed_node_api"}:
+                raise
+            self._parser.error(
+                f"Optional package {exc.name} is missing. "
+                f'Install it with: python -m pip install "fedbiomed[{self.extra}]"'
+            )
+        try:
+            launcher.launch(args, self._context.config)
+        except FedbiomedError as exc:
+            self._parser.error(str(exc))
+
+
+class APIControl(GUIControl):
+    """Launch the optional HTTP API without the GUI."""
+
+    command = "api"
+    package = "fedbiomed_node_api"
+    extra = "node-api"
 
 
 class NodeCLI(CommonCLI):
@@ -774,6 +638,7 @@ class NodeCLI(CommonCLI):
         DatasetArgumentParser,
         TrainingPlanArgumentParser,
         GUIControl,
+        APIControl,
     ]
     _arg_parsers: Dict[str, CLIArgumentParser] = {}
 

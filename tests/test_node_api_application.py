@@ -62,6 +62,18 @@ def test_gui_serves_assets_and_api(tmp_path, monkeypatch):
     assert client.get("/api/config/node-id", headers=token(app)).status_code == 200
 
 
+def test_gui_rejects_missing_assets_before_node_initialization(tmp_path):
+    import pytest
+
+    from fedbiomed.common.exceptions import FedbiomedError
+    from fedbiomed_gui.server.application import create_app as create_gui
+
+    root = tmp_path / "missing-node"
+    with pytest.raises(FedbiomedError, match="frontend assets are missing"):
+        create_gui(root, build_dir=tmp_path / "missing-build")
+    assert not root.exists()
+
+
 def test_login_uses_application_database(tmp_path, monkeypatch):
     app = make_app(tmp_path / "node", monkeypatch)
     client = app.test_client()
