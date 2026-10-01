@@ -191,7 +191,7 @@ fedbiomed-node-api --path /path/to/my-node --data-folder /alternate/data-path
 
 ### Running Backend on Debug Mode
 
-Neither `--development` nor `--debug` is required for this workflow.
+Neither `--development` nor `--debug` is required for the previous workflow.
 `--development` selects Flask's development server instead of Gunicorn.
 `--debug` enables Flask debug mode and debug-level application logging; combined
 with `--development`, it also enables the debugger and backend code reloader.
@@ -208,7 +208,8 @@ cd ${FEDBIOMED_DIR}/fedbiomed_gui/ui
 yarn start
 ```
 
-After that if you go ``localhost:3000`` you will see same user interface is up and running for development. When you change the source codes in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
+After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
+in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
 Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/fedbiomed_gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
 
