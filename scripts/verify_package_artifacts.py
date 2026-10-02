@@ -16,11 +16,12 @@ from packaging.utils import (
     parse_sdist_filename,
     parse_wheel_filename,
 )
+from packaging.version import Version
 
 PACKAGES = {"fedbiomed", "fedbiomed-node-api", "fedbiomed-gui"}
 
 
-def verify(directory):
+def verify(directory, expected_version=None):
     # Require one wheel and one source archive for each member of the release.
     wheels = list(directory.glob("*.whl"))
     sources = list(directory.glob("*.tar.gz"))
@@ -54,6 +55,11 @@ def verify(directory):
     assert set(wheel_versions) == PACKAGES
     assert source_versions == wheel_versions
     assert len(set(wheel_versions.values())) == 1, "Package versions differ"
+    if expected_version is not None:
+        # Normalize tags such as v6.4.1 using the same version rules as packaging.
+        assert set(wheel_versions.values()) == {Version(expected_version)}, (
+            f"Release tag {expected_version} does not match artifact versions"
+        )
 
     with tempfile.TemporaryDirectory(prefix="fbm-sdist-check-") as tmp:
         root = Path(tmp)
@@ -103,4 +109,6 @@ def verify(directory):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
-    verify(parser.parse_args().directory.resolve())
+    parser.add_argument("--expected-version", help="Release tag to match, e.g. v6.4.1")
+    args = parser.parse_args()
+    verify(args.directory.resolve(), args.expected_version)

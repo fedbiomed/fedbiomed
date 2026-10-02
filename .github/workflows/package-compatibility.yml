@@ -60,9 +60,16 @@ jobs:
       # Twine checks metadata; the script checks coordinated versions, portable
       # requirements, and identical wheel contents after source-archive rebuilds.
       - name: Validate distributions and source rebuilds
+        env:
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
         run: |
           python -m twine check dist/*
-          python scripts/verify_package_artifacts.py dist
+          if [[ "$RELEASE_REF_TYPE" == tag ]]; then
+            python scripts/verify_package_artifacts.py dist --expected-version "$RELEASE_REF_NAME"
+          else
+            python scripts/verify_package_artifacts.py dist
+          fi
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -70,7 +77,8 @@ jobs:
           name: fedbiomed-package
           path: dist/
           if-no-files-found: error
-          retention-days: 1
+          # Preserve the tested files long enough to retry a partial publication.
+          retention-days: 14
 
   test-wheel:
     name: ${{ matrix.profile }} (${{ matrix.os }}, ${{ matrix.python-version }})
