@@ -6,6 +6,26 @@ belongs to `fedbiomed-node-api`; node and dataset operations belong to `fedbiome
 Build from the repository root with `pdm build -p fedbiomed_gui` or with `pdm build -p local` to install `node`, `node-api` and the node `gui` packages and their dependencies all in one command.. The GUI build requires Yarn and compiles the frontend. To package an existing `ui/build`
 directory instead, set `FBM_SKIP_FRONTEND_BUILD=1`.
 
+If you wish to rebuild the gui and the frontend artifacts:
+
+```sh
+cd fedbiomed_gui/ui
+yarn install --frozen-lockfile
+yarn build
+cd ../..
+pdm build -p fedbiomed_gui
+```
+
+Packaging uses the existing `ui/build` assets without invoking Node.js/Yarn.
+Both the wheel and source archive contain the bundle, so a released source
+archive can also be built into a wheel without frontend tools. Packaging fails
+if the bundle lacks `index.html` or JavaScript files; `FBM_SKIP_FRONTEND_BUILD`
+no longer bypasses this check. Rebuild the frontend before packaging source edits.
+
+Editable installs do not require a bundle, allowing frontend development and
+`fedbiomed-gui --recreate` from a fresh checkout. Serving the GUI still requires
+built assets.
+
 This package depends on the matching `fedbiomed-node-api` version, which depends
 on core. Core's `gui` extra selects this distribution. See the
 [development guide](../docs/developer/development-environment.md#using-pdm)
