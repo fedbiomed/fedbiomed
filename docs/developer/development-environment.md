@@ -225,12 +225,11 @@ fedbiomed node gui start --recreate
 
 ## Building the distributions
 
-If you wish to build your own Python wheels for publidcation: Core, Node API, and GUI have separate build configurations. From the repository root, you can build their wheels and source archives with:
+If you wish to build your own Python wheels for publication: Core, Node API, and GUI have separate build configurations. From the repository root, you can build their wheels and source archives with:
 
 ```sh
 pdm build
 pdm build -p fedbiomed_node_api
-pdm build -p fedbiomed_gui
 ```
 
 Core includes `fedbiomed` and its existing shared resources; the API includes
