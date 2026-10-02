@@ -3,9 +3,25 @@
 This distribution contains the GUI server and React frontend. The HTTP API
 belongs to `fedbiomed-node-api`; node and dataset operations belong to `fedbiomed`.
 
-Build from the repository root with `pdm build -p fedbiomed_gui`. The GUI build
-requires Yarn and compiles the frontend. To package an existing `ui/build`
-directory instead, set `FBM_SKIP_FRONTEND_BUILD=1`.
+Build the frontend explicitly before creating release artifacts:
+
+```sh
+cd fedbiomed_gui/ui
+yarn install --frozen-lockfile
+yarn build
+cd ../..
+pdm build -p fedbiomed_gui
+```
+
+Packaging uses the existing `ui/build` assets without invoking Node.js/Yarn.
+Both the wheel and source archive contain the bundle, so a released source
+archive can also be built into a wheel without frontend tools. Packaging fails
+if the bundle lacks `index.html` or JavaScript files; `FBM_SKIP_FRONTEND_BUILD`
+no longer bypasses this check. Rebuild the frontend before packaging source edits.
+
+Editable installs do not require a bundle, allowing frontend development and
+`fedbiomed-gui --recreate` from a fresh checkout. Serving the GUI still requires
+built assets.
 
 This package depends on the matching `fedbiomed-node-api` version. Core's `gui`
 extra selects this distribution. Until it is published, install locally from

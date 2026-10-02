@@ -1,51 +1,23 @@
-import logging
-import os
-import shutil
-import subprocess
-import time
+"""Package frontend assets built explicitly before distribution creation."""
+
 from pathlib import Path
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
-
 
 class CustomBuildHook(BuildHookInterface):
     def initialize(self, version, build_data):
-        # Code in this function will run before building
         super().initialize(version, build_data)
-
-        if os.environ.get("FBM_SKIP_FRONTEND_BUILD", "").lower() in {
-            "1",
-            "true",
-            "yes",
-        }:
-            logger.info("Skipping node front-end build")
+        # Fresh checkouts must remain installable for --recreate and development.
+        if self.target_name == "wheel" and version == "editable":
             return
 
-        logger.info("Building node front-end")
-        yarn = shutil.which("yarn")
-
-        if yarn is None:
+        assets = Path(self.root) / "ui" / "build"
+        if not (assets / "index.html").is_file() or not any(assets.rglob("*.js")):
             raise RuntimeError(
-                "NodeJS `yarn` is required for building Fed-BioMed front-end application"
+                f"GUI frontend assets are missing or incomplete in {assets}. "
+                "From the repository root, run: "
+                "cd fedbiomed_gui/ui && yarn install --frozen-lockfile && yarn build. "
+                "Then return to the repository root and run pdm build -p fedbiomed_gui. "
+                "Released source archives must already contain the built frontend."
             )
-
-        ui_dir = Path(self.root) / "ui"
-        for attempt in range(3):
-            try:
-                logger.info(
-                    "### Yarn: Installation front-end dependencies to prepare build.\n"
-                )
-                subprocess.run([yarn, "install"], cwd=ui_dir, check=True)
-                logger.info("\n### Yarn: Building front-end application run.\n")
-                subprocess.run([yarn, "build"], cwd=ui_dir, check=True)
-            except subprocess.CalledProcessError:
-                if attempt < 2:
-                    time.sleep(5)
-                else:
-                    raise
-            else:
-                break

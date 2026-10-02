@@ -244,21 +244,31 @@ You may encounter some common issues during installation or after the installati
 ### Building the distributions
 
 Core, Node API, and GUI have separate build configurations. From the repository
-root, build their wheels and source archives with:
+root, build the core and API wheels and source archives with:
 
 ```sh
 pdm build
 pdm build -p fedbiomed_node_api
-pdm build -p fedbiomed_gui
 ```
 
 Core includes `fedbiomed` and its existing shared resources; the API includes
 `fedbiomed_node_api` and its configuration template; the GUI includes
-`fedbiomed_gui` and compiled frontend assets. Only the GUI build invokes Yarn.
-Its source archive also contains the frontend sources and build hook.
+`fedbiomed_gui` and compiled frontend assets. Before packaging the GUI, explicitly
+build its frontend:
 
-To reuse a prebuilt `fedbiomed_gui/ui/build` directory, run
-`FBM_SKIP_FRONTEND_BUILD=1 pdm build -p fedbiomed_gui`.
+```sh
+cd fedbiomed_gui/ui
+yarn install --frozen-lockfile
+yarn build
+cd ../..
+pdm build -p fedbiomed_gui
+```
+
+Packaging never invokes Yarn. Both GUI artifacts contain the existing bundle;
+the source archive also contains frontend sources. Rebuilding a released source
+archive requires no Node.js/Yarn. Missing `index.html` or JavaScript files cause
+packaging to fail, even if `FBM_SKIP_FRONTEND_BUILD=1` is set. Rebuild frontend
+assets explicitly after editing their sources.
 
 The dependency chain is `fedbiomed-gui` → `fedbiomed-node-api` → `fedbiomed`.
 Core's `node-api` and `gui` extras select the corresponding distributions;
@@ -275,9 +285,9 @@ pdm lock -G :all --update-reuse
 pdm sync -G gui -G local -G test
 ```
 
-The GUI build invokes Yarn during installation. If frontend assets already
-exist, prefix the sync command with `FBM_SKIP_FRONTEND_BUILD=1`. Editable Python
-changes are available immediately; frontend changes still require rebuilding.
+Editable installation does not require frontend assets or invoke Yarn.
+Use `fedbiomed-gui --recreate` to build the frontend before serving it.
+Editable Python changes are available immediately; frontend changes still require rebuilding.
 Local paths are confined to development configuration and the lockfile;
 wheel dependency metadata uses regular package names and version constraints.
 
