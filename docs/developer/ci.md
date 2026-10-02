@@ -219,26 +219,39 @@ PyTorch publishes no CUDA build for them.
 
 ## Package compatibility and releases
 
-`package-compatibility.yml` separates building a package from testing its
-installation:
+`package-compatibility.yml` builds and verifies a coordinated release set:
 
-1. Build one wheel and one source distribution on Python 3.11.
-2. Validate their metadata with Twine.
-3. Upload the build output as the `fedbiomed-package` artifact.
-4. Download the same wheel into each Python and runner job.
-5. Install it in a clean virtual environment.
+1. Compile the frontend explicitly on Python 3.11's build runner.
+2. Build three wheels and three source distributions with matching versions.
+3. Validate metadata with Twine, reject local dependency URLs, and rebuild each
+   source archive without Node.js/Yarn. Compare rebuilt wheel contents byte for byte.
+4. Upload all six artifacts as `fedbiomed-package`.
+5. Install each profile in its own clean environment: core, `node-api`, `gui`,
+   and `researcher`. Constraints point to the exact local wheels, while third-party
+   dependencies come from the configured indexes. Node.js/Yarn are absent from
+   the installation PATH.
 
-The installation matrix covers Python 3.11 through Python 3.14 on all four
-compatibility runners. It verifies:
+Each profile runs on Python 3.11–3.14 across the existing four compatibility
+runners (64 installation jobs). Checks run outside the checkout with Python's
+isolated mode and verify:
 
-- `pip check`
-- `fedbiomed --help`
-- the interpreter actually used by the environment
-- `Requires-Python` and package extras
-- the `fedbiomed` console-script entry point
-- notebooks, tutorials, and common environment files under `SHARE_DIR`
-- compiled React assets
-- that imports come from the installed wheel rather than the checkout
+- `pip check`, interpreter version, console commands, extras, and shared resources
+- installed versions and artifact URLs, with imports outside the checkout
+- absence of API/GUI packages and web dependencies in core-only installations
+- API authentication and operation without the GUI package
+- GUI index and JavaScript serving from installed assets
+- researcher import compatibility without the web packages
+
+The verification scripts can also run locally against built artifacts:
+
+```sh
+python scripts/verify_package_artifacts.py dist
+/path/to/clean/venv/bin/python -I scripts/verify_installed_packages.py \
+  --profile gui --workspace "$PWD" --expected-python 3.11 --dist-dir "$PWD/dist"
+```
+
+The artifact checker needs `hatchling` and `packaging`. The installation
+checker requires the selected profile already installed from these wheel URLs.
 
 `deploy.yml` calls this workflow for a tag. PyPI publication and GitHub release
 creation depend on the tested package artifact, so the published files are the
