@@ -99,10 +99,9 @@ def test_distribution_contents_and_sdist_rebuild(package, tmp_path):
 
     env = dict(os.environ)
     env.pop("FBM_SKIP_FRONTEND_BUILD", None)
-    # Core/API must build with no frontend tooling, without the escape hatch.
+    # All distributions must build without frontend tools or a skip-build flag.
     env["PATH"] = str(tmp_path / "no-tools")
     if package == "fedbiomed_gui":
-        env["FBM_SKIP_FRONTEND_BUILD"] = "1"
         assets = staged / "ui" / "build"
         assets.mkdir(parents=True)
         (assets / "index.html").write_text("<html>packaging fixture</html>")
@@ -225,10 +224,18 @@ def test_distribution_contents_and_sdist_rebuild(package, tmp_path):
             assert not any(name.endswith("/hatch_build.py") for name in names)
         archive.extractall(extracted, filter="data")
     rebuilt = next(extracted.iterdir())
+    if package == "fedbiomed_gui":
+        for asset in ("index.html", "main.js"):
+            assert (rebuilt / "ui/build" / asset).read_bytes() == (
+                staged / "ui/build" / asset
+            ).read_bytes()
     build(rebuilt, "wheel")
     check_wheel(next((rebuilt / "dist").glob("*.whl")))
 
     if package != "fedbiomed":
+        if package == "fedbiomed_gui":
+            # Editable checkouts can install before building the frontend.
+            shutil.rmtree(staged / "ui/build")
         editable = tmp_path / "editable"
         editable.mkdir()
         result = subprocess.run(
@@ -248,3 +255,36 @@ def test_distribution_contents_and_sdist_rebuild(package, tmp_path):
             paths = [name for name in archive.namelist() if name.endswith(".pth")]
             assert len(paths) == 1
             assert Path(archive.read(paths[0]).decode().strip()) == staged.parent
+
+
+@pytest.mark.parametrize("target", ["wheel", "sdist"])
+@pytest.mark.parametrize("index_only", [False, True])
+def test_gui_distribution_rejects_missing_assets(tmp_path, target, index_only):
+    for name in (
+        "pyproject.toml",
+        "hatch_build.py",
+        "README.md",
+        "LICENSE.md",
+        "__init__.py",
+        "cli.py",
+    ):
+        shutil.copyfile(ROOT / "fedbiomed_gui" / name, tmp_path / name)
+    if index_only:
+        assets = tmp_path / "ui/build"
+        assets.mkdir(parents=True)
+        (assets / "index.html").write_text("<html>Incomplete bundle</html>")
+    result = subprocess.run(
+        [sys.executable, "-m", "hatchling", "build", "-t", target],
+        cwd=tmp_path,
+        # The former escape hatch must not permit broken release artifacts.
+        env={
+            **os.environ,
+            "PATH": str(tmp_path / "no-tools"),
+            "FBM_SKIP_FRONTEND_BUILD": "1",
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "frontend assets are missing or incomplete" in result.stderr
+    assert "yarn install --frozen-lockfile" in result.stderr
