@@ -13,7 +13,9 @@ import {
 } from "@elastic/eui";
 import {EP_UPDATE_PASSWORD} from "../../constants";
 import axios from "axios";
-import {useSelector} from 'react-redux'
+import {useDispatch, useSelector} from 'react-redux'
+import {useNavigate} from 'react-router-dom'
+import {removeToken} from '../../store/actions/authActions'
 
 const initialPassForm = {old_password: '', password: '', confirm: ''}
 const initialNotif = {show : false, message : '', title: ''}
@@ -27,6 +29,8 @@ const PasswordChange = (props) => {
     const handleChange = (e) => setPassForm({...passForm, [e.target.name] : e.target.value})
     const resetForm = () => setPassForm(initialPassForm)
     const user = useSelector((state) => state.auth)
+    const dispatch = useDispatch()
+    const navigate = useNavigate()
     /**
      * On password form is submitted
      * @param e
@@ -52,6 +56,12 @@ const PasswordChange = (props) => {
         let data = {email: user.email, password: new_password, old_password: old_password}
         axios.post(url, data)
              .then((response) => {
+                 if (props.requiredChange) {
+                     dispatch({type: 'LOGOUT'})
+                     removeToken(navigate)
+                     dispatch({type: 'SUCCESS_MODAL', payload: 'Password changed. Please log in with your new password.'})
+                     return
+                 }
                  setNotif({show:true,  title: "Success", message: 'Password has been successfully changed.'})
                  resetForm()
                  setTimeout(() => [
@@ -73,6 +83,7 @@ const PasswordChange = (props) => {
             <EuiTitle>
                 <h2>Change/Update Password</h2>
             </EuiTitle>
+            {props.requiredChange && <p>You must change your initial or reset password before continuing.</p>}
             <EuiForm component="form"  onSubmit={onSubmitNewPassword} >
                  <EuiFlexGroup direction="column" >
                      <EuiFlexItem grow={false}>
@@ -108,8 +119,8 @@ const PasswordChange = (props) => {
                                   display={"block"}
                                   position="right"
                                   title={"Attention!"}
-                                  content="Password should be at least 8 character long,
-                                  with at least one special char, one upper case  and number"
+                                  content="Password must have at least 8 characters,
+                                  including an uppercase letter, a lowercase letter and a number"
                             >
                                  <EuiFieldPassword
                                         type='dual'
@@ -126,8 +137,8 @@ const PasswordChange = (props) => {
                                   display={"block"}
                                   position="right"
                                   title={"Attention!"}
-                                  content="Password should be at least 8 character long,
-                                  with at least one special char, one upper case  and number"
+                                  content="Password must have at least 8 characters,
+                                  including an uppercase letter, a lowercase letter and a number"
                             >
                                  <EuiFieldPassword
                                         type='dual'
