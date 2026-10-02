@@ -3,10 +3,7 @@
 This distribution contains the GUI server and React frontend. The HTTP API
 belongs to `fedbiomed-node-api`; node and dataset operations belong to `fedbiomed`.
 
-Build from the repository root with `pdm build -p fedbiomed_gui` or with `pdm build -p local` to install `node`, `node-api` and the node `gui` packages and their dependencies all in one command.. The GUI build requires Yarn and compiles the frontend. To package an existing `ui/build`
-directory instead, set `FBM_SKIP_FRONTEND_BUILD=1`.
-
-If you wish to rebuild the gui and the frontend artifacts:
+Build the frontend explicitly before creating release artifacts for PyPI:
 
 ```sh
 cd fedbiomed_gui/ui
