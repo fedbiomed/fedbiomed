@@ -1,5 +1,6 @@
 import React from 'react';
 import axios from 'axios';
+import PasswordChange from "../../pages/authentication/PasswordChange";
 import SideNav from './SideNav'
 import { Navigate, Outlet, useNavigate} from "react-router-dom";
 import {autoLogin, decodeToken, getAccessToken, removeToken, setUser} from "../../store/actions/authActions";
@@ -50,22 +51,27 @@ export const LoginProtected = connect(mapStateToProps, mapDispatchToProps)( (pro
         dispatch(setUser(user))
     }
 
+    const [authChecked, setAuthChecked] = React.useState(false)
     React.useEffect(() => {
-        userAutoLogin(navigate)
+        let active = true
+        userAutoLogin(navigate).then(() => {
+            if (active) setAuthChecked(true)
+        })
+        return () => { active = false }
     }, [userAutoLogin])
 
     // Only fetch this once the user is authenticated, since /api/config/node-environ
     // requires a valid JWT and would otherwise 401 and bounce back to /login.
     const [nodeManagementEnabled, setNodeManagementEnabled] = React.useState(false)
     React.useEffect(() => {
-        if (!props.user.is_auth) return
+        if (!authChecked || !props.user.is_auth || props.user.must_change_password) return
         axios.get(EP_CONFIG_NODE_ENVIRON)
             .then(res => setNodeManagementEnabled(Boolean(res.data?.result?.enable_node_management)))
             .catch(() => {})
-    }, [props.user.is_auth])
+    }, [authChecked, props.user.is_auth, props.user.must_change_password])
 
 
-    if(user) {
+    if(user && authChecked) {
         return(
             <React.Fragment>
                 <EuiHeader position={'fixed'} className={style.header}>
@@ -81,12 +87,14 @@ export const LoginProtected = connect(mapStateToProps, mapDispatchToProps)( (pro
                 </EuiHeader>
                 <div className="layout-wrapper">
                     <div className="main-side-bar">
-                        <SideNav/>
+                        {!props.user.must_change_password && <SideNav/>}
                     </div>
                     <div className="main-frame">
                         <div className="router-frame">
                             <div className="inner">
-                                <Outlet context={{nodeManagementEnabled}} />
+                                {props.user.must_change_password
+                                    ? <PasswordChange requiredChange />
+                                    : <Outlet context={{nodeManagementEnabled}} />}
                             </div>
                         </div>
                     </div>
