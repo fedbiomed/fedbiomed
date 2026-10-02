@@ -73,6 +73,7 @@ class UserDatabase(BaseDatabase):
                     {
                         "user_email": email,
                         "password_hash": set_password_hash(password),
+                        "must_change_password": True,
                         "user_name": "System",
                         "user_surname": "Admin",
                         "user_role": UserRoleType.ADMIN,
