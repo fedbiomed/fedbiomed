@@ -1,8 +1,8 @@
 ---
 name: Deploy Fed-BioMed Package
 description: |
-  Publishes a tagged release to PyPI and opens the GitHub release. Both depend on
-  package-compatibility.yml, so a failing package check blocks publication.
+  Publishes the three verified distributions to PyPI, then creates the GitHub
+  release with the same six artifacts. All package checks must pass first.
 on:
   push:
     tags:
@@ -11,15 +11,20 @@ on:
 permissions:
   contents: read
 
+# Serialize retries of a tag without cancelling an upload already in progress.
+concurrency:
+  group: package-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   package-compatibility:
-    name: Build and test release package
+    name: Build and test release packages
     uses: ./.github/workflows/package-compatibility.yml
     permissions:
       contents: read
 
   publish:
-    name: upload release to PyPI
+    name: Publish core, API, and GUI to PyPI
     runs-on: ubuntu-latest
     environment: production
     needs: package-compatibility
@@ -34,14 +39,17 @@ jobs:
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        # Uncomment for testing
-        # with:
-        #   repository-url: https://test.pypi.org/legacy/
+        # Each project must trust deploy.yml / production. Uploads are not
+        # atomic: rerun failed jobs with the same artifact to resume a partial upload.
+        with:
+          packages-dir: dist/
+          skip-existing: true
 
   release:
     name: Release pushed tag
     runs-on: ubuntu-latest
-    needs: package-compatibility
+    # Never announce a completed release while PyPI publication is still failing.
+    needs: publish
     permissions:
       contents: write
     steps:
@@ -53,9 +61,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: fedbiomed-package
+          path: ./dist/
 
       - name: Make Github Release
         uses: softprops/action-gh-release@v2
         with:
           name: Fed-BioMed Release ${{ github.ref_name }}
           body_path: ./latest_version_changes.txt
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          fail_on_unmatched_files: true

@@ -257,6 +257,37 @@ checker requires the selected profile already installed from these wheel URLs.
 creation depend on the tested package artifact, so the published files are the
 same files that passed compatibility testing.
 
+### Coordinated package publication
+
+1. Update all three package versions and sibling pins, and push the matching
+   release tag (for example, `v6.4.1` for package version `6.4.1`). The artifact
+   checker rejects a tag that does not match the built versions.
+2. Wait for all installation profiles to pass. The six tested artifacts are
+   retained for 14 days; publication does not rebuild them.
+3. The `publish` job uploads core, API, and GUI wheels and source archives to
+   PyPI through the existing `production` environment.
+4. Only after publication succeeds, the `release` job creates the GitHub release
+   and attaches the same three wheels and three source archives.
+
+Before the first split release, configure a trusted publisher for each PyPI
+project: `fedbiomed`, `fedbiomed-node-api`, and `fedbiomed-gui`. Use owner
+`fedbiomed`, repository `fedbiomed`, workflow `deploy.yml`, and environment
+`production`. New projects can use pending publishers. This is an external
+maintainer setup step; changing the workflow does not create those permissions.
+See the [PyPI trusted publishing setup](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
+and [new-project setup](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
+
+PyPI uploads are not atomic across files or projects. If publication fails partway
+through, inspect which files reached PyPI and confirm their SHA256 hashes match
+the retained artifact before selecting **Re-run failed jobs** on the same run.
+`skip-existing` resumes uploading the missing files; it does not compare the
+contents of files already published. Do not rebuild or move the tag to recover.
+If published contents differ, stop and prepare a new coordinated version.
+If the artifact has expired, recover the exact tested files before retrying;
+do not substitute freshly built files under the existing version.
+The GitHub release remains blocked until publication succeeds. A failure only
+in GitHub release creation can be retried without uploading to PyPI again.
+
 ## Docker strategy
 
 Docker testing is split into build smoke tests and a functional VPN test.
