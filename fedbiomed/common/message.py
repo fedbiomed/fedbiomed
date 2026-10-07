@@ -295,9 +295,12 @@ class OverlayMessage(Message, RequiresProtocolVersion):
         node_id: Id of the source node of the overlay message
         dest_node_id: Id of the destination node of the overlay message
         overlay: payload of the message to be forwarded unchanged to the destination node
-        setup: True if this is a channel setup message, False if this is an application layer message
-        salt: value used for salting the key derivation for this message
-        nonce: value used for noncing the encryption for this message
+        setup: True if this is a plaintext channel setup message, False if this
+            is an encrypted application-layer message
+        salt: value used for salting application-message key derivation; empty
+            for channel setup
+        nonce: value used for application-message encryption; empty for channel
+            setup
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -450,7 +453,7 @@ class FeedbackMessage(ProtoSerializableMessage, RequiresProtocolVersion):
 @catch_dataclass_exception
 @dataclass
 class ChannelSetupRequest(InnerRequestReply, RequiresProtocolVersion):
-    """Message for requesting peer node key for securing a n2n channel.
+    """Plaintext message requesting a peer public key for a n2n channel.
 
     Raises:
         FedbiomedMessageError: triggered if message's fields validation failed
@@ -460,7 +463,7 @@ class ChannelSetupRequest(InnerRequestReply, RequiresProtocolVersion):
 @catch_dataclass_exception
 @dataclass
 class ChannelSetupReply(InnerRequestReply, RequiresProtocolVersion):
-    """Message for reply peer node key for securing a n2n channel.
+    """Plaintext message returning a peer public key for a n2n channel.
 
     Attributes:
         public_key: public key of replying node
