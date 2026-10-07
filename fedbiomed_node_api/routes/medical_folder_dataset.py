@@ -2,15 +2,13 @@ import os
 import re
 
 from flask import g, request
+from werkzeug.local import LocalProxy
 
 from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager import DatasetManager
 
 from ..cache import cached
 from ..config import config
-
-# from ..db import node_database
 from ..middlewares import common, medical_folder_dataset, middleware
 from ..schemas import (
     PreviewDatasetRequest,
@@ -21,13 +19,14 @@ from ..schemas import (
     ValidateMedicalFolderRoot,
     ValidateSubjectsHasAllModalities,
 )
+from ..services import service_proxy
 from ..utils import error, response, validate_request_data
 from .api import api
 
-dataset_manager = DatasetManager(config["NODE_DB_PATH"])
+dataset_manager = service_proxy("dataset_manager")
 
 # Path to write and read the datafiles
-DATA_PATH_RW = config["DATA_PATH_RW"]
+DATA_PATH_RW = LocalProxy(lambda: config["DATA_PATH_RW"])
 
 
 @api.route(
