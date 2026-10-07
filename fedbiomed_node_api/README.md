@@ -2,7 +2,8 @@
 
 The API backend lives here independently of the React frontend. It is still
 shipped in the existing Fed-BioMed distribution during the packaging migration;
-install `fedbiomed[gui]` to obtain its current Python dependencies.
+install `fedbiomed[api]` to obtain its Python dependencies. The existing
+`fedbiomed[gui]` extra remains a compatibility alias for these dependencies.
 
 Run the API without frontend assets against an existing node:
 
