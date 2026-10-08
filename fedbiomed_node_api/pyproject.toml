@@ -28,7 +28,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build]
 # Sources live directly in this project directory, so editable imports use its parent.
 dev-mode-dirs = [".."]
-include = ["/*.py", "/config_gui.ini", "/helpers", "/middlewares", "/routes"]
+include = ["/*.py", "/config_gui.ini", "/openapi.json", "/helpers", "/middlewares", "/routes"]
 exclude = ["__pycache__", "*.pyc"]
 
 [tool.hatch.build.targets.wheel.sources]

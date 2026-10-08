@@ -92,6 +92,8 @@ nav:
           - "Training Plan Management": "./user-guide/nodes/training-plan-security-manager.md"
           - "Using GPU": "./user-guide/nodes/using-gpu.md"
           - "Node GUI": "./user-guide/nodes/node-gui.md"
+          - "Node HTTP API": "./user-guide/nodes/node-api.md"
+          - "Node API reference": "./user-guide/nodes/node-api-reference.md"
       - Researcher:
           - "Training Plan": "./user-guide/researcher/training-plan.md"
           - "Training Data": "./user-guide/researcher/training-data.md"

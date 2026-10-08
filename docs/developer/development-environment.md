@@ -243,6 +243,14 @@ You may encounter some common issues during installation or after the installati
 
 ### Building the distributions
 
+The Node API contract lives in `fedbiomed_node_api/openapi.json`. When changing
+routes, update its methods, authentication, request and response schemas, then
+run `python scripts/generate_api_docs.py` to refresh the website reference and
+downloadable JSON. `python scripts/generate_api_docs.py --check` detects stale
+generated files. Run `pytest tests/test_node_api_openapi.py -q` to check route
+coverage, shared validation schemas, examples and authentication workflows.
+Update the OpenAPI `info.version` alongside the API package version for releases.
+
 Core, Node API, and GUI have separate build configurations. From the repository
 root, build the core and API wheels and source archives with:
 

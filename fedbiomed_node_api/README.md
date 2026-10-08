@@ -1,5 +1,10 @@
 # Node HTTP API
 
+See the [user guide](../docs/user-guide/nodes/node-api.md) for curl examples and
+Postman setup, and the [API reference](../docs/user-guide/nodes/node-api-reference.md)
+for methods and request bodies. The packaged [openapi.json](openapi.json) is also
+served at `/openapi.json` without authentication in API-only and GUI mode.
+
 The API backend lives here independently of the React frontend and builds as
 the separate `fedbiomed-node-api` distribution. Build from the repository root
 with `pdm build -p fedbiomed_node_api`; no frontend tools or assets are needed.
