@@ -101,3 +101,56 @@ $ GRPC_VERBOSITY=INFO fedbiomed researcher start
 ```
 
 gRPC reads this variable once, when it is imported, so it has to be set before the component starts. Diagnosing a connection that never establishes is covered in [mutual authentication](../user-guide/deployment/mutual-tls.md#verifying-and-troubleshooting).
+
+## Node API and GUI
+
+### Missing optional package or command
+
+Install the extra in the same active environment as the `fedbiomed` executable:
+
+```sh
+pip install "fedbiomed[node-api]"  # API only
+# Or, for the GUI and API together:
+pip install "fedbiomed[gui]"
+```
+
+A core-only installation does not provide `fedbiomed-node-api` or `fedbiomed-gui`.
+If a command is still missing, activate the environment where it was installed.
+The core wrappers are `fedbiomed node --path /path/to/node api start` and
+`fedbiomed node --path /path/to/node gui start`.
+
+### Package version mismatch
+
+Core, API and GUI require matching versions. Inspect and update them together:
+
+```sh
+pip show fedbiomed fedbiomed-node-api fedbiomed-gui
+pip install --upgrade "fedbiomed[gui]"
+pip check
+```
+
+Use `fedbiomed[node-api]` instead for an API-only installation. If installing a
+specific release, pin the core extra, for example `"fedbiomed[gui]==6.4.1"`;
+its dependencies select the matching siblings. In a source checkout, synchronize
+the editable projects as described in the
+[development guide](../developer/development-environment.md).
+
+### Missing frontend assets
+
+Released GUI distributions include built assets. If those files are missing,
+reinstall the same GUI version with `pip install --force-reinstall --no-deps
+"fedbiomed-gui==<installed-version>"`, replacing the placeholder with the version
+reported by `pip show fedbiomed-gui`.
+
+In a source checkout with Node.js, Yarn and frontend sources, use
+`fedbiomed-gui --path /path/to/node --recreate`. This builds the frontend once.
+The API-only launcher requires no frontend assets; `/` returning 404 there is
+expected.
+
+### Address already in use
+
+Both launchers default to port 8484. The GUI already includes the API, so a
+second API-only server is unnecessary. Stop the other server or select an
+unused port with `--port 8485`. Update browser and API-client URLs to match.
+
+For certificate and key options, see [HTTPS configuration](../user-guide/nodes/node-gui.md#https-configuration).
