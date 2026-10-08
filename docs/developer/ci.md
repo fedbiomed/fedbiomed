@@ -46,9 +46,9 @@ All workflow definitions are under `.github/workflows`.
 | `fbm-generic-test.yml` | Base implementation, used by the other workflows for documentation, unit, MNIST, and ordinary E2E jobs; also provides the configurable manual test UI | Called by other workflows or started manually |
 | `end-to-end.yml` | Ordinary E2E testing, with optional manually supplied JSON matrices | Monday to Friday at 23:00 UTC, push to `master`, or manual |
 | `endurance-tests.yml` | Long-running endurance tests on the Python endpoints | Saturday at 09:00 UTC or manual |
-| `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 03:00 UTC, manual, or called by the release workflow |
+| `package-compatibility.yml` | Builds three wheels and three source distributions, then checks isolated core, API, GUI, and researcher installations | Monday at 03:00 UTC, manual, or called by the release workflow |
 | `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Monday to Friday at 20:00 UTC or manual |
-| `deploy.yml` | Validates the release package for Python wheel of Fedbiomed, publishes it to PyPI, and creates the GitHub release | Tag push |
+| `deploy.yml` | Validates and publishes the coordinated core, API, and GUI artifacts to PyPI, then creates the GitHub release | Tag push |
 | `docker-deploy.yml` | Builds public base, node, and researcher docker images, and publishes them to Docker Hub when a version tag triggered the run | Version tag or manual |
 | `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
 | `codespell.yml` | Checks repository spelling and annotates errors | Pull requests targeting `develop` or `master` |
@@ -259,7 +259,11 @@ same files that passed compatibility testing.
 
 ### Coordinated package publication
 
-1. Update all three package versions and sibling pins, and push the matching
+1. Update core's version in `fedbiomed/__init__.py`, the versions in
+   `fedbiomed_node_api/pyproject.toml` and `fedbiomed_gui/pyproject.toml`, and
+   the sibling dependency pins in all three `pyproject.toml` files. Regenerate
+   `pdm.lock` with `pdm lock -G :all --update-reuse` and review the changes.
+   Run the package compatibility workflow on the release branch before pushing the matching
    release tag (for example, `v6.4.1` for package version `6.4.1`). The artifact
    checker rejects a tag that does not match the built versions.
 2. Wait for all installation profiles to pass. The six tested artifacts are
