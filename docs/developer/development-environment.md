@@ -250,7 +250,7 @@ Once a new package added via `pyproject.toml` it may be required to run `pdm loc
 Please visit `pdm` documentation for more information and usage details.
 
 
-## Post actions
+### Post actions
 
 Use the focused installation checks in [Verify a fresh installation](#verify-a-fresh-installation). Run `pdm run python -m pytest tests` for the wider suite; tox validates separate test environments.
 
@@ -357,20 +357,22 @@ assets explicitly after editing their sources.
 
 The dependency chain is `fedbiomed-gui` → `fedbiomed-node-api` → `fedbiomed`.
 Core's `node-api` and `gui` extras select the corresponding distributions;
-the web dependencies belong to the API. All three versions initially match,
+the web dependencies belong to the API. All three versions must match,
 with exact dependency pins. When updating the version, update core's
 `fedbiomed/__init__.py`, both sibling `pyproject.toml` versions, and the pins
 in all three project files. Packaging tests check their consistency.
 
-<<<<<<< HEAD
-=======
-Before these distributions are published, PDM resolves the siblings from the
+For source development, PDM resolves the siblings from the
 development-only `local` group as editable packages. From the repository root:
 
 ```sh
-pdm lock -G :all --update-reuse
 pdm sync -G gui -G local -G test
 ```
+
+Use the checked-in lockfile for installation. After changing package versions
+or dependencies, regenerate it with `pdm lock -G :all --update-reuse`, then
+sync again. Keep the editable sibling packages selected during API/GUI
+development so imports use this checkout.
 
 Editable installation does not require frontend assets or invoke Yarn.
 Use `fedbiomed-gui --recreate` to build the frontend before serving it.
@@ -378,7 +380,6 @@ Editable Python changes are available immediately; frontend changes still requir
 Local paths are confined to development configuration and the lockfile;
 wheel dependency metadata uses regular package names and version constraints.
 
->>>>>>> d2870978a (build(gui): package prebuilt frontend assets)
 To check package contents and rebuild wheels from source archives, use an
 environment with `pytest` and `hatchling` installed:
 
