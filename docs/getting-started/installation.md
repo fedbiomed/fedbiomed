@@ -43,7 +43,7 @@ To configure a specific Python version in your workspace, it is recommended to u
 The command below will perform a complete installation of Fed-BioMed. This installation allows you to test all Fed-BioMed functionalities.
 
 ```
-pip install fedbiomed[node,researcher,gui]
+pip install "fedbiomed[node,researcher,gui]"
 ```
 
 Fed-BioMed consists of different components, each requiring specific dependencies. These components are `node` and `researcher`. In the context of Federated Learning, these components are typically used in different locations and environments. To avoid installing unnecessary packages that may not be used, the dependencies for these components have been made optional in the pip package.
@@ -52,18 +52,47 @@ If you only need to install the `node` or the `researcher` component, you can us
 
 For `node` only installation:
 ```
-pip install fedbiomed[node]
+pip install "fedbiomed[node]"
 ```
 
 For `researcher` only installation:
 ```
-pip install fedbiomed[researcher]
+pip install "fedbiomed[researcher]"
 ```
 
 For installing optional node GUI:
 ```
-pip install fedbiomed[gui]
+pip install "fedbiomed[gui]"
 ```
+
+For the node HTTP API without the GUI:
+
+```sh
+pip install "fedbiomed[node-api]"
+```
+
+The `fedbiomed` distribution provides the basic node; its `node` extra remains
+available for compatibility. The `node-api` extra installs the separate
+`fedbiomed-node-api` distribution. The `gui` extra installs `fedbiomed-gui`,
+which also installs the API. Their versions are pinned to match core.
+Released GUI packages include compiled frontend assets, so installation and
+startup require neither Node.js nor Yarn.
+
+Start either the API alone or the GUI with its API:
+
+```sh
+# API only (equivalent: fedbiomed node --path /path/to/node api start)
+fedbiomed-node-api --path /path/to/node
+
+# GUI and API (equivalent: fedbiomed node --path /path/to/node gui start)
+fedbiomed-gui --path /path/to/node
+```
+
+Choose one launcher for a node; both default to `http://localhost:8484`.
+These launchers provide HTTP services. Start the federated-learning node
+separately with `fedbiomed node --path /path/to/node start`.
+See the [development guide](../developer/development-environment.md) for
+source installations and rebuilding frontend assets.
 
 For installing optional dependency to FLamby:
 ```

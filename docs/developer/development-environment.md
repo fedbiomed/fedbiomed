@@ -272,18 +272,22 @@ assets explicitly after editing their sources.
 
 The dependency chain is `fedbiomed-gui` → `fedbiomed-node-api` → `fedbiomed`.
 Core's `node-api` and `gui` extras select the corresponding distributions;
-the web dependencies belong to the API. All three versions initially match,
+the web dependencies belong to the API. All three versions must match,
 with exact dependency pins. When updating the version, update core's
 `fedbiomed/__init__.py`, both sibling `pyproject.toml` versions, and the pins
 in all three project files. Packaging tests check their consistency.
 
-Before these distributions are published, PDM resolves the siblings from the
+For source development, PDM resolves the siblings from the
 development-only `local` group as editable packages. From the repository root:
 
 ```sh
-pdm lock -G :all --update-reuse
 pdm sync -G gui -G local -G test
 ```
+
+Use the checked-in lockfile for installation. After changing package versions
+or dependencies, regenerate it with `pdm lock -G :all --update-reuse`, then
+sync again. Keep the editable sibling packages selected during API/GUI
+development so imports use this checkout.
 
 Editable installation does not require frontend assets or invoke Yarn.
 Use `fedbiomed-gui --recreate` to build the frontend before serving it.
@@ -299,6 +303,12 @@ python -m pytest --noconftest -c /dev/null tests/test_package_builds.py -q
 ```
 
 These packaging checks run without application dependencies or frontend tools.
+
+For release validation, the [package compatibility workflow](ci.md#package-compatibility-and-releases)
+checks all three wheels and source archives, then tests isolated installations
+of core, API, GUI, and researcher profiles. Follow the
+[coordinated publication procedure](ci.md#coordinated-package-publication)
+to publish the tested artifacts together.
 
 ### Building Fed-BioMed Takes too Long
 
