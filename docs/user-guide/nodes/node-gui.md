@@ -1,7 +1,7 @@
 # Node GUI
 
 The Node GUI provides a browser interface to the same HTTP API available in an
-API-only installation. It manages datasets, training plans and
+[API-only installation](node-api.md). It manages datasets, training plans and
 node configuration.
 
 ## Install and start
