@@ -1,88 +1,95 @@
 # Node GUI
 
-Fed-BioMed offers a node user interface that allows users to manage datasets and training plans with ease. This graphical user interface (GUI) serves as an alternative to the command-line interface (CLI). However, since the GUI is currently in its beta stage, it is only accessible locally.
+The Node GUI provides a browser interface to the same HTTP API available in an
+API-only installation. It manages datasets, training plans and
+node configuration.
 
-## Installing the Node GUI Dependencies
+## Install and start
 
-Node GUI dependencies are not installed by default with the standard Fed-BioMed installation. They are provided as an extra module in the Fed-BioMed package. To install them, use `pip` with the `gui` option specified, as shown below:
-
-```
-pip install fedbiomed[gui]
-```
-
-
-## Starting Node GUI
-
-The option `gui` of `fedbiomed` command is configured for starting Node GUI.
-
-!!! info "Attention!"
-    By default `fedbiomed node gui start [OPTIONS]` starts Flask server accepting access only from
-    `localhost`. It is not safe to open access from remote host machine since it is not a secured
-    web server yet. We highly recommend to use `localhost` through SSH Tunnel for remote access.
-
-
-### Options to Start The GUI
-
-
-The Node GUI in Fed-BioMed can be launched using the `fedbiomed` command with various customizable settings, such as the IP address, port, folder for storing data files, and the configuration specifying the Node the GUI will manage.
-
-The following command demonstrates how to start the Node GUI with its default settings. This command uses the default Fed-BioMed Node component directory, which corresponds to the directory where the command is executed. If no Node component exists in that directory, a new one will be automatically created.
-
-By default, the Node GUI assumes that data files are stored in the `data` directory within the Node component folder. For example, if the command is executed in `/path/to/workdir`, the Node component will be instantiated in `/path/to/workdir/fbm-node/`, with the default data directory located at `/path/to/workdir/fbm-node/data`.
-
-```
-fedbiomed node gui start
+```sh
+pip install "fedbiomed[gui]"
+fedbiomed-gui --path /path/to/node
+# Equivalent core command:
+fedbiomed node --path /path/to/node gui start
 ```
 
-After running this command the GUI will start listening on `localhost` on port `8484`. You can access the GUI through browser `http://localhost:8484`. This page will redirect you to the login page. The credentials and possible configurations for log-in are explained in the [default admin configuration](#default-admin-configuration).
+Choose one command. Both serve the GUI and API at **http://localhost:8484**
+using Gunicorn by default. Open this address to log in; see
+[default administrator configuration](#default-admin-configuration).
+Released packages include the built frontend and need neither Node.js nor Yarn.
 
-#### Using different port and host
+`--path` selects the node component directory, including its configuration and
+databases. It defaults to `fbm-node` under the current working directory. A missing
+component is initialized automatically. Use the same path as your existing node
+to manage its datasets and accounts.
 
-Custom ports and host IP address can be specified as long as the port in the specified IP isn't already in use.
+**Starting the GUI does not start the federated-learning node.** Start the node
+from the Node Management page, or in another terminal:
 
-```shell
-$ fedbiomed node gui start --port <port> --host <ip-address|localhost>
+```sh
+fedbiomed node --path /path/to/node start
 ```
 
+## Server and data paths
 
-#### Specifying data folder
-
-You might want to store your data files in a different folder. In such cases you can use the option `--data-folder` to specify which folder is used that includes data files.
-
-````
-$ fedbiomed node gui start --data-folder <path/to/data/folder>
-````
-
-!!! info "Uploading data files through Fed-BioMed is not allowed."
-    Fed-BioMed assumes that the datasets or the datafiles that will be deployed in the node are already present in the data folder that is specified. Fed-BioMed Node GUI will help you to use these stored datasets in node.
-
-#### Specifying specific node component whose GUI will be launched
-
-It is possible to specify the node that the user interface will be used for through the option `--path` or `-p`.
-
-```
-$ fedbiomed node --path <path/to/component/directory> gui start
-````
-
-Thanks to this option it is possible to start multiple GUI for multiple nodes on the same machine as long as the ports are different.
-
-
-```shell
-$ fedbiomed node --path ./my-first-node gui start --port 5001
-$ fedbiomed node --path ./my-second-node gui start --port 5002
-$ fedbiomed node --path ./my-third-node gui start --port 5003
+```sh
+fedbiomed-gui --path /path/to/node --data-folder /path/to/datasets --port 8485
+# Equivalent:
+fedbiomed node --path /path/to/node gui start --data-folder /path/to/datasets --port 8485
 ```
 
-If it is desired they can share the same data folder.
+The data folder defaults to `data` in the node's root and must exist. Dataset
+registration selects files already present on the server; it does not upload
+files from your browser. API path arrays are relative to this folder.
 
-#### Rebuilding the user interface
+Use `--host` to change the listening address. For multiple nodes, use a distinct
+node path and port for each server. The API-only and GUI launchers both use port
+8484 by default; run only one for a given node unless you explicitly configure
+separate ports. The GUI already includes all API endpoints.
 
-The GUI serves a user interface built from its sources in `fedbiomed_gui/ui`. After they change, `--recreate` rebuilds it before the GUI starts. This requires NodeJS `yarn` and the GUI sources, as in a [development environment](../../developer/development-environment.md).
+## HTTPS configuration
 
-```shell
-$ fedbiomed node gui start --recreate
+Without TLS options, the server uses HTTP. Supply both an existing PEM server
+certificate (including its chain when applicable) and its matching PEM private
+key to enable HTTPS:
+
+```sh
+fedbiomed-gui --path /path/to/node \
+  --cert-file /path/to/server-cert.pem --key-file /path/to/server-key.pem
+# Equivalent:
+fedbiomed node --path /path/to/node gui start \
+  --cert-file /path/to/server-cert.pem --key-file /path/to/server-key.pem
 ```
 
+Open `https://localhost:8484` (or the hostname covered by your certificate).
+The client must trust the certificate's issuer. The same TLS options work with
+`fedbiomed-node-api` and `fedbiomed node ... api start`, in both Gunicorn and
+Flask development mode. TLS can also terminate at a reverse proxy.
+
+These certificates protect browser/API-client connections to the HTTP server.
+They are **separate from node–researcher gRPC certificates** configured in the
+node's certificate settings or through `/api/certificates` endpoints. Configuring
+one connection does not enable TLS for the other. See
+[mutual TLS](../deployment/mutual-tls.md) for node–researcher authentication.
+
+## Development and rebuilding assets
+
+`--development` selects Flask's development server instead of Gunicorn.
+`--debug` enables Flask debug mode and debug-level application logging; with
+`--development`, it also enables the debugger and backend reloader.
+Neither option is required for normal use.
+
+For a source checkout, rebuild changed frontend sources before serving them:
+
+```sh
+fedbiomed-gui --path /path/to/node --recreate
+# Equivalent:
+fedbiomed node --path /path/to/node gui start --recreate
+```
+
+This requires Node.js, Yarn and frontend sources. It builds once; it does not
+watch frontend changes. For live frontend development, see the
+[development guide](../../developer/development-environment.md).
 
 ## Configuration file
 
@@ -91,7 +98,10 @@ Apart from `fedbiomed` command, some options can be configured through GUI confi
 
 ### Server Configuration
 
-You can modify `HOST`, `IP` and `DATA_PATH` (equivalent of `--data-folder`) in the server section of the configuration.
+The standalone launchers and core wrappers use `--host`, `--port` and
+`--data-folder` to select these settings. Their defaults take precedence over
+the following legacy server settings. For direct WSGI deployment, `DATA_PATH`
+is used when the `DATA_PATH` environment variable is absent.
 
 ```ini
 ; --------------------------------------------------------------------------------------------
@@ -106,7 +116,7 @@ DATA_PATH = data
 
 ### Default Admin Configuration
 
-When the Fed-BioMed GUI is started for the first time it will create a default admin with the credentials declared in the `[init_admin]` section of the configuration file. **By default, the email  will be `admin@fedbiomed.gui` and the password `admin`**. You can modify the password either in configuration file or in GUI through User Panel but the e-mail can only be modified from the configuration file.
+When the Fed-BioMed GUI is started for the first time it will create a default admin with the credentials declared in the `[init_admin]` section of the configuration file. **By default, the email  will be `admin@fedbiomed.gui` and the password `admin`**. These settings seed the first administrator account only. Once the account exists, change its password through the User Panel or the API; editing this file does not update existing accounts.
 
 
 ```ini
@@ -142,31 +152,26 @@ researcher as the node last observed it. Both are restricted to administrators, 
 the certificate actions are the ones `fedbiomed node certificate` offers on the
 command line.
 
-## Production Mode
 
-By default, `fedbiomed node gui` launches the Node GUI in production mode, utilizing [Gunicorn](https://gunicorn.org/) as the application server. For debugging and development purposes, you can launch the GUI using the `--development` flag.
+## Upgrading from the combined package
 
-```shell
-$ fedbiomed node gui start --development
+The Python distributions are now separate: `fedbiomed` provides core,
+`fedbiomed-node-api` provides HTTP services, and `fedbiomed-gui` adds the frontend.
+The extras select matching package versions:
+
+```sh
+pip install --upgrade "fedbiomed[gui]"
+pip check
 ```
 
+For an API-only installation, use `fedbiomed[node-api]` instead. Update the
+packages together; exact sibling pins reject incompatible versions.
+The existing `fedbiomed node ... gui start` command remains supported.
 
-!!! note "Please use a web server"
-    [Gunicorn](https://gunicorn.org/) is an application server, and it is strongly recommended by [Gunicorn](https://gunicorn.org/)
-    to use proxy web server such as [Nginx](https://www.nginx.com/) to  forward requests to Gunicorn using reverse proxy.
+The package split does not change existing node configuration files, dataset
+registrations or user databases. Stop the services before updating and restart
+with the same `--path` and data folder. Existing `etc/config_gui.ini` and
+`var/gui_db_<node-id>.json` remain in use; no database migration is needed for
+this split. Existing passwords are preserved.
 
-### Setting an SSL Certificate
-
-[Gunicorn](https://gunicorn.org/) allows setting SSL certificate on application server layer. Please use following command to set SSL
-certificate for the application server.
-
-```shell
-$ fedbiomed node gui start --key-file <path-to-key-file> --cert-file <path-to-cert-file>
-```
-
-SSL certificate can also be set through proxy server (e.g. [Nginx](https://www.nginx.com/)) instead of application server.
-
-!!! note "Nginx proxy server for GUI is provided in VPN/containers deployment mode"
-    Fed-BioMed provides a ready-to-deploy Node GUI container in VPN/containers deployment mode, that is configured to use [Nginx](https://www.nginx.com/) as a
-    proxy server and [Gunicorn](https://gunicorn.org/) as an application server. This also allows for setting custom SSL certificates.
-    Please refer to the  [VPN deployment](../deployment/deployment-vpn.md) documentation.
+For startup problems, see [API and GUI troubleshooting](../../support/troubleshooting.md#node-api-and-gui).
