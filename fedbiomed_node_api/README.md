@@ -5,8 +5,10 @@ the separate `fedbiomed-node-api` distribution. Build from the repository root
 with `pdm build -p fedbiomed_node_api`; no frontend tools or assets are needed.
 
 This package depends on the matching `fedbiomed` version and the backend web
-dependencies. Core's `node-api` extra selects this distribution. Until it is
-published, install from the repository using `pdm sync --prod -G node-api`.
+dependencies. Install a released version with
+`pip install "fedbiomed[node-api]"`; core's `node-api` extra selects
+this distribution. For development, install from the repository using
+`pdm sync --prod -G node-api`.
 The checked-in lockfile selects the local editable API package without the GUI.
 The development-only `local` group supplies sibling paths when regenerating
 the lockfile with `pdm lock -G :all --update-reuse`.

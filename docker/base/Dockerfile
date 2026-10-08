@@ -17,7 +17,7 @@ COPY fedbiomed_gui/ui/src ./src
 COPY fedbiomed_gui/ui/public ./public
 RUN yarn build
 
-# Stage 2: Build Python package without hatch hook
+# Stage 2: Build all three Python packages and their dependency wheels
 FROM python:${PYTHON_VERSION}-slim-bookworm AS python-build
 
 WORKDIR /build
@@ -35,21 +35,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY fedbiomed ./fedbiomed
 COPY envs/common ./envs/common
-COPY envs/vpn ./envs/vpn
 COPY notebooks ./notebooks
 COPY docs/tutorials ./docs/tutorials
-COPY scripts ./scripts
-COPY hatch_build.py ./hatch_build.py
-
-# Copy fedbiomed_gui structure (needed for pyproject.toml packages)
-COPY fedbiomed_gui ./fedbiomed_gui
+# Copy the separate API and GUI projects. Keep host frontend artifacts and
+# node_modules out of this stage; only the bundle built above is packaged.
+COPY fedbiomed_node_api ./fedbiomed_node_api
+COPY fedbiomed_gui/pyproject.toml fedbiomed_gui/README.md fedbiomed_gui/__init__.py fedbiomed_gui/cli.py fedbiomed_gui/hatch_build.py ./fedbiomed_gui/
+COPY fedbiomed_gui/server ./fedbiomed_gui/server
 
 # Copy pre-built frontend from node-build stage
 COPY --from=node-build /build/build ./fedbiomed_gui/ui/build
 
-# Install build tools and build wheel
-RUN sed -i '/hatch\.build\.hooks/,/^$/d' pyproject.toml && pip install --no-cache-dir wheel setuptools && \
-    pip wheel --no-cache-dir --wheel-dir /wheels '.[researcher, node, gui]'
+# Explicit local projects prevent pip from fetching published API/GUI packages
+# with the same version. The GUI hook validates the prebuilt frontend bundle.
+RUN pip wheel --no-cache-dir --wheel-dir /wheels \
+    '.[researcher,node,gui]' ./fedbiomed_node_api ./fedbiomed_gui
 
 # Stage 3: Final runtime image
 FROM python:${PYTHON_VERSION}-slim-bookworm
@@ -97,7 +97,8 @@ WORKDIR /home/${FEDBIOMED_USER}/fedbiomed
 # Copy application files with correct ownership
 COPY --chown=$FEDBIOMED_USER:$FEDBIOMED_GROUP README.md ./README.md
 
-# Install fedbiomed system-wide from pre-built wheel
+# Install only core here. Derived images install their extras offline from the
+# same wheel directory, including the locally built API and GUI packages.
 COPY --from=python-build /wheels /tmp/wheels
 RUN pip install --no-cache-dir --no-index --find-links=/tmp/wheels \
     fedbiomed && \
