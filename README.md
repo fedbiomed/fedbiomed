@@ -55,8 +55,18 @@ source fb_env/bin/activate
 Fed-BioMed can be installed using `pip` with the following command:
 
 ```bash
+<<<<<<< HEAD
 pip install "fedbiomed[node,node-api,gui,researcher]"
+=======
+pip install "fedbiomed[node,gui,researcher]"
+>>>>>>> d64c9f10a (docs(packaging): add developer documentation for the new separate packaging and release workflow)
 ```
+
+For a basic node, install `fedbiomed[node]`. Use `fedbiomed[node-api]` for
+the HTTP API without a frontend, or `fedbiomed[gui]` for the GUI and API.
+The API and GUI are separate distributions installed automatically by these
+extras. Released GUI packages include compiled frontend assets; Node.js and
+Yarn are only needed when rebuilding the frontend from source.
 
 If you prefer to use Fed-BioMed in development mode, please refer to the [Developer Environment Installation Documentation](https://fedbiomed.org/latest/developer/development-environment).
 
@@ -190,4 +200,3 @@ Please see `docs/developer/development-environment.md` to find out how to debug 
 ## Troubleshooting
 
 Fedbiomed includes a debug mode, which when enabled prints more outputs with more details, making it easier to troubleshoot. For details on how to use debug mode, refer to [troubleshooting](https://fedbiomed.org/support/troubleshooting/).
-

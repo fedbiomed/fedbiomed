@@ -39,24 +39,53 @@ To configure a specific Python version in your workspace, it is recommended to u
 The command below will perform a complete installation of Fed-BioMed. This installation allows you to test all Fed-BioMed functionalities.
 
 ```
-python -m pip install "fedbiomed[node,researcher,node-api,gui]"
+pip install "fedbiomed[node,researcher,node-api,gui]"
 ```
 
 Depending on your needs, you may not need to install all Fedbiomed components(packages). Below you can select the list of packages, which you can install individually according to your needs:
 
 | Installation | Command | Includes |
 | --- | --- | --- |
-| Basic node/core | `python -m pip install fedbiomed` | Core node functionality. |
-| Node compatibility extra | `python -m pip install "fedbiomed[node]"` | Same as core; the extra is currently empty. |
-| Researcher | `python -m pip install "fedbiomed[researcher]"` | Core and researcher tools. |
-| Node API | `python -m pip install "fedbiomed[node-api]"` | Core and the separate API package. |
-| Node GUI | `python -m pip install "fedbiomed[gui]"` | Core, API, and GUI packages. |
+| Basic node/core | `pip install fedbiomed` | Core node functionality. |
+| Node compatibility extra | `pip install "fedbiomed[node]"` | Same as core; the extra is currently empty. |
+| Researcher | `pip install "fedbiomed[researcher]"` | Core and researcher tools. |
+| Node API | `pip install "fedbiomed[node-api]"` | Core and the separate API package. |
+| Node GUI | `pip install "fedbiomed[gui]"` | Core, API, and GUI packages. |
 
 API and GUI versions are pinned to the matching core version. These commands
 require the corresponding distributions to be published. Released GUI wheels
 include compiled assets; installing a wheel does not require Node.js/Yarn (unless the user wishes to rebuild the GUI).
 For a source checkout and unpublished packages, follow the
 [development environment guide](../developer/development-environment.md#using-pdm).
+
+For the node HTTP API without the GUI:
+
+```sh
+pip install "fedbiomed[node-api]"
+```
+
+The `fedbiomed` distribution provides the basic node; its `node` extra remains
+available for compatibility. The `node-api` extra installs the separate
+`fedbiomed-node-api` distribution. The `gui` extra installs `fedbiomed-gui`,
+which also installs the API. Their versions are pinned to match core.
+Released GUI packages include compiled frontend assets, so installation and
+startup require neither Node.js nor Yarn.
+
+Start either the API alone or the GUI with its API:
+
+```sh
+# API only (equivalent: fedbiomed node --path /path/to/node api start)
+fedbiomed-node-api --path /path/to/node
+
+# GUI and API (equivalent: fedbiomed node --path /path/to/node gui start)
+fedbiomed-gui --path /path/to/node
+```
+
+Choose one launcher for a node; both default to `http://localhost:8484`.
+These launchers provide HTTP services. Start the federated-learning node
+separately with `fedbiomed node --path /path/to/node start`.
+See the [development guide](../developer/development-environment.md) for
+source installations and rebuilding frontend assets.
 
 For installing optional dependency to FLamby:
 ```
