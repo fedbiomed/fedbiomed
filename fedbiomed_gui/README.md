@@ -23,8 +23,12 @@ Editable installs do not require a bundle, allowing frontend development and
 `fedbiomed-gui --recreate` from a fresh checkout. Serving the GUI still requires
 built assets.
 
-This package depends on the matching `fedbiomed-node-api` version, which depends
-on core. Core's `gui` extra selects this distribution. See the
+This package depends on the matching `fedbiomed-node-api` version. Core's `gui`
+extra selects this distribution: `pip install "fedbiomed[gui]"`.
+For development, install locally from the repository root using
+`pdm sync -G gui -G local`. The `local` development
+group installs the sibling packages as editable projects; published metadata
+contains regular versioned dependencies without local paths. See the
 [development guide](../docs/developer/development-environment.md#using-pdm)
 for local editable installation and dependency groups.
 

@@ -2,11 +2,13 @@
 
 The API backend builds as the separate `fedbiomed-node-api` distribution and depends on the matching `fedbiomed` version. It doesn't require the frontend packages or assets from the `gui` package.
 
-Build from the repository root with `pdm build -p fedbiomed_node_api` or with `pdm build -p local` to install `node`, `node-api` and the node `gui` packages and their dependencies all in one command.
+This package depends on the matching `fedbiomed` version and the backend web
+dependencies. Install a released version with `pip install "fedbiomed[node-api]"`; core's `node-api` extra selects this distribution. No frontend assets or Yarn are required for this installing this package.
 
-No frontend assets or Yarn are required for this package's build. For local
-editable installation and PDM group selection, see the
-[development guide](../docs/developer/development-environment.md#using-pdm).
+For development, install from the repository using `pdm sync --prod -G node-api`.
+The checked-in lockfile selects the local editable API package without the GUI.
+The development-only `local` group supplies sibling paths when regenerating
+the lockfile with `pdm lock -G :all --update-reuse`. For details on local editable installation and PDM group selection, see the [development guide](../docs/developer/development-environment.md#using-pdm).
 
 Run the API without frontend assets against an existing node:
 

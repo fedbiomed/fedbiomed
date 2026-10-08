@@ -87,6 +87,35 @@ separately with `fedbiomed node --path /path/to/node start`.
 See the [development guide](../developer/development-environment.md) for
 source installations and rebuilding frontend assets.
 
+For the node HTTP API without the GUI:
+
+```sh
+pip install "fedbiomed[node-api]"
+```
+
+The `fedbiomed` distribution provides the basic node; its `node` extra remains
+available for compatibility. The `node-api` extra installs the separate
+`fedbiomed-node-api` distribution. The `gui` extra installs `fedbiomed-gui`,
+which also installs the API. Their versions are pinned to match core.
+Released GUI packages include compiled frontend assets, so installation and
+startup require neither Node.js nor Yarn.
+
+Start either the API alone or the GUI with its API:
+
+```sh
+# API only (equivalent: fedbiomed node --path /path/to/node api start)
+fedbiomed-node-api --path /path/to/node
+
+# GUI and API (equivalent: fedbiomed node --path /path/to/node gui start)
+fedbiomed-gui --path /path/to/node
+```
+
+Choose one launcher for a node; both default to `http://localhost:8484`.
+These launchers provide HTTP services. Start the federated-learning node
+separately with `fedbiomed node --path /path/to/node start`.
+See the [development guide](../developer/development-environment.md) for
+source installations and rebuilding frontend assets.
+
 For installing optional dependency to FLamby:
 ```
 pip install git+https://github.com/owkin/FLamby@main

@@ -409,6 +409,9 @@ You may encounter some common issues during installation or after the installati
     - For other issues, `pyenv` comes with an utility [`pyenv-doctor`](https://github.com/pyenv/pyenv-doctor), made for checking `pyenv` installation and dependencies, and can be run with: `pyenv doctor`. It will try to find the issue with your installation and proposes appropriate solutions to your issue.
 
     More troubleshooting for `pyenv` can be found [here](https://github.com/pyenv/pyenv/wiki#suggested-build-environment).
+### Validation for manually installing from wheel
+
+If you are manually installing from python wheels instead of using the latest versions from pip, we have a script to check if the wheels you are trying to install are compatible with each other. See, the [package compatibility workflow](ci.md#package-compatibility-and-releases) for details on using this validation script. It checks all three wheels and source archives, then tests isolated installations of core, API, GUI, and researcher profiles. 
 
 ### Building Fed-BioMed Takes too Long
 
