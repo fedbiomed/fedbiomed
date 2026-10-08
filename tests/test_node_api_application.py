@@ -60,6 +60,7 @@ def test_gui_serves_assets_and_api(tmp_path, monkeypatch):
     assert client.get("/main.js").data == b"window.test = true;"
     assert client.get("/build/main.js").status_code == 200
     assert client.get("/api/config/node-id", headers=token(app)).status_code == 200
+    assert client.get("/openapi.json").json["openapi"] == "3.1.0"
 
 
 def test_gui_rejects_missing_assets_before_node_initialization(tmp_path):

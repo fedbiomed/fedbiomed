@@ -199,6 +199,10 @@ def test_distribution_contents_and_sdist_rebuild(package, tmp_path):
             )
             if package == "fedbiomed_node_api":
                 assert f"{package}/config_gui.ini" in names
+                assert (
+                    archive.read(f"{package}/openapi.json")
+                    == (ROOT / package / "openapi.json").read_bytes()
+                )
                 assert f"{package}/routes/authentication.py" in names
             elif package == "fedbiomed_gui":
                 assert f"{package}/server/wsgi.py" in names

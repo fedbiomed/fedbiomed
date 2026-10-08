@@ -87,6 +87,16 @@ def verify(profile, workspace, expected_python, dist_dir):
             from fedbiomed_gui.server.application import create_app
         app = create_app(root, {"TESTING": True})
         client = app.test_client()
+        # The contract must ship with the wheel and be accessible without a token,
+        # including when the GUI adds its catch-all frontend route.
+        reference = client.get("/openapi.json")
+        assert reference.status_code == 200
+        assert reference.mimetype == "application/json"
+        assert (
+            reference.json["info"]["version"]
+            == distribution("fedbiomed-node-api").version
+        )
+        assert "/api/auth/token/login" in reference.json["paths"]
         assert client.get("/api/config/node-id").status_code == 401
         # Authenticate through the real login route, then reuse its issued token.
         login = client.post(

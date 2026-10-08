@@ -1,0 +1,3556 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Fed-BioMed Node HTTP API",
+    "version": "6.4.1",
+    "description": "API shared by the API-only and GUI launchers. Paths are relative to the server origin. JSON requests use Content-Type: application/json. Protected operations use bearer access tokens; refresh uses a refresh token. File paths refer to files on the node host, not the client. See the user guide for examples and Postman setup."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8484",
+      "description": "Default local server; replace host, port and scheme for your deployment."
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/api/admin/requests/approve": {
+      "post": {
+        "operationId": "approve_user_request_post",
+        "summary": "Approve user request",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateAdminRequestAction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/requests/list": {
+      "get": {
+        "operationId": "list_requests_get",
+        "summary": "List requests",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account."
+      }
+    },
+    "/api/admin/requests/reject": {
+      "post": {
+        "operationId": "reject_user_request_post",
+        "summary": "Reject user request",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateAdminRequestAction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/security/logs": {
+      "get": {
+        "operationId": "get_security_logs_get",
+        "summary": "Get security logs",
+        "tags": [
+          "security logs"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Administrator-only audit log search. current_page is zero-based; page_size is clamped to 1–2000. Date filtering defaults to a 5000-entry limit. researcher_id=__none__ selects entries without a researcher. Requires an administrator account.",
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 200
+            }
+          },
+          {
+            "name": "current_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "max_num_of_logs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Non-positive values disable the explicit limit."
+            }
+          },
+          {
+            "name": "operation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "researcher_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contains",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_ts",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Inclusive timestamp: ISO 8601 or epoch seconds/milliseconds."
+            }
+          },
+          {
+            "name": "end_ts",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Inclusive timestamp: ISO 8601 or epoch seconds/milliseconds."
+            }
+          }
+        ]
+      }
+    },
+    "/api/admin/users/change-role": {
+      "patch": {
+        "operationId": "change_user_role_patch",
+        "summary": "Change user role",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateUserChangeRoleRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/create": {
+      "post": {
+        "operationId": "create_user_post",
+        "summary": "Create user",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Administrator creates a regular user. confirm must equal password. Use change-role separately to grant administrator access. Requires an administrator account. New passwords need at least eight characters, one uppercase letter, one lowercase letter and one digit.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ValidateUserFormRequest"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "surname",
+                      "confirm"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "password": {
+                        "minLength": 8,
+                        "pattern": "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{8,}$"
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "email": "user@example.org",
+                "password": "ReplaceThis123",
+                "confirm": "ReplaceThis123",
+                "name": "Example",
+                "surname": "User"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/list": {
+      "get": {
+        "operationId": "list_users_get",
+        "summary": "List users",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account."
+      }
+    },
+    "/api/admin/users/remove": {
+      "delete": {
+        "operationId": "remove_user_delete",
+        "summary": "Remove user",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateUserRemoveRequest"
+              },
+              "example": {
+                "user_id": "user_REPLACE_ME"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/reset-password": {
+      "patch": {
+        "operationId": "reset_user_password_patch",
+        "summary": "Reset user password",
+        "tags": [
+          "users"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateUserRemoveRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "register_post",
+        "summary": "Register",
+        "tags": [
+          "authentication"
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Creates a registration request for administrator approval, not an active account. confirm must equal password. Use POST; GET with a JSON body is retained only for compatibility. New passwords need at least eight characters, one uppercase letter, one lowercase letter and one digit.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ValidateUserFormRequest"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "surname",
+                      "confirm"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "password": {
+                        "minLength": 8,
+                        "pattern": "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{8,}$"
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "email": "user@example.org",
+                "password": "ReplaceThis123",
+                "confirm": "ReplaceThis123",
+                "name": "Example",
+                "surname": "User"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "register_get",
+        "summary": "Register",
+        "tags": [
+          "authentication"
+        ],
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Creates a registration request for administrator approval, not an active account. confirm must equal password. Use POST; GET with a JSON body is retained only for compatibility. New passwords need at least eight characters, one uppercase letter, one lowercase letter and one digit.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ValidateUserFormRequest"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "surname",
+                      "confirm"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "password": {
+                        "minLength": 8,
+                        "pattern": "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{8,}$"
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "email": "user@example.org",
+                "password": "ReplaceThis123",
+                "confirm": "ReplaceThis123",
+                "name": "Example",
+                "surname": "User"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/token/login": {
+      "post": {
+        "operationId": "login_post",
+        "summary": "Login",
+        "tags": [
+          "authentication"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "object",
+                          "properties": {
+                            "access_token": {
+                              "type": "string"
+                            },
+                            "refresh_token": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "access_token",
+                            "refresh_token"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "result"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateLoginRequest"
+              },
+              "example": {
+                "email": "admin@fedbiomed.gui",
+                "password": "admin"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/token/refresh": {
+      "get": {
+        "operationId": "refresh_expiring_jwts_get",
+        "summary": "Refresh expiring jwts",
+        "tags": [
+          "authentication"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "object",
+                          "properties": {
+                            "access_token": {
+                              "type": "string"
+                            },
+                            "refresh_token": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "access_token",
+                            "refresh_token"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "result"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT validation failed; Flask-JWT-Extended may return {\"msg\": \"...\"}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          },
+          "422": {
+            "description": "JWT validation failed; Flask-JWT-Extended may return {\"msg\": \"...\"}.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "description": "Send the refresh token, not the access token, as Authorization: Bearer <refresh_token>. Returns a new access token and refresh token.",
+        "security": [
+          {
+            "refreshToken": []
+          }
+        ]
+      }
+    },
+    "/api/certificates": {
+      "post": {
+        "operationId": "register_certificate_post",
+        "summary": "Register certificate",
+        "tags": [
+          "certificates"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Registers a researcher certificate for node–researcher gRPC authentication. certificate is PEM text; component_id is optional when encoded in the certificate. Does not configure HTTPS. Requires an administrator account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "certificate": {
+                    "type": "string"
+                  },
+                  "component_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "certificate"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/certificates/connection": {
+      "get": {
+        "operationId": "connection_state_get",
+        "summary": "Connection state",
+        "tags": [
+          "certificates"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account."
+      }
+    },
+    "/api/certificates/export": {
+      "get": {
+        "operationId": "export_certificate_get",
+        "summary": "Export certificate",
+        "tags": [
+          "certificates"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account."
+      }
+    },
+    "/api/certificates/generate": {
+      "post": {
+        "operationId": "generate_own_certificate_post",
+        "summary": "Generate own certificate",
+        "tags": [
+          "certificates"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Generates a new node gRPC certificate/key pair and preserves backups. The researcher must register the replacement certificate. Requires an administrator account."
+      }
+    },
+    "/api/certificates/inspect": {
+      "post": {
+        "operationId": "inspect_certificate_post",
+        "summary": "Inspect certificate",
+        "tags": [
+          "certificates"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Inspects PEM certificate text without registering it. Requires an administrator account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "certificate": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "certificate"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/certificates/replace": {
+      "post": {
+        "operationId": "replace_own_certificate_post",
+        "summary": "Replace own certificate",
+        "tags": [
+          "certificates"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Replaces the node gRPC certificate and private key with PEM strings, preserving backups. Does not configure HTTPS. The researcher must register the replacement certificate. Requires an administrator account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "certificate": {
+                    "type": "string"
+                  },
+                  "private_key": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "certificate",
+                  "private_key"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/certificates/status": {
+      "get": {
+        "operationId": "certificates_status_get",
+        "summary": "Certificates status",
+        "tags": [
+          "certificates"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account."
+      }
+    },
+    "/api/certificates/{component_id}": {
+      "delete": {
+        "operationId": "delete_certificate_delete",
+        "summary": "Delete certificate",
+        "tags": [
+          "certificates"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Requires an administrator account.",
+        "parameters": [
+          {
+            "name": "component_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/config/node-environ": {
+      "get": {
+        "operationId": "fedbiomed_environ_get",
+        "summary": "Fedbiomed environ",
+        "tags": [
+          "config"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        }
+      }
+    },
+    "/api/config/node-id": {
+      "get": {
+        "operationId": "node_id_get",
+        "summary": "Node id",
+        "tags": [
+          "config"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "object",
+                          "properties": {
+                            "node_id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "node_id"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        }
+      }
+    },
+    "/api/datasets/add": {
+      "post": {
+        "operationId": "add_dataset_post",
+        "summary": "Add dataset",
+        "tags": [
+          "datasets"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "string",
+                          "description": "Registered dataset ID."
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Registers existing server-side data; does not upload files. type is csv, images, or custom. path is an array of segments relative to --data-folder.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AddDataSetRequest"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      },
+                      "tags": {
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "name": "Example CSV",
+                "type": "csv",
+                "path": [
+                  "example.csv"
+                ],
+                "tags": [
+                  "#example"
+                ],
+                "desc": "Example tabular dataset"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/add-default-dataset": {
+      "post": {
+        "operationId": "add_default_dataset_post",
+        "summary": "Add default dataset",
+        "tags": [
+          "datasets"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "string",
+                          "description": "Registered MNIST dataset ID."
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Registers MNIST, downloading it if needed. name, tags and desc are required by the handler. Omit path to use defaults/mnist below --data-folder; an explicit path must identify an existing directory.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AddDefaultDatasetRequest"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "tags",
+                      "desc"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      },
+                      "tags": {
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "name": "MNIST dataset",
+                "tags": [
+                  "#mnist"
+                ],
+                "desc": "MNIST handwritten digits"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/get-csv-data": {
+      "post": {
+        "operationId": "get_csv_data_post",
+        "summary": "Get csv data",
+        "tags": [
+          "datasets"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/GetCsvData"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/list": {
+      "post": {
+        "operationId": "list_datasets_post",
+        "summary": "List datasets",
+        "tags": [
+          "datasets"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListDatasetRequest"
+              },
+              "example": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/list-dlps": {
+      "post": {
+        "operationId": "list_data_loading_plans_post",
+        "summary": "List data loading plans",
+        "tags": [
+          "datasets"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "target_dataset_type": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/medical-folder-dataset/add": {
+      "post": {
+        "operationId": "add_medical_folder_dataset_post",
+        "summary": "Add medical folder dataset",
+        "tags": [
+          "medical folder dataset"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ValidateMedicalFolderAddRequest"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "medical_folder_root": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      },
+                      "reference_csv_path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      },
+                      "index_col": {
+                        "description": "Zero-based index of the reference CSV column containing subject folder names."
+                      },
+                      "tags": {
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/medical-folder-dataset/add-dlp": {
+      "post": {
+        "operationId": "add_data_loading_plan_post",
+        "summary": "Add data loading plan",
+        "tags": [
+          "medical folder dataset"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "string",
+                          "description": "Saved data loading plan ID."
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateDataLoadingPlanAddRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/medical-folder-dataset/default-modalities": {
+      "get": {
+        "operationId": "get_default_modalities_get",
+        "summary": "Get default modalities",
+        "tags": [
+          "medical folder dataset"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        }
+      }
+    },
+    "/api/datasets/medical-folder-dataset/delete-dlp": {
+      "post": {
+        "operationId": "remove_data_loading_plan_post",
+        "summary": "Remove data loading plan",
+        "tags": [
+          "medical folder dataset"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateDataLoadingPlanDeleteRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/medical-folder-dataset/preview": {
+      "post": {
+        "operationId": "medical_folder_preview_post",
+        "summary": "Medical folder preview",
+        "tags": [
+          "medical folder dataset"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewDatasetRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/medical-folder-dataset/validate-all-modalities": {
+      "post": {
+        "operationId": "validate_subjects_has_all_modalities_post",
+        "summary": "Validate subjects has all modalities",
+        "tags": [
+          "medical folder dataset"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ValidateSubjectsHasAllModalities"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "medical_folder_root": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      },
+                      "modalities": {
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "reference_csv_path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      },
+                      "index_col": {
+                        "description": "Zero-based index of the reference CSV column containing subject folder names."
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/medical-folder-dataset/validate-reference-column": {
+      "post": {
+        "operationId": "validate_reference_csv_column_post",
+        "summary": "Validate reference csv column",
+        "tags": [
+          "medical folder dataset"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ValidateMedicalFolderReferenceCSV"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "reference_csv_path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      },
+                      "medical_folder_root": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      },
+                      "index_col": {
+                        "description": "Zero-based index of the reference CSV column containing subject folder names."
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/medical-folder-dataset/validate-root": {
+      "post": {
+        "operationId": "validate_root_path_post",
+        "summary": "Validate root path",
+        "tags": [
+          "medical folder dataset"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ValidateMedicalFolderRoot"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "medical_folder_root": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/preview": {
+      "post": {
+        "operationId": "get_preview_dataset_post",
+        "summary": "Get preview dataset",
+        "tags": [
+          "datasets"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewDatasetRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/read-dlp": {
+      "post": {
+        "operationId": "read_data_loading_plans_post",
+        "summary": "Read data loading plans",
+        "tags": [
+          "datasets"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReadDataLoadingPlan"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/remove": {
+      "post": {
+        "operationId": "remove_dataset_post",
+        "summary": "Remove dataset",
+        "tags": [
+          "datasets"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveDatasetRequest"
+              },
+              "example": {
+                "dataset_id": "dataset_REPLACE_ME"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/datasets/update": {
+      "post": {
+        "operationId": "update_dataset_post",
+        "summary": "Update dataset",
+        "tags": [
+          "datasets"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": [
+                            "object",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Changes name, tags and description. Include name even though the shared validator does not require it. path is ignored; this endpoint cannot move registered data.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateDatasetRequest"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      },
+                      "tags": {
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "dataset_id": "dataset_REPLACE_ME",
+                "name": "Updated dataset",
+                "tags": [
+                  "#updated"
+                ],
+                "desc": "Updated dataset description"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/node/config": {
+      "get": {
+        "operationId": "get_node_config_get",
+        "summary": "Get node config",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Returns sections with current values and field metadata, including editable flags; use these to construct PATCH requests."
+      },
+      "patch": {
+        "operationId": "update_node_config_patch",
+        "summary": "Update node config",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "x-admin-required": true,
+        "description": "Read GET /api/node/config first for section names, editable fields and types. Send sections.<section>.values. Optional base_values detects concurrent edits (409); force bypasses that check. A running node may require restarting. Requires an administrator account.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sections": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "values": {
+                          "type": "object",
+                          "minProperties": 1,
+                          "additionalProperties": {
+                            "type": [
+                              "string",
+                              "integer",
+                              "boolean"
+                            ]
+                          }
+                        },
+                        "base_values": {
+                          "type": [
+                            "object",
+                            "null"
+                          ],
+                          "description": "Original values for each updated key. Omit to skip conflict detection."
+                        }
+                      },
+                      "required": [
+                        "values"
+                      ]
+                    }
+                  },
+                  "force": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "sections"
+                ]
+              },
+              "example": {
+                "sections": {
+                  "default": {
+                    "values": {
+                      "name": "My node"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/node/logs": {
+      "get": {
+        "operationId": "node_logs_get",
+        "summary": "Node logs",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "offset": {
+                                    "type": "integer"
+                                  },
+                                  "timestamp": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "raw": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "next_cursor": {
+                              "type": "integer"
+                            },
+                            "has_more": {
+                              "type": "boolean"
+                            },
+                            "file_size": {
+                              "type": "integer"
+                            },
+                            "page_size": {
+                              "type": "integer"
+                            },
+                            "file": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "items",
+                            "next_cursor",
+                            "has_more"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Reads application log entries with byte-cursor pagination. Pass next_cursor from the previous result; omit cursor to start at the newest entries.",
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 100,
+              "description": "Values above 2000 are capped."
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Byte offset returned as next_cursor."
+            }
+          },
+          {
+            "name": "file",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "application.log"
+            }
+          }
+        ]
+      }
+    },
+    "/api/node/logs/download": {
+      "get": {
+        "operationId": "download_node_logs_get",
+        "summary": "Download node logs",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "description": "Application log attachment.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "parameters": [
+          {
+            "name": "file",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "application.log"
+            }
+          }
+        ]
+      }
+    },
+    "/api/node/logs/files": {
+      "get": {
+        "operationId": "node_log_files_get",
+        "summary": "Node log files",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        }
+      }
+    },
+    "/api/node/process-state": {
+      "get": {
+        "operationId": "node_process_state_get",
+        "summary": "Node process state",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        }
+      }
+    },
+    "/api/node/restart": {
+      "post": {
+        "operationId": "restart_node_post",
+        "summary": "Restart node",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Restarts the federated-learning node in the background with the supplied options.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "gpu": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "gpu_only": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "gpu_num": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "GPU index; negative values are normalized to zero."
+                  },
+                  "debug": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/node/start": {
+      "post": {
+        "operationId": "start_node_post",
+        "summary": "Start node",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Starts the federated-learning node in the background. Launching the HTTP API alone does not start it.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "gpu": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "gpu_only": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "gpu_num": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "GPU index; negative values are normalized to zero."
+                  },
+                  "debug": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              },
+              "example": {
+                "gpu": false,
+                "debug": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/node/status": {
+      "get": {
+        "operationId": "node_status_get",
+        "summary": "Node status",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        }
+      }
+    },
+    "/api/node/stop": {
+      "post": {
+        "operationId": "stop_node_post",
+        "summary": "Stop node",
+        "tags": [
+          "node management"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        }
+      }
+    },
+    "/api/repository/list": {
+      "post": {
+        "operationId": "list_data_path_post",
+        "summary": "List data path",
+        "tags": [
+          "repository"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ListDataFolder"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "Path segments relative to the server data directory (--data-folder)."
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "path": [],
+                "refresh": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/token/auth": {
+      "get": {
+        "operationId": "auto_auth_get",
+        "summary": "Auto auth",
+        "tags": [
+          "authentication"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        }
+      }
+    },
+    "/api/token/remove": {
+      "post": {
+        "operationId": "logout_post",
+        "summary": "Logout",
+        "tags": [
+          "authentication"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Legacy cookie-clearing endpoint. It does not revoke bearer tokens; discard stored tokens on the client. The current implementation may fail with a server error."
+      }
+    },
+    "/api/training-plan/approve": {
+      "post": {
+        "operationId": "approve_training_plan_post",
+        "summary": "Approve training plan",
+        "tags": [
+          "model router"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveRejectTrainingPlanRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training-plan/delete": {
+      "post": {
+        "operationId": "delete_training_plan_post",
+        "summary": "Delete training plan",
+        "tags": [
+          "model router"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteTrainingPlanRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training-plan/list": {
+      "post": {
+        "operationId": "list_training_plans_post",
+        "summary": "List training plans",
+        "tags": [
+          "model router"
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Response"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListTrainingPlanRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training-plan/preview": {
+      "post": {
+        "operationId": "preview_training_plan_post",
+        "summary": "Preview training plan",
+        "tags": [
+          "model router"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainingPlanPreviewRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/training-plan/reject": {
+      "post": {
+        "operationId": "reject_training_plan_post",
+        "summary": "Reject training plan",
+        "tags": [
+          "model router"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveRejectTrainingPlanRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/update-password": {
+      "post": {
+        "operationId": "update_password_post",
+        "summary": "Update password",
+        "tags": [
+          "authentication"
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Success"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "default": {
+            "$ref": "#/components/responses/UnexpectedError"
+          }
+        },
+        "description": "Changes the authenticated user password. email must match the token and old_password must match the existing password. New passwords need at least eight characters, one uppercase letter, one lowercase letter and one digit.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ValidateUserFormRequest"
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "old_password"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "password": {
+                        "minLength": 8,
+                        "pattern": "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{8,}$"
+                      }
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "email": "admin@fedbiomed.gui",
+                "old_password": "admin",
+                "password": "ReplaceThis123"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "openapi_document_get",
+        "summary": "Download the OpenAPI reference",
+        "tags": [
+          "reference"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Access token returned by login."
+      },
+      "refreshToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Refresh token returned by login or refresh."
+      }
+    },
+    "schemas": {
+      "ValidateUserFormRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "confirm": {
+            "type": "string",
+            "minLength": 1
+          },
+          "old_password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "surname": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "ValidateLoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "ListDatasetRequest": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string"
+          }
+        },
+        "required": []
+      },
+      "RemoveDatasetRequest": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_id"
+        ]
+      },
+      "AddDataSetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 128
+          },
+          "path": {
+            "type": "array"
+          },
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4
+          },
+          "type": {
+            "type": "string",
+            "oneOf": [
+              {
+                "enum": [
+                  "csv",
+                  "images",
+                  "custom"
+                ]
+              }
+            ]
+          },
+          "desc": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "tags",
+          "desc",
+          "type"
+        ]
+      },
+      "UpdateDatasetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 128
+          },
+          "dataset_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "array"
+          },
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4
+          },
+          "desc": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "dataset_id",
+          "tags",
+          "desc"
+        ]
+      },
+      "PreviewDatasetRequest": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "dataset_id"
+        ]
+      },
+      "AddDefaultDatasetRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 128
+          },
+          "path": {
+            "type": "array"
+          },
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4
+          },
+          "type": {
+            "type": "string",
+            "default": "default",
+            "oneOf": [
+              {
+                "enum": [
+                  "default"
+                ]
+              }
+            ]
+          },
+          "desc": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 256
+          }
+        },
+        "required": []
+      },
+      "GetCsvData": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      },
+      "ReadDataLoadingPlan": {
+        "type": "object",
+        "properties": {
+          "dlp_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dlp_id"
+        ]
+      },
+      "ValidateMedicalFolderReferenceCSV": {
+        "type": "object",
+        "properties": {
+          "reference_csv_path": {
+            "type": "array"
+          },
+          "medical_folder_root": {
+            "type": "array"
+          },
+          "index_col": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reference_csv_path",
+          "medical_folder_root",
+          "index_col"
+        ]
+      },
+      "ValidateMedicalFolderRoot": {
+        "type": "object",
+        "properties": {
+          "medical_folder_root": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "medical_folder_root"
+        ]
+      },
+      "ValidateSubjectsHasAllModalities": {
+        "type": "object",
+        "properties": {
+          "medical_folder_root": {
+            "type": "array"
+          },
+          "modalities": {
+            "type": "array"
+          },
+          "reference_csv_path": {
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "index_col": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "dlp_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "medical_folder_root",
+          "modalities",
+          "reference_csv_path",
+          "index_col",
+          "dlp_id"
+        ]
+      },
+      "ValidateMedicalFolderAddRequest": {
+        "type": "object",
+        "properties": {
+          "medical_folder_root": {
+            "type": "array"
+          },
+          "reference_csv_path": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "default": null
+          },
+          "index_col": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "default": null
+          },
+          "dlp_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 128
+          },
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4
+          },
+          "desc": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 256
+          }
+        },
+        "required": [
+          "medical_folder_root",
+          "name",
+          "tags",
+          "desc",
+          "dlp_id"
+        ]
+      },
+      "ValidateDataLoadingPlanAddRequest": {
+        "type": "object",
+        "properties": {
+          "modalities_mapping": {
+            "type": "object"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "modalities_mapping",
+          "name"
+        ]
+      },
+      "ValidateDataLoadingPlanDeleteRequest": {
+        "type": "object",
+        "properties": {
+          "dlp_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dlp_id"
+        ]
+      },
+      "ListTrainingPlanRequest": {
+        "type": "object",
+        "properties": {
+          "sort_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "select_status": {
+            "type": "string"
+          },
+          "search": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "by": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "by",
+              "text"
+            ]
+          }
+        },
+        "required": []
+      },
+      "ApproveRejectTrainingPlanRequest": {
+        "type": "object",
+        "properties": {
+          "training_plan_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "default": "No notes available"
+          }
+        },
+        "required": [
+          "training_plan_id"
+        ]
+      },
+      "DeleteTrainingPlanRequest": {
+        "type": "object",
+        "properties": {
+          "training_plan_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "training_plan_id"
+        ]
+      },
+      "TrainingPlanPreviewRequest": {
+        "type": "object",
+        "properties": {
+          "training_plan_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "training_plan_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "training_plan_id"
+        ]
+      },
+      "ListDataFolder": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "array",
+            "default": []
+          },
+          "refresh": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": []
+      },
+      "ValidateUserRemoveRequest": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "user_id"
+        ]
+      },
+      "ValidateUserChangeRoleRequest": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          }
+        },
+        "required": [
+          "user_id",
+          "role"
+        ]
+      },
+      "ValidateAdminRequestAction": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "description": "id of the user request to validate"
+          }
+        },
+        "required": [
+          "request_id"
+        ]
+      },
+      "Response": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "result": {
+            "description": "Endpoint-specific data: object, array, identifier, or null."
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "success",
+          "result",
+          "message"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "const": false
+          },
+          "result": {
+            "type": "null"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "result",
+          "message"
+        ]
+      }
+    },
+    "responses": {
+      "Created": {
+        "description": "Created.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Response"
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Invalid input or operation.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, invalid or expired token, or rejected credentials.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Administrator permission required.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "UnexpectedError": {
+        "description": "Unexpected failure. Framework errors may be non-JSON; inspect HTTP status and response content."
+      },
+      "Success": {
+        "description": "Successful operation.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Response"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Conflict with current state.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "Server or node operation failed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Requested resource does not exist.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

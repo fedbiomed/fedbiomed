@@ -145,12 +145,13 @@ reported by `pip show fedbiomed-gui`.
 In a source checkout with Node.js, Yarn and frontend sources, use
 `fedbiomed-gui --path /path/to/node --recreate`. This builds the frontend once.
 The API-only launcher requires no frontend assets; `/` returning 404 there is
-expected.
+expected. Its reference is available at `/openapi.json`.
 
 ### Address already in use
 
 Both launchers default to port 8484. The GUI already includes the API, so a
 second API-only server is unnecessary. Stop the other server or select an
-unused port with `--port 8485`. Update browser and API-client URLs to match.
+unused port with `--port 8485`. Update browser, curl and Postman URLs to match.
 
 For certificate and key options, see [HTTPS configuration](../user-guide/nodes/node-gui.md#https-configuration).
+For login, token renewal and request formats, see the [API guide](../user-guide/nodes/node-api.md).
