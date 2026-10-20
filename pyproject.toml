@@ -148,8 +148,6 @@ researcher = [
 node-api = ["fedbiomed-node-api==6.4.1"]
 gui = ["fedbiomed-gui==6.4.1"]
 
-# Preserve existing GUI installation commands; the web dependencies belong to the API.
-gui = ["fedbiomed[api]"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -170,7 +168,6 @@ exclude = [
 [tool.hatch.build.targets.wheel]
 packages = ["fedbiomed"]
 skip-excluded-dirs = true
-
 
 [tool.hatch.build.targets.wheel.shared-data]
 "docs/tutorials" = "share/fedbiomed/docs/tutorials"
