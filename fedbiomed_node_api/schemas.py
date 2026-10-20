@@ -367,7 +367,12 @@ class AddDefaultDatasetRequest(Validator):
                 },
                 "desc": datasetDesc,
             },
-            "required": [],
+            "required": ["name", "tags", "desc"],
+            "requiredMessages": {
+                "name": "Missing required field: name",
+                "tags": "Missing required field: tags",
+                "desc": "Missing required field: desc",
+            },
         }
     )
 
