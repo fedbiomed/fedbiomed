@@ -24,4 +24,4 @@ active Flask application context. Importing the factory does not initialize a no
 
 Existing `config_gui.ini` files, GUI environment variables, user databases, and
 HTTP routes remain compatible. The default configuration template now belongs
-to the API. Separate distributions and installation extras are a later change.
+to the API.
