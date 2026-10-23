@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {Link, useNavigate} from "react-router-dom";
 import axios from 'axios';
 import {EP_LOGIN} from '../../constants';
@@ -22,10 +22,16 @@ import {
 import {SET_LOADING} from "../../store/actions/actions";
 
 const initialLoginForm = {email: '', password: ''}
+const LOGIN_RETRY_DELAY_MS = 1000
 
 const Login = (props) => {
     const navigate = useNavigate();
     const [loginForm, setLoginForm] = useState(initialLoginForm)
+    const [loginBlocked, setLoginBlocked] = useState(false)
+    const loginBlockedRef = useRef(false)
+    const retryTimer = useRef(null)
+
+    useEffect(() => () => clearTimeout(retryTimer.current), [])
 
     // React redux dispatch hook
     const dispatch = useDispatch();
@@ -51,6 +57,11 @@ const Login = (props) => {
 
         event.preventDefault()
 
+        // Guard submissions immediately, including before React renders the disabled button.
+        if (loginBlockedRef.current) return
+        loginBlockedRef.current = true
+        setLoginBlocked(true)
+
         dispatch({type: SET_LOADING, payload: {status: true, text: 'Login....'}})
         let data = { email: loginForm.email, password: loginForm.password}
         axios.post(EP_LOGIN, data).then((response) => {
@@ -73,6 +84,11 @@ const Login = (props) => {
                     setError({show:true, message: error.toString()})
                 }
                 dispatch({type: SET_LOADING, payload: {status: false, text:null}})
+                // This GUI cooldown is not a substitute for server-side rate limiting.
+                retryTimer.current = setTimeout(() => {
+                    loginBlockedRef.current = false
+                    setLoginBlocked(false)
+                }, LOGIN_RETRY_DELAY_MS)
           })
     }
 
@@ -130,8 +146,8 @@ const Login = (props) => {
                                  </EuiFlexItem>
                                  <EuiFlexItem grow={false} >
                                      <EuiFormRow display="center">
-                                        <EuiButton type="submit" fill>
-                                            Login
+                                        <EuiButton type="submit" fill disabled={loginBlocked}>
+                                            {loginBlocked ? 'Please wait…' : 'Login'}
                                         </EuiButton>
                                      </EuiFormRow>
                                  </EuiFlexItem>
