@@ -209,36 +209,15 @@ def stop_researcher_server():
 
 
 def clear_experiment_data(exp: "Experiment"):
-    """Clears data relative to an Experiment execution, mainly:
-    - `ROOT/experiments/Experiment_xx` folder
-    - `ROOT/runs` folder when activating Tensorboard feature
-
-    Args:
-        exp: Experiment object used for running experiment
-    """
-    # removing only big files created by Researcher (for now)
-    # remove tensorboard logs (if any)
-
+    """Stops the researcher server and removes this experiment's files."""
     print("Stopping gRPC server started by the test function")
     print("Will wait 10 seconds to cancel current RPC requests")
 
-    # `exp._reqs` is the `Requests` singleton this stops and then drops, so the
-    # next experiment of the module starts its own server.
+    # Stop readers/writers before removing parameters and breakpoints.
     stop_researcher_server()
-
-    # tensorboard_folder = os.path.join(config.root, TENSORBOARD_FOLDER_NAME)
-    # tensorboard_files = os.listdir(tensorboard_folder)
-    # for file in tensorboard_files:
-    #    shutil.rmtree(os.path.join(tensorboard_folder, file))
-    # print("[INFO] Removing folder content ", tensorboard_folder)
-
-    # remove breakpoints folder created during experimentation from the default folder (if any)
-    # _exp_dir = os.path.join(config.root, VAR_FOLDER_NAME, "experiments")
-    # current_experimentation_folder = os.path.join(_exp_dir, exp._experimentation_folder)
-
-    # print("[INFO] Removing breakpoints", current_experimentation_folder)
-    # if os.path.isdir(current_experimentation_folder):
-    #    shutil.rmtree(current_experimentation_folder)
+    experiment_path = exp.experimentation_path()
+    if os.path.isdir(experiment_path):
+        shutil.rmtree(experiment_path)
 
 
 def create_component(
