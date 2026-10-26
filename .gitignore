@@ -410,7 +410,9 @@ trained_model
 # Docs
 build
 public
+# Git uses repository-relative paths; Hatchling uses GUI-project-relative paths.
 !fedbiomed_gui/ui/public
+!ui/public
 build-tmp
 !envs/build
 report.tap
