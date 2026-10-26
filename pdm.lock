@@ -2,10 +2,10 @@
 # It is not intended for manual editing.
 
 [metadata]
-groups = ["default", "api", "dev", "docs", "gui", "node", "researcher", "test"]
+groups = ["default", "dev", "docs", "gui", "local", "node", "node-api", "researcher", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.1"
-content_hash = "sha256:86846246dc017eee9911046fe465868c4f837af0ee86d56c23f835a972660913"
+content_hash = "sha256:cb2d87fbb19fbd2d7ca6c2909ff8b359896411287772bf51e99eb30e582744f1"
 
 [[metadata.targets]]
 requires_python = ">=3.11,<3.15"
