@@ -75,8 +75,8 @@ class Validator:
         """
 
         self._request = request
-        self._schema = self.schema
-        self._type = self.type
+        self._schema = getattr(self, "schema")
+        self._type = getattr(self, "type")
 
     def validate(self):
         """Validation function for provided schema. Currently,
@@ -117,7 +117,7 @@ class JsonSchema(object):
             JsonBaseValidator(self._schema).validate(data)
         except jsonschema.ValidationError as e:
             if self._message:
-                raise jsonschema.ValidationError(self._message) from e
+                raise jsonschema.ValidationError(self._message)
 
             # Raise custom error messages
             message = None
@@ -151,9 +151,9 @@ class JsonSchema(object):
                     ).format(e.instance)
 
             if message:
-                raise jsonschema.ValidationError(message) from e
+                raise jsonschema.ValidationError(message)
             else:
-                raise jsonschema.ValidationError(e.message) from e
+                raise jsonschema.ValidationError(e.message)
 
 
 class ListDatasetRequest(Validator):

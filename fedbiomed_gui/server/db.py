@@ -1,20 +1,20 @@
-"""Storage for API user accounts and registration requests.
-
-Node dataset storage is managed by the core DatasetManager service.
-"""
-
-import uuid
 from datetime import datetime
 from typing import Dict
-
-from flask import current_app
-from tinydb import Query, TinyDB
-from tinydb.table import Table
-from werkzeug.local import LocalProxy
+import uuid
 
 from fedbiomed.common.constants import UserRoleType
+from tinydb import TinyDB, Query
+from tinydb.table import Table
 
+from .config import config
 from .utils import set_password_hash
+
+
+# WARNING: this Database class should not exist, all accesses to TinyDB should occur
+# through the fedbiomed.node_dataset_manager.DatasetManager, this
+# breaks basic object paradigm
+# Until this is refactored (and Database class is removed), please use
+# `DatasetManager` when adding new accesses to the database
 
 
 class BaseDatabase:
@@ -45,6 +45,19 @@ class BaseDatabase:
 
         # don't use read cache to avoid coherence problems
         return self._db.table(name=name, cache_size=0)
+
+
+class NodeDatabase(BaseDatabase):
+    def __init__(self, db_path: str):
+        super(NodeDatabase, self).__init__(db_path)
+
+    def table_datasets(self) -> Table:
+        """Method  for selecting TinyDB table containing the datasets.
+
+        Returns:
+            A TinyDB `Table` object for this table.
+        """
+        return self._table("Datasets")
 
 
 class UserDatabase(BaseDatabase):
@@ -87,6 +100,10 @@ class UserDatabase(BaseDatabase):
             )
 
 
-user_database = LocalProxy(
-    lambda: current_app.extensions["node_api_services"]["user_database"]
-)
+node_database = NodeDatabase(config["NODE_DB_PATH"])
+user_database = UserDatabase(config["GUI_DB_PATH"])
+
+user_database.add_default_admin_user(config["DEFAULT_ADMIN_CREDENTIAL"])
+# remove default account credential of env variables
+# for security reasons
+del config["DEFAULT_ADMIN_CREDENTIAL"]
