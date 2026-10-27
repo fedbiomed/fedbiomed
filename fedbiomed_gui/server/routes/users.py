@@ -1,25 +1,25 @@
-import uuid
 import secrets
 import string
-from tinydb import where
-from flask import request
-from flask_jwt_extended import get_jwt
+import uuid
 from datetime import datetime
 
-from fedbiomed.common.constants import UserRequestStatus
-from fedbiomed.common.constants import UserRoleType
+from flask import request
+from flask_jwt_extended import get_jwt
+from tinydb import where
+
+from fedbiomed.common.constants import UserRequestStatus, UserRoleType
 
 from ..db import user_database
+from ..helpers.auth_helpers import admin_required, set_password_hash
+from ..middlewares import middleware
+from ..middlewares.auth_validation import validate_email_register, validate_password
 from ..schemas import (
     ValidateAdminRequestAction,
+    ValidateUserChangeRoleRequest,
     ValidateUserFormRequest,
     ValidateUserRemoveRequest,
-    ValidateUserChangeRoleRequest,
 )
-from ..middlewares.auth_validation import validate_email_register, validate_password
-from ..middlewares import middleware
-from ..helpers.auth_helpers import set_password_hash, admin_required
-from ..utils import error, validate_request_data, response
+from ..utils import error, response, validate_request_data
 from .api import api
 
 user_table = user_database.table("Users")

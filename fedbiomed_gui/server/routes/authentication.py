@@ -1,28 +1,27 @@
 import uuid
 from datetime import datetime
+
 from flask import request
 from flask_jwt_extended import (
-    jwt_required,
     create_access_token,
     create_refresh_token,
-    unset_jwt_cookies,
     get_jwt,
+    jwt_required,
+    unset_jwt_cookies,
 )
 
-from fedbiomed.common.constants import UserRoleType, UserRequestStatus
+from fedbiomed.common.constants import UserRequestStatus, UserRoleType
 
+from ..db import user_database
 from ..helpers.auth_helpers import (
+    check_password_hash,
     get_user_by_email,
     set_password_hash,
-    check_password_hash,
 )
-
-from ..utils import error, response
-from ..schemas import ValidateUserFormRequest, ValidateLoginRequest
-from ..middlewares.auth_validation import validate_email_register, validate_password
 from ..middlewares import middleware
-from ..utils import validate_request_data
-from ..db import user_database
+from ..middlewares.auth_validation import validate_email_register, validate_password
+from ..schemas import ValidateLoginRequest, ValidateUserFormRequest
+from ..utils import error, response, validate_request_data
 from .api import api, auth
 
 user_table = user_database.table("Users")
