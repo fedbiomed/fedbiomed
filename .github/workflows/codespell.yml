@@ -9,6 +9,8 @@ on:
     branches:
       - develop
       - master
+      # TODO: remove when issue 1916 is done
+      - feature/1916_separate_node_api_gui_from_core
 
 permissions:
   contents: read
