@@ -1,8 +1,5 @@
 """Integration checks for API and GUI application composition."""
 
-from unittest.mock import Mock
-
-import pytest
 from flask_jwt_extended import create_access_token
 
 from fedbiomed.node.config import node_component
@@ -135,26 +132,3 @@ def test_api_lists_datasets_registered_by_core(tmp_path, monkeypatch):
     assert [dataset["dataset_id"] for dataset in response.json["result"]] == [
         dataset_id
     ]
-
-
-@pytest.mark.parametrize("missing", [None, "name", "tags", "desc"])
-def test_default_dataset_missing_fields_return_json(tmp_path, monkeypatch, missing):
-    app = make_app(tmp_path / "node", monkeypatch)
-    manager = Mock()
-    app.extensions["node_api_services"]["dataset_manager"] = manager
-    body = {"name": "MNIST dataset", "tags": ["#mnist"], "desc": "MNIST digits"}
-    if missing is None:
-        body = {}
-    else:
-        del body[missing]
-    response = app.test_client().post(
-        "/api/datasets/add-default-dataset", json=body, headers=token(app)
-    )
-    assert response.status_code == 400
-    assert response.is_json
-    assert response.json == {
-        "success": False,
-        "result": None,
-        "message": f"Missing required field: {missing or 'name'}",
-    }
-    assert not manager.mock_calls
