@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import request
 from flask_jwt_extended import get_jwt
 from tinydb import where
+from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import UserRequestStatus, UserRoleType
 
@@ -22,9 +23,9 @@ from ..schemas import (
 from ..utils import error, response, validate_request_data
 from .api import api
 
-user_table = user_database.table("Users")
-user_requests_table = user_database.table("Requests")
-query = user_database.query()
+user_table = LocalProxy(lambda: user_database.table("Users"))
+user_requests_table = LocalProxy(lambda: user_database.table("Requests"))
+query = LocalProxy(lambda: user_database.query())
 
 
 @api.route("/admin/users/list", methods=["GET"])

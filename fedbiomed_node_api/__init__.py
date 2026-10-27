@@ -1,3 +1,1 @@
-"""
-GUI server module
-"""
+"""Fed-BioMed Node HTTP API, independent of frontend assets."""

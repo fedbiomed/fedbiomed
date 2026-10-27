@@ -9,6 +9,7 @@ from flask_jwt_extended import (
     jwt_required,
     unset_jwt_cookies,
 )
+from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import UserRequestStatus, UserRoleType
 
@@ -24,9 +25,9 @@ from ..schemas import ValidateLoginRequest, ValidateUserFormRequest
 from ..utils import error, response, validate_request_data
 from .api import api, auth
 
-user_table = user_database.table("Users")
-user_requests_table = user_database.table("Requests")
-query = user_database.query()
+user_table = LocalProxy(lambda: user_database.table("Users"))
+user_requests_table = LocalProxy(lambda: user_database.table("Requests"))
+query = LocalProxy(lambda: user_database.query())
 
 
 @api.route("/update-password", methods=["POST"])

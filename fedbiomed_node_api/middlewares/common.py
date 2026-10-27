@@ -1,12 +1,10 @@
 from flask import request
 
-from fedbiomed.node.dataset_manager import DatasetManager
-
-from ..config import config
+from ..services import service_proxy
 from ..utils import error
 
 # Initialize Fed-BioMed DatasetManager
-dataset_manager = DatasetManager(config["NODE_DB_PATH"])
+dataset_manager = service_proxy("dataset_manager")
 
 
 def check_tags_already_registered():

@@ -1,23 +1,24 @@
 import configparser
 import os
 import shutil
+from pathlib import Path
 
-from fedbiomed.common.utils import ROOT_DIR
+from flask import current_app
+from werkzeug.local import LocalProxy
+
 from fedbiomed.node.config import NodeConfig
-
-cfg = configparser.ConfigParser()
 
 
 class Config(dict):
     node_config: NodeConfig
 
-    def __init__(self):
+    def __init__(self, node_root=None):
         """
         Config class to update configuration for Flask
         """
         self.configuration = {}
         # Updates self.configuration
-        self.generate_config()
+        self.generate_config(node_root)
 
     def __delitem__(self, key):
         """Deletes given key from configuration"""
@@ -29,7 +30,7 @@ class Config(dict):
 
         return self.configuration[item]
 
-    def generate_config(self):
+    def generate_config(self, node_root=None):
         """
         This methods gets ENV variable from `os` and
         generates configuration object
@@ -38,15 +39,19 @@ class Config(dict):
 
         """
 
+        cfg = configparser.ConfigParser()
+
         # Configuration of Flask APP to be able to access Fed-BioMed node information
-        self.configuration["NODE_FEDBIOMED_ROOT"] = os.getenv(
-            "FBM_NODE_COMPONENT_ROOT", os.getcwd()
+        self.configuration["NODE_FEDBIOMED_ROOT"] = (
+            os.fspath(node_root)
+            if node_root is not None
+            else os.getenv("FBM_NODE_COMPONENT_ROOT", os.getcwd())
         )
         conf = os.path.join(
             self.configuration["NODE_FEDBIOMED_ROOT"], "etc", "config_gui.ini"
         )
         if not os.path.isfile(conf):
-            default_config = os.path.join(ROOT_DIR, "fedbiomed_gui", "config_gui.ini")
+            default_config = Path(__file__).with_name("config_gui.ini")
             shutil.copy(default_config, conf)
 
         # Config file that is located in ${FEDBIOMED_DIR}/gui directory
@@ -138,4 +143,4 @@ class Config(dict):
         return self.configuration
 
 
-config = Config()
+config = LocalProxy(lambda: current_app.extensions["node_api_config"])

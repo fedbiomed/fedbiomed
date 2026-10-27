@@ -7,15 +7,15 @@ from flask import jsonify, request, send_file
 from flask_jwt_extended import get_jwt
 
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.node_pm import NodeProcessManager
 
 from ..config import config
 from ..helpers.auth_helpers import admin_required
 from ..helpers.config_schema import get_config_sections_schema
+from ..services import service_proxy
 from ..utils import error, response
 from .api import api
 
-node_process_manager = NodeProcessManager(config.node_config)
+node_process_manager = service_proxy("node_process_manager")
 
 _APPLICATION_LOG_BASENAME = "application.log"
 _LOG_TIMESTAMP_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})")

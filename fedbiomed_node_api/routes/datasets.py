@@ -2,10 +2,10 @@ import os
 import re
 
 from flask import request
+from werkzeug.local import LocalProxy
 
 from fedbiomed.common.dataset_controller import MedicalFolderLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager import DatasetManager
 
 from ..config import config
 from ..middlewares import common, middleware
@@ -19,13 +19,14 @@ from ..schemas import (
     RemoveDatasetRequest,
     UpdateDatasetRequest,
 )
+from ..services import service_proxy
 from ..utils import error, response, success, validate_request_data
 from .api import api
 
 # Initialize Fed-BioMed DatasetManager
-dataset_manager = DatasetManager(config["NODE_DB_PATH"])
+dataset_manager = service_proxy("dataset_manager")
 
-DATA_PATH_RW = config["DATA_PATH_RW"]
+DATA_PATH_RW = LocalProxy(lambda: config["DATA_PATH_RW"])
 
 
 @api.route("/datasets/list", methods=["POST"])

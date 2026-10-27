@@ -1,11 +1,12 @@
 from functools import wraps
 
-from cachelib import FileSystemCache
 from flask import request
+
+from .services import service_proxy
 
 
 class RepositoryCache(object):
-    file_sizes = {}
+    file_sizes = service_proxy("repository_file_sizes")
 
     @classmethod
     def clear(cls, path):
@@ -14,11 +15,11 @@ class RepositoryCache(object):
 
     @classmethod
     def clear_all(cls):
-        cls.file_sizes = {}
+        cls.file_sizes.clear()
 
 
 CACHE_TIMEOUT = 300
-cache = FileSystemCache("./__pycache__")
+cache = service_proxy("cache")
 
 
 def cached(key: str, prefix: str = "", timeout: int = CACHE_TIMEOUT):
