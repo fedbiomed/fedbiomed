@@ -1,6 +1,5 @@
 from flask import request
 
-
 from ..helpers.auth_helpers import (
     check_mail_format,
     check_password_format,
