@@ -284,7 +284,7 @@ docker exec -it -u fedbiomed <my-node-name> bash
 Once inside, use the Fed-BioMed CLI to inspect and control the node:
 
 ```bash
-# Check whether the node process is running
+# Check whether the node process is running and connected to the researcher
 fedbiomed node -p /fbm-node status
 
 # Stop the node process
@@ -303,6 +303,30 @@ fedbiomed node -p /fbm-node start
 !!! tip "Node restart vs. container restart"
     - `fedbiomed node restart` — restarts only the **node process** inside the running container. The container and supervisord keep running.
     - `docker restart my-node` — restarts the **entire container**, which re-runs the entrypoint script, re-applies environment variables, and reinitializes the node from scratch.
+
+#### Checking the Researcher Connection
+
+A running container does not tell whether the node inside it reached the researcher. `fedbiomed node status` reports it: after the node process state, it prints the last connection state the node recorded (`connected`, `disconnected` or `failed`), the researcher host and port, whether mutual authentication is on and the reason of the current state.
+
+From a shell opened in the container as above, add `--history` to also list the recent connection state changes:
+
+```bash
+fedbiomed node -p /fbm-node status --history
+```
+
+The check can also be run directly from the host, without opening a shell in the container:
+
+```bash
+docker exec -u fedbiomed <my-node-name> fedbiomed node -p /fbm-node status --history
+```
+
+or, for a node started with Docker Compose, using the service name:
+
+```bash
+docker compose exec -u fedbiomed <node-service-name> fedbiomed node -p /fbm-node status --history
+```
+
+If the state is `disconnected` with the reason *Researcher server at ... is not available; retrying.*, check that the researcher is running and that the `Host` and `Port` shown match the researcher address (`FBM_RESEARCHER_IP`, `FBM_RESEARCHER_PORT`); with `--network host`, `localhost` is the host machine. See [Checking the connection to the researcher](../nodes/configuring-nodes.md#checking-the-connection-to-the-researcher) for the description of every field and state.
 
 ---
 
