@@ -12,6 +12,9 @@ from fedbiomed.common.logger import (
     DEFAULT_LOG_LEVEL,
     SECURITY_CONTEXT,
     SYSLOG_FACILITY_MAP,
+    _ExcludeSecurityFilter,
+    _GrpcFormatter,
+    _GrpcHandler,
     _SecurityFormatter,
     _SecurityOnlyFilter,
     logger,
@@ -957,6 +960,89 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(emitted_record.getMessage(), "security syslog candidate")
         self.assertTrue(getattr(emitted_record, "is_security", False))
         logger.setLevel(old_level)
+
+
+class TestGrpcLogRouting(unittest.TestCase):
+    def setUp(self):
+        self.send = MagicMock()
+        self.handler = _GrpcHandler(self.send, node_id="node-test")
+        self.handler.setFormatter(_GrpcFormatter("node-test"))
+        self.handler.addFilter(_ExcludeSecurityFilter())
+
+    def record(self, **extra):
+        return logging.makeLogRecord(
+            {
+                "name": "test",
+                "levelname": "ERROR",
+                "levelno": logging.ERROR,
+                "msg": "Failure in %s",
+                "args": ("training",),
+                **extra,
+            }
+        )
+
+    def test_local_records_are_not_forwarded(self):
+        for extra in (
+            {},
+            {"broadcast": False},
+            {"researcher_id": None},
+            {"broadcast": False, "researcher_id": None},
+            {"broadcast": False, "researcher_id": ""},
+        ):
+            with self.subTest(extra=extra):
+                self.handler.handle(self.record(**extra))
+        self.send.assert_not_called()
+
+    def test_explicit_destinations_are_forwarded(self):
+        for extra, destination, broadcast in (
+            ({"researcher_id": "researcher-test"}, "researcher-test", False),
+            ({"broadcast": True}, None, True),
+            (
+                {"researcher_id": "researcher-test", "broadcast": True},
+                "researcher-test",
+                True,
+            ),
+        ):
+            with self.subTest(extra=extra):
+                self.send.reset_mock()
+                self.handler.handle(self.record(**extra))
+                self.send.assert_called_once()
+                feedback, actual_broadcast = self.send.call_args.args
+                self.assertEqual(feedback.researcher_id, destination)
+                self.assertEqual(actual_broadcast, broadcast)
+                self.assertEqual(
+                    json.loads(feedback.log.msg)["message"], "Failure in training"
+                )
+
+    def test_traceback_metadata_stays_local(self):
+        try:
+            raise ValueError("private exception detail")
+        except ValueError:
+            import sys
+
+            record = self.record(
+                researcher_id="researcher-test",
+                exc_info=sys.exc_info(),
+                stack_info="private stack detail",
+            )
+        local_formatter = logging.Formatter()
+        before = local_formatter.format(record)  # populates cached exc_text
+        self.handler.handle(record)
+        feedback = self.send.call_args.args[0]
+        self.assertEqual(json.loads(feedback.log.msg)["message"], "Failure in training")
+        self.assertNotIn("private", feedback.log.msg)
+        self.assertEqual(local_formatter.format(record), before)
+        self.assertIsNotNone(record.exc_info)
+        self.assertIsNotNone(record.exc_text)
+        self.assertEqual(record.stack_info, "private stack detail")
+
+    def test_security_audit_records_stay_local(self):
+        self.handler.handle(
+            self.record(
+                researcher_id="researcher-test", broadcast=True, is_security=True
+            )
+        )
+        self.send.assert_not_called()
 
 
 if __name__ == "__main__":  # pragma: no cover
