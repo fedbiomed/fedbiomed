@@ -1,6 +1,8 @@
-from .application import app
-from .config import config
+"""Backward-compatible GUI WSGI entry point."""
 
-# Production
+from .application import create_app
+
+app = create_app()
+
 if __name__ == "__main__":
-    app.run(debug=config["DEBUG"])
+    app.run(debug=app.config["DEBUG"])
