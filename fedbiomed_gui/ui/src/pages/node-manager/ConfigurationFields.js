@@ -13,8 +13,6 @@ import {formatValue, labelFor} from './configFormat'
 const fieldDescriptions = {
     'security.training_plan_approval':
         'Require manual approval before a training plan can run.',
-    'security.allow_default_training_plans':
-        'Permit built-in training plans without extra registration.',
     'security.secure_aggregation':
         'Enable secure aggregation for compatible experiments.',
     'security.force_secure_aggregation':

@@ -240,7 +240,7 @@ Run this for all launches of the container :
 # example : add MNIST dataset using persistent (mounted) /fbm-node/data
 [user@node-container $] fedbiomed node dataset add -m /fbm-node/data
 # - start with training plan approval enabled and default training plans not allowed
-[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False fedbiomed node start --gpu
+[user@node-container $] FBM_SECURITY_TRAINING_PLAN_APPROVAL=True fedbiomed node start --gpu
 # alternative: re-start the node in background
 # [user@node-container $] nohup fedbiomed node start >./fedbiomed_node.out &
 ```

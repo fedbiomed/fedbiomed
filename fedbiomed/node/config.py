@@ -12,23 +12,12 @@ from fedbiomed.common.constants import (
     DEFAULT_NODE_NAME,
     NODE_DATA_FOLDER,
     NODE_DYNAMIC_DATA_FOLDER,
-    HashingAlgorithms,
     __node_config_version__,
 )
 from fedbiomed.common.logger import logger
 
 NODE_CONFIG_SECURITY_SECTION = "security"
 NODE_CONFIG_SECURITY_FIELDS = {
-    "hashing_algorithm": {
-        "type": "enum",
-        "default": HashingAlgorithms.SHA256.value,
-        "options": [algorithm.value for algorithm in HashingAlgorithms],
-    },
-    "allow_default_training_plans": {
-        "type": "boolean",
-        "default": "True",
-        "env": "FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS",
-    },
     "training_plan_approval": {
         "type": "boolean",
         "default": "False",
@@ -122,6 +111,10 @@ class NodeConfig(Config):
         """
 
         super().migrate()
+
+        for key in ("hashing_algorithm", "allow_default_training_plans"):
+            self._cfg.remove_option("security", key)
+        self._cfg["default"]["version"] = str(self._CONFIG_VERSION)
 
         if not self._cfg.has_option("default", "name"):
             logger.warning(

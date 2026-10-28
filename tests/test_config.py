@@ -302,6 +302,46 @@ def test_node_config_migrate_new(config_env):
         log_warn.assert_not_called()
 
 
+@pytest.mark.parametrize("approval", ["True", "False"])
+def test_node_config_retires_automatic_approval_and_hash_options(
+    tmp_path, approval, monkeypatch
+):
+    """Old flags disappear from persisted config and GUI without changing approval mode."""
+    from fedbiomed_gui.server.helpers.config_schema import get_config_sections_schema
+
+    (tmp_path / "etc").mkdir()
+    monkeypatch.setattr(Config, "vars", dict(Config.vars))
+    monkeypatch.setenv("FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS", "True")
+    config = NodeConfig(root=str(tmp_path))
+    config.set("default", "version", "2.4.0")
+    config.set("security", "training_plan_approval", approval)
+    config.set("security", "allow_default_training_plans", "True")
+    config.set("security", "hashing_algorithm", "SHA512")
+    config.write()
+
+    migrated = NodeConfig(root=str(tmp_path))
+    assert migrated.getbool("security", "training_plan_approval") == (
+        approval == "True"
+    )
+    assert migrated.get("default", "version") == "2.5.0"
+    for key in ("allow_default_training_plans", "hashing_algorithm"):
+        assert not migrated._cfg.has_option("security", key)
+        assert key not in get_config_sections_schema(migrated)["security"]["fields"]
+    migrated.write()
+    reloaded = NodeConfig(root=str(tmp_path))
+    assert reloaded.getbool("security", "training_plan_approval") == (
+        approval == "True"
+    )
+    assert not reloaded._cfg.has_option("security", "hashing_algorithm")
+
+
+def test_new_node_has_no_automatically_approved_plan_options(config_env):
+    config = NodeConfig(root=str(config_env))
+    assert not config.getbool("security", "training_plan_approval")
+    assert not config._cfg.has_option("security", "hashing_algorithm")
+    assert not config._cfg.has_option("security", "allow_default_training_plans")
+
+
 def test_researcher_config_generate(config_env):
     config = ResearcherConfig(root=str(config_env))
 
