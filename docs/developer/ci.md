@@ -46,9 +46,9 @@ All workflow definitions are under `.github/workflows`.
 | `fbm-generic-test.yml` | Base implementation, used by the other workflows for documentation, unit, MNIST, and ordinary E2E jobs; also provides the configurable manual test UI | Called by other workflows or started manually |
 | `end-to-end.yml` | Ordinary E2E testing, with optional manually supplied JSON matrices | Monday to Friday at 23:00 UTC, push to `master`, or manual |
 | `endurance-tests.yml` | Long-running endurance tests on the Python endpoints | Saturday at 09:00 UTC or manual |
-| `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 03:00 UTC, manual, or called by the release workflow |
+| `package-compatibility.yml` | Builds three wheels and three source distributions, then checks isolated core, API, GUI, and researcher installations | Monday at 03:00 UTC, manual, or called by the release workflow |
 | `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Monday to Friday at 20:00 UTC or manual |
-| `deploy.yml` | Validates the release package for Python wheel of Fedbiomed, publishes it to PyPI, and creates the GitHub release | Tag push |
+| `deploy.yml` | Validates and publishes the coordinated core, API, and GUI artifacts to PyPI, then creates the GitHub release | Tag push |
 | `docker-deploy.yml` | Builds public base, node, and researcher docker images, and publishes them to Docker Hub when a version tag triggered the run | Version tag or manual |
 | `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
 | `codespell.yml` | Checks repository spelling and annotates errors | Pull requests targeting `develop` or `master` |
@@ -219,30 +219,78 @@ PyTorch publishes no CUDA build for them.
 
 ## Package compatibility and releases
 
-`package-compatibility.yml` separates building a package from testing its
-installation:
+`package-compatibility.yml` builds and verifies a coordinated release set:
 
-1. Build one wheel and one source distribution on Python 3.11.
-2. Validate their metadata with Twine.
-3. Upload the build output as the `fedbiomed-package` artifact.
-4. Download the same wheel into each Python and runner job.
-5. Install it in a clean virtual environment.
+1. Compile the frontend explicitly on Python 3.11's build runner.
+2. Build three wheels and three source distributions with matching versions.
+3. Validate metadata with Twine, reject local dependency URLs, and rebuild each
+   source archive without Node.js/Yarn. Compare rebuilt wheel contents byte for byte.
+4. Upload all six artifacts as `fedbiomed-package`.
+5. Install each profile in its own clean environment: core, `node-api`, `gui`,
+   and `researcher`. Constraints point to the exact local wheels, while third-party
+   dependencies come from the configured indexes. Node.js/Yarn are absent from
+   the installation PATH.
 
-The installation matrix covers Python 3.11 through Python 3.14 on all four
-compatibility runners. It verifies:
+Each profile runs on Python 3.11–3.14 across the existing four compatibility
+runners (64 installation jobs). Checks run outside the checkout with Python's
+isolated mode and verify:
 
-- `pip check`
-- `fedbiomed --help`
-- the interpreter actually used by the environment
-- `Requires-Python` and package extras
-- the `fedbiomed` console-script entry point
-- notebooks, tutorials, and common environment files under `SHARE_DIR`
-- compiled React assets
-- that imports come from the installed wheel rather than the checkout
+- `pip check`, interpreter version, console commands, extras, and shared resources
+- installed versions and artifact URLs, with imports outside the checkout
+- absence of API/GUI packages and web dependencies in core-only installations
+- API authentication and operation without the GUI package
+- GUI index and JavaScript serving from installed assets
+- researcher import compatibility without the web packages
+
+The verification scripts can also run locally against built artifacts:
+
+```sh
+python scripts/verify_package_artifacts.py dist
+/path/to/clean/venv/bin/python -I scripts/verify_installed_packages.py \
+  --profile gui --workspace "$PWD" --expected-python 3.11 --dist-dir "$PWD/dist"
+```
+
+The artifact checker needs `hatchling` and `packaging`. The installation
+checker requires the selected profile already installed from these wheel URLs.
 
 `deploy.yml` calls this workflow for a tag. PyPI publication and GitHub release
 creation depend on the tested package artifact, so the published files are the
 same files that passed compatibility testing.
+
+### Coordinated package publication
+
+1. Update core's version in `fedbiomed/__init__.py`, the versions in
+   `fedbiomed_node_api/pyproject.toml` and `fedbiomed_gui/pyproject.toml`, and
+   the sibling dependency pins in all three `pyproject.toml` files. Regenerate
+   `pdm.lock` with `pdm lock -G :all --update-reuse` and review the changes.
+   Run the package compatibility workflow on the release branch before pushing the matching
+   release tag (for example, `v6.4.1` for package version `6.4.1`). The artifact
+   checker rejects a tag that does not match the built versions.
+2. Wait for all installation profiles to pass. The six tested artifacts are
+   retained for 14 days; publication does not rebuild them.
+3. The `publish` job uploads core, API, and GUI wheels and source archives to
+   PyPI through the existing `production` environment.
+4. Only after publication succeeds, the `release` job creates the GitHub release
+   and attaches the same three wheels and three source archives.
+
+Before the first split release, configure a trusted publisher for each PyPI
+project: `fedbiomed`, `fedbiomed-node-api`, and `fedbiomed-gui`. Use owner
+`fedbiomed`, repository `fedbiomed`, workflow `deploy.yml`, and environment
+`production`. New projects can use pending publishers. This is an external
+maintainer setup step; changing the workflow does not create those permissions.
+See the [PyPI trusted publishing setup](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
+and [new-project setup](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
+
+PyPI uploads are not atomic across files or projects. If publication fails partway
+through, inspect which files reached PyPI and confirm their SHA256 hashes match
+the retained artifact before selecting **Re-run failed jobs** on the same run.
+`skip-existing` resumes uploading the missing files; it does not compare the
+contents of files already published. Do not rebuild or move the tag to recover.
+If published contents differ, stop and prepare a new coordinated version.
+If the artifact has expired, recover the exact tested files before retrying;
+do not substitute freshly built files under the existing version.
+The GitHub release remains blocked until publication succeeds. A failure only
+in GitHub release creation can be retried without uploading to PyPI again.
 
 ## Docker strategy
 
