@@ -297,7 +297,6 @@ class NodeContext:
             db=self.config.getpath("default", "db"),
             node_id=self.config.get("default", "id"),
             node_name=self.config.get("default", "name"),
-            hashing=self.config.get("security", "hashing_algorithm"),
             tp_approval=self.config.getbool("security", "training_plan_approval"),
         )
 

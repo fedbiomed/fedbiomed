@@ -155,12 +155,7 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
         signal.signal(signal.SIGINT, _node_signal_handler)
         logger.info("Launching node...")
 
-        if _node.config.getbool("security", "training_plan_approval"):
-            _node.tp_security_manager.check_hashes_for_registered_training_plans()
-            if _node.config.getbool("security", "allow_default_training_plans"):
-                logger.info("Loading default training plans")
-                _node.tp_security_manager.register_update_default_training_plans()
-        else:
+        if not _node.config.getbool("security", "training_plan_approval"):
             logger.warning(
                 "Training plan approval for train request is not activated. "
                 + "This might cause security problems. Please, consider to enable training plan approval."

@@ -34,7 +34,6 @@ su -l -c "export FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS=\"${FBM_SECURITY_ALLOW_F
       export FBM_SECURITY_SECAGG_INSECURE_VALIDATION=false && export FBM_RESEARCHER_IP=10.222.0.2 && \
       export FBM_RESEARCHER_PORT=50051 && export PYTHONPATH=/fedbiomed && \
       FBM_SECURITY_TRAINING_PLAN_APPROVAL=\"${FBM_SECURITY_TRAINING_PLAN_APPROVAL:-True}\" \
-      FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=\"${FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS:-False}\" \
       fedbiomed component create --component NODE --path /fbm-node --exist-ok" $CONTAINER_USER
 
 # Overwrite node options file if re-launching container

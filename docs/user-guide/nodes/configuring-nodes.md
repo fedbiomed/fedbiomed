@@ -118,10 +118,8 @@ The configuration file is structured following the sections below:
     - `port`: The port of the researcher component.
 
 - **Security Parameters:**
-    - `hashing_algorithm`: The algorithm will be used for hashing training plan scripts to verify if the requested training plan matches the one approved on the node side.
     - `training_plan_approval`: Boolean value to switch [training plan approval](./training-plan-security-manager.md)
     to verify training plan scripts before the training.
-    - `allow_default_training_plans`: Boolean value to enable automatic approval of example training plans provided by Fed-BioMed.
     - `secure_aggregation`: Boolean parameter (True/False) to activate secure aggregation.
     - `force_secure_aggregation`: Boolean parameter (True/False) to force secure aggregation for every action that uses local dataset.
     - `secagg_insecure_validation`: A boolean parameter to activate insecure validation for secure aggregation rounds to verify the correctness of the aggregation on the researcher side. This option is intended for testing and debugging purposes and must be deactivated in production deployments.
@@ -139,8 +137,6 @@ version = 2
 db = ../var/db_NODE_94572b0f-f55c-4167-b729-f16247c35a04.json
 
 [security]
-hashing_algorithm = SHA256
-allow_default_training_plans = True
 training_plan_approval = False
 secure_aggregation = True
 force_secure_aggregation = False
@@ -192,7 +188,6 @@ Environment variables can be used to parameterize various options for creating t
 
 ```
 [security]:
-- allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, False (VPN/container mode) or True (other)
 - training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, True (VPN/container mode) or False (other)
 - secure_aggregation: FBM_SECURITY_SECURE_AGGREGATION, True
 - force_secure_aggregation: FBM_SECURITY_FORCE_SECURE_AGGREGATION, False

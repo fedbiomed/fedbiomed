@@ -8,7 +8,7 @@ import os
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from python_minifier import minify
 from tabulate import tabulate
@@ -29,18 +29,18 @@ from fedbiomed.common.message import (
     TrainingPlanStatusReply,
     TrainingPlanStatusRequest,
 )
-from fedbiomed.common.utils import SHARE_DIR
 
-# Collect provided hashing function into a dict
-HASH_FUNCTIONS: Dict[str, Callable[[], Any]] = {
-    HashingAlgorithms.SHA256.value: hashlib.sha256,
-    HashingAlgorithms.SHA384.value: hashlib.sha384,
-    HashingAlgorithms.SHA512.value: hashlib.sha512,
-    HashingAlgorithms.SHA3_256.value: hashlib.sha3_256,
-    HashingAlgorithms.SHA3_384.value: hashlib.sha3_384,
-    HashingAlgorithms.SHA3_512.value: hashlib.sha3_512,
-    HashingAlgorithms.BLAKE2B.value: hashlib.blake2s,
-    HashingAlgorithms.BLAKE2S.value: hashlib.blake2s,
+# These factories are used only to verify and migrate hashes written by older nodes.
+# Historical BLAKE2B records were produced with blake2s, despite their label.
+_LEGACY_HASH_FUNCTIONS = {
+    "SHA256": hashlib.sha256,
+    "SHA384": hashlib.sha384,
+    "SHA512": hashlib.sha512,
+    "SHA3_256": hashlib.sha3_256,
+    "SHA3_384": hashlib.sha3_384,
+    "SHA3_512": hashlib.sha3_512,
+    "BLAKE2B": hashlib.blake2s,
+    "BLAKE2S": hashlib.blake2s,
 }
 
 
@@ -52,7 +52,7 @@ class TrainingPlanSecurityManager:
         db: str,
         node_id: str,
         node_name: str,
-        hashing: str,
+        hashing: str = HashingAlgorithms.SHA256.value,
         tp_approval: bool = False,
     ) -> None:
         """Class constructor for TrainingPlanSecurityManager.
@@ -63,7 +63,7 @@ class TrainingPlanSecurityManager:
         Args:
             db: Path to database file.
             node_id: ID of the active node.
-            hashing: Hashing algorithm
+            hashing: Compatibility argument. Only SHA256 is supported.
             tp_approval: True if training plan approval is requested
         """
 
@@ -71,17 +71,103 @@ class TrainingPlanSecurityManager:
         self._node_name = node_name
 
         self._tp_approval = tp_approval
-        self._default_tps = os.path.join(
-            SHARE_DIR, "envs", "common", "default_training_plans"
-        )
+        if hashing != HashingAlgorithms.SHA256.value:
+            raise FedbiomedTrainingPlanSecurityManagerError(
+                f"{ErrorNumbers.FB606.value}: training plans use SHA256 hashing"
+            )
         self._tinydb = TinyDB(db)
         self._tinydb.table_class = DBTable
         # dont use DB read cache for coherence when updating from multiple sources (eg: GUI and CLI)
         self._db = self._tinydb.table(name="TrainingPlans", cache_size=0)
         self._database = Query()
 
-        self._hashing = hashing
+        self._hashing = HashingAlgorithms.SHA256.value
         self._tags_to_remove = ["hash", "date_modified", "date_created"]
+        try:
+            self._migrate_training_plans()
+        except Exception:
+            self._tinydb.close()
+            raise
+
+    def _migrate_training_plans(self) -> None:
+        """Upgrade stored plans without extending any existing approval.
+
+        Former automatic defaults become researcher requests requiring review.
+        Explicit administrator decisions survive a hash upgrade only when the
+        stored source still matches the previously approved digest. Validate
+        every proposed change before writing the table once.
+        """
+        try:
+            records = self._db.all()
+            changes = []
+            digests = {}
+            identifiers = set()
+            defaults = 0
+            for record in records:
+                identifier = record["training_plan_id"]
+                if not isinstance(identifier, str) or identifier in identifiers:
+                    raise ValueError("missing or duplicate training plan identifier")
+                identifiers.add(identifier)
+                algorithm = record["algorithm"]
+                digest = record["hash"]
+                fields = {}
+                was_default = record.get("training_plan_type") == "default"
+                if algorithm != self._hashing or was_default:
+                    source = record["training_plan"]
+                    new_digest, _, _ = self._create_hash(source, from_string=True)
+                    factory = _LEGACY_HASH_FUNCTIONS.get(algorithm)
+                    if factory is None:
+                        raise ValueError("unknown legacy hashing algorithm")
+                    canonical = minify(
+                        source,
+                        remove_annotations=False,
+                        combine_imports=False,
+                        remove_pass=False,
+                        hoist_literals=False,
+                        remove_object_base=True,
+                        rename_locals=False,
+                    )
+                    if factory(canonical.encode("utf-8")).hexdigest() != digest:
+                        raise ValueError(
+                            "stored source does not match its legacy digest"
+                        )
+                    digest = new_digest
+                    if algorithm != self._hashing:
+                        fields.update(hash=digest, algorithm=self._hashing)
+                if not isinstance(digest, str) or not digest:
+                    raise ValueError("missing training plan digest")
+                if digest in digests:
+                    raise ValueError(
+                        "duplicate training plan code requires administrator reconciliation"
+                    )
+                digests[digest] = identifier
+                if was_default:
+                    fields["training_plan_type"] = TrainingPlanStatus.REQUESTED.value
+                    if (
+                        record.get("training_plan_status")
+                        != TrainingPlanApprovalStatus.REJECTED.value
+                    ):
+                        fields["training_plan_status"] = (
+                            TrainingPlanApprovalStatus.PENDING.value
+                        )
+                    defaults += 1
+                if fields:
+                    changes.append(
+                        (fields, self._database.training_plan_id == identifier)
+                    )
+            if changes:
+                self._db.update_multiple(changes)
+            if defaults:
+                logger.warning(
+                    "%d formerly automatic training plans now require explicit administrator review; "
+                    "existing rejections are retained.",
+                    defaults,
+                )
+        except Exception as err:
+            raise FedbiomedTrainingPlanSecurityManagerError(
+                f"{ErrorNumbers.FB606.value}: cannot migrate training plan approvals: {err}. "
+                "Back up the node database and reconcile the stored plans before restarting."
+            ) from err
 
     def _create_hash(self, source: str, from_string: bool = False):
         """Creates hash with given training plan
@@ -93,7 +179,6 @@ class TrainingPlanSecurityManager:
             FedbiomedTrainingPlanSecurityManagerError: bad argument type
             FedbiomedTrainingPlanSecurityManagerError: file cannot be open
             FedbiomedTrainingPlanSecurityManagerError: file cannot be minified
-            FedbiomedTrainingPlanSecurityManagerError: Hashing algorithm does not exist in HASH_FUNCTION table
         """
 
         hash_algo = self._hashing
@@ -142,14 +227,7 @@ class TrainingPlanSecurityManager:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value + f": cannot minify source code details: {err}"
             ) from err
-        # Hash training plan content based on active hashing algorithm
-        if hash_algo in HashingAlgorithms.list():
-            hashing = HASH_FUNCTIONS[hash_algo]()
-        else:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                f"{ErrorNumbers.FB606.value}: unknown hashing algorithm in the 'config'"
-                f"{self._hashing}"
-            )
+        hashing = hashlib.sha256()
 
         # Create hash from training plan minified training plan content and encoded as `utf-8`
         hashing.update(mini_content.encode("utf-8"))
@@ -231,9 +309,8 @@ class TrainingPlanSecurityManager:
                 throws an Exception FedbiomedTrainingPlanSecurityManagerError
             description: Description for training plan file.
             path: Exact path for the training plan that will be registered
-            training_plan_type: Default is `registered`. It means that training plan has been registered
-                by a user/hospital. Other value can be `default` which indicates
-                that training plan is default (training plans for tutorials/examples)
+            training_plan_type: `registered` for an administrator's local registration,
+                or `requested` for a researcher submission.
             training_plan_id: Pre-defined id for training plan. Default is None. When it is None method
                 creates unique id for the training plan.
             researcher_id: ID of the researcher who is owner/requester of the training plan file
@@ -242,7 +319,7 @@ class TrainingPlanSecurityManager:
             The ID of registered training plan
 
         Raises:
-            FedbiomedTrainingPlanSecurityManagerError: `training_plan_type` is not `registered` or `default`
+            FedbiomedTrainingPlanSecurityManagerError: `training_plan_type` is not `registered` or `requested`
             FedbiomedTrainingPlanSecurityManagerError: training plan is already registered into database
             FedbiomedTrainingPlanSecurityManagerError: training plan name is already used for saving another training plan
             FedbiomedTrainingPlanSecurityManagerError: database access problem
@@ -297,64 +374,6 @@ class TrainingPlanSecurityManager:
             ) from err
         return training_plan_id
 
-    def check_hashes_for_registered_training_plans(self):
-        """Checks registered training plans (training plans either rejected or approved).
-
-        Makes sure training plan files exists and hashing algorithm is matched with specified
-        algorithm in the config file.
-
-        Raises:
-            FedbiomedTrainingPlanSecurityManagerError: cannot update training plan list in database
-        """
-
-        try:
-            training_plans, docs = self._db.search(
-                self._database.training_plan_type.all(
-                    TrainingPlanStatus.REGISTERED.value
-                ),
-                add_docs=True,
-            )
-        except Exception as e:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value
-                + f"database search operation failed, with following error: {str(e)}"
-            ) from e
-        logger.info("Checking hashes for registered training plans")
-        if not training_plans:
-            logger.info("There are no training plans registered")
-        else:
-            for training_plan, _doc in zip(training_plans, docs, strict=False):
-                # If training plan file is exists
-                if training_plan["algorithm"] != self._hashing:
-                    logger.info(
-                        f"Recreating hashing for : {training_plan['name']} \t {training_plan['training_plan_id']}"
-                    )
-                    hashing, algorithm, _ = self._create_hash(
-                        training_plan["training_plan"], from_string=True
-                    )
-
-                    # Verify no such training plan already exists in DB
-                    self._check_training_plan_not_existing(None, hashing, None)
-
-                    rtime = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
-                    try:
-                        self._db.update(
-                            {
-                                "hash": hashing,
-                                "algorithm": algorithm,
-                                "date_last_action": rtime,
-                            },
-                            self._database.training_plan_id.all(
-                                training_plan["training_plan_id"]
-                            ),
-                        )
-                    except Exception as err:
-                        raise FedbiomedTrainingPlanSecurityManagerError(
-                            ErrorNumbers.FB606.value
-                            + ": database update failed, with error "
-                            f" {str(err)}"
-                        ) from err
-
     def check_training_plan_status(
         self,
         training_plan_source: str,
@@ -365,7 +384,7 @@ class TrainingPlanSecurityManager:
         Sends a query to database to search for hash of requested training plan.
         If the hash matches with one of the
         training plans hashes in the DB, and if training plan has the specified status {approved, rejected, pending}
-        or training_plan_type {registered, requested, default}.
+        or training_plan_type {registered, requested}.
 
         Args:
             training_plan_source: The source code of requested training plan
@@ -391,7 +410,7 @@ class TrainingPlanSecurityManager:
             training_plan_source, from_string=True
         )
 
-        # If node allows defaults training plans search hash for all training plan types
+        # Match code hashes across registered and requested training plans.
         # otherwise search only for `registered` training plans
 
         if state is None:
@@ -683,155 +702,8 @@ class TrainingPlanSecurityManager:
 
         return TrainingPlanStatusReply(**reply)
 
-    def register_update_default_training_plans(self):
-        """Registers or updates default training plans.
-
-        Launched when the node is started through CLI, if `allow_default_training_plans` is enabled.
-        Checks the files saved into `default_training_plans` directory and update/register them based on following
-        conditions:
-
-        - Registers if there is a new training plan file which isn't saved into db.
-        - Updates if training plan is modified or if hashing algorithm has changed in config file.
-
-        Raises:
-            FedbiomedTrainingPlanSecurityManagerError: cannot read or update training plan database
-        """
-
-        # Get training plan files saved in the directory
-        training_plans_file = os.listdir(self._default_tps)
-
-        # Get only default training plans from DB
-        try:
-            training_plans = self._db.search(
-                self._database.training_plan_type == "default"
-            )
-        except Exception as e:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value
-                + f"database search operation failed, with following error: {str(e)}"
-            ) from e
-
-        # Get training plan names from list of training plans
-        training_plans_dict = {
-            training_plan.get("name"): training_plan for training_plan in training_plans
-        }
-        training_plans_name_db = list(training_plans_dict.keys())
-        # Default training plans not in database
-        training_plans_not_saved = list(
-            set(training_plans_file) - set(training_plans_name_db)
-        )
-        # Default training plans that have been deleted from file system but not in DB
-        training_plans_deleted = list(
-            set(training_plans_name_db) - set(training_plans_file)
-        )
-        # Training plans have already saved and exist in the database
-        training_plans_exists = list(
-            set(training_plans_file) - set(training_plans_not_saved)
-        )
-
-        # Register new default training plans
-        for training_plan in training_plans_not_saved:
-            self.register_training_plan(
-                name=training_plan,
-                description="Default training plan",
-                path=os.path.join(self._default_tps, training_plan),
-                training_plan_type="default",
-            )
-
-        # Remove training plans that have been removed from file system
-        for training_plan_name in training_plans_deleted:
-            try:
-                _, training_plan_doc = self._db.get(
-                    self._database.name == training_plan_name, add_docs=True
-                )
-                logger.info(
-                    "Removed default training plan file has been detected,"
-                    f" it will be removed from DB as well: {training_plan_name}"
-                )
-
-                self._db.remove(doc_ids=[training_plan_doc.doc_id])
-            except Exception as err:
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    ErrorNumbers.FB606.value + ": failed to update database, "
-                    f" with error {str(err)}"
-                ) from err
-        # Update training plans
-        for training_plan in training_plans_exists:
-            path = os.path.join(self._default_tps, training_plan)
-            mtime = datetime.fromtimestamp(os.path.getmtime(path))
-            try:
-                training_plan_info = self._db.get(self._database.name == training_plan)
-            except Exception as err:
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    ErrorNumbers.FB606.value
-                    + f": failed to get training_plan info for training plan {training_plan}"
-                    f"Details : {str(err)}"
-                ) from err
-
-            # Check if hashing algorithm has changed
-            try:
-                hash_, algorithm, _ = self._create_hash(
-                    os.path.join(self._default_tps, training_plan)
-                )
-
-                if training_plan_info["algorithm"] != self._hashing:
-                    # Verify no such training plan already exists in DB
-                    self._check_training_plan_not_existing(None, hash_, algorithm)
-                    logger.info(
-                        f"Recreating hashing for : {training_plan_info['name']} \t"
-                        f"{training_plan_info['training_plan_id']}"
-                    )
-
-                    self._db.update(
-                        {
-                            "hash": hash_,
-                            "algorithm": algorithm,
-                            "date_last_action": datetime.now().strftime(
-                                "%d-%m-%Y %H:%M:%S.%f"
-                            ),
-                        },
-                        self._database.training_plan_id
-                        == training_plan_info["training_plan_id"],
-                    )
-                # If default training plan file is modified update hashing
-                elif mtime > datetime.strptime(
-                    training_plan_info["date_modified"], "%d-%m-%Y %H:%M:%S.%f"
-                ):
-                    # only check when hash changes
-                    # else we have error because this training plan exists in database with same hash
-                    if hash_ != training_plan_info["hash"]:
-                        # Verify no such training plan already exists in DB
-                        self._check_training_plan_not_existing(None, hash_, algorithm)
-
-                    logger.info(
-                        "Modified default training plan file has been detected. "
-                        f"Hashing will be updated for: {training_plan}"
-                    )
-
-                    self._db.update(
-                        {
-                            "hash": hash,
-                            "algorithm": algorithm,
-                            "date_modified": mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
-                            "date_last_action": datetime.now().strftime(
-                                "%d-%m-%Y %H:%M:%S.%f"
-                            ),
-                        },
-                        self._database.training_plan_id
-                        == training_plan_info["training_plan_id"],
-                    )
-            except Exception as err:
-                # triggered if database update failed (see `update` method in tinydb code)
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    ErrorNumbers.FB606.value
-                    + ": Failed to update database, with error: "
-                    f"{str(err)}"
-                ) from err
-
     def update_training_plan_hash(self, training_plan_id: str, path: str) -> bool:
         """Updates an existing training plan entry in training plan database.
-
-        Training plan entry cannot be a default training plan.
 
         The training plan entry to update is indicated by its `training_plan_id`
         The new training plan file for the training plan is specified from `path`.
@@ -844,7 +716,6 @@ class TrainingPlanSecurityManager:
             Currently always returns True.
 
         Raises:
-            FedbiomedTrainingPlanSecurityManagerError: try to update a default training plan
             FedbiomedTrainingPlanSecurityManagerError: cannot read or update the training plan in database
         """
 
@@ -863,42 +734,32 @@ class TrainingPlanSecurityManager:
                 ErrorNumbers.FB606.value
                 + f": training plan with id {training_plan_id} not found in database"
             )
-        if training_plan["training_plan_type"] != TrainingPlanStatus.DEFAULT.value:
-            hash_, algorithm, source = self._create_hash(path)
-            # Verify no such training plan already exists in DB
-            self._check_training_plan_not_existing(None, hash_, algorithm)
+        hash_, algorithm, source = self._create_hash(path)
+        # Verify no such training plan already exists in DB
+        self._check_training_plan_not_existing(None, hash_, algorithm)
 
-            # Get modification date
-            mtime = datetime.fromtimestamp(os.path.getmtime(path))
-            # Get creation date
-            ctime = datetime.fromtimestamp(os.path.getctime(path))
+        # Get modification date
+        mtime = datetime.fromtimestamp(os.path.getmtime(path))
+        # Get creation date
+        ctime = datetime.fromtimestamp(os.path.getctime(path))
 
-            try:
-                self._db.update(
-                    {
-                        "hash": hash_,
-                        "algorithm": algorithm,
-                        "date_modified": mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
-                        "date_created": ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
-                        "date_last_action": datetime.now().strftime(
-                            "%d-%m-%Y %H:%M:%S.%f"
-                        ),
-                        "training_plan": source,
-                    },
-                    self._database.training_plan_id == training_plan_id,
-                )
-            except Exception as err:
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    ErrorNumbers.FB606.value + ": update database failed. Details :"
-                    f"{str(err)}"
-                ) from err
-        else:
-            raise FedbiomedTrainingPlanSecurityManagerError(
-                ErrorNumbers.FB606.value
-                + "You cannot update default training plans. Please "
-                "update them through their files saved in `default_training_plans` directory "
-                "and restart your node"
+        try:
+            self._db.update(
+                {
+                    "hash": hash_,
+                    "algorithm": algorithm,
+                    "date_modified": mtime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                    "date_created": ctime.strftime("%d-%m-%Y %H:%M:%S.%f"),
+                    "date_last_action": datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f"),
+                    "training_plan": source,
+                },
+                self._database.training_plan_id == training_plan_id,
             )
+        except Exception as err:
+            raise FedbiomedTrainingPlanSecurityManagerError(
+                ErrorNumbers.FB606.value + ": update database failed. Details :"
+                f"{str(err)}"
+            ) from err
 
         return True
 
@@ -1005,8 +866,6 @@ class TrainingPlanSecurityManager:
         Raises:
             FedbiomedTrainingPlanSecurityManagerError: bad type for parameter
             FedbiomedTrainingPlanSecurityManagerError: cannot read or remove training plan from the database
-            FedbiomedTrainingPlanSecurityManagerError: training plan is not a `registered` training plan
-                (thus a `default` training plan)
         """
 
         try:
@@ -1025,20 +884,13 @@ class TrainingPlanSecurityManager:
                 + f": training plan {training_plan_id} not in database"
             )
 
-        if training_plan["training_plan_type"] != TrainingPlanStatus.DEFAULT.value:
-            try:
-                self._db.remove(doc_ids=[doc.doc_id])
-            except Exception as err:
-                raise FedbiomedTrainingPlanSecurityManagerError(
-                    ErrorNumbers.FB606.value
-                    + f": cannot remove training plan from database. Details: {str(err)}"
-                ) from err
-        else:
+        try:
+            self._db.remove(doc_ids=[doc.doc_id])
+        except Exception as err:
             raise FedbiomedTrainingPlanSecurityManagerError(
                 ErrorNumbers.FB606.value
-                + "For default training plans, please remove training plan file from "
-                "`default_training_plans` and restart your node"
-            )
+                + f": cannot remove training plan from database. Details: {str(err)}"
+            ) from err
 
         return True
 

@@ -10,7 +10,7 @@ from fedbiomed.common.exceptions import (
     FedbiomedConfigurationError,
 )
 from fedbiomed.common.logger import SYSLOG_FACILITY_MAP
-from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.config import NodeComponent, NodeConfig
 from fedbiomed.researcher.config import ResearcherConfig
 
 # -----------------------------------------------------------------------------
@@ -300,6 +300,77 @@ def test_node_config_migrate_new(config_env):
     with patch("fedbiomed.common.logger.logger.warning") as log_warn:
         config.migrate()
         log_warn.assert_not_called()
+
+
+@pytest.mark.parametrize("approval", ["True", "False"])
+def test_node_config_retires_automatic_approval_and_hash_options(
+    tmp_path, approval, monkeypatch
+):
+    """Old flags disappear from persisted config and GUI without changing approval mode."""
+    from fedbiomed_gui.server.helpers.config_schema import get_config_sections_schema
+
+    (tmp_path / "etc").mkdir()
+    monkeypatch.setattr(Config, "vars", dict(Config.vars))
+    monkeypatch.setenv("FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS", "True")
+    config = NodeConfig(root=str(tmp_path))
+    config.set("default", "version", "2.4.0")
+    config.set("security", "training_plan_approval", approval)
+    config.set("security", "allow_default_training_plans", "True")
+    config.set("security", "hashing_algorithm", "SHA512")
+    config.write()
+
+    migrated = NodeConfig(root=str(tmp_path))
+    assert migrated.getbool("security", "training_plan_approval") == (
+        approval == "True"
+    )
+    assert migrated.get("default", "version") == "2.5.0"
+    for key in ("allow_default_training_plans", "hashing_algorithm"):
+        assert not migrated._cfg.has_option("security", key)
+        assert key not in get_config_sections_schema(migrated)["security"]["fields"]
+    migrated.write()
+    reloaded = NodeConfig(root=str(tmp_path))
+    assert reloaded.getbool("security", "training_plan_approval") == (
+        approval == "True"
+    )
+    assert not reloaded._cfg.has_option("security", "hashing_algorithm")
+
+
+def test_new_node_has_no_automatically_approved_plan_options(config_env):
+    config = NodeConfig(root=str(config_env))
+    assert not config.getbool("security", "training_plan_approval")
+    assert not config._cfg.has_option("security", "hashing_algorithm")
+    assert not config._cfg.has_option("security", "allow_default_training_plans")
+
+
+@pytest.mark.parametrize("approval", ["True", "False"])
+def test_node_component_persists_legacy_config_migration(
+    tmp_path, approval, monkeypatch
+):
+    """The normal component entry point must not reread away its migration."""
+    monkeypatch.setattr(Config, "vars", dict(Config.vars))
+    root = tmp_path / "node"
+    original = NodeComponent().initiate(str(root))
+    original.set("default", "version", "2.4.0")
+    original.set("security", "training_plan_approval", approval)
+    original.set("security", "hashing_algorithm", "SHA512")
+    original.set("security", "allow_default_training_plans", "True")
+    original.write()
+
+    for _ in range(2):
+        upgraded = NodeComponent().initiate(str(root))
+        assert upgraded.get("default", "version") == "2.5.0"
+        assert upgraded.getbool("security", "training_plan_approval") == (
+            approval == "True"
+        )
+        persisted = configparser.ConfigParser()
+        persisted.read(upgraded.config_path)
+        assert persisted["default"]["version"] == "2.5.0"
+        assert persisted.getboolean("security", "training_plan_approval") == (
+            approval == "True"
+        )
+        for key in ("hashing_algorithm", "allow_default_training_plans"):
+            assert not upgraded._cfg.has_option("security", key)
+            assert not persisted.has_option("security", key)
 
 
 def test_researcher_config_generate(config_env):

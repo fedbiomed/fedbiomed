@@ -20,7 +20,6 @@ TP_SECURITY_MANAGER = TrainingPlanSecurityManager(
     db=config["NODE_DB_PATH"],
     node_name=config.node_config.get("default", "name"),
     node_id=config["ID"],
-    hashing=config.node_config.get("security", "hashing_algorithm"),
     tp_approval=config.node_config.getbool("security", "training_plan_approval"),
 )
 

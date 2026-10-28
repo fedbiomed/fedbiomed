@@ -30,7 +30,7 @@ Details of `Figure 1` workflow:
 
 ### Hashing
 
-`TrainingPlanSecurityManager` of Fed-BioMed provides various hashing algorithms. These hashing algorithms are guaranteed by the Python `hashlib` built-in library. The hashing algorithm can be selected by configuring the configuration file of the node. Hashing algorithms provided by Fed-BioMed are: `SHA256`, `SHA384`, `SHA512`, `SHA3_256`, `SHA3_384`, `SHA3_512`, `BLAKE2B`, and `BLAKE2S`. You can have more information about these hashing algorithms in `hashlib` [documentation page](https://docs.python.org/3/library/hashlib.html).
+`TrainingPlanSecurityManager` hashes the minified source with SHA256. The algorithm is fixed for both registration and verification; it is not a node setting.
 
 ### Checksum Operation
 
@@ -41,15 +41,11 @@ Checksum control operation is done by querying database for hash of the requeste
 
 ## Managing Nodes for Training Plan Control
 
-Training Plan Control activation on nodes can be managed either through configuration file or Fed-BioMed CLI. The configuration file of the node includes a section named `security` to control/switch options for selecting hashing algorithm, enabling/disabling training plan control, and accepting default training plans as approved. By default, Fed-BioMed does not enable training plan control. It means when you start or add data to the node for the first time, if the configuration file doesn't exist, it creates a new configuration file with training plan control disabled (`training_plan_approval = False`).
+Training Plan Control activation on nodes can be managed either through configuration file or Fed-BioMed CLI. The `security` section of the node configuration enables or disables training plan control. By default, Fed-BioMed does not enable training plan control. It means when you start or add data to the node for the first time, if the configuration file doesn't exist, it creates a new configuration file with training plan control disabled (`training_plan_approval = False`).
 
-### Default Training Plans
+### Tutorial training plans
 
-Default training plans are a subset of the training plan files that are created for Fed-BioMed tutorials, i.e. some of the training plans contained in `/notebooks` folder. These training plans are saved into `envs/common/default_training_plans/` directory. If the node is configured to allow default training plans for training, it registers default training plans when the node is started. These training plans are saved for testing purposes, and they can be disabled in a production environment.
-
-
-!!! note
-    The hashes of the default training plans aren't updated while starting the node if the node is configured not to allow default training plans. However, default training plans might be already saved into database previously. Even if there are default training plans in the database, the node does not approve requests for the default training plans as long as this option is disabled.
+Tutorial plans follow the same review process as other plans. When approval mode is enabled, submit the plan from the researcher or register a reviewed file locally, then approve it on each node. Starting a node never registers or approves tutorial code.
 
 ### Config Files
 
@@ -63,8 +59,6 @@ When the new node is created without any specified configuration file or any opt
 # parameters connecting researcher server
 
 [security]
-hashing_algorithm = SHA256
-allow_default_training_plans = True
 training_plan_approval = False
 # other security parameters
 
@@ -75,46 +69,23 @@ training_plan_approval = False
 ```
 As you can see, by default, training plan control (`training_plan_approval`) is disabled. For enabling or disabling this feature, you can change its value to `True` or `False`. Any values different from `True` or `False` will be counted as `False`. The node should be restarted to apply changes after updating the config file.
 
-!!! info "Attention"
-    When the training plan control is `False`, `allow_default_training_plans` has no effect because there is no
-    training plan control operation for train requests.
+### Upgrading existing approvals
 
+Stop the node, its GUI and any other database writers, then back up the node database before upgrading. On the first use of the training-plan manager, existing automatic `default` records become ordinary `requested` records. Approved or pending defaults require a new explicit review; existing rejections remain rejected. Stored source, identifiers, notes and dates are retained, and the migration is idempotent.
 
-#### Changing Hashing Algorithm
+Hashes made with older algorithms are converted to SHA256 only after verifying the stored source against its recorded legacy digest. Explicit approvals and rejections for other plans are preserved. The migration validates all records before updating the table in one write; this is not a crash-safe transaction. If source is missing or does not match, an algorithm is unknown, or two records become the same code hash, the manager stops without applying the migration. Reconcile those records using a database backup and the previous release before retrying; do not infer approval for unverifiable source.
 
-By default, Fed-BioMed uses the `SHA256` hashing algorithm to hash training plan files both for registering and checking. It can be changed based on provided algorithms by Fed-BioMed. These algorithms are already presented in the ["Hashing" section](#hashing) of this article. After the hashing algorithm is changed, the node should be restarted. When restarting the node, if the training plan control is enabled, the node updates hashes in the database by recreating them with the chosen hashing algorithm in the config file.
+The retired `hashing_algorithm` and `allow_default_training_plans` settings are removed from the loaded configuration. The old default-plan environment variable has no effect. The independent `training_plan_approval` switch keeps its configured value, including its default `False`.
 
 ### Using Fed-BioMed CLI
 
-Fed-BioMed CLI can start nodes with options for tuning training plan management features. It is possible to change the default parameters of config file while starting a node for the first time. For instance, the following command enables training plan control and disables default training plans for the node. Let's assume we are working with a config file called `config-n1.ini`. If the `config-n1.ini` file doesn't exist, it creates the `config-n1.ini` file with the parameters `training_plan_approval = True` and `allow_default_training_plans = False`, under `[security]` sub-section.
+Enable approval mode when creating or starting a node:
 
 ```shell
-$ FBM_SECURITY_TRAINING_PLAN_APPROVAL=True  FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=False fedbiomed node --path ./my-node start
+FBM_SECURITY_TRAINING_PLAN_APPROVAL=True fedbiomed node --path ./my-node start
 ```
 
-It is also possible to start a node enabling `training_plan_approval` mode, even it is disabled in the configuration file. For instance, suppose that the
-`config-n1.ini` file is saved as follows,
-
-````buildoutcfg
-[security]
-hashing_algorithm = SHA256
-allow_default_training_plans = False
-training_plan_approval = False
-````
-
-The command below forces the node to start with training plan control mode enabled and default training plans enabled.
-
-```shell
-$ FBM_SECURITY_TRAINING_PLAN_APPROVAL=True FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLAN=True fedbiomed node --path ./my-node  start
-```
-or the following command enables training plan control while excluding default training plans;
-
-```shell
-$ FBM_SECURITY_TRAINING_PLAN_APPROVAL=True ENABLE_TRAINING_PLAN_APPROVAL=False fedbiomed node -p ./my-node  start
-```
-
-!!! note
-    Hashing algorithm should be changed directly from the configuration file.
+With approval mode enabled, every tutorial or custom plan must be approved on the node before it can run. Use the registration and approval commands below; enabling approval mode alone does not approve any plan.
 
 ## Training Plan Registration and Approval
 
@@ -124,7 +95,6 @@ Fed-BioMed training plans have one of the following types on a node:
 
 * **requested training plans** are sent by the researcher to nodes from inside the application ("in band"). This enables the researcher to easily submit a training plan to nodes for approval. This mode is the most commonly used for having an `Experiment`'s training plan approved on nodes.
 * **registered training plans** are manually added on this node from a file ("out of band"). This enables the node to use a training plan from any source.
-* **default training plans** are automatically registered and approved at node startup.
 
 Fed-BioMed training plans have one of the following status:
 
@@ -152,7 +122,7 @@ Training Plans are saved in the database with following details:
 ```
 
 Note: training plan files are stored in the file system as `txt` files. Input training plan files used as
-default or registered training plans must have this format.
+registered training plans must have this format.
 
 ### Using requested training plans
 
@@ -247,21 +217,3 @@ The command lists registered training plans with their names and ids and asks yo
 !!! note
     You can update hashes only by providing a training plan file. This API does not allow you to update saved
     hashes directly.
-
-
-
-### Using default training plans
-
-Default training plans are training plans that are pre-authorized by Fed-BioMed, by default.
-
-Unlike the registered training plans, the Fed-BioMed GUI and CLI tools don't provide an option for adding new default training plans. Default training plans are already stored in the system shared directory  `shared/fedbiomed/envs/common/default_training_plans` directory. They are automatically registered when the node is started with training plan type as `default` and status as `Approved`.
-
-If the default training plans already exists in the database at node start, training plan manager checks whether there is any modification. If any default training plan file is deleted from the filesystem, training plan manager also deletes it from the database. If the training plan file is modified, or the hashing algorithm is changed, training plan manager updates the hashes in the database. This checking/controlling operation is done while starting the node.
-
-As for requested training plans, default training plans can later be viewed (`training-plan view`) or changed status (`training-plan approve` or `training-plan reject`).
-
-!!! note
-    Default training plans cannot be removed using Fed-BioMed CLI. They should be removed from the
-    `envs/common/default_training_plans` directory. After restarting the node, deleted training plan files are
-    also removed from the TrainingPlans table of the node database.
-

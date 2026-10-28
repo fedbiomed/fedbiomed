@@ -103,7 +103,7 @@ __version__ = FBM_Component_Version(__version__)  # type: ignore[assignment]  # 
 __researcher_config_version__ = FBM_Component_Version(
     "3.2.0"
 )  # researcher config file version
-__node_config_version__ = FBM_Component_Version("2.4.0")  # node config file version
+__node_config_version__ = FBM_Component_Version("2.5.0")  # node config file version
 
 __node_state_version__ = FBM_Component_Version("2")  # node state version
 __breakpoints_version__ = FBM_Component_Version("4")  # breakpoints format version
@@ -181,13 +181,6 @@ class HashingAlgorithms(_BaseEnum):
     """Enumeration class, used to characterize the hashing algorithms"""
 
     SHA256 = "SHA256"
-    SHA384 = "SHA384"
-    SHA512 = "SHA512"
-    SHA3_256 = "SHA3_256"
-    SHA3_384 = "SHA3_384"
-    SHA3_512 = "SHA3_512"
-    BLAKE2B = "BLAKE2B"
-    BLAKE2S = "BLAKE2S"
 
 
 class TrainingPlanStatus(_BaseEnum):
@@ -196,12 +189,10 @@ class TrainingPlanStatus(_BaseEnum):
     Attributes:
         REQUESTED: means training plan submitted in-application by the researcher
         REGISTERED: means training plan added by a hospital/node
-        DEFAULT: means training plan is default training plan provided by Fed-BioMed
     """
 
     REQUESTED = "requested"
     REGISTERED = "registered"
-    DEFAULT = "default"
 
 
 class TrainingPlanApprovalStatus(_BaseEnum):

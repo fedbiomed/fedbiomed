@@ -9,13 +9,11 @@ from unittest.mock import patch
 from tinydb.table import Document
 
 from fedbiomed.common.constants import (
-    HashingAlgorithms,
     TrainingPlanApprovalStatus,
     TrainingPlanStatus,
 )
 from fedbiomed.common.exceptions import FedbiomedTrainingPlanSecurityManagerError
 from fedbiomed.common.message import ApprovalRequest, TrainingPlanStatusRequest
-from fedbiomed.common.utils import SHARE_DIR
 from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 
 
@@ -70,48 +68,27 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         self.tp_security_manager._tinydb.close()
         self.temp_dir.cleanup()
 
-    def test_training_plan_manager_01_create_default_training_plan_hashes(self):
-        """Testing whether created hash for training plan files are okay
-        or not. It also tests every default with each provided hashing algorithm
-        """
-        dtp = os.path.join(SHARE_DIR, "envs", "common", "default_training_plans")
-        default_training_plans = os.listdir(dtp)
-        for training_plan in default_training_plans:
-            # set default hashing algorithm
-
-            full_path = os.path.join(dtp, training_plan)
-
-            # Control return values with default hashing algorithm
-            hash, algorithm, _ = self.tp_security_manager._create_hash(full_path)
-            self.assertIsInstance(hash, str, "Hash creation is not successful")
-            self.assertEqual(algorithm, "SHA256", "Wrong hashing algorithm")
-
-            algorithms = HashingAlgorithms.list()
-            for algo in algorithms:
-                tpsm = TrainingPlanSecurityManager(
-                    db=self.db,
-                    node_id="test-id",
-                    node_name="test-name",
-                    hashing=algo,
-                )
-                hash, algorithm, _ = tpsm._create_hash(full_path)
-                self.assertIsInstance(hash, str, "Hash creation is not successful")
-                self.assertEqual(algorithm, algo, "Wrong hashing algorithm")
+    def test_training_plan_manager_01_create_training_plan_hash(self):
+        """Files and strings use the same fixed SHA256 digest."""
+        path = os.path.join(self.testdir, "test-training-plan-1.txt")
+        digest, algorithm, source = self.tp_security_manager._create_hash(path)
+        self.assertEqual(algorithm, "SHA256")
+        self.assertEqual(len(digest), 64)
+        self.assertEqual(
+            self.tp_security_manager._create_hash(source, from_string=True),
+            (digest, "SHA256", source),
+        )
 
     def test_training_plan_manager_02_create_hash_hashing_exception(self):
         """Tests `create_hash` method is raising exception if hashing
         algorithm does not exist"""
-        training_plan_path = os.path.join(self.testdir, "test-training-plan-1.txt")
-        tpsm = TrainingPlanSecurityManager(
-            db=self.db,
-            node_id="test-id",
-            node_name="test-name",
-            hashing="UNKNOWN_HASHING_ALGO",
-        )
-
-        # action:
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            tpsm._create_hash(training_plan_path)
+            TrainingPlanSecurityManager(
+                db=self.db,
+                node_id="test-id",
+                node_name="test-name",
+                hashing="UNKNOWN_HASHING_ALGO",
+            )
 
     def test_training_plan_manager_03_create_hash_open_exceptions(self):
         """Tests `create_hash` method is raising appropriate exception if
@@ -175,115 +152,6 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
                 self.tp_security_manager._create_hash(mpath)
 
     @patch(
-        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.register_training_plan",
-        autospec=True,
-    )
-    @patch(
-        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing",
-        autospec=True,
-    )
-    def test_training_plan_manager_06_update_default_hashes_when_algo_is_changed(
-        self,
-        check_training_not_existing,
-        register_training_plan,
-    ):
-        """Testing method for update/register default training plans when hashing
-        algorithm has changed
-        """
-
-        # Single test with default hash algorithm
-        self.db_mock.return_value.search.return_value = []
-        self.tp_security_manager.register_update_default_training_plans()
-
-        # If there training plans registered already
-        self.db_mock.return_value.search.return_value = [
-            {
-                "name": "pytorch-mnist.txt",
-                "algorithm": "SHA51211",
-            }
-        ]
-        self.db_mock.return_value.get.return_value = {
-            "name": "pytorch-mnist.txt",
-            "algorithm": "SHA512",
-            "training_plan_id": "test-id",
-        }
-        self.tp_security_manager.register_update_default_training_plans()
-
-        # If search raises an exception
-        self.db_mock.return_value.search.side_effect = Exception
-        with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            self.tp_security_manager.register_update_default_training_plans()
-        self.db_mock.return_value.search.side_effect = None
-
-        # Test deleted default training plans
-        self.db_mock.return_value.search.return_value = [
-            {
-                "name": "pytorch-deleted-mnist.txt",
-                "algorithm": "SHA51211",
-            }
-        ]
-        self.db_mock.return_value.get.return_value = (
-            "",
-            Document(
-                {
-                    "name": "pytorch-deleted-mnist.txt",
-                    "algorithm": "SHA512",
-                    "training_plan_id": "test-id",
-                },
-                doc_id=1,
-            ),
-        )
-        self.tp_security_manager.register_update_default_training_plans()
-
-        # If get raises exception
-        self.db_mock.return_value.remove.side_effect = Exception
-        with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            self.tp_security_manager.register_update_default_training_plans()
-        self.db_mock.return_value.remove.side_effect = None
-
-        # Test if hashing algorithm is different
-        self.db_mock.return_value.search.return_value = [
-            {
-                "name": "pytorch-mnist.txt",
-                "algorithm": "SHA51211",
-            }
-        ]
-        self.db_mock.return_value.get.return_value = {
-            "name": "pytorch-mnist.txt",
-            "algorithm": "SHA512",
-            "training_plan_id": "test-id",
-        }
-        self.tp_security_manager.register_update_default_training_plans()
-
-        # If get raises an exception
-        self.db_mock.return_value.get.side_effect = Exception
-        with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            self.tp_security_manager.register_update_default_training_plans()
-        self.db_mock.return_value.get.side_effect = None
-
-        # Test if creation date is different
-        self.db_mock.return_value.search.return_value = [
-            {
-                "name": "pytorch-mnist.txt",
-                "algorithm": "SHA256",
-            }
-        ]
-        self.db_mock.return_value.get.return_value = {
-            "name": "pytorch-mnist.txt",
-            "algorithm": "SHA256",
-            "training_plan_id": "test-id",
-            "hash": "dummy",
-            "date_modified": "12-12-1999 12:12:12.123",
-        }
-        self.tp_security_manager.register_update_default_training_plans()
-
-        # If update raises an error
-        self.db_mock.return_value.update.side_effect = Exception
-        with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            self.tp_security_manager.register_update_default_training_plans()
-        self.db_mock.return_value.update.side_effect = None
-
-    @patch(
         "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing",
         autospec=True,
     )
@@ -322,63 +190,6 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         self.db_mock.return_value.insert.side_effect = Exception
 
     @patch(
-        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._create_hash"
-    )
-    def test_training_plan_manager_12_check_hashes_for_registerd_training_plans(
-        self, create_hash_patch
-    ):
-        """Tests `hashes_for_registered_training_plans` method, with 3 settings"""
-
-        # patch
-        def create_hash_side_effect(path, from_string=False):
-            return f"a correct unique hash-{path}", "a correct hashing algo", None
-
-        create_hash_patch.side_effect = create_hash_side_effect
-
-        # DB search return value
-        self.db_mock.return_value.search.return_value = ([], [])
-
-        # test 1: case where there is no training plan registered
-        self.tp_security_manager.check_hashes_for_registered_training_plans()
-
-        # test 2: case where default training plans have been registered
-        # we will check that training plans have correct hashes and hashing algorithm
-        # in the database
-        self.db_mock.return_value.search.return_value = []
-        self.db_mock.return_value.get.return_value = None
-        self.tp_security_manager.register_update_default_training_plans()
-
-        self.db_mock.return_value.search.return_value = (
-            [
-                {
-                    "name": "test-1",
-                    "training_plan": "test-source-1",
-                    "training_plan_id": "tp-id-1",
-                    "algorithm": "oops",
-                },
-                {
-                    "name": "test-2",
-                    "training_plan": "test-source-2",
-                    "training_plan_id": "tp-id-2",
-                    "algorithm": "oops",
-                },
-            ],
-            ["Unused", "Unused"],
-        )
-
-        self.tp_security_manager.check_hashes_for_registered_training_plans()
-
-        with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            self.db_mock.return_value.update.side_effect = Exception
-            self.tp_security_manager.check_hashes_for_registered_training_plans()
-            self.db_mock.return_value.update.side_effect = None
-
-        with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            self.db_mock.return_value.search.side_effect = Exception
-            self.tp_security_manager.check_hashes_for_registered_training_plans()
-            self.db_mock.return_value.search.side_effect = None
-
-    @patch(
         "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager._check_training_plan_not_existing",
         autospec=True,
     )
@@ -394,28 +205,10 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
             "training_plan_type": "registered",
         }
         # action
-        default_training_plan_file_2 = os.path.join(
-            self.testdir, "test-training-plan-2.txt"
-        )
+        training_plan_file_2 = os.path.join(self.testdir, "test-training-plan-2.txt")
         self.tp_security_manager.update_training_plan_hash(
-            "test-training-plan-id", default_training_plan_file_2
+            "test-training-plan-id", training_plan_file_2
         )
-
-        # default training plan
-        self.db_mock.return_value.get.return_value = {
-            "training_plan": "test",
-            "training_plan_id": "test-training-plan-id",
-            "hash": "dummy-hash",
-            "training_plan_type": "default",
-        }
-        # action
-        with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            default_training_plan_file_2 = os.path.join(
-                self.testdir, "test-training-plan-2.txt"
-            )
-            self.tp_security_manager.update_training_plan_hash(
-                "test-training-plan-id", default_training_plan_file_2
-            )
 
         # Back to normal
         self.db_mock.return_value.get.return_value = {
@@ -429,7 +222,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         self.db_mock.return_value.get.side_effect = Exception
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager.update_training_plan_hash(
-                "test-training-plan-id", default_training_plan_file_2
+                "test-training-plan-id", training_plan_file_2
             )
         self.db_mock.return_value.get.side_effect = None
 
@@ -437,7 +230,7 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
         self.db_mock.return_value.update.side_effect = Exception
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager.update_training_plan_hash(
-                "test-training-plan-id", default_training_plan_file_2
+                "test-training-plan-id", training_plan_file_2
             )
         self.db_mock.return_value.update.side_effect = None
 
@@ -456,11 +249,6 @@ class TestTrainingPlanSecurityManager(unittest.TestCase):
 
         # If there is no tp
         self.db_mock.return_value.get.return_value = None
-        with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
-            self.tp_security_manager.delete_training_plan("dummy_id")
-
-        tp = {"training_plan_type": "default"}
-        self.db_mock.return_value.get.return_value = (tp, Document(tp, doc_id=1))
         with self.assertRaises(FedbiomedTrainingPlanSecurityManagerError):
             self.tp_security_manager.delete_training_plan("dummy_id")
 

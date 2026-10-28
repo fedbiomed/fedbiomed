@@ -75,7 +75,6 @@ For each node, choose a **unique** node tag (eg: *NODE2TAG* in this example) tha
 * **optionally** allow all training plans to execute without node side approval (warning: be sure this is coherent with your site security requirements !), or allow the pre-defined training plans to execute without approval:
 
     ```bash
-    [user@node $] export FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS=True
     [user@node $] export FBM_SECURITY_TRAINING_PLAN_APPROVAL=False
     ```
 
