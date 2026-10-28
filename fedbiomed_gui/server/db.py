@@ -1,14 +1,14 @@
+import uuid
 from datetime import datetime
 from typing import Dict
-import uuid
+
+from tinydb import Query, TinyDB
+from tinydb.table import Table
 
 from fedbiomed.common.constants import UserRoleType
-from tinydb import TinyDB, Query
-from tinydb.table import Table
 
 from .config import config
 from .utils import set_password_hash
-
 
 # WARNING: this Database class should not exist, all accesses to TinyDB should occur
 # through the fedbiomed.node_dataset_manager.DatasetManager, this
@@ -87,6 +87,7 @@ class UserDatabase(BaseDatabase):
                     {
                         "user_email": email,
                         "password_hash": set_password_hash(password),
+                        "must_change_password": True,
                         "user_name": "System",
                         "user_surname": "Admin",
                         "user_role": UserRoleType.ADMIN,

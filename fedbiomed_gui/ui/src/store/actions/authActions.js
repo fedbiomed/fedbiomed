@@ -10,7 +10,7 @@ export const autoLogin = (navigate) => {
     return (dispatch) => {
         dispatch({type: SET_LOADING, payload: {status: true }})
 
-        axios.get(EP_AUTH, {}).then(response => {
+        return axios.get(EP_AUTH, {}).then(response => {
             dispatch(setUser(response.data.result))
             dispatch({type: SET_LOADING, payload: {status: false}})
         }).catch(error => {
@@ -32,7 +32,8 @@ export const setUser = (data) => {
                 user_name: data.name ? data.name : '',
                 user_surname: data.surname ? data.surname : '',
                 role : ROLE[data.role],
-                email : data.email
+                email : data.email,
+                must_change_password: Boolean(data.must_change_password)
             } })
     }
 }

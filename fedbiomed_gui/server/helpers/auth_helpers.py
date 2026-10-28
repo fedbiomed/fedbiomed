@@ -2,6 +2,7 @@ import re
 from functools import wraps
 from hashlib import sha512
 
+from flask import current_app
 from flask_jwt_extended import (
     get_jwt,
     verify_jwt_in_request,
@@ -69,6 +70,13 @@ def check_password_format(user_password: str) -> bool:
     """
     regex = r"^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9]).{8,}$"
     return re.fullmatch(regex, user_password)
+
+
+def password_change_required(user: dict) -> bool:
+    """Require new and reset users to change passwords, except in demo/debug mode."""
+    return not current_app.debug and user.get(
+        "must_change_password", not bool(user.get("last_login"))
+    )
 
 
 def admin_required(func):

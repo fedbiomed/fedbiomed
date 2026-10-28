@@ -170,3 +170,20 @@ SSL certificate can also be set through proxy server (e.g. [Nginx](https://www.n
     Fed-BioMed provides a ready-to-deploy Node GUI container in VPN/containers deployment mode, that is configured to use [Nginx](https://www.nginx.com/) as a
     proxy server and [Gunicorn](https://gunicorn.org/) as an application server. This also allows for setting custom SSL certificates.
     Please refer to the  [VPN deployment](../deployment/deployment-vpn.md) documentation.
+
+### Password change on first login
+
+New accounts (including the default administrator and approved registrations) must
+change their password on first login. An administrator resetting an account's
+password also requires that user to change it before continuing. Until then, the
+GUI displays the password-change form and the backend blocks other management
+operations, including requests made with existing tokens.
+
+The new password must differ from the current password and contain at least eight
+characters, including an uppercase letter, a lowercase letter, and a digit. After
+changing it, sign in again with the new password. Existing accounts with a recorded
+previous login are exempt unless their password is reset.
+
+For local demonstrations, `FBM_DEBUG=true` bypasses the first-login requirement.
+It does not clear the account's requirement: disabling debug mode restores it.
+Password complexity validation remains enabled in debug mode.

@@ -1,25 +1,25 @@
-import uuid
 import secrets
 import string
-from tinydb import where
-from flask import request
-from flask_jwt_extended import get_jwt
+import uuid
 from datetime import datetime
 
-from fedbiomed.common.constants import UserRequestStatus
-from fedbiomed.common.constants import UserRoleType
+from flask import request
+from flask_jwt_extended import get_jwt
+from tinydb import where
+
+from fedbiomed.common.constants import UserRequestStatus, UserRoleType
 
 from ..db import user_database
+from ..helpers.auth_helpers import admin_required, set_password_hash
+from ..middlewares import middleware
+from ..middlewares.auth_validation import validate_email_register, validate_password
 from ..schemas import (
     ValidateAdminRequestAction,
+    ValidateUserChangeRoleRequest,
     ValidateUserFormRequest,
     ValidateUserRemoveRequest,
-    ValidateUserChangeRoleRequest,
 )
-from ..middlewares.auth_validation import validate_email_register, validate_password
-from ..middlewares import middleware
-from ..helpers.auth_helpers import set_password_hash, admin_required
-from ..utils import error, validate_request_data, response
+from ..utils import error, response, validate_request_data
 from .api import api
 
 user_table = user_database.table("Users")
@@ -105,6 +105,7 @@ def create_user():
                 "user_surname": surname,
                 "user_email": email,
                 "password_hash": set_password_hash(password),
+                "must_change_password": True,
                 "user_role": UserRoleType.USER,
                 "creation_date": datetime.now().isoformat(),
                 "user_id": user_id,
@@ -221,7 +222,8 @@ def reset_user_password():
 
     try:
         res = user_table.update(
-            {"password_hash": password_hash}, query.user_id == user_id
+            {"password_hash": password_hash, "must_change_password": True},
+            query.user_id == user_id,
         )
     except Exception as e:
         return error(str(e)), 400
@@ -352,6 +354,7 @@ def approve_user_request():
                 "user_surname": user_request["user_surname"],
                 "user_email": user_request["user_email"],
                 "password_hash": user_request["password_hash"],
+                "must_change_password": True,
                 "user_role": user_request["user_role"],
                 "creation_date": datetime.utcnow().ctime(),
                 "user_id": user_id,
