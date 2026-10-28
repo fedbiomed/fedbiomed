@@ -263,6 +263,8 @@ same files that passed compatibility testing.
    `fedbiomed_node_api/pyproject.toml` and `fedbiomed_gui/pyproject.toml`, and
    the sibling dependency pins in all three `pyproject.toml` files. Regenerate
    `pdm.lock` with `pdm lock -G :all --update-reuse` and review the changes.
+   Update `info.version` in `fedbiomed_node_api/openapi.json`, then run
+   `python scripts/generate_api_docs.py` to refresh the downloadable reference.
    Run the package compatibility workflow on the release branch before pushing the matching
    release tag (for example, `v6.4.1` for package version `6.4.1`). The artifact
    checker rejects a tag that does not match the built versions.

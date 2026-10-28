@@ -3,8 +3,9 @@
 import os
 import secrets
 from datetime import timedelta
+from pathlib import Path
 
-from flask import Flask
+from flask import Flask, send_file
 from flask_jwt_extended import JWTManager
 
 from .config import Config
@@ -50,4 +51,13 @@ def create_app(node_root=None, overrides=None):
 
     app.register_blueprint(api)
     app.register_blueprint(auth)
+
+    # Public, static API contract: available without login or GUI assets.
+    # Keep it outside the /api blueprint, whose before_request requires a JWT.
+    @app.get("/openapi.json")
+    def openapi_document():
+        return send_file(
+            Path(__file__).with_name("openapi.json"), mimetype="application/json"
+        )
+
     return app

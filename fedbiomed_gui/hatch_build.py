@@ -1,5 +1,6 @@
 """Package frontend assets built explicitly before distribution creation."""
 
+import sys
 from pathlib import Path
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
@@ -21,3 +22,9 @@ class CustomBuildHook(BuildHookInterface):
                 "Then return to the repository root and run pdm build -p fedbiomed_gui. "
                 "Released source archives must already contain the built frontend."
             )
+
+        print(
+            "Frontend assets found in ui/build folder. Make sure they are up-to-date; "
+            "if not, run `fedbiomed-gui --recreate` from a source checkout.",
+            file=sys.stderr,
+        )

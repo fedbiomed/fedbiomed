@@ -55,11 +55,7 @@ source fb_env/bin/activate
 Fed-BioMed can be installed using `pip` with the following command:
 
 ```bash
-<<<<<<< HEAD
 pip install "fedbiomed[node,node-api,gui,researcher]"
-=======
-pip install "fedbiomed[node,gui,researcher]"
->>>>>>> d64c9f10a (docs(packaging): add developer documentation for the new separate packaging and release workflow)
 ```
 
 For a basic node, install `fedbiomed[node]`. Use `fedbiomed[node-api]` for
