@@ -75,8 +75,8 @@ class Validator:
         """
 
         self._request = request
-        self._schema = getattr(self, "schema")
-        self._type = getattr(self, "type")
+        self._schema = self.schema
+        self._type = self.type
 
     def validate(self):
         """Validation function for provided schema. Currently,
@@ -117,7 +117,7 @@ class JsonSchema(object):
             JsonBaseValidator(self._schema).validate(data)
         except jsonschema.ValidationError as e:
             if self._message:
-                raise jsonschema.ValidationError(self._message)
+                raise jsonschema.ValidationError(self._message) from e
 
             # Raise custom error messages
             message = None
@@ -151,9 +151,9 @@ class JsonSchema(object):
                     ).format(e.instance)
 
             if message:
-                raise jsonschema.ValidationError(message)
+                raise jsonschema.ValidationError(message) from e
             else:
-                raise jsonschema.ValidationError(e.message)
+                raise jsonschema.ValidationError(e.message) from e
 
 
 class ListDatasetRequest(Validator):
@@ -367,7 +367,12 @@ class AddDefaultDatasetRequest(Validator):
                 },
                 "desc": datasetDesc,
             },
-            "required": [],
+            "required": ["name", "tags", "desc"],
+            "requiredMessages": {
+                "name": "Missing required field: name",
+                "tags": "Missing required field: tags",
+                "desc": "Missing required field: desc",
+            },
         }
     )
 

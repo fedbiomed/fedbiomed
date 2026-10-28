@@ -6,7 +6,6 @@ from flask import request
 from fedbiomed.node.dataset_manager import DatasetManager
 
 from ..config import config
-from ..db import node_database
 from ..schemas import ListDataFolder
 from ..utils import error, file_stats, response, validate_request_data
 from .api import api

@@ -1,6 +1,7 @@
 import os
 
 from flask import g, request
+from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import DatasetTypes
 from fedbiomed.common.dataloadingplan import (
@@ -12,13 +13,13 @@ from fedbiomed.common.dataset_controller import (
     MedicalFolderLoadingBlockTypes,
 )
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager import DatasetManager
 
 from ..config import config
+from ..services import service_proxy
 from ..utils import error, response
 
-dataset_manager = DatasetManager(config["NODE_DB_PATH"])
-DATA_PATH_RW = config["DATA_PATH_RW"]
+dataset_manager = service_proxy("dataset_manager")
+DATA_PATH_RW = LocalProxy(lambda: config["DATA_PATH_RW"])
 
 
 def read_medical_folder_reference():
