@@ -10,7 +10,7 @@ from fedbiomed.common.exceptions import (
     FedbiomedConfigurationError,
 )
 from fedbiomed.common.logger import SYSLOG_FACILITY_MAP
-from fedbiomed.node.config import NodeConfig
+from fedbiomed.node.config import NodeComponent, NodeConfig
 from fedbiomed.researcher.config import ResearcherConfig
 
 # -----------------------------------------------------------------------------
@@ -340,6 +340,37 @@ def test_new_node_has_no_automatically_approved_plan_options(config_env):
     assert not config.getbool("security", "training_plan_approval")
     assert not config._cfg.has_option("security", "hashing_algorithm")
     assert not config._cfg.has_option("security", "allow_default_training_plans")
+
+
+@pytest.mark.parametrize("approval", ["True", "False"])
+def test_node_component_persists_legacy_config_migration(
+    tmp_path, approval, monkeypatch
+):
+    """The normal component entry point must not reread away its migration."""
+    monkeypatch.setattr(Config, "vars", dict(Config.vars))
+    root = tmp_path / "node"
+    original = NodeComponent().initiate(str(root))
+    original.set("default", "version", "2.4.0")
+    original.set("security", "training_plan_approval", approval)
+    original.set("security", "hashing_algorithm", "SHA512")
+    original.set("security", "allow_default_training_plans", "True")
+    original.write()
+
+    for _ in range(2):
+        upgraded = NodeComponent().initiate(str(root))
+        assert upgraded.get("default", "version") == "2.5.0"
+        assert upgraded.getbool("security", "training_plan_approval") == (
+            approval == "True"
+        )
+        persisted = configparser.ConfigParser()
+        persisted.read(upgraded.config_path)
+        assert persisted["default"]["version"] == "2.5.0"
+        assert persisted.getboolean("security", "training_plan_approval") == (
+            approval == "True"
+        )
+        for key in ("hashing_algorithm", "allow_default_training_plans"):
+            assert not upgraded._cfg.has_option("security", key)
+            assert not persisted.has_option("security", key)
 
 
 def test_researcher_config_generate(config_env):

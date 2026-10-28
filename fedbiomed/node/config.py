@@ -194,6 +194,8 @@ class NodeComponent(Component):
             NodeConfig: The configuration object for the Node component.
         """
         config = super().initiate(root=root, alias=alias)
+        # Component.initiate rereads existing files after NodeConfig migrated them.
+        config.migrate()
         config.write()
         node_data_path = os.path.join(config.root, NODE_DATA_FOLDER)
         os.makedirs(node_data_path, exist_ok=True)
