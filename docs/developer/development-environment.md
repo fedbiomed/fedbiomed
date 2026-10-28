@@ -87,7 +87,7 @@ pip install pdm
 The command above will install PDM in the active `conda` environment or in active `pyenv` if it is used for managing Python versions.
 
 
-### NodeJS and yarn
+### NodeJS and Yarn
 
 Node.js and Yarn are required for frontend development and for building the
 GUI distribution from source. The current GUI build hook runs `yarn install` and `yarn build`, including during editable installation unless explicitly skipped using `FBM_SKIP_FRONTEND_BUILD=1`.
@@ -96,7 +96,7 @@ Core and API builds do not require frontend tools. Installing a released GUI whe
 See [Node.js](https://nodejs.org/en/download) and
 [Yarn Classic](https://classic.yarnpkg.com/en/) for installation instructions.
 
-## Using PDM
+## Developer Installation Using PDM
 
 ### Projects, workspace, and dependency groups
 
@@ -257,30 +257,64 @@ Use the focused installation checks in [Verify a fresh installation](#verify-a-f
 
 ## Development/Debugging for GUI
 
-If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
-after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
-easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug`
-flag to the start command.
+Start the GUI and API together using either command:
 
 ```shell
-# data folder defaults to `/path/to/my-node/data`
-fedbiomed node -p /path/to/my-node gui start --debug
-
-# Or use an alternate data path 
-# fedbiomed node -p /path/to/my-node gui start --data-folder /alternate/data-path --debug
+fedbiomed-gui --path /path/to/my-node
+# Equivalent core command:
+fedbiomed node --path /path/to/my-node gui start
 ```
 
-**Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
-``localhost:8484/api`` endpoint in development mode.
+Both serve the built frontend at `http://localhost:8484`. The data folder defaults
+to the `data` directory in the node's root; use `--data-folder /alternate/data-path`
+to select another directory.
 
-The command above will serve the web application and the API services. It means that on the URL `localhost:8484` you will be able to see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``yarn start``.
+If frontend assets are missing or you have changed the frontend sources, add
+`--recreate` to either command:
 
 ```shell
+<<<<<<< HEAD
 # use the Python environment selected above
+=======
+fedbiomed-gui --path /path/to/my-node --recreate
+fedbiomed node --path /path/to/my-node gui start --recreate
+```
+
+This runs `yarn install` and `yarn build` once before serving the generated files.
+It requires frontend sources and Node.js/Yarn. Later source edits require another
+rebuild.
+
+For automatic frontend updates while editing, start the API separately using
+either syntax:
+
+```shell
+fedbiomed-node-api --path /path/to/my-node
+# Equivalent core command:
+fedbiomed node --path /path/to/my-node api start
+
+# Optional alternate data directory:
+fedbiomed-node-api --path /path/to/my-node --data-folder /alternate/data-path
+```
+
+Neither `--development` nor `--debug` is required for this workflow.
+`--development` selects Flask's development server instead of Gunicorn.
+`--debug` enables Flask debug mode and debug-level application logging; combined
+with `--development`, it also enables the debugger and backend code reloader.
+For backend development, for example:
+
+```shell
+fedbiomed-node-api --path /path/to/my-node --development --debug
+```
+
+In another terminal, start React's development server:
+
+```shell
+>>>>>>> c103b77c2 (feat(cli): add standalone API and GUI launchers)
 cd ${FEDBIOMED_DIR}/fedbiomed_gui/ui
 yarn start
 ```
 
+<<<<<<< HEAD
 After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
 in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
@@ -292,6 +326,14 @@ the built UI files. `--recreate` rebuilds it before starting the server:
 ```shell
 fedbiomed node gui start --recreate
 ```
+=======
+Open `http://localhost:3000`. Changes in `fedbiomed_gui/ui/src` appear automatically,
+without `--recreate`. Keep the API on `localhost:8484`, which the frontend uses
+for API requests. Backend sources live in `fedbiomed_node_api`.
+
+Install `fedbiomed[gui]` or `fedbiomed[node-api]` when the corresponding package
+is missing. Until publication, use the local PDM setup below.
+>>>>>>> c103b77c2 (feat(cli): add standalone API and GUI launchers)
 
 ## Building the distributions
 
@@ -349,6 +391,55 @@ You may encounter some common issues during installation or after the installati
 
     More troubleshooting for `pyenv` can be found [here](https://github.com/pyenv/pyenv/wiki#suggested-build-environment).
 
+
+### Building the distributions
+
+Core, Node API, and GUI have separate build configurations. From the repository
+root, build their wheels and source archives with:
+
+```sh
+pdm build
+pdm build -p fedbiomed_node_api
+pdm build -p fedbiomed_gui
+```
+
+Core includes `fedbiomed` and its existing shared resources; the API includes
+`fedbiomed_node_api` and its configuration template; the GUI includes
+`fedbiomed_gui` and compiled frontend assets. Only the GUI build invokes Yarn.
+Its source archive also contains the frontend sources and build hook.
+
+To reuse a prebuilt `fedbiomed_gui/ui/build` directory, run
+`FBM_SKIP_FRONTEND_BUILD=1 pdm build -p fedbiomed_gui`.
+
+The dependency chain is `fedbiomed-gui` → `fedbiomed-node-api` → `fedbiomed`.
+Core's `node-api` and `gui` extras select the corresponding distributions;
+the web dependencies belong to the API. All three versions initially match,
+with exact dependency pins. When updating the version, update core's
+`fedbiomed/__init__.py`, both sibling `pyproject.toml` versions, and the pins
+in all three project files. Packaging tests check their consistency.
+
+Before these distributions are published, PDM resolves the siblings from the
+development-only `local` group as editable packages. From the repository root:
+
+```sh
+pdm lock -G :all --update-reuse
+pdm sync -G gui -G local -G test
+```
+
+The GUI build invokes Yarn during installation. If frontend assets already
+exist, prefix the sync command with `FBM_SKIP_FRONTEND_BUILD=1`. Editable Python
+changes are available immediately; frontend changes still require rebuilding.
+Local paths are confined to development configuration and the lockfile;
+wheel dependency metadata uses regular package names and version constraints.
+
+To check package contents and rebuild wheels from source archives, use an
+environment with `pytest` and `hatchling` installed:
+
+```sh
+python -m pytest --noconftest -c /dev/null tests/test_package_builds.py -q
+```
+
+These packaging checks run without application dependencies or frontend tools.
 
 ### Building Fed-BioMed Takes too Long
 

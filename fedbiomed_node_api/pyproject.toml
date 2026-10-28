@@ -18,6 +18,9 @@ dependencies = [
 Homepage = "https://fedbiomed.org"
 Repository = "https://github.com/fedbiomed/fedbiomed"
 
+[project.scripts]
+fedbiomed-node-api = "fedbiomed_node_api.cli:run"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
