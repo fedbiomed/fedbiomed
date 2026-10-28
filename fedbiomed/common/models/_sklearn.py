@@ -10,8 +10,8 @@ from copy import deepcopy
 from io import StringIO
 from typing import Any, ClassVar, Dict, Iterator, List, Optional, Type, Union
 
-import joblib
 import numpy as np
+import skops.io as sio
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
@@ -432,11 +432,11 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             as part of the federated learning process.
 
         !!! warning "Warning":
-            This method uses `joblib.dump`, which relies on pickle and
-            is therefore hard to trust by third-party loading methods.
+            This method uses Skops. Loading rejects types that Skops does not
+            trust by default. Legacy Joblib files require explicit conversion
+            in a trusted environment; they cannot be imported directly.
         """
-        with open(filename, "wb") as file:
-            joblib.dump(self.model, file)
+        sio.dump(self.model, filename)
 
     def reload(self, filename: str, local_params: Optional[List[str]] = None) -> None:
         """Import and replace the wrapped model from a dump file.
@@ -474,9 +474,7 @@ class BaseSkLearnModel(Model, metaclass=ABCMeta):
             model: reloaded model instance to be wrapped, that will be type-
                 checked as part of the calling `reload` method.
         """
-        with open(filename, "rb") as file:
-            model = joblib.load(file)
-        return model
+        return sio.load(filename)
 
     # ---- abstraction for sklearn models
     @abstractmethod

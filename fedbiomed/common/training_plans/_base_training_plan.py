@@ -873,7 +873,8 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             file for easy reuse by the same user, possibly outside of
             Fed-BioMed. It is not designed to produce trustworthy data
             dumps and is not used to exchange models and their weights
-            as part of the federated learning process.
+            as part of the federated learning process. PyTorch exports a state
+            dictionary; scikit-learn exports the estimator in Skops format.
 
             To save the model parameters for sharing as part of the FL process,
             use the `after_training_params` method (or `get_model_params` one
@@ -901,6 +902,9 @@ class BaseTrainingPlan(metaclass=ABCMeta):
             file, that might not be in a trustworthy format. It should
             therefore only be used to re-load data exported locally and
             not received from someone else, including other FL peers.
+            PyTorch uses restricted weights-only loading. Scikit-learn accepts
+            Skops files with default trusted types only; legacy Joblib files
+            require explicit conversion in a trusted environment.
 
             To load model parameters shared as part of the FL process, use the
             [`Serializer`][fedbiomed.common.serializer.Serializer] to read the

@@ -1,15 +1,21 @@
 import copy
 import logging
+import pickle
+import tempfile
 import unittest
-from unittest.mock import MagicMock, mock_open, patch
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+from zipfile import BadZipFile
 
 import numpy as np
+import skops.io as sio
 import torch
 from declearn.model.sklearn import NumpyVector
 from declearn.model.torch import TorchVector
 from declearn.optimizer import Optimizer
 from sklearn.base import BaseEstimator
 from sklearn.linear_model import SGDClassifier, SGDRegressor
+from skops.io.exceptions import UntrustedTypesFoundException
 
 from fedbiomed.common.exceptions import FedbiomedModelError
 from fedbiomed.common.models import SkLearnModel, TorchModel
@@ -140,7 +146,7 @@ class TestSkLearnModel(unittest.TestCase):
         """Test that 'SklearnModel.export' works - in one specific case."""
         saved_params = []
 
-        def mocked_joblib_dump(obj, *_):
+        def mocked_skops_dump(obj, *_):
             saved_params.append(obj)
 
         coefs = {
@@ -149,8 +155,7 @@ class TestSkLearnModel(unittest.TestCase):
         }
         self.sgdclass_model.set_weights(coefs)
         with (
-            patch("joblib.dump", side_effect=mocked_joblib_dump),
-            patch("builtins.open", mock_open()),
+            patch("skops.io.dump", side_effect=mocked_skops_dump),
         ):
             self.sgdclass_model.export("filename")
             self.assertEqual(saved_params[-1].coef_, coefs["coef_"])
@@ -166,8 +171,7 @@ class TestSkLearnModel(unittest.TestCase):
         self.sgdclass_model.model.coef_ = coefs["coef_"]
         self.sgdclass_model.model.intercept_ = coefs["intercept_"]
         with (
-            patch("joblib.load", return_value=self.sgdclass_model.model),
-            patch("builtins.open", mock_open()),
+            patch("skops.io.load", return_value=self.sgdclass_model.model),
         ):
             self.sgdclass_model.reload("filename")
             self.assertDictEqual(self.sgdclass_model.get_weights(), coefs)
@@ -183,8 +187,7 @@ class TestSkLearnModel(unittest.TestCase):
         self.sgdclass_model.model.coef_ = new_coefs["coef_"]
         self.sgdclass_model.model.intercept_ = new_coefs["intercept_"]
         with (
-            patch("joblib.load", return_value=self.sgdclass_model.model),
-            patch("builtins.open", mock_open()),
+            patch("skops.io.load", return_value=self.sgdclass_model.model),
         ):
             # Reload accepting local_params kwarg without error.
             self.sgdclass_model.reload("filename", local_params=["intercept_"])
@@ -943,7 +946,7 @@ class TestTorchModel(unittest.TestCase):
         d1 = self.model.model.state_dict()
         with patch("torch.load", return_value=d1) as load_patch:
             self.model.reload("filename")
-        load_patch.assert_called_once_with("filename")
+        load_patch.assert_called_once_with("filename", weights_only=True)
         d2 = self.model.model.state_dict()
         self.assertTrue(
             all(
@@ -975,8 +978,81 @@ class TestTorchModel(unittest.TestCase):
         with patch("torch.load", return_value=MagicMock()) as load_patch:
             with self.assertRaises(FedbiomedModelError):
                 self.model.reload("filename")
-        load_patch.assert_called_once_with("filename")
+        load_patch.assert_called_once_with("filename", weights_only=True)
         self.assertIs(self.model.model, self.torch_model)
+
+
+class UntrustedModelAttribute:
+    """A type that must not be accepted by the Skops loader."""
+
+
+class PickleExecutionProbe:
+    def __reduce__(self):
+        return (eval, ("__import__('pathlib').Path('pickle-executed').touch()",))
+
+
+class TestModelPersistence(unittest.TestCase):
+    def test_sklearn_roundtrip(self):
+        data = np.array([[0.0, 1.0], [1.0, 0.0], [2.0, 1.0], [1.0, 2.0]])
+        target = np.array([0, 1, 1, 0])
+        for estimator in (SGDClassifier, SGDRegressor):
+            with (
+                self.subTest(estimator=estimator),
+                tempfile.TemporaryDirectory() as tmp,
+            ):
+                model = SkLearnModel(estimator)
+                model.model.fit(data, target)
+                expected = model.model.predict(data)
+                path = str(Path(tmp) / "model.skops")
+                model.export(path)
+                restored = SkLearnModel(estimator)
+                restored.reload(path)
+                np.testing.assert_allclose(restored.model.predict(data), expected)
+                self.assertEqual(restored.model.get_params(), model.model.get_params())
+
+    def test_sklearn_rejects_unknown_types_and_wrong_estimator(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = SkLearnModel(SGDClassifier)
+            original = model.model
+            path = str(Path(tmp) / "model.skops")
+            estimator = SGDClassifier()
+            estimator.extra = UntrustedModelAttribute()
+            sio.dump(estimator, path)
+            with self.assertRaises(UntrustedTypesFoundException):
+                model.reload(path)
+            self.assertIs(model.model, original)
+            sio.dump(SGDRegressor(), path)
+            with self.assertRaises(FedbiomedModelError):
+                model.reload(path)
+            self.assertIs(model.model, original)
+
+    def test_torch_roundtrip(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = TorchModel(torch.nn.Linear(2, 1))
+            restored = TorchModel(torch.nn.Linear(2, 1))
+            path = str(Path(tmp) / "weights.pt")
+            model.export(path)
+            restored.reload(path)
+            for key, value in model.model.state_dict().items():
+                torch.testing.assert_close(restored.model.state_dict()[key], value)
+                torch.testing.assert_close(restored._reload(path)[key], value)
+
+    def test_loaders_reject_pickle_execution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = str(Path(tmp) / "malicious")
+            with open(path, "wb") as file:
+                pickle.dump(PickleExecutionProbe(), file)
+            with patch("builtins.eval") as execute:
+                with self.assertRaises(BadZipFile):
+                    SkLearnModel(SGDClassifier).reload(path)
+                execute.assert_not_called()
+            torch.save(PickleExecutionProbe(), path)
+            model = TorchModel(torch.nn.Linear(2, 1))
+            for load in (model.reload, model._reload):
+                with patch("builtins.eval") as execute:
+                    with self.assertRaises(pickle.UnpicklingError):
+                        load(path)
+                    execute.assert_not_called()
 
 
 if __name__ == "__main__":  # pragma: no cover
