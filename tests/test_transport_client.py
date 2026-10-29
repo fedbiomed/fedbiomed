@@ -621,9 +621,8 @@ async def test_task_listener_mtls_handshake_error_with_server_down_is_unavailabl
     )
 
     log_warning.assert_not_called()
-    reported = listener_env.channels.report_state.call_args
-    assert reported.args == (ClientStatus.DISCONNECTED,)
-    assert reported.kwargs["operation"] == "researcher_unavailable"
+    listener_env.channels.report_researcher_unavailable.assert_called_once()
+    listener_env.channels.report_state.assert_not_called()
 
 
 @pytest.mark.asyncio
