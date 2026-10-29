@@ -13,7 +13,7 @@ from ..services import service_proxy
 from ..utils import error, response, success, validate_request_data
 from .api import api
 
-TP_SECURITY_MANAGER = service_proxy("training_plan_manager")
+training_plan_manager = service_proxy("training_plan_manager")
 
 
 @api.route("/training-plan/list", methods=["POST"])
@@ -46,7 +46,7 @@ def list_training_plans():
     if select_status is not None:
         select_status = [TrainingPlanApprovalStatus.str2enum(select_status)]
 
-    res = TP_SECURITY_MANAGER.list_training_plans(
+    res = training_plan_manager.list_training_plans(
         sort_by=sort_by, select_status=select_status, verbose=False, search=search
     )
     return response(res), 200
@@ -79,7 +79,7 @@ def approve_training_plan():
     if training_plan_id is None:
         return error("missing training_plan_id"), 400
     try:
-        _ = TP_SECURITY_MANAGER.approve_training_plan(
+        _ = training_plan_manager.approve_training_plan(
             training_plan_id, training_plan_note
         )
     except FedbiomedTrainingPlanSecurityManagerError as fed_err:
@@ -114,7 +114,7 @@ def reject_training_plan():
     if training_plan_id is None:
         return error("missing training_plan_id"), 400
     try:
-        _ = TP_SECURITY_MANAGER.reject_training_plan(
+        _ = training_plan_manager.reject_training_plan(
             training_plan_id, extra_notes=training_plan_note
         )
     except FedbiomedTrainingPlanSecurityManagerError as fed_err:
@@ -146,7 +146,7 @@ def delete_training_plan():
     if training_plan_id is None:
         return error("missing training_plan_id"), 400
     try:
-        _ = TP_SECURITY_MANAGER.delete_training_plan(training_plan_id)
+        _ = training_plan_manager.delete_training_plan(training_plan_id)
     except FedbiomedTrainingPlanSecurityManagerError as fed_err:
         return error(str(fed_err)), 400
     return success(f"training_plan {training_plan_id} has been deleted"), 200
@@ -176,7 +176,7 @@ def preview_training_plan():
     training_plan_id = req.get("training_plan_id")
 
     try:
-        res = TP_SECURITY_MANAGER.get_training_plan_by_id(training_plan_id)
+        res = training_plan_manager.get_training_plan_by_id(training_plan_id)
     except FedbiomedTrainingPlanSecurityManagerError as fed_err:
         return error(f"Bad request. Details: {fed_err}"), 400
     if res is None:
