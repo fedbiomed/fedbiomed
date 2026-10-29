@@ -71,7 +71,7 @@ You can also use default naming convention `.venv` for virtual environment name.
 `conda` can install Python version directly in the environment that is created. The command below will create a virtual environment and install the specified Python version.
 
 ```
-conda create --name fedbiomed-dev python=3.10
+conda create --name fedbiomed-dev python=3.11
 conda activate fedbiomed-dev
 ```
 
@@ -89,48 +89,146 @@ The command above will install PDM in the active `conda` environment or in activ
 
 ### NodeJS and yarn
 
-Fed-BioMed Node GUI uses the ReactJS library for web development. The ReactJS application for the Fed-BioMed Node GUI requires `Node.js` and `Yarn` to be installed, both for development and to enable automatic building during the creation of the Fed-BioMed package.
+Node.js and Yarn are required for frontend development and for building the
+GUI distribution from source. The current GUI build hook runs `yarn install` and `yarn build`, including during editable installation unless explicitly skipped using `FBM_SKIP_FRONTEND_BUILD=1`.
+Core and API builds do not require frontend tools. Installing a released GUI wheel uses its bundled frontend assets and does not require Yarn, unless the user explicitly commands to rebuild the GUI.
 
-Therefore, it is essential to have Node.js and Yarn installed on your system. Please follow the installation instructions for your operating system to install [Node.js](https://nodejs.org/en/download) and [Yarn](https://classic.yarnpkg.com/en/).
+See [Node.js](https://nodejs.org/en/download) and
+[Yarn Classic](https://classic.yarnpkg.com/en/) for installation instructions.
 
 ## Using PDM
 
-PDM is a tool to manage dependencies of a Python project, and build the python package:
+### Projects, workspace, and dependency groups
 
-- from `pyproject.toml` containing package source configuration, that is to say explicit instructions for build settings and dependencies
-- from `pdm.lock` containing package locked cache version, that is to say a precise resolution of the configuration in `pyproject.toml`
-Both are located in the root directory of the project.
+Run installation and locking commands from the repository root. There are three
+package definitions: root `pyproject.toml` for `fedbiomed`,
+`fedbiomed_node_api/pyproject.toml` for the API, and
+`fedbiomed_gui/pyproject.toml` for the GUI. Development uses the root `pdm.lock`
+and one selected environment. The package dependency chain is
+`fedbiomed-gui` → `fedbiomed-node-api` → `fedbiomed`.
 
-Once PDM is installed, dependencies can be installed through the following command. It uses the existing `pdm.lock` to install dependencies for all Fed-BioMed components:
+For developers, if you want to use pdm to manage dependencies, and use the new experimental feature for the workspace configuration across multiple packages while keeping a single lock file, you should ensure that you have the PDM version 2.28 or above. You can check it with
+`pdm --version`; this repository does not currently pin a tested PDM version. If you do not wish to use this experimental feature, with your preferred environment manager, you can just use the 3 separate `pyproject.toml` files to install the dependencies.  
 
+The workspace tells PDM where to find the API and GUI packages in this repository.
+It is defined in the root `pyproject.toml`, with member paths relative to the
+repository root:
+
+```toml
+[tool.pdm.workspace]
+members = ["fedbiomed_node_api", "fedbiomed_gui"]
 ```
-pdm install
+
+The `local` group installs both packages in editable mode, so Python source
+changes are available without reinstalling. For example, `pdm sync -G local`
+installs the GUI even without `-G gui`. Check the groups in `pdm.lock` to see
+which packages each group selects, and use `pdm list` to see what is installed.
+Selecting fewer groups does not automatically remove packages installed earlier.
+See the [PDM workspace documentation](https://pdm-project.org/en/latest/usage/workspace/).
+
+| Group | Kind | Purpose |
+| --- | --- | --- |
+| `node` | Published extra | Compatibility extra; currently empty because core includes the basic node. |
+| `researcher` | Published extra | Researcher tools, including Jupyter, TensorBoard, and matplotlib. |
+| `node-api` | Published extra | Matching `fedbiomed-node-api` distribution and its web dependencies. |
+| `gui` | Published extra | Matching GUI distribution, which depends on the API. |
+| `local` | Development group | Both API and GUI packages installed editable from this checkout. |
+| `test` | Development group | pytest, tox, coverage, and packaging test tools. |
+| `dev` | Development group | Ruff and pre-commit. |
+| `docs` | Development group | MkDocs and documentation plugins. |
+
+Published extras are defined in `[project.optional-dependencies]`; development
+groups are not extras available through `pip install "fedbiomed[...]"`.
+`local` uses `[tool.pdm.dev-dependencies]`; the other development groups use
+`[dependency-groups]`.
+
+### (Optional) Using PDM to manage your virtual Python environment
+
+PDM records its selected interpreter in `.pdm-python`. Activating another shell
+environment does not necessarily replace that selection. Check and switch it
+explicitly:
+
+```sh
+pdm venv list
+pdm info --python
+pdm venv create --name myenv 3.11
+pdm use --venv myenv
+pdm info --python
 ```
 
-This command will automatically detect the environment that used currently and install all dependencies in it. For example, if conda env is activated and there is no `.venv` folder in root directory of the project, all dependencies will  be installed within the `conda` environment. However, if another virtual environment is activated, or if `.venv` folder is existing PDM will install dependencies within that environment.
+The named environment leaves an existing `.venv` intact. To return to that
+project environment, run `pdm use .venv/bin/python`. Without a saved interpreter,
+PDM can discover an existing environment or create `.venv`; do not rely on
+shell activation alone to identify the environment used by PDM.
+See [PDM environment selection](https://pdm-project.org/en/latest/usage/venv/).
 
-If there is no virtual environment activated pdm will create a default virtual environment using python's `virtualenv` in `.venv`
+### Install and select groups
 
-To install dependencies for only some Fed-BioMed component (from `researcher`, `gui`, `node`) use:
+With an existing lockfile, `pdm install` without group-selection options installs
+all groups recorded in that lockfile. This means all components only when their
+groups are locked; it is not an unconditional selection of every optional extra.
+`pdm install` can also create or update the lockfile when needed.
 
+`pdm install -G researcher` selects core and researcher dependencies along with
+the default development-group selection; it does not mean researcher alone.
+`--prod` excludes development groups. Explicitly naming a development group
+selects that group instead of all development groups. Refer to
+[PDM group selection](https://pdm-project.org/en/latest/usage/dependency/#select-a-subset-of-dependency-groups-to-install).
+
+For development of all three packages and their tests, use the checked-in lockfile:
+
+```sh
+pdm lock --check
+pdm sync -G local -G gui -G researcher -G test -G dev
 ```
-pdm install -G researcher
+
+`local` includes both siblings, even when only one is needed for a particular
+change. Published package metadata retains regular versioned requirements;
+local paths are development configuration only. The GUI installation runs its
+frontend build hook. If built assets already exist, prefix `pdm sync` with
+`FBM_SKIP_FRONTEND_BUILD=1`. Python-only tests that supply their own assets may
+also skip that build, but this does not produce a working frontend bundle.
+
+For API-only installation from a lockfile containing the local API package in
+`node-api` and the GUI only in `gui`/`local`, use `pdm sync --prod -G node-api`.
+Check this in a fresh environment: selecting fewer groups does not remove
+packages installed earlier. Workspace changes or regenerating the lockfile can
+change group membership, so inspect the lockfile and installation when validating
+package separation.
+
+### Install, synchronize, and lock
+
+| Command | Effect |
+| --- | --- |
+| `pdm install` | Checks the lockfile, resolves if needed, and installs selected dependencies. |
+| `pdm sync` | Installs selected dependencies from the existing lockfile without regenerating it. |
+| `pdm lock` | Resolves dependencies and updates the lockfile without installing them. |
+
+Do not regenerate the lockfile for every fresh environment. After changing
+package dependencies or versions, run:
+
+```sh
+pdm lock -G :all --update-reuse
+pdm lock --check
+pdm sync -G local -G gui -G researcher -G test -G dev
 ```
 
+Review and commit `pdm.lock` together with the changed package definitions.
+`--update-reuse` attempts to retain existing locked versions. If a selected group
+is missing from lockfile metadata, regenerate the lockfile rather than editing
+its group labels or content hash by hand.
 
-### Re-generate `pdm.lock`
+### Verify a fresh installation
 
-For some reason you may want to remove and re-generate a new `pdm.lock`.
+After creating and selecting a fresh environment and syncing the groups
+above, verify imports and installed distribution versions:
 
-If there is no `pdm.lock` lock file when running `pdm install`, it first resolves all the dependencies defined in `pyproject.toml` and create a `pdm.lock` lock file.
+```sh
+pdm run python -c 'import sys; print(sys.executable)'
+pdm run python -c 'from importlib.metadata import version; print({n: version(n) for n in ("fedbiomed", "fedbiomed-node-api", "fedbiomed-gui")})'
+```
 
-If running `pdm lock` it only generates a new lock file, but does not perform the installation.
-
-!!! warning "Important"
-    By default, the optional packages are not included in generated the `pdm.lock` file. These optional packages contain dependencies specific to each Fed-BioMed component. Use `pdm install -G :all` or `pdm install -G researcher,node,gui` or `pdm lock -G :all` to generate lockfile with dependencies for all components.
-
-There are also other installation options such selection of specific groups or extra dependencies. Please see `pdm install --help` and `pyproject.toml` file for more information.
-
+The python path should point to your newly created environment, and all three versions of the imported packages must match.
 
 ### What about instant changes in source code?
 
@@ -154,7 +252,7 @@ Please visit `pdm` documentation for more information and usage details.
 
 ## Post actions
 
-To verify your installation please run `pytest tests` and `tox -r` to make sure there is no missing module in your environment.
+Use the focused installation checks in [Verify a fresh installation](#verify-a-fresh-installation). Run `pdm run python -m pytest tests` for the wider suite; tox validates separate test environments.
 
 
 ## Development/Debugging for GUI
@@ -178,15 +276,15 @@ fedbiomed node -p /path/to/my-node gui start --debug
 The command above will serve the web application and the API services. It means that on the URL `localhost:8484` you will be able to see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``yarn start``.
 
 ```shell
-# use the python environment for [development](../docs/developer/development-environment.md)
-cd ${FEDBIOMED_DIR}/gui/ui
+# use the Python environment selected above
+cd ${FEDBIOMED_DIR}/fedbiomed_gui/ui
 yarn start
 ```
 
 After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
-in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
+in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
-Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
+Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/fedbiomed_gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
 
 After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves
 the built UI files. `--recreate` rebuilds it before starting the server:
@@ -194,6 +292,41 @@ the built UI files. `--recreate` rebuilds it before starting the server:
 ```shell
 fedbiomed node gui start --recreate
 ```
+
+## Building the distributions
+
+Core, Node API, and GUI have separate build configurations. From the repository
+root, build their wheels and source archives with:
+
+```sh
+pdm build
+pdm build -p fedbiomed_node_api
+pdm build -p fedbiomed_gui
+```
+
+Core includes `fedbiomed` and its existing shared resources; the API includes
+`fedbiomed_node_api` and its configuration template; the GUI includes
+`fedbiomed_gui` and compiled frontend assets. Only the GUI build invokes Yarn.
+Its source archive also contains the frontend sources and build hook.
+
+To reuse a prebuilt `fedbiomed_gui/ui/build` directory, run
+`FBM_SKIP_FRONTEND_BUILD=1 pdm build -p fedbiomed_gui`.
+
+The dependency chain is `fedbiomed-gui` → `fedbiomed-node-api` → `fedbiomed`.
+Core's `node-api` and `gui` extras select the corresponding distributions;
+the web dependencies belong to the API. All three versions initially match,
+with exact dependency pins. When updating the version, update core's
+`fedbiomed/__init__.py`, both sibling `pyproject.toml` versions, and the pins
+in all three project files. Packaging tests check their consistency.
+
+To check package contents and rebuild wheels from source archives, use an
+environment with `pytest` and `hatchling` installed:
+
+```sh
+python -m pytest --noconftest -c /dev/null tests/test_package_builds.py -q
+```
+
+These packaging checks run without application dependencies or frontend tools.
 
 ## Troubleshooting
 
@@ -220,6 +353,3 @@ You may encounter some common issues during installation or after the installati
 ### Building Fed-BioMed Takes too Long
 
 Some static files located in the root Fed-BioMed source directory (e.g., notebooks, tests, etc.) are also included in the final distribution. Therefore, having large data files or artifacts left from operations for testing and development purposes can increase the loading time. Please ensure that such data files are cleared before building the Fed-BioMed package to reduce build time.
-
-
-
