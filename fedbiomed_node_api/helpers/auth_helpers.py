@@ -6,6 +6,7 @@ from flask_jwt_extended import (
     get_jwt,
     verify_jwt_in_request,
 )
+from tinydb import Query
 from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import UserRoleType
@@ -14,7 +15,7 @@ from ..db import user_database
 from ..utils import error
 
 user_table = LocalProxy(lambda: user_database.table("Users"))
-query = LocalProxy(lambda: user_database.query())
+query = Query()
 
 
 def set_password_hash(password: str) -> str:
