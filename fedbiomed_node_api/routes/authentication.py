@@ -9,6 +9,7 @@ from flask_jwt_extended import (
     jwt_required,
     unset_jwt_cookies,
 )
+from tinydb import Query
 from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import UserRequestStatus, UserRoleType
@@ -27,7 +28,7 @@ from .api import api, auth
 
 user_table = LocalProxy(lambda: user_database.table("Users"))
 user_requests_table = LocalProxy(lambda: user_database.table("Requests"))
-query = LocalProxy(lambda: user_database.query())
+query = Query()
 
 
 @api.route("/update-password", methods=["POST"])
