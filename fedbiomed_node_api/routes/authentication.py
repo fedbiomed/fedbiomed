@@ -10,11 +10,10 @@ from flask_jwt_extended import (
     unset_jwt_cookies,
 )
 from tinydb import Query
-from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import UserRequestStatus, UserRoleType
 
-from ..db import user_database
+from ..db import user_requests_table, user_table
 from ..helpers.auth_helpers import (
     check_password_hash,
     get_user_by_email,
@@ -26,8 +25,6 @@ from ..schemas import ValidateLoginRequest, ValidateUserFormRequest
 from ..utils import error, response, validate_request_data
 from .api import api, auth
 
-user_table = LocalProxy(lambda: user_database.table("Users"))
-user_requests_table = LocalProxy(lambda: user_database.table("Requests"))
 query = Query()
 
 

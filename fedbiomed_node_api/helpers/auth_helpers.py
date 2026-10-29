@@ -7,14 +7,12 @@ from flask_jwt_extended import (
     verify_jwt_in_request,
 )
 from tinydb import Query
-from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import UserRoleType
 
-from ..db import user_database
+from ..db import user_table
 from ..utils import error
 
-user_table = LocalProxy(lambda: user_database.table("Users"))
 query = Query()
 
 

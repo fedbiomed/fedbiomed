@@ -9,6 +9,7 @@ from typing import Dict
 
 from tinydb import Query, TinyDB
 from tinydb.table import Table
+from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import UserRoleType
 
@@ -87,3 +88,5 @@ class UserDatabase(BaseDatabase):
 
 
 user_database = service_proxy("user_database")
+user_table = LocalProxy(lambda: user_database.table("Users"))
+user_requests_table = LocalProxy(lambda: user_database.table("Requests"))
