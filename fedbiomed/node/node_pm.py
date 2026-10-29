@@ -138,6 +138,7 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
             "authentication", "mutual_authentication", fallback="False"
         ),
         operation="node_starting",
+        reason="Node starting, connecting to the researcher.",
     )
 
     try:
@@ -724,11 +725,12 @@ class NodeConnectionStateManager:
         operation: Optional[str] = None,
         reason: Optional[str] = None,
         certificate: Optional[Dict[str, str]] = None,
+        refresh_interval: timedelta = timedelta(minutes=5),
     ) -> None:
         """Persist the connection state the node just observed.
 
         A state repeating itself appends no history and refreshes `updated_at` at
-        most every few minutes: an unreachable researcher is retried every couple
+        most every `refresh_interval`: an unreachable researcher is retried every couple
         of seconds, and every write rewrites the whole database file.
 
         Args:
@@ -741,6 +743,8 @@ class NodeConnectionStateManager:
             operation: Name of the underlying event, as recorded in the security audit.
             reason: Readable detail, typically the error message.
             certificate: Audit fields of the peer certificate.
+            refresh_interval: Minimum delay between two refreshes of `updated_at`
+                while the state repeats itself.
         """
         if not self._node_id:
             return
@@ -755,10 +759,11 @@ class NodeConnectionStateManager:
                 and existing.get("reason") == reason
             ):
                 # Same instant format throughout, so the strings compare as the
-                # instants do. Five minutes keeps "last observed" meaningful while
-                # a researcher down for a day costs 12 writes an hour, not 1800.
+                # instants do. A refresh interval keeps "last observed" meaningful
+                # while a researcher down for a day costs a few writes an hour, not
+                # one every retry.
                 stale_before = _utc_isoformat(
-                    datetime.now(timezone.utc) - timedelta(minutes=5)
+                    datetime.now(timezone.utc) - refresh_interval
                 )
                 if existing.get("updated_at", "") < stale_before:
                     self._get_state_table().update_by_id(

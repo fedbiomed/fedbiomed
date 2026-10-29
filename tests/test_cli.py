@@ -1329,10 +1329,35 @@ def test_node_control_status_reports_the_recorded_connection(mocker, capsys):
     control.status(parser.parse_args(["status"]))
 
     out = capsys.readouterr().out
-    assert "Node status: stopped" in out
-    assert "connected to 10.0.0.9:50051 (mutual authentication on)" in out
+    assert "Node process" in out and "stopped" in out
+    assert "10.0.0.9" in out and "50051" in out
+    assert "Mutual authentication (mTLS)" in out and "On" in out
+    assert "Identity verified" in out and "Unknown" in out
+    for field in ("State", "Host", "Port", "Reason", "Connected since", "Last update"):
+        assert field in out
     # Nothing is written while the node is stopped, so say the state is not current.
     assert "not running" in out
+
+
+@pytest.mark.parametrize(
+    "state, code", [(NodeState.RUNNING, "\033[32m"), (NodeState.STOPPED, "\033[31m")]
+)
+def test_node_control_status_colors_the_process_state_on_a_terminal(
+    mocker, capsys, monkeypatch, state, code
+):
+    """Running is green and stopped is red, but only on a terminal."""
+    control, parser = _status_control(mocker, None)
+    fedbiomed_pm = mocker.patch("fedbiomed.node.cli.NodeProcessManager")
+    fedbiomed_pm.return_value.get_status.return_value = state
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+    mocker.patch("fedbiomed.node.cli.sys.stdout.isatty", return_value=True)
+    control.status(parser.parse_args(["status"]))
+    assert f"{code}{state.value}\033[0m" in capsys.readouterr().out
+
+    mocker.patch("fedbiomed.node.cli.sys.stdout.isatty", return_value=False)
+    control.status(parser.parse_args(["status"]))
+    assert "\033[" not in capsys.readouterr().out
 
 
 def test_node_control_status_without_a_recorded_connection(mocker, capsys):

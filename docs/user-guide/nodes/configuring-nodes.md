@@ -76,7 +76,73 @@ To see the node status, run:
 fedbiomed node status
 ```
 
-You can also similarly stop or restart the node as well:
+The command reports whether the node process is running and, as described in the next section, the state of its connection to the researcher.
+
+### Checking the connection to the researcher
+
+`fedbiomed node status` also prints the last connection state the node recorded with the researcher, so you can tell whether a node is actually reachable and connected without searching its logs:
+
+```bash
+fedbiomed node status
+```
+
+```plaintext
+Node process:
+ Field   | Value
+---------+---------
+ State   | running
+
+Connection to researcher:
+ Field                        | Value
+------------------------------+----------------------
+ State                        | connected
+ Host                         | localhost
+ Port                         | 50051
+ Identity verified            | Yes
+ Mutual authentication (mTLS) | Off
+ Reason                       | -
+ Connected since              | 2026-10-28T09:12:41Z
+ Last update                  | 2026-10-28T09:12:41Z
+```
+
+The connection table contains the following fields:
+
+| Field | Description |
+|---|---|
+| State | `connected`, `disconnected` or `failed` (see below). |
+| Host, Port | Researcher address the node connects to (`FBM_RESEARCHER_IP`, `FBM_RESEARCHER_PORT`). |
+| Identity verified | Whether the node verified the researcher identity: `Yes`, `No`, or `Unknown` when it was not recorded. |
+| Mutual authentication (mTLS) | Whether the node authenticates itself to the researcher with its certificate: `On`, `Off` or `Unknown`. See [mutual authentication](../deployment/mutual-tls.md). |
+| Reason | Readable detail of the current state, typically the error message. |
+| Connected since | When the node entered the current state. |
+| Last update | When the node last observed this state. |
+
+The connection states are:
+
+- **`connected`**: the channel to the researcher is established.
+- **`disconnected`**: the node is not connected. This is the state recorded while the node starts (*Node starting, connecting to the researcher.*), while the researcher does not answer and the node keeps retrying (*Researcher server at ... is not available; retrying.*), and when the node is stopped.
+- **`failed`**: the connection was refused, for example because the researcher certificate does not match the researcher name, the researcher requires mutual authentication, or gRPC returned an error. The `Reason` field gives the cause; see [verifying and troubleshooting](../deployment/mutual-tls.md#verifying-and-troubleshooting) to diagnose it.
+
+To also list the recent changes of the connection state, newest first, use the `--history` option. Each line gives the time, the state, the name of the event (the same as in the security audit) and the reason:
+
+```bash
+fedbiomed node status --history
+```
+
+To check a node that does not use the default component directory, pass its path as for any other node command:
+
+```bash
+fedbiomed node -p <path-to-node-dir> status --history
+```
+
+!!! note "Reading the connection state"
+    - The state is written by the running node, so it is only current while the node runs. When the node is stopped, the command reports the state the node was in when it stopped.
+    - `Connection to researcher: none recorded yet` means the node has not been started yet.
+    - While the researcher is unreachable, the node retries every couple of seconds but refreshes `Last update` only every 30 minutes, and logs that the researcher is unavailable only every 5 minutes. An old `Last update` with a `disconnected` state therefore does not mean the node is stuck.
+
+### Stopping and restarting the node
+
+You can stop or restart the node from another terminal as well:
 
 ```bash
 fedbiomed node stop

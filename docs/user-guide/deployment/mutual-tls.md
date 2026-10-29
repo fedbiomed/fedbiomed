@@ -416,15 +416,16 @@ one of them would stop the node, so it also serves as a deployment check:
 fedbiomed node certificate check
 ```
 
-The node's last connection state is read back without searching the logs, and
-`--history` adds the changes it recorded recently:
+`fedbiomed node status` reads the node's last connection state back as a table, without
+searching the logs, and `--history` adds the changes it recorded recently:
 
 ```shell
 fedbiomed node status --history
 ```
 
 A state recorded while the node was running is reported as it was when the node
-stopped, since a stopped node records nothing.
+stopped, since a stopped node records nothing. The fields and states of the table are
+described in [Checking the connection to the researcher](../nodes/configuring-nodes.md#checking-the-connection-to-the-researcher).
 
 !!! tip "Seeing failed handshakes as gRPC reports them"
     Each end reports its own side of a failed handshake through gRPC itself, at INFO,

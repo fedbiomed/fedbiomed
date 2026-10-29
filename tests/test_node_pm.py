@@ -859,6 +859,39 @@ def test_node_connection_set_state_refreshes_stale_repeated_state(
     assert list(update) == ["updated_at"]
 
 
+def test_node_connection_set_state_honours_the_refresh_interval(
+    mocker, _connection_manager
+):
+    """An unreachable researcher asks for a rarer refresh than the default."""
+    manager = _connection_manager
+    manager._state_table.get_by_id.return_value = _repeated_state(
+        _iso(datetime.now(timezone.utc) - timedelta(minutes=10))
+    )
+
+    manager.set_state(
+        **_connection_state(
+            state=ClientStatus.DISCONNECTED,
+            operation="researcher_unavailable",
+            reason="not available",
+        ),
+        refresh_interval=timedelta(minutes=30),
+    )
+    manager._state_table.update_by_id.assert_not_called()
+
+    manager._state_table.get_by_id.return_value = _repeated_state(
+        _iso(datetime.now(timezone.utc) - timedelta(minutes=31))
+    )
+    manager.set_state(
+        **_connection_state(
+            state=ClientStatus.DISCONNECTED,
+            operation="researcher_unavailable",
+            reason="not available",
+        ),
+        refresh_interval=timedelta(minutes=30),
+    )
+    manager._state_table.update_by_id.assert_called_once()
+
+
 def test_node_connection_set_state_leaves_recent_repeated_state_alone(
     mocker, _connection_manager
 ):

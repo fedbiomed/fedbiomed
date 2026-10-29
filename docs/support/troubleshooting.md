@@ -61,6 +61,29 @@ Some Fed-BioMed secure aggregation modules uses `gmpy2` for big integer operatio
 
 On macOS please install: `brew link gmp mpfr mpc`.
 
+## Node Does Not Connect to the Researcher
+
+To check whether a node is connected to the researcher, and why not, ask the node for the last connection state it recorded:
+
+```bash
+$ fedbiomed node status --history
+```
+
+For a node running in a Docker container, run the same command in the container:
+
+```bash
+$ docker exec -u fedbiomed <my-node-name> fedbiomed node -p /fbm-node status --history
+```
+
+Then read the `State` and `Reason` fields of the `Connection to researcher` table:
+
+- `connected`: the node is connected; if experiments still do not reach it, check that the node shares a dataset with the tags the experiment requests.
+- `disconnected` with *Researcher server at ... is not available; retrying.*: the node cannot reach the researcher. Check that the researcher is started, and that `Host` and `Port` match its address (`FBM_RESEARCHER_IP`, `FBM_RESEARCHER_PORT`, or the `[researcher]` section of `config.ini`) and are reachable from the node (firewall, Docker network).
+- `failed`: the researcher refused the connection or the node refused the researcher, typically for a certificate or mutual authentication problem. Match the `Reason` with the symptoms listed in [mutual authentication](../user-guide/deployment/mutual-tls.md#verifying-and-troubleshooting).
+- `Connection to researcher: none recorded yet`: the node has never been started.
+
+If the node process is not running, the table shows the state the node was in when it stopped. See [Checking the connection to the researcher](../user-guide/nodes/configuring-nodes.md#checking-the-connection-to-the-researcher) for the description of every field.
+
 ## Debug Mode
 
 Fedbiomed includes a debug mode, which when enabled prints more verbose outputs, including the caller function and line number in the output. The debug mode can be enabled separately on Node or Researcher, for component specific outputs, or can be enabled for both.
