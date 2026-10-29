@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from flask import request
 
 from fedbiomed.common.constants import TrainingPlanApprovalStatus
@@ -16,8 +14,6 @@ from ..utils import error, response, success, validate_request_data
 from .api import api
 
 TP_SECURITY_MANAGER = service_proxy("training_plan_manager")
-
-TIME_OF_LAST_CALL = datetime.now()
 
 
 @api.route("/training-plan/list", methods=["POST"])
