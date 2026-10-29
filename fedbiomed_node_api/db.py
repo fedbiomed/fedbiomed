@@ -7,13 +7,12 @@ import uuid
 from datetime import datetime
 from typing import Dict
 
-from flask import current_app
 from tinydb import Query, TinyDB
 from tinydb.table import Table
-from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import UserRoleType
 
+from .services import service_proxy
 from .utils import set_password_hash
 
 
@@ -87,6 +86,4 @@ class UserDatabase(BaseDatabase):
             )
 
 
-user_database = LocalProxy(
-    lambda: current_app.extensions["node_api_services"]["user_database"]
-)
+user_database = service_proxy("user_database")
