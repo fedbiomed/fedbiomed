@@ -2,7 +2,6 @@ import os
 import re
 
 from flask import g, request
-from werkzeug.local import LocalProxy
 
 from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
@@ -24,9 +23,6 @@ from ..utils import error, response, validate_request_data
 from .api import api
 
 dataset_manager = service_proxy("dataset_manager")
-
-# Path to write and read the datafiles
-DATA_PATH_RW = LocalProxy(lambda: config["DATA_PATH_RW"])
 
 
 @api.route(

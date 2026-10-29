@@ -2,7 +2,6 @@ import os
 import re
 
 from flask import request
-from werkzeug.local import LocalProxy
 
 from fedbiomed.common.dataset_controller import MedicalFolderLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedError
@@ -25,8 +24,6 @@ from .api import api
 
 # Initialize Fed-BioMed DatasetManager
 dataset_manager = service_proxy("dataset_manager")
-
-DATA_PATH_RW = LocalProxy(lambda: config["DATA_PATH_RW"])
 
 
 @api.route("/datasets/list", methods=["POST"])
@@ -322,7 +319,7 @@ def get_csv_data():
     req = request.json
 
     # Data path that the files will be read
-    data_path = os.path.join(DATA_PATH_RW, *req["path"])
+    data_path = os.path.join(config["DATA_PATH_RW"], *req["path"])
 
     if not os.path.isfile(data_path):
         return error(
