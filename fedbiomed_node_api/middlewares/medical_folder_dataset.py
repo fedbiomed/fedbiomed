@@ -1,7 +1,6 @@
 import os
 
 from flask import g, request
-from werkzeug.local import LocalProxy
 
 from fedbiomed.common.constants import DatasetTypes
 from fedbiomed.common.dataloadingplan import (
@@ -19,7 +18,6 @@ from ..services import service_proxy
 from ..utils import error, response
 
 dataset_manager = service_proxy("dataset_manager")
-DATA_PATH_RW = LocalProxy(lambda: config["DATA_PATH_RW"])
 
 
 def read_medical_folder_reference():
@@ -29,7 +27,7 @@ def read_medical_folder_reference():
         g.reference = None
         return None
 
-    reference_path = os.path.join(DATA_PATH_RW, *req["reference_csv_path"])
+    reference_path = os.path.join(config["DATA_PATH_RW"], *req["reference_csv_path"])
     index_col = req["index_col"]
 
     try:
@@ -52,7 +50,7 @@ def read_medical_folder_reference():
 def validate_medical_folder_root():
     """Validates MedicalFolderDataset root folder"""
     req = request.json
-    root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
+    root = os.path.join(config["DATA_PATH_RW"], *req["medical_folder_root"])
 
     try:
         mf_controller = MedicalFolderController(root=root)
@@ -68,9 +66,11 @@ def validate_medical_folder_root():
 def validate_all_modalities():
     """Validates MedicalFolderDataset has subjects with all modalities"""
     req = request.json
-    root = os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
+    root = os.path.join(config["DATA_PATH_RW"], *req["medical_folder_root"])
     if "reference_csv_path" in req and req["reference_csv_path"]:
-        reference_path = os.path.join(DATA_PATH_RW, *req["reference_csv_path"])
+        reference_path = os.path.join(
+            config["DATA_PATH_RW"], *req["reference_csv_path"]
+        )
     else:
         reference_path = None
     index_col = req["index_col"]
@@ -151,7 +151,7 @@ def validate_available_subjects():
     req = request.json
     reference = g.reference
     mf_controller = MedicalFolderController(
-        root=os.path.join(DATA_PATH_RW, *req["medical_folder_root"])
+        root=os.path.join(config["DATA_PATH_RW"], *req["medical_folder_root"])
     )
     try:
         mf_subjects = mf_controller.available_subjects(
