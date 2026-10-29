@@ -3,12 +3,13 @@ import re
 
 from flask import request
 
-from fedbiomed.node.dataset_manager import DatasetManager
-
 from ..config import config
 from ..schemas import ListDataFolder
+from ..services import service_proxy
 from ..utils import error, file_stats, response, validate_request_data
 from .api import api
+
+dataset_manager = service_proxy("dataset_manager")
 
 
 @api.route("/repository/list", methods=["POST"])
@@ -58,7 +59,6 @@ def list_data_path():
 
         files = files if len(files) <= 1000 else files[0:1000]
 
-        dataset_manager = DatasetManager(config["NODE_DB_PATH"])
         all_datasets = dataset_manager.list_my_datasets()
 
         for file in files:
