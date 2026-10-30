@@ -253,8 +253,14 @@ class FAJob(_BaseJob):
 
         try:
             dataset = self._build_dataset(DataReturnFormat.SKLEARN)
-        except _InternalJobError as e:
-            return self._build_error_msg(msg=repr(e), errnum=ErrorNumbers.FB325.value)
+        except _InternalJobError:
+            logger.error(
+                "Cannot initialize dataset for analytics on node", exc_info=True
+            )
+            return self._build_error_msg(
+                msg="Cannot initialize dataset for analytics on node.",
+                errnum=ErrorNumbers.FB325.value,
+            )
 
         # Use compute_stats to handle all statistics
         if not hasattr(dataset, "compute_stats"):
@@ -277,12 +283,10 @@ class FAJob(_BaseJob):
         try:
             output: Dict = dataset.compute_stats(**kwargs)
             logger.debug(f"Analytics executed, output: {output}")
-        except Exception as e:
+        except Exception:
+            logger.error("Cannot execute federated analytics on node", exc_info=True)
             return self._build_error_msg(
-                msg=(
-                    f"Error during execution of analytics '{self._stats}' "
-                    f"on node='{self._node_id}': {repr(e)}"
-                ),
+                msg="Cannot execute federated analytics on node.",
                 errnum=ErrorNumbers.FB325.value,
             )
 
@@ -295,8 +299,12 @@ class FAJob(_BaseJob):
                 force_secagg=self._force_secagg,
                 experiment_id=self._experiment_id,
             )
-        except FedbiomedSecureAggregationError as e:
-            return self._build_error_msg(msg=repr(e), errnum=ErrorNumbers.FB325.value)
+        except FedbiomedSecureAggregationError:
+            logger.error("Cannot configure secure aggregation on node", exc_info=True)
+            return self._build_error_msg(
+                msg="Cannot configure secure aggregation on node.",
+                errnum=ErrorNumbers.FB325.value,
+            )
 
         if secagg_round.use_secagg:
             # FA uses fixed ranges, never recovered from the request.

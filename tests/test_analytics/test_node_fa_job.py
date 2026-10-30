@@ -425,7 +425,7 @@ def test_run_build_dataset_fails(fa_job):
     ):
         reply = fa_job.run()
     assert isinstance(reply, ErrorMessage)
-    assert "Dataset error" in reply.extra_msg
+    assert "Cannot initialize dataset for analytics" in reply.extra_msg
 
 
 def test_run_missing_compute_stats(fa_job):
@@ -442,7 +442,7 @@ def test_run_compute_stats_raises(fa_job):
     with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
         reply = fa_job.run()
     assert isinstance(reply, ErrorMessage)
-    assert "Computation failed" in reply.extra_msg
+    assert "Cannot execute federated analytics" in reply.extra_msg
 
 
 def test_run_passes_correct_kwargs_to_compute_stats(fa_job):
@@ -707,7 +707,7 @@ def test_run_secagg_round_error_returns_error_message(
 
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
-    assert "context missing" in reply.extra_msg
+    assert "Cannot configure secure aggregation" in reply.extra_msg
 
 
 # ----------------------------- _check_clipping_overflow -------------
@@ -761,3 +761,37 @@ def test_check_clipping_overflow_multiple_offenders_named_and_unnamed(fa_job):
     assert "3 computed analytics value(s)" in err.extra_msg
     assert "a.sum" in err.extra_msg and "c" in err.extra_msg
     assert "b" not in err.extra_msg.split("Offending statistic(s):")[1]
+
+
+@pytest.mark.parametrize("stage", ["dataset", "analytics", "secagg"])
+def test_run_internal_error_keeps_node_details_out_of_reply(fa_job, stage):
+    """Researcher replies must not expose exception data from node internals."""
+    marker = "/srv/hospital/private/patient-9387.csv"
+    mock_dataset = MagicMock()
+    mock_dataset.compute_stats.return_value = {"col1": 1.0}
+    error = {
+        "dataset": _InternalJobError(marker),
+        "analytics": ValueError(marker),
+        "secagg": FedbiomedSecureAggregationError(marker),
+    }[stage]
+
+    with (
+        patch.object(FAJob, "_build_dataset", return_value=mock_dataset) as build,
+        patch("fedbiomed.node.jobs._fa_job.SecaggRound") as secagg,
+        patch("fedbiomed.node.jobs._fa_job.logger") as mock_logger,
+    ):
+        if stage == "dataset":
+            build.side_effect = error
+        elif stage == "analytics":
+            mock_dataset.compute_stats.side_effect = error
+        else:
+            secagg.side_effect = error
+        reply = fa_job.run()
+
+    assert isinstance(reply, ErrorMessage)
+    assert reply.errnum == ErrorNumbers.FB325.value
+    assert marker not in str(reply.to_dict())
+    mock_logger.error.assert_called_once()
+    assert mock_logger.error.call_args.kwargs["exc_info"] is True
+    assert mock_logger.error.call_args.kwargs.get("researcher_id") is None
+    assert not mock_logger.error.call_args.kwargs.get("broadcast", False)
