@@ -137,6 +137,25 @@ def test_api_lists_datasets_registered_by_core(tmp_path, monkeypatch):
     ]
 
 
+def test_add_dataset_returns_saved_dataset(tmp_path, monkeypatch):
+    app = make_app(tmp_path / "node", monkeypatch)
+    (tmp_path / "node" / "data" / "sample.csv").write_text("id,age\na,1\nb,2\n")
+    response = app.test_client().post(
+        "/api/datasets/add",
+        json={
+            "name": "sample",
+            "type": "csv",
+            "tags": ["sample"],
+            "desc": "API integration test",
+            "path": ["sample.csv"],
+        },
+        headers=token(app),
+    )
+    assert response.status_code == 200
+    assert response.json["result"]["name"] == "sample"
+    assert response.json["result"]["tags"] == ["sample"]
+
+
 @pytest.mark.parametrize("missing", [None, "name", "tags", "desc"])
 def test_default_dataset_missing_fields_return_json(tmp_path, monkeypatch, missing):
     app = make_app(tmp_path / "node", monkeypatch)
@@ -158,3 +177,26 @@ def test_default_dataset_missing_fields_return_json(tmp_path, monkeypatch, missi
         "message": f"Missing required field: {missing or 'name'}",
     }
     assert not manager.mock_calls
+
+
+def test_csv_data_is_read_from_data_path(tmp_path, monkeypatch):
+    app = make_app(tmp_path / "node", monkeypatch)
+    (tmp_path / "node" / "data" / "reference.csv").write_text("id,age\na,1\nb,2\n")
+    response = app.test_client().post(
+        "/api/datasets/get-csv-data",
+        json={"path": ["reference.csv"]},
+        headers=token(app),
+    )
+    assert response.status_code == 200
+    assert response.json["result"]["data"] == [["a", "1"], ["b", "2"]]
+
+
+def test_medical_folder_root_is_resolved_in_data_path(tmp_path, monkeypatch):
+    app = make_app(tmp_path / "node", monkeypatch)
+    response = app.test_client().post(
+        "/api/datasets/medical-folder-dataset/validate-root",
+        json={"medical_folder_root": ["missing"]},
+        headers=token(app),
+    )
+    assert response.status_code == 400
+    assert response.json["message"].startswith("MedicalFolder root folder is not valid")
