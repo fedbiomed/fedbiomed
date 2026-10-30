@@ -133,7 +133,7 @@ def add_dataset():
     data_path_save = os.path.join(config["DATA_PATH_SAVE"], *req["path"])
 
     try:
-        res = dataset_manager.add_database(
+        dataset_id = dataset_manager.add_database(
             name=req["name"],
             data_type=req["type"],
             tags=req["tags"],
@@ -142,6 +142,9 @@ def add_dataset():
         )
     except Exception as e:
         return error(str(e)), 400
+
+    # Get saved dataset document
+    res = dataset_manager.dataset_table.get_by_id(dataset_id)
 
     return response(res), 200
 
