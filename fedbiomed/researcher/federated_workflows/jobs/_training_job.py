@@ -33,7 +33,7 @@ class TrainingJob(Job):
         data: FederatedDataset,
         nodes_state_ids: Dict[str, str],
         aggregator_args: Dict[str, Dict[str, Any]],
-        keep_files_dir: str,
+        keep_files_dir: Optional[str],
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, AuxVar]] = None,
@@ -52,7 +52,7 @@ class TrainingJob(Job):
             nodes_state_ids: unique IDs of the node states saved remotely
             aggregator_args: aggregator arguments required for remote execution
             keep_files_dir: Directory for storing files created by the job that we want to keep beyond the execution
-                of the job.
+                of the job. If None, node parameters are kept in memory only.
             secagg_arguments: Secure aggregation arguments, some depending on scheme used
             do_training: if False, skip training in this round (do only validation). Defaults to True.
             optim_aux_var: Auxiliary variables of the researcher-side Optimizer, if any.
@@ -100,7 +100,7 @@ class TrainingJob(Job):
                 self._nodes.remove(
                     reply.node_id
                 )  # remove the faulty node from the list
-            else:
+            elif self._keep_files_dir is not None:
                 params_path = os.path.join(
                     self._keep_files_dir,
                     f"params_{str(node_id)[0:11]}_{uuid.uuid4()}.mpk",
