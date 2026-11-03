@@ -11,7 +11,11 @@ from testsupport.fake_nipoppy_reader import DERIVATIVE, DERIVATIVE_COLUMN
 # `dataset_parameters` stored in the node database at registration
 STORED_PARAMETERS = {
     "available_phenotypes": ["age", "sex", "diagnosis"],
-    "installed_pipelines": [["freesurfer", "7.3.2"], ["fs_stats", "0.2.1"]],
+    "installed_pipelines": {
+        "bidsification": {},
+        "processing": {"freesurfer": ["7.3.2"]},
+        "extraction": {"fs_stats": ["0.2.1"]},
+    },
 }
 
 
@@ -196,8 +200,8 @@ def test_get_metadata_none_when_not_passed(tmp_path, fake_nipoppy_reader):
 
 def _pick_freesurfer(dataset):
     pipelines = dataset.get_metadata()["installed_pipelines"]
-    name, version = next(p for p in pipelines if p[0] == "freesurfer")
-    dataset.derivatives = [(name, version, DERIVATIVE[2])]
+    version = pipelines["processing"]["freesurfer"][0]
+    dataset.derivatives = [("freesurfer", version, DERIVATIVE[2])]
 
 
 @pytest.mark.parametrize("via_constructor", [True, False])

@@ -39,7 +39,12 @@ def make_nipoppy_phenotypes() -> pd.DataFrame:
 class FakeNipoppyReader:
     """Stand-in for `NipoppyReader`, backed by an in-memory dataframe."""
 
-    installed_pipelines = [["freesurfer", "7.3.2"], ["fs_stats", "0.2.1"]]
+    # Same structure as `nipoppy.study.Study.get_installed_pipelines`
+    installed_pipelines = {
+        "bidsification": {},
+        "processing": {"freesurfer": ["7.3.2"]},
+        "extraction": {"fs_stats": ["0.2.1"]},
+    }
 
     def __init__(self, path):
         self.path = path
@@ -63,5 +68,5 @@ class FakeNipoppyReader:
         return self.installed_pipelines
 
     def __len__(self):
-        # number of participants
-        return self.phenotypes.index.get_level_values(PARTICIPANT).nunique()
+        # number of participant-session rows, as `nipoppy.study.Study.__len__`
+        return len(self.phenotypes)

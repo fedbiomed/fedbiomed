@@ -14,6 +14,7 @@ from fedbiomed.common.exceptions import FedbiomedError
 
 SessionFilters = Union[str, List[str], List[Tuple[str, str]]]
 Derivatives = List[Tuple[str, str, str]]
+InstalledPipelines = Dict[str, Dict[str, List[str]]]  # {type: {name: [versions]}}
 
 
 class NipoppyController(Controller):
@@ -52,7 +53,7 @@ class NipoppyController(Controller):
         drop_na_kwargs: Optional[Dict[str, Any]] = None,
         whole_df_transform: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
         available_phenotypes: Optional[List[str]] = None,
-        installed_pipelines: Optional[List[Any]] = None,
+        installed_pipelines: Optional[InstalledPipelines] = None,
         dlp: Optional[DataLoadingPlan] = None,
     ) -> None:
         """Constructor of the class
@@ -212,7 +213,8 @@ class NipoppyController(Controller):
 
         If `select` was called, returns the shape of the selected data.
         Otherwise (e.g. at dataset registration) the shape is estimated:
-        - with no filters, `dropna` or transform: number of participants in the study;
+        - with no filters, `dropna` or transform: number of participant-session
+          rows in the study;
         - otherwise: all phenotypes are read and filters/transforms are applied.
           This may differ from the shape after `select`, since derivatives and
           the column subset affect `dropna`.
