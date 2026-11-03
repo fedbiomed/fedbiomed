@@ -8,10 +8,10 @@ This page gives an overview of Fed-BioMed security model. A more complete and fo
     In a Fed-BioMed instance, nodes have control. There is no notion of trusted party that has full control or full access to the other parties. The researcher can only train a model authorized by the node, on data explicitly shared by the node.
 
 !!! info "Fed-BioMed minimizes firewall filters"
-    Fed-BioMed nodes and researcher only need one outbound VPN port to one server for running
+    Only the researcher needs one inbound port for running; nodes only open outbound connections to it
 
 !!! info "Fed-BioMed offers high protection against outsiders"
-    Fed-BioMed offers high protection against attacks coming from outside of the Fed-BioMed instance by isolating all communications between the components inside a VPN.
+    Fed-BioMed offers high protection against attacks coming from outside of the Fed-BioMed instance by encrypting and authenticating all communications between the components with [mutual authentication (mTLS)](./mutual-tls.md), mandatory for a deployment.
 
 !!! info "Fed-BioMed protects from major attacks by insiders"
     Fed-BioMed also identifies possible attacks coming from one of the Fed-BioMed instance components and already offers protection against major attack scenarios.
@@ -40,7 +40,7 @@ Fed-BioMed main identified vulnerabilities are:
 Fed-BioMed other vulnerabilities include:
 
 * `5.` federated learning: advanced attacks such as model poisoning, free-riding attacks, etc.
-* `6.` infrastructure: outsider may attempt penetration attacks on a VPN endpoint
+* `6.` infrastructure: outsider may attempt penetration attacks on the researcher gRPC endpoint
 * `7.` infrastructure: insider may attempt penetration attacks on another component of the Fed-BioMed instance
 * `8.` federated learning: honest but curious nodes can attempt inference or reconstruction attacks on global model parameters sent by the researcher and try to gain some knowledge about the other nodes' data
 * `9.` inference and reconstruction attacks on the final trained model: a malicious outsider that duly receives a copy of the final trained model for using it may try attacks from `1.`. This case is considered out of scope of this analysis, as it occurs outside of Fed-BioMed. Same precautions should be taken as for any machine learning model.
@@ -52,11 +52,10 @@ Fed-BioMed addresses the above vulnerabilities in the following way:
 
 * **secure aggregation** and **differential privacy** offer options to remove or reduce the risk coming from `1.`
 * **gRPC encryption** addresses 2. by encrypting all message and data exchanges between each node and the researcher. 
-* exploiting `4.` would enable a node component to execute same commands (training) or retrieve same information (local training updates from node) as the researcher, but no more. Moreover, inside the VPN the Fed-BioMed instance is star-shaped, which requires active (malicious node) attack. Mutual verification of other party identity during gRPC encryption setup is provided by [mutual authentication (mTLS)](./mutual-tls.md), which is off by default and mandatory for a deployment.
+* exploiting `4.` would enable a node component to execute same commands (training) or retrieve same information (local training updates from node) as the researcher, but no more. Moreover, the Fed-BioMed instance is star-shaped, which requires active (malicious node) attack. Mutual verification of other party identity during gRPC encryption setup is provided by [mutual authentication (mTLS)](./mutual-tls.md), which is off by default and mandatory for a deployment.
 * **node-to-node overlay encryption** prevents a passive researcher from reading LOM key exchanges and Joye-Libert shares after channel setup. Each node generates a distinct P-256 key pair for each peer; no shared default private key is distributed. The setup public keys are sent in plaintext, then later payloads are signed and encrypted using ECDH-derived keys. This protects against passive observation but does not address the active key-substitution attack in `10.`.
-* exploiting `4.` would enable a node component to execute same commands (training) or retrieve same information (local training updates from node) as the researcher, but no more. Moreover, inside the VPN the Fed-BioMed instance is star-shaped, which requires active (malicious node) attack. This is why mutual verification of other party identity during gRPC encryption setup (inside the VPN) was not prioritized by Fed-BioMed. Nevertheless, it is in the midterm roadmap.
 * **model approval functionality** addresses `3.` by enabling each node site to review and authorize a training plan before it can train on the node.
 * advanced federated learning attacks from `5.` will be further addressed in future releases with innovative functions. Stay tuned.
-* Fed-BioMed seeks to offer minimal attack surface to penetration attacks from `6.`: the only network communication between the components is through the **WireGuard VPN**. Moreover, node sites that hold the data only have outbound connections to further reduce the attack surface on nodes.
-* Fed-BioMed seeks to reduce the attack surface to penetration attacks from `7.` by design: nodes only have outbound communications to the gRPC server on the researcher. Researchers only accept inbound communications to the gRPC server. Also, the node only accepts a limited set of commands from a legitimate researcher. There is no notion of trusted party that have full control over the nodes or the node data in a Fed-BioMed instance. Finally, our future implementation of secure communication inside the VPN will further reduce this risk.
+* Fed-BioMed seeks to offer minimal attack surface to penetration attacks from `6.`: the only network communication between the components is the **gRPC connection** from each node to the researcher, and mutual authentication rejects unregistered parties during the TLS handshake. Moreover, node sites that hold the data only have outbound connections to further reduce the attack surface on nodes.
+* Fed-BioMed seeks to reduce the attack surface to penetration attacks from `7.` by design: nodes only have outbound communications to the gRPC server on the researcher. Researchers only accept inbound communications to the gRPC server. Also, the node only accepts a limited set of commands from a legitimate researcher. There is no notion of trusted party that have full control over the nodes or the node data in a Fed-BioMed instance. Finally, mutual authentication binds each channel to a registered party, which further reduces this risk.
 * attacks on global updates from `8.` are considered more complicated than attacks on local updates. Currently, implemented Local and Central Differential Privacy are valid mechanisms to protect against these attacks, and other specific defense strategies will be further addressed in future releases. 

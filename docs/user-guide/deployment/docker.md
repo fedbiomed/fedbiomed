@@ -562,10 +562,10 @@ It is up to the user to configure Docker networking according to their deploymen
 
 The setups above assume all components run on the same host or within the same Docker network. When nodes and the researcher are on **different physical machines or separate networks**, additional networking configuration is required.
 
-!!! warning "Use VPN for Sensitive Data and Production Deployments"
-    The instructions below expose the researcher's gRPC port directly over the public internet **without transport-level encryption or authentication**. Any host that can reach the port can attempt to connect. This is acceptable for experimentation or development but **is not recommended for deployments involving real patient data or sensitive datasets**.
+!!! warning "Enable Mutual Authentication for Sensitive Data and Production Deployments"
+    The instructions below expose the researcher's gRPC port directly over the public internet. Traffic is encrypted with TLS, but without mutual authentication any host that can reach the port can connect as a node. This is acceptable for experimentation or development but **is not recommended for deployments involving real patient data or sensitive datasets**.
 
-    For secure, production-grade deployments, use the **VPN-based approach** provided by Fed-BioMed. The VPN setup establishes an encrypted private network between all participants before any Fed-BioMed traffic is exchanged, and is the recommended solution whenever data privacy and regulatory compliance matter.
+    For production-grade deployments, enable [mutual authentication (mTLS)](./mutual-tls.md) on the researcher and on every node, so that only registered parties can connect.
 
 #### Public IP Setup (Researcher as the Public Endpoint)
 

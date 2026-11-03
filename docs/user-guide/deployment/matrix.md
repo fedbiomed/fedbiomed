@@ -6,8 +6,6 @@ This page describes the network communications:
 - for user access to the Fed-BioMed components GUI
 - for Fed-BioMed software installation and docker image build
 
-Communications between the components depend on the [deployment scenario](./deployment.md): with or without VPN/containers.
-
 Network communications for the setup of host machines and the installation of [software requirements](../../getting-started/installation.md) are out of the scope of this document. Network communications necessary for the host machines to run (access to DNS, LDAP, etc.) regardless of Fed-BioMed are also out of the scope of this document. They are specific to system configuration and installation processes.
 
 
@@ -43,17 +41,15 @@ They cover all [deployment scenarios](./deployment.md). If multiple machines are
 For destination machine, it is simpler to authorize outbound communications to all Internet addresses for the required ports during installation. Indeed, several packaging systems are used for installation, with no guarantee of stable IP address used by the packaging server:
 
 - For all [deployment scenarios](./deployment.md): conda, pip (all components) and yarn/npm (node GUI component) packages
-- Plus for VPN/containers scenarios: dockerhub images, apt apk and cargo packages, git over https cloning, wget and curl download
-
-Note: when using a VPN/containers scenario, a site with very stringent requirements on `node`'s communication can avoid authorizing the above communications for installation of the node components (`node` and `gui`). For that, it needs to build the components docker image on another machine (with the above filter), save the image, copy it to the node machine, load it on the node machine. This scenario is not fully packaged and documented by Fed-BioMed but you can find [some guidelines here](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#specific-instructions-building-node-image-on-a-different-machine).
+- Plus for containers scenarios: dockerhub images and apt packages
 
 
-## Running without VPN/containers
+## Running without containers
 
 ![fedbiomed-network-matrix](../../assets/img/fedbiomed_matrix_native.png#img-centered-lr)
 
 
-This part describes the communication matrix for running Fed-BioMed without VPN/containers:
+This part describes the communication matrix for running Fed-BioMed without containers:
 
 * The direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)
 * Type of communication is either *backend* (between the application components) or *user* (user access to a component GUI). Command line user access to component from *localhost* are not noted here. GUI access are noted though recommended default configuration is to give access only from *localhost*
@@ -79,39 +75,11 @@ On the researcher component (`researcher`):
 | in  | *localhost*    | researcher          | TCP/6006         | HTTP      | user     | optional  | Tensorboard |
 
 
-## Running with VPN/containers
+## Running with Docker containers
 
-This part describes the communication matrix for running Fed-BioMed with VPN/containers:
+This section describes the communication matrix for running Fed-BioMed using Docker containers.
 
-* The direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)
-* Type of communication is either *backend* (between the application components) or *user* (user access to a component GUI). Command line user access to component from *localhost* are not noted here. GUI access are noted though recommended default configuration is to give access only from *localhost*
-* The status is either *mandatory* (needed to run Fed-BioMed) or *optional* (a Fed-BioMed experiment can run without this part)
-
-On the node component (`node` + `gui` ):
-
-| dir | source machine | destination machine | destination port | service   | type     | status    | comment  |
-| --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | ------   |
-| out | node           | vpnserver           | UDP/51820        | WireGuard | backend  | mandatory |          |
-| in  | *localhost*    | gui                 | TCP/8443         | HTTPS     | user     | optional  | node GUI |
-
-* `node` and `gui` also need a shared filesystem, so they are usually installed on the same machine.
-
-<br>
-
-On the researcher component (`researcher`):
-
-| dir | source machine | destination machine | destination port | service   | type     | status    | comment     |
-| --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | -----       |
-| out | researcher     | vpnserver           | UDP/51820        | WireGuard | backend  | mandatory |             |
-| in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |
-| in  | *localhost*    | researcher          | TCP/6006         | HTTP      | user     | optional  | Tensorboard |
-
-
-## Running with Docker containers (without VPN)
-
-This section describes the communication matrix for running Fed-BioMed using Docker containers **without a VPN**. This configuration is suitable for extending the base Docker image and containers with customized deployment scenarios (e.g. wrapping Fed-BioMed inside an existing infrastructure, adding a custom VPN layer, or integrating with third-party services) as well as for development, testing, and experimentation.
-
-For deployments involving sensitive or patient data, the [VPN/containers scenario](#running-with-vpncontainers) is recommended as it comes ready to use with built-in VPN authentication.
+As for every deployment, enable [mutual authentication](#mutual-authentication-mtls) on every component.
 
 In this setup all containers are attached to a shared user-defined Docker bridge network (e.g. `fedbiomed-net`). Container-to-container communication uses Docker's internal DNS — containers address each other by container name. Ports are published from the container to the host machine to allow user access from *localhost* (or, in a cross-host setup, from the public internet).
 
@@ -151,8 +119,8 @@ What it changes is the service carried on the backend channel of each scenario:
 
 | deployment scenario | backend channel | without mutual authentication | with mutual authentication |
 | ------------------- | --------------- | ----------------------------- | -------------------------- |
-| [Without containers](#running-without-vpncontainers) | node → researcher, TCP/50051 | gRPC/TLS: the node trusts the certificate the endpoint presents, the researcher accepts any node | gRPC/mTLS: the node pins a registered researcher certificate, the researcher requires a registered node certificate |
-| [With Docker containers](#running-with-docker-containers-without-vpn) | node container → researcher container, TCP/50051 | gRPC/TLS | gRPC/mTLS |
+| [Without containers](#running-without-containers) | node → researcher, TCP/50051 | gRPC/TLS: the node trusts the certificate the endpoint presents, the researcher accepts any node | gRPC/mTLS: the node pins a registered researcher certificate, the researcher requires a registered node certificate |
+| [With Docker containers](#running-with-docker-containers) | node container → researcher container, TCP/50051 | gRPC/TLS | gRPC/mTLS |
 
 <br>
 

@@ -35,7 +35,7 @@ To configure a specific Python version in your workspace, it is recommended to u
 
 
 !!! info "Docker"
-    Docker is only needed for [advanced usage scenarios](../user-guide/deployment/deployment.md) with additional VPN protection of Fed-BioMed communications.
+    Docker is only needed to run Fed-BioMed components in containers (see [deployment scenarios](../user-guide/deployment/deployment.md)).
 
 
 ## Install Fed-BioMed

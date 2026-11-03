@@ -107,9 +107,9 @@ exp.preprocessing.approve("FedComBat harmonization models")
 
 See [Training with approved training plans](../../tutorials/security/training-with-approved-training-plans.ipynb).
 
-## VPN / container mode
+## Container mode
 
-In VPN/container deployments, pre-processing and federated analytics are disabled by default.
+In container deployments, pre-processing and federated analytics are disabled by default.
 Enable both features on node containers to be able to successfully run FedComBat pre-processing.
 
 ```bash

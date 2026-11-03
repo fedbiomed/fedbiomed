@@ -258,13 +258,13 @@ Environment variables can be used to parameterize various options for creating t
 
 ```
 [security]:
-- allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, False (VPN/container mode) or True (other)
-- training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, True (VPN/container mode) or False (other)
+- allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, False (container mode) or True (other)
+- training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, True (container mode) or False (other)
 - secure_aggregation: FBM_SECURITY_SECURE_AGGREGATION, True
 - force_secure_aggregation: FBM_SECURITY_FORCE_SECURE_AGGREGATION, False
-- secagg_insecure_validation: FBM_SECURITY_SECAGG_INSECURE_VALIDATION, False (VPN/container mode) or True (other)
-- allow_preproc: FBM_SECURITY_ALLOW_PREPROC, False (VPN/container mode) or True (other)
-- allow_federated_analytics: FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS, False (VPN/container mode) or True (other)
+- secagg_insecure_validation: FBM_SECURITY_SECAGG_INSECURE_VALIDATION, False (container mode) or True (other)
+- allow_preproc: FBM_SECURITY_ALLOW_PREPROC, False (container mode) or True (other)
+- allow_federated_analytics: FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS, False (container mode) or True (other)
 - minimum_samples: FBM_SECURITY_MINIMUM_SAMPLES, 0
 
 [researcher]:
