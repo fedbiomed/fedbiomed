@@ -81,8 +81,6 @@ On the researcher component (`researcher`):
 
 ## Running with VPN/containers
 
-![fedbiomed-network-matrix](../../assets/img/fedbiomed_matrix_vpn.png#img-centered-lr)
-
 This part describes the communication matrix for running Fed-BioMed with VPN/containers:
 
 * The direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)

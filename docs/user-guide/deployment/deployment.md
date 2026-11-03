@@ -28,8 +28,6 @@ For production deployments where data privacy and network security are required,
 
 This is the recommended mode for real-life deployments involving sensitive data or multiple data provider sites.
 
-See the **[VPN deployment guide](./deployment-vpn.md)** for full instructions.
-
 ---
 
 ## Choosing a Scenario

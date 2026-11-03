@@ -117,5 +117,3 @@ export FBM_SECURITY_ALLOW_PREPROC=True
 export FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS=True
 ```
 
-See [Deployment in VPN mode](../deployment/deployment-vpn.md).
-
