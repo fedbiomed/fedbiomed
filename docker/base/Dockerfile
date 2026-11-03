@@ -35,7 +35,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY fedbiomed ./fedbiomed
 COPY envs/common ./envs/common
-COPY envs/vpn ./envs/vpn
 COPY notebooks ./notebooks
 COPY docs/tutorials ./docs/tutorials
 COPY scripts ./scripts

@@ -30,7 +30,6 @@ git checkout -b release/$RELEASE_TAG
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
   * `fedbiomed/__init__.py` : change `__version__`
-  * `envs/vpn/docker/.env` : change `FBM_CONTAINER_VERSION_TAG`
 
 - in the `release` branch, commit the release time updates
 ```bash
@@ -152,7 +151,6 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 - in the `hotfix/$HOTFIX_NAME` branch, do the hotfix time updates:
   * `CHANGELOG.md`
   * `fedbiomed/__init__.py` : change `__version__`
-  * `envs/vpn/docker/.env` : change `FBM_CONTAINER_VERSION_TAG`
   * `CITATION.cff` : change `version`
 
 - in the `hotfix` branch, commit the hotfix time updates
