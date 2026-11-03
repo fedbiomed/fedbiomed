@@ -13,6 +13,7 @@ from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset._dataset import Dataset
 from fedbiomed.common.dataset_controller._nipoppy_controller import (
     Derivatives,
+    InstalledPipelines,
     NipoppyController,
     SessionFilters,
 )
@@ -116,7 +117,7 @@ class NipoppyDataset(Dataset):
         to_format: DataReturnFormat,
         dlp: Optional[DataLoadingPlan] = None,
         available_phenotypes: Optional[List[str]] = None,
-        installed_pipelines: Optional[List[Any]] = None,
+        installed_pipelines: Optional[InstalledPipelines] = None,
     ) -> None:
         """Finalize initialization of object to be able to recover items
 

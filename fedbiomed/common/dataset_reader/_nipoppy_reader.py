@@ -2,15 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Reader implementation for CSV file
+Reader implementation for Nipoppy studies
 """
+from functools import cached_property
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from nipoppy import NipoppyDataRetriever
-from nipoppy.layout import DatasetLayout as NippopyDatasetLayout
-from nipoppy.study import Study as NippopyStudy
+from nipoppy.layout import DatasetLayout as NipoppyDatasetLayout
+from nipoppy.study import Study as NipoppyStudy
 
 
 class NipoppyReader:
@@ -18,43 +19,53 @@ class NipoppyReader:
         self,
         path: Path,
     ) -> None:
-        """Constructs the csv reader.
+        """Constructs the Nipoppy reader.
 
         Args:
-            path: The path of the csv file that contains the dataset.
+            path: Root directory of the Nipoppy study.
         """
         self._path = path
         self._retriever = NipoppyDataRetriever(self._path)
 
+    @cached_property
+    def _study(self) -> NipoppyStudy:
+        """Nipoppy study, built on first use."""
+        return NipoppyStudy(NipoppyDatasetLayout(self._path))
+
     def read(self,
               phenotypes: Optional[List[str]] = None,
               derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
-        """Reads all dataset and returns the dataframe.
+        """Reads phenotypes and derivatives from the study.
+
+        Args:
+            phenotypes: Phenotypes to read.
+            derivatives: Derivatives to read, as `(pipeline, version, path)` tuples.
 
         Returns:
-            Pandas DataFrame: The content of the CSV file.
-        Raises:
-            FedbiomedError: if the CSV file cannot be read due to inconsistent lines
+            Pandas DataFrame indexed by `(participant_id, session_id)`. If both
+            `phenotypes` and `derivatives` are `None`, all phenotypes are returned.
         """
         if phenotypes is None and derivatives is None:
             return self._retriever.get_all_phenotypes()
         return self._retriever.get_tabular_data(phenotypes=phenotypes, derivatives=derivatives)
 
     def get_schema(self) -> Dict[str, str]:
-        """Gets the schema of the dataset.
+        """Gets the schema of the phenotypes.
 
         Returns:
-            Dict[str, str]: The schema of the dataset.
+            Dict[str, str]: Mapping of phenotype name to dtype.
         """
         return {str(col): str(dtype) for col, dtype in self._retriever.get_all_phenotypes().dtypes.items()}
 
-    def get_installed_pipelines(self) -> List[str]:
-        """Gets the list of installed pipelines.
+    def get_installed_pipelines(self) -> Dict[str, Dict[str, List[str]]]:
+        """Gets the installed pipelines.
 
         Returns:
-            List[str]: The list of installed pipelines.
+            Nested dictionary `{pipeline_type: {pipeline_name: [version, ...]}}`,
+            with pipeline types "bidsification", "processing" and "extraction".
         """
-        return NippopyStudy(NippopyDatasetLayout(self._path)).get_installed_pipelines()
+        return self._study.get_installed_pipelines()
 
-    def __len__(self):
-        return len(NippopyStudy(NippopyDatasetLayout(self._path)))
+    def __len__(self) -> int:
+        """Number of unique participant-session combinations in the study."""
+        return len(self._study)

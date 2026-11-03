@@ -36,12 +36,12 @@ def test_init_metadata_uses_passed_values_as_is(tmp_path, fake_nipoppy_reader):
     controller = NipoppyController(
         root=tmp_path,
         available_phenotypes=["stored_phenotype"],
-        installed_pipelines=[["stored_pipeline", "1.0"]],
+        installed_pipelines={"processing": {"stored_pipeline": ["1.0"]}},
     )
 
     assert controller.metadata == {
         "available_phenotypes": ["stored_phenotype"],
-        "installed_pipelines": [["stored_pipeline", "1.0"]],
+        "installed_pipelines": {"processing": {"stored_pipeline": ["1.0"]}},
     }
 
 
@@ -72,7 +72,7 @@ def test_get_controller_with_stored_parameters(tmp_path, fake_nipoppy_reader):
         controller_parameters={
             "root": str(tmp_path),
             "available_phenotypes": ["age"],
-            "installed_pipelines": [["freesurfer", "7.3.2"]],
+            "installed_pipelines": {"processing": {"freesurfer": ["7.3.2"]}},
             "unknown_key": "dropped",
         },
     )
@@ -190,9 +190,9 @@ def test_select_multiple_sessions_per_participant_raises(tmp_path, fake_nipoppy_
 def test_shape_before_select_without_filters(tmp_path, fake_nipoppy_reader):
     controller = NipoppyController(root=tmp_path, drop_na=False)
 
-    # Number of participants, as reported by the reader
-    assert controller.shape() == {"nipoppy": (3, 1)}
-    assert len(controller) == 3
+    # Number of participant-session rows, as reported by the reader
+    assert controller.shape() == {"nipoppy": (4, 1)}
+    assert len(controller) == 4
 
 
 def test_shape_before_select_with_filters(tmp_path, fake_nipoppy_reader):
