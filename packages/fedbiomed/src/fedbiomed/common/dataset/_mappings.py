@@ -71,9 +71,8 @@ REGISTRY_CONTROLLERS: Dict[DatasetTypes, Tuple[Type[Controller], Type[Dataset]]]
     ),
     DatasetTypes.NIPOPPY: (
         NipoppyController,
-        ControllerParametersBase,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.NIPOPPY],
-    )
+    ),
 }
 
 
