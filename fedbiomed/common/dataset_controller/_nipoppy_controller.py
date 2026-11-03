@@ -3,12 +3,42 @@
 
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 import pandas as pd
+
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset_controller._controller import Controller
 from fedbiomed.common.dataset_reader._nipoppy_reader import NipoppyReader
+from fedbiomed.common.exceptions import FedbiomedError
+
+SessionFilters = Union[str, List[str], List[Tuple[str, str]]]
+Derivatives = List[Tuple[str, str, str]]
 
 
 class NipoppyController(Controller):
+    """Controller for datasets organized as a Nipoppy study.
+
+    - Data is read lazily
+    - The controller is cheap to build because it only inspects the
+    study layout
+    - The tabular data is materialized by `select`, which reads
+    the requested phenotypes/derivatives and applies session filters, `dropna`
+    and the optional whole-dataframe transform.
+
+    !! Note
+        Metadata (`available_phenotypes`, `installed_pipelines`) is exposed
+        through `metadata`, and contains exactly the values passed to the
+        constructor: the node passes the ones stored in its database at dataset
+        registration (training and analytics), so the dataset sees the same
+        metadata the researcher saw when searching datasets. Values that are
+        not passed are `None`; there is no fallback to the study on disk.
+        `_controller_kwargs` (what gets stored in the node database at
+        registration) is always read from disk. Stored values may become out
+        of sync if the study changes after registration: re-register the
+        dataset to refresh them.
+    """
+
     _reader: NipoppyReader
 
     COL_PARTICIPANT_ID = "participant_id"
@@ -17,127 +47,185 @@ class NipoppyController(Controller):
     def __init__(
         self,
         root: Union[str, Path],
-        session_filters: Optional[str | List[str] | List[Tuple[str, str]]] = None,
+        session_filters: Optional[SessionFilters] = None,
         drop_na: bool = True,
         drop_na_kwargs: Optional[Dict[str, Any]] = None,
-        whole_df_transform: Optional[Callable] = None,
-        **kwargs  # avoids issues with unexpected kwargs due to `available_phenotypes` when initializing controller from dataset
+        whole_df_transform: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
+        available_phenotypes: Optional[List[str]] = None,
+        installed_pipelines: Optional[List[Any]] = None,
+        dlp: Optional[DataLoadingPlan] = None,
     ) -> None:
         """Constructor of the class
 
         Args:
-            root: Root directory path
+            root: Root directory of the Nipoppy study
+            session_filters: Sessions to keep. Either a session id, a list of
+                session ids, or a list of `(participant_id, session_id)` tuples.
+            drop_na: Whether to drop rows with missing values after filtering
+            drop_na_kwargs: Keyword arguments forwarded to `pd.DataFrame.dropna`
+            whole_df_transform: Callable applied to the whole dataframe after
+                filtering and `dropna`
+            available_phenotypes: Phenotypes stored in the node database at
+                dataset registration. Exposed as-is through `metadata`
+                (`None` if not given).
+            installed_pipelines: Pipelines stored in the node database at
+                dataset registration. Same behavior as `available_phenotypes`.
+            dlp: Data loading plan. Not supported yet for Nipoppy datasets; 
+                must be `None`.
 
         Raises:
-            FedbiomedError: if `root` does not exist
+            FedbiomedError: if `root` does not exist, or if a `dlp` is given
         """
+        super().__init__()  # initialises DataLoadingPlanMixin (self._dlp = None)
+
+        if dlp is not None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Data loading plans are not supported "
+                "for Nipoppy datasets."
+            )
+
         self.root = root
         self._reader = NipoppyReader(self.root)
+
+        # Read from disk: stored in the node database as `dataset_parameters`
+        # (minus `root`) at registration
         self._controller_kwargs = {
             "root": str(self.root),
             "available_phenotypes": list(self._reader.get_schema().keys()),
-            "installed_pipelines": self._reader.get_installed_pipelines()
+            "installed_pipelines": self._reader.get_installed_pipelines(),
         }
-        self._data: Optional[pd.DataFrame] = None  # lazy loaded
-        session_filters = [session_filters] if isinstance(session_filters, str) else session_filters  # wrap single string in list
+
+        # Values stored in the node database, as passed by the node (no fallback)
+        self.metadata: Dict[str, Optional[Any]] = {
+            "available_phenotypes": available_phenotypes,
+            "installed_pipelines": installed_pipelines,
+        }
+
+        if isinstance(session_filters, str):
+            session_filters = [session_filters]
         self._session_filters = session_filters
         self._drop_na = drop_na
         self._drop_na_kwargs = drop_na_kwargs if drop_na_kwargs is not None else {}
         self._whole_df_transform = whole_df_transform
-        self.metadata : Dict[str, Optional[Any]] = {
-            "available_phenotypes": kwargs.get("available_phenotypes"),
-            "installed_pipelines": kwargs.get("installed_pipelines")
-        }
 
-    def _read_and_postprocess_data(self, 
-                              phenotypes: Optional[List[str]] = None,
-                              derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
-        """Reads the data and applies filtering based on phenotypes and derivatives
+        self._data: Optional[pd.DataFrame] = None  # set by `select`
+
+    def select(
+        self,
+        phenotypes: Optional[List[str]] = None,
+        derivatives: Optional[Derivatives] = None,
+    ) -> pd.DataFrame:
+        """Reads the requested columns and applies filtering and transforms.
+
+        Must be called before `get_sample`. After this call, `__len__` and
+        `shape` reflect the selected data.
+        The purpose of `select` is to set the self._data attribute according
+        to the requested phenotypes and derivatives.
 
         Args:
-            phenotypes: List of phenotypes to filter the data
-            derivatives: List of derivatives to filter the data
+            phenotypes: Phenotypes to read. If both `phenotypes` and
+                `derivatives` are `None`, all phenotypes are read.
+            derivatives: Derivatives to read, as `(pipeline, version, path)` tuples
 
         Returns:
-            Filtered DataFrame
+            The selected dataframe
+
+        Raises:
+            FedbiomedError: if the resulting data is empty or invalid
         """
-        self._data = self._reader.read(phenotypes=phenotypes, derivatives=derivatives)
-        self._data = self._filter_transform_data(self._data)
-        self._validate_data_after_filtering()
+        data = self._reader.read(phenotypes=phenotypes, derivatives=derivatives)
+        data = self._filter_transform_data(data)
+        self._validate_data(data)
+        self._data = data
         return self._data
 
     def _filter_transform_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Applies session filters, `dropna` and the whole-dataframe transform."""
         if self._session_filters:
-            # self._session_filters at this point is guaranteed to be a non-empty list of either strings or tuples due to the wrapping logic in __init__
-            if all(isinstance(filter, str) for filter in self._session_filters):
-                df = df.query(
-                    f"{NipoppyController.COL_SESSION_ID} in @self._session_filters"
+            if all(isinstance(f, str) for f in self._session_filters):
+                df = df[
+                    df.index.get_level_values(self.COL_SESSION_ID).isin(
+                        self._session_filters
+                    )
+                ]
+            elif all(
+                isinstance(f, (tuple, list)) and len(f) == 2
+                for f in self._session_filters
+            ):
+                idx = pd.MultiIndex.from_tuples(
+                    [tuple(f) for f in self._session_filters],
+                    names=[self.COL_PARTICIPANT_ID, self.COL_SESSION_ID],
                 )
-            elif all(isinstance(filter, tuple) and len(filter) == 2 for filter in self._session_filters):
-                idx = pd.MultiIndex.from_tuples(self._session_filters, 
-                                                names=[NipoppyController.COL_PARTICIPANT_ID, NipoppyController.COL_SESSION_ID])
-                df = df.loc[idx]
+                df = df.loc[df.index.intersection(idx)]
+            else:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: `session_filters` must be a session "
+                    "id, a list of session ids, or a list of "
+                    "(participant_id, session_id) pairs."
+                )
         if self._drop_na:
             df = df.dropna(**self._drop_na_kwargs)
-        df = self._apply_whole_df_transform(df)
-        return df
-
-    def get_sample(self, 
-                   index: int, 
-                   phenotypes: Optional[List[str]] = None,
-                   derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
-        """Retrieve a data sample without applying transforms"""
-        if self._data is None:
-            self._read_and_postprocess_data(phenotypes=phenotypes, derivatives=derivatives)
-        return self._data.iloc[index]
-
-    def __len__(self) -> int:
-        return self.shape()['nipoppy'][0]
-
-    def shape(self) -> Dict:
-        """"Get the shape of the dataset.
-        
-        Need to be careful because of lazy loading. 
-        If the data has not been loaded yet, we distinguish two cases:
-        - If there are no session filters and no whole_df_transform, we get the shape from the reader (i.e. total number of participants in the study)
-        - If there are session filters or a whole_df_transform, we read all phenotypes and apply filters and transforms.
-        """
-            
-        if self._data is None:
-            if self._session_filters is None and self._whole_df_transform is None and not self._drop_na:
-                return {"nipoppy": (len(self._reader), 1)}
-            else:
-                all_phenotypes = self._reader.read()
-                all_phenotypes = self._filter_transform_data(all_phenotypes)
-                return {"nipoppy": all_phenotypes.shape}
-        return {"nipoppy": self._data.shape}
-
-    def _apply_whole_df_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Apply any necessary transformations to the data after reading and filtering
-
-        This method can be used to apply any transformations that are necessary after reading
-        and filtering the data, such as encoding categorical variables, normalizing numerical
-        variables, etc. This is a placeholder for now and can be implemented as needed.
-        """
-        if self._whole_df_transform:
+        if self._whole_df_transform is not None:
             df = self._whole_df_transform(df)
         return df
 
-    def _validate_data_after_filtering(self) -> None:
-        """Validate the data after applying session filters
+    def _validate_data(self, df: pd.DataFrame) -> None:
+        """Validates the data after filtering.
 
         Raises:
-            ValueError: if the resulting data is empty after filtering
+            FedbiomedError: if the data is empty or a participant has several sessions
+        """
+        if df.empty:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: No data left after applying session "
+                "filters and `dropna`. Please check your session filters and the dataset."
+            )
+        participant_ids = df.index.get_level_values(self.COL_PARTICIPANT_ID)
+        if participant_ids.has_duplicates:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Some participants have more than one "
+                "session. Use `session_filters` to keep a single session per participant."
+            )
+
+    def get_sample(self, index: int) -> pd.Series:  # type: ignore[override]
+        """Retrieves a data sample without applying transforms
+
+        Raises:
+            FedbiomedError: if `select` was not called, or `index` is out of range
         """
         if self._data is None:
-            raise RuntimeError("Data should have been loaded and filtered at this point, but it is None.")
-        if self._data is not None and self._data.empty:
-            raise ValueError("No data left after applying session filters. Please check your session filters and the dataset.")
-        participant_ids = self._data.index.get_level_values(
-            NipoppyController.COL_PARTICIPANT_ID
-        ).tolist()
-        if len(participant_ids) != len(set(participant_ids)):
-            raise ValueError("Some participants have more than one session")
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: No data selected. Call `select` before "
+                "retrieving samples."
+            )
+        if not 0 <= index < len(self._data):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to retrieve item at index {index}"
+            )
+        return self._data.iloc[index]
+
+    def __len__(self) -> int:
+        return self.shape()["nipoppy"][0]
+
+    def shape(self) -> Dict[str, Tuple[int, ...]]:
+        """Gets the shape of the dataset.
+
+        If `select` was called, returns the shape of the selected data.
+        Otherwise (e.g. at dataset registration) the shape is estimated:
+        - with no filters, `dropna` or transform: number of participants in the study;
+        - otherwise: all phenotypes are read and filters/transforms are applied.
+          This may differ from the shape after `select`, since derivatives and
+          the column subset affect `dropna`.
+        """
+        if self._data is not None:
+            return {"nipoppy": self._data.shape}
+        if (
+            self._session_filters is None
+            and self._whole_df_transform is None
+            and not self._drop_na
+        ):
+            return {"nipoppy": (len(self._reader), 1)}
+        return {"nipoppy": self._filter_transform_data(self._reader.read()).shape}
 
     def get_types(self) -> Dict[str, str]:
         return self._reader.get_schema()
