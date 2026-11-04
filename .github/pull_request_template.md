@@ -36,5 +36,6 @@ General:
 
 Specific to some cases:
 
+* `docker/` directory (if necessary), build images and check they work as expected following the [Docker deployment guide](https://fedbiomed.org/latest/user-guide/deployment/docker/): node and researcher CLI, node GUI, adding datasets, running a training, etc.
 * if modified researcher (eg new attributes in classes) check if breakpoint needs update (`breakpoint`/`load_breakpoint` in `Experiment()`, `save_state_breakpoint`/`load_state_breakpoint` in aggregators, strategies, secagg, etc.)
 * if modified a component with versioning (config files, breakpoint, messaging protocol) then update the version following the rules in `common/utils/_versions.py`
