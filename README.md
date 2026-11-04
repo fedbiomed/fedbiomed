@@ -55,7 +55,7 @@ source fb_env/bin/activate
 Fed-BioMed can be installed using `pip` with the following command:
 
 ```bash
-pip install fedbiomed[node, gui, researcher]
+pip install "fedbiomed[node,node-api,gui,researcher]"
 ```
 
 If you prefer to use Fed-BioMed in development mode, please refer to the [Developer Environment Installation Documentation](https://fedbiomed.org/latest/developer/development-environment).
@@ -158,20 +158,21 @@ fedbiomed node [--path [COMPONENT_DIRECTORY]] gui start --data-folder <path-for-
 Please see possible argument using `fedbiomed node gui start --help`.
 
 
-It is also possible to start the GUI on a specific host and port. By default, it starts on `localhost` as the host and `8484` as the port. To change these settings, you can modify the following command. The GUI is based on HTTPS and will, by default, generate a self-signed certificate. However, you can also start the GUI by specifying the certificate and private key names you want to use for HTTPS support.
-
+The GUI defaults to HTTP on `localhost:8484`. It does not automatically generate
+a certificate. To enable HTTPS, supply both an existing certificate and its
+matching private key using `--cert-file` and `--key-file`. Use `--host` and `--port` to change the listening address.
 ```shell
 fedbiomed node --path <path/to/component/directory> gui start --data-folder <path-for-data-folder> --cert-file <path-to-certificate> --key-file <path-to-private-key>
 ```
 
 ```shell
-fedbiomed node -p </path/to/my-node> gui --port 80 --host 0.0.0.0
+fedbiomed node -p /path/to/my-node gui start --port 80 --host 0.0.0.0
 ```
 
 **IMPORTANT:** Provide `data-folder` argument while starting the GUI if not using the default `/path/to/my-node/data`
 
 ```shell
-fedbiomed node -p </path/to/my-node> gui --data-folder /another/data-dir --port 80 --host 0.0.0.0
+fedbiomed node -p /path/to/my-node gui start --data-folder /another/data-dir --port 80 --host 0.0.0.0
 ```
 
 ### Launching Multiple Node GUI
