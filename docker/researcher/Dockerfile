@@ -1,5 +1,5 @@
 # Start from Fed-BioMed base image
-ARG FBM_IMAGE_VERSION
+ARG FBM_IMAGE_VERSION=latest
 
 FROM fedbiomed/base:${FBM_IMAGE_VERSION} AS fedbiomed-base
 

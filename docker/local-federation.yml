@@ -1,0 +1,105 @@
+# Local Fed-BioMed federation: 1 researcher and 2 nodes.
+#
+# Images are built from this repository when they are not present locally.
+# Run from the repository root:
+#
+#   docker compose -f docker/local-federation.yml up -d           # build if missing, then run
+#   docker compose -f docker/local-federation.yml up -d --build   # force a rebuild
+#   docker compose -f docker/local-federation.yml down            # stop (volumes are kept)
+#
+# Jupyter: http://localhost:8888, Node 1 GUI: http://localhost:8484, Node 2 GUI: http://localhost:8485
+
+# ---- Parameters -------------------------------------------------------------
+# Image tag for base, node and researcher: FBM_TAG, "latest" if not set.
+#   FBM_TAG=test docker compose -f docker/local-federation.yml up -d
+x-image-tag: &image_tag ${FBM_TAG:-latest}
+x-base-image: &base_image fedbiomed/base:${FBM_TAG:-latest}
+x-node-image: &node_image fedbiomed/node:${FBM_TAG:-latest}
+x-researcher-image: &researcher_image fedbiomed/researcher:${FBM_TAG:-latest}
+
+x-grpc-port: &grpc_port "50051"
+x-jupyter-port: &jupyter_port "8888:8888"
+x-tensorboard-port: &tensorboard_port "6007:6007"
+x-node1-gui-port: &node1_gui_port "8484:8484"
+x-node2-gui-port: &node2_gui_port "8485:8484"
+
+x-training-plan-approval: &training_plan_approval "False"
+# -----------------------------------------------------------------------------
+
+# Builds on the local base image instead of pulling it from Docker Hub.
+# Both names, so FROM matches whether or not BuildKit drops ":latest".
+x-base-contexts: &base_contexts
+  - fedbiomed/base=service:base
+  - fedbiomed/base:${FBM_TAG:-latest}=service:base
+
+x-node: &node
+  image: *node_image
+  environment:
+    FBM_RESEARCHER_IP: fbm-researcher
+    FBM_RESEARCHER_PORT: *grpc_port
+    FBM_SECURITY_TRAINING_PLAN_APPROVAL: *training_plan_approval
+  networks:
+    - fedbiomed-net
+  depends_on:
+    - researcher
+
+services:
+  # Only builds the base image; the container exits right away.
+  base:
+    image: *base_image
+    build:
+      context: ..
+      dockerfile: docker/base/Dockerfile
+    entrypoint: ["true"]
+
+  researcher:
+    image: *researcher_image
+    container_name: fbm-researcher
+    build:
+      context: ..
+      dockerfile: docker/researcher/Dockerfile
+      args:
+        FBM_IMAGE_VERSION: *image_tag
+      additional_contexts: *base_contexts
+    environment:
+      FBM_SERVER_HOST: fbm-researcher
+      FBM_SERVER_PORT: *grpc_port
+    volumes:
+      - fbm-researcher:/fbm-researcher
+    ports:
+      - *jupyter_port
+      - *tensorboard_port
+    networks:
+      - fedbiomed-net
+
+  # Only node1 builds the node image; node2 runs the same image.
+  node1:
+    <<: *node
+    container_name: fbm-node1
+    build:
+      context: ..
+      dockerfile: docker/node/Dockerfile
+      args:
+        FBM_IMAGE_VERSION: *image_tag
+      additional_contexts: *base_contexts
+    volumes:
+      - fbm-node1:/fbm-node
+    ports:
+      - *node1_gui_port
+
+  node2:
+    <<: *node
+    container_name: fbm-node2
+    volumes:
+      - fbm-node2:/fbm-node
+    ports:
+      - *node2_gui_port
+
+volumes:
+  fbm-researcher:
+  fbm-node1:
+  fbm-node2:
+
+networks:
+  fedbiomed-net:
+    driver: bridge
