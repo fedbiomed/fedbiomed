@@ -177,6 +177,34 @@ def test_select_empty_result_raises(tmp_path, fake_nipoppy_reader):
         controller.select(phenotypes=["sex"])
 
 
+def test_select_empty_result_does_not_run_whole_df_transform(
+    tmp_path, fake_nipoppy_reader, mocker
+):
+    transform = mocker.Mock()
+    controller = NipoppyController(
+        root=tmp_path, session_filters="missing-session", whole_df_transform=transform
+    )
+
+    with pytest.raises(FedbiomedError, match="No data left"):
+        controller.select(phenotypes=["sex"])
+
+    transform.assert_not_called()
+
+
+def test_select_wraps_whole_df_transform_errors(tmp_path, fake_nipoppy_reader, mocker):
+    error = ValueError("cannot encode column")
+    controller = NipoppyController(
+        root=tmp_path,
+        session_filters="baseline",
+        whole_df_transform=mocker.Mock(side_effect=error),
+    )
+
+    with pytest.raises(FedbiomedError, match="cannot encode column") as exc_info:
+        controller.select(phenotypes=["sex"])
+
+    assert exc_info.value.__cause__ is error
+
+
 def test_select_multiple_sessions_per_participant_raises(tmp_path, fake_nipoppy_reader):
     controller = NipoppyController(root=tmp_path)
 
