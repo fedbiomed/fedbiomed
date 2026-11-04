@@ -163,13 +163,12 @@ Both serve the built frontend at `http://localhost:8484`. The data folder defaul
 to the `data` directory in the node's root; use `--data-folder /alternate/data-path`
 to select another directory.
 
+### Rebuilding the Frontend
+
 If frontend assets are missing or you have changed the frontend sources, add
 `--recreate` to either command:
 
 ```shell
-<<<<<<< HEAD
-# use the Python environment selected above
-=======
 fedbiomed-gui --path /path/to/my-node --recreate
 fedbiomed node --path /path/to/my-node gui start --recreate
 ```
@@ -190,6 +189,8 @@ fedbiomed node --path /path/to/my-node api start
 fedbiomed-node-api --path /path/to/my-node --data-folder /alternate/data-path
 ```
 
+### Running Backend on Debug Mode
+
 Neither `--development` nor `--debug` is required for this workflow.
 `--development` selects Flask's development server instead of Gunicorn.
 `--debug` enables Flask debug mode and debug-level application logging; combined
@@ -203,31 +204,20 @@ fedbiomed-node-api --path /path/to/my-node --development --debug
 In another terminal, start React's development server:
 
 ```shell
->>>>>>> c103b77c2 (feat(cli): add standalone API and GUI launchers)
 cd ${FEDBIOMED_DIR}/fedbiomed_gui/ui
 yarn start
 ```
 
-<<<<<<< HEAD
 After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
 in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
 Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/fedbiomed_gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
 
-After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves
-the built UI files. `--recreate` rebuilds it before starting the server:
+After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves the built UI files. `--recreate` rebuilds it before starting the server:
 
 ```shell
 fedbiomed node gui start --recreate
 ```
-=======
-Open `http://localhost:3000`. Changes in `fedbiomed_gui/ui/src` appear automatically,
-without `--recreate`. Keep the API on `localhost:8484`, which the frontend uses
-for API requests. Backend sources live in `fedbiomed_node_api`.
-
-Install `fedbiomed[gui]` or `fedbiomed[node-api]` when the corresponding package
-is missing. Until publication, use the local PDM setup below.
->>>>>>> c103b77c2 (feat(cli): add standalone API and GUI launchers)
 
 ## Building the distributions
 
