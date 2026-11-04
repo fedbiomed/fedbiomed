@@ -1,0 +1,28 @@
+# Exclude everything by default, then re-include only what the Dockerfiles COPY.
+# Without this, the build context is the whole working tree (14+ GB: .tox, .venv,
+# node_modules, datasets), which BuildKit hashes and transfers on every build.
+*
+
+# Sources needed by docker/base/Dockerfile
+!pyproject.toml
+!README.md
+!hatch_build.py
+!fedbiomed/
+!fedbiomed_gui/
+!fedbiomed_node_api/
+!envs/common/
+!envs/vpn/
+!notebooks/
+!docs/tutorials/
+!scripts/
+
+# Entrypoints / supervisor templates needed by docker/{base,node,researcher}
+!docker/
+
+# Re-exclude heavy or host-specific artifacts inside the paths above.
+# node_modules is installed inside the node-build stage for linux; copying the
+# host (macOS) tree in would both bloat the context and clobber that install.
+**/node_modules/
+**/__pycache__/
+**/*.py[cod]
+fedbiomed_gui/ui/build/
