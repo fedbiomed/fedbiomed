@@ -178,7 +178,18 @@ class NipoppyController(Controller):
         if self._drop_na:
             df = df.dropna(**self._drop_na_kwargs)
         if self._whole_df_transform is not None:
-            df = self._whole_df_transform(df)
+            if df.empty:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: No data left after applying session "
+                    "filters and `dropna`. Please check your session filters and the dataset."
+                )
+            try:
+                df = self._whole_df_transform(df)
+            except Exception as e:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Failed to apply "
+                    f"`whole_df_level_transform`. {e}"
+                ) from e
         return df
 
     def _validate_data(self, df: pd.DataFrame) -> None:
