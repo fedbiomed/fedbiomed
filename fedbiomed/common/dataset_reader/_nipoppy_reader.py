@@ -6,12 +6,15 @@ Reader implementation for Nipoppy studies
 """
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import pandas as pd
-from nipoppy import NipoppyDataRetriever
-from nipoppy.layout import DatasetLayout as NipoppyDatasetLayout
-from nipoppy.study import Study as NipoppyStudy
+
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.exceptions import FedbiomedError
+
+if TYPE_CHECKING:
+    from nipoppy.study import Study as NipoppyStudy
 
 
 class NipoppyReader:
@@ -21,16 +24,33 @@ class NipoppyReader:
     ) -> None:
         """Constructs the Nipoppy reader.
 
+        Nipoppy is imported here rather than at module level, because it is only
+        needed to read Nipoppy studies.
+
         Args:
             path: Root directory of the Nipoppy study.
+
+        Raises:
+            FedbiomedError: if Nipoppy is not installed
         """
+        try:
+            from nipoppy import NipoppyDataRetriever
+        except ImportError as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Nipoppy datasets require the `nipoppy` "
+                'package. Please install it with `pip install "nipoppy>=0.4.7"`.'
+            ) from e
+
         self._path = path
         self._retriever = NipoppyDataRetriever(self._path)
 
     @cached_property
-    def _study(self) -> NipoppyStudy:
+    def _study(self) -> "NipoppyStudy":
         """Nipoppy study, built on first use."""
-        return NipoppyStudy(NipoppyDatasetLayout(self._path))
+        from nipoppy.layout import DatasetLayout
+        from nipoppy.study import Study
+
+        return Study(DatasetLayout(self._path))
 
     def read(self,
               phenotypes: Optional[List[str]] = None,

@@ -28,7 +28,7 @@ neuroimaging-clinical data. Please visit the [Nipoppy documentation](https://nip
 
 ## Deploying the dataset
 
-Install Nipoppy 0.4.7 or later in your Fed-BioMed environment:
+Install Nipoppy 0.4.7 or later in the Fed-BioMed environment of the node:
 
 ```shell
 pip install "nipoppy>=0.4.7"
