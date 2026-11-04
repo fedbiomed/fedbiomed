@@ -5,7 +5,7 @@ from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import NipoppyDataset
 from fedbiomed.common.dataset._mappings import REGISTRY_CONTROLLERS, get_controller
 from fedbiomed.common.dataset_controller import NipoppyController
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 from testsupport.fake_nipoppy_reader import DERIVATIVE, DERIVATIVE_COLUMN, FakeNipoppyReader
 
@@ -182,6 +182,27 @@ def test_select_multiple_sessions_per_participant_raises(tmp_path, fake_nipoppy_
 
     with pytest.raises(FedbiomedError, match="more than one session"):
         controller.select(phenotypes=["sex"])
+
+
+@pytest.mark.parametrize(
+    "reader_error,expected_type",
+    [
+        (ValueError("Must request at least one measure"), FedbiomedValueError),
+        (KeyError("unknown phenotype"), FedbiomedError),
+        (FileNotFoundError("no derivative file"), FedbiomedError),
+    ],
+)
+def test_select_wraps_reader_errors(
+    tmp_path, fake_nipoppy_reader, mocker, reader_error, expected_type
+):
+    controller = NipoppyController(root=tmp_path)
+    mocker.patch.object(fake_nipoppy_reader[0], "read", side_effect=reader_error)
+
+    with pytest.raises(FedbiomedError) as exc_info:
+        controller.select(phenotypes=[])
+
+    assert type(exc_info.value) is expected_type
+    assert exc_info.value.__cause__ is reader_error
 
 
 # ---------- shape / len ----------

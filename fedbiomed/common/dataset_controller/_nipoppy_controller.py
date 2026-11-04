@@ -10,7 +10,7 @@ from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset_controller._controller import Controller
 from fedbiomed.common.dataset_reader._nipoppy_reader import NipoppyReader
-from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
 
 SessionFilters = Union[str, List[str], List[Tuple[str, str]]]
 Derivatives = List[Tuple[str, str, str]]
@@ -132,9 +132,20 @@ class NipoppyController(Controller):
             The selected dataframe
 
         Raises:
-            FedbiomedError: if the resulting data is empty or invalid
+            FedbiomedValueError: if the reader rejects the requested columns
+            FedbiomedError: if the data cannot be read, or if the resulting data
+                is empty or invalid
         """
-        data = self._reader.read(phenotypes=phenotypes, derivatives=derivatives)
+        try:
+            data = self._reader.read(phenotypes=phenotypes, derivatives=derivatives)
+        except ValueError as e:
+            raise FedbiomedValueError(
+                f"{ErrorNumbers.FB632.value}: Invalid data selection. {e}"
+            ) from e
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to read data. {e}"
+            ) from e
         data = self._filter_transform_data(data)
         self._validate_data(data)
         self._data = data
