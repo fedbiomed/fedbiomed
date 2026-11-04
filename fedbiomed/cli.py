@@ -7,7 +7,6 @@ import os
 import sys
 
 from fedbiomed.common.cli import CLIArgumentParser, CommonCLI
-from fedbiomed.common.config import docker_special_case
 from fedbiomed.common.constants import DEFAULT_NODE_NAME, DEFAULT_RESEARCHER_NAME
 
 
@@ -121,7 +120,6 @@ class ComponentParser(CLIArgumentParser):
             if (
                 DEFAULT_RESEARCHER_NAME in component_path
                 and os.path.isdir(component_path)
-                and not docker_special_case(component_path)
                 and os.listdir(component_path)
             ):
                 if not args.exist_ok:
