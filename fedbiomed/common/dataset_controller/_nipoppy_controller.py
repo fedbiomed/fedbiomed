@@ -241,4 +241,9 @@ class NipoppyController(Controller):
         return {"nipoppy": self._filter_transform_data(self._reader.read()).shape}
 
     def get_types(self) -> Dict[str, str]:
+        """Dtypes of all phenotypes in the study on disk, regardless of any selection.
+
+        Stored in the node database at registration. For the columns of the loaded
+        samples, see `NipoppyDataset.analytics_schema`.
+        """
         return self._reader.get_schema()
