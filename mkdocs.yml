@@ -84,6 +84,7 @@ nav:
           - "Network matrix": "./user-guide/deployment/matrix.md"
           - "Security model": "./user-guide/deployment/security-model.md"
           - "Mutual authentication (mTLS)": "./user-guide/deployment/mutual-tls.md"
+          - "Optional: Docker Behind a VPN": "./user-guide/deployment/docker-vpn.md"
       - Node:
           - "Configuring Nodes": "./user-guide/nodes/configuring-nodes.md"
           - "Deploying Datasets": "./user-guide/nodes/deploying-datasets.md"

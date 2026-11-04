@@ -602,6 +602,8 @@ docker run -it -d \
 
 No port needs to be published on the node side.
 
+If an institution's policy requires the components to communicate through a VPN, the containers can optionally run behind a third-party one, as shown in [Running Docker Images Behind a WireGuard VPN](./docker-vpn.md). Security does not depend on it.
+
 
 ## Use Docker Compose to Run and Manage Multiple Fed-BioMed Instances
 

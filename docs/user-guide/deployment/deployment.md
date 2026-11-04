@@ -31,3 +31,5 @@ See the **[Docker deployment guide](./docker.md)** for full instructions.
 For multi-machine setups without containers, enable mutual authentication on every component. See the [README](https://github.com/fedbiomed/fedbiomed/blob/master/README.md#run-the-node-part) for a brief description.
 
 Refer to the [security model](./security-model.md) and [network communications](./matrix.md) documentation to understand which scenario best fits your requirements.
+
+Fed-BioMed security does not rely on a VPN. If an institution's policy requires one, the Docker images can optionally run behind a third-party VPN, as shown in [Running Docker Images Behind a WireGuard VPN](./docker-vpn.md).
