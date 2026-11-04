@@ -95,7 +95,7 @@ Core and API builds do not require frontend tools.
 !!! warning "Important" 
     Installing a released GUI wheel uses its bundled frontend assets and does not require Yarn, unless the user explicitly commands to rebuild the GUI. If you wish to rebuild the GUI for frontend development, install Yarn and NodeJS through their official documentations [Node.js](https://nodejs.org/en/download) and [Yarn Classic](https://classic.yarnpkg.com/en/)
 
-## Using PDM
+## Developer Installation Using PDM
 
 ### Projects, workspace, and dependency groups
 
@@ -191,7 +191,7 @@ fedbiomed-node-api --path /path/to/my-node --data-folder /alternate/data-path
 
 ### Running Backend on Debug Mode
 
-Neither `--development` nor `--debug` is required for this workflow.
+Neither `--development` nor `--debug` is required for the previous workflow.
 `--development` selects Flask's development server instead of Gunicorn.
 `--debug` enables Flask debug mode and debug-level application logging; combined
 with `--development`, it also enables the debugger and backend code reloader.
@@ -208,24 +208,28 @@ cd ${FEDBIOMED_DIR}/fedbiomed_gui/ui
 yarn start
 ```
 
-After that if you go ``localhost:3000`` you will see same user interface is up and running for development. When you change the source codes in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
+After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
+in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
 Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/fedbiomed_gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
 
 After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves the built UI files. `--recreate` rebuilds it before starting the server:
 
 ```shell
+fedbiomed-gui --path /path/to/my-node --recreate
+```
+(or in the previous versions)
+```shell
 fedbiomed node gui start --recreate
 ```
 
 ## Building the distributions
 
-If you wish to build your own Python wheels for publidcation: Core, Node API, and GUI have separate build configurations. From the repository root, you can build their wheels and source archives with:
+If you wish to build your own Python wheels for publication: Core, Node API, and GUI have separate build configurations. From the repository root, you can build their wheels and source archives with:
 
 ```sh
 pdm build
 pdm build -p fedbiomed_node_api
-pdm build -p fedbiomed_gui
 ```
 
 Core includes `fedbiomed` and its existing shared resources; the API includes

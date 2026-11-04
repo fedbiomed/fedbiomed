@@ -69,9 +69,34 @@ jobs:
           docker run --rm --entrypoint fedbiomed \
             "fedbiomed/researcher:$IMAGE_TAG" researcher --help
 
+      - name: Verify installed packages and frontend assets
+        run: |
+          for image in base node researcher; do
+            docker run --rm --entrypoint python "fedbiomed/$image:$IMAGE_TAG" -m pip check
+          done
+
+          # Only the node image installs the separate web packages.
+          for image in base researcher; do
+            docker run --rm --entrypoint python "fedbiomed/$image:$IMAGE_TAG" -c '
+          from importlib.util import find_spec
+          assert find_spec("fedbiomed_node_api") is None
+          assert find_spec("fedbiomed_gui") is None
+          '
+          done
+
+          docker run --rm --entrypoint python "fedbiomed/node:$IMAGE_TAG" -c '
+          from importlib.metadata import version
+          from fedbiomed_gui.cli import assets_directory
+          assert version("fedbiomed") == version("fedbiomed-node-api") == version("fedbiomed-gui")
+          assets = assets_directory()
+          assert (assets / "index.html").is_file()
+          assert any(assets.rglob("*.js"))
+          '
+          docker run --rm --entrypoint fedbiomed-node-api "fedbiomed/node:$IMAGE_TAG" --help
+          docker run --rm --entrypoint fedbiomed-gui "fedbiomed/node:$IMAGE_TAG" --help
+
       - name: Remove test images
         if: always()
         run: |
           docker image rm --force "fedbiomed/researcher:$IMAGE_TAG" \
             "fedbiomed/node:$IMAGE_TAG" "fedbiomed/base:$IMAGE_TAG" || true
-

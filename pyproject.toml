@@ -117,7 +117,6 @@ Repository = "https://github.com/fedbiomed/fedbiomed"
 [tool.hatch.version]
 path = "fedbiomed/__init__.py"
 
-
 [tool.pdm]
 distribution = true
 
