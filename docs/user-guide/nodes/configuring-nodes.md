@@ -221,6 +221,14 @@ port = 50051
 
 ```
 
+### Changing a setting
+
+A node setting can be changed in three ways:
+
+- **Manually**: edit the value in `config.ini`, then restart the node.
+- **Environment variables**: set the `FBM_<SECTION>_<KEY>` variable when the node configuration is created (see [Environment Variables](#environment-variables)).
+- **GUI**: edit the value in the **Configuration** tab of the Node Management page, then use **Save & Restart** (see [Node GUI](node-gui.md)).
+
 ## Using non-default Fed-BioMed node
 
 The option `--path` that comes after specification `node` in Fed-BioMed command allows to use different node component in different directories than the default one. `--path` can be relative or absolute. As it is in default command execution, if the given directory for node is existing it will created automatically.
@@ -271,7 +279,7 @@ The defaults depend on how the node is run. A node installed directly on a machi
 | `allow_federated_analytics` | `FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS` | `True` | `False` |
 | `minimum_samples` | `FBM_SECURITY_MINIMUM_SAMPLES` | `0` | `0` |
 
-The local federation defined in `docker/local-federation.yml` runs the `fedbiomed/node` image for testing, and sets `training_plan_approval` to `False` so that experiments run without approving each training plan.
+The local federation defined in `docker/local-federation.yml` runs the `fedbiomed/node` image for testing, and sets `training_plan_approval` to `False` so that experiments run without approving each training plan, and `allow_preproc` and `allow_federated_analytics` to `True`.
 
 !!! warning "Security values in a deployment"
     These values define what the node accepts to run on its data. Do not rely on the defaults in a deployment: set each value explicitly, according to the node's data governance policy. In particular, keep `training_plan_approval` enabled, and `allow_default_training_plans` and `secagg_insecure_validation` disabled. Enable `allow_preproc` and `allow_federated_analytics` only when they are needed, and set `minimum_samples` to the smallest dataset size the node accepts to share.
