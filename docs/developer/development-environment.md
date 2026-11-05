@@ -71,7 +71,7 @@ You can also use default naming convention `.venv` for virtual environment name.
 `conda` can install Python version directly in the environment that is created. The command below will create a virtual environment and install the specified Python version.
 
 ```
-conda create --name fedbiomed-dev python=3.10
+conda create --name fedbiomed-dev python=3.14
 conda activate fedbiomed-dev
 ```
 
@@ -178,7 +178,6 @@ fedbiomed node -p /path/to/my-node gui start --debug
 The command above will serve the web application and the API services. It means that on the URL `localhost:8484` you will be able to see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``yarn start``.
 
 ```shell
-# use the python environment for [development](../docs/developer/development-environment.md)
 cd ${FEDBIOMED_DIR}/gui/ui
 yarn start
 ```

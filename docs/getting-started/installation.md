@@ -30,7 +30,7 @@ Fed-BioMed is a Python-based framework that can be installed using the `pip` pac
 Therefore, please ensure that Python is installed on your system.
 
 Fed-BioMed does not support a wide range of Python versions. 
-Currently, the required Python versions are **3.10,3.11**. 
+Currently, the required Python versions are **3.11-3.14**. 
 To configure a specific Python version in your workspace, it is recommended to use tools such as [Conda](https://docs.conda.io/) or [pyenv](https://github.com/pyenv/pyenv).
 
 

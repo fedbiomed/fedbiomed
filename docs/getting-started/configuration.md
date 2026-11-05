@@ -68,6 +68,15 @@ fedbiomed component create --component researcher --path fbm-components/my-resea
 
 ## Managing Components
 
+!!! warning "Local experimentation and deployment"
+    Mutual authentication is disabled by default for local experimentation. Before
+    starting a distributed deployment, exchange and register the component certificates
+    and set `[authentication] mutual_authentication = True` on the researcher and every
+    node. This is required even when the components communicate through a VPN. Follow
+    [Enabling mutual authentication](../user-guide/deployment/mutual-tls.md#enabling-mutual-authentication)
+    before starting the components. For an existing installation, first follow the
+    [upgrade checklist](../user-guide/deployment/versions.md#upgrading-an-existing-deployment).
+
 
 The Fed-BioMed CLI is designed to manage different types of components and their sub-components. It also enables managing multiple components by specifying the path where each component is initialized. This section explains how to address distinct components and minimize errors caused by incorrect component specifications.
 
@@ -140,7 +149,7 @@ fedbiomed node dataset list --path /path/to/fbm-node
 ```
 
 !!! note "More about configuring nodes"
-    Please visit node user guide to find out more about [configuring nodes](../user-guide/node/configuring-nodes.md) and [deploying dataset](../user-guide/node/deploying-datasets.md).
+    Please visit node user guide to find out more about [configuring nodes](../user-guide/nodes/configuring-nodes.md) and [deploying dataset](../user-guide/nodes/deploying-datasets.md).
 
 
 ### Managing researcher component

@@ -14,6 +14,10 @@ Breakpoints can also be used for a wide variety of reasons such as: the model st
 
 A Fed-BioMed breakpoint is a researcher side function that saves an intermediate status and training results of an experiment to disk files. It can later be used to create an experiment from these saved status and results, to continue and complete the partially run experiment.
 
+!!! info
+    Fedbiomed by default saves model parameters every round. Version 6.5.0 introduces another parameter named `reduce_disk_usage`. This parameter skips per-round model parameter writes during training in order to save disk space usage. It is set by `reduce_disk_usage=True` **and** `retain_full_history=False` and `save_breakpoints=False`.
+    When `reduce_disk_usage` is set, you can still use `exp.save_breakpoint()` to explicitly save the model parameters of that specific round.
+
 
 ## Basic use : continue from last breakpoint of last experiment
 
