@@ -33,4 +33,4 @@ For multi-machine setups without containers, point each node to the researcher a
 Refer to the [security model](./security-model.md) and [network communications](./matrix.md) documentation to understand which scenario best fits your requirements.
 
 !!! note "VPN"
-    Fed-BioMed versions earlier than 6.5 relied on a VPN to protect communications between components. Starting from version 6.5, authentication is based on [mutual authentication (mTLS)](./mutual-tls.md) and no VPN is required. To encapsulate the federated network in a VPN anyway, see [Running Docker Images Behind a WireGuard VPN](./docker-vpn.md).
+    Fed-BioMed versions earlier than 6.5 relied on a VPN to protect communications between components. Starting from version 6.5, authentication is based on [mutual authentication (mTLS)](./mutual-tls.md) and no VPN is required. To optionally implement a VPN as an additional layer of protection, see [Running Docker Images Behind a WireGuard VPN](./docker-vpn.md).
