@@ -84,7 +84,9 @@ services:
     restart: unless-stopped
 
   researcher:                          # Fed-BioMed researcher, on the sidecar network
-    image: fedbiomed/researcher:latest
+    # FBM_TAG: a published version (e.g. 6.4.1) is pulled from Docker Hub;
+    # "latest" (default) is not published, so it must be built locally first
+    image: fedbiomed/researcher:${FBM_TAG:-latest}
     network_mode: "service:wg-client"
     environment:
       - FBM_SERVER_HOST=0.0.0.0        # default, also listens on the VPN interface
@@ -121,7 +123,9 @@ services:
     restart: unless-stopped
 
   node:                                # Fed-BioMed node, on the sidecar network
-    image: fedbiomed/node:latest
+    # FBM_TAG: a published version (e.g. 6.4.1) is pulled from Docker Hub;
+    # "latest" (default) is not published, so it must be built locally first
+    image: fedbiomed/node:${FBM_TAG:-latest}
     network_mode: "service:wg-client"
     environment:
       - FBM_RESEARCHER_IP=10.8.0.2     # researcher VPN IP
@@ -133,7 +137,13 @@ volumes:
   fbm-node:                            # node component directory
 ```
 
-Start each site with `docker compose up -d`. If the `wg-client` container is recreated, recreate the Fed-BioMed container too, as it loses its network otherwise.
+Start each site with the Fed-BioMed version to run, the same on the researcher and every node:
+
+```bash
+FBM_TAG=<version-tag> docker compose up -d
+```
+
+`<version-tag>` is a version published on Docker Hub, such as `6.4.1`. Without `FBM_TAG`, the `latest` tag is used: it is not published on Docker Hub, so the image must first be [built from source](../../developer/docker-images.md) on that host. To avoid repeating the tag, write `FBM_TAG=<version-tag>` in a `.env` file next to the `docker-compose.yml`; `docker compose` reads it automatically. If the `wg-client` container is recreated, recreate the Fed-BioMed container too, as it loses its network otherwise.
 
 ## Quick check
 
