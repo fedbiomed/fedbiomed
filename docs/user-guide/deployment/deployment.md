@@ -28,8 +28,9 @@ See the **[Docker deployment guide](./docker.md)** for full instructions.
 | Single or multi-machine, Docker | Testing, extending images |
 | Single or multi-machine, Docker + mTLS | Production deployments, sensitive data, multi-institution federations |
 
-For multi-machine setups without containers, enable mutual authentication on every component. See the [README](https://github.com/fedbiomed/fedbiomed/blob/master/README.md#run-the-node-part) for a brief description.
+For multi-machine setups without containers, point each node to the researcher address (see [node environment variables](../nodes/configuring-nodes.md#environment-variables)) and [enable mutual authentication](./mutual-tls.md#enabling-mutual-authentication) on every component.
 
 Refer to the [security model](./security-model.md) and [network communications](./matrix.md) documentation to understand which scenario best fits your requirements.
 
-Fed-BioMed security does not rely on a VPN. If an institution's policy requires one, the Docker images can optionally run behind a third-party VPN, as shown in [Running Docker Images Behind a WireGuard VPN](./docker-vpn.md).
+!!! note "VPN"
+    Fed-BioMed versions earlier than 6.5 relied on a VPN to protect communications between components. Starting from version 6.5, authentication is based on [mutual authentication (mTLS)](./mutual-tls.md) and no VPN is required. To encapsulate the federated network in a VPN anyway, see [Running Docker Images Behind a WireGuard VPN](./docker-vpn.md).

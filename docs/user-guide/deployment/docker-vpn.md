@@ -1,9 +1,8 @@
 # Running Docker Images Behind a WireGuard VPN
 
-!!! warning "Third-party setup, not supported by Fed-BioMed"
-    Fed-BioMed images do not include any VPN technology, and Fed-BioMed does not provide or support a VPN. The containers can be wrapped in a VPN using third-party tools; this page shows one way to do it. Authentication between the components is provided by [mutual authentication (mTLS)](./mutual-tls.md), which remains required for a deployment, inside a VPN or not.
+Authentication between Fed-BioMed components is provided by [mutual authentication (mTLS)](./mutual-tls.md), inside a VPN or not. This page shows how to encapsulate the federated network in a VPN, for deployments where extra protection is necessary. The Fed-BioMed Docker images do not include a VPN tool by default; instead, a VPN client can run in a container that shares its network with the Fed-BioMed container, or on the host itself. This example uses WireGuard, but any other VPN server and client can be used.
 
-This setup places the researcher and every node in a private [WireGuard](https://www.wireguard.com/) network, so the researcher gRPC port is reachable only from inside the VPN. It reuses the standard `fedbiomed/researcher` and `fedbiomed/node` images, unchanged, and adds two third-party components:
+This setup places the researcher and every node in a private [WireGuard](https://www.wireguard.com/) network, so the researcher gRPC port is reachable only from inside the VPN. It reuses the standard `fedbiomed/researcher` and `fedbiomed/node` images, unchanged, and requires two additional third-party components:
 
 - **VPN server**: [wg-easy](https://github.com/wg-easy/wg-easy), a WireGuard server with a web UI, running on a host that every site can reach.
 - **VPN client**: a sidecar container per site, using [linuxserver/wireguard](https://docs.linuxserver.io/images/docker-wireguard/). The Fed-BioMed container joins the sidecar network with `network_mode: "service:wg-client"`, so all its traffic goes through the sidecar network interfaces, including the VPN one.
@@ -12,12 +11,14 @@ The examples assume the VPN subnet `10.8.0.0/24` and the researcher peer at `10.
 
 ## VPN server
 
-On the VPN server host, create a `docker-compose.yml`:
+This setup must include a VPN server, deployed and maintained separately from the Fed-BioMed components.
+
+On the VPN server host, create a `docker-compose.yml` that runs the WireGuard server for the whole federation:
 
 ```yaml
 services:
-  wg-easy:
-    image: ghcr.io/wg-easy/wg-easy:15.4.0
+  wg-easy:                             # WireGuard server and its admin UI
+    image: ghcr.io/wg-easy/wg-easy:15.5.0
     container_name: wg-easy
     environment:
       - INIT_ENABLED=true
@@ -42,7 +43,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  wg-easy:
+  wg-easy:                             # server keys and peer list
 ```
 
 Start it with `docker compose up -d`, then remove the `INIT_*` variables: they are only used on first start.
@@ -62,12 +63,12 @@ AllowedIPs = 10.8.0.0/24
 
 ## Researcher site
 
-On the researcher host, save the researcher peer file as `wireguard/wg_confs/wg0.conf`, next to this `docker-compose.yml`:
+On the researcher host, save the researcher peer file as `wireguard/wg_confs/wg0.conf`, next to this `docker-compose.yml`. It runs the researcher behind a VPN client sidecar:
 
 ```yaml
 services:
-  wg-client:
-    image: lscr.io/linuxserver/wireguard:1.0.20260223-r0-ls124
+  wg-client:                           # VPN client, connects the site to the VPN server
+    image: lscr.io/linuxserver/wireguard:1.0.20260223-r0-ls128
     cap_add:
       - NET_ADMIN
     environment:
@@ -82,7 +83,7 @@ services:
       - "8888:8888"                    # Jupyter, published on the sidecar
     restart: unless-stopped
 
-  researcher:
+  researcher:                          # Fed-BioMed researcher, on the sidecar network
     image: fedbiomed/researcher:latest
     network_mode: "service:wg-client"
     environment:
@@ -92,19 +93,19 @@ services:
       - fbm-researcher:/fbm-researcher
 
 volumes:
-  fbm-researcher:
+  fbm-researcher:                      # researcher component directory
 ```
 
 The researcher shares the sidecar network, so its ports can only be published on the sidecar. Port `50051` is not published: nodes reach it through the VPN.
 
 ## Node site
 
-On each node host, save that node's peer file as `wireguard/wg_confs/wg0.conf`, next to this `docker-compose.yml`:
+On each node host, save that node's peer file as `wireguard/wg_confs/wg0.conf`, next to this `docker-compose.yml`. It runs the node behind a VPN client sidecar:
 
 ```yaml
 services:
-  wg-client:
-    image: lscr.io/linuxserver/wireguard:1.0.20260223-r0-ls124
+  wg-client:                           # VPN client, connects the site to the VPN server
+    image: lscr.io/linuxserver/wireguard:1.0.20260223-r0-ls128
     cap_add:
       - NET_ADMIN
     environment:
@@ -119,7 +120,7 @@ services:
       - "8484:8484"                    # Node GUI, published on the sidecar
     restart: unless-stopped
 
-  node:
+  node:                                # Fed-BioMed node, on the sidecar network
     image: fedbiomed/node:latest
     network_mode: "service:wg-client"
     environment:
@@ -129,7 +130,7 @@ services:
       - fbm-node:/fbm-node
 
 volumes:
-  fbm-node:
+  fbm-node:                            # node component directory
 ```
 
 Start each site with `docker compose up -d`. If the `wg-client` container is recreated, recreate the Fed-BioMed container too, as it loses its network otherwise.
