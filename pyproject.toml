@@ -155,8 +155,7 @@ include = [
 	"docs/tutorials"
 ]
 exclude = [
-  "tests",
-  "envs/vpn"
+  "tests"
 ]
 
 # Custom build hook for building node app

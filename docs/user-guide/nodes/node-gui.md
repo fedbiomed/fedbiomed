@@ -165,8 +165,3 @@ $ fedbiomed node gui start --key-file <path-to-key-file> --cert-file <path-to-ce
 ```
 
 SSL certificate can also be set through proxy server (e.g. [Nginx](https://www.nginx.com/)) instead of application server.
-
-!!! note "Nginx proxy server for GUI is provided in VPN/containers deployment mode"
-    Fed-BioMed provides a ready-to-deploy Node GUI container in VPN/containers deployment mode, that is configured to use [Nginx](https://www.nginx.com/) as a
-    proxy server and [Gunicorn](https://gunicorn.org/) as an application server. This also allows for setting custom SSL certificates.
-    Please refer to the  [VPN deployment](../deployment/deployment-vpn.md) documentation.

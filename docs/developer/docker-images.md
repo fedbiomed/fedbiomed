@@ -47,7 +47,8 @@ As it is mentioned above, when building Docker images for Fed-BioMed components,
 By default, if `FBM_IMAGE_VERSION` is not provided, the tag `latest` will be used:
 
 ```Dockerfile
-FROM fedbiomed/base:${FBM_IMAGE_VERSION:-latest}
+ARG FBM_IMAGE_VERSION=latest
+FROM fedbiomed/base:${FBM_IMAGE_VERSION}
 ```
 
 This means that if you have built the base image with the tag `latest`, you don't need to explicitly set `--build-arg FBM_IMAGE_VERSION=latest`. However, if you used a custom tag (e.g., `my-tag-or-version`), you **must** pass the same tag to the dependent image builds to ensure compatibility.

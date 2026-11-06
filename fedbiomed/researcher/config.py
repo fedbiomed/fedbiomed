@@ -112,7 +112,7 @@ component_root = os.environ.get("FBM_RESEARCHER_COMPONENT_ROOT", None)
 
 
 class ResearcherComponent(Component):
-    """Fed-BioMed Node Component Class
+    """Fed-BioMed Researcher Component Class
 
     This class is used for creating and validating components
     by given component root directory

@@ -13,7 +13,7 @@ Federated Analytics lets researchers compute statistics across data held by mult
 
 ## Enabling or Disabling FA
 
-Federated Analytics is **enabled by default** on every node. The setting lives in the `[security]` section of the node configuration file:
+Federated Analytics is **enabled by default** on a node installed directly on a machine, and disabled in the `fedbiomed/node` image. In a deployment, enable it only if the node's data governance policy accepts it. The setting lives in the `[security]` section of the node configuration file:
 
 ```ini
 [security]
@@ -30,7 +30,7 @@ allow_federated_analytics = False
 Once a dataset is registered on a node with the appropriate tags, it is automatically eligible for analytics requests — no further configuration is needed beyond this flag.
 
 !!! note "See also"
-    [Configuring Nodes](configuring-nodes.md) for a full reference of all node configuration options.
+    [Configuring Nodes](configuring-nodes.md) for a full reference of all node configuration options, and [Changing a setting](configuring-nodes.md#changing-a-setting) for the ways to change this flag.
 
 ---
 

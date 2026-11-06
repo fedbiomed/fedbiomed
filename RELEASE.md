@@ -1,6 +1,6 @@
 # Fed-BioMed release HOWTO
 
-This procedure makes release of software and documentation (published on `https://fedbiomed.org`).
+This procedure makes release of software and documentation (published on `https://docs.fedbiomed.org`).
 Both are contained in this repository.
 
 Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) release workflow. Can use `git` commands (see example below) or `git-flow` commands
@@ -14,7 +14,7 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 git checkout develop
 git pull --prune
 ```
-- check that the scheduled CI for `develop` is green: `Fed-BioMed Build Test`
+- check that the scheduled CI for `develop` is green: `Fed-BioMed Full Build Test`
   (weeknights at 18:00 UTC) and `End-to-End Test` (weeknights at 23:00 UTC)
 - set the release version tag for the release (or use this tag directly in commands)
 ```bash
@@ -30,7 +30,7 @@ git checkout -b release/$RELEASE_TAG
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
   * `fedbiomed/__init__.py` : change `__version__`
-  * `envs/vpn/docker/.env` : change `FBM_CONTAINER_VERSION_TAG`
+  * `CITATION.cff` : change `version`
 
 - in the `release` branch, commit the release time updates
 ```bash
@@ -72,7 +72,7 @@ git push origin release/$RELEASE_TAG
     which verifies the released tree after the fact.
 - if merge conflicts occur, solve them
 
-- browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
+- browse a few pages in the new documentation on `https://docs.fedbiomed.org` to verify it works as expected
 
 - optionally sync your local clone of `master` with new version of remote
 ```bash
@@ -102,17 +102,16 @@ git pull -p
 git checkout develop
 git branch -d release/$RELEASE_TAG
 ```
-- **add new version news in documentation**
 
 
 # Fed-BioMed hotfix HOWTO
 
 A hotfix is a patch that is added as a new version patch without changing the API or adding new features, when it can't wait for the next release to be corrected. To apply a hotfix, follow these steps:
 
-This procedure makes hotfix of software and documentation (published on `https://fedbiomed.org`).
+This procedure makes hotfix of software and documentation (published on `https://docs.fedbiomed.org`).
 Both are contained in this repository.
 
-Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) hotfix workflow. Can use `git` commands (see example below) or `git-flow` commands
+Hotfix principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) hotfix workflow. Can use `git` commands (see example below) or `git-flow` commands
 
 ## pre-hotfix
 
@@ -133,7 +132,7 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   export HOTFIX_NAME=601-short-description
   ```
 
-- set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v6.0.0`, it becomes `v6.0.1`.
+- set the hotfix version tag for the release (or use this tag directly in commands). For example, if the previous version was `v6.0.0`, it becomes `v6.0.1`.
 
   ```bash
   export HOTFIX_TAG=v6.0.1
@@ -152,7 +151,6 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 - in the `hotfix/$HOTFIX_NAME` branch, do the hotfix time updates:
   * `CHANGELOG.md`
   * `fedbiomed/__init__.py` : change `__version__`
-  * `envs/vpn/docker/.env` : change `FBM_CONTAINER_VERSION_TAG`
   * `CITATION.cff` : change `version`
 
 - in the `hotfix` branch, commit the hotfix time updates

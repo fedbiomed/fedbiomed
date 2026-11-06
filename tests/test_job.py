@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, call, create_autospec, patch
 
+import pytest
 from testsupport.fake_training_plan import FakeTorchTrainingPlan
 
 from fedbiomed.common.constants import (
@@ -856,3 +857,35 @@ class TestJob(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
+
+
+@pytest.mark.parametrize("save", [False, True])
+def test_training_reply_disk_storage(tmp_path, save):
+    from fedbiomed.common.serializer import Serializer
+
+    job = TrainingJob(
+        researcher_id="researcher",
+        requests=MagicMock(),
+        nodes=["node"],
+        experiment_id="experiment",
+        round_=0,
+        training_plan=MagicMock(),
+        training_args=TrainingArgs({}, only_required=False),
+        model_args={},
+        data=MagicMock(),
+        nodes_state_ids={},
+        aggregator_args={},
+        keep_files_dir=str(tmp_path) if save else None,
+    )
+    params = {"weight": [1.0, 2.0]}
+    reply = MagicMock(success=True)
+    reply.params = params
+    reply.get_dict.return_value = {"params": params, "success": True}
+    result = job._get_training_results({"node": reply})["node"]
+    assert result["params"] is params
+    if save:
+        assert Serializer.load(result["params_path"]) == params
+        assert len(list(tmp_path.iterdir())) == 1
+    else:
+        assert "params_path" not in result
+        assert not list(tmp_path.iterdir())

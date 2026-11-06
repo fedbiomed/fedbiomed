@@ -35,14 +35,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY fedbiomed ./fedbiomed
 COPY envs/common ./envs/common
-COPY envs/vpn ./envs/vpn
 COPY notebooks ./notebooks
 COPY docs/tutorials ./docs/tutorials
 COPY scripts ./scripts
 COPY hatch_build.py ./hatch_build.py
 
-# Copy fedbiomed_gui structure (needed for pyproject.toml packages)
+# Copy fedbiomed_gui and fedbiomed_node_api structure (needed for pyproject.toml packages)
 COPY fedbiomed_gui ./fedbiomed_gui
+COPY fedbiomed_node_api ./fedbiomed_node_api
 
 # Copy pre-built frontend from node-build stage
 COPY --from=node-build /build/build ./fedbiomed_gui/ui/build
