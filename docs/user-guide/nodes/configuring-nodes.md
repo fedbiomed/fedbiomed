@@ -195,10 +195,8 @@ The configuration file is structured following the sections below:
     - `port`: The port of the researcher component.
 
 - **Security Parameters:**
-    - `hashing_algorithm`: The algorithm will be used for hashing training plan scripts to verify if the requested training plan matches the one approved on the node side.
     - `training_plan_approval`: Boolean value to switch [training plan approval](./training-plan-security-manager.md)
     to verify training plan scripts before the training.
-    - `allow_default_training_plans`: Boolean value to enable automatic approval of example training plans provided by Fed-BioMed.
     - `secure_aggregation`: Boolean parameter (True/False) to activate secure aggregation.
     - `force_secure_aggregation`: Boolean parameter (True/False) to force secure aggregation for every action that uses local dataset.
     - `secagg_insecure_validation`: A boolean parameter to activate insecure validation for secure aggregation rounds to verify the correctness of the aggregation on the researcher side. This option is intended for testing and debugging purposes and must be deactivated in production deployments.
@@ -212,7 +210,7 @@ An example for a config file is shown below;
 [default]
 id = node_73768d5f-6a66-47de-8533-1291c4ef59d1
 component = NODE
-version = 2.4.0
+version = 2.5.0
 db = ../var/db_NODE_94572b0f-f55c-4167-b729-f16247c35a04.json
 name = Default Node Alias
 
@@ -223,8 +221,6 @@ enable = False
 mutual_authentication = True
 
 [security]
-hashing_algorithm = SHA256
-allow_default_training_plans = True
 training_plan_approval = False
 secure_aggregation = True
 force_secure_aggregation = False
@@ -293,7 +289,6 @@ The defaults depend on how the node is run. A node installed directly on a machi
 
 | Field | Environment variable | Default, no container | Default, `fedbiomed/node` image |
 |---|---|---|---|
-| `allow_default_training_plans` | `FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS` | `True` | `False` |
 | `training_plan_approval` | `FBM_SECURITY_TRAINING_PLAN_APPROVAL` | `False` | `True` |
 | `secure_aggregation` | `FBM_SECURITY_SECURE_AGGREGATION` | `True` | `True` |
 | `force_secure_aggregation` | `FBM_SECURITY_FORCE_SECURE_AGGREGATION` | `False` | `False` |
@@ -305,7 +300,7 @@ The defaults depend on how the node is run. A node installed directly on a machi
 The local federation defined in `docker/local-federation.yml` runs the `fedbiomed/node` image for testing, and sets `training_plan_approval` to `False` so that experiments run without approving each training plan, and `allow_preproc` and `allow_federated_analytics` to `True`.
 
 !!! warning "Security values in a deployment"
-    These values define what the node accepts to run on its data. Do not rely on the defaults in a deployment: set each value explicitly, according to the node's data governance policy. In particular, keep `training_plan_approval` enabled, and `allow_default_training_plans` and `secagg_insecure_validation` disabled. Enable `allow_preproc` and `allow_federated_analytics` only when they are needed, and set `minimum_samples` to the smallest dataset size the node accepts to share.
+    These values define what the node accepts to run on its data. Do not rely on the defaults in a deployment: set each value explicitly, according to the node's data governance policy. In particular, keep `training_plan_approval` enabled and `secagg_insecure_validation` disabled. Enable `allow_preproc` and `allow_federated_analytics` only when they are needed, and set `minimum_samples` to the smallest dataset size the node accepts to share.
 
 ### Researcher
 

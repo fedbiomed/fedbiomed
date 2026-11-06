@@ -41,8 +41,6 @@ def fedbiomed_environ():
         ("default", "name"),
         ("default", "db"),
         ("security", "training_plan_approval"),
-        ("security", "allow_default_training_plans"),
-        ("security", "hashing_algorithm"),
     ]
 
     for section, key in confs:
