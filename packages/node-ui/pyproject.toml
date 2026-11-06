@@ -16,8 +16,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
-# Sources live directly in this project directory, so editable imports use its parent.
-dev-mode-dirs = [".."]
+# The GUI still uses the project-root layout (server/ and ui/).
 exclude = ["__pycache__", "*.pyc", "node_modules"]
 artifacts = ["/ui/build/**"]
 

@@ -1,6 +1,6 @@
 [project]
 name = "fedbiomed"
-dynamic = ["version"]
+dynamic = ["version", "readme"]
 description = "Collaborative learning for healthcare"
 
 maintainers = [
@@ -106,7 +106,6 @@ dependencies = [
 ]
 
 requires-python = "<3.15,>=3.11"
-readme = "README.md"
 license = {text = "Apache 2.0"}
 
 [project.urls]
@@ -118,20 +117,6 @@ Repository = "https://github.com/fedbiomed/fedbiomed"
 path = "src/__init__.py"
 
 
-[tool.pdm]
-distribution = true
-
-[tool.pdm.dev-dependencies]
-local = [
-    "-e ./fedbiomed_node_api",
-    "-e ./fedbiomed_gui",
-]
-
-[tool.pdm.scripts]
-post_install = "pre-commit install"
-
-[tool.pdm.workspace]
-members = ["fedbiomed_node_api", "fedbiomed_gui"]
 [project.optional-dependencies]  # This is optional dependencies
 node = [
 ]
@@ -152,53 +137,19 @@ gui = ["fedbiomed-gui==6.4.1"]
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.metadata.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.hooks.custom]
+
 [tool.hatch.build.targets.sdist]
-include = [
-	"docs/tutorials",
-	"fedbiomed",
-	"notebooks",
-	"envs",
-	"docs/tutorials"
-]
-exclude = [
-  "tests"
-]
+include = ["/src", "/hatch_build.py", "/LICENSE.md"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["fedbiomed"]
-skip-excluded-dirs = true
+only-include = ["src"]
 
 [tool.hatch.build.targets.wheel.sources]
 "src" = "fedbiomed"
-
-[tool.hatch.build.targets.wheel.shared-data]
-"docs/tutorials" = "share/fedbiomed/docs/tutorials"
-"envs/common" = "share/fedbiomed/envs/common"
-"notebooks" = "share/fedbiomed/notebooks"
-
-[dependency-groups]
-test = [
-    "pytest",
-    "pytest-cov",
-    "pytest-mock",
-    "pytest-asyncio",
-    "tox",
-    "pre-commit>=4.2.0",
-    "hatchling",
-]
-dev = [
-	"ruff==0.11.13",
-	"pre-commit>=4.2.0",
-]
-docs = [
-	"mkdocs-material>=9.5",
-	"pymdown-extensions>=10.0",
-	"mkdocs-jupyter>=0.24",
-	"mkdocstrings-python>=1.10.8",
-	"mkdocs-minify-plugin",
-	"mkdocs-redirects",
-	"mike"
-]
 
 [build-system]
 requires = ["hatchling"]
@@ -206,87 +157,3 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 fedbiomed = "fedbiomed.cli:run"
-
-[tool.pytest.ini_options]
-pythonpath = ["tests", "tests/end2end"]
-testpaths = ["tests"]
-asyncio_mode = "strict"
-addopts = [
-    "--import-mode=importlib",
-]
-
-[tool.ruff]
-# Exclude a variety of commonly ignored directories.
-exclude = [
-	"envs",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".ipynb_checkpoints",
-    ".mypy_cache",
-    ".pyenv",
-    ".pytest_cache",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    ".vscode",
-    "__pypackages__",
-	"*.ipynb",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "site-packages",
-]
-
-# Same as Black.
-line-length = 88
-indent-width = 4
-# Assume Python 3.10
-target-version = "py310"
-
-[tool.ruff.format]
-# Like Black, use double quotes for strings.
-quote-style = "double"
-
-# Like Black, indent with spaces, rather than tabs.
-indent-style = "space"
-
-# Respect magic trailing commas.
-skip-magic-trailing-comma = false
-
-# Automatically detect the appropriate line ending.
-line-ending = "auto"
-
-docstring-code-format = false
-docstring-code-line-length = "dynamic"
-
-[tool.ruff.lint]
-# 1. Rules to be taken into account
-# https://www.flake8rules.com/
-select = [
-	"E4", "E7", "E9",  # pycodestyle
-	"F",  # Pyflakes
-	"B",  # flake8-bugbear
-	"I",  # isort
-]
-
-# 2. Sub-rules to ignore from the list above
-ignore = [
-]
-
-# 3. Avoid auto correction with --fix
-unfixable = [
-	"B",  #   flake8-bugbear (`B`) violations
-]
-
-[tool.codespell]
-# Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = '.git*,*.pdf,*.svg,*.lock,*.css,assets'
-check-hidden = true
-# ignore images in notebooks and regex specifications
-ignore-regex = '^\s*"image/\S+": ".*|\(^\S+\)|\bOT\b'
-ignore-words-list = 'ser,infor,te,opps,nd'
