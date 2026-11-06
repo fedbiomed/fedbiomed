@@ -208,7 +208,7 @@ To reuse a prebuilt `fedbiomed_gui/ui/build` directory, run
 To check package contents and to test rebuilding the wheels from the created source archives:
 
 ```sh
-python -m pytest --noconftest -c /dev/null tests/test_package_builds.py -q
+python -m pytest tests/compatibility -q
 ```
 
 This packaging check runs without application dependencies or frontend tools.

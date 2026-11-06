@@ -169,3 +169,26 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 fedbiomed = "fedbiomed.cli:run"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tests"]
+asyncio_mode = "strict"
+addopts = ["--import-mode=importlib"]
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py311"
+extend-exclude = ["envs", "*.ipynb", "node_modules"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B", "I"]
+unfixable = ["B"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = false

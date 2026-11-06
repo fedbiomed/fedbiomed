@@ -38,3 +38,10 @@ include = [
     "/ui/public",
     "/ui/src",
 ]
+
+[tool.ruff]
+extend = "../fedbiomed/pyproject.toml"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
