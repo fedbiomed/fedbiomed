@@ -36,3 +36,10 @@ only-include = ["src"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "config_gui.ini" = "fedbiomed_node_api/config_gui.ini"
+
+[tool.ruff]
+extend = "../fedbiomed/pyproject.toml"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
