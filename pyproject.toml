@@ -77,13 +77,11 @@ classifiers = [
 
 dependencies = [
 	"tinydb ~=4.7.1",
-	"validators >=0.20.0,<0.21.0",
 	"tabulate >=0.9.0,<0.10.0",
 	"psutil ~=6.0.0",
 	"requests  ~=2.29",
 	"packaging   ~=24.1",
-	"cryptography ~=40.0",
-	"pyopenssl ~=23.1.1",
+	"cryptography ~=42.0",
 	"joblib  ~=1.2",
 	"itk  !=5.4.4,>=5.3.0",
 	"scipy  >=1.10.0",
@@ -96,9 +94,9 @@ dependencies = [
 	"persist-queue  >=0.5.1,<0.6.0",
 	"pandas  >=2.0.1",
 	"polars ~=1.32.0",
-	"python-minifier  ~=2.11",
-	"declearn[torch]  >=2.0,<2.9",
-	"gmpy2  >=2.1.2,<2.2",
+	"python-minifier  >=2.11,<=3.2.0",
+	"declearn[torch]  >=2.9, <2.10",
+	"gmpy2  >=2.1.2,<=2.3.1",
 	"grpcio  ~=1.82.0",
 	"grpcio-tools  ~=1.82.0",
 	"unet  >=0.7.7,<0.8.0",
@@ -107,7 +105,7 @@ dependencies = [
 	"pyarrow>=21.0.0",
 ]
 
-requires-python = "<3.12,>=3.10"
+requires-python = "<3.15,>=3.11"
 readme = "README.md"
 license = {text = "Apache 2.0"}
 
@@ -126,18 +124,22 @@ node = [
 researcher = [
 	"pathvalidate ~=3.0.0",
 	"matplotlib >=3.8.0",
+	"setuptools <81",
 	"tensorboard ~=2.18.0",
 	"jupyter",
 	"ipython"
 ]
 
-gui = [
+api = [
 	"flask >=2.3.1,<24.0",
 	"jsonschema ~=4.18.0",
 	"Flask-JWT-Extended >=4.4.4,<4.5.0",
 	"cachelib >=0.10.2,<0.11.0",
 	"gunicorn ~=23.0.0"
 ]
+
+# Preserve existing GUI installation commands; the web dependencies belong to the API.
+gui = ["fedbiomed[api]"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -147,20 +149,20 @@ include = [
 	"docs/tutorials",
 	"fedbiomed",
 	"fedbiomed_gui",
+	"fedbiomed_node_api",
 	"notebooks",
 	"envs",
 	"docs/tutorials"
 ]
 exclude = [
-  "tests",
-  "envs/vpn"
+  "tests"
 ]
 
 # Custom build hook for building node app
 [tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.wheel]
-packages = ["fedbiomed", "fedbiomed_gui"]
+packages = ["fedbiomed", "fedbiomed_gui", "fedbiomed_node_api"]
 artifacts = [
   "fedbiomed_gui/ui/build"
 ]
@@ -180,6 +182,7 @@ test = [
 	"pytest",
 	"pytest-cov",
 	"pytest-mock",
+	"pytest-asyncio",
 	"tox",
 	"pre-commit>=4.2.0",
 ]
@@ -210,6 +213,7 @@ fedbiomed = "fedbiomed.cli:run"
 [tool.pytest.ini_options]
 pythonpath = ["tests", "tests/end2end"]
 testpaths = ["tests"]
+asyncio_mode = "strict"
 addopts = [
     "--import-mode=importlib",
 ]

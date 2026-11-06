@@ -166,8 +166,8 @@ class _SecurityFormatter(logging.Formatter):
 
         entry = {
             "timestamp": _utc_timestamp(),
-            "node_id": self._security_defaults.get("component_id"),
-            "node_name": self._security_defaults.get("component_name"),
+            "component_id": self._security_defaults.get("component_id"),
+            "component_name": self._security_defaults.get("component_name"),
             "researcher_id": ctx.get("researcher_id")
             or getattr(record, "researcher_id", None),
             "operation": ctx.get("operation") or getattr(record, "operation", None),
@@ -201,14 +201,19 @@ class _GrpcFormatter(logging.Formatter):
     def format(self, record):
         """Formats the message/data that is going to be send to remote party through gRPC"""
         record2 = copy.copy(record)
+        # Keep diagnostic traceback metadata local, including cached exception text.
+        record2.exc_info = None
+        record2.exc_text = None
+        record2.stack_info = None
         json_message = {
             "asctime": self.formatTime(record2),
             "node_id": self._node_id,
             "name": record2.__dict__["name"],
             "level": record2.__dict__["levelname"],
-            "message": record2.__dict__["message"],
+            "message": record.getMessage(),
         }
         record2.msg = json.dumps(json_message)
+        record2.args = ()
         return super().format(record2)
 
 
@@ -242,7 +247,9 @@ class _GrpcHandler(logging.Handler):
             record: is automatically passed by the logger class
         """
 
-        if hasattr(record, "broadcast") or hasattr(record, "researcher_id"):
+        broadcast = getattr(record, "broadcast", False) is True
+        researcher_id = getattr(record, "researcher_id", None)
+        if broadcast or researcher_id:
             msg = dict(
                 level=record.__dict__["levelname"],
                 msg=self.format(record),
@@ -253,11 +260,11 @@ class _GrpcHandler(logging.Handler):
             import fedbiomed.common.message as message
 
             feedback = message.FeedbackMessage(
-                researcher_id=record.researcher_id, log=message.Log(**msg)
+                researcher_id=researcher_id, log=message.Log(**msg)
             )
 
             try:
-                self._on_log(feedback, record.broadcast)
+                self._on_log(feedback, broadcast)
             except Exception:
                 logging.error("Not able to send log message to remote party")
 
@@ -449,11 +456,12 @@ class FedLogger(metaclass=SingletonMeta):
         Writes one JSON security/audit log line to security file only.
 
         Always present:
-          - node_id, researcher_id, timestamp, operation, status, fedbiomed_version
+          - component_id, component_name, researcher_id, timestamp, operation, status,
+            fedbiomed_version
           - caller_function, caller_module, caller_file, caller_line (automatically captured)
 
         Values resolved as:
-          - explicit args > bound SECURITY_CONTEXT > defaults (for node_id/version)
+          - explicit args > bound SECURITY_CONTEXT > defaults (for component_id/version)
 
         Args:
             operation: Name of the operation being logged (e.g., 'dataset_search', 'training_execute')
@@ -506,7 +514,7 @@ class FedLogger(metaclass=SingletonMeta):
                 json.dumps(
                     {
                         "timestamp": _utc_timestamp(),
-                        "node_id": self._security_defaults.get("component_id"),
+                        "component_id": self._security_defaults.get("component_id"),
                         "caller_parsing": "failure",
                         "caller_parser_error": str(e),
                     },

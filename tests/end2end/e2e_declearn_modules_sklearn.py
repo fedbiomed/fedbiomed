@@ -24,13 +24,8 @@ from experiments.training_plans.sklearn import (
 )
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_node,
-    create_researcher,
     get_data_folder,
-    kill_subprocesses,
-    start_nodes,
 )
 
 from fedbiomed.common.optimizers import Optimizer
@@ -57,63 +52,45 @@ from fedbiomed.researcher.federated_workflows import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup(port, post_session, request):
+def setup(federation):
     """Setup fixture for the module."""
 
-    print(f"USING PORT {port} for researcher server")
-    print("Creating components ---------------------------------------------")
-
-    node_1 = create_node(port=port)
-    node_2 = create_node(port=port)
-    researcher = create_researcher(port=port)
-
-    path_data = get_data_folder("MNIST-e2e-test")
     dataset = {
         "name": "MNIST",
         "description": "MNIST DATASET",
         "tags": "#MNIST,#dataset",
         "data_type": "default",
-        "path": path_data,
+        "path": get_data_folder("MNIST-e2e-test"),
     }
-
-    print("Adding first dataset --------------------------------------------")
-    add_dataset_to_node(node_1, dataset)
-    print("Adding second dataset -------------------------------------------")
-    add_dataset_to_node(node_2, dataset)
-
-    adni_data_path = os.path.join(
-        SHARE_DIR, "notebooks", "data", "CSV", "pseudo_adni_mod.csv"
-    )
     adni_dataset = {
         "name": "Adni dataset",
         "description": "Adni DATASET",
         "tags": "#adni",
         "data_type": "csv",
-        "path": adni_data_path,
+        "path": os.path.join(
+            SHARE_DIR, "notebooks", "data", "CSV", "pseudo_adni_mod.csv"
+        ),
     }
 
-    print("Adding first ADNI dataset --------------------------------------")
-    add_dataset_to_node(node_1, adni_dataset)
-    print("Adding second ADNI dataset -------------------------------------")
-    add_dataset_to_node(node_2, adni_dataset)
+    with federation.nodes(2) as (node_1, node_2):
+        print("Adding first dataset --------------------------------------------")
+        add_dataset_to_node(node_1, dataset)
+        print("Adding second dataset -------------------------------------------")
+        add_dataset_to_node(node_2, dataset)
 
-    time.sleep(1)
+        print("Adding first ADNI dataset --------------------------------------")
+        add_dataset_to_node(node_1, adni_dataset)
+        print("Adding second ADNI dataset -------------------------------------")
+        add_dataset_to_node(node_2, adni_dataset)
 
-    node_processes, thread = start_nodes([node_1, node_2])
+        time.sleep(1)
 
-    def clear():
-        kill_subprocesses(node_processes)
-        thread.join()
+        federation.start((node_1, node_2))
 
-        print("Clearing component data")
-        clear_component_data(node_1)
-        clear_component_data(node_2)
-        clear_component_data(researcher)
+        print("Sleep 10 seconds. Giving some time for nodes to start")
+        time.sleep(10)
 
-    print("Sleep 10 seconds. Giving some time for nodes to start")
-    time.sleep(10)
-
-    request.addfinalizer(clear)
+        yield
 
 
 MODEL_ARGS = {

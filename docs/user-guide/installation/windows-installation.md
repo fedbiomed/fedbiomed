@@ -79,7 +79,7 @@ user@wsl-ubuntu$
 ```
 
 
-## Step 3: docker (optional, required if containers/VPN needed)
+## Step 3: docker (optional, required if containers needed)
 
 Requirement : `docker` and `docker compose`
 

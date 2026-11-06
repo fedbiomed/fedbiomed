@@ -1,17 +1,34 @@
 """Contains execution helpers"""
 
+import contextlib
 import multiprocessing
 import subprocess
+import threading
 from typing import Callable, List, Optional
 
 import psutil
 import pytest
+
+_processes = {}
+_processes_lock = threading.Lock()
 
 
 # TODO: When it is raised should exit from
 # subprocess and parent process
 class End2EndErrorExit(SystemExit):
     pass
+
+
+def register_process(process: subprocess.Popen) -> None:
+    """Register a subprocess created by the current E2E test process."""
+    with _processes_lock:
+        _processes[process.pid] = process
+
+
+def unregister_process(process) -> None:
+    """Remove a subprocess from the current E2E process registry."""
+    with _processes_lock:
+        _processes.pop(process.pid, None)
 
 
 def collect(process, on_failure: Optional[Callable] = None) -> bool:
@@ -38,6 +55,9 @@ def collect(process, on_failure: Optional[Callable] = None) -> bool:
                 f"Error: Processes failed {process}. Args: {process.args} "
                 "Please check the outputs."
             )
+    finally:
+        if process.poll() is not None:
+            unregister_process(process)
 
     return True
 
@@ -78,28 +98,38 @@ def kill_subprocesses(processes):
         kill_process(p)
 
 
+def kill_registered_subprocesses() -> None:
+    """Kill subprocesses started by the current E2E test process."""
+    with _processes_lock:
+        processes = list(_processes.values())
+
+    kill_subprocesses(processes)
+
+
 def kill_process(process):
-    """Kills single process"""
+    """Kills single process and its children, tolerating exit races.
 
-    if not psutil.pid_exists(process.pid):
-        cmdl = process.cmdline() if hasattr(process, "cmdline") else process
-        print(f"\n ###### Process is no longer available {cmdl}")
-        return
-
-    parent = psutil.Process(process.pid)
-    print(f'\n ##### Checking child process of parent "{parent.cmdline()}"')
-    for child in parent.children(recursive=True):
-        print(f"\n ##### Killing child process {child.cmdline()}")
-        child.kill()
+    A process that disappears while being killed is the expected outcome, not a
+    failure, so every `psutil` error is reported and swallowed. Callers run
+    during teardown and must be able to continue.
+    """
 
     try:
+        # Reaps the child, so a recycled pid can never be killed by mistake.
+        if isinstance(process, subprocess.Popen) and process.poll() is not None:
+            print(f"\n ###### Process is no longer available {process}")
+            return
+
+        parent = psutil.Process(process.pid)
+        for child in parent.children(recursive=True):
+            # A child dying on its own must not stop the parent from being killed.
+            with contextlib.suppress(psutil.Error):
+                child.kill()
         parent.kill()
-    except psutil.ZombieProcess:
-        print(
-            "\n Parent process has became zombie process after killing child processes"
-        )
-    except psutil.NoSuchProcess:
-        print("\n Parent process no longer existing after killing child processes")
+    except psutil.Error as e:
+        print(f"\n ###### Process {process} could not be killed: {e}")
+    finally:
+        unregister_process(process)
 
 
 def shell_process(
@@ -137,6 +167,7 @@ def shell_process(
         close_fds=True,
         universal_newlines=True,
     )
+    register_process(process)
 
     if wait:
         return collect(process, on_failure)

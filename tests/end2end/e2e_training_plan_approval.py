@@ -4,13 +4,8 @@ import pytest
 from experiments.training_plans.mnist_model_approval import TrainingPlanApprovalTP
 from helpers import (
     add_dataset_to_node,
-    clear_component_data,
     clear_experiment_data,
-    create_node,
-    create_researcher,
     get_data_folder,
-    kill_subprocesses,
-    start_nodes,
     training_plan_operation,
 )
 
@@ -21,7 +16,7 @@ from fedbiomed.researcher.experiment import Experiment
 
 # Set up nodes and start
 @pytest.fixture(scope="module", autouse=True)
-def setup_components(port, post_session):
+def setup_components(federation):
     """Setup fixture for the module"""
     dataset = {
         "name": "MNIST",
@@ -31,41 +26,22 @@ def setup_components(port, post_session):
         "path": get_data_folder("MNIST-e2e-test"),
     }
 
-    print(f"USING PORT {port} for researcher server")
-    print("Creating components ---------------------------------------------")
-    node_1 = create_node(
-        port=port, config_sections={"security": {"training_plan_approval": "True"}}
-    )
+    with federation.nodes(2, {"security": {"training_plan_approval": "True"}}) as (
+        node_1,
+        node_2,
+    ):
+        print("Adding first dataset --------------------------------------------")
+        add_dataset_to_node(node_1, dataset)
+        print("Adding second dataset -------------------------------------------")
+        add_dataset_to_node(node_2, dataset)
 
-    node_2 = create_node(
-        port=port, config_sections={"security": {"training_plan_approval": "True"}}
-    )
+        federation.start((node_1, node_2))
 
-    print("Creating researcher component -----------------------------------------")
-    researcher = create_researcher(port=port)
+        # Wait for nodes to finish starting before running tests
+        print("Waiting 10 seconds for nodes to start")
+        time.sleep(10)
 
-    print("Adding first dataset --------------------------------------------")
-    add_dataset_to_node(node_1, dataset)
-    print("Adding second dataset -------------------------------------------")
-    add_dataset_to_node(node_2, dataset)
-
-    # Starts the nodes
-    node_processes, thread = start_nodes([node_1, node_2])
-
-    # Wait for nodes to finish starting before running tests
-    print("Waiting 10 seconds for nodes to start")
-    time.sleep(10)
-
-    yield node_1, node_2, researcher
-
-    try:
-        kill_subprocesses(node_processes)
-        thread.join()
-    finally:
-        print("Clearing component data")
-        clear_component_data(node_1)
-        clear_component_data(node_2)
-        clear_component_data(researcher)
+        yield node_1, node_2, federation.researcher
 
 
 #############################################

@@ -34,6 +34,39 @@ A security event is any action that should be auditable, such as:
 - CRUD operations on config files.
 - Optional: Info regarding secagg operations.
 
+### Mutual authentication and certificate events
+
+For both node and researcher, certificate registration and deletion are audited by the certificate manager. These events apply to both CLI and GUI operations. The node records each established connection in the audit log, including routine reconnections that appear only at debug level in application logs.
+
+The following implemented `operation` values identify authentication and trust
+changes in the structured security logs:
+
+| Operation | Emitted by | Meaning |
+| --- | --- | --- |
+| `certificate_registered` | Certificate manager | A peer certificate was registered. `component_id` identifies the peer; `replaced` indicates whether an existing registration was overwritten. |
+| `certificate_deleted` | Certificate manager | An existing peer certificate registration was removed. |
+| `certificate_expiring` | Certificate manager | A registered node certificate is within the 30-day expiry warning window. Includes `component_id` and `expires_on`. |
+| `mtls_node_authenticated` | Researcher | The node's declared identity matches its registered certificate on an authenticated connection. |
+| `mtls_identity_unresolved` | Researcher | A request arrived with a certificate that cannot be resolved to a registered node, for example after its registration was deleted. The request is rejected. |
+| `mtls_identity_mismatch` | Researcher | The declared node id differs from the identity registered for its certificate. The request is rejected. |
+| `researcher_channel_established` | Node | Communication with the researcher was established. Check `mtls`: a successful connection with `mtls=False` does not mean the node's identity was verified. |
+
+
+### gRPC handshake diagnostics
+
+A TLS handshake can fail before any Fed-BioMed request reaches the researcher.
+Such a rejection does not produce a researcher-side `mtls_identity_mismatch` or
+`mtls_identity_unresolved` event: those events concern requests that reached the
+application. Node-side security events may still describe the connection failure.
+
+Low-level handshake reasons, such as `CERTIFICATE_VERIFY_FAILED` or
+`PEER_DID_NOT_RETURN_A_CERTIFICATE`, are emitted by gRPC itself, separately from
+the structured security audit log. Fed-BioMed defaults `GRPC_VERBOSITY` to `ERROR`
+to avoid repeated handshake messages. To inspect them, set `GRPC_VERBOSITY=INFO`
+before starting the component being diagnosed; gRPC reads it at import time.
+See [mTLS troubleshooting](../user-guide/deployment/mutual-tls.md#verifying-and-troubleshooting)
+for commands and interpretation.
+
 ## Security logging architecture
 
 ### Dedicated handler and filter

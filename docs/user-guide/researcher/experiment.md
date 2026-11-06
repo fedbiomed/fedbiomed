@@ -448,6 +448,9 @@ exp.set_save_breakpoints(True)
     Setting `save_breakpoints` to `True` after the experiment has performed several rounds of
     training will only save the breakpoints for remaining rounds.
 
+!!! info
+    Version 6.5.0 introduces another parameter named `reduce_disk_usage`. This parameter skips per-round model parameter writes during training in order to save disk space usage. This in practice, is not used often so it is `False` by default, and only used for e2e testing. To turn it on, set `reduce_disk_usage=True` **and** `retain_full_history=False` and `save_breakpoints=False`.
+
 
 Please visit the tutorial ["Breakpoints (experiment saving facility)"](../../tutorials/advanced/breakpoints.md) to find out more about breakpoints.
 

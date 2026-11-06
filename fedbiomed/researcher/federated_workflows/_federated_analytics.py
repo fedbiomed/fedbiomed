@@ -813,7 +813,7 @@ class FederatedAnalytics:
         round1_stats = sorted(
             {s for s in stats if s not in self._CENTERED_DERIVED} | {"count", "sum"}
         )
-        r1 = self.fetch_stats(round1_stats, dataset_schema, _emit_log=False)
+        r1 = self.fetch_stats(round1_stats, dataset_schema)
         mean_tree = r1.global_stats("mean")
 
         # Round 2: Σ(x − μ)² centered on the round-1 global mean.
@@ -828,18 +828,10 @@ class FederatedAnalytics:
 
         return FAResult._combine(r1, r2)
 
-    def _log_global_stats(self, result: FAResult) -> None:
-        """Log the aggregated global statistics of *result* once, prettily."""
-        logger.info(
-            "Global statistics:\n%s",
-            json.dumps(result.global_stats(), indent=2, default=str, sort_keys=True),
-        )
-
     def fetch_stats(
         self,
         stats: Optional[str | list[str]] = None,
         dataset_schema: Optional[str | list[str | dict]] = None,
-        _emit_log: bool = True,
     ) -> FAResult:
         """Fetch named statistics across nodes. Already-cached statistics are not re-requested.
 
@@ -847,9 +839,6 @@ class FederatedAnalytics:
             stats: Statistic name(s) to request from nodes (e.g. ``"mean"``).
                 Defaults to ``["count", "mean", "variance"]``.
             dataset_schema: Optional schema definition for filtering the dataset.
-            _emit_log: Internal. When ``False``, suppresses the final global-stats
-                log line — used for intermediate rounds (e.g. the round-1 mean of
-                the variance/std two-pass) so the stats are logged once, at the end.
 
         Returns:
             A :class:`FAResult` containing per-node data and supporting global aggregation.
@@ -916,8 +905,6 @@ class FederatedAnalytics:
             else:
                 result = self._fetch_centered(stats, dataset_schema, node_ids)
                 self._cache_store(cache_key, result)
-            if _emit_log:
-                self._log_global_stats(result)
             return result
 
         # Re-requesting the same (node_ids, schema) key returns identical data, so a
@@ -945,9 +932,6 @@ class FederatedAnalytics:
                 f"All requested statistics {stats} are already cached — "
                 "skipping node requests."
             )
-
-        if _emit_log:
-            self._log_global_stats(cached)
 
         return cached
 

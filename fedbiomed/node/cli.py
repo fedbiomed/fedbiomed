@@ -9,10 +9,13 @@ import argparse
 import importlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+from tabulate import tabulate
 
 from fedbiomed.common.cli import (
     CLIArgumentParser,
@@ -34,8 +37,16 @@ from fedbiomed.node.cli_utils import (
     view_training_plan,
 )
 from fedbiomed.node.config import node_component
-from fedbiomed.node.node import Node
-from fedbiomed.node.node_pm import NodeProcessManager
+from fedbiomed.node.node import (
+    DiagnosticSeverity,
+    NodeContext,
+    certificate_diagnostics,
+)
+from fedbiomed.node.node_pm import (
+    NodeConnectionStateManager,
+    NodeProcessManager,
+    NodeState,
+)
 
 # Please use following code generate similar intro
 # print(pyfiglet.Figlet("doom").renderText(' fedbiomed node'))
@@ -63,7 +74,7 @@ def intro():
 class DatasetArgumentParser(CLIArgumentParser):
     """Initializes CLI options for dataset actions"""
 
-    _node: Node
+    _context: NodeContext
     _mnist_path = None
 
     def initialize(self):
@@ -134,18 +145,21 @@ class DatasetArgumentParser(CLIArgumentParser):
 
         if args.mnist != "":
             if args.mnist is None:
-                mnist_path = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
+                mnist_path = os.path.join(self._context.config.root, NODE_DATA_FOLDER)
             else:
                 mnist_path = args.mnist
             return add_database(
-                self._node.dataset_manager, interactive=False, path=mnist_path
+                self._context.dataset_manager, interactive=False, path=mnist_path
             )
 
         if args.file:
             return self._add_dataset_from_file(path=args.file)
 
         # All operation is handled by CLI utils add_database
-        return add_database(self._node.dataset_manager)
+        return add_database(
+            self._context.dataset_manager,
+            initialdir=os.path.join(self._context.config.root, NODE_DATA_FOLDER),
+        )
 
     def list(self, unused_args):
         """List datasets
@@ -154,7 +168,7 @@ class DatasetArgumentParser(CLIArgumentParser):
           unused_args: Empty arguments since `list` command no positional args.
         """
         print("Listing your data available")
-        data = self._node.dataset_manager.list_my_datasets(verbose=True)
+        data = self._context.dataset_manager.list_my_datasets(verbose=True)
         if len(data) == 0:
             print("No data has been set up.")
 
@@ -162,12 +176,12 @@ class DatasetArgumentParser(CLIArgumentParser):
         """Deletes datasets"""
 
         if args.all:
-            return delete_all_database(self._node.dataset_manager)
+            return delete_all_database(self._context.dataset_manager)
 
         if args.mnist:
-            return delete_database(self._node.dataset_manager, interactive=False)
+            return delete_database(self._context.dataset_manager, interactive=False)
 
-        return delete_database(self._node.dataset_manager)
+        return delete_database(self._context.dataset_manager)
 
     def _add_dataset_from_file(self, path):
         print("Dataset description file provided: adding these data")
@@ -201,14 +215,14 @@ class DatasetArgumentParser(CLIArgumentParser):
         elif elements[0]:
             # p is relative (does not start with /)
             # prepend with topdir
-            elements = [self._node.config.root] + elements
+            elements = [self._context.config.root] + elements
 
         # rebuild the path with these (eventually) new elements
         data["path"] = os.path.join(os.path.sep, *elements)
 
         # add the dataset to local database (not interactive)
         add_database(
-            self._node.dataset_manager,
+            self._context.dataset_manager,
             interactive=False,
             path=data["path"],
             data_type=data["data_type"],
@@ -222,7 +236,7 @@ class DatasetArgumentParser(CLIArgumentParser):
 class TrainingPlanArgumentParser(CLIArgumentParser):
     """Argument parser for training-plan operations"""
 
-    _node: Node
+    _context: NodeContext
 
     def initialize(self):
         self._parser = self._subparser.add_parser(
@@ -295,39 +309,107 @@ class TrainingPlanArgumentParser(CLIArgumentParser):
 
     def delete(self, args):
         """Deletes training plan"""
-        delete_training_plan(self._node.tp_security_manager, id=args.id)
+        delete_training_plan(self._context.tp_security_manager, id=args.id)
 
     def register(self):
         """Registers training plan"""
-        register_training_plan(self._node.tp_security_manager)
+        register_training_plan(self._context.tp_security_manager)
 
     def list(self):
         """Lists training plans"""
-        self._node.tp_security_manager.list_training_plans(verbose=True)
+        self._context.tp_security_manager.list_training_plans(verbose=True)
 
     def view(self):
         """Views training plan"""
-        view_training_plan(self._node.tp_security_manager)
+        view_training_plan(self._context.tp_security_manager)
 
     def approve(self, args):
         """Approves training plan"""
-        approve_training_plan(self._node.tp_security_manager, id=args.id)
+        approve_training_plan(self._context.tp_security_manager, id=args.id)
 
     def reject(self, args):
         """Approves training plan"""
         reject_training_plan(
-            self._node.tp_security_manager, id=args.id, notes=args.notes
+            self._context.tp_security_manager, id=args.id, notes=args.notes
         )
 
     def update(self):
         """Updates training plan"""
-        update_training_plan(self._node.tp_security_manager)
+        update_training_plan(self._context.tp_security_manager)
+
+
+def _yes_no(value: Optional[bool], yes: str = "Yes", no: str = "No") -> str:
+    """Renders a tri-state flag, `Unknown` when it was not recorded."""
+    if value is None:
+        return "Unknown"
+    return yes if value else no
+
+
+def _connection_rows(entry) -> List[List[str]]:
+    """Builds the rows of the connection status table.
+
+    Args:
+        entry: Connection state recorded by the node.
+
+    Returns:
+        Rows of `[field name, value]`.
+    """
+    return [
+        ["State", entry.state],
+        ["Host", entry.host],
+        ["Port", entry.port],
+        ["Identity verified", _yes_no(entry.identity_verified)],
+        ["Mutual authentication (mTLS)", _yes_no(entry.mtls, "On", "Off")],
+        ["Reason", entry.reason or "-"],
+        ["Connected since", entry.started_at or "-"],
+        ["Last update", entry.updated_at or "-"],
+    ]
+
+
+_STATE_COLORS = {
+    NodeState.RUNNING: "\033[32m",  # green
+    NodeState.STOPPED: "\033[31m",  # red
+}
+
+
+def _colored_state(state: NodeState) -> str:
+    """Renders a node process state, colored when the output is a terminal.
+
+    Args:
+        state: Node process state.
+
+    Returns:
+        The state value, in green when running and red when stopped. Left plain when
+        output is redirected or `NO_COLOR` is set.
+    """
+    color = _STATE_COLORS.get(state)
+    if color is None or not sys.stdout.isatty() or os.environ.get("NO_COLOR"):
+        return state.value
+    return f"{color}{state.value}\033[0m"
+
+
+def _print_table(title: str, rows: List[List[str]]) -> None:
+    """Prints a titled two-column table.
+
+    Args:
+        title: Title printed above the table.
+        rows: Rows of `[field name, value]`.
+    """
+    print(f"{title}:")
+    print(
+        tabulate(
+            rows,
+            headers=["Field", "Value"],
+            tablefmt="presto",
+            maxcolwidths=[None, 60],
+        )
+    )
 
 
 class NodeControl(CLIArgumentParser):
     """CLI argument parser for starting the node"""
 
-    _node: Node
+    _context: NodeContext
 
     def initialize(self):
         """Initializes missing control argument parser"""
@@ -439,6 +521,13 @@ class NodeControl(CLIArgumentParser):
         status = self._subparser.add_parser("status", help="Shows the node status")
         status.set_defaults(func=self.status)
 
+        status.add_argument(
+            "--history",
+            action="store_true",
+            required=False,
+            help="Also lists the connection state changes the node recorded recently.",
+        )
+
     def start(self, args):
         """Starts the node"""
         intro()
@@ -450,7 +539,7 @@ class NodeControl(CLIArgumentParser):
             "debug": True if args.debug else False,
         }
 
-        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager = NodeProcessManager(self._context.config)
         background = True if args.background else False
         try:
             if background:
@@ -482,7 +571,7 @@ class NodeControl(CLIArgumentParser):
 
     def stop(self):
         """Stops the node"""
-        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager = NodeProcessManager(self._context.config)
         node_process_manager.stop(
             actor={"source": "cli"},
             reason="cli_stop_command",
@@ -502,7 +591,7 @@ class NodeControl(CLIArgumentParser):
         if args.debug is not None:
             node_args["debug"] = args.debug
 
-        node_process_manager = NodeProcessManager(self._node.config)
+        node_process_manager = NodeProcessManager(self._context.config)
         node_process_manager.restart(
             node_args=node_args,
             background=args.background,
@@ -510,15 +599,51 @@ class NodeControl(CLIArgumentParser):
             reason="cli_restart_command",
         )
 
-    def status(self):
-        """Shows the node status"""
-        node_process_manager = NodeProcessManager(self._node.config)
+    def status(self, args):
+        """Shows the node status, and the connection it last recorded.
+
+        The node writes its connection state as it observes its channel, so what
+        is reported here is only current while the node runs.
+        """
+        node_process_manager = NodeProcessManager(self._context.config)
         status = node_process_manager.get_status()
-        print(f"Node status: {status}")
+        _print_table("Node process", [["State", _colored_state(status)]])
+        print()
+
+        connection_state = NodeConnectionStateManager(
+            self._context.config
+        ).get_connection_state()
+        if connection_state is None:
+            print("Connection to researcher: none recorded yet")
+        else:
+            _print_table("Connection to researcher", _connection_rows(connection_state))
+            if status is not NodeState.RUNNING:
+                print(
+                    "The node is not running, so this is the state it "
+                    "was in when it stopped."
+                )
+
+        if not args.history:
+            return
+
+        history = NodeConnectionStateManager(
+            self._context.config
+        ).get_connection_history()
+        if not history:
+            print("\nNo connection state change recorded.")
+            return
+
+        print("\nRecent connection state changes, newest first:")
+        for entry in history:
+            print(
+                f"  {entry.updated_at or '-'}  {entry.state}"
+                + (f"  {entry.operation}" if entry.operation else "")
+                + (f"  {entry.reason}" if entry.reason else "")
+            )
 
 
 class GUIControl(CLIArgumentParser):
-    _node: Node
+    _context: NodeContext
 
     def initialize(self):
         """Initializes GUI commands"""
@@ -596,7 +721,8 @@ class GUIControl(CLIArgumentParser):
             "-rc",
             action="store_true",
             required=False,
-            help="Re-creates gui build",
+            help="Rebuilds the user interface from its sources (`yarn install`, "
+            "`yarn build`) before starting the GUI",
         )
 
         start.add_argument(
@@ -617,7 +743,7 @@ class GUIControl(CLIArgumentParser):
         fedbiomed_root = os.path.abspath(args.path)
 
         if args.data_folder == "":
-            data_folder = os.path.join(self._node.config.root, NODE_DATA_FOLDER)
+            data_folder = os.path.join(self._context.config.root, NODE_DATA_FOLDER)
         else:
             data_folder = os.path.abspath(args.data_folder)
         if not os.path.isdir(data_folder):
@@ -638,6 +764,28 @@ class GUIControl(CLIArgumentParser):
         fedbiomed_gui = importlib.import_module("fedbiomed_gui")
         server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
         print("path to server", server_app)
+
+        # The server serves the bundle built from `ui`, so changes to its sources
+        # show only once it is rebuilt, the way `hatch_build.py` builds it
+        if args.recreate:
+            ui_folder = server_app / "ui"
+            if not (ui_folder / "package.json").is_file():
+                raise FedbiomedError(
+                    f"Cannot rebuild the GUI: its sources are not in {ui_folder}."
+                )
+
+            yarn = shutil.which("yarn")
+            if yarn is None:
+                raise FedbiomedError("NodeJS `yarn` is required to rebuild the GUI.")
+
+            try:
+                subprocess.run([yarn, "install"], cwd=ui_folder, check=True)
+                subprocess.run([yarn, "build"], cwd=ui_folder, check=True)
+            except subprocess.CalledProcessError as exp:
+                raise FedbiomedError(
+                    f"Rebuilding the GUI failed: `yarn {exp.cmd[1]}` exited with "
+                    f"code {exp.returncode}."
+                ) from exp
 
         host_port = ["--host", args.host, "--port", args.port]
         if args.development:
@@ -667,12 +815,23 @@ class GUIControl(CLIArgumentParser):
             with subprocess.Popen(
                 " ".join(command), env=current_env, shell=True
             ) as proc:
-                proc.wait()
+                try:
+                    proc.wait()
+                except KeyboardInterrupt:
+                    proc.wait()
         except Exception as e:
             print(e)
 
 
 class NodeCLI(CommonCLI):
+    """The `fedbiomed node` command line application.
+
+    Defines and parses what a user can type, then hands over to the matching
+    action. Decides which action runs and, through `--path`, on which node;
+    what the action then acts on is the `NodeContext` it passes to every
+    subparser.
+    """
+
     _arg_parsers_classes: List[type] = [
         NodeControl,
         DatasetArgumentParser,
@@ -709,19 +868,19 @@ class NodeCLI(CommonCLI):
                     os.environ["FBM_NODE_COMPONENT_ROOT"] = component_dir
                 config = node_component.initiate(root=component_dir)
                 self._this.config = config
-                node = Node(config)
-                # Set node object to make it accessible
-                ComponentDirectoryActionNode._this._node = node
+                context = NodeContext(config)
+                # Set context object to make it accessible
+                ComponentDirectoryActionNode._this._context = context
                 os.environ[f"FEDBIOMED_ACTIVE_{self._component.name}_ID"] = config.get(
                     "default", "id"
                 )
 
-                # Set node in all subparsers
+                # Set context in all subparsers
                 for (
                     _,
                     parser,
                 ) in ComponentDirectoryActionNode._this._arg_parsers.items():
-                    parser._node = node
+                    parser._context = context
 
         super().initialize()
 
@@ -734,6 +893,78 @@ class NodeCLI(CommonCLI):
             help="The path were component is located. It can be absolute or "
             "relative to the path where CLI is executed.",
         )
+
+    def initialize_certificate_parser(self):
+        """Adds `certificate check`, which only a node has.
+
+        What readiness means differs by component: a node pins the one researcher
+        certificate it registers, where a researcher trusts the several it holds.
+        """
+        super().initialize_certificate_parser()
+
+        check = self._certificate_sub_parsers.add_parser(
+            "check",
+            help="Reports what stops this node connecting under mutual "
+            "authentication, and what it tolerates but an operator should fix. "
+            "Exits 1 when the node would not start.",
+        )
+        check.set_defaults(func=self._check_certificate)
+
+    def _check_certificate(self, args: argparse.Namespace):
+        """Reports the node's certificate diagnostics, as the node itself reads them.
+
+        Args:
+            args: Arguments that are passed after `certificate check` command
+        """
+        enabled = self.config.getbool(
+            "authentication", "mutual_authentication", fallback="False"
+        )
+        print(f"Mutual authentication: {'enabled' if enabled else 'disabled'}")
+        print(
+            f"Researcher:            {self.config.get('researcher', 'ip')}:"
+            f"{self.config.get('researcher', 'port')}"
+        )
+
+        diagnostics = certificate_diagnostics(self.config)
+        problems = [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.severity is DiagnosticSeverity.PROBLEM
+        ]
+        warnings = [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.severity is DiagnosticSeverity.WARNING
+        ]
+
+        if not diagnostics:
+            CommonCLI.success("\nNo certificate problem found.")
+            return
+
+        if problems:
+            print(f"\n{len(problems)} problem(s) stop this node from starting:")
+            for diagnostic in problems:
+                print(f"  - {diagnostic.message}")
+
+        if warnings:
+            print(f"\n{len(warnings)} warning(s):")
+            for diagnostic in warnings:
+                print(f"  - {diagnostic.message}")
+
+        # A finding states the remedy but names no command, so that the GUI shows
+        # the same text. The commands belong to this surface, so they are listed
+        # once here rather than repeated in every message.
+        print(
+            "\nThe commands that act on these:\n"
+            "  fedbiomed node certificate list      what is registered\n"
+            "  fedbiomed node certificate register  register the researcher's\n"
+            "  fedbiomed node certificate delete    remove a registration\n"
+            "  fedbiomed node certificate generate --force"
+            "  issue this node a new pair"
+        )
+
+        if problems:
+            sys.exit(1)
 
 
 if __name__ == "__main__":

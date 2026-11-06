@@ -1,6 +1,8 @@
 ---
-# Codespell configuration is within pyproject.toml
 name: Codespell
+description: |
+  Checks repository spelling on every pull request and annotates the offending
+  lines. Its word list and skip rules live in pyproject.toml.
 
 on:
   pull_request:

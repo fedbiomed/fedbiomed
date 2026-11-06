@@ -30,19 +30,6 @@ if TYPE_CHECKING:
     from fedbiomed.researcher.config import ResearcherConfig
 
 
-def docker_special_case(component_path: str) -> bool:
-    """Special case for docker containers.
-
-    This function makes sure that there is only .gitkeep file present in
-    the directory that component will be initialized. It is required since
-    component folder should be existing in run_mounts by default.
-    """
-
-    files = os.listdir(component_path)
-
-    return ".gitkeep" in files and len(files) == 1
-
-
 class Config(metaclass=ABCMeta):
     """Base Config class
 
@@ -219,8 +206,16 @@ class Config(metaclass=ABCMeta):
 
         return self._cfg.getint(section, key, **kwargs)
 
+    def getpath(self, section, key, **kwargs) -> str:
+        """Absolute path for a config value stored relative to the config folder"""
+        return os.path.abspath(
+            os.path.join(
+                self.root, CONFIG_FOLDER_NAME, self.get(section, key, **kwargs)
+            )
+        )
+
     def _get(self, section, key, **kwargs) -> str:
-        """ """
+        """Returns value for given key and section"""
         environ_key = f"FBM_{section.upper()}_{key.upper()}"
         return os.environ.get(environ_key, self._cfg.get(section, key, **kwargs))
 
@@ -295,13 +290,14 @@ class Config(metaclass=ABCMeta):
                 "version": str(self._CONFIG_VERSION),
             }
 
+            config_dir = os.path.join(self.root, CONFIG_FOLDER_NAME)
             db_path = os.path.join(
                 self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json"
             )
-            self._cfg["default"]["db"] = os.path.relpath(
-                db_path, os.path.join(self.root, CONFIG_FOLDER_NAME)
-            )
+
+            self._cfg["default"]["db"] = os.path.relpath(db_path, config_dir)
             self._cfg["syslog"] = {"enable": "False"}
+            self._cfg["authentication"] = {"mutual_authentication": "False"}
 
             # Calls child class add_parameterss
             self.add_parameters()
@@ -365,7 +361,22 @@ class Config(metaclass=ABCMeta):
         ```
         It should update the section only if the parameter is not existing to avoid
         overwriting user defined values.
+
+        Migrations shared by every component type live here; overriding it, call
+        `super().migrate()` first.
         """
+
+        if not self._cfg.has_section("authentication"):
+            # TODO-DEPRECATION: Remove this migration in future version. It is added to
+            # avoid breaking backward compatibility with old configuration files.
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for researcher. "
+                "Please add the 'authentication' section and add value `mutual_authentication=False` or `mutual_authentication=True` "
+                "in the `authentication` section in the component configuration."
+            )
+
+            self._cfg.add_section("authentication")
+            self._cfg.set("authentication", "mutual_authentication", "False")
 
 
 class Component:
@@ -418,9 +429,6 @@ class Component:
         """
         ref = os.path.join(component_dir, self._reference)
         if os.path.isdir(component_dir):
-            if docker_special_case(component_dir):
-                return False
-
             if os.listdir(component_dir) and not os.path.isfile(ref):
                 raise ValueError(
                     f"Cannot create component. Path {component_dir} "

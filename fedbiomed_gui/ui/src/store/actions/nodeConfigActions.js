@@ -40,28 +40,22 @@ export const fetchNodeConfig = () => {
     }
 }
 
-export const writeNodeConfigSection = (
-    section,
-    values,
-    baseValues,
-    {force = false} = {}
-) => {
+// `sections` maps a config.ini section to the values to write and the values
+// the form was loaded with: {security: {values: {...}, base_values: {...}}}.
+export const writeNodeConfig = (sections, {force = false} = {}) => {
     return async (dispatch) => {
         dispatch({type: NODE_CONFIG_WRITE_LOADING, payload: true})
 
         try {
             const response = await axios.patch(EP_NODE_CONFIG, {
-                section,
-                values,
-                base_values: baseValues,
+                sections,
                 force,
             })
             const result = response.data.result || {}
             dispatch({
                 type: NODE_CONFIG_WRITE_SUCCESS,
                 payload: {
-                    section: result.section,
-                    values: result.values || {},
+                    sections: result.sections || {},
                     nodeState: result.node_state,
                     requiresRestart: result.requires_restart,
                     configModifiedAfterStartup: (

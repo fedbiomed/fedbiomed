@@ -35,11 +35,12 @@ def validated_data_type_input() -> str:
     return valid_options[t]
 
 
-def pick_with_tkinter(type: str = "csv") -> str | None:
+def pick_with_tkinter(type: str = "csv", initialdir: str | None = None) -> str | None:
     """Opens a tkinter dialog to pick a file or directory.
 
     Args:
         type: `'csv'` or `'txt'` opens a file picker; any other value opens a directory picker.
+        initialdir: Directory the dialog opens on. Defaults to the current directory.
 
     Returns:
         The selected path, or None if cancelled or the GUI failed.
@@ -56,9 +57,9 @@ def pick_with_tkinter(type: str = "csv") -> str | None:
 
     try:
         path = (
-            filedialog.askopenfilename(filetypes=filetypes)
+            filedialog.askopenfilename(filetypes=filetypes, initialdir=initialdir)
             if is_file_mode
-            else filedialog.askdirectory()
+            else filedialog.askdirectory(initialdir=initialdir)
         )
         if not path:
             logger.warning(empty_msg)
@@ -97,17 +98,18 @@ def _prompt_path_cli(type: str) -> str:
         return str(path_obj)
 
 
-def validated_path_input(type: str) -> str:
+def validated_path_input(type: str, initialdir: str | None = None) -> str:
     """Returns a validated path, trying the GUI first then falling back to CLI.
 
     Args:
         type: `'csv'` or `'txt'` for a file picker; any other value for a directory picker.
+        initialdir: Directory the picker opens on. Defaults to the current directory.
 
     Returns:
         The selected, validated path.
     """
     if filedialog is not None:
-        path = pick_with_tkinter(type=type)
+        path = pick_with_tkinter(type=type, initialdir=initialdir)
         if path is not None:
             return path
         logger.warning("GUI failed. Falling back to CLI.")

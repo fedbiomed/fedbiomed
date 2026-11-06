@@ -181,13 +181,13 @@ class TestSecaggServkeySetup(SecaggTestCase):
 
             with (
                 patch(
-                    "fedbiomed.common.secagg._additive_ss.random.randint"
-                ) as randomint_mock,
+                    "fedbiomed.common.secagg._additive_ss.secrets.randbelow"
+                ) as randbelow_mock,
                 patch(
                     "fedbiomed.node.secagg._secagg_setups.random.SystemRandom.getrandbits"
                 ) as getrandbits_mock,
             ):
-                randomint_mock.side_effect = rand_int_vals
+                randbelow_mock.side_effect = rand_int_vals
                 getrandbits_mock.return_value = get_rand_bits_val
                 secagg_addss = SecaggServkeySetup(**self.args)
 

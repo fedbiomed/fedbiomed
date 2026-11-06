@@ -71,7 +71,7 @@ You can also use default naming convention `.venv` for virtual environment name.
 `conda` can install Python version directly in the environment that is created. The command below will create a virtual environment and install the specified Python version.
 
 ```
-conda create --name fedbiomed-dev python=3.10
+conda create --name fedbiomed-dev python=3.14
 conda activate fedbiomed-dev
 ```
 
@@ -178,7 +178,6 @@ fedbiomed node -p /path/to/my-node gui start --debug
 The command above will serve the web application and the API services. It means that on the URL `localhost:8484` you will be able to see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``yarn start``.
 
 ```shell
-# use the python environment for [development](../docs/developer/development-environment.md)
 cd ${FEDBIOMED_DIR}/gui/ui
 yarn start
 ```
@@ -188,12 +187,11 @@ in ``${FEDBIOMED_DIR}/gui/ui/src`` it will get dynamically updated on ``localhos
 
 Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
 
-After development/debugging is done. To update changes in built GUI, you need rebuild the React app. Afterwards,
-you will be able to see changes on the ``localhost:8484`` URL which serve built UI files.
+After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves
+the built UI files. `--recreate` rebuilds it before starting the server:
 
 ```shell
-yarn build
-fedbiomed node gui start
+fedbiomed node gui start --recreate
 ```
 
 ## Troubleshooting

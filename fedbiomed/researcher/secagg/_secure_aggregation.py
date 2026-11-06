@@ -4,7 +4,7 @@
 import functools
 import importlib
 import math
-import random
+import secrets
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union, cast
 
@@ -334,7 +334,7 @@ class _SecureAggregation(ABC):
         self._secagg_random = None
         if insecure_validation is True:
             # For each round it generates new secagg random float
-            self._secagg_random = round(random.uniform(0, 1), 3)
+            self._secagg_random = round(secrets.SystemRandom().uniform(0, 1), 3)
 
         if self._parties is None or self._experiment_id != experiment_id:
             self._set_secagg_contexts(researcher_id, parties, experiment_id)

@@ -253,13 +253,12 @@ class TestSecaggServkeyContext(BaseTestCaseSecaggContext):  # pylint: disable=mi
         # before running round_specific
         state = self._secagg_key_context.save_state_breakpoint()
 
-        self.assertLessEqual(
-            {
-                "_status": False,
-                "_context": None,
-            }.items(),
-            state["attributes"].items(),
-        )
+        for key, value in {
+            "_status": False,
+            "_context": None,
+        }.items():
+            self.assertIn(key, state["attributes"])
+            self.assertEqual(value, state["attributes"][key])
         state = copy.deepcopy(state)
         loaded_secagg = SecaggServkeyContext.load_state_breakpoint(state)
 

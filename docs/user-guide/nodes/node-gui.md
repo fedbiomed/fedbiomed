@@ -75,6 +75,14 @@ $ fedbiomed node --path ./my-third-node gui start --port 5003
 
 If it is desired they can share the same data folder.
 
+#### Rebuilding the user interface
+
+The GUI serves a user interface built from its sources in `fedbiomed_gui/ui`. After they change, `--recreate` rebuilds it before the GUI starts. This requires NodeJS `yarn` and the GUI sources, as in a [development environment](../../developer/development-environment.md).
+
+```shell
+$ fedbiomed node gui start --recreate
+```
+
 
 ## Configuration file
 
@@ -123,6 +131,17 @@ password = admin
     Currently, e-mail addresses are only used a login name by Fed-BioMed GUI. This is neither a user
     identity existing in the whole Fed-BioMed instance, nor used to send e-mails to the GUI user.
 
+## Certificates and the researcher connection
+
+The **Configuration** tab of the Node Management page holds what the node needs for
+[mutual authentication](../deployment/mutual-tls.md), grouped under
+*Connection & certificates*: its own certificate to send to the researcher, the
+researcher certificate it registers and pins, and the `[authentication]` setting.
+The **Connection & Diagnostics** tab reads the state of the connection to the
+researcher as the node last observed it. Both are restricted to administrators, and
+the certificate actions are the ones `fedbiomed node certificate` offers on the
+command line.
+
 ## Production Mode
 
 By default, `fedbiomed node gui` launches the Node GUI in production mode, utilizing [Gunicorn](https://gunicorn.org/) as the application server. For debugging and development purposes, you can launch the GUI using the `--development` flag.
@@ -146,8 +165,3 @@ $ fedbiomed node gui start --key-file <path-to-key-file> --cert-file <path-to-ce
 ```
 
 SSL certificate can also be set through proxy server (e.g. [Nginx](https://www.nginx.com/)) instead of application server.
-
-!!! note "Nginx proxy server for GUI is provided in VPN/containers deployment mode"
-    Fed-BioMed provides a ready-to-deploy Node GUI container in VPN/containers deployment mode, that is configured to use [Nginx](https://www.nginx.com/) as a
-    proxy server and [Gunicorn](https://gunicorn.org/) as an application server. This also allows for setting custom SSL certificates.
-    Please refer to the  [VPN deployment](../deployment/deployment-vpn.md) documentation.

@@ -76,7 +76,73 @@ To see the node status, run:
 fedbiomed node status
 ```
 
-You can also similarly stop or restart the node as well:
+The command reports whether the node process is running and, as described in the next section, the state of its connection to the researcher.
+
+### Checking the connection to the researcher
+
+`fedbiomed node status` also prints the last connection state the node recorded with the researcher, so you can tell whether a node is actually reachable and connected without searching its logs:
+
+```bash
+fedbiomed node status
+```
+
+```plaintext
+Node process:
+ Field   | Value
+---------+---------
+ State   | running
+
+Connection to researcher:
+ Field                        | Value
+------------------------------+----------------------
+ State                        | connected
+ Host                         | localhost
+ Port                         | 50051
+ Identity verified            | Yes
+ Mutual authentication (mTLS) | Off
+ Reason                       | -
+ Connected since              | 2026-10-28T09:12:41Z
+ Last update                  | 2026-10-28T09:12:41Z
+```
+
+The connection table contains the following fields:
+
+| Field | Description |
+|---|---|
+| State | `connected`, `disconnected` or `failed` (see below). |
+| Host, Port | Researcher address the node connects to (`FBM_RESEARCHER_IP`, `FBM_RESEARCHER_PORT`). |
+| Identity verified | Whether the node verified the researcher identity: `Yes`, `No`, or `Unknown` when it was not recorded. |
+| Mutual authentication (mTLS) | Whether the node authenticates itself to the researcher with its certificate: `On`, `Off` or `Unknown`. See [mutual authentication](../deployment/mutual-tls.md). |
+| Reason | Readable detail of the current state, typically the error message. |
+| Connected since | When the node entered the current state. |
+| Last update | When the node last observed this state. |
+
+The connection states are:
+
+- **`connected`**: the channel to the researcher is established.
+- **`disconnected`**: the node is not connected. This is the state recorded while the node starts (*Node starting, connecting to the researcher.*), while the researcher does not answer and the node keeps retrying (*Researcher server at ... is not available; retrying.*), and when the node is stopped.
+- **`failed`**: the connection was refused, for example because the researcher certificate does not match the researcher name, the researcher requires mutual authentication, or gRPC returned an error. The `Reason` field gives the cause; see [verifying and troubleshooting](../deployment/mutual-tls.md#verifying-and-troubleshooting) to diagnose it.
+
+To also list the recent changes of the connection state, newest first, use the `--history` option. Each line gives the time, the state, the name of the event (the same as in the security audit) and the reason:
+
+```bash
+fedbiomed node status --history
+```
+
+To check a node that does not use the default component directory, pass its path as for any other node command:
+
+```bash
+fedbiomed node -p <path-to-node-dir> status --history
+```
+
+!!! note "Reading the connection state"
+    - The state is written by the running node, so it is only current while the node runs. When the node is stopped, the command reports the state the node was in when it stopped.
+    - `Connection to researcher: none recorded yet` means the node has not been started yet.
+    - While the researcher is unreachable, the node retries every couple of seconds but refreshes `Last update` only every 30 minutes, and logs that the researcher is unavailable only every 5 minutes. An old `Last update` with a `disconnected` state therefore does not mean the node is stuck.
+
+### Stopping and restarting the node
+
+You can stop or restart the node from another terminal as well:
 
 ```bash
 fedbiomed node stop
@@ -99,6 +165,8 @@ fedbiomed node restart --background --debug
 
 A configuration file is an `ini` file that is located in the component directory. Each configuration file is unique to one node.
 
+The node reads this file when it starts, so a running node keeps the settings it started with. After editing the file, restart the node to apply the changes. The [researcher certificate registered on the node](../deployment/mutual-tls.md#2-register-the-received-certificates) is read the same way: the node pins the one it read at startup and uses it for the whole run, so registering or deleting it applies only on the next start.
+
 The configuration file is structured following the sections below:
 
 - **Default Parameters:**
@@ -106,10 +174,21 @@ The configuration file is structured following the sections below:
     - `component`: Specifies the component type. It is always `NODE` for node component
     - `version`: Version of the configuration format to avoid using older configuration files with recent Fed-BioMed versions.
     - `db`: Relative path to the node's database, from this configuration file
+    - `name`: A custom name given by the node user, to make the node easier to identify
 
-- **Authentication and Identification**
+- **Syslog:**
+    - `enable`: Boolean parameter (True/False) to activate system level logging. When enabled, it re-routes all the security logs into the default system level logging of the Operating System, so that System Admins can directly use the OS log files to debug if needed.
+
+- **Authentication:**
+    - `mutual_authentication`: Boolean parameter (True/False) to activate mTLS between node and researcher. By default it's False for testing, **should be set to True for deployment.**
+
+    Each node's certificate should be registered in the researcher (and vice-versa). If you haven't registered the node's certificate, you can find the detailed guide in [mutual authentication](../deployment/mutual-tls.md).
+
+- **Certificate:**
     - `private_key`: Path to private key to use identify the component.
     - `public_key`: Path to public key to share with other parties (nodes and researcher) to verify its identify.
+
+    Node certificates are generated automatically on creation. In case of a bug, or if you wish to use your own certificates, you can follow the detailed guide in [mutual authentication](../deployment/mutual-tls.md) for regenerating and re-registering certificates.
 
 - **Researcher:**
     - `ip`: The IP address of the researcher component that the node will connect to.
@@ -133,8 +212,15 @@ An example for a config file is shown below;
 [default]
 id = node_73768d5f-6a66-47de-8533-1291c4ef59d1
 component = NODE
-version = 2
+version = 2.4.0
 db = ../var/db_NODE_94572b0f-f55c-4167-b729-f16247c35a04.json
+name = Default Node Alias
+
+[syslog]
+enable = False
+
+[authentication]
+mutual_authentication = True
 
 [security]
 hashing_algorithm = SHA256
@@ -147,11 +233,24 @@ allow_preproc = True
 allow_federated_analytics = True
 minimum_samples = 0
 
+[certificate]
+private_key = certs/FBM_certificate.key
+public_key = certs/FBM_certificate.pem
+
+
 [researcher]
 ip = localhost
 port = 50051
 
 ```
+
+### Changing a setting
+
+A node setting can be changed in three ways:
+
+- **Manually**: edit the value in `config.ini`, then restart the node.
+- **Environment variables**: set the `FBM_<SECTION>_<KEY>` variable when the node configuration is created (see [Environment Variables](#environment-variables)).
+- **GUI**: edit the value in the **Configuration** tab of the Node Management page, then use **Save & Restart** (see [Node GUI](node-gui.md)).
 
 ## Using non-default Fed-BioMed node
 
@@ -186,23 +285,34 @@ Once the component is initialized, you can edit its configuration file located a
 
 ## Environment Variables
 
-Environment variables can be used to parameterize various options for creating the configuration file. The fields that can be controlled, along with their associated environment variables and default values, are described below:
+Environment variables can be used to parameterize various options for creating the configuration file. The fields that can be controlled, along with their associated environment variables and default values, are described below.
 
-```
-[security]:
-- allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, False (VPN/container mode) or True (other)
-- training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, True (VPN/container mode) or False (other)
-- secure_aggregation: FBM_SECURITY_SECURE_AGGREGATION, True
-- force_secure_aggregation: FBM_SECURITY_FORCE_SECURE_AGGREGATION, False
-- secagg_insecure_validation: FBM_SECURITY_SECAGG_INSECURE_VALIDATION, False (VPN/container mode) or True (other)
-- allow_preproc: FBM_SECURITY_ALLOW_PREPROC, False (VPN/container mode) or True (other)
-- allow_federated_analytics: FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS, False (VPN/container mode) or True (other)
-- minimum_samples: FBM_SECURITY_MINIMUM_SAMPLES, 0
+### Security
 
-[researcher]:
-- ip: FBM_RESEARCHER_IP, ${IP_ADDRESS}, if not set: localhost
-- port: FBM_RESEARCHER_PORT, 50051
-```
+The defaults depend on how the node is run. A node installed directly on a machine uses permissive defaults, intended for local development. The `fedbiomed/node` Docker image uses restrictive defaults, closer to what a deployment needs.
+
+| Field | Environment variable | Default, no container | Default, `fedbiomed/node` image |
+|---|---|---|---|
+| `allow_default_training_plans` | `FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS` | `True` | `False` |
+| `training_plan_approval` | `FBM_SECURITY_TRAINING_PLAN_APPROVAL` | `False` | `True` |
+| `secure_aggregation` | `FBM_SECURITY_SECURE_AGGREGATION` | `True` | `True` |
+| `force_secure_aggregation` | `FBM_SECURITY_FORCE_SECURE_AGGREGATION` | `False` | `False` |
+| `secagg_insecure_validation` | `FBM_SECURITY_SECAGG_INSECURE_VALIDATION` | `True` | `False` |
+| `allow_preproc` | `FBM_SECURITY_ALLOW_PREPROC` | `True` | `False` |
+| `allow_federated_analytics` | `FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS` | `True` | `False` |
+| `minimum_samples` | `FBM_SECURITY_MINIMUM_SAMPLES` | `0` | `0` |
+
+The local federation defined in `docker/local-federation.yml` runs the `fedbiomed/node` image for testing, and sets `training_plan_approval` to `False` so that experiments run without approving each training plan, and `allow_preproc` and `allow_federated_analytics` to `True`.
+
+!!! warning "Security values in a deployment"
+    These values define what the node accepts to run on its data. Do not rely on the defaults in a deployment: set each value explicitly, according to the node's data governance policy. In particular, keep `training_plan_approval` enabled, and `allow_default_training_plans` and `secagg_insecure_validation` disabled. Enable `allow_preproc` and `allow_federated_analytics` only when they are needed, and set `minimum_samples` to the smallest dataset size the node accepts to share.
+
+### Researcher
+
+| Field | Environment variable | Default |
+|---|---|---|
+| `ip` | `FBM_RESEARCHER_IP` | `localhost` |
+| `port` | `FBM_RESEARCHER_PORT` | `50051` |
 
 ### Examples
 

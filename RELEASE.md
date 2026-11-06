@@ -1,6 +1,6 @@
 # Fed-BioMed release HOWTO
 
-This procedure makes release of software and documentation (published on `https://fedbiomed.org`).
+This procedure makes release of software and documentation (published on `https://docs.fedbiomed.org`).
 Both are contained in this repository.
 
 Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) release workflow. Can use `git` commands (see example below) or `git-flow` commands
@@ -14,7 +14,8 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 git checkout develop
 git pull --prune
 ```
-- check that the CI for `develop` builds correctly (github checks)
+- check that the scheduled CI for `develop` is green: `Fed-BioMed Full Build Test`
+  (weeknights at 18:00 UTC) and `End-to-End Test` (weeknights at 23:00 UTC)
 - set the release version tag for the release (or use this tag directly in commands)
 ```bash
 export RELEASE_TAG=v6.1.0
@@ -29,7 +30,7 @@ git checkout -b release/$RELEASE_TAG
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
   * `fedbiomed/__init__.py` : change `__version__`
-  * `envs/vpn/docker/.env` : change `FBM_CONTAINER_VERSION_TAG`
+  * `CITATION.cff` : change `version`
 
 - in the `release` branch, commit the release time updates
 ```bash
@@ -57,15 +58,21 @@ git push origin release/$RELEASE_TAG
 
 - check that the documentation pipeline completes successfully
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
-  * check that `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
+  * check that `Build and deploy docs to fedbiomed-docs-public` https://github.com/fedbiomed/fedbiomed/actions/workflows/build-and-deploy-documentation.yml builds correctly
   * review carefully the log details for the build
 
+- check that the docker image publication completes successfully
+  * pushing the version tag publishes the `fedbiomed/base`, `fedbiomed/node` and `fedbiomed/researcher` images to Docker Hub
+  * check that `Tests and Publish Fed-BioMed Docker Images` https://github.com/fedbiomed/fedbiomed/actions/workflows/docker-deploy.yml completes correctly
+  * verify the new version tag is listed on Docker Hub for the three images
+
 - do the merge
-  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
-  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
+  * the tag already published the package, the images and the documentation, so
+    the merge publishes nothing. It triggers `End-to-End Test` on `master`,
+    which verifies the released tree after the fact.
 - if merge conflicts occur, solve them
 
-- browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected
+- browse a few pages in the new documentation on `https://docs.fedbiomed.org` to verify it works as expected
 
 - optionally sync your local clone of `master` with new version of remote
 ```bash
@@ -95,17 +102,16 @@ git pull -p
 git checkout develop
 git branch -d release/$RELEASE_TAG
 ```
-- **add new version news in documentation**
 
 
 # Fed-BioMed hotfix HOWTO
 
 A hotfix is a patch that is added as a new version patch without changing the API or adding new features, when it can't wait for the next release to be corrected. To apply a hotfix, follow these steps:
 
-This procedure makes hotfix of software and documentation (published on `https://fedbiomed.org`).
+This procedure makes hotfix of software and documentation (published on `https://docs.fedbiomed.org`).
 Both are contained in this repository.
 
-Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) hotfix workflow. Can use `git` commands (see example below) or `git-flow` commands
+Hotfix principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) hotfix workflow. Can use `git` commands (see example below) or `git-flow` commands
 
 ## pre-hotfix
 
@@ -118,14 +124,15 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
   git pull --prune
   ```
 
-- check that the CI for `master` builds correctly (github checks)
+- check that the CI for `master` is green: `End-to-End Test`, which runs on
+  every push to `master`
 - choose a name (eg `521-short-description`) for the issue and assign it to `$HOTFIX_NAME`
 
   ```bash
   export HOTFIX_NAME=601-short-description
   ```
 
-- set the hotfix version tag for the release (or use this tag directly in commands).For example, if the previous version was `v6.0.0`, it becomes `v6.0.1`.
+- set the hotfix version tag for the release (or use this tag directly in commands). For example, if the previous version was `v6.0.0`, it becomes `v6.0.1`.
 
   ```bash
   export HOTFIX_TAG=v6.0.1
@@ -144,7 +151,6 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 - in the `hotfix/$HOTFIX_NAME` branch, do the hotfix time updates:
   * `CHANGELOG.md`
   * `fedbiomed/__init__.py` : change `__version__`
-  * `envs/vpn/docker/.env` : change `FBM_CONTAINER_VERSION_TAG`
   * `CITATION.cff` : change `version`
 
 - in the `hotfix` branch, commit the hotfix time updates
@@ -178,12 +184,18 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 
 - check that the documentation pipeline completes successfully
   * new version of documentation is published after a new version tag is pushed. This action builds documentation related contents which are located in `docs/getting-started`, `docs/user-guide`, `docs/developer`, `docs/tutorials`.
-  * check that `Publish NEW TAG in fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-version-build.yml builds correctly
+  * check that `Build and deploy docs to fedbiomed-docs-public` https://github.com/fedbiomed/fedbiomed/actions/workflows/build-and-deploy-documentation.yml builds correctly
   * review carefully the log details for the build
 
+- check that the docker image publication completes successfully
+  * pushing the version tag publishes the `fedbiomed/base`, `fedbiomed/node` and `fedbiomed/researcher` images to Docker Hub
+  * check that `Tests and Publish Fed-BioMed Docker Images` https://github.com/fedbiomed/fedbiomed/actions/workflows/docker-deploy.yml completes correctly
+  * verify the new version tag is listed on Docker Hub for the three images
+
 - do the merge
-  *  pushing to master triggers the build action for documentation main pages such as `pages`, `support`, `news`.
-  * check carefully the logs of the build pipeline in `Publish MASTER fedbiomed/fedbiomed.github.io` https://github.com/fedbiomed/fedbiomed/actions/workflows/doc-github-io-main-build.yml
+  * the tag already published the package, the images and the documentation, so
+    the merge publishes nothing. It triggers `End-to-End Test` on `master`,
+    which verifies the released tree after the fact.
 - if merge conflicts occur, solve them
 
 - browse a few pages in the new documentation on `https://fedbiomed.org` to verify it works as expected

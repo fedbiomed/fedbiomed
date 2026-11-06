@@ -1,39 +1,34 @@
 
 ## Self-Hosted Runner conf
 
-### Pyenv and python version installation
+The Apple Silicon machine labelled `macos-m1` is the only self-hosted runner in
+the matrices. Every other job runs on a GitHub-hosted runner.
 
-Workflows use `setup-pyenv/action.yml` to install `pyenv`. `pyenv` allows to install requires python versions.
+### Python version installation
 
-This action installs `pyenv` in Linux and MacOs systems. However, there may be some missing packages in the ci slaves. Therefore, please carefully check `pyenv` installation and python version installation steps to make sure all required packages are installed in the system.
+Test workflows install their interpreter through `.github/actions/setup-fbm-env`.
+The action picks a method from what the runner provides:
 
-The error while installation specific python version can be difficult to debug on action output. Please connect self-hosted ci and execute installation manually (e.g pyenv install 3.10)
+- Homebrew, on the self-hosted Apple Silicon runner
+- `dnf`, on Fedora and derivatives
+- `actions/setup-python`, everywhere else
 
-One of the known error on Fedora is a missing C++ compiler tool: gcc, solution is it install `gcc` `yum install gcc`
+It then resolves the real interpreter path, validates that the installed version
+is exactly the one requested, exports it as `FEDBIOMED_PYTHON_BIN`, selects
+CPU-only PyTorch on Linux, and installs tox into an isolated virtual
+environment. The isolated tox environment avoids modifying a Homebrew-managed
+Python and avoids the PEP 668 `externally-managed-environment` error.
 
-### Permissions
+Interpreter installation failures are hard to read in the action output. Connect
+to the self-hosted runner and install the version manually to see the real
+error, for example `brew install python@3.14`.
 
-The runner user should have sudo access and be able to execute installation commands without needing to enter a password. Please modify the `sudoers` file by running sudo visudo and add `ci ALL=(ALL:ALL) NOPASSWD: /usr/bin/apt-get` or `ci ALL=(ALL:ALL) NOPASSWD: /usr/bin/dnf` at the end of the file. This will allow the runner user to install necessary packages during execution.
+### Node.js and Yarn
 
-### Install Necessary Packages 
-
-#### Ubuntu
-Please install floowing packages into self hosted runner.
-```
-sudo apt update
-sudo apt install -y python3-tk \
-    gcc libgmp3-dev libmpfr-dev libmpc-dev \
-    zlib1g libjpeg-dev libpng-dev libssl-dev vim nodejs
-```
-
-Install yarn 
-
-```
-npm install -g yarn
-```
-##### Install Docker
-
-Please also fllow docker installation instructions https://docs.docker.com/engine/install/ubuntu/
+The jobs that build the node GUI install their own toolchain through
+`.github/actions/setup-node-env`, which provisions Node with nvm and Yarn with
+npm on a self-hosted runner. Nothing has to be installed by hand, but the nvm
+initialisation it appends to `~/.bash_profile` must survive between jobs.
 
 ### Setup Python: action/setup-python self-hosted runner configuration
 

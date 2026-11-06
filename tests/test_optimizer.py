@@ -3,12 +3,10 @@
 
 """Unit tests for the declearn-interfacing Optimizer class."""
 
-import json
 import unittest
 from typing import Dict, List
 from unittest import mock
 
-import declearn
 import numpy as np
 import torch
 from declearn.model.api import Vector
@@ -16,6 +14,7 @@ from declearn.optimizer import Optimizer as DeclearnOptimizer
 from declearn.optimizer.modules import OptiModule
 from declearn.optimizer.regularizers import Regularizer
 from declearn.optimizer.schedulers import Scheduler
+from declearn.utils.serialize import json_deserialize, json_serialize
 
 from fedbiomed.common.exceptions import FedbiomedOptimizerError
 from fedbiomed.common.optimizers.declearn import (
@@ -224,9 +223,9 @@ class TestOptimizer(unittest.TestCase):
         optim.step(grads, weights)
         # Check that states can be accessed, dumped to JSON and reloaded.
         state = optim.get_state()
-        sdump = json.dumps(state, default=declearn.utils.json_pack)
+        sdump = json_serialize(state)
         self.assertIsInstance(sdump, str)
-        sload = json.loads(sdump, object_hook=declearn.utils.json_unpack)
+        sload = json_deserialize(sdump)
         self.assertIsInstance(sload, dict)
         self.assertEqual(sload.keys(), state.keys())
 

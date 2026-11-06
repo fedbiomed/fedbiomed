@@ -62,6 +62,7 @@ def add_database(
     description: Optional[str] = None,
     data_type: Optional[str] = None,
     dataset_parameters: Optional[dict] = None,
+    initialdir: Optional[str] = None,
 ) -> None:
     """Adds a dataset to the node database.
 
@@ -78,6 +79,8 @@ def add_database(
         description: Human readable description of the dataset.
         data_type: Keyword for the data type of the dataset.
         dataset_parameters: Parameters for the dataset manager
+        initialdir: Directory the interactive path picker opens on. Defaults to the
+            current directory.
     """
     data_loading_plan = None
 
@@ -104,7 +107,7 @@ def add_database(
             name, description, tags = _predefined[data_type]
             if interactive:
                 tags = _confirm_predefined_dataset_tags(name, tags)
-                path = validated_path_input(data_type)
+                path = validated_path_input(data_type, initialdir=initialdir)
 
         else:
             while True:
@@ -132,7 +135,7 @@ def add_database(
             if data_type == "medical-folder":
                 path, dataset_parameters, data_loading_plan = (
                     add_medical_folder_dataset_from_cli(
-                        dataset_parameters, data_loading_plan
+                        dataset_parameters, data_loading_plan, initialdir=initialdir
                     )
                 )
             elif data_type == "custom":
@@ -143,7 +146,7 @@ def add_database(
                     print(f"Path not found: {abs_path}. Please try again.")
                 path = str(abs_path)
             else:
-                path = validated_path_input(data_type)
+                path = validated_path_input(data_type, initialdir=initialdir)
 
         if interactive and data_loading_plan is not None:
             while True:

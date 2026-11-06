@@ -134,7 +134,7 @@ class _FedCombatParameters:
 
         # FA returns sample variance/std (ddof=1). We request count too in order to
         # convert variance to population std (ddof=0): sqrt(var * (N - 1) / N).
-        result = analytics.fetch_stats(["mean", "variance", "count"], _emit_log=False)
+        result = analytics.fetch_stats(["mean", "variance", "count"])
 
         global_variance = result.global_stats("variance")
         global_count = result.global_stats("count")

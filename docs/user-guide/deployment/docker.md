@@ -284,7 +284,7 @@ docker exec -it -u fedbiomed <my-node-name> bash
 Once inside, use the Fed-BioMed CLI to inspect and control the node:
 
 ```bash
-# Check whether the node process is running
+# Check whether the node process is running and connected to the researcher
 fedbiomed node -p /fbm-node status
 
 # Stop the node process
@@ -303,6 +303,30 @@ fedbiomed node -p /fbm-node start
 !!! tip "Node restart vs. container restart"
     - `fedbiomed node restart` — restarts only the **node process** inside the running container. The container and supervisord keep running.
     - `docker restart my-node` — restarts the **entire container**, which re-runs the entrypoint script, re-applies environment variables, and reinitializes the node from scratch.
+
+#### Checking the Researcher Connection
+
+A running container does not tell whether the node inside it reached the researcher. `fedbiomed node status` reports it: after the node process state, it prints the last connection state the node recorded (`connected`, `disconnected` or `failed`), the researcher host and port, whether mutual authentication is on and the reason of the current state.
+
+From a shell opened in the container as above, add `--history` to also list the recent connection state changes:
+
+```bash
+fedbiomed node -p /fbm-node status --history
+```
+
+The check can also be run directly from the host, without opening a shell in the container:
+
+```bash
+docker exec -u fedbiomed <my-node-name> fedbiomed node -p /fbm-node status --history
+```
+
+or, for a node started with Docker Compose, using the service name:
+
+```bash
+docker compose exec -u fedbiomed <node-service-name> fedbiomed node -p /fbm-node status --history
+```
+
+If the state is `disconnected` with the reason *Researcher server at ... is not available; retrying.*, check that the researcher is running and that the `Host` and `Port` shown match the researcher address (`FBM_RESEARCHER_IP`, `FBM_RESEARCHER_PORT`); with `--network host`, `localhost` is the host machine. See [Checking the connection to the researcher](../nodes/configuring-nodes.md#checking-the-connection-to-the-researcher) for the description of every field and state.
 
 ---
 
@@ -538,10 +562,10 @@ It is up to the user to configure Docker networking according to their deploymen
 
 The setups above assume all components run on the same host or within the same Docker network. When nodes and the researcher are on **different physical machines or separate networks**, additional networking configuration is required.
 
-!!! warning "Use VPN for Sensitive Data and Production Deployments"
-    The instructions below expose the researcher's gRPC port directly over the public internet **without transport-level encryption or authentication**. Any host that can reach the port can attempt to connect. This is acceptable for experimentation or development but **is not recommended for deployments involving real patient data or sensitive datasets**.
+!!! warning "Enable Mutual Authentication for Sensitive Data and Production Deployments"
+    The instructions below expose the researcher's gRPC port directly over the public internet. Traffic is encrypted with TLS, but without mutual authentication any host that can reach the port can connect as a node. This is acceptable for experimentation or development but **is not recommended for deployments involving real patient data or sensitive datasets**.
 
-    For secure, production-grade deployments, use the **VPN-based approach** provided by Fed-BioMed. The VPN setup establishes an encrypted private network between all participants before any Fed-BioMed traffic is exchanged, and is the recommended solution whenever data privacy and regulatory compliance matter.
+    For production-grade deployments, enable [mutual authentication (mTLS)](./mutual-tls.md) on the researcher and on every node, so that only registered parties can connect.
 
 #### Public IP Setup (Researcher as the Public Endpoint)
 
@@ -577,6 +601,8 @@ docker run -it -d \
 ```
 
 No port needs to be published on the node side.
+
+If an institution prefers an additional layer of protection, the containers can optionally run behind a third-party VPN, as shown in [Running Docker Images Behind a WireGuard VPN](./docker-vpn.md). Security does not depend on it.
 
 
 ## Use Docker Compose to Run and Manage Multiple Fed-BioMed Instances

@@ -119,3 +119,31 @@ class NodeProcessStateEntry(TableEntry):
 @dataclass
 class NodeProcessStateHistoryEntry(NodeProcessStateEntry):
     """Historical node process state entry."""
+
+
+@dataclass
+class NodeConnectionStateEntry(TableEntry):
+    """State of the node's channel to the researcher, as the node last observed it.
+
+    `certificate` carries the peer certificate's audit fields, never key material.
+    """
+
+    node_id: str
+    state: str
+    host: str
+    port: str
+    researcher_id: Optional[str] = None
+    mtls: Optional[bool] = None
+    identity_verified: Optional[bool] = None
+    operation: Optional[str] = None
+    reason: Optional[str] = None
+    certificate: Optional[Dict[str, str]] = None
+    started_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    last_error: Optional[str] = None
+    last_error_at: Optional[str] = None
+
+
+@dataclass
+class NodeConnectionStateHistoryEntry(NodeConnectionStateEntry):
+    """Historical node connection state entry."""

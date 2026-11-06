@@ -1,8 +1,8 @@
 import unittest
 
 from fedbiomed.common.exceptions import FedbiomedNodeStateAgentError
+from fedbiomed.researcher.datasets import FederatedDataset
 from fedbiomed.researcher.node_state_agent import NodeStateAgent
-from tests.test_experiment import FederatedDataset
 
 
 class TestNodeStateAgent(unittest.TestCase):

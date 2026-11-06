@@ -169,6 +169,46 @@ def test_get_dlp_by_id_not_found():
     assert dlbs == []
 
 
+@pytest.mark.parametrize(
+    "dataset_parameters,expected",
+    [
+        (None, ["/data"]),
+        ({"download": True}, ["/data"]),
+        # Pointing at files already in place deploys without a fetch
+        ({"download": False}, []),
+    ],
+)
+def test_add_database_deploys_mnist_files(monkeypatch, dataset_parameters, expected):
+    """Deploying MNIST fetches its files unless the caller says they are there."""
+    fetched = []
+    monkeypatch.setattr(dm_mod, "download_mnist", fetched.append)
+    dm = dm_mod.DatasetManager(path="/db")
+
+    dm.add_database(
+        name="MNIST",
+        data_type="default",
+        tags=["#MNIST"],
+        description="d",
+        path="/data",
+        dataset_parameters=dataset_parameters,
+    )
+
+    assert fetched == expected
+
+
+def test_add_database_does_not_deploy_other_types(monkeypatch):
+    """Only MNIST can be fetched; every other type must already be on disk."""
+    fetched = []
+    monkeypatch.setattr(dm_mod, "download_mnist", fetched.append)
+    dm = dm_mod.DatasetManager(path="/db")
+
+    dm.add_database(
+        name="N", data_type="tabular", tags=["t"], description="d", path="/root"
+    )
+
+    assert fetched == []
+
+
 def test_add_database_with_and_without_persisting_dlp():
     dm = dm_mod.DatasetManager(path="/db")
 
@@ -613,6 +653,23 @@ def test_read_csv_with_index_col(tmp_path):
     df = dm.read_csv(str(f), index_col=0)
     assert df.index.tolist() == ["a", "b"]
     assert list(df.columns) == ["val"]
+
+
+def test_read_csv_with_dtype_str_preserves_leading_zeros(tmp_path):
+    """`dtype=str` keeps numeric-looking values (e.g. folder-name references)
+    as-is instead of letting pandas infer them as integers and drop leading
+    zeros. Used by the GUI to preview MedicalFolderDataset reference CSVs.
+    """
+    dm = dm_mod.DatasetManager(path="/tmp/db")
+    f = tmp_path / "folder_names.csv"
+    f.write_text("folder_name,age\n0002,30\n1005,40\n", encoding="utf-8")
+
+    df_inferred = dm.read_csv(str(f))
+    assert df_inferred["folder_name"].tolist() == [2, 1005]
+
+    df_str = dm.read_csv(str(f), dtype=str)
+    assert df_str["folder_name"].tolist() == ["0002", "1005"]
+    assert df_str["age"].tolist() == ["30", "40"]
 
 
 def test_add_dynamic_dataset_with_optional_fields():

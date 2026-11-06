@@ -1,55 +1,77 @@
 ---
-name: Fed-BioMed VPN Docker Image and Container Test
-run-name: fedbiomed-docker-container-test
+name: Fed-BioMed Docker Compatibility Tests
+run-name: Fed-BioMed Docker Compatibility Tests
+description: |
+  Builds the published docker images on every supported interpreter.
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # Run every day at 1 am on default branch: develop
-  push:
-    branches:
-      - "master"
+    # Monday to Friday at 20:00 UTC.
+    - cron: "0 20 * * 1-5"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  run-docker-test:
-    name: VPN Image/Docker Test
+  hosted-build-smoke:
+    name: Build smoke (ubuntu-latest, ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - [self-hosted, ubuntu-24-04]
-        python-version:
-          - "3.10"
-          - "3.11"
-    runs-on: ${{ matrix.os }}
+        include:
+          - python-version: "3.11"
+            python-tag: "311"
+          - python-version: "3.12"
+            python-tag: "312"
+          - python-version: "3.13"
+            python-tag: "313"
+          - python-version: "3.14"
+            python-tag: "314"
+    env:
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      IMAGE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
     steps:
-      - name: Checkout to repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Install docker if it is not existing
-        if: runner.os == 'macOS'
-        run: |
-          if ! command -v docker &>/dev/null; then
-            echo "Docker is not installed. Proceeding to install..."
-            brew install --cask docker
-          else
-            echo "Docker is already installed."
-          fi
-          docker compose --help
-          if ! docker compose version; then
-            echo "failed to execute docker compose version"
-          fi
-        shell: bash -l {0}
 
-      - name: Run docker test
+      - name: Build base image
         run: |
-          ./tests/vpn_test.sh
-        shell: bash -l {0}
+          docker build --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
+            --tag "fedbiomed/base:$IMAGE_TAG" --file docker/base/Dockerfile .
 
-      - name: Clean
+      - name: Build node and researcher images
+        run: |
+          for image in node researcher; do
+            docker build \
+              --build-arg "FBM_IMAGE_VERSION=$IMAGE_TAG" \
+              --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
+              --tag "fedbiomed/$image:$IMAGE_TAG" \
+              --file "docker/$image/Dockerfile" .
+          done
+
+      - name: Verify image Python and commands
+        run: |
+          for image in base node researcher; do
+            actual=$(docker run --rm --entrypoint python "fedbiomed/$image:$IMAGE_TAG" -c \
+              'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+            test "$actual" = "$PYTHON_VERSION"
+          done
+
+          docker run --rm --entrypoint fedbiomed "fedbiomed/base:$IMAGE_TAG" --help
+          docker run --rm --entrypoint fedbiomed "fedbiomed/node:$IMAGE_TAG" node --help
+          docker run --rm --entrypoint fedbiomed \
+            "fedbiomed/researcher:$IMAGE_TAG" researcher --help
+
+      - name: Remove test images
         if: always()
         run: |
-          # Fix possible permission issues
-          sudo chown -R $(whoami):$(whoami) envs/vpn/docker || true
-          ./scripts/fedbiomed_vpn clean image
-          docker system prune -af
-        shell: bash -l {0}
+          docker image rm --force "fedbiomed/researcher:$IMAGE_TAG" \
+            "fedbiomed/node:$IMAGE_TAG" "fedbiomed/base:$IMAGE_TAG" || true
+

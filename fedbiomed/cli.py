@@ -7,7 +7,6 @@ import os
 import sys
 
 from fedbiomed.common.cli import CLIArgumentParser, CommonCLI
-from fedbiomed.common.config import docker_special_case
 from fedbiomed.common.constants import DEFAULT_NODE_NAME, DEFAULT_RESEARCHER_NAME
 
 
@@ -112,7 +111,8 @@ class ComponentParser(CLIArgumentParser):
             else:
                 component_path = os.path.join(os.getcwd(), DEFAULT_NODE_NAME)
         else:
-            component_path = args.path
+            # Path may be given as relative, but it is expected to be absolute downstream
+            component_path = os.path.abspath(args.path)
 
         # Researcher specific case ----------------------------------------------------
         # This is a special case since researcher import
@@ -120,7 +120,6 @@ class ComponentParser(CLIArgumentParser):
             if (
                 DEFAULT_RESEARCHER_NAME in component_path
                 and os.path.isdir(component_path)
-                and not docker_special_case(component_path)
                 and os.listdir(component_path)
             ):
                 if not args.exist_ok:
@@ -135,7 +134,6 @@ class ComponentParser(CLIArgumentParser):
                     return
             else:
                 self._get_component_instance(component_path, args.component)
-                return
         else:
             component = self._get_component_instance(component_path, args.component)
             # Overwrite force configuration file
@@ -198,6 +196,11 @@ def run():
     if hasattr(args, "func") and args.func in [node, researcher]:
         args.func(extra)
     elif hasattr(args, "func"):
+        # Commands served here take nothing beyond what the parser knows, so what is
+        # left over is a mistyped or a removed option. Running anyway would carry out
+        # something other than what was asked, and report it as a success.
+        if extra:
+            cli.parser.parse_args()
         args.func(args)
     # If there is no command provided
     else:

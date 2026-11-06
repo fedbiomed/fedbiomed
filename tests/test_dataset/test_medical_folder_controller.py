@@ -211,6 +211,28 @@ def test_demographics_column_names(temp_medical_folder):
     assert all(col in columns for col in ["age", "gender"])
 
 
+def test_read_demographics_preserves_leading_zeros(temp_medical_folder):
+    """Test read_demographics keeps a numeric-looking index column as strings
+
+    Regression test: automatic type inference used to read a numeric-looking
+    index column (e.g. folder names "0002", "0003") as integers, silently
+    stripping leading zeros and breaking the match against the (string)
+    subject folder names.
+    """
+    numeric_csv = os.path.join(temp_medical_folder, "numeric_participants.csv")
+    with open(numeric_csv, "w") as f:
+        f.write("folder_name,age\n")
+        f.write("0002,30\n")
+        f.write("0003,25\n")
+        f.write("1005,40\n")
+
+    controller = MedicalFolderController.__new__(MedicalFolderController)
+    demographics = controller.read_demographics(numeric_csv, "folder_name")
+
+    assert demographics.index.dtype == object
+    assert list(demographics.index) == ["0002", "0003", "1005"]
+
+
 # === _make_df_dir ===
 
 
@@ -233,8 +255,35 @@ def test_make_df_dir_invalid_structure():
 
     with pytest.raises(FedbiomedError) as exc_info:
         _ = controller._make_df_dir(Path(temp_dir))
-    partial_msg = "Root folder does not match Medical Folder structure"
+    partial_msg = "Root folder does not match MedicalFolderDataset structure"
     assert partial_msg in str(exc_info.value)
+    shutil.rmtree(temp_dir)
+
+
+def test_make_df_dir_extra_nesting_level():
+    """Test _make_df_dir raises a clear error for files nested deeper than
+    <subject>/<modality>/<file>
+
+    Regression test: `rglob("*/*/*")` matches any depth >= 3, so a subject
+    with an extra nesting level (e.g. a session folder) used to crash with
+    an opaque `ValueError: too many values to unpack` instead of a proper
+    FedbiomedError.
+    """
+    controller = MedicalFolderController.__new__(MedicalFolderController)
+    temp_dir = tempfile.mkdtemp()
+    os.makedirs(os.path.join(temp_dir, "patient1", "T1"))
+    with open(os.path.join(temp_dir, "patient1", "T1", "file.nii"), "w") as f:
+        f.write("dummy")
+    # Extra nesting level: patient2/ses-01/T1/file.nii
+    os.makedirs(os.path.join(temp_dir, "patient2", "ses-01", "T1"))
+    with open(os.path.join(temp_dir, "patient2", "ses-01", "T1", "file.nii"), "w") as f:
+        f.write("dummy")
+
+    with pytest.raises(FedbiomedError) as exc_info:
+        _ = controller._make_df_dir(Path(temp_dir))
+    partial_msg = "Root folder does not match MedicalFolderDataset structure"
+    assert partial_msg in str(exc_info.value)
+    assert "patient2/ses-01/T1/file.nii" in str(exc_info.value)
     shutil.rmtree(temp_dir)
 
 
@@ -249,7 +298,7 @@ def test_make_df_dir_no_valid_files():
 
     with pytest.raises(FedbiomedError) as exc_info:
         _ = controller._make_df_dir(Path(temp_dir))
-    partial_msg = "Root folder does not match Medical Folder structure"
+    partial_msg = "Root folder does not match MedicalFolderDataset structure"
     assert partial_msg in str(exc_info.value)
     shutil.rmtree(temp_dir)
 
@@ -620,6 +669,43 @@ def test_subject_intersection_with_demographics(temp_medical_folder):
         for demo in all_demographics
     ]
     assert "patient4" not in participant_ids
+
+
+def test_numeric_subject_folder_names_with_leading_zeros():
+    """Test subjects with numeric, zero-padded folder names match demographics
+
+    Regression test: a demographics index column with numeric-looking values
+    (e.g. "0002") used to be read as integers, stripping leading zeros and
+    causing the intersection with the (string) subject folder names to be
+    empty for every subject.
+    """
+    temp_dir = tempfile.mkdtemp()
+    try:
+        for subject in ["0002", "0003", "1005"]:
+            for modality in ["T1", "T2"]:
+                modality_dir = os.path.join(temp_dir, subject, modality)
+                os.makedirs(modality_dir)
+                nii_file = os.path.join(modality_dir, f"{subject}_{modality}.nii")
+                with open(nii_file, "w") as f:
+                    f.write("dummy nifti data")
+
+        participants_file = os.path.join(temp_dir, "participants.csv")
+        with open(participants_file, "w") as f:
+            f.write("folder_name,age\n")
+            f.write("0002,30\n")
+            f.write("0003,25\n")
+            f.write("1005,40\n")
+
+        controller = MedicalFolderController(
+            root=temp_dir,
+            tabular_file=participants_file,
+            index_col="folder_name",
+        )
+
+        assert len(controller) == 3
+        assert set(controller.subjects) == {"0002", "0003", "1005"}
+    finally:
+        shutil.rmtree(temp_dir)
 
 
 @pytest.mark.parametrize(

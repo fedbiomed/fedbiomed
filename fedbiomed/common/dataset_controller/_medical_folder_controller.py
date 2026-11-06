@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import pandas as pd
+import polars as pl
 
 from fedbiomed.common.constants import DataLoadingBlockTypes, DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMixin
@@ -191,6 +192,13 @@ class MedicalFolderController(Controller):
                             f"Index column {index_col} is out of bounds"
                         )
                     index_col = demographics.columns[index_col]
+
+                # IMPORTANT: Re-read the index column as a string: automatic type inference
+                # would otherwise treat a numeric-looking folder-name reference as an integer
+                # breaks the match against the string subject folder names.
+                demographics = CsvReader(
+                    tabular_file, schema_overrides={index_col: pl.Utf8}
+                ).data.to_pandas()
                 demographics = demographics.set_index(index_col)
 
         except FedbiomedError as e:
@@ -255,25 +263,44 @@ class MedicalFolderController(Controller):
         """
         rows = []
         for path in root.rglob("*/*/*"):
-            if path.is_file():
-                subject, modality, file = path.relative_to(root).parts
-                # set of conditions to validate that a file is valid
-                if file.lower().endswith(extensions) and not any(
-                    part.startswith((".", "_")) for part in (subject, modality, file)
-                ):
-                    rows.append(
-                        {
-                            "subject": subject,
-                            "modality": modality,
-                            "file": file,
-                            "path": str(path),
-                        }
-                    )
+            if not path.is_file():
+                continue
+
+            parts = path.relative_to(root).parts
+
+            # Ignore hidden files/folders anywhere in the path, regardless of depth
+            if any(part.startswith((".", "_")) for part in parts):
+                continue
+
+            if not path.name.lower().endswith(extensions):
+                continue
+
+            # If `rglob("*/*/*")` matches any depth >= 3 it means that
+            # candidate file nested deeper than <subject>/<modality>/<file>.
+            # This results as the folder structure does not match what is expected
+            if len(parts) != 3:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB613.value}: Root folder does not match "
+                    "MedicalFolderDataset structure root/<subject>/<modality>/<file>. "
+                    f"Found file nested too deeply: '{Path(*parts)}' "
+                    "(expected exactly 3 levels under root: "
+                    "<subject>/<modality>/<file>)"
+                )
+
+            subject, modality, file = parts
+            rows.append(
+                {
+                    "subject": subject,
+                    "modality": modality,
+                    "file": file,
+                    "path": str(path),
+                }
+            )
 
         if not rows:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB613.value}: Root folder does not match "
-                "Medical Folder structure root/<subjects>/<modalities>/<files> "
+                "MedicalFolderDataset structure root/<subjects>/<modalities>/<files> "
                 f"for files with extensions in {extensions}. "
                 "Hidden files or folders are not considered"
             )

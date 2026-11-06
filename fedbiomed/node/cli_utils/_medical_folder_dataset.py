@@ -13,9 +13,10 @@ from fedbiomed.node.cli_utils._io import validated_path_input
 def add_medical_folder_dataset_from_cli(
     dataset_parameters: Optional[dict],
     dlp: Optional[DataLoadingPlan],
+    initialdir: Optional[str] = None,
 ) -> Tuple[str, dict, DataLoadingPlan]:
     print("Please select the root folder of the Medical Folder dataset")
-    path = validated_path_input(type="dir")
+    path = validated_path_input(type="dir", initialdir=initialdir)
     controller = MedicalFolderController(path)
     dataset_parameters = {} if dataset_parameters is None else dataset_parameters
     print(dataset_parameters)
@@ -23,7 +24,7 @@ def add_medical_folder_dataset_from_cli(
     if choice.lower() == "y":
         # get tabular file
         print("Please select the demographics file (must be CSV or TSV)")
-        tabular_file_path = validated_path_input(type="csv")
+        tabular_file_path = validated_path_input(type="csv", initialdir=initialdir)
         # get index col from user
         column_values = controller.demographics_column_names(tabular_file_path)
         print("\nHere are all the columns contained in demographics file:\n")

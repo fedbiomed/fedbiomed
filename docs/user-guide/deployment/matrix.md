@@ -6,8 +6,6 @@ This page describes the network communications:
 - for user access to the Fed-BioMed components GUI
 - for Fed-BioMed software installation and docker image build
 
-Communications between the components depend on the [deployment scenario](./deployment.md): with or without VPN/containers.
-
 Network communications for the setup of host machines and the installation of [software requirements](../../getting-started/installation.md) are out of the scope of this document. Network communications necessary for the host machines to run (access to DNS, LDAP, etc.) regardless of Fed-BioMed are also out of the scope of this document. They are specific to system configuration and installation processes.
 
 
@@ -15,10 +13,12 @@ Network communications for the setup of host machines and the installation of [s
 
 Fed-BioMed network communications basic principle is that all communications between components are outbound from one `node` to the `researcher`. There is no inbound communications to a `node`.
 
-The exception to this principle are optional direct communications between the components for using the secure aggregation feature (eg. `node`/`researcher` to `node`/`researcher` communication for cryptographic material negotiation). The communications for crypto material are closed after the negotiation is completed and handle only secagg key negotiation requests.
+Secure aggregation uses logical node-to-node overlay messages, but it does not create direct network connections or additional ports between nodes. The researcher relays these messages over each node's existing gRPC connection. The initial `ChannelSetupRequest` and `ChannelSetupReply` are plaintext requests. Subsequent node-to-node payloads are signed and encrypted with keys derived through ECDH. There is no shared default node-to-node private key.
 
 Fed-BioMed provides some optional GUI for the `node` (node configuration GUI) and the `researcher` (Jupyter notebook and Tensorboard).
 By default, these GUI components are not secured (no HTTPS and/or no certificate signed by well known authority). So they are configured by default to accept only communications from the same machine (*localhost*).
+
+All backend communications between the components are encrypted with TLS in every scenario. [Mutual authentication](./mutual-tls.md), mandatory for a deployment, additionally binds each channel to a registered party without changing the flows themselves — see [Mutual authentication (mTLS)](#mutual-authentication-mtls) below.
 
 
 ## Software installation
@@ -41,17 +41,15 @@ They cover all [deployment scenarios](./deployment.md). If multiple machines are
 For destination machine, it is simpler to authorize outbound communications to all Internet addresses for the required ports during installation. Indeed, several packaging systems are used for installation, with no guarantee of stable IP address used by the packaging server:
 
 - For all [deployment scenarios](./deployment.md): conda, pip (all components) and yarn/npm (node GUI component) packages
-- Plus for VPN/containers scenarios: dockerhub images, apt apk and cargo packages, git over https cloning, wget and curl download
-
-Note: when using a VPN/containers scenario, a site with very stringent requirements on `node`'s communication can avoid authorizing the above communications for installation of the node components (`node` and `gui`). For that, it needs to build the components docker image on another machine (with the above filter), save the image, copy it to the node machine, load it on the node machine. This scenario is not fully packaged and documented by Fed-BioMed but you can find [some guidelines here](https://github.com/fedbiomed/fedbiomed/blob/master/envs/vpn/README.md#specific-instructions-building-node-image-on-a-different-machine).
+- Plus for containers scenarios: dockerhub images and apt packages
 
 
-## Running without VPN/containers
+## Running without containers
 
 ![fedbiomed-network-matrix](../../assets/img/fedbiomed_matrix_native.png#img-centered-lr)
 
 
-This part describes the communication matrix for running Fed-BioMed without VPN/containers:
+This part describes the communication matrix for running Fed-BioMed without containers:
 
 * The direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)
 * Type of communication is either *backend* (between the application components) or *user* (user access to a component GUI). Command line user access to component from *localhost* are not noted here. GUI access are noted though recommended default configuration is to give access only from *localhost*
@@ -77,41 +75,11 @@ On the researcher component (`researcher`):
 | in  | *localhost*    | researcher          | TCP/6006         | HTTP      | user     | optional  | Tensorboard |
 
 
-## Running with VPN/containers
+## Running with Docker containers
 
-![fedbiomed-network-matrix](../../assets/img/fedbiomed_matrix_vpn.png#img-centered-lr)
+This section describes the communication matrix for running Fed-BioMed using Docker containers.
 
-This part describes the communication matrix for running Fed-BioMed with VPN/containers:
-
-* The direction is *out* (outbound communication from the component) or *in* (inbound communication to the component)
-* Type of communication is either *backend* (between the application components) or *user* (user access to a component GUI). Command line user access to component from *localhost* are not noted here. GUI access are noted though recommended default configuration is to give access only from *localhost*
-* The status is either *mandatory* (needed to run Fed-BioMed) or *optional* (a Fed-BioMed experiment can run without this part)
-
-On the node component (`node` + `gui` ):
-
-| dir | source machine | destination machine | destination port | service   | type     | status    | comment  |
-| --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | ------   |
-| out | node           | vpnserver           | UDP/51820        | WireGuard | backend  | mandatory |          |
-| in  | *localhost*    | gui                 | TCP/8443         | HTTPS     | user     | optional  | node GUI |
-
-* `node` and `gui` also need a shared filesystem, so they are usually installed on the same machine.
-
-<br>
-
-On the researcher component (`researcher`):
-
-| dir | source machine | destination machine | destination port | service   | type     | status    | comment     |
-| --  | ------------   | -----------------   | --------------   | -----     | ------   | --------  | -----       |
-| out | researcher     | vpnserver           | UDP/51820        | WireGuard | backend  | mandatory |             |
-| in  | *localhost*    | researcher          | TCP/8888         | HTTP      | user     | optional  | Jupyter     |
-| in  | *localhost*    | researcher          | TCP/6006         | HTTP      | user     | optional  | Tensorboard |
-
-
-## Running with Docker containers (without VPN)
-
-This section describes the communication matrix for running Fed-BioMed using Docker containers **without a VPN**. This configuration is suitable for extending the base Docker image and containers with customized deployment scenarios (e.g. wrapping Fed-BioMed inside an existing infrastructure, adding a custom VPN layer, or integrating with third-party services) as well as for development, testing, and experimentation.
-
-For deployments involving sensitive or patient data, the [VPN/containers scenario](#running-with-vpncontainers) is recommended as it comes ready to use with built-in VPN authentication.
+As for every deployment, enable [mutual authentication](#mutual-authentication-mtls) on every component.
 
 In this setup all containers are attached to a shared user-defined Docker bridge network (e.g. `fedbiomed-net`). Container-to-container communication uses Docker's internal DNS — containers address each other by container name. Ports are published from the container to the host machine to allow user access from *localhost* (or, in a cross-host setup, from the public internet).
 
@@ -123,7 +91,7 @@ On the node component (`node` + `gui`):
 
 | dir | source              | destination          | destination port | service  | type    | status    | comment                                               |
 | --  | ------------------- | -------------------- | ---------------- | -------- | ------- | --------- | ----------------------------------------------------- |
-| out | node container      | researcher container | TCP/50051        | gRPC     | backend | mandatory | via Docker bridge network, using researcher container name |
+| out | node container      | researcher container | TCP/50051        | gRPC/TLS | backend | mandatory | via Docker bridge network, using researcher container name |
 | in  | *localhost* (host)  | node container       | TCP/8484         | HTTP     | user    | optional  | Node GUI (published to host)                          |
 
 * `node` and `gui` containers share a Docker volume and are typically co-located on the same host.
@@ -135,10 +103,29 @@ On the researcher component (`researcher`):
 
 | dir | source              | destination          | destination port | service  | type    | status    | comment                                                                        |
 | --  | ------------------- | -------------------- | ---------------- | -------- | ------- | --------- | ------------------------------------------------------------------------------ |
-| in  | node containers     | researcher container | TCP/50051        | gRPC     | backend | mandatory | inbound from any node on the Docker network (or from a remote host in cross-network setups) |
+| in  | node containers     | researcher container | TCP/50051        | gRPC/TLS | backend | mandatory | inbound from any node on the Docker network (or from a remote host in cross-network setups) |
 | in  | *localhost* (host)  | researcher container | TCP/8888         | HTTP     | user    | optional  | Jupyter notebook (published to host)                                           |
 | in  | *localhost* (host)  | researcher container | TCP/6007         | HTTP     | user    | optional  | TensorBoard (published to host via socat proxy; TensorBoard listens internally on TCP/6006) |
 
 * The TensorBoard port published to the host is **6007**, not the native 6006. Inside the researcher container a `socat` process forwards `container:6007 → localhost:6006`. TensorBoard must be started manually on port 6006 before the proxy can serve traffic.
 * In a **cross-network / public IP setup**, the researcher's host port `50051` is reachable from the internet and nodes on remote machines connect to it directly using the researcher's public IP. No additional port needs to be published on the node side as nodes always initiate the connection. See the [Docker deployment guide](./docker.md#connecting-fed-biomed-instances-across-different-networks) for configuration details.
+
+
+## Mutual authentication (mTLS)
+
+[Mutual authentication](./mutual-tls.md) changes how the two ends of an existing channel verify each other, not which channels exist. The researcher binds the same port and nodes still dial out to it, so **enabling it requires no change to the filters described above** — no port to open, no flow to add, no direction to reverse.
+
+What it changes is the service carried on the backend channel of each scenario:
+
+| deployment scenario | backend channel | without mutual authentication | with mutual authentication |
+| ------------------- | --------------- | ----------------------------- | -------------------------- |
+| [Without containers](#running-without-containers) | node → researcher, TCP/50051 | gRPC/TLS: the node trusts the certificate the endpoint presents, the researcher accepts any node | gRPC/mTLS: the node pins a registered researcher certificate, the researcher requires a registered node certificate |
+| [With Docker containers](#running-with-docker-containers) | node container → researcher container, TCP/50051 | gRPC/TLS | gRPC/mTLS |
+
+<br>
+
+* Where the surrounding infrastructure already authenticates the machines that reach each other, mutual authentication is a **second, independent layer**: it authenticates the Fed-BioMed parties talking over the channel, not the hosts carrying it. Neither replaces the other.
+* Certificates are exchanged **out of band** — e-mail, secure messaging, any trusted channel. Fed-BioMed opens no network flow to distribute them, so certificate exchange adds no entry to the matrix.
+* Mutual authentication imposes **no naming or DNS requirement**. A node verifies the researcher certificate it has pinned; when the address it dials is not among the names that certificate carries, it verifies against a name that is. Issuing the researcher certificate for the names nodes reach it at is [recommended](./mutual-tls.md#names-on-the-researcher-certificate), not a condition for the channel to establish.
+* A node rejected for mutual authentication is refused **inside the TLS handshake**, so the connection is dropped at the researcher rather than filtered by the network. It is not visible as a blocked packet, and the researcher logs nothing per rejected node — see [verifying and troubleshooting](./mutual-tls.md#verifying-and-troubleshooting).
 
