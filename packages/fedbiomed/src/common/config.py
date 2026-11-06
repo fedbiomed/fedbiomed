@@ -1,0 +1,483 @@
+# This file is originally part of Fed-BioMed
+# SPDX-License-Identifier: Apache-2.0
+
+import configparser
+import os
+import uuid
+from abc import ABCMeta, abstractmethod
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+
+from fedbiomed import __version__
+from fedbiomed.common.constants import (
+    CERTS_FOLDER_NAME,
+    CONFIG_FOLDER_NAME,
+    DB_PREFIX,
+    VAR_FOLDER_NAME,
+    ErrorNumbers,
+)
+from fedbiomed.common.exceptions import FedbiomedConfigurationError
+from fedbiomed.common.logger import SYSLOG_FACILITY_MAP, logger
+from fedbiomed.common.utils import (
+    create_fedbiomed_setup_folders,
+    raise_for_version_compatibility,
+    read_file,
+)
+from packaging.version import Version
+
+if TYPE_CHECKING:
+    from fedbiomed.node.config import NodeConfig
+    from fedbiomed.researcher.config import ResearcherConfig
+
+
+def docker_special_case(component_path: str) -> bool:
+    """Special case for docker containers.
+
+    This function makes sure that there is only .gitkeep file present in
+    the directory that component will be initialized. It is required since
+    component folder should be existing in run_mounts by default.
+    """
+
+    files = os.listdir(component_path)
+
+    return ".gitkeep" in files and len(files) == 1
+
+
+class Config(metaclass=ABCMeta):
+    """Base Config class
+
+    Attributes:
+        root: Root directory of the component.
+        name: Config name (e.g config.ini or config-n1.ini).
+        path: Absolute path to configuration.
+        vars: A dictionary that contains configuration related variables. Such
+            as dynamic paths that relies of component root etc.
+    """
+
+    _CONFIG_FILE_NAME: str = "config.ini"
+    _CONFIG_VERSION: Version
+    COMPONENT_TYPE: str
+
+    _cfg: configparser.ConfigParser
+    root: str
+    path: str
+    name: str
+
+    vars: Dict[str, Any] = {}
+
+    def __init__(self, root: str) -> None:
+        """Initializes configuration
+
+        Args:
+            root: Root directory for the component.
+        """
+        self._cfg = configparser.ConfigParser()
+        logger.set_application_logs(root_path=root)
+        # Set up security logging for config operations
+        # This ensures security events are captured even before Node/Researcher initialization
+        logger.set_security_logs(root_path=root)
+        self.load(root)
+        self.add_syslog_from_config()
+
+    def add_syslog_from_config(self):
+        if not self.getbool("syslog", "enable", fallback="False"):
+            logger.info(
+                "Syslog configuration is disabled or not found in configuration. "
+                "Disabling syslog logging."
+            )
+            return
+
+        host = self.get("syslog", "host", fallback="localhost")
+        port = self.getint("syslog", "port", fallback=514)
+        protocol = self.get("syslog", "protocol", fallback="udp").lower()
+        facility_name = self.get("syslog", "facility", fallback="user").lower()
+        level_name = self.get("syslog", "level", fallback="INFO").upper()
+
+        logger.info(
+            f"Enabling syslog logging with host={host}, port={port}, protocol={protocol}, "
+            f"facility={facility_name}, level={level_name}"
+        )
+
+        if protocol not in {"udp", "tcp"}:
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: Unsupported syslog protocol: {protocol}"
+            )
+
+        if facility_name not in SYSLOG_FACILITY_MAP.keys():
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: Unsupported syslog facility: {facility_name}"
+            )
+
+        if level_name not in logger._nameToLevel.keys():
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: Unsupported syslog level: {level_name}"
+            )
+
+        logger.add_syslog_handler(
+            host=host,
+            port=port,
+            protocol=protocol,
+            facility=SYSLOG_FACILITY_MAP[facility_name],
+            level=level_name,
+        )
+
+    @classmethod
+    @abstractmethod
+    def COMPONENT_TYPE(cls):  # pylint: disable=C0103
+        """Abstract attribute to oblige defining component type"""
+
+    @classmethod
+    @abstractmethod
+    def _CONFIG_VERSION(cls):  # pylint: disable=C0103
+        """Abstract attribute to oblige defining configuration version"""
+
+    def load(
+        self,
+        root: str,  # pylint: disable=W0622
+    ) -> None:
+        """Load configuration from given name and root
+
+        This implementation allows to load configuration after Config class
+        is instantiated.
+
+        Args:
+            root: Root directory where component files will be saved
+                configuration file.
+        """
+
+        self.root = root
+        self.config_path = os.path.join(self.root, "etc", self._CONFIG_FILE_NAME)
+        logger.security_event(
+            operation="config_load_start",
+            status="initiated",
+            config_path=self.config_path,
+            config_root=self.root,
+            component_type=self.COMPONENT_TYPE,
+            fedbiomed_version=__version__,
+        )
+        self.generate()
+
+    def is_config_existing(self) -> bool:
+        """Checks if config file exists
+
+        Returns:
+            True if config file is already existing
+        """
+
+        return os.path.isfile(self.config_path)
+
+    def read(self) -> bool:
+        """Reads configuration file that is already existing in given path
+
+        Raises version compatibility error
+        """
+        try:
+            self._cfg.read(self.config_path)
+
+            # Validate config version
+            raise_for_version_compatibility(
+                self._cfg["default"]["version"],
+                self._CONFIG_VERSION,
+                f"Configuration file {self.config_path}: found version %s expected version %s",
+            )
+
+            logger.security_event(
+                operation="config_read",
+                status="success",
+                config_path=self.config_path,
+                config_version=self._cfg["default"]["version"],
+                component_type=self.COMPONENT_TYPE,
+                fedbiomed_version=__version__,
+            )
+
+            return True
+        except Exception as e:
+            logger.security_event(
+                operation="config_read",
+                status="failure",
+                config_path=self.config_path,
+                error_message=str(e),
+                component_type=self.COMPONENT_TYPE,
+                fedbiomed_version=__version__,
+            )
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: cannot read config file:  {self.config_path}"
+            ) from e
+
+    def get(self, section, key, **kwargs) -> str:
+        """Returns value for given key and section"""
+
+        return self._get(section, key, **kwargs)
+
+    def getbool(self, section, key, **kwargs) -> bool:
+        """Gets boolean value from config"""
+
+        return self._get(section, key, **kwargs).lower() in ("true", "1")
+
+    def getint(self, section, key, **kwargs) -> int:
+        """Gets int value of a given config"""
+
+        return self._cfg.getint(section, key, **kwargs)
+
+    def getpath(self, section, key, **kwargs) -> str:
+        """Absolute path for a config value stored relative to the config folder"""
+        return os.path.abspath(
+            os.path.join(
+                self.root, CONFIG_FOLDER_NAME, self.get(section, key, **kwargs)
+            )
+        )
+
+    def _get(self, section, key, **kwargs) -> str:
+        """Returns value for given key and section"""
+        environ_key = f"FBM_{section.upper()}_{key.upper()}"
+        return os.environ.get(environ_key, self._cfg.get(section, key, **kwargs))
+
+    def set(self, section, key, value) -> None:
+        """Sets config section values
+
+        Args:
+            section: the name of the config file section as defined by the `ini` standard
+            key: the name of the attribute to be set
+            value: the value of the attribute to be set
+
+        Returns:
+            value: the value of the attribute that was just set
+        """
+        self._cfg.set(section, key, value)
+        logger.security_event(
+            operation="config_set",
+            status="success",
+            config_section=section,
+            config_key=key,
+            component_type=self.COMPONENT_TYPE,
+            fedbiomed_version=__version__,
+        )
+
+    def sections(self) -> list:
+        """Returns sections of the config"""
+
+        return self._cfg.sections()
+
+    def write(self):
+        """Writes config file"""
+
+        try:
+            with open(self.config_path, "w", encoding="UTF-8") as f:
+                self._cfg.write(f)
+            logger.security_event(
+                operation="config_write",
+                status="success",
+                config_path=self.config_path,
+                component_type=self.COMPONENT_TYPE,
+                fedbiomed_version=__version__,
+            )
+        except configparser.Error as exp:
+            logger.security_event(
+                operation="config_write",
+                status="failure",
+                config_path=self.config_path,
+                error_message=str(exp),
+                component_type=self.COMPONENT_TYPE,
+                fedbiomed_version=__version__,
+            )
+            raise FedbiomedConfigurationError(
+                f"{ErrorNumbers.FB600.value}: cannot save config file:  {self.config_path}"
+            ) from exp
+
+    def generate(self, id: Optional[str] = None) -> None:
+        """ "Generate configuration file
+
+        Args:
+            force: Overwrites existing configuration file
+            id: Component ID
+        """
+
+        # Check if configuration is already existing
+        if not self.is_config_existing():
+            # Create default section
+            component_id = id if id else f"{self.COMPONENT_TYPE}_{uuid.uuid4()}"
+
+            self._cfg["default"] = {
+                "id": component_id,
+                "component": self.COMPONENT_TYPE,
+                "version": str(self._CONFIG_VERSION),
+            }
+
+            config_dir = os.path.join(self.root, CONFIG_FOLDER_NAME)
+            db_path = os.path.join(
+                self.root, VAR_FOLDER_NAME, f"{DB_PREFIX}{component_id}.json"
+            )
+
+            self._cfg["default"]["db"] = os.path.relpath(db_path, config_dir)
+            self._cfg["syslog"] = {"enable": "False"}
+            self._cfg["authentication"] = {"mutual_authentication": "False"}
+
+            # Calls child class add_parameterss
+            self.add_parameters()
+
+            logger.security_event(
+                operation="config_generate",
+                status="success",
+                config_path=self.config_path,
+                component_id=component_id,
+                component_type=self.COMPONENT_TYPE,
+                config_version=str(self._CONFIG_VERSION),
+                fedbiomed_version=__version__,
+            )
+        else:
+            self.read()
+            # Provide migration
+            self.migrate()
+
+            logger.security_event(
+                operation="config_load_existing",
+                status="success",
+                config_path=self.config_path,
+                component_id=self._cfg["default"]["id"],
+                component_type=self.COMPONENT_TYPE,
+                config_version=self._cfg["default"]["version"],
+                fedbiomed_version=__version__,
+            )
+
+        self._update_vars()
+
+    def _update_vars(self):
+        """Updates dynamic variables"""
+        # Updates dynamic variables
+
+        self.vars.update(
+            {
+                "MESSAGES_QUEUE_DIR": os.path.join(self.root, "queue_messages"),
+                "TMP_DIR": os.path.join(self.root, VAR_FOLDER_NAME, "tmp"),
+                "CERT_DIR": os.path.join(self.root, CERTS_FOLDER_NAME),
+            }
+        )
+
+        os.makedirs(self.vars["TMP_DIR"], exist_ok=True)
+
+    @abstractmethod
+    def add_parameters(self):
+        """ "Component specific argument creation"""
+
+    @abstractmethod
+    def migrate(self):
+        """Migration method to add configuration parameters
+
+        It is used for introducing  new parameters for in minor version or patch
+        to not break backward compatibility. This method has to update `self._cfg`
+        directly.
+
+        An example;
+
+        ```python
+        self._cfg["my-section"].update({"my-new-parameter": "my-new-value"})
+        ```
+        It should update the section only if the parameter is not existing to avoid
+        overwriting user defined values.
+
+        Migrations shared by every component type live here; overriding it, call
+        `super().migrate()` first.
+        """
+
+        if not self._cfg.has_section("authentication"):
+            # TODO-DEPRECATION: Remove this migration in future version. It is added to
+            # avoid breaking backward compatibility with old configuration files.
+            logger.warning(
+                "DEPRECATION: You are using an old configuration file for researcher. "
+                "Please add the 'authentication' section and add value `mutual_authentication=False` or `mutual_authentication=True` "
+                "in the `authentication` section in the component configuration."
+            )
+
+            self._cfg.add_section("authentication")
+            self._cfg.set("authentication", "mutual_authentication", "False")
+
+
+class Component:
+    config_cls: type
+    _config: Config
+    _default_component_name: str
+
+    def __init__(self):
+        """Test"""
+        self._reference = ".fedbiomed"
+
+    def initiate(
+        self, root: Optional[str] = None, **kwargs: Any
+    ) -> Union["NodeConfig", "ResearcherConfig"]:
+        """Creates or initiates existing component
+
+        Args:
+            root: Root directory of the component
+            component_alias: Name of the component, used for outputting the
+                component in a user-friendly way.
+                Defaults to default component name. (fbm-node or fbm-researcher)
+            **kwargs: Additional parameters that can be used for
+                component initialization. For example, `node_name` for NodeComponent.
+        Returns:
+            Config object of the component
+        """
+
+        if not root:
+            root = os.path.join(os.getcwd(), self._default_component_name)
+
+        reference = self.validate(root)
+        config = self.config_cls(root=root, **kwargs)
+        # If component is not existing, create it
+        if not os.path.isfile(reference):
+            create_fedbiomed_setup_folders(root)
+            with open(os.path.join(root, ".fedbiomed"), "w", encoding="UTF-8") as file_:
+                file_.write(self.config_cls.COMPONENT_TYPE)
+            config.generate()
+            config.write()
+        else:
+            config.read()
+
+        return config
+
+    def is_component_existing(self, component_dir: str) -> bool:
+        """Checks if component existing in the given root directory
+
+        Returns:
+            True if any component is instantiated in the given directory
+        """
+        ref = os.path.join(component_dir, self._reference)
+        if os.path.isdir(component_dir):
+            if docker_special_case(component_dir):
+                return False
+
+            if os.listdir(component_dir) and not os.path.isfile(ref):
+                raise ValueError(
+                    f"Cannot create component. Path {component_dir} "
+                    "is not empty for Fed-BioMed component initialization. Please "
+                    f"remove folder {component_dir} or specify another path"
+                )
+
+        # Special case for docker container mounted folders
+        # empty .fedbiomed is required to keep it
+        if os.path.isfile(ref) and not read_file(ref):
+            return False
+
+        return os.path.isfile(ref)
+
+    def validate(self, root) -> str:
+        """Validates given root folder is a component can be instantiated
+
+        Args:
+            root: Root directory that Fed-BioMed component will be instantiated.
+
+        Returns:
+            Full path to reference file
+        """
+
+        iscomp = self.is_component_existing(root)
+        ref = os.path.join(root, self._reference)
+
+        if iscomp:
+            comp_type = read_file(ref)
+            if comp_type != self.config_cls.COMPONENT_TYPE:
+                raise ValueError(
+                    f"Component directory has already been initilazed for component type {comp_type}"
+                    " can not overwrite or reuse it for component type "
+                    f"{self.config_cls.COMPONENT_TYPE}"
+                )
+
+        return ref

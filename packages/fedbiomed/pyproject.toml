@@ -1,0 +1,293 @@
+[project]
+name = "fedbiomed"
+dynamic = ["version"]
+description = "Collaborative learning for healthcare"
+
+maintainers = [
+	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
+	{name = "Lucie Chambon", email = "lucie.chambon@inria.fr"},
+	{name = "Francesco Cremonesi", email = "francesco.cremonesi@inria.fr"},
+	{name = "Ali Tolga Dincer", email = "ali-tolga.dincer@inria.fr"},
+	{name = "Marco Lorenzi", email = "marco.lorenzi@inria.fr"},
+	{name = "Jhonatan Torres", email = "jhonatan--leonardo.torres-sanchez@inria.fr"},
+	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
+]
+
+authors = [
+	{name = "Yannick Bouillard", email = "yannick.bouillard@inria.fr"},
+   	{name = "Sergen Cansiz", email = "sergen.cansiz@inria.fr"},
+	{name = "Lucie Chambon", email = "lucie.chambon@inria.fr"},
+	{name = "Francesco Cremonesi ", email = "francesco.cremonesi@inria.fr"},
+	{name = "Ali Tolga Dincer", email = "ali-tolga.dincer@inria.fr"},
+	{name = "Marco Lorenzi", email = "marco.lorenzi@inria.fr"},
+	{name = "Jhonatan Torres", email = "jhonatan--leonardo.torres-sanchez@inria.fr"},
+	{name = "Marc Vesin", email = "marc.vesin@inria.fr"},
+	{name = "Paul Andrey", email = "paul.andrey@inria.fr"},
+	{name = "Lucie Chambon", email = "lucie.chambon@inria.fr"},
+	{name = "Erwan Demairy", email = "erwan.demairy@inria.fr"},
+	{name = "Thibaud Kloczko", email = "thibaud.kloczko@inria.fr"},
+	{name = "Côme Le Breton", email = "come.le-breton@inria.fr"},
+	{name = "Jean-Luc Szpyrka", email = "jean-luc@szpyrka.fr"},
+	{name = "Riccardo Taiello", email = "riccardo.taiello@inria.fr"},
+	{name = "Maya Assal"},
+	{name = "Samy-Safwan Ayed"},
+	{name = "Irene Balelli"},
+	{name = "Nathan Bigaud"},
+	{name = "Eleonore Birgy"},
+	{name = "Tristan Cabel"},
+	{name = "Gaurav D. Chaudary"},
+	{name = "Nejma El Kourdachi"},
+	{name = "Yann Fraboni"},
+	{name = "Lena Le Quintrec"},
+	{name = "Nathan Lapel"},
+	{name = "Jonathan Levy"},
+	{name = "Riham Nehmeh"},
+	{name = "Ange Ouya"},
+	{name = "Ghiles Reguig"},
+	{name = "Prapoojitha Santosha-Dasari"},
+	{name = "Jose-Francisco Saray-Villamizar"},
+	{name = "Andrea Senacheribbe"},
+	{name = "Santiago-Smith Silva-Rincon"},
+	{name = "Carlos Zubiaga"},
+]
+
+keywords = [
+	"learning",
+	"ai",
+	"analytics",
+	"clinical",
+	"collaborative",
+	"federated",
+	"biomedical",
+	"healthcare",
+	"multicentric",
+]
+
+classifiers = [
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Science/Research",
+	"Intended Audience :: Healthcare Industry",
+	"License :: OSI Approved :: Apache Software License",
+	"Natural Language :: English",
+	"Operating System :: Unix",
+	"Operating System :: MacOS",
+	"Programming Language :: Python :: 3",
+	"Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+	"tinydb ~=4.7.1",
+	"tabulate >=0.9.0,<0.10.0",
+	"psutil ~=6.0.0",
+	"requests  ~=2.29",
+	"packaging   ~=24.1",
+	"cryptography ~=42.0",
+	"joblib  ~=1.2",
+	"itk  !=5.4.4,>=5.3.0",
+	"scipy  >=1.10.0",
+	"scikit-learn  >=1.2.0",
+	"torch  >=1.13.0",
+	"torchvision  >=0.14.0",
+	"opacus  !=1.5.4,>=1.4.0",
+	"monai  >=1.1.0",
+	"msgpack  ~=1.0",
+	"persist-queue  >=0.5.1,<0.6.0",
+	"pandas  >=2.0.1",
+	"polars ~=1.32.0",
+	"python-minifier  >=2.11,<=3.2.0",
+	"declearn[torch]  >=2.9, <2.10",
+	"gmpy2  >=2.1.2,<=2.3.1",
+	"grpcio  ~=1.82.0",
+	"grpcio-tools  ~=1.82.0",
+	"unet  >=0.7.7,<0.8.0",
+	"pygments ~=2.18.0",
+	"nibabel ~=5.3",
+	"pyarrow>=21.0.0",
+]
+
+requires-python = "<3.15,>=3.11"
+readme = "README.md"
+license = {text = "Apache 2.0"}
+
+[project.urls]
+Homepage = "https://fedbiomed.org"
+Documentation = "https://fedbiomed.org"
+Repository = "https://github.com/fedbiomed/fedbiomed"
+
+[tool.hatch.version]
+path = "src/__init__.py"
+
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+local = [
+    "-e ./fedbiomed_node_api",
+    "-e ./fedbiomed_gui",
+]
+
+[tool.pdm.scripts]
+post_install = "pre-commit install"
+
+[tool.pdm.workspace]
+members = ["fedbiomed_node_api", "fedbiomed_gui"]
+[project.optional-dependencies]  # This is optional dependencies
+node = [
+]
+
+researcher = [
+	"pathvalidate ~=3.0.0",
+	"matplotlib >=3.8.0",
+	"setuptools <81",
+	"tensorboard ~=2.18.0",
+	"jupyter",
+	"ipython"
+]
+
+node-api = ["fedbiomed-node-api==6.4.1"]
+gui = ["fedbiomed-gui==6.4.1"]
+
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.sdist]
+include = [
+	"docs/tutorials",
+	"fedbiomed",
+	"notebooks",
+	"envs",
+	"docs/tutorials"
+]
+exclude = [
+  "tests",
+  "envs/vpn"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["fedbiomed"]
+skip-excluded-dirs = true
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = "fedbiomed"
+
+[tool.hatch.build.targets.wheel.shared-data]
+"docs/tutorials" = "share/fedbiomed/docs/tutorials"
+"envs/common" = "share/fedbiomed/envs/common"
+"notebooks" = "share/fedbiomed/notebooks"
+
+[dependency-groups]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-asyncio",
+    "tox",
+    "pre-commit>=4.2.0",
+    "hatchling",
+]
+dev = [
+	"ruff==0.11.13",
+	"pre-commit>=4.2.0",
+]
+docs = [
+	"mkdocs-material>=9.5",
+	"pymdown-extensions>=10.0",
+	"mkdocs-jupyter>=0.24",
+	"mkdocstrings-python>=1.10.8",
+	"mkdocs-minify-plugin",
+	"mkdocs-redirects",
+	"mike"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+fedbiomed = "fedbiomed.cli:run"
+
+[tool.pytest.ini_options]
+pythonpath = ["tests", "tests/end2end"]
+testpaths = ["tests"]
+asyncio_mode = "strict"
+addopts = [
+    "--import-mode=importlib",
+]
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+	"envs",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+	"*.ipynb",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+# Assume Python 3.10
+target-version = "py310"
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Automatically detect the appropriate line ending.
+line-ending = "auto"
+
+docstring-code-format = false
+docstring-code-line-length = "dynamic"
+
+[tool.ruff.lint]
+# 1. Rules to be taken into account
+# https://www.flake8rules.com/
+select = [
+	"E4", "E7", "E9",  # pycodestyle
+	"F",  # Pyflakes
+	"B",  # flake8-bugbear
+	"I",  # isort
+]
+
+# 2. Sub-rules to ignore from the list above
+ignore = [
+]
+
+# 3. Avoid auto correction with --fix
+unfixable = [
+	"B",  #   flake8-bugbear (`B`) violations
+]
+
+[tool.codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = '.git*,*.pdf,*.svg,*.lock,*.css,assets'
+check-hidden = true
+# ignore images in notebooks and regex specifications
+ignore-regex = '^\s*"image/\S+": ".*|\(^\S+\)|\bOT\b'
+ignore-words-list = 'ser,infor,te,opps,nd'
