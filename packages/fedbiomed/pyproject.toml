@@ -139,8 +139,20 @@ allow-direct-references = true
 
 [tool.hatch.metadata.hooks.custom]
 path = "hatch_build.py"
+readme = "README.md"
 
 [tool.hatch.build.hooks.custom]
+
+# Files copied from the repository root into the source archive.
+[tool.hatch.build.hooks.custom.sdist-files]
+"README.md" = "README.md"
+
+# Paths are relative to the repository root, or the extracted source archive.
+# The hook resolves them before passing them to Hatch's shared-data mechanism.
+[tool.hatch.build.hooks.custom.shared-data]
+"docs/tutorials" = "share/fedbiomed/docs/tutorials"
+"envs/common" = "share/fedbiomed/envs/common"
+"notebooks" = "share/fedbiomed/notebooks"
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/hatch_build.py", "/LICENSE.md"]
