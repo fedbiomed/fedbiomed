@@ -221,6 +221,14 @@ port = 50051
 
 ```
 
+### Changing a setting
+
+A node setting can be changed in three ways:
+
+- **Manually**: edit the value in `config.ini`, then restart the node.
+- **Environment variables**: set the `FBM_<SECTION>_<KEY>` variable when the node configuration is created (see [Environment Variables](#environment-variables)).
+- **GUI**: edit the value in the **Configuration** tab of the Node Management page, then use **Save & Restart** (see [Node GUI](node-gui.md)).
+
 ## Using non-default Fed-BioMed node
 
 The option `--path` that comes after specification `node` in Fed-BioMed command allows to use different node component in different directories than the default one. `--path` can be relative or absolute. As it is in default command execution, if the given directory for node is existing it will created automatically.
@@ -254,23 +262,34 @@ Once the component is initialized, you can edit its configuration file located a
 
 ## Environment Variables
 
-Environment variables can be used to parameterize various options for creating the configuration file. The fields that can be controlled, along with their associated environment variables and default values, are described below:
+Environment variables can be used to parameterize various options for creating the configuration file. The fields that can be controlled, along with their associated environment variables and default values, are described below.
 
-```
-[security]:
-- allow_default_training_plans: FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS, False (VPN/container mode) or True (other)
-- training_plan_approval: FBM_SECURITY_TRAINING_PLAN_APPROVAL, True (VPN/container mode) or False (other)
-- secure_aggregation: FBM_SECURITY_SECURE_AGGREGATION, True
-- force_secure_aggregation: FBM_SECURITY_FORCE_SECURE_AGGREGATION, False
-- secagg_insecure_validation: FBM_SECURITY_SECAGG_INSECURE_VALIDATION, False (VPN/container mode) or True (other)
-- allow_preproc: FBM_SECURITY_ALLOW_PREPROC, False (VPN/container mode) or True (other)
-- allow_federated_analytics: FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS, False (VPN/container mode) or True (other)
-- minimum_samples: FBM_SECURITY_MINIMUM_SAMPLES, 0
+### Security
 
-[researcher]:
-- ip: FBM_RESEARCHER_IP, ${IP_ADDRESS}, if not set: localhost
-- port: FBM_RESEARCHER_PORT, 50051
-```
+The defaults depend on how the node is run. A node installed directly on a machine uses permissive defaults, intended for local development. The `fedbiomed/node` Docker image uses restrictive defaults, closer to what a deployment needs.
+
+| Field | Environment variable | Default, no container | Default, `fedbiomed/node` image |
+|---|---|---|---|
+| `allow_default_training_plans` | `FBM_SECURITY_ALLOW_DEFAULT_TRAINING_PLANS` | `True` | `False` |
+| `training_plan_approval` | `FBM_SECURITY_TRAINING_PLAN_APPROVAL` | `False` | `True` |
+| `secure_aggregation` | `FBM_SECURITY_SECURE_AGGREGATION` | `True` | `True` |
+| `force_secure_aggregation` | `FBM_SECURITY_FORCE_SECURE_AGGREGATION` | `False` | `False` |
+| `secagg_insecure_validation` | `FBM_SECURITY_SECAGG_INSECURE_VALIDATION` | `True` | `False` |
+| `allow_preproc` | `FBM_SECURITY_ALLOW_PREPROC` | `True` | `False` |
+| `allow_federated_analytics` | `FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS` | `True` | `False` |
+| `minimum_samples` | `FBM_SECURITY_MINIMUM_SAMPLES` | `0` | `0` |
+
+The local federation defined in `docker/local-federation.yml` runs the `fedbiomed/node` image for testing, and sets `training_plan_approval` to `False` so that experiments run without approving each training plan, and `allow_preproc` and `allow_federated_analytics` to `True`.
+
+!!! warning "Security values in a deployment"
+    These values define what the node accepts to run on its data. Do not rely on the defaults in a deployment: set each value explicitly, according to the node's data governance policy. In particular, keep `training_plan_approval` enabled, and `allow_default_training_plans` and `secagg_insecure_validation` disabled. Enable `allow_preproc` and `allow_federated_analytics` only when they are needed, and set `minimum_samples` to the smallest dataset size the node accepts to share.
+
+### Researcher
+
+| Field | Environment variable | Default |
+|---|---|---|
+| `ip` | `FBM_RESEARCHER_IP` | `localhost` |
+| `port` | `FBM_RESEARCHER_PORT` | `50051` |
 
 ### Examples
 

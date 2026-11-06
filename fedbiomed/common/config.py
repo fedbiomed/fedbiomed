@@ -30,19 +30,6 @@ if TYPE_CHECKING:
     from fedbiomed.researcher.config import ResearcherConfig
 
 
-def docker_special_case(component_path: str) -> bool:
-    """Special case for docker containers.
-
-    This function makes sure that there is only .gitkeep file present in
-    the directory that component will be initialized. It is required since
-    component folder should be existing in run_mounts by default.
-    """
-
-    files = os.listdir(component_path)
-
-    return ".gitkeep" in files and len(files) == 1
-
-
 class Config(metaclass=ABCMeta):
     """Base Config class
 
@@ -442,9 +429,6 @@ class Component:
         """
         ref = os.path.join(component_dir, self._reference)
         if os.path.isdir(component_dir):
-            if docker_special_case(component_dir):
-                return False
-
             if os.listdir(component_dir) and not os.path.isfile(ref):
                 raise ValueError(
                     f"Cannot create component. Path {component_dir} "

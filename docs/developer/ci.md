@@ -47,7 +47,7 @@ All workflow definitions are under `.github/workflows`.
 | `end-to-end.yml` | Ordinary E2E testing, with optional manually supplied JSON matrices | Monday to Friday at 23:00 UTC, push to `master`, or manual |
 | `endurance-tests.yml` | Long-running endurance tests on the Python endpoints | Saturday at 09:00 UTC or manual |
 | `package-compatibility.yml` | Builds one wheel and source distribution, then installs and checks the exact wheel across the supported matrix | Monday at 03:00 UTC, manual, or called by the release workflow |
-| `test-docker.yml` | Tests if public docker images can be build for all python versions, and then checks VPN functional test by running the MNIST training across node and researcher images | Monday to Friday at 20:00 UTC or manual |
+| `test-docker.yml` | Tests if public docker images can be build for all python versions | Monday to Friday at 20:00 UTC or manual |
 | `deploy.yml` | Validates the release package for Python wheel of Fedbiomed, publishes it to PyPI, and creates the GitHub release | Tag push |
 | `docker-deploy.yml` | Builds public base, node, and researcher docker images, and publishes them to Docker Hub when a version tag triggered the run | Version tag or manual |
 | `build-and-deploy-documentation.yml` | Builds versioned documentation and updates the public documentation repository | Tag push or manual |
@@ -245,8 +245,6 @@ creation depend on the tested package artifact, so the published files are the
 same files that passed compatibility testing.
 
 ## Docker strategy
-
-Docker testing is split into build smoke tests and a functional VPN test.
 
 ### Public-image build smoke
 

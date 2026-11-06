@@ -1,4 +1,4 @@
-# !/bin/bash
+#!/bin/bash
 cat > /home/${FEDBIOMED_USER}/fbm.env <<EOF
 
 FBM_NODE_START_OPTIONS=${FBM_NODE_START_OPTIONS}
@@ -34,6 +34,8 @@ fedbiomed component create --component NODE --path /fbm-node --exist-ok
 
 if [ -n "${MNIST_OFF}" ]; then 
   echo "[INFO] MNIST download and deploy operation is disabled."
+elif fedbiomed node -p /fbm-node dataset list | grep -q "'#MNIST'"; then
+  echo "[INFO] MNIST dataset already deployed"
 else
   echo "[INFO] Deploying MNIST dataset by default"
   fedbiomed node -p /fbm-node dataset add --mnist /fbm-node/data || \
@@ -45,9 +47,6 @@ echo "Container user: ${FEDBIOMED_USER}"
 
 echo "Creating supervisord conf for management node process"
 envsubst < /etc/supervisor/supervisord.conf.template > /etc/supervisor/supervisord.conf
-
-# Optional: Check user setup
-echo "[ENTRYPOINT] Starting container as user: $CONTAINER_USER"
 
 # Overwrite node options file if re-launching container
 #   eg FBM_NODE_START_OPTIONS="--gpu-only" can be used for starting node forcing GPU usage

@@ -14,7 +14,6 @@ Fed-BioMed supports accelerator hardware with the following requirements and lim
 * **single GPU** on each node : if the host machine has multiple GPUs, only one is used by a Fed-BioMed node
 * **PyTorch** framework using the `TorchTrainingPlan` Fed-BioMed training plan interface ; other frameworks / training plans (scikit-learn / `SGDSkLearnModel`) can run on a node with a hardware accelerator but don't use it.
 * **only training** is accelerated (node side computation), not aggregation (server side computation)
-* **no VPN** : VPN in Fed-BioMed is based on running each component in a docker container. Node container images provided by Fed-BioMed are not yet GPU-enabled.
 
 
 ## Node side

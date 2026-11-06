@@ -107,15 +107,12 @@ exp.preprocessing.approve("FedComBat harmonization models")
 
 See [Training with approved training plans](../../tutorials/security/training-with-approved-training-plans.ipynb).
 
-## VPN / container mode
+## Node permissions
 
-In VPN/container deployments, pre-processing and federated analytics are disabled by default.
-Enable both features on node containers to be able to successfully run FedComBat pre-processing.
+FedComBat requires pre-processing and federated analytics to be allowed on every node of the experiment.
+Request the nodes to enable `allow_preproc` and `allow_federated_analytics`
+(see [Changing a setting](../nodes/configuring-nodes.md#changing-a-setting)).
 
-```bash
-export FBM_SECURITY_ALLOW_PREPROC=True
-export FBM_SECURITY_ALLOW_FEDERATED_ANALYTICS=True
-```
-
-See [Deployment in VPN mode](../deployment/deployment-vpn.md).
+- In a deployment, each node enables them only if its data governance policy accepts it.
+- In a local federation for testing, they can be relaxed: `docker/local-federation.yml` enables both.
 
