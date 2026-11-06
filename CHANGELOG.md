@@ -1,5 +1,16 @@
 # Fed-BioMed changelog
 
+## 2026-11-06 version 6.5.0
+
+- Introduce Mutual Authentication. The Node and Researcher now have to verify each other’s certificates in order to start communication.
+- Bundled VPN support is officially deprecated. For users who wish to use Fedbiomed with VPN, see [(optional) vpn deployment](./docs/user-guide/deployment/docker-vpn.md) for an example guide with the third party VPN tool WireGuard.
+- Add support for Python 3.12-3.14. Remove official support for 3.10.
+- Remove the default key in node-to-node communication. The initial handshake between nodes during secure aggregation is now not encrypted. This is not a vulnerability, since the main exchange of masks between the nodes remain encrypted. For details, see [security model](./docs/user-guide/deployment/security-model.md)
+- The memory leak in endurance tests is fixed, and the disk usage in tests is optimized.
+- Node status now also shows connection status to the researcher
+- Introduce multi-platform docker image build
+- Fix minor bugs and security improvements.
+
 ## 2026-08-06 version 6.4.1
 
 - Solves the blank page bug in node process manager in the GUI. 

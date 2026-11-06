@@ -117,6 +117,11 @@ is authenticated by the certificate registered for it, never by name.
 
 ## Enabling mutual authentication
 
+For an existing installation, first follow the
+[upgrade checklist](./versions.md#upgrading-an-existing-deployment). It covers older
+configuration files, researcher certificates without host SANs, certificate
+redistribution and restarts, and migration from the removed bundled VPN deployment.
+
 Every component must already be created, since that is when its certificate is generated.
 The setup is then symmetric: every party exports its certificate, shares it through a
 trusted channel, and registers the certificates it receives. Then both sides turn mutual

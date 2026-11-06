@@ -174,10 +174,21 @@ The configuration file is structured following the sections below:
     - `component`: Specifies the component type. It is always `NODE` for node component
     - `version`: Version of the configuration format to avoid using older configuration files with recent Fed-BioMed versions.
     - `db`: Relative path to the node's database, from this configuration file
+    - `name`: A custom name given by the node user, to make the node easier to identify
 
-- **Authentication and Identification**
+- **Syslog:**
+    - `enable`: Boolean parameter (True/False) to activate system level logging. When enabled, it re-routes all the security logs into the default system level logging of the Operating System, so that System Admins can directly use the OS log files to debug if needed.
+
+- **Authentication:**
+    - `mutual_authentication`: Boolean parameter (True/False) to activate mTLS between node and researcher. By default it's False for testing, **should be set to True for deployment.**
+
+    Each node's certificate should be registered in the researcher (and vice-versa). If you haven't registered the node's certificate, you can find the detailed guide in [mutual authentication](../deployment/mutual-tls.md).
+
+- **Certificate:**
     - `private_key`: Path to private key to use identify the component.
     - `public_key`: Path to public key to share with other parties (nodes and researcher) to verify its identify.
+
+    Node certificates are generated automatically on creation. In case of a bug, or if you wish to use your own certificates, you can follow the detailed guide in [mutual authentication](../deployment/mutual-tls.md) for regenerating and re-registering certificates.
 
 - **Researcher:**
     - `ip`: The IP address of the researcher component that the node will connect to.
@@ -201,8 +212,15 @@ An example for a config file is shown below;
 [default]
 id = node_73768d5f-6a66-47de-8533-1291c4ef59d1
 component = NODE
-version = 2
+version = 2.4.0
 db = ../var/db_NODE_94572b0f-f55c-4167-b729-f16247c35a04.json
+name = Default Node Alias
+
+[syslog]
+enable = False
+
+[authentication]
+mutual_authentication = True
 
 [security]
 hashing_algorithm = SHA256
@@ -214,6 +232,11 @@ secagg_insecure_validation = False
 allow_preproc = True
 allow_federated_analytics = True
 minimum_samples = 0
+
+[certificate]
+private_key = certs/FBM_certificate.key
+public_key = certs/FBM_certificate.pem
+
 
 [researcher]
 ip = localhost

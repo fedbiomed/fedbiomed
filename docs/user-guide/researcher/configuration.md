@@ -57,6 +57,12 @@ component = RESEARCHER
 version = 3.2.0
 db = ../var/db_RESEARCHER_2ba562cc-6943-4430-8f79-cb3877b2ea79.json
 
+[syslog]
+enable = False
+
+[authentication]
+mutual_authentication = True
+
 [server]
 host = localhost
 port = 50051
@@ -78,6 +84,14 @@ This file contains settings for connecting to a server, managing security certif
 - **version**: The version of the configuration.
 - **db**: Specifies the location of the database used by this researcher component, pointing to a JSON file. This file likely stores data related to the researcher’s activities or state.
 
+### `[syslog]`
+- `enable`: Boolean parameter (True/False) to activate system level logging. When enabled, it re-routes all the security logs into the default system level logging of the Operating System, so that System Admins can directly use the OS log files to debug if needed.
+
+### `[authentication]`
+- `mutual_authentication`: Boolean parameter (True/False) to activate mTLS between node and researcher. By default it's False for testing, **should be set to True for deployment.**
+
+Each node's certificate should be registered in the researcher (and vice-versa). If you haven't registered the node's certificate, you can find the detailed guide in [mutual authentication](../deployment/mutual-tls.md).
+
 ### `[server]`
 - **host**: Defines the server host address to connect to.
 - **port**: Specifies the port number `50051` for the server connection.
@@ -89,8 +103,7 @@ This file contains settings for connecting to a server, managing security certif
 
 The certificate is generated when the component is created, issued for the `[server]
 host` configured then plus `localhost` and `127.0.0.1`. Editing `host` afterwards does
-not reissue it, so under [mutual authentication](../deployment/mutual-tls.md), where each node pins
-this certificate, regenerate it for the new host and have every node register it again:
+not reissue it, so under [mutual authentication](../deployment/mutual-tls.md), where each node pins this certificate, regenerate it for the new host and have every node register it again:
 
 ```shell
 fedbiomed researcher certificate generate --force
