@@ -340,7 +340,7 @@ class CommonCLI:
             "given.",
         )
 
-        # Command `certificate generate`
+        # Command `certificate registration-instructions`
         prepare = certificate_sub_parsers.add_parser(
             "registration-instructions",
             help="Prepares certificate of current component to send other FL participant"

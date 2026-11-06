@@ -2,7 +2,7 @@
 
 Encryption and authentication between Fed-BioMed components are provided by [mutual authentication (mTLS)](./mutual-tls.md), inside a VPN or not. This page shows how to encapsulate the federated network in a VPN, as an optional additional layer of protection. The Fed-BioMed Docker images do not include a VPN tool by default; instead, a VPN client can run in a container that shares its network with the Fed-BioMed container, or on the host itself. This example uses WireGuard, but any other VPN server and client can be used.
 
-This setup places the researcher and every node in a private [WireGuard](https://www.wireguard.com/) network, so the researcher gRPC port is reachable only from inside the VPN. It reuses the standard `fedbiomed/researcher` and `fedbiomed/node` images, unchanged, and requires two additional third-party components:
+This setup places the researcher and every node in a private [WireGuard](https://www.wireguard.com/) network, so the researcher gRPC port is reachable from other sites only through the VPN. It reuses the standard `fedbiomed/researcher` and `fedbiomed/node` images, unchanged, and requires two additional third-party components:
 
 - **VPN server**: [wg-easy](https://github.com/wg-easy/wg-easy), a WireGuard server with a web UI, running on a host that every site can reach.
 - **VPN client**: a sidecar container per site, using [linuxserver/wireguard](https://docs.linuxserver.io/images/docker-wireguard/). The Fed-BioMed container joins the sidecar network with `network_mode: "service:wg-client"`, so all its traffic goes through the sidecar network interfaces, including the VPN one.
@@ -46,7 +46,7 @@ volumes:
   wg-easy:                             # server keys and peer list
 ```
 
-Start it with `docker compose up -d`, then remove the `INIT_*` variables: they are only used on first start.
+Start it with `docker compose up -d`. The `INIT_*` variables are only read on first start; later changes to these settings are made in the admin UI.
 
 Open the admin UI through an SSH tunnel from your machine:
 
@@ -54,11 +54,12 @@ Open the admin UI through an SSH tunnel from your machine:
 ssh -L 51821:localhost:51821 <user>@<vpn-server>
 ```
 
-then browse to `http://localhost:51821`. Create one peer for the researcher first (it receives `10.8.0.2`), then one peer for every node, and download each peer `.conf` file. In each file, set `AllowedIPs` to the VPN subnet only, so that only Fed-BioMed traffic goes through the VPN; the rest of the site traffic, such as package downloads, keeps its usual route:
+then browse to `http://localhost:51821`. Create one peer for the researcher first (it receives `10.8.0.2`), then one peer for every node, and download each peer `.conf` file. In each file, set `AllowedIPs` to the VPN subnet only and remove the `DNS` line, so that only Fed-BioMed traffic goes through the VPN; the rest of the site traffic, such as package downloads and name resolution, keeps its usual route. Also set `PersistentKeepalive`, so that each peer, including the researcher which only answers requests, stays reachable through the VPN server:
 
 ```ini
 [Peer]
 AllowedIPs = 10.8.0.0/24
+PersistentKeepalive = 25
 ```
 
 ## Researcher site
