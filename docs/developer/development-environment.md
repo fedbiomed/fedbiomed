@@ -86,7 +86,7 @@ pip install pdm
 The command above will install PDM in the active `conda` environment or in active `pyenv` if it is used for managing Python versions.
 
 
-### NodeJS and yarn
+### NodeJS and Yarn
 
 Node.js and Yarn are required for frontend development and for building the
 GUI distribution from source. The current GUI build hook runs `yarn install` and `yarn build`, including during editable installation unless explicitly skipped using `FBM_SKIP_FRONTEND_BUILD=1`.
@@ -151,37 +151,68 @@ Please visit `pdm` documentation for more information and usage details.
 
 ## Development/Debugging for GUI
 
-If you want to customize or work on user interface for debugging purposes, it is always better to use ReactJS in development mode, otherwise building GUI
-after every update will take a lot of time. To launch user interface in development mode first you need to start Flask server. This can be
-easily done with the previous start command. Currently, Flask server always get started on development mode.  To enable debug mode you should add `--debug`
-flag to the start command.
+Start the GUI and API together using either command:
 
 ```shell
-# data folder defaults to `/path/to/my-node/data`
-fedbiomed node -p /path/to/my-node gui start --debug
-
-# Or use an alternate data path 
-# fedbiomed node -p /path/to/my-node gui start --data-folder /alternate/data-path --debug
+fedbiomed-gui --path /path/to/my-node
+# Equivalent core command:
+fedbiomed node --path /path/to/my-node gui start
 ```
 
-**Important:** Please do not change Flask port and host while starting it for development purposes. Because React (UI) will be calling
-``localhost:8484/api`` endpoint in development mode.
+Both serve the built frontend at `http://localhost:8484`. The data folder defaults
+to the `data` directory in the node's root; use `--data-folder /alternate/data-path`
+to select another directory.
 
-The command above will serve the web application and the API services. It means that on the URL `localhost:8484` you will be able to see the user interface. This user interface won't be updated automatically because it is already built. To have dynamic update for user interface you can start React with ``yarn start``.
+### Rebuilding the Frontend
+
+If frontend assets are missing or you have changed the frontend sources, add
+`--recreate` to either command:
 
 ```shell
-# use the Python environment selected above
+fedbiomed-gui --path /path/to/my-node --recreate
+fedbiomed node --path /path/to/my-node gui start --recreate
+```
+
+This runs `yarn install` and `yarn build` once before serving the generated files.
+It requires frontend sources and Node.js/Yarn. Later source edits require another
+rebuild.
+
+For automatic frontend updates while editing, start the API separately using
+either syntax:
+
+```shell
+fedbiomed-node-api --path /path/to/my-node
+# Equivalent core command:
+fedbiomed node --path /path/to/my-node api start
+
+# Optional alternate data directory:
+fedbiomed-node-api --path /path/to/my-node --data-folder /alternate/data-path
+```
+
+### Running Backend on Debug Mode
+
+Neither `--development` nor `--debug` is required for this workflow.
+`--development` selects Flask's development server instead of Gunicorn.
+`--debug` enables Flask debug mode and debug-level application logging; combined
+with `--development`, it also enables the debugger and backend code reloader.
+For backend development, for example:
+
+```shell
+fedbiomed-node-api --path /path/to/my-node --development --debug
+```
+
+In another terminal, start React's development server:
+
+```shell
 cd ${FEDBIOMED_DIR}/fedbiomed_gui/ui
 yarn start
 ```
 
-After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
-in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
+After that if you go ``localhost:3000`` you will see same user interface is up and running for development. When you change the source codes in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
 Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/fedbiomed_gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
 
-After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves
-the built UI files. `--recreate` rebuilds it before starting the server:
+After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves the built UI files. `--recreate` rebuilds it before starting the server:
 
 ```shell
 fedbiomed node gui start --recreate
@@ -233,7 +264,6 @@ You may encounter some common issues during installation or after the installati
     - For other issues, `pyenv` comes with an utility [`pyenv-doctor`](https://github.com/pyenv/pyenv-doctor), made for checking `pyenv` installation and dependencies, and can be run with: `pyenv doctor`. It will try to find the issue with your installation and proposes appropriate solutions to your issue.
 
     More troubleshooting for `pyenv` can be found [here](https://github.com/pyenv/pyenv/wiki#suggested-build-environment).
-
 
 ### Building Fed-BioMed Takes too Long
 
