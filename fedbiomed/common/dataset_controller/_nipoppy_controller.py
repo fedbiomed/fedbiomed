@@ -49,7 +49,7 @@ class NipoppyController(Controller):
         self,
         root: Union[str, Path],
         session_filters: Optional[SessionFilters] = None,
-        drop_na: bool = True,
+        drop_na: bool = False,
         drop_na_kwargs: Optional[Dict[str, Any]] = None,
         whole_df_transform: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
         available_phenotypes: Optional[List[str]] = None,
