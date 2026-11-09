@@ -85,7 +85,3 @@ class NipoppyReader:
             with pipeline types "bidsification", "processing" and "extraction".
         """
         return self._study.get_installed_pipelines()
-
-    def __len__(self) -> int:
-        """Number of unique participant-session combinations in the study."""
-        return len(self._study)
