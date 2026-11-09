@@ -1,0 +1,1 @@
+import fedbiomed_node_api_editable; fedbiomed_node_api_editable.register('fedbiomed_node_api', '/home/adincer/projects/fedbiomed/packages/node-api')

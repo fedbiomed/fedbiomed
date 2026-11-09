@@ -17,6 +17,23 @@ class CustomBuildHook(BuildHookInterface):
         # Code in this function will run before building
         super().initialize(version, build_data)
 
+        if self.target_name == "wheel" and version == "editable":
+            root = Path(self.root)
+            pth = root / "_fedbiomed_gui_editable.pth"
+
+            pth.write_text(
+                "import fedbiomed_gui_editable; "
+                f"fedbiomed_gui_editable.register("
+                f"'fedbiomed_gui', {str(root)!r})\n"
+            )
+
+            build_data["force_include_editable"].update(
+                {
+                    str(root / "editable_import.py"): "fedbiomed_gui_editable.py",
+                    str(pth): "z_fedbiomed_gui_editable.pth",
+                }
+            )
+
         if os.environ.get("FBM_SKIP_FRONTEND_BUILD", "").lower() in {
             "1",
             "true",
@@ -24,6 +41,23 @@ class CustomBuildHook(BuildHookInterface):
         }:
             logger.info("Skipping node front-end build")
             return
+
+        if self.target_name == "wheel" and version == "editable":
+            root = Path(self.root)
+            pth = root / "_fedbiomed_gui_editable.pth"
+
+            pth.write_text(
+                "import fedbiomed_gui_editable; "
+                f"fedbiomed_gui_editable.register("
+                f"'fedbiomed_gui', {str(root)!r})\n"
+            )
+
+            build_data["force_include_editable"].update(
+                {
+                    str(root / "editable_import.py"): "fedbiomed_gui_editable.py",
+                    str(pth): "z_fedbiomed_gui_editable.pth",
+                }
+            )
 
         logger.info("Building node front-end")
         yarn = shutil.which("yarn")

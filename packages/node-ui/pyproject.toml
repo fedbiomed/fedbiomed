@@ -24,9 +24,7 @@ artifacts = ["/ui/build/**"]
 
 [tool.hatch.build.targets.wheel]
 only-include = ["__init__.py", "server", "ui/build"]
-
-[tool.hatch.build.targets.wheel.sources]
-"" = "fedbiomed_gui"
+dev-mode-dirs = [".."]
 
 [tool.hatch.build.targets.sdist]
 include = [
