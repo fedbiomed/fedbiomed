@@ -480,9 +480,9 @@ class FedLogger(metaclass=SingletonMeta):
         # Capture caller information from the stack.
         # `stacklevel` follows Python logging semantics: stacklevel=2 points to the
         # caller of this wrapper method.
+        frame = inspect.currentframe()
+        caller_frame = frame
         try:
-            frame = inspect.currentframe()
-            caller_frame = frame
             steps = max(int(stacklevel), 0)
             for _ in range(steps):
                 caller_frame = caller_frame.f_back if caller_frame else None
@@ -523,6 +523,9 @@ class FedLogger(metaclass=SingletonMeta):
                 ),
                 extra={"is_security": True},
             )
+        finally:
+            # `frame` refers to itself: delete it so callers' locals are freed on return
+            del frame, caller_frame
 
         entry = {
             "timestamp": _utc_timestamp(),
