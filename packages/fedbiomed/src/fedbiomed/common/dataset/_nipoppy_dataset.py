@@ -30,9 +30,9 @@ class NipoppyDataset(Dataset):
 
     Typical lifecycle:
     1. instantiated in the training plan's `training_data`;
-    2. `load` is called by the node, which creates the controller, runs the
-       optional derivatives initializer, reads the data and validates the
-       transforms on the first sample;
+    2. `load` is called by the node: it stores the metadata, runs the optional
+       derivatives initializer, creates the controller (which reads the data)
+       and validates the transforms on the first sample;
     3. samples are retrieved with `__getitem__`.
     """
 
@@ -82,8 +82,8 @@ class NipoppyDataset(Dataset):
                 each sample, after conversion to the training plan's format
             whole_df_level_transform: Transform applied once to the whole
                 dataframe, after session filters and `dropna`
-            derivatives_initializer: Callable run by `load` after the controller
-                is created and before the data is read. Signature:
+            derivatives_initializer: Callable run by `load` once `get_metadata`
+                is available and before the data is read. Signature:
                 `fn(dataset: NipoppyDataset) -> None`. Typically used to set
                 `dataset.derivatives` based on `dataset.get_metadata()`.
 
@@ -111,6 +111,8 @@ class NipoppyDataset(Dataset):
         if derivatives_initializer is not None:
             self.set_derivatives_initializer(derivatives_initializer)
 
+        self._metadata: Dict[str, Any] = {}  # set by `load`
+
     def load(
         self,
         root: Union[str, Path],
@@ -121,36 +123,31 @@ class NipoppyDataset(Dataset):
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
-        Creates the controller, runs the derivatives initializer (if any), reads
-        the selected data and validates the transforms on the first sample.
+        Stores the metadata, runs the derivatives initializer (if any), creates
+        the controller (which reads the selected data) and validates the
+        transforms on the first sample.
 
         Args:
             root: Root directory of the Nipoppy study
             to_format: Format of the data returned by `__getitem__`
             dlp: Data loading plan. Not supported for Nipoppy datasets; must be `None`.
             available_phenotypes: Phenotypes stored in the node database at
-                registration, passed back by the node. Forwarded to the
-                controller and returned as-is by `get_metadata` (`None` if not
-                given).
+                registration, passed back by the node. Returned as-is by
+                `get_metadata` (`None` if not given): there is no fallback to
+                the study on disk.
             installed_pipelines: Pipelines stored in the node database at
                 registration. Same behavior as `available_phenotypes`.
 
         Raises:
-            FedbiomedError: if the controller cannot be created, the data cannot
-                be selected, or the transforms fail on the first sample
+            FedbiomedError: if the derivatives initializer fails, the controller
+                cannot be created, a participant has several sessions, or the
+                transforms fail on the first sample
         """
         self.to_format = to_format
-
-        self._init_controller(
-            root=root,
-            session_filters=self.session_filters,
-            drop_na=self._drop_na,
-            drop_na_kwargs=self._drop_na_kwargs,
-            whole_df_transform=self._whole_df_level_transform,
-            available_phenotypes=available_phenotypes,
-            installed_pipelines=installed_pipelines,
-            dlp=dlp,
-        )
+        self._metadata = {
+            "available_phenotypes": available_phenotypes,
+            "installed_pipelines": installed_pipelines,
+        }
 
         if self._derivatives_initializer is not None:
             try:
@@ -160,10 +157,17 @@ class NipoppyDataset(Dataset):
                     f"{ErrorNumbers.FB632.value}: Failed to run derivatives initializer. {e}"
                 ) from e
 
-        self._controller.select(
+        self._init_controller(
+            root=root,
             phenotypes=self._columns_to_read(),
             derivatives=self.derivatives,
+            session_filters=self.session_filters,
+            drop_na=self._drop_na,
+            drop_na_kwargs=self._drop_na_kwargs,
+            whole_df_transform=self._whole_df_level_transform,
+            dlp=dlp,
         )
+        self._validate_one_session_per_participant()
 
         # Recover sample and validate consistency of transforms
         data, target = self._split_sample(self._controller.get_sample(0))
@@ -212,7 +216,7 @@ class NipoppyDataset(Dataset):
         if self.phenotypes is not None:
             phenotypes = self.phenotypes
         else:
-            phenotypes = self._controller.metadata["available_phenotypes"]
+            phenotypes = self._metadata.get("available_phenotypes")
             if phenotypes is None:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: `phenotypes` is None and no "
@@ -221,6 +225,22 @@ class NipoppyDataset(Dataset):
                 )
         target = self.target or []
         return list(phenotypes) + [t for t in target if t not in phenotypes]
+
+    def _validate_one_session_per_participant(self) -> None:
+        """Checks that each sample is a distinct participant.
+
+        Done here rather than in the controller, so that longitudinal studies
+        can still be registered (the controller is also built at registration).
+
+        Raises:
+            FedbiomedError: if a participant has several sessions
+        """
+        participant_ids = self._controller.index.get_level_values(self.COL_PARTICIPANT_ID)
+        if participant_ids.has_duplicates:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Some participants have more than one "
+                "session. Use `session_filters` to keep a single session per participant."
+            )
 
     def _split_sample(self, sample: pd.Series) -> Tuple[pd.Series, Optional[pd.Series]]:
         """Splits a row into input features and target"""
@@ -235,15 +255,15 @@ class NipoppyDataset(Dataset):
         node database at registration and passed by the node to `load`. A value
         is `None` if it was not passed. Empty before `load` is called.
         """
-        return self._controller.metadata if self._controller is not None else {}
+        return self._metadata
 
     def set_derivatives_initializer(
         self, derivatives_initializer: Callable[["NipoppyDataset"], None]
     ) -> None:
         """Sets the derivatives initializer for the dataset.
 
-        It is called by `load` after the controller is created (so that
-        `get_metadata` is available) and before the data is read.
+        It is called by `load` once `get_metadata` is available and before the
+        controller is created, i.e. before the data is read.
 
         Args:
             derivatives_initializer: Callable taking the dataset as only argument,

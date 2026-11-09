@@ -71,17 +71,33 @@ def test_load_forwards_parameters_to_controller(tmp_path, mocker, fake_nipoppy_r
 
     node_load(ds, tmp_path)
 
+    # Metadata is kept by the dataset, not forwarded to the controller
     init_controller.assert_called_once_with(
         root=str(tmp_path),
+        phenotypes=["age", "sex", "diagnosis"],
+        derivatives=None,
         session_filters="baseline",
         drop_na=True,
         drop_na_kwargs={"how": "any"},
         whole_df_transform=whole_df,
-        available_phenotypes=STORED_PARAMETERS["available_phenotypes"],
-        installed_pipelines=STORED_PARAMETERS["installed_pipelines"],
         dlp=None,
     )
     whole_df.assert_called_once()
+
+
+def test_load_reads_data_once(tmp_path, fake_nipoppy_reader):
+    node_load(make_dataset(), tmp_path)
+
+    assert len(fake_nipoppy_reader) == 1
+    assert len(fake_nipoppy_reader[0].read_calls) == 1
+
+
+def test_load_multiple_sessions_per_participant_raises(tmp_path, fake_nipoppy_reader):
+    # sub-01 has a baseline and a followup session
+    ds = make_dataset(session_filters=None)
+
+    with pytest.raises(FedbiomedError, match="more than one session"):
+        node_load(ds, tmp_path)
 
 
 def test_load_with_dlp_raises(tmp_path, fake_nipoppy_reader):
@@ -205,7 +221,7 @@ def _pick_freesurfer(dataset):
 
 
 @pytest.mark.parametrize("via_constructor", [True, False])
-def test_derivatives_initializer_sets_derivatives_before_select(
+def test_derivatives_initializer_sets_derivatives_before_reading(
     tmp_path, fake_nipoppy_reader, via_constructor
 ):
     if via_constructor:
@@ -216,7 +232,9 @@ def test_derivatives_initializer_sets_derivatives_before_select(
     node_load(ds, tmp_path)
 
     assert ds.derivatives == [DERIVATIVE]
-    assert fake_nipoppy_reader[0].read_calls[-1]["derivatives"] == [DERIVATIVE]
+    assert fake_nipoppy_reader[0].read_calls == [
+        {"phenotypes": ["age", "sex", "diagnosis"], "derivatives": [DERIVATIVE]}
+    ]
     data, _ = ds[0]
     np.testing.assert_array_equal(data, [70.0, 0.0, 2.5])
 
@@ -229,6 +247,7 @@ def test_derivatives_initializer_error_is_wrapped(tmp_path, fake_nipoppy_reader)
 
     with pytest.raises(FedbiomedError, match="derivatives initializer"):
         node_load(ds, tmp_path)
+    assert fake_nipoppy_reader == []  # the controller was never created
 
 
 def test_derivatives_initializer_not_callable_raises():

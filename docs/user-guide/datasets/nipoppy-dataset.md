@@ -69,9 +69,10 @@ print(datasets[node_id][0]['dataset_parameters'])
 # >                          'extraction': {'fs_stats': ['0.2.1']}}}
 ```
 
-!!! note "The listed `shape` is an estimate"
-    The `shape` of a dataset counts all phenotypes and only the rows where none of them are missing. The number of
-    samples available to your training plan depends on your selection.
+!!! note "The listed `shape` is an upper bound"
+    The `shape` of a dataset counts all participant-session rows and all phenotypes, including rows with missing
+    values. The number of samples available to your training plan depends on your selection: session filters and
+    `drop_na` remove rows.
 
 ## Using the dataset in a training plan
 

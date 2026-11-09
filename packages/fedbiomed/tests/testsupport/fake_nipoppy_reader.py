@@ -66,7 +66,3 @@ class FakeNipoppyReader:
 
     def get_installed_pipelines(self):
         return self.installed_pipelines
-
-    def __len__(self):
-        # number of participant-session rows, as `nipoppy.study.Study.__len__`
-        return len(self.phenotypes)
