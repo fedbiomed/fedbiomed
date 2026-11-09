@@ -23,6 +23,12 @@ class CustomBuildHook(BuildHookInterface):
         root = Path(self.root)
         # A source archive carries its own assets; a checkout uses repo files.
         source = root if (root / "notebooks").is_dir() else root.parents[1]
+        # Editable installs load this file from the checkout via dev-mode-dirs.
+        # Copying it into an editable wheel would shadow the checkout package.
+        if self.target_name == "wheel" and version == "standard":
+            build_data["force_include"][str(root / "__init__.py")] = (
+                "fedbiomed/__init__.py"
+            )
         if self.target_name == "sdist":
             for name, destination in self.config["sdist-files"].items():
                 build_data["force_include"][str(source / name)] = destination

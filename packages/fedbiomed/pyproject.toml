@@ -114,7 +114,7 @@ Documentation = "https://fedbiomed.org"
 Repository = "https://github.com/fedbiomed/fedbiomed"
 
 [tool.hatch.version]
-path = "src/__init__.py"
+path = "__init__.py"
 
 
 [project.optional-dependencies]  # This is optional dependencies
@@ -155,13 +155,16 @@ readme = "README.md"
 "notebooks" = "share/fedbiomed/notebooks"
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/hatch_build.py", "/LICENSE.md"]
+include = ["/__init__.py", "/src", "/hatch_build.py", "/LICENSE.md"]
 
 [tool.hatch.build.targets.wheel]
 only-include = ["src"]
+dev-mode-dirs = [".."]
 
 [tool.hatch.build.targets.wheel.sources]
-"src" = "fedbiomed"
+# Avoid an empty-prefix rewrite, which would also relocate shared data.
+# The build hook includes the main __init__.py in standard wheels.
+"src" = "fedbiomed/src"
 
 [build-system]
 requires = ["hatchling"]

@@ -5,6 +5,9 @@ __version__ = "v6.5.0"
 
 import os
 
+# Keep submodules in src for both checkout and wheel installations.
+__path__.append(os.path.join(os.path.dirname(__file__), "src"))
+
 # gRPC logs every failed TLS handshake at INFO, so a node retrying its connection
 # floods the researcher output. The C core reads this once at `import grpc`, which
 # declearn triggers well before `fedbiomed.transport` — hence the top level package.
