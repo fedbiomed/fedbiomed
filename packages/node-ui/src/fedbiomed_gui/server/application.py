@@ -10,15 +10,15 @@ def create_app(node_root=None, overrides=None, build_dir=None):
     """Create the GUI server using the same API as headless deployments."""
     app = create_api_app(node_root, overrides)
 
-    package_assets_location = Path(__file__).parent.parent / "ui" / "build"
-    assets = Path(build_dir) if build_dir is not None else package_assets_location
-
+    package_assets_location = Path(__file__).resolve().parent.parent / "ui" / "build"
     source_assets_location = Path(__file__).resolve().parents[3] / "ui" / "build"
-    assets = (
-        package_assets_location
-        if package_assets_location.is_dir()
-        else source_assets_location
-    )
+
+    if build_dir is not None:
+        assets = Path(build_dir)
+    elif package_assets_location.is_dir():
+        assets = package_assets_location
+    else:
+        assets = source_assets_location
 
     app.static_folder = str(assets)
     app.add_url_rule("/build/<path:filename>", "static", app.send_static_file)
