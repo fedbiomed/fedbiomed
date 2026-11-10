@@ -16,7 +16,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
-# The GUI still uses the project-root layout (server/ and ui/).
+# Python sources use src/fedbiomed_gui; React sources remain in ui/.
 exclude = ["__pycache__", "*.pyc", "node_modules"]
 artifacts = ["/ui/build/**"]
 

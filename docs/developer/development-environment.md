@@ -101,7 +101,7 @@ Core and API builds do not require frontend tools.
 
 For developers, Fedbiomed supports the new experimental feature of pdm for configuring multiple packages using a single lock file. If you want to use this feature, make sure that you have the PDM version 2.28 or above. You can check it with `pdm --version`; Fedbiomed currently does not pin a PDM version as a dependency. Development uses the root `pdm.lock` file in the project root as the single lock file. The package dependency chain is `fedbiomed-gui` → `fedbiomed-node-api` → `fedbiomed`.
 
-If you do not wish to use this experimental feature, with your preferred environment manager, you can just use the 3 separate `pyproject.toml` files to install the dependencies. The `.toml` files are located in the root of each package:  root `pyproject.toml` for `fedbiomed`, `fedbiomed_node_api/pyproject.toml` for the API, and `fedbiomed_gui/pyproject.toml` for the GUI. 
+If you do not wish to use this experimental feature, with your preferred environment manager, you can just use the 3 separate `pyproject.toml` files to install the dependencies. The `.toml` files are located in the root of each package:  root `pyproject.toml` for `fedbiomed`, `packages/node-api/pyproject.toml` for the API, and `packages/node-ui/pyproject.toml` for the GUI. 
 
 You can use `pdm sync -G local` to install `fedbiomed`, `fedbiomed-node-api` and `fedbiomed-gui` packages in one go. The `local` group is provided for easy installation for developers, it installs all three packages in editable mode. Make sure you have selected the correct environme t before with `pdm use --venv MYENV`, if you are using pdm to manage your virtual environments. Details on using pdm to manage venvs can be found in [PDM environment selection](https://pdm-project.org/en/latest/usage/venv/).
 
@@ -176,9 +176,9 @@ yarn start
 ```
 
 After that if you go ``localhost:3000`` you will see same user interface is up and running for development.  When you change the source codes
-in ``${FEDBIOMED_DIR}/fedbiomed_gui/ui/src`` it will get dynamically updated on ``localhost:3000``.
+in ``${FEDBIOMED_DIR}/packages/node-ui/ui/src`` it will get dynamically updated on ``localhost:3000``.
 
-Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/fedbiomed_gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
+Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/packages/node-ui/src/fedbiomed_gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
 
 After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves
 the built UI files. `--recreate` rebuilds it before starting the server:
@@ -202,7 +202,7 @@ Core includes `fedbiomed` and its existing shared resources; the API includes
 `fedbiomed_gui` and compiled frontend assets. The GUI build will require Yarn.
 Its source archive also contains the frontend sources and build hook.
 
-To reuse a prebuilt `fedbiomed_gui/ui/build` directory, run
+To reuse a prebuilt `packages/node-ui/ui/build` directory, run
 `FBM_SKIP_FRONTEND_BUILD=1 pdm build -p fedbiomed_gui`.
 
 To check package contents and to test rebuilding the wheels from the created source archives:
