@@ -184,7 +184,6 @@ def node_env(tmp_path):
         cfg["default"] = {"id": "test-id", "name": "test-name", "db": db}
         cfg["researcher"] = {"ip": "test", "port": "5151"}
         cfg["security"] = {
-            "hashing_algorithm": "SHA256",
             "training_plan_approval": "True",
             "allow_preproc": "True",
             "allow_federated_analytics": "True",
