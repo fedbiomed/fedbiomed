@@ -27,25 +27,13 @@ exclude = ["__pycache__", "*.pyc"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/__init__.py",
     "/src",
-    "/hatch_build.py",
-    "/config_gui.ini",
     "/README.md",
     "/LICENSE.md",
 ]
 
-[tool.hatch.build.hooks.custom]
-
 [tool.hatch.build.targets.wheel]
-only-include = ["src"]
-dev-mode-dirs = [".."]
-
-[tool.hatch.build.targets.wheel.sources]
-"src" = "fedbiomed_node_api/src"
-
-[tool.hatch.build.targets.wheel.force-include]
-"config_gui.ini" = "fedbiomed_node_api/config_gui.ini"
+packages = ["src/fedbiomed_node_api"]
 
 [tool.ruff]
 extend = "../fedbiomed/pyproject.toml"

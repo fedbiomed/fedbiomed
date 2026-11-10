@@ -1,1 +1,0 @@
-import fedbiomed_gui_editable; fedbiomed_gui_editable.register('fedbiomed_gui', '/home/adincer/projects/fedbiomed/packages/node-ui')
