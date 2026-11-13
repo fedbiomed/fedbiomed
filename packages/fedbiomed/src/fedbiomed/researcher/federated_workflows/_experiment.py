@@ -866,9 +866,14 @@ class Experiment(TrainingPlanWorkflow):
             )
 
         # Sample nodes for training
+        candidate_nodes = self.filtered_federation_nodes()
         training_nodes = self._node_selection_strategy.sample_nodes(
-            from_nodes=self.filtered_federation_nodes(), round_i=self._round_current
+            from_nodes=list(candidate_nodes), round_i=self._round_current
         )
+        if not set(training_nodes).issubset(candidate_nodes):
+            raise FedbiomedExperimentError(
+                "Node selection strategy returned nodes outside the filtered candidates."
+            )
         if len(training_nodes) == 0:
             raise FedbiomedExperimentError(
                 "Empty list of nodes for training: no nodes replied to original "
