@@ -117,12 +117,13 @@ will be part of the federated training.
 exp.set_nodes(nodes=None)
 ```
 
-!!! note "Node filtering happens at training time"
+!!! note "Node filtering happens at request time"
     Setting nodes doesn't mean sending another dataset search request to the nodes.
-    Node filtering happens dynamically each time a training request is sent to nodes.
+    Node filtering happens dynamically each time a request (training, analytics, training plan approval,
+    pre-processing) is sent to nodes.
     In other words, if you search again for datasets after setting `nodes` by running
-    `exp.set_training_data(training_data=None, from_tags=True)` you select in your `FederatedDataset`
-    the same nodes as with `nodes=None`.
+    `exp.set_training_data(training_data=None, from_tags=True)`, the search request is sent only
+    to the nodes in `nodes`.
 
 
 ### Load your Training Plan: Training Plan Class
