@@ -97,11 +97,92 @@ class ResearcherControl(CLIArgumentParser):
             process.wait()
 
 
+class ResearcherServerControl(CLIArgumentParser):
+    """CLI options for the standalone researcher server"""
+
+    def initialize(self):
+        """Initializes researcher server options"""
+
+        self._parser = self._subparser.add_parser(
+            "server",
+            help="Operations on the researcher server: the gRPC endpoint the nodes "
+            "connect to, and the HTTP API the user drives the researcher through.",
+        )
+        self._parser.set_defaults(func=self.default)
+
+        server_subparsers = self._parser.add_subparsers()
+
+        start = server_subparsers.add_parser(
+            "start",
+            help="Starts the researcher server in the foreground. It keeps serving "
+            "the nodes after the user session that launched an experiment is gone.",
+        )
+        start.set_defaults(func=self.start)
+
+        start.add_argument(
+            "--host",
+            type=str,
+            nargs="?",
+            required=False,
+            help="Address to bind the user API to. Default is the `host` value of "
+            "the `api` section of the researcher configuration.",
+        )
+
+        start.add_argument(
+            "--port",
+            "-P",
+            type=int,
+            nargs="?",
+            required=False,
+            help="Port to bind the user API to. Default is the `port` value of the "
+            "`api` section of the researcher configuration.",
+        )
+
+        start.add_argument(
+            "--debug",
+            "-D",
+            action="store_true",
+            required=False,
+            help="Activate debug mode for the researcher server. Default is `False`",
+        )
+
+    def start(self, args):
+        """Starts the researcher server
+
+        Args:
+            args: Parsed command line arguments.
+        """
+        if bool(args.debug) or os.environ.get("FBM_DEBUG", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        ):
+            os.environ["FBM_DEBUG"] = "1"
+            logger.setLevel("DEBUG")
+        else:
+            logger.setLevel("INFO")
+
+        # Imported here, not at module level: importing the researcher configuration
+        # reads or creates the component on disk, and the directory to use is only
+        # known once `--path` has been processed.
+        from fedbiomed.researcher.server import ResearcherServer
+
+        config = importlib.import_module("fedbiomed.researcher.config").config
+
+        server = ResearcherServer(config=config, host=args.host, port=args.port)
+
+        try:
+            server.run()
+        except KeyboardInterrupt:
+            logger.info("Researcher server stopped.")
+
+
 class ResearcherCLI(CommonCLI):
     """Researcher CLI"""
 
     _arg_parsers_classes: List[type] = [
         ResearcherControl,
+        ResearcherServerControl,
     ]
     _arg_parsers: Dict[str, CLIArgumentParser] = {}
 

@@ -444,6 +444,7 @@ class ErrorNumbers(_BaseEnum):
     FB631 = "FB631: Node to node channels database error"
     FB632 = "FB632: Data handling error"
     FB633 = "FB633: Federated Analytics error"
+    FB634 = "FB634: Researcher server error"
     # oops
     FB999 = "FB999: unknown error code sent by the node"
 
