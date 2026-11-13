@@ -98,5 +98,6 @@ Fed-BioMed supports several dataset types for different data modalities.
 - [Image Datasets](image-dataset.md): Image classification with folder-based organization (`ImageFolderDataset`)
 - [Tabular Datasets](tabular-dataset.md): Structured data in CSV format with numerical and categorical features
 - [Medical Datasets](medical-folder-dataset.md): Multi-modal medical imaging in NIfTI format with optional demographics (`MedicalFolderDataset`)
+- [Nipoppy Datasets](nipoppy-dataset.md): Phenotypes and derivatives from a Nipoppy study (`NipoppyDataset`)
 - [Federated Analytics](federated-analytics.md): Compute statistics across distributed nodes without sharing raw data
 - [Custom Datasets](custom-dataset.md): Specialized data types (`CustomDataset`)

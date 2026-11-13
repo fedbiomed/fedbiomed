@@ -17,6 +17,7 @@ from fedbiomed.common.dataset_controller import (
     MedNistController,
     MnistController,
     TabularController,
+    NipoppyController
 )
 from fedbiomed.common.exceptions import FedbiomedError
 
@@ -29,6 +30,7 @@ from ._image_label_dataset import (
 )
 from ._medical_folder_dataset import MedicalFolderDataset
 from ._tabular_dataset import TabularDataset
+from ._nipoppy_dataset import NipoppyDataset
 
 DATASET_CLASSES_PER_TYPE: Dict[DatasetTypes, Type[Dataset]] = {
     DatasetTypes.CUSTOM: CustomDataset,  # type: ignore[type-abstract]
@@ -37,6 +39,7 @@ DATASET_CLASSES_PER_TYPE: Dict[DatasetTypes, Type[Dataset]] = {
     DatasetTypes.MEDNIST: MedNistDataset,
     DatasetTypes.DEFAULT: MnistDataset,
     DatasetTypes.TABULAR: TabularDataset,
+    DatasetTypes.NIPOPPY: NipoppyDataset,
 }
 
 
@@ -65,6 +68,10 @@ REGISTRY_CONTROLLERS: Dict[DatasetTypes, Tuple[Type[Controller], Type[Dataset]]]
     DatasetTypes.CUSTOM: (
         CustomController,
         DATASET_CLASSES_PER_TYPE[DatasetTypes.CUSTOM],
+    ),
+    DatasetTypes.NIPOPPY: (
+        NipoppyController,
+        DATASET_CLASSES_PER_TYPE[DatasetTypes.NIPOPPY],
     ),
 }
 

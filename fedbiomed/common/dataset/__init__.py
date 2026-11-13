@@ -19,6 +19,7 @@ from ._mappings import (
 )
 from ._medical_folder_dataset import MedicalFolderDataset
 from ._tabular_dataset import TabularDataset
+from ._nipoppy_dataset import NipoppyDataset
 
 __all__ = [
     "Dataset",
@@ -28,6 +29,7 @@ __all__ = [
     "MedNistDataset",
     "MnistDataset",
     "TabularDataset",
+    "NipoppyDataset",
     "DATASET_CLASSES_PER_TYPE",
     "REGISTRY_CONTROLLERS",
     "get_controller",
