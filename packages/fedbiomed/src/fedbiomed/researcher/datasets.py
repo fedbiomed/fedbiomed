@@ -15,7 +15,8 @@ class FederatedDataset:
     """A class that allows researcher to interact with remote datasets (federated datasets).
 
     It contains details about remote datasets, such as client ids, data size that can be useful for aggregating
-    or sampling strategies on researcher's side
+    or sampling strategies on researcher's side, and the researcher-defined nodes filter that selects the
+    nodes taking part in requests.
     """
 
     _data: Dict
@@ -28,6 +29,9 @@ class FederatedDataset:
                 a `dict` (or a `list` containing exactly one `dict`). Each `dict` contains the description
                 of the dataset associated to this node in the federated dataset.
         """
+        # researcher-defined nodes filter, shared by all components using this dataset
+        self._nodes_filter: Optional[List[str]] = None
+
         # check structure of data
 
         if data is not None:
@@ -107,6 +111,20 @@ class FederatedDataset:
             List of node ids
         """
         return list(self._data.keys())
+
+    def set_nodes_filter(self, nodes: Optional[List[str]]) -> None:
+        """Set the nodes filter. None keeps all nodes, an empty list keeps none."""
+        self._nodes_filter = nodes
+
+    def nodes_filter(self) -> Optional[List[str]]:
+        """Retrieve the nodes filter, or None if no filter is set."""
+        return self._nodes_filter
+
+    def filtered_node_ids(self) -> List[str]:
+        """Retrieve the ids of the nodes that pass the nodes filter."""
+        if self._nodes_filter is None:
+            return self.node_ids()
+        return [node for node in self._data if node in self._nodes_filter]
 
     def sample_sizes(self) -> List[int]:
         """Retrieve list of sample sizes of node's dataset.
