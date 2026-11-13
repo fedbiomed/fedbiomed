@@ -462,7 +462,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         job = TrainingPlanCheckJob(
             researcher_id=self._researcher_id,
             requests=self._reqs,
-            nodes=self.training_data().node_ids(),
+            nodes=self.filtered_federation_nodes(),
             experiment_id=self._experiment_id,
             training_plan=self.training_plan(),
         )
@@ -493,7 +493,7 @@ class TrainingPlanWorkflow(FederatedWorkflow, ABC):
         job = TrainingPlanApproveJob(
             researcher_id=self._researcher_id,
             requests=self._reqs,
-            nodes=self.training_data().node_ids(),
+            nodes=self.filtered_federation_nodes(),
             training_plan=self.training_plan(),
             description=description,
         )

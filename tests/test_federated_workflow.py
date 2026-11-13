@@ -39,6 +39,25 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         super().tearDown()
         self.abstract_methods_patcher.stop()
 
+    def test_node_filter_applies_to_search_and_analytics(self):
+        self.mock_requests.return_value.search.return_value = {
+            "node-1": {"dataset_id": "ds1"},
+            "node-2": {"dataset_id": "ds2"},
+        }
+        exp = FederatedWorkflow(tags=["tag"], nodes=["node-1"])
+        self.mock_requests.return_value.search.assert_called_once_with(
+            ["tag"], ["node-1"]
+        )
+        self.assertEqual(exp.analytics.get_node_ids(), ["node-1"])
+        exp.set_nodes(["node-2"])
+        self.assertEqual(exp.analytics.get_node_ids(), ["node-2"])
+        exp.set_nodes(None)
+        self.assertEqual(exp.analytics.get_node_ids(), ["node-1", "node-2"])
+        exp.set_nodes([])
+        self.assertEqual(exp.filtered_federation_nodes(), [])
+        with self.assertRaises(FedbiomedExperimentError):
+            exp.analytics.get_node_ids()
+
     def test_federated_workflow_01_initialization(self):
         """Test initialization of federated workflow, only cases where correct parameters are provided"""
         # FederatedWorkflow must be default-constructible

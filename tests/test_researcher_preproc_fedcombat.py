@@ -387,3 +387,12 @@ def test_save_and_load_state_breakpoint(
     assert loaded._preproc_id == preproc._preproc_id
     assert loaded._harmonized == preproc._harmonized
     assert loaded._harmonized_datasets == preproc._harmonized_datasets
+
+
+def test_compatibility_ignores_excluded_nodes(base_preproc, mock_fds):
+    mock_fds.data.return_value["n2"]["data_type"] = "images"
+    base_preproc.set_nodes(["n1"])
+    base_preproc._check_fds_compatibility()
+    base_preproc.set_nodes(None)
+    with pytest.raises(FedbiomedExperimentError, match="n2"):
+        base_preproc._check_fds_compatibility()

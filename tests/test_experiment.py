@@ -219,6 +219,25 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertTrue(exp.strategy().has_been_called)
 
     #    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
+    def test_strategy_cannot_reintroduce_excluded_nodes(self):
+        strategy = MagicMock(spec=DefaultStrategy)
+        exp = Experiment(
+            training_data={"node-1": {}, "node-2": {}},
+            nodes=["node-1"],
+            training_plan_class=FakeTorchTrainingPlan,
+            node_selection_strategy=strategy,
+        )
+
+        # Also guard against strategies mutating the candidate list in place.
+        def sample(from_nodes, round_i):
+            from_nodes.append("node-2")
+            return from_nodes
+
+        strategy.sample_nodes.side_effect = sample
+        with self.assertRaisesRegex(FedbiomedExperimentError, "filtered candidates"):
+            exp.run_once()
+        self.mock_job.assert_not_called()
+
     def test_experiment_04_run_once_base_case(self):
         """Tests run once method of experiment"""
         _training_data = {
@@ -229,7 +248,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _strategy = MagicMock(
             spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
         )
-        _strategy.sample_nodes.return_value = ["node-1", "node-2"]
+        _strategy.sample_nodes.return_value = ["node-1"]
         _strategy.refine.return_value = (1, 2, 3, 4)
 
         exp = Experiment(
@@ -249,7 +268,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _strategy.sample_nodes.return_value = []
         with self.assertRaises(FedbiomedExperimentError):
             exp.run_once()
-        _strategy.sample_nodes.return_value = ["node-1", "node-2"]
+        _strategy.sample_nodes.return_value = ["node-1"]
         # ---------------------------------------------------------------------
 
         # Go back to normal
@@ -464,7 +483,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         _strategy = MagicMock(
             spec=fedbiomed.researcher.strategies.default_strategy.DefaultStrategy
         )
-        _strategy.sample_nodes.return_value = ["node-1", "node-2"]
+        _strategy.sample_nodes.return_value = ["node-1"]
         _strategy.refine.return_value = (1, 2, 3, 4)
 
         # Test using aggregator-level optimizer

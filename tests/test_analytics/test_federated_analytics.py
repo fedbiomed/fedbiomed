@@ -1878,3 +1878,17 @@ class TestSecaggIntegration:
         with pytest.raises(FedbiomedError, match="all nodes to reply"):
             secagg_fa.fetch_stats("mean")
         mock_secagg.aggregate.assert_not_called()
+
+
+@pytest.mark.parametrize("structured", [False, True])
+def test_analytics_dispatch_uses_node_filter(base_fa, structured):
+    base_fa.set_nodes(["node-1", "unknown-node"])
+    with patch.object(base_fa, "_execute_and_update_cache") as dispatch:
+        if structured:
+            base_fa.fetch_stats_with_args({"col": {"count": {}}})
+        else:
+            base_fa.fetch_stats("count")
+        assert dispatch.call_args.args[4] == ["node-1"]
+    base_fa.set_nodes([])
+    with pytest.raises(FedbiomedExperimentError, match="Empty list"):
+        base_fa.fetch_stats("count")
