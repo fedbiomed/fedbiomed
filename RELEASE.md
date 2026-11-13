@@ -5,6 +5,10 @@ Both are contained in this repository.
 
 Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) release workflow. Can use `git` commands (see example below) or `git-flow` commands
 
+**Key rule:** after anything is merged into `master` (release or hotfix), `master` itself is merged
+back into `develop` (never the release or hotfix branch). This keeps `master` an ancestor of
+`develop`, so a release branch created from `develop` is never behind `master`.
+
 ## pre-release
 
 - it is recommended to use a fresh clone of the repository to avoid any side effect
@@ -16,6 +20,14 @@ git pull --prune
 ```
 - check that the scheduled CI for `develop` is green: `Fed-BioMed Full Build Test`
   (weeknights at 18:00 UTC) and `End-to-End Test` (weeknights at 23:00 UTC)
+- check that `master` is fully merged into `develop` (the last release or hotfix
+  must have been merged back with the "merge master to develop" procedure)
+```bash
+git fetch origin
+git merge-base --is-ancestor origin/master origin/develop \
+  && echo "OK" \
+  || echo "ERROR: master is not merged into develop, do 'merge master to develop' first"
+```
 - set the release version tag for the release (or use this tag directly in commands)
 ```bash
 export RELEASE_TAG=v6.1.0
@@ -47,7 +59,7 @@ git push origin release/$RELEASE_TAG
   * one can auto-assign the PR, and doesn't need a review for this PR
 - after checks successfully complete, please review the checks logs
 
-- create a version tag for the release
+- create a version tag for the release (on the `release/$RELEASE_TAG` branch)
   ```bash
   git tag -a $RELEASE_TAG
   ```
@@ -67,10 +79,13 @@ git push origin release/$RELEASE_TAG
   * verify the new version tag is listed on Docker Hub for the three images
 
 - do the merge
+  * the merge method MUST be "Create a merge commit" (never "Squash and merge"
+    or "Rebase and merge")
   * the tag already published the package, the images and the documentation, so
     the merge publishes nothing. It triggers `End-to-End Test` on `master`,
     which verifies the released tree after the fact.
-- if merge conflicts occur, solve them
+- if merge conflicts occur, solve them (should not happen when `master` was
+  merged into `develop` before creating the release branch)
 
 - browse a few pages in the new documentation on `https://docs.fedbiomed.org` to verify it works as expected
 
@@ -80,27 +95,51 @@ git checkout master
 git pull -p
 ```
 
-## merge release to develop
+## merge master to develop
 
-- since the release branch was merged into `master`, it was deleted on remote. There are two options for restoring the branch:
-  - either in github, go to the closed PR (the one opened for `master`) and click on "Restore branch."
-  - or checkout the `release/$RELEASE_TAG` branch and push it again to re-create on the remote
-    ```bash
-    git checkout release/$RELEASE_TAG
-    git push
-    ```
-- in github create a pull request for `release/$RELEASE_TAG` to `develop`
+`master` (not the release branch) is merged back into `develop`, so that the
+merge commit created on `master` is also part of `develop`'s history. This
+keeps `master` an ancestor of `develop`, so the next release branch is never
+behind `master`.
+
+A direct PR from `master` to `develop` can't be merged because of the
+"Require branches to be up to date" rule. Use a temporary branch instead.
+**Never click "Update branch" on a PR whose source is `master`**: it would merge
+`develop` into `master`.
+
+- create a temporary branch from `develop` and merge `master` into it
+```bash
+git fetch origin
+git checkout -b merge/master-to-develop-$RELEASE_TAG origin/develop
+git merge --no-ff origin/master -m "Merge master ($RELEASE_TAG) into develop"
+```
+- if merge conflicts occur, solve them and commit
+  * `CHANGELOG.md`: keep the release entry and any newer `develop` entries
+  * `fedbiomed/__init__.py`, `CITATION.cff`: keep the version from `master`
+- push the temporary branch
+```bash
+git push origin merge/master-to-develop-$RELEASE_TAG
+```
+- in github create a pull request for `merge/master-to-develop-$RELEASE_TAG` to `develop`
   * one can auto-assign the PR, and doesn't need a review for this PR
+  * if `develop` moved meanwhile, "Update branch" is safe on this PR
 - after checks complete, please review the checks logs
-- do the merge
-- if merge conflicts occur, solve them
+- do the merge, with merge method "Create a merge commit"
+- check that `master` is now contained in `develop`
+```bash
+git fetch origin
+git merge-base --is-ancestor origin/master origin/develop && echo "OK"
+```
 
 ## cleanup
 
-- delete the (local) release branch
+- delete the (local) release branch and the temporary merge branch
 ```bash
 git checkout develop
-git branch -d release/$RELEASE_TAG
+git pull --prune
+git branch -D release/$RELEASE_TAG
+git branch -D merge/master-to-develop-$RELEASE_TAG
+git push origin --delete merge/master-to-develop-$RELEASE_TAG
 ```
 
 
@@ -171,7 +210,7 @@ Hotfix principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/c
   * one can auto-assign the PR, **but a reviewer should approve it before merging** (different from a release where the code in the PR was already reviewed !)
 - after checks successfully complete, please review the checks logs
 
-- create a version tag for the hotfix
+- create a version tag for the hotfix (on the `hotfix/$HOTFIX_NAME` branch)
 
   ```bash
   git tag -a $HOTFIX_TAG
@@ -193,6 +232,8 @@ Hotfix principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/c
   * verify the new version tag is listed on Docker Hub for the three images
 
 - do the merge
+  * the merge method MUST be "Create a merge commit" (never "Squash and merge"
+    or "Rebase and merge")
   * the tag already published the package, the images and the documentation, so
     the merge publishes nothing. It triggers `End-to-End Test` on `master`,
     which verifies the released tree after the fact.
@@ -207,49 +248,72 @@ Hotfix principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/c
   git pull -p
   ```
 
-## merge hotfix to develop
+## merge master to develop
 
-- since the hotfix branch was merged into `master`, it was deleted on remote. There are two options for restoring the branch:
-  - either in github, go to the closed PR (the one opened for `master`) and click on "Restore branch."
-  - or checkout the `hotfix/$HOTFIX_NAME` branch and push it again to re-create on the remote
+`master` (not the hotfix branch) is merged back into `develop`, so that the
+merge commit created on `master` is also part of `develop`'s history. This
+keeps `master` an ancestor of `develop`, so the next release branch is never
+behind `master`.
 
-    ```bash
-    git checkout hotfix/$HOTFIX_NAME
-    git push
-    ```
+A direct PR from `master` to `develop` can't be merged because of the
+"Require branches to be up to date" rule. Use a temporary branch instead.
+**Never click "Update branch" on a PR whose source is `master`**: it would merge
+`develop` into `master`.
 
-- in github create a pull request for `hotfix/$HOTFIX_NAME` to `develop`
+- create a temporary branch from `develop` and merge `master` into it
+
+  ```bash
+  git fetch origin
+  git checkout -b merge/master-to-develop-$HOTFIX_TAG origin/develop
+  git merge --no-ff origin/master -m "Merge master ($HOTFIX_TAG) into develop"
+  ```
+
+- if merge conflicts occur, solve them and commit
+  * `CHANGELOG.md`: keep both the hotfix entry and the `develop` entries
+  * `fedbiomed/__init__.py`, `CITATION.cff`: keep the version from `master`
+- push the temporary branch
+
+  ```bash
+  git push origin merge/master-to-develop-$HOTFIX_TAG
+  ```
+
+- in github create a pull request for `merge/master-to-develop-$HOTFIX_TAG` to `develop`
   * one can auto-assign the PR, and doesn't need a review for this PR
+  * if `develop` moved meanwhile, "Update branch" is safe on this PR
 - after checks complete, please review the checks logs
-- do the merge
-- if merge conflicts occur, solve them
+- do the merge, with merge method "Create a merge commit"
+- check that `master` is now contained in `develop`
+
+  ```bash
+  git fetch origin
+  git merge-base --is-ancestor origin/master origin/develop && echo "OK"
+  ```
+
+## merge master to an open release branch (only if a release is in progress)
+
+If a `release/*` branch exists when the hotfix is merged into `master`, merge
+`master` into it too. Otherwise the release won't contain the hotfix and will
+be behind `master`.
+
+```bash
+export RELEASE_TAG=v6.1.0   # the release in progress
+git fetch origin
+git checkout release/$RELEASE_TAG
+git pull
+git merge --no-ff origin/master -m "Merge master ($HOTFIX_TAG) into release/$RELEASE_TAG"
+# conflicts in fedbiomed/__init__.py, CITATION.cff: keep the release version
+# conflicts in CHANGELOG.md: keep both entries
+git push origin release/$RELEASE_TAG
+```
 
 ## cleanup
 
-- delete the (local) release branch
+- delete the (local) hotfix branch and the temporary merge branch
+
   ```bash
   git checkout develop
-  git branch -d hotfix/$HOTFIX_NAME
+  git pull --prune
+  git branch -D hotfix/$HOTFIX_NAME
+  git branch -D merge/master-to-develop-$HOTFIX_TAG
+  git push origin --delete merge/master-to-develop-$HOTFIX_TAG
   ```
-
-# Publishing news, fixing documentation
-
-The changes in website that do not affect `User documentation` part are also considered as hotfix. These modifications involve:
-
-* Adding news or updating their content
-* Adding new items to front page (button, boxes, description, new section)
-* Adding new pages (These are pages NOT related to user documentation such as `About Us`, `Roadmap` etc.)
-* Adding new items for footer area
-* Changing contents of static pages About us, Contributors etc.
-* Front-End issues broken layout etc.
-
-However, since these modifications don't contain any changes in the Fed-BioMed source code, it is not considered as code patch. It means after applying the changes new version tag **SHOULD NOT BE** pushed. The process flow is the same as `hotfix` except that one doesn't push a new tag.
-
-Also, for publishing a news or a doc fix, a review by a third party is not mandatory.
-
-- Create a new branch `hotfix/$HOTFIX_NAME` **from the `master` branch**.
-- Apply your web-site related changes (please make sure that you change files only in `docs` directory).
-- Create a pull request (PR) to merge the hotfix branch **into the `master` branch** and wait for all the checks to pass.
-- Merge `hotfix` branch also into `develop` branch. You can follow the instructions that are explained in hotfix section
-
-
