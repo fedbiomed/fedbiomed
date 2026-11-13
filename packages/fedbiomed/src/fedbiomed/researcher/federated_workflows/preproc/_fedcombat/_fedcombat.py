@@ -90,6 +90,8 @@ class FedCombatPreproc:
 
         invalid_nodes = []
         for node_id, meta in fds_meta.items():
+            if self._nodes is not None and node_id not in self._nodes:
+                continue
             data_type = meta.get("data_type") if isinstance(meta, dict) else None
             if data_type != "csv":
                 invalid_nodes.append((node_id, data_type))

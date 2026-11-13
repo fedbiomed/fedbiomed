@@ -239,11 +239,12 @@ class FederatedWorkflow(ABC):
             logger.critical(msg)
             raise FedbiomedValueError(msg)
 
+        self.set_nodes(nodes)
+
         # Set tags if it tags is not None
         if tags:
             self.set_tags(tags)
 
-        self.set_nodes(nodes)
         self.set_save_breakpoints(save_breakpoints)
 
         self.set_experimentation_folder(experimentation_folder)
@@ -265,6 +266,7 @@ class FederatedWorkflow(ABC):
             `self.analytics`.
         """
         self.analytics = FederatedAnalytics(
+            nodes=self._nodes_filter,
             fds=self._fds,
             experiment_id=self._experiment_id,
             researcher_id=self._researcher_id,
@@ -602,6 +604,9 @@ class FederatedWorkflow(ABC):
             )
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
+
+        if getattr(self, "analytics", None) is not None:
+            self.analytics.set_nodes(nodes)
 
         return self._nodes_filter
 
