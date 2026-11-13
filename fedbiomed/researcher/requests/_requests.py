@@ -89,8 +89,9 @@ class Request:
 
         Also tracks if node has disconnected.
 
-        Args:
-            True if a reply was received from node
+        Returns:
+            True if a reply or error was received, the node disconnected,
+            or the request timed out.
         """
         ### DEBUG REQUEST STATUS
         # current request status per node
@@ -101,7 +102,7 @@ class Request:
             self.status = RequestStatus.DISCONNECT
             return True  # Don't expect any reply
 
-        return True if self.reply or self.error else False
+        return bool(self.reply or self.error or self.status == RequestStatus.TIMEOUT)
 
     def send(self) -> None:
         """Sends the request"""

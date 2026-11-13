@@ -419,6 +419,33 @@ def test_request_has_finished(request_env):
 # -----------------------------------------------------------------------------
 
 
+def test_federated_request_discard_timeout_finishes_wait():
+    nodes = [MagicMock(spec=NodeAgent), MagicMock(spec=NodeAgent)]
+    for index, node in enumerate(nodes):
+        node.id = f"node-{index}"
+        node.status = NodeActiveStatus.ACTIVE
+
+    policy = DiscardOnTimeout(5)
+    request = FederatedRequest(MagicMock(spec=SearchRequest), nodes, [policy])
+    reply = _search_reply(nodes[0].id, "Node 0", 1)
+    request.requests[0].on_reply(reply)
+
+    with (
+        patch.object(policy, "is_timeout", return_value=True),
+        patch.object(
+            request._pending_replies,
+            "acquire",
+            side_effect=[True, AssertionError("Wait did not finish after timeout")],
+        ),
+    ):
+        request.wait()
+
+    assert request.requests[1].status == RequestStatus.TIMEOUT
+    assert request.requests[1].has_finished()
+    assert request.replies() == {nodes[0].id: reply}
+    assert not request.policy.has_stopped_any()
+
+
 @pytest.fixture
 def federated_request_env():
     with (
