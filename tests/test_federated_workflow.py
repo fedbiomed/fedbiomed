@@ -39,6 +39,25 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         super().tearDown()
         self.abstract_methods_patcher.stop()
 
+    def test_node_filter_applies_to_search_and_analytics(self):
+        self.mock_requests.return_value.search.return_value = {
+            "node-1": {"dataset_id": "ds1"},
+            "node-2": {"dataset_id": "ds2"},
+        }
+        exp = FederatedWorkflow(tags=["tag"], nodes=["node-1"])
+        self.mock_requests.return_value.search.assert_called_once_with(
+            ["tag"], ["node-1"]
+        )
+        self.assertEqual(exp.analytics.get_node_ids(), ["node-1"])
+        exp.set_nodes(["node-2"])
+        self.assertEqual(exp.analytics.get_node_ids(), ["node-2"])
+        exp.set_nodes(None)
+        self.assertEqual(exp.analytics.get_node_ids(), ["node-1", "node-2"])
+        exp.set_nodes([])
+        self.assertEqual(exp.filtered_federation_nodes(), [])
+        with self.assertRaises(FedbiomedExperimentError):
+            exp.analytics.get_node_ids()
+
     def test_federated_workflow_01_initialization(self):
         """Test initialization of federated workflow, only cases where correct parameters are provided"""
         # FederatedWorkflow must be default-constructible
@@ -91,10 +110,6 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
         # Special corner cases that deserve additional testing
         # Test case where tags are None but we are setting training data
-        _training_data.node_ids.return_value = [
-            "alice",
-            "bob",
-        ]  # make sure that nodes can be correctly inferred
         exp = FederatedWorkflow(
             nodes=["alice", "bob"],
             training_data=_training_data,
@@ -534,16 +549,16 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         """Tests filereted federation nodes method"""
 
         ff = FederatedWorkflow()
-        ff._nodes_filter = ["node-1"]
         ff._fds = FederatedDataset({"node-1": {}, "node-2": {}})
+        ff._fds.set_nodes_filter(["node-1"])
 
         # Check filtered nodes
         nodes = ff.filtered_federation_nodes()
         self.assertListEqual(nodes, ["node-1"])
 
         # Check when there is no filter
-        ff._nodes_filter = None
-        nodes = ff.all_federation_nodes()
+        ff._fds.set_nodes_filter(None)
+        nodes = ff.filtered_federation_nodes()
         self.assertListEqual(["node-1", "node-2"], nodes)
 
     def test_federated_workflow_08_experimentation_path(self):

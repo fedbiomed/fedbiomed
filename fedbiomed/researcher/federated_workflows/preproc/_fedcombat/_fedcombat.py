@@ -4,7 +4,7 @@
 """FedCombat class for harmonizing data within an Experiment using Fed-ComBat algorithm."""
 
 import uuid
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from fedbiomed.common.constants import ErrorNumbers, HarmonizationStep, PreprocType
 from fedbiomed.common.exceptions import FedbiomedExperimentError
@@ -39,7 +39,6 @@ class FedCombatPreproc:
         researcher_id: str,
         reqs: Requests,
         experiment_class: ExperimentFactory,
-        nodes: Optional[list[str]],
         experimentation_folder: str,
         preproc_args: Optional[dict[str, Any]] = None,
     ) -> None:
@@ -51,8 +50,6 @@ class FedCombatPreproc:
             researcher_id: The researcher ID initiating this Fed-ComBat harmonization.
             reqs: Requests instance to handle communication with nodes.
             experiment_class: Experiment class to be used for the harmonization model training.
-            nodes: List of node IDs participating in the harmonization or None to include all nodes
-                in the federated dataset.
             experimentation_folder: Path to the experimentation folder to save harmonization data files.
             preproc_args: Optional dictionary of preprocessing arguments for Fed-ComBat.
         """
@@ -63,9 +60,6 @@ class FedCombatPreproc:
         self._experiment_id = experiment_id
         self._researcher_id = researcher_id
         self._reqs = reqs
-        self._nodes = (
-            nodes  # Caveat: some nodes from FDS may not participate in harmonization
-        )
         self._experimentation_folder = experimentation_folder
         self._preproc_args = preproc_args or {}
         self._experiment_class = experiment_class
@@ -89,7 +83,8 @@ class FedCombatPreproc:
             ) from e
 
         invalid_nodes = []
-        for node_id, meta in fds_meta.items():
+        for node_id in self._fds.filtered_node_ids():
+            meta = fds_meta[node_id]
             data_type = meta.get("data_type") if isinstance(meta, dict) else None
             if data_type != "csv":
                 invalid_nodes.append((node_id, data_type))
@@ -99,14 +94,6 @@ class FedCombatPreproc:
                 f"{ErrorNumbers.FB420.value}: FedComBat requires all datasets to be in CSV format. "
                 f"Invalid entries: {invalid_nodes}"
             )
-
-    def _current_nodes(self) -> List[str]:
-        """Get the current list of nodes participating in the harmonization.
-
-        Returns:
-            List of node IDs currently participating in the harmonization.
-        """
-        return self._nodes if self._nodes is not None else list(self._fds.data().keys())
 
     def _init_harmonization(self) -> None:
         """Initialize harmonization context."""
@@ -120,7 +107,7 @@ class FedCombatPreproc:
         self._harmonized = True
         self._harmonized_datasets = {
             node_id: self._fds.data()[node_id]["dataset_id"]
-            for node_id in self._current_nodes()
+            for node_id in self._fds.filtered_node_ids()
         }
 
     def _needs_harmonization(self, force: bool = False) -> bool:
@@ -140,7 +127,7 @@ class FedCombatPreproc:
         if not self._harmonized or force:
             return True
 
-        current_nodes = set(self._current_nodes())
+        current_nodes = set(self._fds.filtered_node_ids())
 
         # Check if the set of nodes has changed
         if (
@@ -158,14 +145,6 @@ class FedCombatPreproc:
             return True
 
         return False
-
-    def set_nodes(self, nodes: Optional[list[str]]) -> None:
-        """Set the list of nodes participating in the harmonization.
-
-        Args:
-            nodes: List of node IDs or None to include all nodes in the federated dataset.
-        """
-        self._nodes = nodes
 
     def approve(
         self,
@@ -194,7 +173,7 @@ class FedCombatPreproc:
         fc_model = _FedCombatTrainModel(
             experiment_class=self._experiment_class,
             fds=self._fds,
-            nodes=self._nodes or [],
+            nodes=self._fds.filtered_node_ids(),
             experimentation_folder=self._experimentation_folder,
             covariates=self._preproc_args.get("covariates"),
             phenotypes=self._preproc_args.get("phenotypes"),
@@ -229,7 +208,7 @@ class FedCombatPreproc:
         if not self._needs_harmonization(force):
             return False
 
-        current_nodes = self._current_nodes()
+        current_nodes = self._fds.filtered_node_ids()
         logger.info(
             "Starting Fed-ComBat harmonization for experiment "
             f"{self._experiment_id} with nodes {current_nodes} "
@@ -238,8 +217,7 @@ class FedCombatPreproc:
         if len(current_nodes) == 0:
             raise FedbiomedExperimentError(
                 f"{ErrorNumbers.FB420.value}: "
-                "Empty list of nodes for Fed-ComBat: no nodes replied to original "
-                "request or sampling strategy returned an empty list."
+                "Empty list of nodes for Fed-ComBat: no dataset found on the selected nodes."
             )
         if len(current_nodes) == 1:
             raise FedbiomedExperimentError(

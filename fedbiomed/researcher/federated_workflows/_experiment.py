@@ -738,25 +738,6 @@ class Experiment(TrainingPlanWorkflow):
         return self._reduce_disk_usage
 
     @exp_exceptions
-    def set_nodes(self, nodes: Union[List[str], None]) -> Union[List[str], None]:
-        """Sets the nodes filter + verifications on argument type
-
-        Args:
-            nodes: List of node_ids to filter the nodes to be involved in the experiment.
-
-        Returns:
-            List of nodes that are set. None, if the argument `nodes` is None.
-        """
-        super().set_nodes(nodes)
-
-        # Inform preprocessing object of node filter change
-        # To be removed when `nodes` is integrated into the `_fds` object
-        if self._fed_preproc is not None:
-            self._fed_preproc.set_nodes(nodes)
-
-        return self._nodes_filter
-
-    @exp_exceptions
     def set_preprocessing(
         self,
         preproc_type: Optional[Union[PreprocType, bool]],
@@ -799,7 +780,6 @@ class Experiment(TrainingPlanWorkflow):
                 self._researcher_id,
                 self._reqs,
                 self.__class__,  # experiment class
-                self._nodes_filter,
                 self._experimentation_folder,
                 preproc_args,
             )
@@ -1448,7 +1428,6 @@ class Experiment(TrainingPlanWorkflow):
                     "researcher_id": loaded_exp.researcher_id,
                     "reqs": loaded_exp.requests,
                     "experiment_class": loaded_exp.__class__,
-                    "nodes": loaded_exp._nodes_filter,
                     "experimentation_folder": loaded_exp.experimentation_folder(),
                 }
             )

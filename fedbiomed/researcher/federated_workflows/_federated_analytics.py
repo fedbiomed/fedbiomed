@@ -559,11 +559,10 @@ class FederatedAnalytics:
                 "No defined FederatedDataset found for FederatedAnalytics."
             )
 
-        node_ids = self._fds.node_ids()
+        node_ids = self._fds.filtered_node_ids()
         if not node_ids:
             raise FedbiomedExperimentError(
-                "Empty list of nodes for analytics: no nodes replied to original "
-                "`federated_analytics_request` or sampling strategy returned an empty list."
+                "Empty list of nodes for analytics: no dataset found on the selected nodes."
             )
 
         return node_ids

@@ -120,10 +120,6 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         # TrainingPlanWorkflow can also be constructed by providing parameters to the constructor
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
         _training_data.data.return_value = {"alice": {"some": "data"}}
-        _training_data.node_ids.return_value = [
-            "alice",
-            "bob",
-        ]  # make sure that nodes can be correctly inferred
         exp = TrainingPlanWorkflow(
             nodes=["alice", "bob"],
             training_data=_training_data,
@@ -219,6 +215,21 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
 
         exp.training_plan_approve(description="some description")
         mock_approval_job.execute.assert_called_once_with()
+
+    def test_approval_jobs_use_node_filter(self):
+        exp = TrainingPlanWorkflow(
+            training_data={"node1": {}, "node2": {}}, nodes=["node1"]
+        )
+        for method, job in (
+            (exp.check_training_plan_status, "TrainingPlanCheckJob"),
+            (exp.training_plan_approve, "TrainingPlanApproveJob"),
+        ):
+            with patch(
+                "fedbiomed.researcher.federated_workflows._training_plan_workflow."
+                + job
+            ) as mock_job:
+                method()
+                self.assertEqual(mock_job.call_args.kwargs["nodes"], ["node1"])
 
     def test_training_plan_workflow_05_status(self):
         """"""
