@@ -1,0 +1,48 @@
+[project]
+name = "fedbiomed-gui"
+version = "6.4.1"
+description = "Fed-BioMed Node GUI launcher and frontend"
+requires-python = ">=3.11,<3.15"
+readme = "README.md"
+license = {text = "Apache 2.0"}
+dependencies = ["fedbiomed-node-api==6.4.1"]
+
+[project.urls]
+Homepage = "https://fedbiomed.org"
+Repository = "https://github.com/fedbiomed/fedbiomed"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+# Python sources use src/fedbiomed_gui; React sources remain in ui/.
+exclude = ["__pycache__", "*.pyc", "node_modules"]
+artifacts = ["/ui/build/**"]
+
+[tool.hatch.build.hooks.custom]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fedbiomed_gui"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"ui/build" = "fedbiomed_gui/ui/build"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/hatch_build.py",
+    "/ui/package.json",
+    "/ui/yarn.lock",
+    "/ui/public",
+    "/ui/src",
+    "/README.md",
+    "/LICENSE.md",
+]
+
+[tool.ruff]
+extend = "../fedbiomed/pyproject.toml"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]

@@ -7,7 +7,14 @@ This document contains project specific coding rules and guidelines for managing
 
 ## Auto formatter
 
-Fed-BioMed uses the `ruff` tool to enforce flake8 style rules on Python files. Once the development environment is set up by the developer, all necessary tools will be automatically installed. The rules are defined in the `pyproject.toml` file. Developers are free to integrate the Ruff formatter into their IDEs, as long as the IDE uses the configuration specified in `pyproject.toml`. Please refer to `ruff` [documentation](https://docs.astral.sh/ruff/) to see have to use `ruff` for manual execution.
+Fed-BioMed uses `ruff` to check and format Python files. Shared rules are defined in `packages/fedbiomed/pyproject.toml`; the API and GUI package configurations inherit them. Configure your IDE to use these settings. When checking the whole repository, including tests outside the package directories, select the shared configuration explicitly:
+
+```sh
+python -m ruff check --config packages/fedbiomed/pyproject.toml .
+python -m ruff format --config packages/fedbiomed/pyproject.toml .
+```
+
+See the Ruff [documentation](https://docs.astral.sh/ruff/) for additional options.
 
 Formatter and linter checks are also applied via a [pre-commit hook](#pre-commit-hook-flake8). Pre-commit tools will be automatically installed once the development environment is correctly set up by the developer.
 Please see the [development environment documentation](./docs/developer/development-environment.md) for more details.
@@ -352,4 +359,3 @@ How to rebase a feature branch that has already been pushed (examples: rebase on
 - manually solve conflicts (if any) to complete rebasing
 - push with `push --force-with-lease` (rather than `push -f`) to fail if any conflict with un-coordinated developer (who pushed to feature branch remote in the meantime).
 - inform other team members rebase is complete and they need to pull the branch again
-
