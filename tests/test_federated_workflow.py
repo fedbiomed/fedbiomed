@@ -110,10 +110,6 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
 
         # Special corner cases that deserve additional testing
         # Test case where tags are None but we are setting training data
-        _training_data.node_ids.return_value = [
-            "alice",
-            "bob",
-        ]  # make sure that nodes can be correctly inferred
         exp = FederatedWorkflow(
             nodes=["alice", "bob"],
             training_data=_training_data,
@@ -553,16 +549,16 @@ class TestFederatedWorkflow(unittest.TestCase, MockRequestModule):
         """Tests filereted federation nodes method"""
 
         ff = FederatedWorkflow()
-        ff._nodes_filter = ["node-1"]
         ff._fds = FederatedDataset({"node-1": {}, "node-2": {}})
+        ff._fds.set_nodes_filter(["node-1"])
 
         # Check filtered nodes
         nodes = ff.filtered_federation_nodes()
         self.assertListEqual(nodes, ["node-1"])
 
         # Check when there is no filter
-        ff._nodes_filter = None
-        nodes = ff.all_federation_nodes()
+        ff._fds.set_nodes_filter(None)
+        nodes = ff.filtered_federation_nodes()
         self.assertListEqual(["node-1", "node-2"], nodes)
 
     def test_federated_workflow_08_experimentation_path(self):

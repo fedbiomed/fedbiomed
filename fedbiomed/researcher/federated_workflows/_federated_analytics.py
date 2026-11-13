@@ -518,7 +518,6 @@ class FederatedAnalytics:
         reqs: Requests,
         experimentation_folder: str,
         secagg: Optional[SecureAggregation] = None,
-        nodes: Optional[list[str]] = None,
         **kwargs,
     ) -> None:
         """Initialise a federated analytics session.
@@ -531,12 +530,10 @@ class FederatedAnalytics:
             experimentation_folder: Local folder for storing experiment artefacts.
             secagg: Optional ``SecureAggregation`` instance.  When ``None`` or
                 inactive, FA runs in plaintext.
-            nodes: Optional node filter. None includes all dataset nodes; an empty list includes none.
             **kwargs: Additional keyword arguments (reserved for future use).
         """
         self._fa_id: str = "FA_" + str(uuid.uuid4())
         self._fds = fds
-        self._nodes_filter = nodes
         self._experiment_id = experiment_id
         self._researcher_id = researcher_id
         self._reqs = reqs
@@ -555,10 +552,6 @@ class FederatedAnalytics:
         """Unique ID of this federated analytics instance."""
         return self._fa_id
 
-    def set_nodes(self, nodes: Optional[list[str]]) -> None:
-        """Update the node filter used for subsequent analytics requests."""
-        self._nodes_filter = nodes
-
     def get_node_ids(self) -> list[str]:
         """Return the node IDs participating in this federated analytics session."""
         if self._fds is None:
@@ -566,13 +559,10 @@ class FederatedAnalytics:
                 "No defined FederatedDataset found for FederatedAnalytics."
             )
 
-        node_ids = self._fds.node_ids()
-        if self._nodes_filter is not None:
-            node_ids = [node for node in node_ids if node in self._nodes_filter]
+        node_ids = self._fds.filtered_node_ids()
         if not node_ids:
             raise FedbiomedExperimentError(
-                "Empty list of nodes for analytics: no nodes replied to original "
-                "`federated_analytics_request` or sampling strategy returned an empty list."
+                "Empty list of nodes for analytics: no dataset found on the selected nodes."
             )
 
         return node_ids

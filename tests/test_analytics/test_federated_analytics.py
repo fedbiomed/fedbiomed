@@ -27,14 +27,14 @@ def mock_fds():
         "node-1": {"dataset_id": "ds-1", "data_type": "csv"},
         "node-2": {"dataset_id": "ds-2", "data_type": "csv"},
     }
-    fds.node_ids.return_value = ["node-1", "node-2"]
+    fds.filtered_node_ids.return_value = ["node-1", "node-2"]
     return fds
 
 
 @pytest.fixture
 def empty_fds():
     fds = MagicMock(spec=FederatedDataset)
-    fds.node_ids.return_value = []
+    fds.filtered_node_ids.return_value = []
     return fds
 
 
@@ -424,7 +424,7 @@ class TestFederatedAnalytics:
     def test_get_node_ids_success(self, base_fa, mock_fds):
         node_ids = base_fa.get_node_ids()
         assert node_ids == ["node-1", "node-2"]
-        mock_fds.node_ids.assert_called_once()
+        mock_fds.filtered_node_ids.assert_called_once()
 
     def test_get_node_ids_empty(self, empty_fds, mock_requests):
         fa = FederatedAnalytics(
@@ -614,7 +614,7 @@ class TestFederatedAnalytics:
         assert mock_fa_job_cls.call_count == 1
 
         # Simulate a node being added to the federation
-        mock_fds.node_ids.return_value = ["node-1", "node-2", "node-3"]
+        mock_fds.filtered_node_ids.return_value = ["node-1", "node-2", "node-3"]
         replies_3 = {
             "node-1": _make_reply({"age": {"sum": 4500.0, "count": 100}}),
             "node-3": _make_reply({"age": {"sum": 2880.0, "count": 60}}),
@@ -1527,7 +1527,7 @@ class TestCacheFallback:
         assert mock_fa_job_cls.call_count == 1
 
         # A node joins; a schema request must NOT recover the two-node result.
-        mock_fds.node_ids.return_value = ["node-1", "node-2", "node-3"]
+        mock_fds.filtered_node_ids.return_value = ["node-1", "node-2", "node-3"]
         result = base_fa.fetch_stats("mean", dataset_schema=["age"])
         assert mock_fa_job_cls.call_count == 2  # new request, fallback skipped
         assert sorted(result.node_ids) == ["node-1", "node-2", "node-3"]
@@ -1580,7 +1580,7 @@ class TestSecaggIntegration:
         FA calls secagg.setup() with the participating nodes; if setup rejects them
         (the centralised guard), the error propagates out of fetch_stats.
         """
-        mock_fds.node_ids.return_value = ["node-1"]
+        mock_fds.filtered_node_ids.return_value = ["node-1"]
         mock_secagg.setup.side_effect = FedbiomedSecureAggregationError(
             "Secure aggregation requires at least 2 nodes"
         )
@@ -1723,7 +1723,7 @@ class TestSecaggIntegration:
             "node-1": _make_encrypted_reply([1], schema),
             "node-2": _make_encrypted_reply([1], schema),
         }
-        mock_fds.node_ids.return_value = ["node-1", "node-2"]
+        mock_fds.filtered_node_ids.return_value = ["node-1", "node-2"]
         mock_secagg.aggregate.return_value = [5.0]
 
         secagg_fa.fetch_stats("mean")
@@ -1878,17 +1878,3 @@ class TestSecaggIntegration:
         with pytest.raises(FedbiomedError, match="all nodes to reply"):
             secagg_fa.fetch_stats("mean")
         mock_secagg.aggregate.assert_not_called()
-
-
-@pytest.mark.parametrize("structured", [False, True])
-def test_analytics_dispatch_uses_node_filter(base_fa, structured):
-    base_fa.set_nodes(["node-1", "unknown-node"])
-    with patch.object(base_fa, "_execute_and_update_cache") as dispatch:
-        if structured:
-            base_fa.fetch_stats_with_args({"col": {"count": {}}})
-        else:
-            base_fa.fetch_stats("count")
-        assert dispatch.call_args.args[4] == ["node-1"]
-    base_fa.set_nodes([])
-    with pytest.raises(FedbiomedExperimentError, match="Empty list"):
-        base_fa.fetch_stats("count")

@@ -120,10 +120,6 @@ class TestTrainingPlanWorkflow(unittest.TestCase, MockRequestModule):
         # TrainingPlanWorkflow can also be constructed by providing parameters to the constructor
         _training_data = MagicMock(spec=fedbiomed.researcher.datasets.FederatedDataset)
         _training_data.data.return_value = {"alice": {"some": "data"}}
-        _training_data.node_ids.return_value = [
-            "alice",
-            "bob",
-        ]  # make sure that nodes can be correctly inferred
         exp = TrainingPlanWorkflow(
             nodes=["alice", "bob"],
             training_data=_training_data,

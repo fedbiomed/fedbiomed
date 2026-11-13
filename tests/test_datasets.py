@@ -73,3 +73,18 @@ def test_federated_dataset_06_shapes(fds):
     shapes = fds.shapes()
     assert shapes[node_1] == size_1
     assert shapes[node_2] == size_2
+
+
+def test_federated_dataset_nodes_filter(fds):
+    """Testing the nodes filter keeps data and node_ids complete"""
+    assert fds.nodes_filter() is None
+    assert fds.filtered_node_ids() == ["node-1", "node-2"]
+
+    fds.set_nodes_filter(["node-2", "unknown-node"])
+    assert fds.nodes_filter() == ["node-2", "unknown-node"]
+    assert fds.filtered_node_ids() == ["node-2"]
+    assert fds.node_ids() == ["node-1", "node-2"]
+    assert list(fds.data()) == ["node-1", "node-2"]
+
+    fds.set_nodes_filter([])
+    assert fds.filtered_node_ids() == []

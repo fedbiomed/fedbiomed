@@ -213,9 +213,6 @@ class FederatedWorkflow(ABC):
         self._fds: FederatedDataset = FederatedDataset(training_data)
 
         self._reqs: Requests = Requests(config=self.config)
-        self._nodes_filter: Optional[List[str]] = (
-            None  # researcher-defined nodes filter
-        )
         self._tags: Optional[List[str]] = None
         self._experimentation_folder: Optional[str] = None
         self._secagg: Union[SecureAggregation, bool] = False
@@ -266,7 +263,6 @@ class FederatedWorkflow(ABC):
             `self.analytics`.
         """
         self.analytics = FederatedAnalytics(
-            nodes=self._nodes_filter,
             fds=self._fds,
             experiment_id=self._experiment_id,
             researcher_id=self._researcher_id,
@@ -326,24 +322,17 @@ class FederatedWorkflow(ABC):
         Returns:
             The list of nodes to keep for workflow execution, or None if no filtering is applied
         """
-        return self._nodes_filter
+        return self._fds.nodes_filter()
 
     @exp_exceptions
     def all_federation_nodes(self) -> List[str]:
         """Returns all the node ids in the federation"""
-        return list(self._fds.data().keys()) if self._fds is not None else []
+        return self._fds.node_ids()
 
     @exp_exceptions
     def filtered_federation_nodes(self) -> List[str]:
         """Returns the node ids in the federation after filtering with the nodes filter"""
-        if self._nodes_filter is not None:
-            return [
-                node
-                for node in self.all_federation_nodes()
-                if node in self._nodes_filter
-            ]
-        else:
-            return self.all_federation_nodes()
+        return self._fds.filtered_node_ids()
 
     @exp_exceptions
     def training_data(self) -> Union[FederatedDataset, None]:
@@ -459,7 +448,7 @@ class FederatedWorkflow(ABC):
                 "\n".join(findall(".{1,60}", str(e)))
                 for e in [
                     self._tags,
-                    self._nodes_filter,
+                    self._fds.nodes_filter(),
                     self._fds,
                     self._experimentation_folder,
                     self.experimentation_path(),
@@ -584,9 +573,9 @@ class FederatedWorkflow(ABC):
         Raises:
             FedbiomedTypeError : Bad nodes type
         """
-        # immediately exit if setting nodes to None
+        # None removes the filter: all nodes take part
         if nodes is None:
-            self._nodes_filter = None
+            self._fds.set_nodes_filter(None)
         # set nodes
         elif isinstance(nodes, list):
             if not all(map(lambda node: isinstance(node, str), nodes)):
@@ -596,7 +585,7 @@ class FederatedWorkflow(ABC):
                 )
                 logger.critical(msg)
                 raise FedbiomedTypeError(msg)
-            self._nodes_filter = nodes
+            self._fds.set_nodes_filter(nodes)
         else:
             msg = (
                 ErrorNumbers.FB410.value
@@ -605,10 +594,7 @@ class FederatedWorkflow(ABC):
             logger.critical(msg)
             raise FedbiomedTypeError(msg)
 
-        if getattr(self, "analytics", None) is not None:
-            self.analytics.set_nodes(nodes)
-
-        return self._nodes_filter
+        return self._fds.nodes_filter()
 
     @exp_exceptions
     def set_training_data(
@@ -675,7 +661,7 @@ class FederatedWorkflow(ABC):
                         "set training data from undefined tags. Please consider set tags before "
                         "using set_tags method of the experiment."
                     )
-                training_data = self._reqs.search(self._tags, self._nodes_filter)
+                training_data = self._reqs.search(self._tags, self._fds.nodes_filter())
             else:
                 raise FedbiomedValueError(
                     f"{ErrorNumbers.FB410.value}: Can not set training data to `None`. "
@@ -862,7 +848,7 @@ class FederatedWorkflow(ABC):
                 "training_data": self._fds.data(),
                 "experimentation_folder": self._experimentation_folder,
                 "tags": self._tags,
-                "nodes": self._nodes_filter,
+                "nodes": self._fds.nodes_filter(),
                 "secagg": self._secagg.save_state_breakpoint(),
                 "node_state": self._node_state_agent.save_state_breakpoint(),
             }

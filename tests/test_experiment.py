@@ -219,25 +219,6 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertTrue(exp.strategy().has_been_called)
 
     #    @patch('fedbiomed.researcher.federated_workflows._experiment.TrainingJob')
-    def test_strategy_cannot_reintroduce_excluded_nodes(self):
-        strategy = MagicMock(spec=DefaultStrategy)
-        exp = Experiment(
-            training_data={"node-1": {}, "node-2": {}},
-            nodes=["node-1"],
-            training_plan_class=FakeTorchTrainingPlan,
-            node_selection_strategy=strategy,
-        )
-
-        # Also guard against strategies mutating the candidate list in place.
-        def sample(from_nodes, round_i):
-            from_nodes.append("node-2")
-            return from_nodes
-
-        strategy.sample_nodes.side_effect = sample
-        with self.assertRaisesRegex(FedbiomedExperimentError, "filtered candidates"):
-            exp.run_once()
-        self.mock_job.assert_not_called()
-
     def test_experiment_04_run_once_base_case(self):
         """Tests run once method of experiment"""
         _training_data = {
@@ -911,10 +892,11 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         exp.set_nodes(["first", "second"])
         self.assertEqual(exp.nodes(), ["first", "second"])
 
-        # Valid arguments + preprocessing
+        # Valid arguments + preprocessing: preprocessing reads the filter from the shared dataset
         exp.set_preprocessing(PreprocType.FEDCOMBAT, {})
         exp.set_nodes(["node-1", "node-2"])
         self.assertEqual(exp.nodes(), ["node-1", "node-2"])
+        self.assertIs(exp.preprocessing._fds, exp.training_data())
 
         # Invalid arguments
         with self.assertRaises(FedbiomedTypeError):

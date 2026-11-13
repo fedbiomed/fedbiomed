@@ -31,6 +31,7 @@ def mock_fds():
     fds = MagicMock(spec=FederatedDataset)
     fds.set_federated_dataset.side_effect = _set_federated_dataset
     _set_federated_dataset({"n1": "initial1", "n2": "initial2"})
+    fds.filtered_node_ids.return_value = ["n1", "n2"]
     return fds
 
 
@@ -86,7 +87,6 @@ def base_preproc(
         researcher_id="r1",
         reqs=mock_reqs,
         experiment_class=mock_experiment_class,
-        nodes=["n1", "n2"],
         experimentation_folder=str(tmp_path),
         preproc_args={
             "covariates": ["cov1", "cov2"],
@@ -107,7 +107,6 @@ def test_check_fds__failed_raises(
             researcher_id="r_chk",
             reqs=mock_reqs,
             experiment_class=mock_experiment_class,
-            nodes=["n1", "n2"],
             experimentation_folder=str(tmp_path),
         )
 
@@ -128,7 +127,6 @@ def test_check_fds_missing_data_type_raises(
             researcher_id="r_chk",
             reqs=mock_reqs,
             experiment_class=mock_experiment_class,
-            nodes=["n1", "n2"],
             experimentation_folder=str(tmp_path),
         )
 
@@ -205,7 +203,6 @@ def test_execute_fedcombat_parameters_exception(
         researcher_id="r_fc",
         reqs=mock_reqs,
         experiment_class=mock_experiment_class,
-        nodes=["n1", "n2"],
         experimentation_folder=str(tmp_path),
         preproc_args={
             "covariates": ["cov1", "cov2"],
@@ -219,16 +216,6 @@ def test_execute_fedcombat_parameters_exception(
     assert "fedcombat_parameters failure" in str(exc.value)
 
 
-def test_set_nodes_updates_nodes(
-    base_preproc, mock_fedcombat_param, mock_experiment_class
-):
-    preproc = base_preproc
-    assert preproc._nodes == ["n1", "n2"]
-
-    preproc.set_nodes(["n3", "n4"])
-    assert preproc._nodes == ["n3", "n4"]
-
-
 def test_execute_not_enough_nodes_raises(
     mock_fds,
     mock_reqs,
@@ -237,13 +224,13 @@ def test_execute_not_enough_nodes_raises(
     mock_experiment_class,
 ):
     for nodes in ([], ["n1"]):
+        mock_fds.filtered_node_ids.return_value = nodes
         preproc = FedCombatPreproc(
             fds=mock_fds,
             experiment_id="exp2",
             researcher_id="r2",
             reqs=mock_reqs,
             experiment_class=mock_experiment_class,
-            nodes=nodes,
             experimentation_folder=str(tmp_path),
         )
 
@@ -266,7 +253,6 @@ def test_needs_harmonization_true_nodes_changed(
         researcher_id="r3",
         reqs=mock_reqs,
         experiment_class=mock_experiment_class,
-        nodes=["n1", "n2"],
         experimentation_folder=str(tmp_path),
     )
     # simulate previous harmonization with different set of nodes
@@ -288,13 +274,13 @@ def test_execute_not_needed_returns_false(
     mock_fedcombat_param,
     mock_experiment_class,
 ):
+    mock_fds.filtered_node_ids.return_value = ["n1"]
     preproc = FedCombatPreproc(
         fds=mock_fds,
         experiment_id="exp3",
         researcher_id="r3",
         reqs=mock_reqs,
         experiment_class=mock_experiment_class,
-        nodes=["n1"],
         experimentation_folder=str(tmp_path),
     )
     # simulate previous harmonization with same dataset ids
@@ -332,7 +318,6 @@ def test_execute_missing_replies_raises(
         researcher_id="r4",
         reqs=mock_reqs,
         experiment_class=mock_experiment_class,
-        nodes=["n1", "n2"],
         experimentation_folder=str(tmp_path),
     )
 
@@ -357,7 +342,6 @@ def test_save_and_load_state_breakpoint(
         researcher_id="r5",
         reqs=mock_reqs,
         experiment_class=mock_experiment_class,
-        nodes=["n1"],
         experimentation_folder=str(tmp_path),
         preproc_args=_prepoc_args,
     )
@@ -376,7 +360,6 @@ def test_save_and_load_state_breakpoint(
             "researcher_id": "r5",
             "reqs": mock_reqs,
             "experiment_class": mock_experiment_class,
-            "nodes": ["n1"],
             "experimentation_folder": str(tmp_path),
         }
     )
@@ -391,8 +374,8 @@ def test_save_and_load_state_breakpoint(
 
 def test_compatibility_ignores_excluded_nodes(base_preproc, mock_fds):
     mock_fds.data.return_value["n2"]["data_type"] = "images"
-    base_preproc.set_nodes(["n1"])
+    mock_fds.filtered_node_ids.return_value = ["n1"]
     base_preproc._check_fds_compatibility()
-    base_preproc.set_nodes(None)
+    mock_fds.filtered_node_ids.return_value = ["n1", "n2"]
     with pytest.raises(FedbiomedExperimentError, match="n2"):
         base_preproc._check_fds_compatibility()
