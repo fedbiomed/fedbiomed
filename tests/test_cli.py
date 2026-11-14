@@ -684,35 +684,31 @@ class TestStartNodeProcess(unittest.TestCase):
 
     @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
     @patch("fedbiomed.node.node_pm.Node")
-    def test_01_start_node_training_plan_approval_with_default_plans(
-        self, mock_node, mock_node_config
-    ):
-        """Tests tp_security_manager methods are called when approval + default plans are enabled."""
+    def test_01_start_node_training_plan_approval(self, mock_node, mock_node_config):
+        """Starting an approval-enabled node does not register tutorial code."""
         _node_config_in(self.tmp_dir.name, mock_node_config)
         mock_node.return_value.config.getbool.return_value = True
 
         _start_node_process("config.ini", {"gpu": False})
 
-        mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
-        mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_called_once()
+        mock_node.return_value.tp_security_manager.register_training_plan.assert_not_called()
 
     @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
     @patch("fedbiomed.node.node_pm.Node")
-    def test_02_start_node_training_plan_approval_no_default_plans(
+    def test_02_start_node_without_training_plan_approval(
         self, mock_node, mock_node_config
     ):
-        """Tests register_update_default_training_plans is NOT called when allow_default_training_plans is False."""
+        """Starting a node retains the explicit approval-mode setting."""
         _node_config_in(self.tmp_dir.name, mock_node_config)
 
         def _getbool(section, key):
-            return key == "training_plan_approval"
+            return False
 
         mock_node.return_value.config.getbool.side_effect = _getbool
 
         _start_node_process("config.ini", {"gpu": False})
 
-        mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
-        mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_not_called()
+        mock_node.return_value.tp_security_manager.register_training_plan.assert_not_called()
 
 
 class TestNodeCLI(unittest.TestCase):

@@ -17,6 +17,15 @@ detected.
 - researcher breakpoint
 - messaging protocol
 
+### Node configuration 2.5.0
+
+Training-plan hashes now always use SHA256. The `hashing_algorithm` and
+`allow_default_training_plans` options are removed when loading an older node
+configuration. The configured `training_plan_approval` value is preserved.
+Previously automatic tutorial approvals require explicit review after migration;
+see [upgrading existing approvals](../nodes/training-plan-security-manager.md#upgrading-existing-approvals)
+before upgrading a node database.
+
 Note that due to the two-sided nature of the communication, every change to the messaging protocol
 is equivalent to a major change.
 

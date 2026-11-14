@@ -19,8 +19,6 @@ Example: security section of the configuration file with secure aggregation opti
 
 ```ini
 [security]
-hashing_algorithm = SHA256
-allow_default_training_plans = True
 training_plan_approval = False
 secure_aggregation = True
 force_secure_aggregation = False
@@ -49,8 +47,6 @@ Example: security section of the configuration file with secure aggregation mand
 
 ```ini
 [security]
-hashing_algorithm = SHA256
-allow_default_training_plans = True
 training_plan_approval = False
 secure_aggregation = True
 force_secure_aggregation = True

@@ -3,8 +3,6 @@
 
 from typing import Any, Dict
 
-from fedbiomed.common.constants import HashingAlgorithms
-
 NODE_CONFIG_SECURITY_SECTION = "security"
 NODE_CONFIG_READ_ONLY_FIELDS = {
     ("default", "id"),
@@ -23,13 +21,6 @@ NODE_CONFIG_SECTION_LABELS = {
 }
 NODE_CONFIG_FIELD_SCHEMAS = {
     NODE_CONFIG_SECURITY_SECTION: {
-        "hashing_algorithm": {
-            "type": "enum",
-            "options": [algorithm.value for algorithm in HashingAlgorithms],
-        },
-        "allow_default_training_plans": {
-            "type": "boolean",
-        },
         "training_plan_approval": {
             "type": "boolean",
         },
