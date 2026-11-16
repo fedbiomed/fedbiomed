@@ -19,15 +19,11 @@ build-backend = "hatchling.build"
 [tool.hatch.build]
 # Python sources use src/fedbiomed_gui; React sources remain in ui/.
 exclude = ["__pycache__", "*.pyc", "node_modules"]
-artifacts = ["/ui/build/**"]
 
 [tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fedbiomed_gui"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"ui/build" = "fedbiomed_gui/ui/build"
 
 [tool.hatch.build.targets.sdist]
 include = [

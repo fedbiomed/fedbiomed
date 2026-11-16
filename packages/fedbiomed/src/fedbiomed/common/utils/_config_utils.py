@@ -5,6 +5,7 @@ import glob
 import os
 import site
 import sysconfig
+from pathlib import Path
 from typing import Dict, List
 
 from fedbiomed.common.constants import (
@@ -24,12 +25,15 @@ def _get_fedbiomed_root() -> str:
     Returns:
         Absolute path of Fed-BioMed root directory
     """
+    module_path = Path(__file__).resolve()
 
-    root = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
-    if "envs" in os.listdir(root):
-        return root
+    for parent in module_path.parents:
+        if (parent / "packages" / "fedbiomed" / "pyproject.toml").is_file():
+            return str(parent)
 
-    return os.path.abspath(os.path.join(root, ".."))
+    # Non-editable installation: preserve the historical
+    # site-packages-level fallback.
+    return sysconfig.get_path("purelib")
 
 
 def _get_shared_dir():

@@ -768,11 +768,10 @@ class GUIControl(CLIArgumentParser):
         # The server serves the bundle built from `ui`, so changes to its sources
         # show only once it is rebuilt, the way `hatch_build.py` builds it
         if args.recreate:
-            ui_folder = server_app / "ui"
-            if not (ui_folder / "package.json").is_file():
-                raise FedbiomedError(
-                    f"Cannot rebuild the GUI: its sources are not in {ui_folder}."
-                )
+            try:
+                ui_folder = fedbiomed_gui.get_frontend_source_dir()
+            except FileNotFoundError as exc:
+                raise FedbiomedError(str(exc)) from exc
 
             yarn = shutil.which("yarn")
             if yarn is None:
@@ -791,8 +790,9 @@ class GUIControl(CLIArgumentParser):
         if args.development:
             command = [
                 "FLASK_ENV=development",
-                f"FLASK_APP={os.path.join(server_app, 'server', 'wsgi.py')}",
                 "flask",
+                "--app",
+                "fedbiomed_gui.server.wsgi:app",
                 "run",
                 *host_port,
                 *certificate,

@@ -50,9 +50,6 @@ jobs:
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v4
 
-      - name: Install Dependencies
-        run: pdm install --no-default -G docs -G dev
-
       - name: Configure git
         run: |
           git config --global user.name "GitHub Actions Bot"
@@ -97,13 +94,23 @@ jobs:
           git commit -m "Restore deployed state" --allow-empty --no-verify
           git checkout "$HEAD_REF"
 
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -e ./packages/fedbiomed \
+            --group ./packages/fedbiomed/pyproject.toml:docs
+
+          python -c "import fedbiomed.common.analytics"
+
       - name: Build docs with mike
         run: |
-          pdm run mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} --update-aliases
+          python -m pip install mike
+          mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} --update-aliases
           if [ -n "${{ steps.version.outputs.ALIAS }}" ]; then
-            pdm run mike set-default ${{ steps.version.outputs.ALIAS }}
+            mike set-default ${{ steps.version.outputs.ALIAS }}
           else
-            pdm run mike set-default ${{ steps.version.outputs.VERSION }}
+            mike set-default ${{ steps.version.outputs.VERSION }}
           fi
 
       - name: Export gh-pages to output-repo

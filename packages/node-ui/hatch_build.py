@@ -14,38 +14,56 @@ logging.basicConfig(level=logging.DEBUG)
 
 class CustomBuildHook(BuildHookInterface):
     def initialize(self, version, build_data):
-        # Code in this function will run before building
         super().initialize(version, build_data)
 
-        if os.environ.get("FBM_SKIP_FRONTEND_BUILD", "").lower() in {
+        if self.target_name != "wheel":
+            return
+
+        ui_dir = Path(self.root) / "ui"
+        build_dir = ui_dir / "build"
+        index_file = build_dir / "index.html"
+
+        skip_build = os.environ.get("FBM_SKIP_FRONTEND_BUILD", "").lower() in {
             "1",
             "true",
             "yes",
-        }:
-            logger.info("Skipping node front-end build")
-            return
+        }
 
-        logger.info("Building node front-end")
-        yarn = shutil.which("yarn")
-
-        if yarn is None:
-            raise RuntimeError(
-                "NodeJS `yarn` is required for building Fed-BioMed front-end application"
-            )
-
-        ui_dir = Path(self.root) / "ui"
-        for attempt in range(3):
-            try:
-                logger.info(
-                    "### Yarn: Installation front-end dependencies to prepare build.\n"
+        if not index_file.is_file() or not skip_build:
+            if skip_build:
+                logger.warning(
+                    "Frontend build was skipped by configuration, "
+                    "but assets are missing. Building frontend anyway."
                 )
-                subprocess.run([yarn, "install"], cwd=ui_dir, check=True)
-                logger.info("\n### Yarn: Building front-end application run.\n")
-                subprocess.run([yarn, "build"], cwd=ui_dir, check=True)
-            except subprocess.CalledProcessError:
-                if attempt < 2:
-                    time.sleep(5)
-                else:
-                    raise
             else:
-                break
+                logger.info("Building node frontend")
+
+            yarn = shutil.which("yarn")
+            if yarn is None:
+                raise RuntimeError(
+                    "Yarn is required: frontend assets are missing "
+                    "or a frontend rebuild was requested."
+                )
+
+            for attempt in range(3):
+                try:
+                    subprocess.run(
+                        [yarn, "install"],
+                        cwd=ui_dir,
+                        check=True,
+                    )
+                    subprocess.run(
+                        [yarn, "build"],
+                        cwd=ui_dir,
+                        check=True,
+                    )
+                    break
+                except subprocess.CalledProcessError:
+                    if attempt == 2:
+                        raise
+                    time.sleep(5)
+
+        if not index_file.is_file():
+            raise RuntimeError("Frontend build did not produce ui/build/index.html")
+
+        build_data["force_include"][str(build_dir)] = "fedbiomed_gui/ui/build"
