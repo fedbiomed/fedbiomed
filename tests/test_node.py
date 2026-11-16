@@ -553,7 +553,7 @@ def test_node_parser_task_train_initialize_arguments_failure_returns_none_and_se
                 "secagg_clipping_range": None,
             },
             1,
-            {"training_plan_checksum": "abc"},
+            "Y2FwYWJpbGl0eQ==",
         ),
         (None, 0, None),
     ],

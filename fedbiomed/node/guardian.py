@@ -3,29 +3,39 @@
 
 """Client for the node-side capability guardian service.
 
-A capability is issued and signed by a third party for a given training plan.
-The node computes the checksum of the training plan it actually received and
-asks a locally reachable guardian service whether the capability covers that
-checksum. Training and validation only proceed on a positive answer.
+A capability is issued by a third party for a given training plan. It is an
+opaque base64 string: the node never parses it, it only forwards it. The node
+computes the digest of the training plan it actually received and asks a
+locally reachable guardian service whether the capability covers that digest.
+Training and validation only proceed on a positive answer.
 """
 
 import hashlib
-from typing import Any, Dict, Optional, Tuple
+from typing import Tuple
+
+import requests
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedGuardianError
 
 DEFAULT_GUARDIAN_TIMEOUT = 10
 
-VERIFY_ENDPOINT = "/verify"
+PROCESS_CAPABILITY_ENDPOINT = "/process_capability"
+
+# Status code the guardian service answers with when it refuses the operation
+REJECTED_STATUS_CODE = 422
+
+# Maximum length of a guardian answer that is kept as the reason
+MAX_REASON_LENGTH = 500
 
 
 def compute_training_plan_checksum(source: str) -> str:
-    """Computes the checksum of a training plan source code.
+    """Computes the digest of a training plan source code.
 
-    The checksum is a plain SHA-256 of the exact source string, so that a third
-    party can reproduce it without having Fed-BioMed installed. This is
-    deliberately different from the hashing done by
+    The digest is a plain SHA-256 of the exact source string, prefixed with the
+    algorithm name (`sha256:<hex>`), so that a third party can reproduce it
+    without having Fed-BioMed installed. This is deliberately different from
+    the hashing done by
     [`TrainingPlanSecurityManager`]
     [fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager],
     which minifies the source and uses a node-configurable algorithm.
@@ -34,7 +44,7 @@ def compute_training_plan_checksum(source: str) -> str:
         source: Source code of the training plan.
 
     Returns:
-        Hexadecimal SHA-256 digest of the UTF-8 encoded source.
+        Digest of the UTF-8 encoded source, formatted as `sha256:<hex>`.
 
     Raises:
         FedbiomedGuardianError: if the given source is not a string.
@@ -45,14 +55,17 @@ def compute_training_plan_checksum(source: str) -> str:
             f"but got {type(source)}"
         )
 
-    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+    return "sha256:" + hashlib.sha256(source.encode("utf-8")).hexdigest()
 
 
 class GuardianClient:
-    """Client that asks a guardian service to validate a capability.
+    """Client that asks a guardian service to process a capability.
 
-    The guardian service is expected to expose a `POST /verify` endpoint that
-    accepts a JSON body and answers with `{"valid": <bool>, "reason": <str>}`.
+    The guardian service is expected to expose a `POST /process_capability`
+    endpoint that accepts a JSON body of the form
+    `{"capability_b64": <str>, "request_context": {"calculated_script_digest": <str>}}`.
+    It answers with a success status when the capability authorizes the
+    operation, and with status 422 when it refuses it.
     """
 
     def __init__(
@@ -64,8 +77,8 @@ class GuardianClient:
 
         Args:
             service_url: Base URL of the guardian service, e.g.
-                `http://localhost:8000`. A trailing slash is accepted.
-            timeout: Timeout in seconds for the verification request.
+                `http://localhost:7900`. A trailing slash is accepted.
+            timeout: Timeout in seconds for the guardian request.
 
         Raises:
             FedbiomedGuardianError: if the given service URL is empty or not a string.
@@ -79,77 +92,54 @@ class GuardianClient:
         self._service_url = service_url.strip().rstrip("/")
         self._timeout = timeout
 
-    def verify_url(self) -> str:
-        """Gets the full URL of the verification endpoint.
+    def process_capability_url(self) -> str:
+        """Gets the full URL of the capability processing endpoint.
 
         Returns:
-            URL the verification request is sent to.
+            URL the capability is sent to.
         """
-        return f"{self._service_url}{VERIFY_ENDPOINT}"
+        return f"{self._service_url}{PROCESS_CAPABILITY_ENDPOINT}"
 
-    def verify(
-        self,
-        capabilities: Dict[str, Any],
-        checksum: str,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[bool, str]:
+    def verify(self, capability: str, checksum: str) -> Tuple[bool, str]:
         """Asks the guardian service whether a capability authorizes a round.
 
         Args:
-            capabilities: Encoded capability issued by the third party. It is
+            capability: Opaque base64 capability issued by the third party. It is
                 forwarded unchanged; the node does not interpret its content.
-            checksum: Checksum of the training plan as computed by the node.
-            context: Extra round information forwarded to the guardian service,
-                such as node, researcher and experiment identifiers.
+            checksum: Digest of the training plan as computed by the node.
 
         Returns:
             A tuple of
               * valid: True if the guardian service authorizes the round
-              * reason: Explanation returned by the guardian service
+              * reason: Answer returned by the guardian service
 
         Raises:
-            FedbiomedGuardianError: if the guardian service is unreachable,
-                answers with a non-success status, or returns a payload that
-                does not follow the expected format.
+            FedbiomedGuardianError: if the guardian service is unreachable, or
+                answers with a status that is neither a success nor a refusal.
         """
+        url = self.process_capability_url()
         payload = {
-            **(context or {}),
-            "capabilities": capabilities,
-            "training_plan_checksum": checksum,
+            "capability_b64": capability,
+            "request_context": {"calculated_script_digest": checksum},
         }
 
-        # try:
-        #     response = requests.post(
-        #         self.verify_url(), json=payload, timeout=self._timeout
-        #     )
-        # except requests.exceptions.RequestException as e:
-        #     raise FedbiomedGuardianError(
-        #         f"{ErrorNumbers.FB328.value}: cannot reach the guardian service at "
-        #         f"{self.verify_url()}: {e}"
-        #     ) from e
+        try:
+            response = requests.post(url, json=payload, timeout=self._timeout)
+        except requests.exceptions.RequestException as e:
+            raise FedbiomedGuardianError(
+                f"{ErrorNumbers.FB328.value}: cannot reach the guardian service at "
+                f"{url}: {e}"
+            ) from e
 
-        # if response.status_code != 200:
-        #     raise FedbiomedGuardianError(
-        #         f"{ErrorNumbers.FB328.value}: guardian service at {self.verify_url()} "
-        #         f"answered with status code {response.status_code}"
-        #     )
+        reason = response.text.strip()[:MAX_REASON_LENGTH]
 
-        # try:
-        #     result = response.json()
-        # except Exception as e:
-        #     raise FedbiomedGuardianError(
-        #         f"{ErrorNumbers.FB328.value}: guardian service at {self.verify_url()} "
-        #         f"did not answer with a valid JSON payload: {e}"
-        #     ) from e
+        if 200 <= response.status_code < 300:
+            return True, reason
 
-        # if not isinstance(result, dict) or not isinstance(result.get("valid"), bool):
-        #     raise FedbiomedGuardianError(
-        #         f"{ErrorNumbers.FB328.value}: guardian service at {self.verify_url()} "
-        #         "should answer with a boolean 'valid' entry"
-        #     )
+        if response.status_code == REJECTED_STATUS_CODE:
+            return False, reason
 
-        # return result["valid"], str(result.get("reason", ""))
-        return (
-            True,
-            "Guardian service verification is currently disabled in Fed-BioMed.",
+        raise FedbiomedGuardianError(
+            f"{ErrorNumbers.FB328.value}: guardian service at {url} answered with "
+            f"status code {response.status_code}: {reason}"
         )

@@ -186,7 +186,7 @@ class TestRound(unittest.TestCase):
     ):
         """A node without a guardian service runs the round without calling out"""
         mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
-        self.r1.capabilities = {"training_plan_checksum": "whatever"}
+        self.r1.capabilities = "Y2FwYWJpbGl0eS13aGF0ZXZlcg=="
 
         self.r1.initialize_arguments()
         reply = self.r1.run_model_training(
@@ -215,7 +215,7 @@ class TestRound(unittest.TestCase):
             secagg_active=False,
             force_secagg=False,
             secagg_insecure_validation=True,
-            guardian_service="http://localhost:8000",
+            guardian_service="http://localhost:7900",
         )
 
         self.assertTrue(reply.get_dict().get("success", False))
@@ -229,7 +229,7 @@ class TestRound(unittest.TestCase):
         """A capability accepted by the guardian service lets the round proceed"""
         mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
         guardian_client_patch.return_value.verify.return_value = (True, "ok")
-        self.r1.capabilities = {"training_plan_checksum": "signed-checksum"}
+        self.r1.capabilities = "Y2FwYWJpbGl0eS1zaWduZWQ="
 
         self.r1.initialize_arguments()
         reply = self.r1.run_model_training(
@@ -237,22 +237,21 @@ class TestRound(unittest.TestCase):
             secagg_active=False,
             force_secagg=False,
             secagg_insecure_validation=True,
-            guardian_service="http://localhost:8000",
+            guardian_service="http://localhost:7900",
         )
 
         self.assertTrue(reply.get_dict().get("success", False))
-        guardian_client_patch.assert_called_once_with("http://localhost:8000")
+        guardian_client_patch.assert_called_once_with("http://localhost:7900")
 
         _, kwargs = guardian_client_patch.return_value.verify.call_args
-        self.assertEqual(kwargs["capabilities"], self.r1.capabilities)
-        # the node sends the checksum it computed itself, not one taken from the request
+        # the capability is forwarded unchanged, the node never parses it
+        self.assertEqual(kwargs["capability"], self.r1.capabilities)
+        # the node sends the digest it computed itself, not one taken from the request
         self.assertEqual(
             kwargs["checksum"],
             compute_training_plan_checksum(self.r1.training_plan_source),
         )
-        self.assertEqual(kwargs["context"]["node_id"], "test-id")
-        self.assertEqual(kwargs["context"]["training_plan_class"], "MyTrainingPlan")
-        self.assertTrue(kwargs["context"]["training"])
+        self.assertTrue(kwargs["checksum"].startswith("sha256:"))
 
     @patch("fedbiomed.node.round.Round._split_train_and_test_data")
     @patch("fedbiomed.node.round.GuardianClient")
@@ -265,7 +264,7 @@ class TestRound(unittest.TestCase):
             False,
             "checksum mismatch",
         )
-        self.r1.capabilities = {"training_plan_checksum": "forged"}
+        self.r1.capabilities = "Y2FwYWJpbGl0eS1mb3JnZWQ="
 
         self.r1.initialize_arguments()
         reply = self.r1.run_model_training(
@@ -273,7 +272,7 @@ class TestRound(unittest.TestCase):
             secagg_active=False,
             force_secagg=False,
             secagg_insecure_validation=True,
-            guardian_service="http://localhost:8000",
+            guardian_service="http://localhost:7900",
         )
 
         self.assertFalse(reply.get_dict().get("success", True))
@@ -292,7 +291,7 @@ class TestRound(unittest.TestCase):
         guardian_client_patch.return_value.verify.side_effect = FedbiomedGuardianError(
             "FB328: unreachable"
         )
-        self.r1.capabilities = {"training_plan_checksum": "signed-checksum"}
+        self.r1.capabilities = "Y2FwYWJpbGl0eS1zaWduZWQ="
 
         self.r1.initialize_arguments()
         reply = self.r1.run_model_training(
@@ -300,7 +299,7 @@ class TestRound(unittest.TestCase):
             secagg_active=False,
             force_secagg=False,
             secagg_insecure_validation=True,
-            guardian_service="http://localhost:8000",
+            guardian_service="http://localhost:7900",
         )
 
         self.assertFalse(reply.get_dict().get("success", True))
@@ -318,7 +317,7 @@ class TestRound(unittest.TestCase):
             "not authorized for validation",
         )
         self.r1.training = False
-        self.r1.capabilities = {"training_plan_checksum": "forged"}
+        self.r1.capabilities = "Y2FwYWJpbGl0eS1mb3JnZWQ="
 
         self.r1.initialize_arguments()
         reply = self.r1.run_model_training(
@@ -326,7 +325,7 @@ class TestRound(unittest.TestCase):
             secagg_active=False,
             force_secagg=False,
             secagg_insecure_validation=True,
-            guardian_service="http://localhost:8000",
+            guardian_service="http://localhost:7900",
         )
 
         self.assertFalse(reply.get_dict().get("success", True))
@@ -334,11 +333,7 @@ class TestRound(unittest.TestCase):
         # no testing routine can run if the training plan was never imported
         self.ic_from_spec_mock.assert_not_called()
         self.ic_from_file_mock.assert_not_called()
-        self.assertFalse(
-            guardian_client_patch.return_value.verify.call_args[1]["context"][
-                "training"
-            ]
-        )
+        guardian_client_patch.return_value.verify.assert_called_once()
 
     @patch("fedbiomed.node.round.Round._split_train_and_test_data")
     @patch(

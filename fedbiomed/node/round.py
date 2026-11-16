@@ -70,7 +70,7 @@ class Round:
         round_number: int = 0,
         dlp_and_loading_block_metadata: Optional[Tuple[dict, List[dict]]] = None,
         aux_vars: Optional[Dict[str, AuxVar]] = None,
-        capabilities: Optional[Dict] = None,
+        capabilities: Optional[str] = None,
     ) -> None:
         """Constructor of the class
 
@@ -102,7 +102,7 @@ class Round:
             dlp_and_loading_block_metadata: Data loading plan to apply, or None if no DLP for this round.
             round_number: number of the iteration for this experiment
             aux_vars: Optional optimizer auxiliary variables.
-            capabilities: Optional encoded capability sent by the researcher. It is validated
+            capabilities: Optional opaque base64 capability sent by the researcher. It is validated
                 against the guardian service before training or validation is executed.
         """
         self._node_id = node_id
@@ -724,7 +724,7 @@ class Round:
     ) -> Optional[TrainReply]:
         """Validates the researcher capability against the node guardian service.
 
-        The node computes the checksum of the training plan it actually received and asks
+        The node computes the digest of the training plan it actually received and asks
         the guardian service whether the capability covers it. Validation is skipped when
         the node declares no guardian service, or when the researcher sent no capability.
 
@@ -758,19 +758,8 @@ class Round:
             checksum = compute_training_plan_checksum(self.training_plan_source)
             client = GuardianClient(guardian_service)
             valid, reason = client.verify(
-                capabilities=self.capabilities,
+                capability=self.capabilities,
                 checksum=checksum,
-                context={
-                    "node_id": self._node_id,
-                    "researcher_id": self.researcher_id,
-                    "experiment_id": self.experiment_id,
-                    "dataset_id": self.dataset_entry.get("dataset_id")
-                    if isinstance(self.dataset_entry, dict)
-                    else None,
-                    "training_plan_class": self.training_plan_class,
-                    "round": self._round,
-                    "training": self.training,
-                },
             )
         except FedbiomedGuardianError as e:
             logger.error(repr(e))

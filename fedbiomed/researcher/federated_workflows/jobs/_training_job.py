@@ -37,7 +37,7 @@ class TrainingJob(Job):
         secagg_arguments: Union[Dict, None] = None,
         do_training: bool = True,
         optim_aux_var: Optional[Dict[str, AuxVar]] = None,
-        capabilities: Optional[Dict] = None,
+        capabilities: Optional[str] = None,
         **kwargs,
     ):
         """Constructor of the class
@@ -60,7 +60,7 @@ class TrainingJob(Job):
                 Note that such variables may only be used if both the Experiment and node-side training plan
                 hold a declearn-based [Optimizer][fedbiomed.common.optimizers.Optimizer], and their plug-ins
                 are coherent with each other as to expected information exchange.
-            capabilities: Encoded capability attached to the request, used by the nodes to validate
+            capabilities: Opaque base64 capability attached to the request, used by the nodes to validate
                 whether this round is authorized. Defaults to None.
             **kwargs: Named arguments of parent class. Please see
                 [`Job`][fedbiomed.researcher.federated_workflows.jobs.Job]

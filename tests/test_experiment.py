@@ -767,7 +767,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertIsNone(exp.capabilities())
 
         # 3. Test that a saved capability is restored
-        capability = {"training_plan_checksum": "abc", "signature": "sig"}
+        capability = "Y2FwYWJpbGl0eQ=="
         breakpoint_json["capabilities"] = capability
 
         with patch.object(
@@ -894,7 +894,7 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         # no capability by default
         self.assertIsNone(exp.capabilities())
 
-        capability = {"training_plan_checksum": "abc", "signature": "sig"}
+        capability = "Y2FwYWJpbGl0eQ=="
         self.assertEqual(exp.set_capabilities(capability), capability)
         self.assertEqual(exp.capabilities(), capability)
 
@@ -906,14 +906,14 @@ class TestExperiment(unittest.TestCase, MockRequestModule):
         self.assertEqual(Experiment(capabilities=capability).capabilities(), capability)
 
         # Tests setting invalid types
-        for invalid in ("a-string", 12, ["a", "b"]):
+        for invalid in ("", "   ", 12, ["a", "b"], {"script_digest": "abc"}):
             with self.assertRaises(FedbiomedTypeError):
                 exp.set_capabilities(invalid)
 
     def test_experiment_15ter_capabilities_sent_to_nodes(self):
         """Capability reaches the training job on training and validation rounds"""
 
-        capability = {"training_plan_checksum": "abc"}
+        capability = "Y2FwYWJpbGl0eQ=="
         _training_data = {
             "node-1": [{"dataset_id": "dataset-id-1", "shape": [100, 100]}]
         }

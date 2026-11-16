@@ -85,7 +85,7 @@ class Experiment(TrainingPlanWorkflow):
         tensorboard: bool = False,
         retain_full_history: bool = True,
         reduce_disk_usage: bool = False,
-        capabilities: Optional[Dict] = None,
+        capabilities: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Constructor of the class.
@@ -124,7 +124,7 @@ class Experiment(TrainingPlanWorkflow):
                 when retain_full_history and save_breakpoints are both False. Parameters
                 remain in memory and are saved if a checkpoint is explicitly requested.
                 Defaults to False, preserving parameter files after each round.
-            capabilities: encoded capability, issued and signed by a third party, that is
+            capabilities: opaque base64 capability, issued by a third party, that is
                 attached to every train request. Nodes that declare a `guardian_service` in
                 their configuration validate it before running the round. Defaults to None,
                 which means no capability is sent.
@@ -333,14 +333,14 @@ class Experiment(TrainingPlanWorkflow):
         return self._monitor
 
     @exp_exceptions
-    def capabilities(self) -> Optional[Dict]:
+    def capabilities(self) -> Optional[str]:
         """Retrieves the capability that is attached to every train request.
 
         To set or update the capability:
         [`set_capabilities`][fedbiomed.researcher.federated_workflows.Experiment.set_capabilities].
 
         Returns:
-            The encoded capability, or None if no capability is sent to the nodes.
+            The opaque base64 capability, or None if no capability is sent to the nodes.
         """
         return self._capabilities
 
@@ -758,15 +758,15 @@ class Experiment(TrainingPlanWorkflow):
         self._reduce_disk_usage = reduce_disk_usage
         return self._reduce_disk_usage
 
-    def set_capabilities(self, capabilities: Optional[Dict] = None) -> Optional[Dict]:
+    def set_capabilities(self, capabilities: Optional[str] = None) -> Optional[str]:
         """Sets the capability that is attached to every train request.
 
-        The capability is issued and signed by a third party and is not interpreted by the
+        The capability is an opaque base64 string issued by a third party. It is not interpreted by the
         researcher: it is forwarded unchanged to the nodes, which validate it through their
         guardian service before running training or validation.
 
         Args:
-            capabilities: encoded capability, or None to send no capability. Defaults to None.
+            capabilities: opaque base64 capability, or None to send no capability. Defaults to None.
 
         Returns:
             The capability that is set.
@@ -774,10 +774,12 @@ class Experiment(TrainingPlanWorkflow):
         Raises:
             FedbiomedTypeError: bad capabilities type
         """
-        if capabilities is not None and not isinstance(capabilities, dict):
+        if capabilities is not None and (
+            not isinstance(capabilities, str) or not capabilities.strip()
+        ):
             msg = (
                 ErrorNumbers.FB410.value
-                + f": capabilities should be a dict or None, instead got "
+                + f": capabilities should be a non-empty string or None, instead got "
                 f"{type(capabilities)} "
             )
             logger.critical(msg)

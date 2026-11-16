@@ -15,49 +15,44 @@ The two are independent — the notebooks run fine with no guardian configured
 at all. "Running the brain-segmentation experiment" below is the plain setup;
 "Enabling the capability guardian" adds the policy gate on top.
 
-> **Current status:** the actual HTTP call in `GuardianClient.verify()`
-> (`fedbiomed/node/guardian.py`) is temporarily commented out and always
-> returns `valid=True` — see the "Guardian service verification is currently
-> disabled" note in that file. The wiring described below (config, checksum
-> computation, `Experiment(capabilities=...)`) is all active; only the actual
-> network round-trip and its answer are short-circuited until it's turned
-> back on.
-
 ## Workflow
 
 ```
-Experiment(capabilities={...})
+Experiment(capabilities="<base64 blob>")
         │
 TrainRequest.capabilities  ──────>  Node
                                       │
-                                      │ 1. computes sha256(training_plan_source)
-                                      │ 2. POST {guardian_service}/verify
-                                      │      {capabilities, training_plan_checksum, ...}
-                                      |
+                                      │ 1. computes "sha256:" + sha256(training_plan_source)
+                                      │ 2. POST {guardian_service}/process_capability
+                                      │      {"capability_b64": "<blob>",
+                                      │       "request_context": {"calculated_script_digest": "sha256:..."}}
+                                      │
                               Guardian service
                                       │
-                              {"valid": true/false, "reason": "..."}
+                    200 = allowed, 422 = refused, other/unreachable = error
                                       │
                           ┌───────────┴───────────┐
-                  valid -> train/test      not valid -> round refused,
+                  allowed -> train/test    refused or error -> round refused,
                                            training plan is never imported
 ```
 
-1. A third party (policy engine) signs a training plan and issues a **capability**, for now,
-   in this codebase, just `{"training_plan_checksum": "<sha256 hex>", ...}`.
-   There is no issuance flow yet; the researcher hard-codes it.
-2. The researcher passes that capability to `Experiment(capabilities=...)`. It
-   is attached, unmodified, to every `TrainRequest` sent to the nodes.
+1. A third party (policy engine) issues a **capability** for a training plan. It
+   is an opaque base64 string: real capabilities are encrypted, and neither the
+   researcher nor the node ever parses it. It authorizes one `script_digest`,
+   the `sha256:<hex>` digest of the training plan source.
+2. The researcher passes that string to `Experiment(capabilities=...)`. It is
+   attached, unmodified, to every `TrainRequest` sent to the nodes.
 3. Each node that declares a `guardian_service` in its configuration:
-   - computes `sha256` of the training plan source it actually received,
-   - calls `POST {guardian_service}/verify` with the capability and that
-     checksum,
-   - proceeds with training and validation only if the answer is
-     `{"valid": true}`. A rejection, a malformed answer, or an unreachable
-     guardian all refuse the round (fail closed).
-4. A node with **no** `guardian_service` configured skips this check entirely
-   — existing deployments are unaffected. A capability with no configured
-   guardian, or a request with no capability at all, is likewise skipped.
+   - computes the `sha256:<hex>` digest of the training plan source it
+     actually received,
+   - calls `POST {guardian_service}/process_capability` with the capability
+     and that digest,
+   - proceeds with training and validation only on a success answer. A refusal
+     (`422`), any other status, or an unreachable guardian all refuse the round
+     (fail closed).
+4. A node with **no** `guardian_service` configured skips this check entirely,
+   so existing deployments are unaffected. A request with no capability is
+   skipped as well.
 
 See `fedbiomed/node/guardian.py` for the client and
 `fedbiomed/node/round.py` (`Round._verify_capabilities`) for where the gate is
@@ -154,54 +149,69 @@ the tag registered in step 2. For the pretrained-model path use
 
 ## Enabling the capability guardian
 
-### 1. Start a node with the guardian enabled
+### 1. Start the mock guardian service
 
-First run a guardian service. A development stub that only compares the two
-checksums (no real signature verification) ships at
-`scripts/mock_guardian_server.py`.
+`mock_inference_guardian/` holds a PoC-only copy of the policy team's mock
+inference guardian (see its `README.md` for where it comes from). It answers
+`POST /process_capability` like the real guardian: allowed when the
+capability's `script_digest` equals the digest the node reports, `422`
+otherwise. It does no decryption or signature verification, so do not deploy it.
 
-> Note: no guardian service is running by default, and the HTTP call in
-> `GuardianClient.verify()` is currently short-circuited (see the status note
-> at the top), so this section is wiring-only for now.
+```bash
+python mock_inference_guardian/server.py --port 7900
+```
 
-Then point the node at it, either in the node's `etc/config.ini` under
-`[security]` (e.g. `guys/etc/config.ini`):
+or, in Docker:
+
+```bash
+mock_inference_guardian/build.sh && mock_inference_guardian/run.sh --port 7900
+```
+
+To check it on its own:
+
+```bash
+cd mock_inference_guardian
+python mint_capability.py sha256:abc               # -> ./capability.b64
+python redeem.py -f ./capability.b64 -c sha256:abc   # HTTP 200; any other -c -> 422
+```
+
+### 2. Point the node at it
+
+Either in the node's `etc/config.ini` under `[security]` (e.g. `guys/etc/config.ini`):
 
 ```ini
 [security]
-guardian_service = http://localhost:8000
+guardian_service = http://localhost:7900
 ```
 
 or via environment variable when creating/starting the node:
 
 ```shell
-export FBM_SECURITY_GUARDIAN_SERVICE=http://localhost:8000
-fedbiomed node start
+export FBM_SECURITY_GUARDIAN_SERVICE=http://localhost:7900
+fedbiomed node -p guys start
 ```
 
-Leaving `guardian_service` empty (the default) disables capability validation
-on that node.
+A node running in a container reaches a guardian on the host at
+`http://host.docker.internal:7900`. Leaving `guardian_service` empty (the
+default) disables capability validation on that node.
 
-### 2. Pass a capability to the Experiment
+### 3. Pass a capability to the Experiment
 
-The researcher computes the same checksum the node will compute — a plain
-SHA-256 of the training plan's source — and wraps it in a capability dict:
+The digest must be computed over the exact source the nodes receive. Take it
+from the Experiment's own training plan, not from a fresh
+`UNetValidationPlan()`: the dependency imports are only added to the source
+once the Experiment has set the training plan up. Then mint the capability
+for that digest and attach it:
 
 ```python
 import hashlib
-from fedbiomed.researcher.federated_workflows import Experiment
+import sys
+
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
+from fedbiomed.researcher.federated_workflows import Experiment
 
-training_plan_source = UNetValidationPlan().source()
-checksum = hashlib.sha256(training_plan_source.encode()).hexdigest()
-
-
-# Note: There is no check for the capabilities object schema
-capabilities = {
-    "training_plan_checksum": checksum,
-    "signature": "<issued by the third party>",
-    "issuer": "<authority id>",
-}
+sys.path.append("./mock_inference_guardian")
+from mint_capability import mint_capability
 
 exp = Experiment(
     tags=["brain-segmentation"],
@@ -210,36 +220,35 @@ exp = Experiment(
     training_args=training_args,
     round_limit=num_rounds,
     aggregator=FedAverage(),
-    capabilities=capabilities,
 )
 
+source = exp.training_plan().source()
+digest = "sha256:" + hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+exp.set_capabilities(mint_capability(digest))
 exp.run()
 ```
 
-That's the only change needed on top of the existing
-`brain-segmentation-training.ipynb` cell that builds `exp`. The capability
-also survives `exp.breakpoint()` / `Experiment.load_breakpoint()`, and is
-re-sent on the final validation-only round when `run(test_after=True)` is
-used — a node checks that round too, not just training rounds.
+With a real policy engine, the capability comes from the engine instead of
+`mint_capability`, and is passed the same way, as a string. It can also be
+given directly to `Experiment(capabilities=...)`. The capability survives
+`exp.breakpoint()` / `Experiment.load_breakpoint()`, and is re-sent on the
+final validation-only round when `run(test_after=True)` is used. A node checks
+that round too, not just training rounds.
 
 ### Trying it end to end
 
-While the HTTP call is disabled (see the status note above), every node with
-a `guardian_service` configured accepts every request unconditionally. There
-is no wrong-checksum case to observe yet. Once `GuardianClient.verify()` is
-back to actually calling the service, this is the sequence to exercise the
-full gate:
-
-1. (optional not tested yet) `python scripts/mock_guardian_server.py --port 8000`
-2. Start the node with `guardian_service = http://localhost:8000`.
-3. Run the training notebook with `capabilities` set to the checksum of
-   `UNetValidationPlan` (see "2. Pass a capability to the Experiment")
-4. Change one character in `capabilities["training_plan_checksum"]` and rerun. The node 
-   refuses every round (`success=False`, no training or testing ever runs), and the guardian prints `valid=False`.
-5. Unset `guardian_service` on the node and rerun with the same (now
-   mismatched) capability. The node skips the check and trains normally,
-   confirming the fallback is permissive only when no guardian is configured.
-
-`scripts/mock_guardian_server.py` is a development stub, not a policy
-authority: it does no signature verification, only checksum comparison. Do
-not deploy it.
+1. Start the mock guardian on port 7900 (step 1).
+2. Start the node with `guardian_service = http://localhost:7900` (step 2).
+3. Run the training notebook with a capability minted for the training plan's
+   digest (step 3). Training runs, and the guardian logs
+   `releasing data for authorized script sha256:...`.
+4. Mint the capability for another digest instead, e.g.
+   `mint_capability("sha256:0000")`, and rerun. The node refuses every round
+   (`success=False`, "operation failed": no training or testing ever runs), and
+   the guardian logs `script digest mismatch`.
+5. Stop the guardian and rerun. The node refuses the round with
+   "Could not validate capability with the guardian service" (fail closed).
+6. Unset `guardian_service` on the node and rerun with the mismatched
+   capability. The node skips the check and trains normally: the check is
+   permissive only when no guardian is configured.
