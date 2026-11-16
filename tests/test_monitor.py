@@ -172,6 +172,12 @@ class TestMonitor(unittest.TestCase):
         )
         mock_summary_writer.assert_not_called()
 
+        store = self.monitor.metric_store()
+        self.assertIsInstance(store, MetricStore)
+        self.assertEqual(
+            store["asd123"]["testing_global_updates"]["metric_1"][1]["values"][-1], 12
+        )
+
     @patch("fedbiomed.researcher.monitor.SummaryWriter.close")
     def test_monitor_07_close_writers(self, mock_close):
         """Testing closing writers"""

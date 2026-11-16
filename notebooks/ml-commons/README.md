@@ -11,9 +11,14 @@ This folder holds two pieces:
   each node checks it against a local **guardian service** before it will
   train or validate anything.
 
+> **COVID-CT image classification:** a lighter, two-class use case (two
+> hospitals, non-IID split, `ImageFolderDataset`) is documented in
+> [`README_COVIDCT.md`](README_COVIDCT.md).
+
 The two are independent — the notebooks run fine with no guardian configured
 at all. "Running the brain-segmentation experiment" below is the plain setup;
-"Enabling the capability guardian" adds the policy gate on top.
+"Enabling the capability guardian" adds the policy gate on top, and "Example
+with one node" is the quickest way to try it, using MNIST instead of IXI.
 
 ## Workflow
 
@@ -149,30 +154,35 @@ the tag registered in step 2. For the pretrained-model path use
 
 ## Enabling the capability guardian
 
-### 1. Start the mock guardian service
+### 1. Get and start the mock guardian service
 
-`mock_inference_guardian/` holds a PoC-only copy of the policy team's mock
-inference guardian (see its `README.md` for where it comes from). It answers
-`POST /process_capability` like the real guardian: allowed when the
+The policy team's mock inference guardian lives in
+[hasan7n/tmp-policies](https://github.com/hasan7n/tmp-policies/tree/inference/tools/dev/mock_inference_guardian).
+It answers `POST /process_capability` like the real guardian: allowed when the
 capability's `script_digest` equals the digest the node reports, `422`
-otherwise. It does no decryption or signature verification, so do not deploy it.
+otherwise. It does no decryption or signature verification: it is PoC-only, do
+not deploy it, and drop it once the real guardian is available.
+
+Clone only that folder, pinned to the commit this PoC was tested with, and
+**outside** the Fed-BioMed repository:
 
 ```bash
-python mock_inference_guardian/server.py --port 7900
+git clone --filter=blob:none --sparse --branch inference https://github.com/hasan7n/tmp-policies.git
+cd tmp-policies
+git sparse-checkout set tools/dev/mock_inference_guardian
+git checkout 2f20a348aee9eda088ea7037f8323bc64e1e8491
 ```
 
-or, in Docker:
+Then start it, either directly:
 
 ```bash
-mock_inference_guardian/build.sh && mock_inference_guardian/run.sh --port 7900
+python tools/dev/mock_inference_guardian/server.py --port 7900
 ```
 
-To check it on its own:
+or in Docker:
 
 ```bash
-cd mock_inference_guardian
-python mint_capability.py sha256:abc               # -> ./capability.b64
-python redeem.py -f ./capability.b64 -c sha256:abc   # HTTP 200; any other -c -> 422
+tools/dev/mock_inference_guardian/build.sh && tools/dev/mock_inference_guardian/run.sh --port 7900
 ```
 
 ### 2. Point the node at it
@@ -195,22 +205,38 @@ A node running in a container reaches a guardian on the host at
 `http://host.docker.internal:7900`. Leaving `guardian_service` empty (the
 default) disables capability validation on that node.
 
-### 3. Pass a capability to the Experiment
+> **Proxy:** if an HTTP proxy is configured, in the environment or in the
+> macOS network settings, the node sends the guardian call through it, even
+> for `localhost`. The guardian is then unreachable and every round is refused
+> ("Could not validate capability with the guardian service"). Start the node
+> with `NO_PROXY=localhost,127.0.0.1` in that case.
+
+### 3. Mint a capability and pass it to the Experiment
+
+A real capability comes from the policy engine. For the mock,
+`mint_capability.py` (in this folder) mints one for a given digest. It is a
+Python equivalent of the mock's `capability_generator.sh`, whose
+`base64 -w 0` does not work on macOS. To check the mock on its own:
+
+```bash
+python mint_capability.py sha256:abc    # -> ./capability.b64
+python <tmp-policies>/tools/dev/mock_inference_guardian/redeem.py \
+    -u http://localhost:7900 -f ./capability.b64 -c sha256:abc   # HTTP 200; any other -c -> 422
+```
 
 The digest must be computed over the exact source the nodes receive. Take it
 from the Experiment's own training plan, not from a fresh
 `UNetValidationPlan()`: the dependency imports are only added to the source
 once the Experiment has set the training plan up. Then mint the capability
-for that digest and attach it:
+for that digest and attach it (run from this folder, so that
+`mint_capability` can be imported):
 
 ```python
 import hashlib
-import sys
 
 from fedbiomed.researcher.aggregators.fedavg import FedAverage
 from fedbiomed.researcher.federated_workflows import Experiment
 
-sys.path.append("./mock_inference_guardian")
 from mint_capability import mint_capability
 
 exp = Experiment(
@@ -229,26 +255,76 @@ exp.set_capabilities(mint_capability(digest))
 exp.run()
 ```
 
-With a real policy engine, the capability comes from the engine instead of
-`mint_capability`, and is passed the same way, as a string. It can also be
-given directly to `Experiment(capabilities=...)`. The capability survives
-`exp.breakpoint()` / `Experiment.load_breakpoint()`, and is re-sent on the
-final validation-only round when `run(test_after=True)` is used. A node checks
-that round too, not just training rounds.
+With a real policy engine, the capability is passed the same way, as a string.
+It can also be given directly to `Experiment(capabilities=...)`. The
+capability survives `exp.breakpoint()` / `Experiment.load_breakpoint()`, and is
+re-sent on the final validation-only round when `run(test_after=True)` is used.
+A node checks that round too, not just training rounds.
 
-### Trying it end to end
+## Example with one node
 
-1. Start the mock guardian on port 7900 (step 1).
-2. Start the node with `guardian_service = http://localhost:7900` (step 2).
-3. Run the training notebook with a capability minted for the training plan's
-   digest (step 3). Training runs, and the guardian logs
-   `releasing data for authorized script sha256:...`.
-4. Mint the capability for another digest instead, e.g.
-   `mint_capability("sha256:0000")`, and rerun. The node refuses every round
-   (`success=False`, "operation failed": no training or testing ever runs), and
-   the guardian logs `script digest mismatch`.
-5. Stop the guardian and rerun. The node refuses the round with
-   "Could not validate capability with the guardian service" (fail closed).
-6. Unset `guardian_service` on the node and rerun with the mismatched
-   capability. The node skips the check and trains normally: the check is
+The quickest way to see the guardian at work: one node serving MNIST and
+`guardian_one_node_example.py`, a short MNIST experiment that sends a
+capability. No IXI data is needed. Run everything from this folder, each
+long-running command in its own terminal.
+
+1. Start the mock guardian on port 7900 (see "1. Get and start the mock
+   guardian service").
+
+2. Create the node with the guardian enabled, and add MNIST to it:
+
+   ```bash
+   FBM_SECURITY_GUARDIAN_SERVICE=http://localhost:7900 \
+       fedbiomed component create -c node -p ./guardian-node
+   fedbiomed node -p ./guardian-node dataset add --mnist ./guardian-node/data
+   ```
+
+3. Start the node (`NO_PROXY`: see the proxy note in "2. Point the node at it"):
+
+   ```bash
+   NO_PROXY=localhost,127.0.0.1 fedbiomed node -p ./guardian-node start
+   ```
+
+4. Create a researcher component and run the example once per scenario:
+
+   ```bash
+   fedbiomed component create -c researcher -p ./guardian-researcher
+   export FBM_RESEARCHER_COMPONENT_ROOT=./guardian-researcher
+
+   python guardian_one_node_example.py --capability valid
+   python guardian_one_node_example.py --capability invalid
+   python guardian_one_node_example.py --capability none
+   ```
+
+   The script prints the training plan digest, then each run should end as follows:
+
+   | Scenario | Capability sent | Node | Guardian log | Researcher |
+   |---|---|---|---|---|
+   | `valid` | minted for the plan's digest | trains | `releasing data for authorized script sha256:...`, `200` | `Completed rounds: [0, 1]` |
+   | `invalid` | minted for `sha256:000...` | refuses: "Capability is rejected ... operation failed" | `script digest mismatch`, `422` | stops with `FB402` (no node replied successfully) |
+   | `none` | none | skips the check and trains | no request | `Completed rounds: [0, 1]` |
+
+   To see the fail-closed case, stop the guardian and run `--capability valid`
+   again: the node refuses with "Could not validate capability with the
+   guardian service".
+
+5. Stop the node with Ctrl-C in its terminal, or
+   `fedbiomed node -p ./guardian-node stop`. Don't just kill the `fedbiomed`
+   process: the node runs in a child process
+   (`python -m fedbiomed.node.node_pm`) that keeps running.
+
+## Trying it with the brain-segmentation experiment
+
+The same checks apply to the IXI setup from "Running the brain-segmentation
+experiment":
+
+1. Start the mock guardian, and the nodes with
+   `guardian_service = http://localhost:7900` (steps 1 and 2 above).
+2. Run the training notebook with a capability minted for the training plan's
+   digest (step 3). Training runs on every node.
+3. Mint the capability for another digest instead, e.g.
+   `mint_capability("sha256:0000")`, and rerun. Every node refuses its rounds,
+   so no training or testing runs.
+4. Unset `guardian_service` on one node and rerun with the mismatched
+   capability. That node skips the check and trains normally: the check is
    permissive only when no guardian is configured.

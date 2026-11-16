@@ -254,6 +254,16 @@ class Monitor:
 
         return self._round
 
+    def metric_store(self) -> MetricStore:
+        """Retrieves the training loss and validation metric values received from nodes.
+
+        Returns:
+            Values stored as `{node_id: {for_: {metric_name: {round: {"iterations": [...],
+                "values": [...]}}}}}`, where `for_` is one of `training`,
+                `testing_global_updates` or `testing_local_updates`.
+        """
+        return self._metric_store
+
     def on_message_handler(self, msg: Dict[str, Any]):
         """Handler for messages received through general/monitoring channel. This method is used as callback function
         in Requests class

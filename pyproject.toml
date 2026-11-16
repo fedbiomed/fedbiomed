@@ -243,8 +243,6 @@ exclude = [
     "dist",
     "node_modules",
     "site-packages",
-    # PoC-only verbatim copy of the policy team's mock guardian, kept as is
-    "notebooks/ml-commons/mock_inference_guardian",
 ]
 
 # Same as Black.
