@@ -1,0 +1,15 @@
+[project]
+name = "fedbiomed-development"
+version = "0.0.0"
+requires-python = ">=3.11,<3.15"
+dependencies = []
+
+[tool.pdm]
+distribution = false
+
+[tool.pdm.workspace]
+members = [
+    "packages/fedbiomed",
+    "packages/node-api",
+    "packages/node-ui",
+]

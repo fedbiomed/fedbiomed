@@ -3,4 +3,4 @@
 
 """Fed-BioMed Node HTTP API, independent of frontend assets."""
 
-__version__ = "v6.4.1"
+__version__ = "v6.5.0"

@@ -1,11 +1,12 @@
 [project]
 name = "fedbiomed-gui"
-version = "6.4.1"
+version = "6.5.0"
 description = "Fed-BioMed Node GUI launcher and frontend"
 requires-python = ">=3.11,<3.15"
 readme = "README.md"
 license = {text = "Apache 2.0"}
-dependencies = ["fedbiomed-node-api==6.4.1"]
+
+dependencies = ["fedbiomed-node-api==6.5.0"]
 
 [project.urls]
 Homepage = "https://fedbiomed.org"
