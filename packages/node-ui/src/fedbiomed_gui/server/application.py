@@ -1,9 +1,11 @@
 """Compose the Node API with the built React frontend."""
 
 from pathlib import Path
+from shlex import quote
+
+from flask import send_from_directory
 
 from fedbiomed_node_api.application import create_app as create_api_app
-from flask import send_from_directory
 
 
 def create_app(node_root=None, overrides=None, build_dir=None):
@@ -19,6 +21,16 @@ def create_app(node_root=None, overrides=None, build_dir=None):
         assets = package_assets_location
     else:
         assets = source_assets_location
+
+    if not (assets / "index.html").is_file():
+        node_path = quote(str(app.config["NODE_FEDBIOMED_ROOT"]))
+        raise RuntimeError(
+            f"GUI frontend assets are missing: {assets / 'index.html'}. "
+            "Build them from a source checkout with Node.js and Yarn installed: "
+            f"fedbiomed node --path {node_path} gui start --recreate. "
+            "If installed from a wheel, reinstall fedbiomed-gui to restore "
+            "the packaged frontend assets."
+        )
 
     app.static_folder = str(assets)
     app.add_url_rule("/build/<path:filename>", "static", app.send_static_file)

@@ -12,9 +12,14 @@ editable installation and PDM group selection, see the
 Run the API without frontend assets against an existing node:
 
 ```sh
-FBM_NODE_COMPONENT_ROOT=/path/to/node DATA_PATH=/path/to/data \
-  python -m gunicorn --workers 1 --bind 127.0.0.1:8484 fedbiomed_node_api.wsgi:app
+fedbiomed node --path /path/to/node api start --data-folder /path/to/data
 ```
+
+The default is HTTP on `localhost:8484`. Use `--host` and `--port` to change
+the address, or supply both `--cert-file` and `--key-file` for HTTPS.
+`--development` selects Flask; add `--debug` to enable its debugger and reloader.
+If the API package is missing, the CLI prints the matching `fedbiomed[node-api]`
+installation command. API-only startup does not require the GUI or Yarn.
 
 The existing `fedbiomed node ... gui` command and
 `fedbiomed_gui.server.wsgi:app` continue to serve both the GUI and API.

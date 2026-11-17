@@ -2,13 +2,63 @@ import argparse
 import contextlib
 import io
 import os
+import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
 from fedbiomed.cli import ComponentParser, run
+
+
+@pytest.mark.parametrize(
+    "arguments,expected_code,extra",
+    [
+        (["--help"], 0, None),
+        (["node", "--help"], 0, None),
+        (["node", "api", "start", "--help"], 0, None),
+        (["node", "gui", "start", "--help"], 0, None),
+        (["node", "dataset", "list"], 0, None),
+        (["node", "certificate", "list"], 0, None),
+        (["node", "api", "start"], 1, "node-api"),
+        (["node", "gui", "start"], 1, "gui"),
+    ],
+)
+def test_cli_without_optional_web_packages(tmp_path, arguments, expected_code, extra):
+    # Test in a fresh process: already-imported modules in pytest must not hide
+    # an eager import. Block web dependencies even if the developer installed them.
+    script = """
+        import sys
+        class NoWebPackages:
+            def find_spec(self, fullname, path=None, target=None):
+                if fullname.split('.')[0] in {
+                    'fedbiomed_node_api', 'fedbiomed_gui', 'flask',
+                    'flask_jwt_extended', 'gunicorn', 'cachelib', 'jsonschema',
+                }:
+                    raise ModuleNotFoundError(f'No module named {fullname!r}', name=fullname)
+        sys.meta_path.insert(0, NoWebPackages())
+        from fedbiomed.cli import run
+        run()
+    """
+    (tmp_path / "fbm-node").mkdir()
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
+    result = subprocess.run(
+        [sys.executable, "-c", textwrap.dedent(script), *arguments],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    assert result.returncode == expected_code, result.stdout + result.stderr
+    assert "Traceback" not in result.stderr
+    if extra:
+        assert f"fedbiomed[{extra}]==" in result.stdout
 
 
 class TestComponentParser(unittest.TestCase):

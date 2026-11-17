@@ -20,3 +20,8 @@ pdm run fedbiomed node --path /path/to/node gui start
 The default is HTTP on `localhost:8484`. Supply both `--cert-file` and
 `--key-file` for HTTPS. See the [GUI guide](../docs/user-guide/nodes/node-gui.md)
 for configuration.
+
+If the GUI package is missing, the CLI prints the matching `fedbiomed[gui]`
+installation command. Normal startup uses the packaged frontend without Yarn.
+Use `--development --debug` for the Flask debugger and reloader, and `--recreate`
+to rebuild the frontend from a source checkout with Yarn before starting.

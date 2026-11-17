@@ -10,13 +10,15 @@ import importlib
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
-from pathlib import Path
 from typing import Dict, List, Optional
 
+from packaging.version import Version
 from tabulate import tabulate
 
+from fedbiomed import __version__
 from fedbiomed.common.cli import (
     CLIArgumentParser,
     CommonCLI,
@@ -642,185 +644,194 @@ class NodeControl(CLIArgumentParser):
             )
 
 
-class GUIControl(CLIArgumentParser):
+class _WebServerControl(CLIArgumentParser):
+    """Shared command options and process lifecycle for optional web servers."""
+
     _context: NodeContext
+    command: str
+    module: str
+    extra: str
+    application: str
 
     def initialize(self):
-        """Initializes GUI commands"""
         self._parser = self._subparser.add_parser(
-            "gui",  # add_help=False,
-            help="Action to manage Node user interface",
+            self.command, help=f"Manage the Node {self.command.upper()} server"
         )
-
-        gui_subparsers = self._parser.add_subparsers(title="start GUI")
-        start = gui_subparsers.add_parser(
-            "start", help="Launch the server (defaults on localhost:8484)"
+        commands = self._parser.add_subparsers()
+        start = commands.add_parser(
+            "start", help="Launch the server (defaults to localhost:8484)"
         )
-
         start.set_defaults(func=self.forward)
-
-        start.add_argument(
-            "--data-folder",
-            "-df",
-            type=str,
-            nargs="?",
-            default="",  # data folder in root directory
-            required=False,
-        )
-
-        start.add_argument(
-            "--cert-file",
-            "-cf",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of the certificate to use in order to enable HTTPS. "
-            "If cert file doesn't exist script will raise an error.",
-        )
-
-        start.add_argument(
-            "--key-file",
-            "-kf",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of the private key for the SSL certificate. "
-            "If the key file doesn't exist, the script will raise an error.",
-        )
-
-        start.add_argument(
-            "--port",
-            "-p",
-            type=str,
-            nargs="?",
-            default="8484",
-            required=False,
-            help="HTTP port that GUI will be served. Default is `8484`",
-        )
-
-        start.add_argument(
-            "--host",
-            "-ho",
-            type=str,
-            default="localhost",
-            nargs="?",
-            required=False,
-            help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)",
-        )
-
-        start.add_argument(
-            "--debug",
-            "-dbg",
-            action="store_true",
-            required=False,
-            help="Debug mode for the GUI. Default is `False`",
-        )
-
-        start.add_argument(
-            "--recreate",
-            "-rc",
-            action="store_true",
-            required=False,
-            help="Rebuilds the user interface from its sources (`yarn install`, "
-            "`yarn build`) before starting the GUI",
-        )
-
+        start.add_argument("--data-folder", "-df", default="")
+        start.add_argument("--cert-file", "-cf", help="HTTPS certificate file")
+        start.add_argument("--key-file", "-kf", help="HTTPS private key file")
+        start.add_argument("--port", "-p", default="8484")
+        start.add_argument("--host", "-ho", default="localhost")
         start.add_argument(
             "--development",
             "-dev",
             action="store_true",
-            required=False,
-            help="If it is set, GUI will start in development mode.",
+            help="Use the Flask development server",
         )
+        start.add_argument(
+            "--debug",
+            "-dbg",
+            action="store_true",
+            help="Enable Flask debugging (requires --development)",
+        )
+        self._add_options(start)
+
+    def _add_options(self, start):
+        """Add options specific to one web server."""
+
+    def _prepare(self, package, args):
+        """Prepare assets, if this server needs them."""
 
     def forward(self, args: argparse.Namespace, extra_args):
-        """Launches Fed-BioMed Node GUI
+        # This handler accepts no passthrough arguments. Validate before launching.
+        if extra_args:
+            self._parser.error("unrecognized arguments: " + " ".join(extra_args))
+        try:
+            self._start(args)
+        except (FedbiomedError, OSError) as exc:
+            CommonCLI.error(str(exc))
 
-        Args:
-            args: parser argument's namespace
-        """
+    def _start(self, args):
+        if bool(args.key_file) != bool(args.cert_file):
+            raise FedbiomedError("HTTPS requires both --cert-file and --key-file.")
+        if args.debug and not args.development:
+            raise FedbiomedError("--debug requires --development.")
 
-        fedbiomed_root = os.path.abspath(args.path)
+        try:
+            package = importlib.import_module(self.module)
+        except ModuleNotFoundError as exc:
+            if exc.name != self.module:
+                raise  # Do not disguise a broken package as an absent optional one.
+            version = Version(__version__)
+            raise FedbiomedError(
+                f"The optional package {self.module.replace('_', '-')} is not installed. "
+                f'Install it with: python -m pip install "fedbiomed[{self.extra}]=={version}"'
+            ) from exc
 
-        if args.data_folder == "":
-            data_folder = os.path.join(self._context.config.root, NODE_DATA_FOLDER)
-        else:
-            data_folder = os.path.abspath(args.data_folder)
+        data_folder = os.path.abspath(
+            args.data_folder
+            or os.path.join(self._context.config.root, NODE_DATA_FOLDER)
+        )
         if not os.path.isdir(data_folder):
             raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
-        os.environ.update(
-            {
-                "DATA_PATH": data_folder,
-                "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
-            }
-        )
         current_env = os.environ.copy()
+        current_env.update(
+            DATA_PATH=data_folder, FBM_NODE_COMPONENT_ROOT=os.path.abspath(args.path)
+        )
+        self._prepare(package, args)
 
-        if args.key_file and args.cert_file:
-            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file]
-        else:
-            certificate = []
-
-        fedbiomed_gui = importlib.import_module("fedbiomed_gui")
-        server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
-        print("path to server", server_app)
-
-        # The server serves the bundle built from `ui`, so changes to its sources
-        # show only once it is rebuilt, the way `hatch_build.py` builds it
-        if args.recreate:
-            try:
-                ui_folder = fedbiomed_gui.get_frontend_source_dir()
-            except FileNotFoundError as exc:
-                raise FedbiomedError(str(exc)) from exc
-
-            yarn = shutil.which("yarn")
-            if yarn is None:
-                raise FedbiomedError("NodeJS `yarn` is required to rebuild the GUI.")
-
-            try:
-                subprocess.run([yarn, "install"], cwd=ui_folder, check=True)
-                subprocess.run([yarn, "build"], cwd=ui_folder, check=True)
-            except subprocess.CalledProcessError as exp:
-                raise FedbiomedError(
-                    f"Rebuilding the GUI failed: `yarn {exp.cmd[1]}` exited with "
-                    f"code {exp.returncode}."
-                ) from exp
-
-        host_port = ["--host", args.host, "--port", args.port]
         if args.development:
-            command = [
-                "FLASK_ENV=development",
-                "flask",
-                "--app",
-                "fedbiomed_gui.server.wsgi:app",
-                "run",
-                *host_port,
-                *certificate,
-            ]
+            command = [sys.executable, "-m", "flask", "--app", self.application]
+            # Explicitly override an inherited FLASK_DEBUG value.
+            command.append("--debug" if args.debug else "--no-debug")
+            command += ["run", "--host", args.host, "--port", args.port]
+            if args.cert_file:
+                command += ["--cert", args.cert_file, "--key", args.key_file]
         else:
             command = [
+                sys.executable,
+                "-m",
                 "gunicorn",
                 "--workers",
                 "1",
-                # str(os.cpu_count()),
-                *certificate,
                 "-b",
                 f"{args.host}:{args.port}",
                 "--access-logfile",
                 "-",
-                "fedbiomed_gui.server.wsgi:app",
             ]
+            if args.cert_file:
+                command += ["--certfile", args.cert_file, "--keyfile", args.key_file]
+            command.append(self.application)
+        self._run_server(command, current_env)
 
-        try:
-            with subprocess.Popen(
-                " ".join(command), env=current_env, shell=True
-            ) as proc:
+    @staticmethod
+    def _run_server(command, env):
+        # Give the server and its workers/reloader their own process group so a
+        # signal sent only to the CLI (for example by supervisor) stops them all.
+        with subprocess.Popen(command, env=env, start_new_session=True) as proc:
+            received_signal = signal.SIGINT
+
+            def interrupt(signum, frame):
+                nonlocal received_signal
+                received_signal = signum
+                raise KeyboardInterrupt
+
+            previous = {
+                signum: signal.signal(signum, interrupt)
+                for signum in (signal.SIGINT, signal.SIGTERM)
+            }
+            try:
                 try:
-                    proc.wait()
+                    returncode = proc.wait()
                 except KeyboardInterrupt:
-                    proc.wait()
-        except Exception as e:
-            print(e)
+                    try:
+                        os.killpg(proc.pid, received_signal)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        try:
+                            os.killpg(proc.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        proc.wait()
+                    returncode = 128 + received_signal
+            finally:
+                for signum, handler in previous.items():
+                    signal.signal(signum, handler)
+            if returncode:
+                raise SystemExit(returncode if returncode > 0 else 128 - returncode)
+
+
+class APIControl(_WebServerControl):
+    """Launch the optional HTTP API without frontend dependencies."""
+
+    command = "api"
+    module = "fedbiomed_node_api"
+    extra = "node-api"
+    application = "fedbiomed_node_api.wsgi:app"
+
+
+class GUIControl(_WebServerControl):
+    """Launch the optional GUI and its HTTP API."""
+
+    command = "gui"
+    module = "fedbiomed_gui"
+    extra = "gui"
+    application = "fedbiomed_gui.server.wsgi:app"
+
+    def _add_options(self, start):
+        start.add_argument(
+            "--recreate",
+            "-rc",
+            action="store_true",
+            help="Rebuild the UI from its sources before starting the GUI",
+        )
+
+    def _prepare(self, package, args):
+        if not args.recreate:
+            return
+        try:
+            ui_folder = package.get_frontend_source_dir()
+        except FileNotFoundError as exc:
+            raise FedbiomedError(str(exc)) from exc
+        yarn = shutil.which("yarn")
+        if yarn is None:
+            raise FedbiomedError("NodeJS `yarn` is required to rebuild the GUI.")
+        try:
+            subprocess.run([yarn, "install"], cwd=ui_folder, check=True)
+            subprocess.run([yarn, "build"], cwd=ui_folder, check=True)
+        except subprocess.CalledProcessError as exc:
+            raise FedbiomedError(
+                f"Rebuilding the GUI failed: `yarn {exc.cmd[1]}` exited with "
+                f"code {exc.returncode}."
+            ) from exc
 
 
 class NodeCLI(CommonCLI):
@@ -836,6 +847,7 @@ class NodeCLI(CommonCLI):
         NodeControl,
         DatasetArgumentParser,
         TrainingPlanArgumentParser,
+        APIControl,
         GUIControl,
     ]
     _arg_parsers: Dict[str, CLIArgumentParser] = {}
