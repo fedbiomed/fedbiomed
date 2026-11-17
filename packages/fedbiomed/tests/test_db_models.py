@@ -1,0 +1,191 @@
+import pytest
+from sqlalchemy import delete, inspect, text
+
+from fedbiomed.common.db import _engine, session_factory
+from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.node.db_models import Dataset, Dlb, Dlp, DynamicDataset
+
+
+@pytest.fixture
+def db_path(tmp_path):
+    return str(tmp_path / "node.sqlite")
+
+
+@pytest.fixture
+def sessions(db_path):
+    return session_factory(db_path, [Dataset, DynamicDataset, Dlp, Dlb])
+
+
+def _dataset(**kwargs):
+    return {
+        "name": "n",
+        "data_type": "csv",
+        "tags": ["t"],
+        "description": "d",
+        "path": "/data",
+        "shape": [10, 2],
+        "dtypes": {"c": "int"},
+        **kwargs,
+    }
+
+
+def _dynamic_dataset(**kwargs):
+    return {
+        "path": "/data/dyn",
+        "researcher_id": "r",
+        "experiment_id": "e",
+        "processing_id": "p",
+        "parent_dataset_id": "dataset_1",
+        **kwargs,
+    }
+
+
+def _dlp(**kwargs):
+    return {
+        "dlp_id": "dlp_1",
+        "dlp_name": "plan",
+        "target_dataset_type": "medical-folder",
+        "loading_blocks": {"key": "dlb_1"},
+        "key_paths": {"key": ["a", "b"]},
+        **kwargs,
+    }
+
+
+def _dlb(**kwargs):
+    return {
+        "dlb_id": "dlb_1",
+        "loading_block_class": "Block",
+        "loading_block_module": "module",
+        "map": {"k": ["v"]},
+        **kwargs,
+    }
+
+
+def _add(sessions, *entries):
+    with sessions.begin() as session:
+        session.add_all(entries)
+
+
+@pytest.mark.parametrize(
+    "model, data, prefix",
+    [
+        (Dataset, _dataset(), "dataset_"),
+        (DynamicDataset, _dynamic_dataset(), "dynamic_dataset_"),
+    ],
+)
+def test_dataset_id_is_generated_unless_given(model, data, prefix):
+    assert model.from_dict(data).dataset_id.startswith(prefix)
+    assert model.from_dict({**data, "dataset_id": "given"}).dataset_id == "given"
+
+
+@pytest.mark.parametrize(
+    "model, entry_id, data",
+    [
+        (
+            Dataset,
+            "d1",
+            _dataset(dataset_id="d1", shape={"m": [1]}, dataset_parameters={"a": [1]}),
+        ),
+        (DynamicDataset, "d1", _dynamic_dataset(dataset_id="d1")),
+        (Dlp, "dlp_1", _dlp()),
+        (Dlb, "dlb_1", _dlb()),
+    ],
+)
+def test_entry_round_trip(sessions, model, entry_id, data):
+    _add(sessions, model.from_dict(data))
+    with sessions.begin() as session:
+        assert session.get(model, entry_id).to_dict() == data
+
+
+@pytest.mark.parametrize(
+    "model, data, field",
+    [
+        (Dataset, _dataset(data_type="tabular"), "Dataset.data_type"),
+        (
+            DynamicDataset,
+            _dynamic_dataset(data_type="tabular"),
+            "DynamicDataset.data_type",
+        ),
+        (Dlp, _dlp(target_dataset_type="tabular"), "Dlp.target_dataset_type"),
+    ],
+)
+def test_dataset_type_must_be_a_dataset_types_value(sessions, model, data, field):
+    with pytest.raises(FedbiomedError, match=f"FB632.*{field}: 'tabular' is not one"):
+        _add(sessions, model.from_dict(data))
+
+
+def test_dynamic_dataset_accepts_unset_data_type(sessions):
+    _add(sessions, DynamicDataset.from_dict(_dynamic_dataset()))
+
+
+@pytest.mark.parametrize(
+    "model, data, field",
+    [
+        (Dataset, _dataset(tags="t"), "Dataset.tags"),
+        (Dataset, _dataset(shape=["x"]), "Dataset.shape"),
+        (DynamicDataset, _dynamic_dataset(dtypes={"c": 1}), "DynamicDataset.dtypes"),
+        (Dlp, _dlp(key_paths={"key": "a"}), "Dlp.key_paths"),
+        (Dlb, _dlb(map={"k": "v"}), "Dlb.map"),
+    ],
+)
+def test_json_content_must_match_the_column(sessions, model, data, field):
+    with pytest.raises(FedbiomedError, match=f"FB632.*{field}: expected"):
+        _add(sessions, model.from_dict(data))
+
+
+def test_dlp_name_needs_four_characters(sessions):
+    with pytest.raises(FedbiomedError, match="FB316.*at least 4 characters"):
+        _add(sessions, Dlp.from_dict(_dlp(dlp_name="abc")))
+
+
+def test_dlp_name_is_unique(sessions):
+    _add(sessions, Dlp.from_dict(_dlp()))
+    with pytest.raises(
+        FedbiomedError, match="FB634.*UNIQUE constraint failed: Dlps.dlp_name"
+    ):
+        _add(sessions, Dlp.from_dict(_dlp(dlp_id="dlp_2")))
+
+
+@pytest.mark.parametrize(
+    "dlp_name, target_dataset_type",
+    [("abc", "csv"), ("plan", "tabular")],
+)
+def test_database_refuses_what_validation_would_refuse(
+    sessions, dlp_name, target_dataset_type
+):
+    # Raw SQL: neither the model validation nor SQLAlchemy's Enum check runs
+    statement = text(
+        "INSERT INTO Dlps VALUES ('dlp_1', :name, :target, '{}', '{}')"
+    ).bindparams(name=dlp_name, target=target_dataset_type)
+    with pytest.raises(FedbiomedError, match="FB634.*CHECK constraint failed"):
+        with sessions.begin() as session:
+            session.execute(statement)
+
+
+def test_dataset_and_its_dlp_are_saved_in_one_transaction(sessions):
+    _add(sessions, Dataset.from_dict(_dataset(dlp_id="dlp_1")), Dlp.from_dict(_dlp()))
+
+
+def test_dataset_refuses_unknown_dlp(sessions):
+    with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
+        _add(sessions, Dataset.from_dict(_dataset(dlp_id="unknown")))
+
+
+def test_dlp_in_use_cannot_be_deleted(sessions):
+    _add(sessions, Dlp.from_dict(_dlp()), Dataset.from_dict(_dataset(dlp_id="dlp_1")))
+    with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
+        with sessions.begin() as session:
+            session.execute(delete(Dlp).where(Dlp.dlp_id == "dlp_1"))
+
+
+def test_dlp_not_in_use_can_be_deleted(sessions):
+    _add(sessions, Dlp.from_dict(_dlp()))
+    with sessions.begin() as session:
+        session.delete(session.get(Dlp, "dlp_1"))
+    with sessions.begin() as session:
+        assert session.get(Dlp, "dlp_1") is None
+
+
+def test_dynamic_dataset_parent_is_indexed(db_path, sessions):
+    indexes = inspect(_engine(db_path)).get_indexes("DynamicDatasets")
+    assert [index["column_names"] for index in indexes] == [["parent_dataset_id"]]

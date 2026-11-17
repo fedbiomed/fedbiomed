@@ -7,11 +7,27 @@ Interfaces with a tinyDB database for converting search results to dict.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Union
+import types
+from functools import cache
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Self,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
+from sqlalchemy import JSON, Engine, create_engine, event, inspect
+from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Session, sessionmaker
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
 
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
@@ -377,3 +393,146 @@ class TinyTableConnector:
             update, self._query[self._id_name] == id_value, stacklevel=4
         )
         return self.get_by_id(id_value)
+
+
+class Base(MappedAsDataclass, DeclarativeBase, kw_only=True):
+    """Parent of the ORM models.
+
+    Models are dataclasses: the constructor takes keyword arguments only and
+    refuses unknown or missing fields.
+
+    An entry is checked as a whole by `validate`, right before the session
+    writes it, for an insert (`session.add`) as for an update (fields
+    assigned on a loaded entry). Changes are written when the
+    `with factory.begin()` block ends; a JSON value changed in place
+    (`entry.tags.append(...)`) is not seen as a change: assign a new value.
+    """
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        """Builds a row from an entry, refusing unknown or missing fields."""
+        try:
+            return cls(**data)
+        except TypeError as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Invalid data input for {cls.__name__}: {e}"
+            ) from e
+
+    def to_dict(self) -> dict:
+        """Returns the row's columns as a dict, without the ones that are not set."""
+        columns = (attr.key for attr in inspect(self).mapper.column_attrs)
+        return {k: v for k in columns if (v := getattr(self, k)) is not None}
+
+    def validate(self) -> None:
+        """Checks the entry before it is written.
+
+        JSON values must match their column annotation
+        (`Mapped[dict[str, list[str]]]`). Models with more rules override this
+        method and call it first.
+
+        Raises:
+            FedbiomedError: a value does not match its column.
+        """
+        hints = get_type_hints(type(self))
+        for column_attr in inspect(self).mapper.column_attrs:
+            if not isinstance(column_attr.columns[0].type, JSON):
+                continue
+            key = column_attr.key
+            (expected,) = get_args(hints[key])
+            value = getattr(self, key)
+            if not _matches(value, expected):
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Invalid data input for "
+                    f"{type(self).__name__}.{key}: expected {expected}, got "
+                    f"{printtable_args_for_log({key: value})}"
+                )
+
+
+def _matches(value: Any, expected: Any) -> bool:
+    """Whether a JSON value matches a type annotation (list, dict, union, Any)."""
+    origin = get_origin(expected)
+    if expected is Any:
+        return True
+    if origin in (Union, types.UnionType):
+        return any(_matches(value, option) for option in get_args(expected))
+    if origin is list:
+        (item_type,) = get_args(expected)
+        return isinstance(value, list) and all(_matches(v, item_type) for v in value)
+    if origin is dict:
+        key_type, value_type = get_args(expected)
+        return isinstance(value, dict) and all(
+            _matches(k, key_type) and _matches(v, value_type) for k, v in value.items()
+        )
+    if expected is type(None):
+        return value is None
+    return isinstance(value, expected)
+
+
+def _validate_entries(session: Session, _flush_context, _instances) -> None:
+    """Validates the entries the session is about to insert or update."""
+    for entry in (*session.new, *session.dirty):
+        entry.validate()
+
+
+def _on_connect(dbapi_connection, _connection_record) -> None:
+    """Configures each new SQLite connection.
+
+    The driver's own transaction handling is disabled so that `_on_begin`
+    decides how transactions start.
+    """
+    dbapi_connection.isolation_level = None
+    cursor = dbapi_connection.cursor()
+    # WAL: readers do not block the writer, across processes
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
+def _on_begin(connection) -> None:
+    """Starts every transaction with the write lock.
+
+    Rules checked before writing (tag conflicts) then hold against other
+    processes using the same file.
+    """
+    connection.exec_driver_sql("BEGIN IMMEDIATE")
+
+
+def _on_error(context) -> None:
+    """Raises a database error as `FedbiomedError`.
+
+    The message keeps SQLite's reason and the failing statement; the
+    statement's parameters are left out, as they may hold sensitive values.
+    """
+    raise FedbiomedError(
+        f"{ErrorNumbers.FB634.value}: {context.original_exception}; "
+        f"statement: {context.statement}"
+    ) from context.original_exception
+
+
+@cache
+def _engine(path: str) -> Engine:
+    """Returns the engine of a database file, one per file and process."""
+    # timeout: seconds to wait for another process holding the write lock
+    engine = create_engine(f"sqlite:///{path}", connect_args={"timeout": 30})
+    event.listen(engine, "connect", _on_connect)
+    event.listen(engine, "begin", _on_begin)
+    event.listen(engine, "handle_error", _on_error)
+    return engine
+
+
+def session_factory(path: str, models: List[type[Base]]) -> sessionmaker[Session]:
+    """Returns the session factory of a database file.
+
+    Creates the tables of `models` that do not exist yet. Each
+    `with factory.begin() as session:` block is one transaction, committed at
+    the end or rolled back on error. Objects stay usable after the block.
+
+    Args:
+        path: Path of the SQLite file of the component.
+        models: Models whose tables the caller uses.
+    """
+    engine = _engine(path)
+    Base.metadata.create_all(engine, tables=[model.__table__ for model in models])
+    factory = sessionmaker(engine, expire_on_commit=False)
+    event.listen(factory, "before_flush", _validate_entries)
+    return factory
