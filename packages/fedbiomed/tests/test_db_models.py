@@ -1,6 +1,7 @@
 import pytest
-from sqlalchemy import delete, inspect, text
+from sqlalchemy import delete, inspect, select, text
 
+import fedbiomed.common.db as db_mod
 from fedbiomed.common.db import _engine, session_factory
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.db_models import Dataset, Dlb, Dlp, DynamicDataset
@@ -184,6 +185,22 @@ def test_dlp_not_in_use_can_be_deleted(sessions):
         session.delete(session.get(Dlp, "dlp_1"))
     with sessions.begin() as session:
         assert session.get(Dlp, "dlp_1") is None
+
+
+def test_dlp_loaded_from_its_dataset_is_logged_as_read(sessions, monkeypatch):
+    _add(sessions, Dlp.from_dict(_dlp()), Dataset.from_dict(_dataset(dlp_id="dlp_1")))
+    tables = []
+    monkeypatch.setattr(
+        db_mod.logger,
+        "security_event",
+        lambda **fields: tables.append((fields["operation"], fields["table"])),
+    )
+
+    with sessions.begin() as session:
+        dataset = session.scalars(select(Dataset)).one()
+        assert dataset.dlp.dlp_name == "plan"
+
+    assert tables == [("select", "Datasets"), ("select", "Dlps")]
 
 
 def test_dynamic_dataset_parent_is_indexed(db_path, sessions):

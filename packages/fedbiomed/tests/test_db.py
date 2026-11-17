@@ -1,13 +1,15 @@
+import inspect as pyinspect
 import sqlite3
 import threading
 import time
 from typing import Any
 
 import pytest
-from sqlalchemy import JSON, event, inspect
+from sqlalchemy import JSON, delete, event, inspect, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
-from fedbiomed.common.db import Base, _engine, _matches, session_factory
+import fedbiomed.common.db as db_mod
+from fedbiomed.common.db import REDACTED, Base, _engine, _matches, session_factory
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -35,6 +37,27 @@ class Secret(Base):
     key: Mapped[dict[str, str]] = mapped_column(JSON)
 
 
+class WriteItem(Base):
+    __tablename__ = "TestWriteItems"
+    __log_level__ = "writes"
+
+    item_id: Mapped[str] = mapped_column(primary_key=True)
+
+
+class QuietItem(Base):
+    __tablename__ = "TestQuietItems"
+    __log_level__ = "none"
+
+    item_id: Mapped[str] = mapped_column(primary_key=True)
+
+
+class TypoItem(Base):
+    __tablename__ = "TestTypoItems"
+    __log_level__ = "write"
+
+    item_id: Mapped[str] = mapped_column(primary_key=True)
+
+
 @pytest.fixture
 def db_path(tmp_path):
     return str(tmp_path / "db.sqlite")
@@ -42,7 +65,22 @@ def db_path(tmp_path):
 
 @pytest.fixture
 def sessions(db_path):
-    return session_factory(db_path, [Item])
+    return session_factory(db_path, [Item, Secret, WriteItem, QuietItem])
+
+
+@pytest.fixture
+def events(monkeypatch):
+    """Security events written, with the function `stacklevel` points to."""
+    written = []
+
+    def security_event(stacklevel, **fields):
+        frame = pyinspect.currentframe()
+        for _ in range(stacklevel):
+            frame = frame.f_back
+        written.append({**fields, "caller": frame.f_code.co_name})
+
+    monkeypatch.setattr(db_mod.logger, "security_event", security_event)
+    return written
 
 
 def _item(**kwargs):
@@ -183,6 +221,125 @@ def test_database_error_keeps_reason_and_statement_without_parameters(sessions):
     assert "UNIQUE constraint failed: TestItems.item_id" in message
     assert 'INSERT INTO "TestItems"' in message
     assert "hidden-value" not in message
+
+
+def test_session_factory_refuses_unknown_log_level(db_path):
+    with pytest.raises(
+        FedbiomedError, match="FB634.*TypoItem.__log_level__ is 'write'"
+    ):
+        session_factory(db_path, [TypoItem])
+
+
+def test_writes_are_logged_after_commit_with_caller(sessions, events):
+    with sessions.begin() as session:
+        session.add(Item.from_dict(_item()))
+        session.flush()
+        assert events == []
+
+    assert events == [
+        {
+            "status": "success",
+            "operation": "insert",
+            "table": "TestItems",
+            "doc_id": "i1",
+            "db_args": events[0]["db_args"],
+            "caller": "test_writes_are_logged_after_commit_with_caller",
+        }
+    ]
+    assert "name=n" in events[0]["db_args"]
+    events.clear()
+
+    with sessions.begin() as session:
+        entry = session.get(Item, "i1")
+        entry.name = "renamed"
+        entry.note = None
+    with sessions.begin() as session:
+        session.delete(session.get(Item, "i1"))
+
+    writes = [e for e in events if e["operation"] != "select"]
+    assert [(e["operation"], e["doc_id"]) for e in writes] == [
+        ("update", "i1"),
+        ("remove", "i1"),
+    ]
+    assert writes[0]["db_args"].startswith("{name=renamed")
+    assert writes[1]["db_args"] == "{}"
+
+
+def test_reads_and_statements_are_logged_with_their_parameters(sessions, events):
+    with sessions.begin() as session:
+        session.add(Item.from_dict(_item()))
+    events.clear()
+
+    with sessions.begin() as session:
+        session.get(Item, "i1")
+        session.scalars(select(Item).where(Item.name == "n")).all()
+        session.execute(update(Item).where(Item.item_id == "i1").values(name="x"))
+        session.execute(delete(Item).where(Item.item_id == "other"))
+
+    assert [(e["operation"], e["db_args"]) for e in events] == [
+        ("select", "{pk_1=i1...}"),
+        ("select", "{name_1=n...}"),
+        ("update", "{name=x..., item_id_1=i1...}"),
+        ("remove", "{item_id_1=other...}"),
+    ]
+
+
+def test_unchanged_entry_is_not_logged_as_update(sessions, events):
+    with sessions.begin() as session:
+        session.add(Item.from_dict(_item()))
+    events.clear()
+
+    with sessions.begin() as session:
+        session.get(Item, "i1").name = "n"
+
+    assert [e["operation"] for e in events] == ["select"]
+
+
+def test_failed_transaction_is_logged_with_its_error(sessions, events):
+    with pytest.raises(FedbiomedError):
+        with sessions.begin() as session:
+            session.add(Item.from_dict(_item(tags=[1])))
+
+    (failure,) = events
+    assert failure["status"] == "failure"
+    assert failure["operation"] == "insert"
+    assert failure["error_type"] == "FedbiomedError"
+    assert "Item.tags" in failure["error_message"]
+
+
+def test_rollback_without_error_is_logged_as_failure(sessions, events):
+    session = sessions()
+    session.add(Item.from_dict(_item()))
+    session.flush()
+    session.rollback()
+
+    (failure,) = events
+    assert failure["status"] == "failure"
+    assert "error_type" not in failure
+
+
+def test_write_events_redact_sensitive_values(sessions, events):
+    with sessions.begin() as session:
+        session.add(Secret(secret_id="s", key={"private": "x"}))
+
+    assert REDACTED in events[0]["db_args"]
+    assert "private" not in events[0]["db_args"]
+
+
+@pytest.mark.parametrize(
+    "model, logged",
+    [
+        (WriteItem, ["insert"]),
+        (QuietItem, []),
+    ],
+)
+def test_log_level_selects_what_is_logged(sessions, events, model, logged):
+    with sessions.begin() as session:
+        session.add(model(item_id="i1"))
+        session.flush()
+        session.scalars(select(model)).all()
+
+    assert [e["operation"] for e in events] == logged
 
 
 def test_writer_waits_for_another_writer_instead_of_failing(db_path, sessions):

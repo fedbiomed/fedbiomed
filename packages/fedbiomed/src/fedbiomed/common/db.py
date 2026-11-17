@@ -7,6 +7,8 @@ Interfaces with a tinyDB database for converting search results to dict.
 
 from __future__ import annotations
 
+import inspect as pyinspect
+import sys
 import types
 from functools import cache
 from typing import (
@@ -23,7 +25,13 @@ from typing import (
 )
 
 from sqlalchemy import JSON, Engine, create_engine, event, inspect
-from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, Session, sessionmaker
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    MappedAsDataclass,
+    ORMExecuteState,
+    Session,
+    sessionmaker,
+)
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
 
@@ -36,6 +44,9 @@ REDACTED = "<redacted>"
 
 # Entry fields whose values must never reach the logs. Case-insensitive.
 SENSITIVE_FIELDS = {"certificate", "key", "secagg_elem", "context"}
+
+# What a model writes to the security log: reads and writes, writes, nothing
+LOG_LEVELS = ("all", "writes", "none")
 
 
 def cast_(func):
@@ -406,7 +417,14 @@ class Base(MappedAsDataclass, DeclarativeBase, kw_only=True):
     assigned on a loaded entry). Changes are written when the
     `with factory.begin()` block ends; a JSON value changed in place
     (`entry.tags.append(...)`) is not seen as a change: assign a new value.
+
+    `__log_level__` sets what reaches the security log for the model's table:
+    `"all"` (reads and writes), `"writes"` or `"none"`. Events are written
+    when the transaction ends: `success` after the commit, `failure` after a
+    rollback.
     """
+
+    __log_level__ = "all"
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
@@ -474,6 +492,105 @@ def _validate_entries(session: Session, _flush_context, _instances) -> None:
         entry.validate()
 
 
+def _record(session: Session, operation: str, model: type, doc_id, args) -> None:
+    """Keeps a security event until the transaction ends."""
+    session.info.setdefault("security_events", []).append(
+        {
+            "operation": operation,
+            "table": model.__tablename__,
+            "doc_id": doc_id,
+            "db_args": printtable_args_for_log(args),
+        }
+    )
+
+
+def _record_writes(session: Session, _flush_context, _instances) -> None:
+    """Records the entries the session is about to insert, update or remove."""
+    for operation, entries in (
+        ("insert", session.new),
+        ("update", session.dirty),
+        ("remove", session.deleted),
+    ):
+        for entry in entries:
+            if entry.__log_level__ == "none":
+                continue
+            state = inspect(entry)
+            doc_id = state.mapper.primary_key_from_instance(entry)[0]
+            if operation == "insert":
+                args = entry.to_dict()
+            elif operation == "update":
+                if not session.is_modified(entry):
+                    continue
+                args = {
+                    attr.key: attr.value
+                    for attr in state.attrs
+                    if attr.history.has_changes()
+                }
+            else:
+                args = {}
+            _record(session, operation, type(entry), doc_id, args)
+
+
+def _record_statements(state: ORMExecuteState) -> None:
+    """Records ORM statements: reads, and updates or deletes by statement."""
+    # Execution parameters carry the key of `session.get`
+    args = {**state.statement.compile().params, **(state.parameters or {})}
+    for mapper in state.all_mappers:
+        level = mapper.class_.__log_level__
+        if state.is_select and level == "all":
+            _record(state.session, "select", mapper.class_, None, args)
+        elif state.is_update and level != "none":
+            _record(state.session, "update", mapper.class_, None, args)
+        elif state.is_delete and level != "none":
+            _record(state.session, "remove", mapper.class_, None, args)
+
+
+def _caller_stacklevel() -> int:
+    """Stack level of the code that ran the transaction, for `security_event`.
+
+    Skips the frames of SQLAlchemy, `contextlib` and this module, so the
+    event names the caller's `with` block rather than the commit internals.
+    """
+    frame = pyinspect.currentframe().f_back
+    # 1: the function calling `security_event`
+    level = 1
+    while frame is not None and frame.f_globals["__name__"].startswith(
+        ("sqlalchemy", "contextlib", __name__)
+    ):
+        frame = frame.f_back
+        level += 1
+    return level
+
+
+def _write_events(session: Session, status: str, error: BaseException | None) -> None:
+    """Writes the transaction's security events with its outcome."""
+    events = session.info.pop("security_events", [])
+    if not events:
+        return
+    failure = {}
+    if error is not None:
+        failure = {"error_type": type(error).__name__, "error_message": str(error)}
+    stacklevel = _caller_stacklevel()
+    for recorded in events:
+        logger.security_event(
+            status=status, stacklevel=stacklevel, **recorded, **failure
+        )
+
+
+def _on_commit(session: Session) -> None:
+    """Writes the transaction's security events as successful."""
+    _write_events(session, "success", None)
+
+
+def _on_rollback(session: Session) -> None:
+    """Writes the transaction's security events as failed.
+
+    A rollback caused by an error runs while that error is being handled, so
+    `sys.exc_info` gives it.
+    """
+    _write_events(session, "failure", sys.exc_info()[1])
+
+
 def _on_connect(dbapi_connection, _connection_record) -> None:
     """Configures each new SQLite connection.
 
@@ -530,9 +647,23 @@ def session_factory(path: str, models: List[type[Base]]) -> sessionmaker[Session
     Args:
         path: Path of the SQLite file of the component.
         models: Models whose tables the caller uses.
+
+    Raises:
+        FedbiomedError: a model's `__log_level__` is not one of `LOG_LEVELS`.
     """
+    for model in models:
+        if model.__log_level__ not in LOG_LEVELS:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB634.value}: {model.__name__}.__log_level__ is "
+                f"'{model.__log_level__}', expected one of {LOG_LEVELS}"
+            )
     engine = _engine(path)
     Base.metadata.create_all(engine, tables=[model.__table__ for model in models])
     factory = sessionmaker(engine, expire_on_commit=False)
+    # Recorded before validation, so a refused entry is logged as a failure
+    event.listen(factory, "before_flush", _record_writes)
     event.listen(factory, "before_flush", _validate_entries)
+    event.listen(factory, "do_orm_execute", _record_statements)
+    event.listen(factory, "after_commit", _on_commit)
+    event.listen(factory, "after_rollback", _on_rollback)
     return factory
