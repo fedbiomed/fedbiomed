@@ -9,10 +9,7 @@ import argparse
 import importlib
 import json
 import os
-import shutil
-import subprocess
 import sys
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from tabulate import tabulate
@@ -642,81 +639,67 @@ class NodeControl(CLIArgumentParser):
             )
 
 
-class GUIControl(CLIArgumentParser):
+def add_server_start_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add arguments shared by the Node API and GUI servers."""
+    parser.add_argument("--data-folder", "-df", default="")
+    parser.add_argument("--cert-file", "-cf")
+    parser.add_argument("--key-file", "-kf")
+    parser.add_argument("--port", "-p", default="8484")
+    parser.add_argument("--host", "-ho", default="localhost")
+    parser.add_argument("--debug", "-dbg", action="store_true")
+    parser.add_argument("--development", "-dev", action="store_true")
+
+
+class ServerControl(CLIArgumentParser):
+    """Parse a server command and forward it to an optional package."""
+
     _context: NodeContext
+    command: str
+    module: str
+    extra: str
 
     def initialize(self):
-        """Initializes GUI commands"""
         self._parser = self._subparser.add_parser(
-            "gui",  # add_help=False,
-            help="Action to manage Node user interface",
+            self.command, help=f"Action to manage Node {self.command} server"
         )
-
-        gui_subparsers = self._parser.add_subparsers(title="start GUI")
-        start = gui_subparsers.add_parser(
+        subparsers = self._parser.add_subparsers(title=f"start {self.command}")
+        start = subparsers.add_parser(
             "start", help="Launch the server (defaults on localhost:8484)"
         )
-
+        add_server_start_arguments(start)
+        self.add_start_arguments(start)
         start.set_defaults(func=self.forward)
 
-        start.add_argument(
-            "--data-folder",
-            "-df",
-            type=str,
-            nargs="?",
-            default="",  # data folder in root directory
-            required=False,
-        )
+    def add_start_arguments(self, parser: argparse.ArgumentParser) -> None:
+        """Add package-specific arguments to the start command."""
 
-        start.add_argument(
-            "--cert-file",
-            "-cf",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of the certificate to use in order to enable HTTPS. "
-            "If cert file doesn't exist script will raise an error.",
-        )
+    def forward(self, args: argparse.Namespace, extra_args):
+        """Forward parsed arguments to the installed server package."""
+        try:
+            package = importlib.import_module(self.module)
+        except ModuleNotFoundError as exc:
+            if exc.name not in {self.module, self.module.partition(".")[0]}:
+                raise
+            raise FedbiomedError(
+                f"The {self.command} package is not installed. "
+                f"Install it with `pip install fedbiomed[{self.extra}]`."
+            ) from exc
+        return package.start_server(args)
 
-        start.add_argument(
-            "--key-file",
-            "-kf",
-            type=str,
-            nargs="?",
-            required=False,
-            help="Name of the private key for the SSL certificate. "
-            "If the key file doesn't exist, the script will raise an error.",
-        )
 
-        start.add_argument(
-            "--port",
-            "-p",
-            type=str,
-            nargs="?",
-            default="8484",
-            required=False,
-            help="HTTP port that GUI will be served. Default is `8484`",
-        )
+class APIControl(ServerControl):
+    command = "api"
+    module = "fedbiomed_node_api.cli"
+    extra = "node-api"
 
-        start.add_argument(
-            "--host",
-            "-ho",
-            type=str,
-            default="localhost",
-            nargs="?",
-            required=False,
-            help="HTTP port that GUI will be served. Default is `127.0.0.1` (localhost)",
-        )
 
-        start.add_argument(
-            "--debug",
-            "-dbg",
-            action="store_true",
-            required=False,
-            help="Debug mode for the GUI. Default is `False`",
-        )
+class GUIControl(ServerControl):
+    command = "gui"
+    module = "fedbiomed_gui.cli"
+    extra = "gui"
 
-        start.add_argument(
+    def add_start_arguments(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
             "--recreate",
             "-rc",
             action="store_true",
@@ -724,103 +707,6 @@ class GUIControl(CLIArgumentParser):
             help="Rebuilds the user interface from its sources (`yarn install`, "
             "`yarn build`) before starting the GUI",
         )
-
-        start.add_argument(
-            "--development",
-            "-dev",
-            action="store_true",
-            required=False,
-            help="If it is set, GUI will start in development mode.",
-        )
-
-    def forward(self, args: argparse.Namespace, extra_args):
-        """Launches Fed-BioMed Node GUI
-
-        Args:
-            args: parser argument's namespace
-        """
-
-        fedbiomed_root = os.path.abspath(args.path)
-
-        if args.data_folder == "":
-            data_folder = os.path.join(self._context.config.root, NODE_DATA_FOLDER)
-        else:
-            data_folder = os.path.abspath(args.data_folder)
-        if not os.path.isdir(data_folder):
-            raise FedbiomedError(f"path {data_folder} is not a folder. Aborting")
-        os.environ.update(
-            {
-                "DATA_PATH": data_folder,
-                "FBM_NODE_COMPONENT_ROOT": fedbiomed_root,
-            }
-        )
-        current_env = os.environ.copy()
-
-        if args.key_file and args.cert_file:
-            certificate = ["--keyfile", args.key_file, "--certfile", args.cert_file]
-        else:
-            certificate = []
-
-        fedbiomed_gui = importlib.import_module("fedbiomed_gui")
-        server_app = Path(fedbiomed_gui.__file__).parent  # type: ignore[arg-type]
-        print("path to server", server_app)
-
-        # The server serves the bundle built from `ui`, so changes to its sources
-        # show only once it is rebuilt, the way `hatch_build.py` builds it
-        if args.recreate:
-            try:
-                ui_folder = fedbiomed_gui.get_frontend_source_dir()
-            except FileNotFoundError as exc:
-                raise FedbiomedError(str(exc)) from exc
-
-            yarn = shutil.which("yarn")
-            if yarn is None:
-                raise FedbiomedError("NodeJS `yarn` is required to rebuild the GUI.")
-
-            try:
-                subprocess.run([yarn, "install"], cwd=ui_folder, check=True)
-                subprocess.run([yarn, "build"], cwd=ui_folder, check=True)
-            except subprocess.CalledProcessError as exp:
-                raise FedbiomedError(
-                    f"Rebuilding the GUI failed: `yarn {exp.cmd[1]}` exited with "
-                    f"code {exp.returncode}."
-                ) from exp
-
-        host_port = ["--host", args.host, "--port", args.port]
-        if args.development:
-            command = [
-                "FLASK_ENV=development",
-                "flask",
-                "--app",
-                "fedbiomed_gui.server.wsgi:app",
-                "run",
-                *host_port,
-                *certificate,
-            ]
-        else:
-            command = [
-                "gunicorn",
-                "--workers",
-                "1",
-                # str(os.cpu_count()),
-                *certificate,
-                "-b",
-                f"{args.host}:{args.port}",
-                "--access-logfile",
-                "-",
-                "fedbiomed_gui.server.wsgi:app",
-            ]
-
-        try:
-            with subprocess.Popen(
-                " ".join(command), env=current_env, shell=True
-            ) as proc:
-                try:
-                    proc.wait()
-                except KeyboardInterrupt:
-                    proc.wait()
-        except Exception as e:
-            print(e)
 
 
 class NodeCLI(CommonCLI):
@@ -836,6 +722,7 @@ class NodeCLI(CommonCLI):
         NodeControl,
         DatasetArgumentParser,
         TrainingPlanArgumentParser,
+        APIControl,
         GUIControl,
     ]
     _arg_parsers: Dict[str, CLIArgumentParser] = {}

@@ -1,8 +1,9 @@
 """Check GUI assets and the composed Node API."""
 
+from flask_jwt_extended import create_access_token
+
 from fedbiomed.common.constants import NODE_DATA_FOLDER
 from fedbiomed.node.config import node_component
-from flask_jwt_extended import create_access_token
 
 
 def make_app(root, monkeypatch, factory, **kwargs):

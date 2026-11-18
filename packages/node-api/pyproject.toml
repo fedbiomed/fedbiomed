@@ -15,6 +15,9 @@ dependencies = [
     "gunicorn ~=23.0.0",
 ]
 
+[project.scripts]
+fedbiomed-node-api = "fedbiomed_node_api.cli:main"
+
 [project.urls]
 Homepage = "https://fedbiomed.org"
 Repository = "https://github.com/fedbiomed/fedbiomed"

@@ -96,21 +96,16 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install \
-            -e ./packages/fedbiomed \
-            --group ./packages/fedbiomed/pyproject.toml:docs
-
-          python -c "import fedbiomed.common.analytics"
+          pdm sync -G docs
+          pdm run mike --version
 
       - name: Build docs with mike
         run: |
-          python -m pip install mike
-          mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} --update-aliases
+          pdm run mike deploy ${{ steps.version.outputs.VERSION }} ${{ steps.version.outputs.ALIAS }} --update-aliases
           if [ -n "${{ steps.version.outputs.ALIAS }}" ]; then
-            mike set-default ${{ steps.version.outputs.ALIAS }}
+            pdm run mike set-default ${{ steps.version.outputs.ALIAS }}
           else
-            mike set-default ${{ steps.version.outputs.VERSION }}
+            pdm run mike set-default ${{ steps.version.outputs.VERSION }}
           fi
 
       - name: Export gh-pages to output-repo

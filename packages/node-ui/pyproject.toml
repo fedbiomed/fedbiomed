@@ -8,6 +8,9 @@ license = {text = "Apache 2.0"}
 
 dependencies = ["fedbiomed-node-api==6.5.0"]
 
+[project.scripts]
+fedbiomed-ui = "fedbiomed_gui.cli:main"
+
 [project.urls]
 Homepage = "https://fedbiomed.org"
 Repository = "https://github.com/fedbiomed/fedbiomed"

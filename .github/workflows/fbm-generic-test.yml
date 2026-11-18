@@ -6,6 +6,7 @@ description: |
   same inputs.
 
 on:
+  push:
   workflow_call:
     inputs:
       python-versions:
@@ -87,7 +88,7 @@ permissions:
 jobs:
   build-doc:
     name: Documentation (ubuntu-latest, 3.11)
-    if: ${{ inputs.run-docs }}
+    if: ${{ github.event_name == 'push' || inputs.run-docs }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -105,12 +106,7 @@ jobs:
 
       - name: Install documentation dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install \
-            -e ./packages/fedbiomed \
-            --group ./packages/fedbiomed/pyproject.toml:docs
-
-          python -c "import fedbiomed.common.analytics"
+          pdm sync -G docs
 
       - name: Configure Git
         run: |
@@ -122,7 +118,7 @@ jobs:
 
   unit-test:
     name: Unit (${{ matrix.os }}, ${{ matrix.python-version }})
-    if: ${{ inputs.run-unit }}
+    if: ${{ github.event_name == 'push' || inputs.run-unit }}
     timeout-minutes: 45
     defaults:
       run:
@@ -193,7 +189,7 @@ jobs:
 
   mnist-test:
     name: MNIST (${{ matrix.os }}, ${{ matrix.python-version }})
-    if: ${{ inputs.run-mnist }}
+    if: ${{ github.event_name == 'push' || inputs.run-mnist }}
     timeout-minutes: 60
     defaults:
       run:
@@ -248,7 +244,7 @@ jobs:
 
   resolve-e2e-files:
     name: Resolve end-to-end test files
-    if: ${{ inputs.run-e2e }}
+    if: ${{ github.event_name == 'push' || inputs.run-e2e }}
     runs-on: ubuntu-latest
     outputs:
       files: ${{ steps.resolve.outputs.files }}
@@ -269,7 +265,7 @@ jobs:
   e2e-test:
     name: E2E (${{ matrix.e2e-file }}, ${{ matrix.os }}, ${{ matrix.python-version }})
     needs: resolve-e2e-files
-    if: ${{ inputs.run-e2e }}
+    if: ${{ github.event_name == 'push' || inputs.run-e2e }}
     timeout-minutes: 180
     defaults:
       run:
