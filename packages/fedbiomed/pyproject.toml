@@ -117,7 +117,6 @@ Repository = "https://github.com/fedbiomed/fedbiomed"
 [tool.hatch.version]
 path = "src/fedbiomed/__init__.py"
 
-
 [project.optional-dependencies]  # This is optional dependencies
 node = [
 ]

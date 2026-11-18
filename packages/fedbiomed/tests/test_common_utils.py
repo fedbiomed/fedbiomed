@@ -1,7 +1,10 @@
 import configparser
 import os
+import sysconfig
+from pathlib import Path
 
 import pytest
+
 from fedbiomed.common.constants import (
     CACHE_FOLDER_NAME,
     CONFIG_FOLDER_NAME,
@@ -59,16 +62,13 @@ def write_component(tmp_path):
 
 
 def test_get_fedbiomed_root(mocker):
-    """Root is the directory holding `envs`, searched from the installed package"""
-    listdir = mocker.patch("fedbiomed.common.utils._config_utils.os.listdir")
+    """Find the checkout marker, or fall back to the installation directory."""
+    repository_root = Path(__file__).resolve().parents[3]
+    assert _get_fedbiomed_root() == str(repository_root)
 
-    listdir.return_value = ["envs"]
-    root = _get_fedbiomed_root()
-    assert os.path.isdir(root)
-
-    # Without `envs` the package is installed, and the root is one level up
-    listdir.return_value = []
-    assert _get_fedbiomed_root() == os.path.dirname(root)
+    mocker.patch("pathlib.Path.is_file", return_value=False)
+    purelib = sysconfig.get_path("purelib")
+    assert _get_fedbiomed_root() == purelib
 
 
 def test_get_component_config(write_component):

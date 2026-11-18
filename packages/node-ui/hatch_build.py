@@ -12,40 +12,54 @@ logger.setLevel(logging.DEBUG)
 logging.basicConfig(level=logging.DEBUG)
 
 
-class CustomBuildHook(BuildHookInterface):
-    def initialize(self, version, build_data):
-        # Code in this function will run before building
-        super().initialize(version, build_data)
+def build_frontend(ui_dir: Path, force: bool = False) -> Path:
+    """Build frontend assets when missing or explicitly requested."""
+    build_dir = ui_dir / "build"
+    index_file = build_dir / "index.html"
+    skip_build = os.environ.get("FBM_SKIP_FRONTEND_BUILD", "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
-        if os.environ.get("FBM_SKIP_FRONTEND_BUILD", "").lower() in {
-            "1",
-            "true",
-            "yes",
-        }:
-            logger.info("Skipping node front-end build")
-            return
+    if force or not index_file.is_file() or not skip_build:
+        if skip_build and not force:
+            logger.warning(
+                "Frontend build was skipped by configuration, "
+                "but assets are missing. Building frontend anyway."
+            )
+        else:
+            logger.info("Building node frontend")
 
-        logger.info("Building node front-end")
         yarn = shutil.which("yarn")
-
         if yarn is None:
             raise RuntimeError(
-                "NodeJS `yarn` is required for building Fed-BioMed front-end application"
+                "Yarn is required: frontend assets are missing "
+                "or a frontend rebuild was requested."
             )
 
-        ui_dir = Path(self.root) / "ui"
         for attempt in range(3):
             try:
-                logger.info(
-                    "### Yarn: Installation front-end dependencies to prepare build.\n"
-                )
                 subprocess.run([yarn, "install"], cwd=ui_dir, check=True)
-                logger.info("\n### Yarn: Building front-end application run.\n")
                 subprocess.run([yarn, "build"], cwd=ui_dir, check=True)
-            except subprocess.CalledProcessError:
-                if attempt < 2:
-                    time.sleep(5)
-                else:
-                    raise
-            else:
                 break
+            except subprocess.CalledProcessError:
+                if attempt == 2:
+                    raise
+                time.sleep(5)
+
+    if not index_file.is_file():
+        raise RuntimeError("Frontend build did not produce ui/build/index.html")
+    return build_dir
+
+
+class CustomBuildHook(BuildHookInterface):
+    def initialize(self, version, build_data):
+        super().initialize(version, build_data)
+
+        if self.target_name != "wheel":
+            return
+
+        ui_dir = Path(self.root) / "ui"
+        build_dir = build_frontend(ui_dir)
+        build_data["force_include"][str(build_dir)] = "fedbiomed_gui/ui/build"
