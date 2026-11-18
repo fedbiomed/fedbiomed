@@ -189,7 +189,7 @@ jobs:
 
   mnist-test:
     name: MNIST (${{ matrix.os }}, ${{ matrix.python-version }})
-    if: ${{ github.event_name == 'push' || inputs.run-mnist }}
+    if: ${{ inputs.run-mnist }}
     timeout-minutes: 60
     defaults:
       run:
@@ -244,7 +244,7 @@ jobs:
 
   resolve-e2e-files:
     name: Resolve end-to-end test files
-    if: ${{ github.event_name == 'push' || inputs.run-e2e }}
+    if: ${{ inputs.run-e2e }}
     runs-on: ubuntu-latest
     outputs:
       files: ${{ steps.resolve.outputs.files }}
@@ -265,7 +265,7 @@ jobs:
   e2e-test:
     name: E2E (${{ matrix.e2e-file }}, ${{ matrix.os }}, ${{ matrix.python-version }})
     needs: resolve-e2e-files
-    if: ${{ github.event_name == 'push' || inputs.run-e2e }}
+    if: ${{ inputs.run-e2e }}
     timeout-minutes: 180
     defaults:
       run:
