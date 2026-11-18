@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from fedbiomed.common.constants import ErrorNumbers, PreprocType
 from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
 from fedbiomed.node.jobs import _preproc_job
@@ -32,14 +33,11 @@ def mocked_dataset_manager():
     """Fixture for mocked DatasetManager with common setup."""
     with patch("fedbiomed.node.jobs._base_job.DatasetManager") as mock_dm_cls:
         mock_dm = mock_dm_cls.return_value
-        mock_dm.get_dataset_entry_by_id.return_value = (
-            {
-                "data_type": "csv",
-                "path": "/path/to/data",
-                "dataset_parameters": {},
-            },
-            "dummy_table_name",
-        )
+        mock_dm.get_dataset.return_value = {
+            "data_type": "csv",
+            "path": "/path/to/data",
+            "dataset_parameters": {},
+        }
         yield mock_dm
 
 
@@ -176,10 +174,7 @@ def test_run_dataset_entry_not_dict(
     """Test run of PreprocJob when dataset entry returned by DatasetManager is not a dict."""
 
     # make dataset_table return a non-dict value
-    mocked_dataset_manager.get_dataset_entry_by_id.return_value = (
-        "this_is_not_a_dict",
-        "dummy_table_name",
-    )
+    mocked_dataset_manager.get_dataset.return_value = "this_is_not_a_dict"
 
     job = PreprocJob(**preproc_job_args)
     result = job.run()

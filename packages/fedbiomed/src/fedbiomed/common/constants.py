@@ -301,6 +301,20 @@ class DatasetTypes(_BaseEnum):
         return None
 
 
+class DatasetScope(_BaseEnum):
+    """Which datasets a lookup covers.
+
+    Attributes:
+        ORIGINAL: datasets registered on the node
+        DYNAMIC: datasets derived from others by processing jobs
+        BOTH: both kinds
+    """
+
+    ORIGINAL = "original"
+    DYNAMIC = "dynamic"
+    BOTH = "both"
+
+
 class SecureAggregationSchemes(_BaseEnum):
     """Enumeration class for secure aggregation schemes"""
 

@@ -428,9 +428,12 @@ class Base(MappedAsDataclass, DeclarativeBase, kw_only=True):
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
-        """Builds a row from an entry, refusing unknown or missing fields."""
+        """Builds a row from an entry, refusing unknown or missing fields.
+
+        A `None` value counts as not given: the field takes its default.
+        """
         try:
-            return cls(**data)
+            return cls(**{k: v for k, v in data.items() if v is not None})
         except TypeError as e:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Invalid data input for {cls.__name__}: {e}"
@@ -598,6 +601,11 @@ def _on_connect(dbapi_connection, _connection_record) -> None:
     decides how transactions start.
     """
     dbapi_connection.isolation_level = None
+    # Replaces SQLite's `lower`, which only folds ASCII letters, so that
+    # case-insensitive searches (`icontains`) also match accented letters
+    dbapi_connection.create_function(
+        "lower", 1, lambda s: s.lower() if s is not None else None, deterministic=True
+    )
     cursor = dbapi_connection.cursor()
     # WAL: readers do not block the writer, across processes
     cursor.execute("PRAGMA journal_mode=WAL")
@@ -617,12 +625,15 @@ def _on_begin(connection) -> None:
 def _on_error(context) -> None:
     """Raises a database error as `FedbiomedError`.
 
-    The message keeps SQLite's reason and the failing statement; the
-    statement's parameters are left out, as they may hold sensitive values.
+    The message keeps SQLite's reason only, as it may reach other components;
+    the failing statement goes to the debug log, without its parameters, as
+    they may hold sensitive values.
     """
+    logger.debug(
+        f"Database error: {context.original_exception}; statement: {context.statement}"
+    )
     raise FedbiomedError(
-        f"{ErrorNumbers.FB634.value}: {context.original_exception}; "
-        f"statement: {context.statement}"
+        f"{ErrorNumbers.FB634.value}: {context.original_exception}"
     ) from context.original_exception
 
 

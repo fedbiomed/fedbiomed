@@ -1,18 +1,13 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, List, Optional, Type, Union
+from typing import Any, List, Optional, Type
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
+from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.db import TinyTableConnector
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.common.logger import logger
 
 from ._db_dataclasses import (
-    DatasetEntry,
-    DlbEntry,
-    DlpEntry,
-    DynamicDatasetEntry,
     NodeConnectionStateEntry,
     NodeConnectionStateHistoryEntry,
     NodeProcessStateEntry,
@@ -42,7 +37,7 @@ def _delete_older_than(table, query, cutoff: str) -> List[int]:
 
 
 class BaseTable(TinyTableConnector):
-    """Base class for database tables in this file (Dataset, DLP, DLB) with common
+    """Base class for database tables in this file with common
     validation functionality that uses dataclasses for schema enforcement.
     Insert/Update methods are wrapped. The rest do not change (TinyTableConnector).
     """
@@ -95,170 +90,6 @@ class BaseTable(TinyTableConnector):
         entry.update(update)
         updated_entry = self._validate_and_convert_to_dict(entry)
         return super().update_by_id(id_value, updated_entry)
-
-
-class DatasetTable(BaseTable):
-    _table_name = "Datasets"
-    _id_name = "dataset_id"
-    _dataclass = DatasetEntry
-
-    def insert(self, entry: dict) -> int:
-        """Insert a dataset entry with validation"""
-        conflicting_datasets = self.search_conflicting_tags(entry["tags"])
-        if conflicting_datasets:
-            _msg = (
-                f"{ErrorNumbers.FB322.value}: One or more registered datasets present "
-                f"tags conflicting with your entry. Conflicting dataset names: "
-                f"{', '.join([_['name'] for _ in conflicting_datasets])}."
-            )
-            logger.critical(_msg)
-            raise FedbiomedError(_msg)
-
-        return super().insert(entry)
-
-    def search_by_tags(self, tags: Union[tuple, list]) -> list:
-        """Searches for data with given tags.
-
-        Args:
-            tags:  List of tags
-
-        Returns:
-            The list of matching datasets
-        """
-        return self.get_all_by_condition("tags", lambda x: set(tags).issubset(x))
-
-    def search_conflicting_tags(self, tags: Union[tuple, list]) -> list:
-        """Searches for registered data that have conflicting tags with the given tags
-
-        Args:
-            tags:  List of tags
-
-        Returns:
-            The list of conflicting datasets
-        """
-        return self.get_all_by_condition(
-            "tags",
-            lambda x: set(tags).issubset(x) or set(x).issubset(tags),
-        )
-
-    def update_by_id(self, dataset_id: str, modified_dataset: dict):
-        """Modifies a dataset in the database.
-
-        Args:
-            dataset_id: ID of the dataset to modify.
-            modified_dataset: key-value pairs to replace in the existing entry.
-
-        Raises:
-            FedbiomedError: conflicting tags with existing dataset
-        """
-        # Check that there are not existing dataset with conflicting tags
-        if "tags" in modified_dataset:
-            # the dataset to modify is ignored (can conflict with its previous tags)
-            conflicting_datasets = [
-                _
-                for _ in self.search_conflicting_tags(modified_dataset["tags"])
-                if _["dataset_id"] != dataset_id
-            ]
-            if len(conflicting_datasets) > 0:
-                msg = (
-                    f"{ErrorNumbers.FB322.value}, : One or more registered datasets "
-                    f"are conflicting with your new tags. Conflicting dataset names: "
-                    f"{', '.join([_['name'] for _ in conflicting_datasets])}."
-                )
-                logger.critical(msg)
-                raise FedbiomedError(msg)
-
-        return super().update_by_id(dataset_id, modified_dataset)
-
-
-class DynamicDatasetTable(BaseTable):
-    _table_name = "DynamicDatasets"
-    _id_name = "dataset_id"
-    _dataclass = DynamicDatasetEntry
-
-    def collect_subtree(self, parent_id: str) -> List[str]:
-        """Return a list of dataset_ids in the subtree rooted at parent_id.
-
-        The returned list contains only descendants of parent_id (children, grandchildren, ...).
-        The parent_id itself is NOT included. Returns an empty list if there are no descendants.
-        """
-        collected: List[str] = []
-
-        def _dfs(current_id: str):
-            children = self.get_all_by_value("parent_dataset_id", current_id)
-            for c in children:
-                child_id = c.get(self._id_name)
-                if child_id:
-                    collected.append(child_id)
-                    _dfs(child_id)
-
-        _dfs(parent_id)
-        return collected
-
-
-class DlpTable(BaseTable):
-    _table_name = "Dlps"
-    _id_name = "dlp_id"
-    _dataclass = DlpEntry
-
-    def insert(self, entry: dict) -> int:
-        """Insert a DLP entry with validation
-
-        Raises:
-            FedbiomedError:
-            - target_dataset_type value not valid
-            - bad data loading plan name (size, not unique)
-        """
-        if entry["target_dataset_type"] not in [t.value for t in DatasetTypes]:
-            _msg = (
-                f"{ErrorNumbers.FB632.value}: target_dataset_type should be of the "
-                "values defined in 'fedbiomed.common.constants.DatasetTypes'"
-            )
-            logger.critical(_msg)
-            raise FedbiomedError(_msg)
-
-        if len(entry["dlp_name"]) < 4:
-            _msg = (
-                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
-                "DLP name needs to have at least 4 characters."
-            )
-            logger.error(_msg)
-            raise FedbiomedError(_msg)
-
-        if self.get_all_by_value("dlp_name", entry["dlp_name"]):
-            _msg = (
-                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
-                "DLP name needs to be unique."
-            )
-            logger.error(_msg)
-            raise FedbiomedError(_msg)
-
-        return super().insert(entry)
-
-    def list_by_target_dataset_type(
-        self, target_dataset_type: Optional[str] = None
-    ) -> List[dict]:
-        """Return all existing DataLoadingPlans.
-
-        Args:
-            target_dataset_type: return only dlps matching the requested target type.
-
-        Returns:
-            An array of dict, each dict is a DataLoadingPlan
-        """
-        if target_dataset_type not in [t.value for t in DatasetTypes]:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: target_dataset_type should be of the "
-                "values defined in 'fedbiomed.common.constants.DatasetTypes'"
-            )
-
-        return self.get_all_by_value("target_dataset_type", target_dataset_type)
-
-
-class DlbTable(BaseTable):
-    _table_name = "Dlbs"
-    _id_name = "dlb_id"
-    _dataclass = DlbEntry
 
 
 class NodeProcessStateTable(BaseTable):

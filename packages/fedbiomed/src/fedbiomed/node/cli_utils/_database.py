@@ -263,7 +263,7 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
             if not d_id:
                 logger.warning("No matching dataset to delete")
                 return
-            dataset_manager.dataset_table.delete_by_id(d_id)
+            dataset_manager.delete_dataset_by_id(d_id, recursive=True)
             logger.info("Dataset removed. Here your available datasets")
             dataset_manager.list_my_datasets()
             return
@@ -287,5 +287,5 @@ def delete_all_database(dataset_manager: DatasetManager) -> None:
 
     for ds in my_data:
         d_id = ds["dataset_id"]
-        dataset_manager.dataset_table.delete_by_id(d_id)
+        dataset_manager.delete_dataset_by_id(d_id, recursive=True)
         logger.info("Dataset removed for dataset_id:" + str(d_id))

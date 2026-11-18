@@ -11,6 +11,7 @@ import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 from fedbiomed import __version__
@@ -22,6 +23,7 @@ from fedbiomed.common.certificate_manager import (
     is_loopback_name,
 )
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.db import session_factory
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
@@ -289,8 +291,12 @@ class NodeContext:
             config: Configuration of the node the commands act on.
         """
         self._config = config
+        sessions = session_factory(
+            str(Path(self.config.getpath("default", "db")).with_suffix(".sqlite")),
+            [*DatasetManager.MODELS],
+        )
         self.dataset_manager = DatasetManager(
-            path=self.config.getpath("default", "db"),
+            sessions,
             min_samples=self.config.getint("security", "minimum_samples"),
         )
         self.tp_security_manager = TrainingPlanSecurityManager(
@@ -609,9 +615,7 @@ class Node:
                     case OverlayMessage.__name__:
                         self._n2n_router.submit(message)
                     case SearchRequest.__name__:
-                        databases = self.dataset_manager.dataset_table.search_by_tags(
-                            message.tags
-                        )
+                        databases = self.dataset_manager.search_by_tags(message.tags)
                         if len(databases) != 0:
                             databases = (
                                 self.dataset_manager.obfuscate_private_information(
@@ -807,7 +811,7 @@ class Node:
             send=self._grpc_client.send,
         )
         dataset_id = msg.get_param("dataset_id")
-        data, _ = self.dataset_manager.get_dataset_entry_by_id(dataset_id)
+        data = self.dataset_manager.get_dataset(dataset_id, "both")
 
         if data is None:
             return self.send_error(

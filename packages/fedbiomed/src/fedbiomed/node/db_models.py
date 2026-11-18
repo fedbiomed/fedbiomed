@@ -50,14 +50,15 @@ class Dataset(Base):
     tags: Mapped[list[str]] = mapped_column(JSON)
     description: Mapped[str]
     path: Mapped[str]
-    shape: Mapped[list[int] | dict[str, list[int]]] = mapped_column(JSON)
-    dtypes: Mapped[dict[str, str]] = mapped_column(JSON)
+    # Not set for custom datasets, which define their own shape and types
+    shape: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
+    dtypes: Mapped[dict[str, str] | None] = mapped_column(JSON, default=None)
     dataset_parameters: Mapped[dict[str, Any] | None] = mapped_column(
         JSON, default=None
     )
     # A data loading plan used by a dataset cannot be deleted
     dlp_id: Mapped[str | None] = mapped_column(ForeignKey("Dlps.dlp_id"), default=None)
-    # Lets the session insert the plan before a dataset using it
+    # Let the session insert the plan before a dataset using it
     dlp: Mapped["Dlp | None"] = relationship(init=False, repr=False)
 
     def validate(self) -> None:
@@ -68,10 +69,15 @@ class Dataset(Base):
 class DynamicDataset(Base):
     """Dataset produced by a processing job from a parent dataset.
 
-    The parent is a `Dataset` or another `DynamicDataset`.
+    The parent is a `Dataset` (`parent_dataset_id`) or another
+    `DynamicDataset` (`parent_dynamic_id`): exactly one is set. A dataset with
+    derived datasets cannot be deleted before them.
     """
 
     __tablename__ = "DynamicDatasets"
+    __table_args__ = (
+        CheckConstraint("(parent_dataset_id IS NULL) <> (parent_dynamic_id IS NULL)"),
+    )
 
     dataset_id: Mapped[str] = mapped_column(
         primary_key=True, default_factory=lambda: f"dynamic_dataset_{uuid.uuid4()}"
@@ -80,10 +86,16 @@ class DynamicDataset(Base):
     researcher_id: Mapped[str]
     experiment_id: Mapped[str]
     processing_id: Mapped[str]
-    parent_dataset_id: Mapped[str] = mapped_column(index=True)
-    shape: Mapped[list[int] | dict[str, list[int]] | None] = mapped_column(
-        JSON, default=None
+    parent_dataset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("Datasets.dataset_id"), index=True, default=None
     )
+    parent_dynamic_id: Mapped[str | None] = mapped_column(
+        ForeignKey("DynamicDatasets.dataset_id"), index=True, default=None
+    )
+    # Let the session insert the parent dataset before the datasets derived
+    # from it
+    parent_dataset: Mapped["Dataset | None"] = relationship(init=False, repr=False)
+    shape: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
     dtypes: Mapped[dict[str, str] | None] = mapped_column(JSON, default=None)
     name: Mapped[str | None] = mapped_column(default=None)
     tags: Mapped[list[str] | None] = mapped_column(JSON, default=None)
@@ -121,11 +133,13 @@ class Dlp(Base):
 
 
 class Dlb(Base):
-    """Data loading block, referenced by `Dlp.loading_blocks`."""
+    """Data loading block, referenced by `Dlp.loading_blocks`.
+
+    Each block type serializes its own fields, so the block is stored as its
+    serialized form (`DataLoadingBlock.serialize`).
+    """
 
     __tablename__ = "Dlbs"
 
     dlb_id: Mapped[str] = mapped_column(primary_key=True)
-    loading_block_class: Mapped[str]
-    loading_block_module: Mapped[str]
-    map: Mapped[dict[str, list[str]]] = mapped_column(JSON)
+    content: Mapped[dict[str, Any]] = mapped_column(JSON)

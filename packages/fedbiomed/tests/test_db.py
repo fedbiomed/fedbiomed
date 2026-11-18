@@ -5,7 +5,7 @@ import time
 from typing import Any
 
 import pytest
-from sqlalchemy import JSON, delete, event, inspect, select, update
+from sqlalchemy import JSON, delete, event, func, inspect, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
 import fedbiomed.common.db as db_mod
@@ -105,6 +105,11 @@ def test_from_dict_rejects_unknown_and_missing_fields(data, reason):
 
 def test_to_dict_returns_set_columns_only():
     assert Item.from_dict(_item(note=None)).to_dict() == _item()
+
+
+def test_from_dict_treats_none_as_not_given():
+    with pytest.raises(FedbiomedError, match="missing 1 required"):
+        Item.from_dict(_item(name=None))
 
 
 @pytest.mark.parametrize(
@@ -208,7 +213,11 @@ def test_validation_error_redacts_sensitive_values():
     assert "private" not in str(error.value)
 
 
-def test_database_error_keeps_reason_and_statement_without_parameters(sessions):
+def test_database_error_keeps_reason_and_logs_statement_without_parameters(
+    sessions, monkeypatch
+):
+    debug = []
+    monkeypatch.setattr(db_mod.logger, "debug", debug.append)
     with sessions.begin() as session:
         session.add(Item.from_dict(_item(name="hidden-value")))
 
@@ -219,8 +228,20 @@ def test_database_error_keeps_reason_and_statement_without_parameters(sessions):
     message = str(error.value)
     assert message.startswith("FB634")
     assert "UNIQUE constraint failed: TestItems.item_id" in message
-    assert 'INSERT INTO "TestItems"' in message
-    assert "hidden-value" not in message
+    assert "INSERT" not in message
+    (logged,) = debug
+    assert 'INSERT INTO "TestItems"' in logged
+    assert "hidden-value" not in message + logged
+
+
+def test_case_insensitive_search_folds_accented_letters(sessions):
+    with sessions.begin() as session:
+        session.add(Item.from_dict(_item(name="ÉTUDE IRM")))
+
+    with sessions.begin() as session:
+        found = session.scalars(select(Item).where(Item.name.icontains("étude")))
+        assert [item.item_id for item in found] == ["i1"]
+        assert session.scalar(select(func.lower(None))) is None
 
 
 def test_session_factory_refuses_unknown_log_level(db_path):

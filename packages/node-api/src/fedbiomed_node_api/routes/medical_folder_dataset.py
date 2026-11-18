@@ -1,9 +1,10 @@
 import os
 import re
 
+from flask import g, request
+
 from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
-from flask import g, request
 
 from ..cache import cached
 from ..config import config
@@ -94,7 +95,6 @@ def add_medical_folder_dataset():
             path=data_path_save,
             dataset_parameters=dataset_parameters,
             data_loading_plan=g.dlp,
-            save_dlp=False,
         )
     except FedbiomedError as e:
         return error(str(e)), 400
@@ -102,7 +102,7 @@ def add_medical_folder_dataset():
         return error("Unexpected error: " + str(e)), 400
 
     # Get saved dataset document
-    res = dataset_manager.dataset_table.get_by_id(dataset_id)
+    res = dataset_manager.get_dataset(dataset_id)
     if not res:
         return error(
             "Medical Folder Dataset is not properly deployed. Please try again."
@@ -151,7 +151,7 @@ def medical_folder_preview():
     # Request object as JSON
     req = request.json
 
-    dataset = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
+    dataset = dataset_manager.get_dataset(req["dataset_id"])
 
     # Extract data path where the files are saved in the local GUI repository
     rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])

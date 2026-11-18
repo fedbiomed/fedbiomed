@@ -1,72 +1,15 @@
 # tests/test_dataset_manager.py
 import pytest
+from sqlalchemy import select
 
 # ---- Import the module under test (adjust the import line if your path differs) ----
 # If your project exposes the module at this path, this works as-is:
+from fedbiomed.common.db import session_factory
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import _dataset_manager as dm_mod
+from fedbiomed.node.db_models import Dataset, Dlb
 
 # ---------------------- Lightweight fakes (no sys.modules patching) ----------------------
-
-
-class FakeTable:
-    """In-memory table replacement compatible with DatasetTable/DlpTable/DlbTable/DynamicDatasetTable."""
-
-    def __init__(self, *_, **__):
-        self._items = []
-        self._by = {}
-
-    def insert(self, entry: dict):
-        # identify a reasonable key or generate one
-        key = None
-        for k in ("dataset_id", "dlp_id", "dlb_id"):
-            if k in entry and entry[k]:
-                key = k
-                break
-        if key is None:
-            key = "dataset_id"
-            entry = dict(entry)
-            entry[key] = f"auto_{len(self._items) + 1}"
-        self._items.append(entry)
-        self._by[entry[key]] = entry
-        return entry[key]
-
-    def get_by_id(self, key):
-        return self._by.get(key)
-
-    def get_all_by_value(self, field, values):
-        if not isinstance(values, (list, tuple)):
-            values = [values]
-        s = set(values)
-        return [row for row in self._items if row.get(field) in s]
-
-    def delete_by_id(self, key):
-        it = self._by.pop(key, None)
-        if it is not None:
-            self._items = [x for x in self._items if x is not it]
-
-    def all(self):
-        return [dict(x) for x in self._items]
-
-    def update_by_id(self, key, updates):
-        item = self._by.get(key)
-        if item is not None:
-            item.update(updates)
-
-
-class FakeDatasetTable(FakeTable):
-    _table_name = "Datasets"
-
-
-class FakeDynamicDatasetTable(FakeTable):
-    _table_name = "DynamicDatasets"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._fake_subtrees = {}
-
-    def collect_subtree(self, parent_id):
-        return self._fake_subtrees.get(parent_id, [])
 
 
 class FakeController:
@@ -78,7 +21,7 @@ class FakeController:
         return self._n_samples
 
     def shape(self):
-        return (3, 4)
+        return {"csv": (3, 4)}
 
     def get_types(self):
         return {"col1": "float", "col2": "int"}
@@ -87,28 +30,59 @@ class FakeController:
 class MinimalDLP:
     """Drop-in minimal DLP used by tests. Replace with your real DataLoadingPlan if desired."""
 
-    def __init__(self, dlp_id="dlp-1", loading_blocks=None):
+    def __init__(self, dlp_id="dlp-1", loading_blocks=None, dlp_name=None):
         self.dlp_id = dlp_id
+        self.dlp_name = dlp_name or f"plan {dlp_id}"
         self.loading_blocks = loading_blocks or {"lb1": "dlb-1", "lb2": "dlb-2"}
 
     def serialize(self):
-        dlp_meta = {"dlp_id": self.dlp_id, "loading_blocks": self.loading_blocks}
-        dlbs_meta = [{"dlb_id": v} for v in self.loading_blocks.values()]
+        # Same shape as DataLoadingPlan.serialize: key_paths values are tuples
+        dlp_meta = {
+            "dlp_id": self.dlp_id,
+            "dlp_name": self.dlp_name,
+            "target_dataset_type": "csv",
+            "loading_blocks": self.loading_blocks,
+            "key_paths": {key: ("module", "Class") for key in self.loading_blocks},
+        }
+        dlbs_meta = [
+            {"dlb_id": v, "loading_block_class": "Block", "loading_block_module": "m"}
+            for v in self.loading_blocks.values()
+        ]
         return dlp_meta, dlbs_meta
+
+
+@pytest.fixture
+def sessions(tmp_path):
+    return session_factory(
+        str(tmp_path / "node.sqlite"), [*dm_mod.DatasetManager.MODELS]
+    )
+
+
+def _add_dataset(sessions, dataset_id, **fields):
+    """Registers a dataset directly in the database, without loading it."""
+    with sessions.begin() as session:
+        session.add(
+            Dataset.from_dict(
+                {
+                    "dataset_id": dataset_id,
+                    "name": dataset_id,
+                    "data_type": "csv",
+                    "tags": [dataset_id],
+                    "description": "d",
+                    "path": "/data",
+                    **fields,
+                }
+            )
+        )
+    return dataset_id
 
 
 @pytest.fixture(autouse=True)
 def patch_dependencies(monkeypatch):
     """
-    Replace the concrete table classes and the controller getter *on the module under test*
-    so we don't need to mess with sys.modules. Each test starts with a clean in-memory DB.
+    Replace the controller getter *on the module under test* so we don't need
+    to load real datasets. Each test starts with a clean database file.
     """
-    monkeypatch.setattr(dm_mod, "DatasetTable", FakeDatasetTable, raising=True)
-    monkeypatch.setattr(
-        dm_mod, "DynamicDatasetTable", FakeDynamicDatasetTable, raising=True
-    )
-    monkeypatch.setattr(dm_mod, "DlpTable", FakeTable, raising=True)
-    monkeypatch.setattr(dm_mod, "DlbTable", FakeTable, raising=True)
 
     # If the module imported the factory as a name (e.g., `from ... import get_controller`),
     # patch that name; if it calls via a module attribute, patch that as well if present.
@@ -133,8 +107,8 @@ def patch_dependencies(monkeypatch):
 # ------------------------------------- TESTS -------------------------------------
 
 
-def test_read_csv_header_and_semicolon(tmp_path):
-    dm = dm_mod.DatasetManager(path="/tmp/db")
+def test_read_csv_header_and_semicolon(tmp_path, sessions):
+    dm = dm_mod.DatasetManager(sessions)
 
     f_header = tmp_path / "with_header.csv"
     f_header.write_text("c1,c2\n1,2\n3,4\n", encoding="utf-8")
@@ -150,8 +124,8 @@ def test_read_csv_header_and_semicolon(tmp_path):
     assert df2.iloc[1, 0] == 3
 
 
-def test_save_data_loading_plan_and_get_back():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_save_data_loading_plan_and_get_back(sessions):
+    dm = dm_mod.DatasetManager(sessions)
     dlp = MinimalDLP(dlp_id="DLP-1", loading_blocks={"x": "DLB-9"})
 
     rid = dm.save_data_loading_plan(dlp)
@@ -159,11 +133,12 @@ def test_save_data_loading_plan_and_get_back():
 
     got_dlp, dlbs = dm.get_dlp_by_id("DLP-1")
     assert got_dlp and got_dlp["dlp_id"] == "DLP-1"
+    assert got_dlp["key_paths"] == {"x": ["module", "Class"]}
     assert {d["dlb_id"] for d in dlbs} == {"DLB-9"}
 
 
-def test_get_dlp_by_id_not_found():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_get_dlp_by_id_not_found(sessions):
+    dm = dm_mod.DatasetManager(sessions)
     dlp, dlbs = dm.get_dlp_by_id("does-not-exist")
     assert dlp is None
     assert dlbs == []
@@ -178,11 +153,13 @@ def test_get_dlp_by_id_not_found():
         ({"download": False}, []),
     ],
 )
-def test_add_database_deploys_mnist_files(monkeypatch, dataset_parameters, expected):
+def test_add_database_deploys_mnist_files(
+    monkeypatch, sessions, dataset_parameters, expected
+):
     """Deploying MNIST fetches its files unless the caller says they are there."""
     fetched = []
     monkeypatch.setattr(dm_mod, "download_mnist", fetched.append)
-    dm = dm_mod.DatasetManager(path="/db")
+    dm = dm_mod.DatasetManager(sessions)
 
     dm.add_database(
         name="MNIST",
@@ -196,72 +173,70 @@ def test_add_database_deploys_mnist_files(monkeypatch, dataset_parameters, expec
     assert fetched == expected
 
 
-def test_add_database_does_not_deploy_other_types(monkeypatch):
+def test_add_database_does_not_deploy_other_types(monkeypatch, sessions):
     """Only MNIST can be fetched; every other type must already be on disk."""
     fetched = []
     monkeypatch.setattr(dm_mod, "download_mnist", fetched.append)
-    dm = dm_mod.DatasetManager(path="/db")
+    dm = dm_mod.DatasetManager(sessions)
 
     dm.add_database(
-        name="N", data_type="tabular", tags=["t"], description="d", path="/root"
+        name="N", data_type="csv", tags=["t"], description="d", path="/root"
     )
 
     assert fetched == []
 
 
-def test_add_database_with_and_without_persisting_dlp():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_add_database_saves_new_dlp_and_reuses_existing_one(sessions):
+    dm = dm_mod.DatasetManager(sessions)
 
     dlp_keep = MinimalDLP(dlp_id="keep-me", loading_blocks={"a": "A", "b": "B"})
     did1 = dm.add_database(
         name="N",
-        data_type="tabular",
+        data_type="csv",
         tags=["t"],
         description="d",
         path="/root",
         dataset_parameters={"alpha": 1},
         data_loading_plan=dlp_keep,
-        save_dlp=True,
     )
-    ds1 = dm.dataset_table.get_by_id(did1)
+    ds1 = dm.get_dataset(did1)
     assert ds1["name"] == "N"
-    assert ds1["shape"] == (3, 4)
-    assert dm.dlp_table.get_by_id("keep-me") is not None
+    assert ds1["shape"] == {"csv": [3, 4]}
+    assert dm.get_dlp_by_id("keep-me")[0] is not None
 
-    dlp_skip = MinimalDLP(dlp_id="dont-save")
+    # A new dataset using the same plan on purpose reuses it
     did2 = dm.add_database(
         name="M",
-        data_type="tabular",
-        tags=[],
+        data_type="csv",
+        tags=["u"],
         description="",
         path="/r",
         dataset_parameters={},
-        data_loading_plan=dlp_skip,
-        save_dlp=False,
+        data_loading_plan=dlp_keep,
     )
-    assert dm.dlp_table.get_by_id("dont-save") is None
-    ds2 = dm.dataset_table.get_by_id(did2)
-    assert ds2["dlp_id"] == "dont-save"
+    ds2 = dm.get_dataset(did2)
+    assert ds2["dlp_id"] == "keep-me"
+    assert len(dm.get_dlp_by_id("keep-me")[1]) == 2
 
 
-def test_remove_dlp_by_id_existing_and_missing():
-    dm = dm_mod.DatasetManager(path="/db")
-    dm.dlp_table.insert({"dlp_id": "X", "loading_blocks": {"a": "d1", "b": "d2"}})
-    dm.dlb_table.insert({"dlb_id": "d1"})
-    dm.dlb_table.insert({"dlb_id": "d2"})
+def test_remove_dlp_by_id_existing_and_missing(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    dm.save_data_loading_plan(
+        MinimalDLP(dlp_id="X", loading_blocks={"a": "d1", "b": "d2"})
+    )
 
     dm.remove_dlp_by_id("X")
-    assert dm.dlp_table.get_by_id("X") is None
-    assert dm.dlb_table.get_by_id("d1") is None
-    assert dm.dlb_table.get_by_id("d2") is None
+    assert dm.get_dlp_by_id("X") == (None, [])
+    with sessions.begin() as session:
+        assert session.scalars(select(Dlb)).all() == []
 
     # Removing a non-existent DLP should be a no-op (no exception)
     dm.remove_dlp_by_id("does-not-exist")
 
 
-def test_list_my_datasets_strips_dtypes_and_prints(capsys):
-    dm = dm_mod.DatasetManager(path="/db")
-    dm.dataset_table.insert({"dataset_id": "ds1", "name": "A", "dtypes": {"x": "int"}})
+def test_list_my_datasets_strips_dtypes_and_prints(capsys, sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    _add_dataset(sessions, "ds1", name="A", dtypes={"x": "int"})
     out = dm.list_my_datasets(verbose=True)
 
     assert isinstance(out, list) and out
@@ -269,9 +244,9 @@ def test_list_my_datasets_strips_dtypes_and_prints(capsys):
     assert capsys.readouterr().out.strip() != ""  # something was printed
 
 
-def test_list_my_datasets_not_verbose(capsys):
-    dm = dm_mod.DatasetManager(path="/db")
-    dm.dataset_table.insert({"dataset_id": "ds1", "name": "B", "dtypes": {"x": "int"}})
+def test_list_my_datasets_not_verbose(capsys, sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    _add_dataset(sessions, "ds1", name="B", dtypes={"x": "int"})
     out = dm.list_my_datasets(verbose=False)
 
     assert isinstance(out, list) and out
@@ -279,8 +254,8 @@ def test_list_my_datasets_not_verbose(capsys):
     assert capsys.readouterr().out == ""  # nothing printed
 
 
-def test_save_data_loading_plan_none_returns_none():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_save_data_loading_plan_none_returns_none(sessions):
+    dm = dm_mod.DatasetManager(sessions)
     assert dm.save_data_loading_plan(None) is None
 
 
@@ -310,34 +285,38 @@ def test_obfuscate_private_information_raises_on_bad_item():
         list(dm_mod.DatasetManager.obfuscate_private_information([{"path": "x"}, 123]))
 
 
-def test_get_dataset_entry_from_both_tables():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_get_dataset_by_scope(sessions):
+    dm = dm_mod.DatasetManager(sessions)
 
     # Insert raw dataset
-    raw_id = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    raw_id = _add_dataset(sessions, "raw1")
 
     # Insert dynamic dataset
-    dyn_id = dm.dynamic_dataset_table.insert(
-        {"dataset_id": "dyn1", "parent_dataset_id": "raw1"}
+    dyn_id = dm.add_dynamic_dataset(
+        path="/dyn",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p",
+        parent_dataset_id="raw1",
+        dataset_id="dyn1",
     )
 
-    raw_dataset_entry, raw_table_name = dm.get_dataset_entry_by_id("raw1")
-    dyn_dataset_entry, dyn_table_name = dm.get_dataset_entry_by_id("dyn1")
+    assert dm.get_dataset("raw1")["dataset_id"] == raw_id
+    assert dm.get_dataset("dyn1") is None
+    assert dm.get_dataset("dyn1", "dynamic")["dataset_id"] == dyn_id
+    assert dm.get_dataset("raw1", "dynamic") is None
+    assert dm.get_dataset("raw1", "both")["dataset_id"] == raw_id
+    assert dm.get_dataset("dyn1", "both")["dataset_id"] == dyn_id
+    assert dm.get_dataset("does-not-exist", "both") is None
+    with pytest.raises(FedbiomedError, match="FB632.*DatasetScope"):
+        dm.get_dataset("raw1", "everything")
 
-    assert raw_dataset_entry["dataset_id"] == raw_id
-    assert dyn_dataset_entry["dataset_id"] == dyn_id
-    assert raw_table_name == "Datasets"
-    assert dyn_table_name == "DynamicDatasets"
 
-    with pytest.raises(FedbiomedError):
-        dm.get_dataset_entry_by_id("does-not-exist")
-
-
-def test_add_dynamic_dataset():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_add_dynamic_dataset(sessions):
+    dm = dm_mod.DatasetManager(sessions)
 
     # Insert parent raw dataset
-    parent_id = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    parent_id = _add_dataset(sessions, "raw1")
 
     dyn_id = dm.add_dynamic_dataset(
         path="/path/to/dynamic",
@@ -348,16 +327,33 @@ def test_add_dynamic_dataset():
     )
 
     # DB entry exists
-    entry = dm.dynamic_dataset_table.get_by_id(dyn_id)
+    entry = dm.get_dataset(dyn_id, "dynamic")
     assert entry is not None
     assert entry["path"] == "/path/to/dynamic"
-    assert entry["data_type"] == "tabular"
-    assert entry["shape"] == (3, 4)
+    assert entry["data_type"] == "csv"
+    assert entry["shape"] == {"csv": [3, 4]}
     assert entry["dtypes"] == {"col1": "float", "col2": "int"}
+    assert entry["parent_dataset_id"] == parent_id
+    assert "parent_dynamic_id" not in entry
+
+    # Derived from a dynamic dataset: the other parent column is set
+    grandchild = dm.get_dataset(
+        dm.add_dynamic_dataset(
+            path="/path/to/grandchild",
+            researcher_id="r",
+            experiment_id="e",
+            processing_id="p2",
+            parent_dataset_id=dyn_id,
+        ),
+        "dynamic",
+    )
+    assert grandchild["parent_dynamic_id"] == dyn_id
+    assert "parent_dataset_id" not in grandchild
+    assert grandchild["data_type"] == "csv"
 
 
-def test_add_dynamic_dataset_parent_not_found():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_add_dynamic_dataset_parent_not_found(sessions):
+    dm = dm_mod.DatasetManager(sessions)
     with pytest.raises(FedbiomedError):
         dm.add_dynamic_dataset(
             path="/path",
@@ -368,26 +364,26 @@ def test_add_dynamic_dataset_parent_not_found():
         )
 
 
-def test_build_dataset_entry_strips_root_from_dataset_parameters():
+def test_build_dataset_entry_strips_root_from_dataset_parameters(sessions):
     """root (and dlp) must not leak into the stored dataset_parameters."""
-    dm = dm_mod.DatasetManager(path="/db")
+    dm = dm_mod.DatasetManager(sessions)
     did = dm.add_database(
         name="N",
-        data_type="tabular",
+        data_type="csv",
         tags=["t"],
         description="d",
         path="/root",
         dataset_parameters={"extra_param": 42},
     )
-    entry = dm.dataset_table.get_by_id(did)
+    entry = dm.get_dataset(did)
     assert "root" not in entry["dataset_parameters"]
     assert entry["dataset_parameters"].get("extra_param") == 42
 
 
-def test_delete_dynamic_single():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_delete_dynamic_single(sessions):
+    dm = dm_mod.DatasetManager(sessions)
 
-    parent_id = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    parent_id = _add_dataset(sessions, "raw1")
 
     dyn_id = dm.add_dynamic_dataset(
         path="/path/to/dynamic",
@@ -399,13 +395,13 @@ def test_delete_dynamic_single():
 
     dm.delete_dataset_by_id(dyn_id)
 
-    assert dm.dynamic_dataset_table.get_by_id(dyn_id) is None
+    assert dm.get_dataset(dyn_id, "dynamic") is None
 
 
-def test_delete_dynamic_dataset_recursive():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_delete_dynamic_dataset_recursive(sessions):
+    dm = dm_mod.DatasetManager(sessions)
 
-    parent = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    parent = _add_dataset(sessions, "raw1")
 
     child1 = dm.add_dynamic_dataset(
         path="/path/to/dynamic/child1",
@@ -436,53 +432,19 @@ def test_delete_dynamic_dataset_recursive():
         parent_dataset_id=parent,
     )
 
-    # Inject fake subtree behavior
-    dm.dynamic_dataset_table._fake_subtrees = {child1: [child2, child3]}
-
     dm.delete_dataset_by_id(child1, recursive=True)
     # Test recursive works even with no children
     dm.delete_dataset_by_id(child4, recursive=True)
 
-    assert dm.dataset_table.get_by_id(parent) is not None
-    assert dm.dynamic_dataset_table.get_by_id(child1) is None
-    assert dm.dynamic_dataset_table.get_by_id(child2) is None
-    assert dm.dynamic_dataset_table.get_by_id(child3) is None
-    assert dm.dynamic_dataset_table.get_by_id(child4) is None
+    assert dm.get_dataset(parent) is not None
+    for child in (child1, child2, child3, child4):
+        assert dm.get_dataset(child, "dynamic") is None
 
 
-def test_delete_dynamic_dataset_with_reassign_children():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_delete_dataset_by_id_raises(sessions):
+    dm = dm_mod.DatasetManager(sessions)
 
-    parent = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
-
-    child1 = dm.add_dynamic_dataset(
-        path="/path/to/dynamic/child1",
-        researcher_id="r",
-        experiment_id="e",
-        processing_id="p1",
-        parent_dataset_id=parent,
-    )
-    child2 = dm.add_dynamic_dataset(
-        path="/path/to/dynamic/child2",
-        researcher_id="r",
-        experiment_id="e",
-        processing_id="p2",
-        parent_dataset_id=child1,
-    )
-
-    dm.delete_dataset_by_id(child1, reassign_children=True)
-
-    # child2 should now point to raw parent
-    updated = dm.dynamic_dataset_table.get_by_id(child2)
-    assert updated["parent_dataset_id"] == parent
-
-    assert dm.dynamic_dataset_table.get_by_id(child1) is None
-
-
-def test_delete_dataset_by_id_raises():
-    dm = dm_mod.DatasetManager(path="/db")
-
-    parent = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    parent = _add_dataset(sessions, "raw1")
 
     child1 = dm.add_dynamic_dataset(
         path="/path/to/dynamic/child1",
@@ -497,21 +459,28 @@ def test_delete_dataset_by_id_raises():
         experiment_id="e",
         processing_id="p2",
         parent_dataset_id=child1,
+        name="second",
     )
 
-    with pytest.raises(FedbiomedError):
+    with pytest.raises(
+        FedbiomedError,
+        match=rf"FB632: .*Dataset '{child1}' has derived datasets: 'second'\. "
+        "Delete them too with recursive=True",
+    ):
         dm.delete_dataset_by_id(child1)
-    with pytest.raises(FedbiomedError):
+    with pytest.raises(
+        FedbiomedError, match="Dataset 'raw1' has derived datasets: "
+    ) as e:
         dm.delete_dataset_by_id(parent)
-    with pytest.raises(FedbiomedError):
-        dm.delete_dataset_by_id(parent, reassign_children=True)
+    assert f"'{child1}'" in str(e.value) and "'second'" in str(e.value)
+    assert dm.get_dataset(parent) is not None
 
 
-def test_delete_dataset_without_children():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_delete_dataset_without_children(sessions):
+    dm = dm_mod.DatasetManager(sessions)
 
-    parent1 = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
-    parent2 = dm.dataset_table.insert({"dataset_id": "raw2", "data_type": "tabular"})
+    parent1 = _add_dataset(sessions, "raw1")
+    parent2 = _add_dataset(sessions, "raw2")
 
     _ = dm.add_dynamic_dataset(
         path="/path/to/dynamic/child1",
@@ -523,14 +492,14 @@ def test_delete_dataset_without_children():
 
     dm.delete_dataset_by_id(parent2)
 
-    assert dm.dataset_table.get_by_id(parent2) is None
-    assert dm.dataset_table.get_by_id(parent1) is not None
+    assert dm.get_dataset(parent2) is None
+    assert dm.get_dataset(parent1) is not None
 
 
-def test_delete_dataset_with_children_recursive():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_delete_dataset_with_children_recursive(sessions):
+    dm = dm_mod.DatasetManager(sessions)
 
-    parent = dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    parent = _add_dataset(sessions, "raw1")
 
     child = dm.add_dynamic_dataset(
         path="/path/to/dynamic/child1",
@@ -540,13 +509,10 @@ def test_delete_dataset_with_children_recursive():
         parent_dataset_id=parent,
     )
 
-    # Inject fake subtree behavior
-    dm.dynamic_dataset_table._fake_subtrees = {parent: [child]}
-
     dm.delete_dataset_by_id(parent, recursive=True)
 
-    assert dm.dataset_table.get_by_id(parent) is None
-    assert dm.dynamic_dataset_table.get_by_id(child) is None
+    assert dm.get_dataset(parent) is None
+    assert dm.get_dataset(child, "dynamic") is None
 
 
 # ------------------------------------- MINIMUM SAMPLES TESTS -------------------------------------
@@ -561,19 +527,19 @@ def test_delete_dataset_with_children_recursive():
         (50, 50),  # exactly at minimum (boundary)
     ],
 )
-def test_validate_samples_does_not_raise(min_samples, n_samples):
-    dm = dm_mod.DatasetManager(path="/db", min_samples=min_samples)
+def test_validate_samples_does_not_raise(sessions, min_samples, n_samples):
+    dm = dm_mod.DatasetManager(sessions, min_samples=min_samples)
     dm.validate_samples(n_samples)  # must not raise
 
 
-def test_validate_samples_below_minimum_raises():
+def test_validate_samples_below_minimum_raises(sessions):
     """validate_samples raises FedbiomedError when n_samples < min_samples."""
-    dm = dm_mod.DatasetManager(path="/db", min_samples=50)
+    dm = dm_mod.DatasetManager(sessions, min_samples=50)
     with pytest.raises(FedbiomedError, match="below the node's minimum required"):
         dm.validate_samples(10)
 
 
-def test_add_database_below_minimum_samples_raises(monkeypatch):
+def test_add_database_below_minimum_samples_raises(monkeypatch, sessions):
     """add_database raises FedbiomedError via validate_samples when dataset is too small."""
     monkeypatch.setattr(
         dm_mod,
@@ -582,18 +548,18 @@ def test_add_database_below_minimum_samples_raises(monkeypatch):
             n_samples=10, **controller_parameters
         ),
     )
-    dm = dm_mod.DatasetManager(path="/db", min_samples=50)
+    dm = dm_mod.DatasetManager(sessions, min_samples=50)
     with pytest.raises(FedbiomedError, match="below the node's minimum required"):
         dm.add_database(
             name="small",
-            data_type="tabular",
+            data_type="csv",
             tags=["t"],
             description="d",
             path="/root",
         )
 
 
-def test_add_dynamic_dataset_below_minimum_samples_raises(monkeypatch):
+def test_add_dynamic_dataset_below_minimum_samples_raises(monkeypatch, sessions):
     """add_dynamic_dataset also enforces min_samples via _build_dataset_entry."""
     monkeypatch.setattr(
         dm_mod,
@@ -602,8 +568,8 @@ def test_add_dynamic_dataset_below_minimum_samples_raises(monkeypatch):
             n_samples=5, **controller_parameters
         ),
     )
-    dm = dm_mod.DatasetManager(path="/db", min_samples=50)
-    dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    dm = dm_mod.DatasetManager(sessions, min_samples=50)
+    _add_dataset(sessions, "raw1")
     with pytest.raises(FedbiomedError, match="below the node's minimum required"):
         dm.add_dynamic_dataset(
             path="/path",
@@ -614,7 +580,7 @@ def test_add_dynamic_dataset_below_minimum_samples_raises(monkeypatch):
         )
 
 
-def test_custom_data_type_skips_sample_validation(monkeypatch):
+def test_custom_data_type_skips_sample_validation(monkeypatch, sessions):
     """Custom datasets bypass min_samples since they don't expose a fixed sample count."""
     monkeypatch.setattr(
         dm_mod,
@@ -623,31 +589,30 @@ def test_custom_data_type_skips_sample_validation(monkeypatch):
             n_samples=0, **controller_parameters
         ),
     )
-    dm = dm_mod.DatasetManager(path="/db", min_samples=100)
+    dm = dm_mod.DatasetManager(sessions, min_samples=100)
     # Must not raise despite n_samples=0 < min_samples=100
     dm.add_database(name="C", data_type="custom", tags=[], description="", path="/root")
 
 
-def test_build_dataset_entry_strips_dlp_from_dataset_parameters():
+def test_build_dataset_entry_strips_dlp_from_dataset_parameters(sessions):
     """The 'dlp' controller kwarg must not appear in the stored dataset_parameters."""
-    dm = dm_mod.DatasetManager(path="/db")
+    dm = dm_mod.DatasetManager(sessions)
     dlp = MinimalDLP(dlp_id="dlp-x")
     did = dm.add_database(
         name="N",
-        data_type="tabular",
+        data_type="csv",
         tags=[],
         description="",
         path="/root",
         data_loading_plan=dlp,
-        save_dlp=False,
     )
-    entry = dm.dataset_table.get_by_id(did)
+    entry = dm.get_dataset(did)
     assert "dlp" not in entry["dataset_parameters"]
     assert entry["dlp_id"] == "dlp-x"
 
 
-def test_read_csv_with_index_col(tmp_path):
-    dm = dm_mod.DatasetManager(path="/tmp/db")
+def test_read_csv_with_index_col(tmp_path, sessions):
+    dm = dm_mod.DatasetManager(sessions)
     f = tmp_path / "indexed.csv"
     f.write_text("idx,val\na,1\nb,2\n", encoding="utf-8")
     df = dm.read_csv(str(f), index_col=0)
@@ -655,12 +620,12 @@ def test_read_csv_with_index_col(tmp_path):
     assert list(df.columns) == ["val"]
 
 
-def test_read_csv_with_dtype_str_preserves_leading_zeros(tmp_path):
+def test_read_csv_with_dtype_str_preserves_leading_zeros(tmp_path, sessions):
     """`dtype=str` keeps numeric-looking values (e.g. folder-name references)
     as-is instead of letting pandas infer them as integers and drop leading
     zeros. Used by the GUI to preview MedicalFolderDataset reference CSVs.
     """
-    dm = dm_mod.DatasetManager(path="/tmp/db")
+    dm = dm_mod.DatasetManager(sessions)
     f = tmp_path / "folder_names.csv"
     f.write_text("folder_name,age\n0002,30\n1005,40\n", encoding="utf-8")
 
@@ -672,10 +637,10 @@ def test_read_csv_with_dtype_str_preserves_leading_zeros(tmp_path):
     assert df_str["age"].tolist() == ["30", "40"]
 
 
-def test_add_dynamic_dataset_with_optional_fields():
+def test_add_dynamic_dataset_with_optional_fields(sessions):
     """All optional fields are forwarded and stored correctly."""
-    dm = dm_mod.DatasetManager(path="/db")
-    dm.dataset_table.insert({"dataset_id": "raw1", "data_type": "tabular"})
+    dm = dm_mod.DatasetManager(sessions)
+    _add_dataset(sessions, "raw1")
 
     dyn_id = dm.add_dynamic_dataset(
         path="/path",
@@ -691,14 +656,160 @@ def test_add_dynamic_dataset_with_optional_fields():
     )
 
     assert dyn_id == "explicit-dyn-id"
-    entry = dm.dynamic_dataset_table.get_by_id(dyn_id)
+    entry = dm.get_dataset(dyn_id, "dynamic")
     assert entry["name"] == "my-dyn"
     assert entry["tags"] == ["tag1"]
     assert entry["description"] == "some desc"
     assert entry["dataset_parameters"].get("extra") == 42
 
 
-def test_delete_dataset_by_id_not_found():
-    dm = dm_mod.DatasetManager(path="/db")
+def test_delete_dataset_by_id_not_found(sessions):
+    dm = dm_mod.DatasetManager(sessions)
     with pytest.raises(FedbiomedError):
         dm.delete_dataset_by_id("no-such-id")
+
+
+# ------------------------------------- DATABASE RULES -------------------------------------
+
+
+def test_add_database_refuses_conflicting_tags_and_saves_nothing(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    _add_dataset(sessions, "raw1", name="First", tags=["a", "b"])
+
+    with pytest.raises(FedbiomedError, match="FB322.*Conflicting dataset names: First"):
+        dm.add_database(
+            name="N",
+            data_type="csv",
+            tags=["a"],
+            description="d",
+            path="/root",
+            data_loading_plan=MinimalDLP(dlp_id="unused"),
+        )
+
+    assert dm.get_dlp_by_id("unused") == (None, [])
+
+
+def test_add_database_refuses_dlp_with_same_id_and_other_content(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    dm.save_data_loading_plan(MinimalDLP(dlp_id="P", loading_blocks={"a": "A"}))
+
+    with pytest.raises(FedbiomedError, match="FB316.*Dlps entry P already exists"):
+        dm.save_data_loading_plan(MinimalDLP(dlp_id="P", loading_blocks={"a": "Z"}))
+
+
+def test_add_database_refuses_dlp_name_used_by_another_plan(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    dm.save_data_loading_plan(MinimalDLP(dlp_id="P1", dlp_name="same name"))
+
+    with pytest.raises(FedbiomedError, match="FB316.*DLP name needs to be unique"):
+        dm.save_data_loading_plan(MinimalDLP(dlp_id="P2", dlp_name="same name"))
+
+
+def test_remove_dlp_by_id_refuses_plan_in_use(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    dm.add_database(
+        name="User",
+        data_type="csv",
+        tags=["t"],
+        description="d",
+        path="/root",
+        data_loading_plan=MinimalDLP(dlp_id="P"),
+    )
+
+    with pytest.raises(FedbiomedError, match="FB316.*used by datasets: User"):
+        dm.remove_dlp_by_id("P")
+    assert dm.get_dlp_by_id("P")[0] is not None
+
+
+def test_get_derived_datasets_returns_whole_subtree(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    _add_dataset(sessions, "raw1")
+    child = dm.add_dynamic_dataset(
+        path="/c",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p1",
+        parent_dataset_id="raw1",
+    )
+    grandchild = dm.add_dynamic_dataset(
+        path="/g",
+        researcher_id="r",
+        experiment_id="e",
+        processing_id="p2",
+        parent_dataset_id=child,
+    )
+
+    derived = dm.get_derived_datasets("raw1")
+
+    assert {d["dataset_id"] for d in derived} == {child, grandchild}
+    assert [d["dataset_id"] for d in dm.get_derived_datasets(child)] == [grandchild]
+    assert dm.get_derived_datasets(grandchild) == []
+    with pytest.raises(FedbiomedError, match="FB632.*not found"):
+        dm.get_derived_datasets("does-not-exist")
+
+
+def test_search_datasets_matches_name_or_description_once(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    _add_dataset(sessions, "d1", name="ÉTUDE brain", description="étude scans")
+    _add_dataset(sessions, "d2", name="Other", description="Brain 50%")
+    _add_dataset(sessions, "d3", name="Unrelated", description="x")
+
+    found = dm.search_datasets("étude")
+    assert [d["dataset_id"] for d in found] == ["d1"]
+    assert "dtypes" not in found[0]
+    assert {d["dataset_id"] for d in dm.search_datasets("brain")} == {"d1", "d2"}
+    assert [d["dataset_id"] for d in dm.search_datasets("50%")] == ["d2"]
+
+
+def test_search_by_tags_and_conflicting_tags(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    _add_dataset(sessions, "d1", tags=["a", "b"])
+    _add_dataset(sessions, "d2", tags=["c"])
+
+    assert [d["dataset_id"] for d in dm.search_by_tags(["a"])] == ["d1"]
+    assert dm.search_by_tags(["a", "c"]) == []
+    conflicting = dm.search_conflicting_tags(["a", "b", "x"])
+    assert [d["dataset_id"] for d in conflicting] == ["d1"]
+    assert dm.search_conflicting_tags(["z"]) == []
+
+
+def test_update_dataset_returns_updated_entry(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    _add_dataset(sessions, "d1", tags=["a"])
+    _add_dataset(sessions, "d2", name="Second", tags=["b"])
+
+    updated = dm.update_dataset("d1", {"name": "new", "tags": ["a", "x"]})
+
+    assert updated["name"] == "new" and updated["tags"] == ["a", "x"]
+    assert dm.get_dataset("d1")["name"] == "new"
+
+
+@pytest.mark.parametrize(
+    "dataset_id, changes, match",
+    [
+        ("missing", {"name": "x"}, "FB632.*not found"),
+        ("d1", {"dataset_id": "other"}, "FB632.*Cannot change the field"),
+        ("d1", {"colour": "red"}, r"FB632.*unknown fields \['colour'\]"),
+        ("d1", {"tags": ["b", "c"]}, "FB322.*Conflicting dataset names: Second"),
+        ("d1", {"data_type": "tabular"}, "FB632.*Dataset.data_type"),
+    ],
+)
+def test_update_dataset_refuses_invalid_changes(sessions, dataset_id, changes, match):
+    dm = dm_mod.DatasetManager(sessions)
+    _add_dataset(sessions, "d1", tags=["a"])
+    _add_dataset(sessions, "d2", name="Second", tags=["b"])
+
+    with pytest.raises(FedbiomedError, match=match):
+        dm.update_dataset(dataset_id, changes)
+
+    assert dm.get_dataset("d1")["tags"] == ["a"]
+
+
+def test_list_dlps_by_target_dataset_type(sessions):
+    dm = dm_mod.DatasetManager(sessions)
+    dm.save_data_loading_plan(MinimalDLP(dlp_id="P"))
+
+    assert [d["dlp_id"] for d in dm.list_dlps("csv")] == ["P"]
+    assert dm.list_dlps("images") == []
+    with pytest.raises(FedbiomedError, match="FB632.*target_dataset_type"):
+        dm.list_dlps("tabular")

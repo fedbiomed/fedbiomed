@@ -1,17 +1,10 @@
 from unittest.mock import patch
 
 import pytest
-from fedbiomed.common.constants import DatasetTypes
+
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager._db_dataclasses import (
-    DatasetEntry,
-    DynamicDatasetEntry,
-    NodeProcessStateEntry,
-)
+from fedbiomed.node.dataset_manager._db_dataclasses import NodeProcessStateEntry
 from fedbiomed.node.dataset_manager._db_tables import (
-    DatasetTable,
-    DlpTable,
-    DynamicDatasetTable,
     NodeConnectionStateHistoryTable,
     NodeConnectionStateTable,
     NodeProcessStateHistoryTable,
@@ -22,21 +15,6 @@ from fedbiomed.node.dataset_manager._db_tables import (
 @pytest.fixture
 def db_path(tmp_path):
     return str(tmp_path / "db.json")
-
-
-@pytest.fixture
-def dataset_table(db_path):
-    return DatasetTable(db_path)
-
-
-@pytest.fixture
-def dynamic_dataset_table(db_path):
-    return DynamicDatasetTable(db_path)
-
-
-@pytest.fixture
-def dlp_table(db_path):
-    return DlpTable(db_path)
 
 
 @pytest.fixture
@@ -52,41 +30,6 @@ def connection_state_table(db_path):
 @pytest.fixture
 def connection_history_table(db_path):
     return NodeConnectionStateHistoryTable(db_path)
-
-
-def _dataset(**kwargs):
-    return {
-        "name": "test_dataset",
-        "data_type": "image",
-        "tags": ["tag1", "tag2"],
-        "description": "A test dataset",
-        "path": "/path/to/data",
-        "shape": [100, 100],
-        "dtypes": {"data": "float32"},
-        **kwargs,
-    }
-
-
-def _dynamic_dataset(**kwargs):
-    return {
-        "path": "/path/to/dynamic",
-        "researcher_id": "res_123",
-        "experiment_id": "exp_456",
-        "processing_id": "proc_789",
-        "parent_dataset_id": "dataset_000",
-        **kwargs,
-    }
-
-
-def _dlp(**kwargs):
-    return {
-        "dlp_id": "dlp_123",
-        "dlp_name": "valid_dlp",
-        "target_dataset_type": DatasetTypes.TABULAR.value,
-        "key_paths": "/path/to/plan",
-        "loading_blocks": {"block1": "block_id1"},
-        **kwargs,
-    }
 
 
 def _process_state(**kwargs):
@@ -113,144 +56,34 @@ def _connection_state(**kwargs):
     }
 
 
-@pytest.mark.parametrize(
-    "entry_class, fields, prefix",
-    [
-        (DatasetEntry, _dataset(), "dataset_"),
-        (DynamicDatasetEntry, _dynamic_dataset(), "dynamic_dataset_"),
-    ],
-)
-def test_entry_generates_dataset_id_unless_given(entry_class, fields, prefix):
-    assert entry_class(**fields).dataset_id.startswith(prefix)
-    assert entry_class(**fields, dataset_id="given_id").dataset_id == "given_id"
-
-
 def test_entry_to_dict_drops_unset_fields():
-    entry = DynamicDatasetEntry(**_dynamic_dataset())
+    entry = NodeProcessStateEntry(**_process_state())
 
     dict_rep = entry.to_dict()
 
-    assert dict_rep["researcher_id"] == "res_123"
+    assert dict_rep["node_name"] == "Node 1"
     # Unset optional fields are dropped rather than stored as null
-    assert "name" not in dict_rep
+    assert "reason" not in dict_rep
 
 
 def test_entry_from_dict_rejects_invalid_data():
     with pytest.raises(FedbiomedError):
-        DynamicDatasetEntry.from_dict(_dynamic_dataset(unknown_field="value"))
+        NodeProcessStateEntry.from_dict(_process_state(unknown_field="value"))
 
 
-def test_table_insert_rejects_entry_missing_required_fields(dynamic_dataset_table):
+def test_table_insert_rejects_entry_missing_required_fields(connection_history_table):
     with pytest.raises(FedbiomedError):
-        dynamic_dataset_table.insert({"path": "/path/to/dynamic"})
+        connection_history_table.insert({"node_id": "node-1"})
 
 
-def test_table_update_by_id_rejects_id_change_and_unknown_entry(dataset_table):
-    dataset_id = dataset_table.insert(_dataset())
-
-    with pytest.raises(FedbiomedError):
-        dataset_table.update_by_id(dataset_id, {"dataset_id": "another_id"})
+def test_table_update_by_id_rejects_id_change_and_unknown_entry(process_state_table):
+    process_state_table.update_or_insert_by_id("node-1", _process_state())
 
     with pytest.raises(FedbiomedError):
-        dataset_table.update_by_id("NON_EXISTENT", {"name": "renamed"})
-
-
-def test_dataset_table_round_trip(dataset_table):
-    dataset_id = dataset_table.insert(_dataset(name="dataset_get", tags=["findme"]))
-
-    assert dataset_table.get_by_id(dataset_id)["name"] == "dataset_get"
-    assert dataset_table.get_validated_entry(dataset_id).name == "dataset_get"
-    assert dataset_table.get_by_id("NON_EXISTENT") is None
-    assert [d["name"] for d in dataset_table.search_by_tags(["findme"])] == [
-        "dataset_get"
-    ]
-
-
-def test_dataset_table_insert_rejects_conflicting_tags(dataset_table):
-    dataset_table.insert(_dataset(tags=["tag1", "tag2"]))
+        process_state_table.update_by_id("node-1", {"node_id": "another_id"})
 
     with pytest.raises(FedbiomedError):
-        dataset_table.insert(_dataset(name="conflict_dataset", tags=["tag2"]))
-
-
-def test_dataset_table_update_by_id_rejects_conflicting_tags(dataset_table):
-    dataset_id = dataset_table.insert(
-        _dataset(name="dataset_to_update", tags=["special"])
-    )
-    dataset_table.insert(_dataset(name="other_dataset", tags=["other"]))
-
-    with pytest.raises(FedbiomedError):
-        dataset_table.update_by_id(dataset_id, {"tags": ["other", "special"]})
-
-    dataset_table.update_by_id(dataset_id, {"tags": ["unique"]})
-    assert dataset_table.get_by_id(dataset_id)["tags"] == ["unique"]
-
-
-def test_dynamic_dataset_table_round_trip(dynamic_dataset_table):
-    entry = _dynamic_dataset(name="Dynamic Dataset 1")
-
-    dataset_id = dynamic_dataset_table.insert(entry)
-
-    assert dynamic_dataset_table.get_by_id(dataset_id) == {
-        **entry,
-        "dataset_id": dataset_id,
-    }
-    assert dynamic_dataset_table.get_by_id("NON_EXISTENT") is None
-
-
-def test_dynamic_dataset_table_collect_subtree(dynamic_dataset_table):
-    child_id = dynamic_dataset_table.insert(
-        _dynamic_dataset(path="/child", parent_dataset_id="dataset_root_id")
-    )
-    grandchild_id = dynamic_dataset_table.insert(
-        _dynamic_dataset(path="/grandchild", parent_dataset_id=child_id)
-    )
-
-    assert dynamic_dataset_table.collect_subtree("dataset_root_id") == [
-        child_id,
-        grandchild_id,
-    ]
-    assert dynamic_dataset_table.collect_subtree("unknown_id") == []
-
-
-@pytest.mark.parametrize(
-    "invalid_entry",
-    [
-        _dlp(target_dataset_type="not_a_type"),
-        _dlp(dlp_name="abc"),
-    ],
-    ids=["unknown target type", "name too short"],
-)
-def test_dlp_table_insert_rejects_invalid_entry(dlp_table, invalid_entry):
-    with pytest.raises(FedbiomedError):
-        dlp_table.insert(invalid_entry)
-
-
-def test_dlp_table_insert_rejects_non_unique_name(dlp_table):
-    dlp_table.insert(_dlp(dlp_id="dlp_125", dlp_name="unique_name"))
-
-    with pytest.raises(FedbiomedError):
-        dlp_table.insert(
-            _dlp(
-                dlp_id="dlp_999",
-                dlp_name="unique_name",
-                target_dataset_type=DatasetTypes.MEDNIST.value,
-            )
-        )
-
-
-def test_dlp_table_round_trip_and_list_by_target_dataset_type(dlp_table):
-    dlp_table.insert(_dlp(dlp_id="dlp_100", dlp_name="dlp_listed"))
-
-    stored = dlp_table.get_by_id("dlp_100")
-    assert stored["dlp_name"] == "dlp_listed"
-    assert stored["loading_blocks"] == {"block1": "block_id1"}
-
-    listed = dlp_table.list_by_target_dataset_type(DatasetTypes.TABULAR.value)
-    assert [entry["dlp_id"] for entry in listed] == ["dlp_100"]
-
-    with pytest.raises(FedbiomedError):
-        dlp_table.list_by_target_dataset_type("invalid")
+        process_state_table.update_by_id("NON_EXISTENT", {"state": "stopped"})
 
 
 def test_process_state_table_upserts_and_merges_by_node_id(process_state_table):

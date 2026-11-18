@@ -6,11 +6,12 @@ import signal
 import sys
 import tempfile
 import unittest
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, call, mock_open, patch
+
+import pytest
 
 import fedbiomed
 import fedbiomed.node.cli_utils
-import pytest
 from fedbiomed.common.cli import CommonCLI
 from fedbiomed.common.constants import NODE_DATA_FOLDER
 from fedbiomed.common.exceptions import FedbiomedError
@@ -461,12 +462,18 @@ class TestStartNodeProcess(unittest.TestCase):
 class TestNodeCLI(unittest.TestCase):
     """Tests main NodeCLI"""
 
+    @patch("fedbiomed.node.node.session_factory")
     @patch("fedbiomed.node.node.TrainingPlanSecurityManager")
     @patch("fedbiomed.node.node.DatasetManager")
     @patch("fedbiomed.node.cli.node_component.initiate")
     @patch("builtins.input")
     def test_01_node_cli_init(
-        self, input_patch, mock_initiate, mock_dataset_manager, mock_tp_manager
+        self,
+        input_patch,
+        mock_initiate,
+        mock_dataset_manager,
+        mock_tp_manager,
+        _mock_sessions,
     ):
         """Tests initialization"""
         input_patch.return_value = "y"
@@ -488,9 +495,10 @@ class TestNodeCLI(unittest.TestCase):
 class TestNodeContext(unittest.TestCase):
     """Tests the local state the node CLI acts on"""
 
+    @patch("fedbiomed.node.node.session_factory")
     @patch("fedbiomed.node.node.TrainingPlanSecurityManager")
     @patch("fedbiomed.node.node.DatasetManager")
-    def setUp(self, mock_dataset, mock_tp):
+    def setUp(self, mock_dataset, mock_tp, _mock_sessions):
         self.config = MagicMock()
         self.mock_dataset = mock_dataset
         self.mock_tp = mock_tp
@@ -1128,6 +1136,31 @@ def test_node_control_status_lists_history_only_when_asked(mocker, capsys):
     assert "Recent connection state changes" in out
     assert "handshake_complete" in out
     assert "node_starting" in out
+
+
+def test_delete_database_removes_mnist_with_its_derived_datasets():
+    """Deleting from the CLI also deletes the datasets derived from it."""
+    manager = MagicMock()
+    manager.list_my_datasets.return_value = [
+        {"name": "Other", "dataset_id": "d1"},
+        {"name": "MNIST", "dataset_id": "d2"},
+    ]
+
+    fedbiomed.node.cli_utils.delete_database(manager, interactive=False)
+
+    manager.delete_dataset_by_id.assert_called_once_with("d2", recursive=True)
+
+
+def test_delete_all_database_removes_derived_datasets():
+    manager = MagicMock()
+    manager.list_my_datasets.return_value = [{"dataset_id": "d1"}, {"dataset_id": "d2"}]
+
+    fedbiomed.node.cli_utils.delete_all_database(manager)
+
+    assert manager.delete_dataset_by_id.call_args_list == [
+        call("d1", recursive=True),
+        call("d2", recursive=True),
+    ]
 
 
 if __name__ == "__main__":

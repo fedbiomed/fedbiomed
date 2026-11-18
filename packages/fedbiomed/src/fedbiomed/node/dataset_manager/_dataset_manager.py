@@ -6,45 +6,44 @@ Interfaces with the node component database.
 """
 
 import csv
+import json
 from typing import Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
+from sqlalchemy import Select, delete, or_, select
+from sqlalchemy.orm import Session, sessionmaker
 from tabulate import tabulate  # only used for printing
 
-from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
+from fedbiomed.common.constants import DatasetScope, DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import get_controller
 from fedbiomed.common.dataset_controller import download_mnist
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
-from fedbiomed.node.dataset_manager._db_tables import (
-    DatasetTable,
-    DlbTable,
-    DlpTable,
-    DynamicDatasetTable,
-)
+from fedbiomed.node.db_models import Dataset, Dlb, Dlp, DynamicDataset
 
 
 class DatasetManager:
-    """Interfaces with the node component database.
+    """Registers the node's datasets, their data loading plans and derived
+    datasets, and gives access to them.
 
-    Facility for storing data, retrieving data and getting data info
-    for the node. Currently uses TinyDB.
+    Each public method runs in one transaction of the node's database.
     """
 
-    def __init__(self, path: str, min_samples: int = 0):
-        """Initialize with database path.
+    # Tables this manager owns; the only ones it reads or writes
+    MODELS = (Dataset, DynamicDataset, Dlp, Dlb)
+
+    def __init__(self, sessions: sessionmaker[Session], min_samples: int = 0):
+        """Initialize with the node's database.
 
         Args:
-            path: Path to the database file.
+            sessions: Session factory of the node's database file, whose
+                tables include `MODELS`.
             min_samples: Minimum number of samples required when adding a dataset.
                 Defaults to 0 (no minimum enforced).
         """
+        self._sessions = sessions
         self._min_samples = min_samples
-        self._dataset_table = DatasetTable(path)
-        self._dynamic_dataset_table = DynamicDatasetTable(path)
-        self._dlp_table = DlpTable(path)
-        self._dlb_table = DlbTable(path)
 
     def validate_samples(self, n_samples: int) -> None:
         """Raise FedbiomedError if n_samples is below the configured minimum.
@@ -61,22 +60,6 @@ class DatasetManager:
                 f"which is below the node's minimum required ({self._min_samples})."
             )
 
-    @property
-    def dataset_table(self) -> DatasetTable:
-        return self._dataset_table
-
-    @property
-    def dynamic_dataset_table(self) -> DynamicDatasetTable:
-        return self._dynamic_dataset_table
-
-    @property
-    def dlp_table(self) -> DlpTable:
-        return self._dlp_table
-
-    @property
-    def dlb_table(self) -> DlbTable:
-        return self._dlb_table
-
     def get_dlp_by_id(self, dlp_id: str) -> Tuple[Optional[dict], List[dict]]:
         """Get a data loading plan and its associated data loading blocks by ID.
 
@@ -87,27 +70,29 @@ class DatasetManager:
             A tuple of (dlp_metadata, dlbs) where dlp_metadata is the DLP dict
             (or None if not found) and dlbs is a list of associated DLB dicts.
         """
-        dlp_metadata = self.dlp_table.get_by_id(dlp_id)
+        with self._sessions.begin() as session:
+            dlp = session.get(Dlp, dlp_id)
 
-        if dlp_metadata is None:
+            if dlp is None:
+                logger.debug(
+                    "Data loading plan with id %s not found in database.",
+                    dlp_id,
+                )
+                return None, []
+
             logger.debug(
-                "Data loading plan with id %s not found in database.",
+                "Data loading plan with id %s found in database. Retrieving associated data loading blocks.",
                 dlp_id,
             )
-            return None, []
-
-        logger.debug(
-            "Data loading plan with id %s found in database. Retrieving associated data loading blocks.",
-            dlp_id,
-        )
-        dlb_ids = list(dlp_metadata["loading_blocks"].values())
-        logger.debug(
-            "Found %d data loading blocks associated with data loading plan id %s: dlb_ids=%s",
-            len(dlb_ids),
-            dlp_id,
-            dlb_ids,
-        )
-        return dlp_metadata, self.dlb_table.get_all_by_value("dlb_id", dlb_ids)
+            dlb_ids = list(dlp.loading_blocks.values())
+            logger.debug(
+                "Found %d data loading blocks associated with data loading plan id %s: dlb_ids=%s",
+                len(dlb_ids),
+                dlp_id,
+                dlb_ids,
+            )
+            dlbs = session.scalars(select(Dlb).where(Dlb.dlb_id.in_(dlb_ids)))
+            return dlp.to_dict(), [dlb.content for dlb in dlbs]
 
     def read_csv(
         self,
@@ -152,20 +137,22 @@ class DatasetManager:
         dataset_id: Optional[str] = None,
         dataset_parameters: Optional[dict] = None,
         data_loading_plan: Optional[DataLoadingPlan] = None,
-        save_dlp: bool = True,
     ) -> str:
         """Register a dataset in the database.
 
+        The dataset and its data loading plan are saved together: either both
+        are saved or neither is. A data loading plan already saved is reused.
+
         Args:
             name: Name of the dataset
-            data_type: Type of the dataset (e.g. 'tabular', 'image-folder', 'medical-folder')
+            data_type: Type of the dataset, a `DatasetTypes` value
+                (e.g. 'csv', 'images', 'medical-folder')
             tags: Tags associated with the dataset
             description: Description of the dataset
             path: Path to the dataset
             dataset_id: Optional ID for the dataset. If None, a new ID will be generated.
             dataset_parameters: Optional parameters for the dataset controller
             data_loading_plan: Optional DataLoadingPlan associated with the dataset
-            save_dlp: Whether to save the DataLoadingPlan to the database if provided
 
         Returns:
             The dataset_id of the registered dataset
@@ -173,7 +160,8 @@ class DatasetManager:
         Raises:
             FedbiomedError:
             - If there are conflicting tags with existing datasets
-            - If the data loading plan name is invalid or not unique
+            - If the data loading plan name is invalid or not unique, or a plan
+              with the same id but a different content is already saved
             - If the data_type is not supported
             - If MNIST is deployed and its files can neither be found nor fetched
         """
@@ -194,12 +182,25 @@ class DatasetManager:
             description=description,
             data_loading_plan=data_loading_plan,
         )
-        dataset_entry = self.dataset_table.insert(entry)
 
-        if save_dlp:
-            self.save_data_loading_plan(data_loading_plan)
+        with self._sessions.begin() as session:
+            if data_loading_plan is not None:
+                self._save_data_loading_plan(session, data_loading_plan)
 
-        return dataset_entry
+            conflicting = self._conflicting_datasets(session, entry["tags"])
+            if conflicting:
+                msg = (
+                    f"{ErrorNumbers.FB322.value}: One or more registered datasets present "
+                    f"tags conflicting with your entry. Conflicting dataset names: "
+                    f"{', '.join([dataset.name for dataset in conflicting])}."
+                )
+                logger.error(msg)
+                raise FedbiomedError(msg)
+
+            dataset = Dataset.from_dict(entry)
+            session.add(dataset)
+
+        return dataset.dataset_id
 
     def add_dynamic_dataset(
         self,
@@ -221,7 +222,7 @@ class DatasetManager:
             researcher_id: the id of the researcher who created the dynamic dataset
             experiment_id: the id of the experiment for which the dynamic dataset was created
             processing_id: the id of the processing that generated the dynamic dataset
-            parent_dataset_id: the id of the parent dataset from which the dynamic dataset was derived
+            parent_dataset_id: the id of the dataset or dynamic dataset from which the dynamic dataset was derived
             name: optional name for the dynamic dataset
             tags: optional list of tags for the dynamic dataset
             description: optional description for the dynamic dataset
@@ -233,15 +234,19 @@ class DatasetManager:
 
         Raises:
             FedbiomedError:
-            - If the parent dataset is not found in the database
+            - If the parent dataset is not found in the database, or is deleted
+              while the dynamic dataset is loading
         """
-        # Validate parent
-        parent_entry, _ = self.get_dataset_entry_by_id(parent_dataset_id)
+        with self._sessions.begin() as session:
+            parent = self._get_or_raise(session, parent_dataset_id)
+            data_type = parent.data_type
+            parent_field = (
+                "parent_dynamic_id"
+                if isinstance(parent, DynamicDataset)
+                else "parent_dataset_id"
+            )
 
-        # Get data type from parent dataset
-        data_type = parent_entry["data_type"]
-
-        # Build entry
+        # Loading the dataset is slow: done outside the transactions
         entry = self._build_dataset_entry(
             data_type=data_type,
             path=path,
@@ -255,10 +260,15 @@ class DatasetManager:
                 "researcher_id": researcher_id,
                 "experiment_id": experiment_id,
                 "processing_id": processing_id,
-                "parent_dataset_id": parent_dataset_id,
+                parent_field: parent_dataset_id,
             },
         )
-        return self.dynamic_dataset_table.insert(entry)
+
+        with self._sessions.begin() as session:
+            dataset = DynamicDataset.from_dict(entry)
+            session.add(dataset)
+
+        return dataset.dataset_id
 
     def _build_dataset_entry(
         self,
@@ -279,9 +289,10 @@ class DatasetManager:
         and dtypes, then assembles the fields to store in the database.
 
         Args:
-            data_type: Dataset type string (e.g. 'tabular', 'medical-folder', 'custom').
+            data_type: Dataset type, a `DatasetTypes` value (e.g. 'csv', 'images',
+                'medical-folder').
             path: Filesystem root path of the dataset.
-            dataset_id: ID to assign; if None, the table will generate one on insert.
+            dataset_id: ID to assign; if None, one is generated on insert.
             dataset_parameters: Extra controller kwargs (e.g. tabular_file for medical-folder).
             name: Human-readable name for the dataset.
             tags: Tags used by researchers to search for this dataset.
@@ -339,130 +350,127 @@ class DatasetManager:
 
         return entry
 
-    def get_dataset_entry_by_id(self, dataset_id: str) -> Tuple[dict, str]:
-        """
-        Validates that the dataset exists and returns its DB entry and dataset type.
-
-        The dataset can be either:
-            - a dataset (DatasetTable)
-            - a dynamic dataset (DynamicDatasetTable)
+    def get_dataset(
+        self, dataset_id: str, scope: str = DatasetScope.ORIGINAL.value
+    ) -> Optional[dict]:
+        """Gets a dataset entry by its id.
 
         Args:
-            dataset_id: the id of the dataset to validate
+            dataset_id: the id of the dataset
+            scope: which datasets to look in, a `DatasetScope` value; with
+                `both`, registered datasets are looked up first.
 
         Returns:
-            Tuple of (entry dict, table name string) identifying where the record lives.
+            The dataset entry, or None if no dataset in `scope` has this id.
 
         Raises:
-            FedbiomedError: If dataset or dynamic dataset does not exist.
+            FedbiomedError: scope is not a `DatasetScope` value.
         """
+        if scope not in DatasetScope.list():
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: scope should be one of the values "
+                "defined in 'fedbiomed.common.constants.DatasetScope'"
+            )
 
-        dataset_entry = self.dataset_table.get_by_id(dataset_id)
-        if dataset_entry is not None:
-            return dataset_entry, self.dataset_table._table_name
+        with self._sessions.begin() as session:
+            dataset = self._find(session, dataset_id, scope)
+            return None if dataset is None else dataset.to_dict()
 
-        dynamic_dataset_entry = self.dynamic_dataset_table.get_by_id(dataset_id)
-        if dynamic_dataset_entry is not None:
-            return dynamic_dataset_entry, self.dynamic_dataset_table._table_name
+    def delete_dataset_by_id(self, dataset_id: str, recursive: bool = False) -> None:
+        """Deletes a dataset or a dynamic dataset by its ID.
 
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."
-        )
-
-    def delete_dataset_by_id(
-        self,
-        dataset_id: str,
-        recursive: bool = False,
-        reassign_children: bool = False,
-    ) -> None:
-        """Deletes a dataset from the database by its ID.
+        The datasets derived from it, at any depth, are deleted with it only
+        when `recursive` is set.
 
         Args:
             dataset_id: the ID of the dataset to delete
-            recursive: whether to recursively delete all descendant dynamic datasets (if any). Defaults to False.
-            reassign_children: whether to delete the dataset, and reassign children to the parent dataset if the dataset has children. Defaults to False.
+            recursive: whether to also delete the datasets derived from it.
+                Defaults to False.
 
         Raises:
             FedbiomedError:
             - If no dataset is found with the given ID
-            - If the dataset is a raw dataset and has children, and reassign_children is True (to avoid reassigning children of a raw dataset)
-            - If the dataset is a raw dataset and has children, and recursive is not True
-            - If the dynamic dataset has children and neither recursive nor reassign_children is True
+            - If datasets are derived from it and recursive is not set
         """
-        dataset_entry, dataset_type = self.get_dataset_entry_by_id(dataset_id)
-        is_dynamic = dataset_type == self.dynamic_dataset_table._table_name
+        with self._sessions.begin() as session:
+            dataset = self._get_or_raise(session, dataset_id)
+            derived = session.scalars(
+                select(DynamicDataset)
+                .where(DynamicDataset.dataset_id.in_(self._derived_ids(dataset)))
+                .order_by(DynamicDataset.dataset_id)
+            ).all()
 
-        children = self.dynamic_dataset_table.get_all_by_value(
-            "parent_dataset_id", dataset_id
-        )
-
-        # Case 1: dataset
-        if not is_dynamic:
-            if children:
-                if reassign_children:
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Cannot reassign children of a dataset with children. Use recursive=True to delete subtree."
-                    )
-
-                if not recursive:
-                    raise FedbiomedError(
-                        f"{ErrorNumbers.FB632.value}: Dataset has derived dynamic datasets. Use recursive=True to delete subtree."
-                    )
-
-                self._delete_dynamic_subtree(dataset_id)
-
-            # Delete raw dataset entry
-            self.dataset_table.delete_by_id(dataset_id)
-            return
-
-        # Case 2: dynamic dataset
-        if children and not recursive and not reassign_children:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Dataset has children. Use recursive=True to delete subtree "
-                "or reassign_children=True to reassign children."
-            )
-
-        if recursive:
-            self._delete_dynamic_subtree(dataset_id)
-
-        if reassign_children:
-            parent_id = dataset_entry.get("parent_dataset_id")
-
-            for child in children:
-                self.dynamic_dataset_table.update_by_id(
-                    child["dataset_id"],
-                    {"parent_dataset_id": parent_id},
+            if derived and not recursive:
+                msg = (
+                    f"{ErrorNumbers.FB632.value}: Dataset '{dataset.name or dataset_id}' "
+                    "has derived datasets: "
+                    f"{', '.join(repr(d.name or d.dataset_id) for d in derived)}. "
+                    "Delete them too with recursive=True."
                 )
+                logger.error(msg)
+                raise FedbiomedError(msg)
 
-        self.dynamic_dataset_table.delete_by_id(dataset_id)
+            # One statement, so the derived datasets' links are checked once
+            # they are all gone
+            session.execute(
+                delete(DynamicDataset).where(
+                    DynamicDataset.dataset_id.in_(self._derived_ids(dataset))
+                )
+            )
+            session.delete(dataset)
 
-    def _delete_dynamic_subtree(self, dataset_id: str) -> None:
-        """Helper method to delete a subtree of dynamic datasets rooted at dataset_id.
-
-        The root dataset can be either:
-            - a dataset (DatasetTable)
-            - a dynamic dataset (DynamicDatasetTable)
+    def get_derived_datasets(self, dataset_id: str) -> List[dict]:
+        """Gets the dynamic datasets derived from a dataset, at any depth.
 
         Args:
-            dataset_id: the ID of the root of the subtree to delete
+            dataset_id: the id of a dataset or of a dynamic dataset
+
+        Returns:
+            The derived dynamic datasets; empty if there are none.
+
+        Raises:
+            FedbiomedError: no dataset with this id.
         """
-        subtree = self.dynamic_dataset_table.collect_subtree(dataset_id)
-        # Delete leaf-first (reversed BFS/DFS order) so foreign-key constraints are respected.
-        for dyn_id in reversed(subtree):
-            self.dynamic_dataset_table.delete_by_id(dyn_id)
+        with self._sessions.begin() as session:
+            dataset = self._get_or_raise(session, dataset_id)
+            derived = session.scalars(
+                select(DynamicDataset)
+                .where(DynamicDataset.dataset_id.in_(self._derived_ids(dataset)))
+                .order_by(DynamicDataset.dataset_id)
+            )
+            return [d.to_dict() for d in derived]
 
     def remove_dlp_by_id(self, dlp_id: str) -> None:
-        """Remove a data loading plan (DLP) and its associated data loading blocks (DLBs).
+        """Remove a data loading plan (DLP) and its data loading blocks (DLBs).
+
+        Nothing happens if the DLP does not exist.
 
         Args:
             dlp_id: ID of the DataLoadingPlan to remove.
-        """
-        dlp, dlbs = self.get_dlp_by_id(dlp_id)
 
-        if dlp is not None:
-            self._dlp_table.delete_by_id(dlp_id)
-            for dlb in dlbs:
-                self._dlb_table.delete_by_id(dlb["dlb_id"])
+        Raises:
+            FedbiomedError: datasets use the DLP.
+        """
+        with self._sessions.begin() as session:
+            dlp = session.get(Dlp, dlp_id)
+            if dlp is None:
+                return
+
+            users = session.scalars(
+                select(Dataset.name).where(Dataset.dlp_id == dlp_id)
+            ).all()
+            if users:
+                msg = (
+                    f"{ErrorNumbers.FB316.value}: Cannot remove data loading plan "
+                    f"{dlp_id}: it is used by datasets: {', '.join(users)}."
+                )
+                logger.error(msg)
+                raise FedbiomedError(msg)
+
+            session.execute(
+                delete(Dlb).where(Dlb.dlb_id.in_(list(dlp.loading_blocks.values())))
+            )
+            session.delete(dlp)
 
     def list_my_datasets(self, verbose: bool = True) -> List[dict]:
         """Lists all datasets on the node.
@@ -473,35 +481,166 @@ class DatasetManager:
         Returns:
             All datasets in the node's database.
         """
-        my_data = self.dataset_table.all()
-
-        # Do not display dtypes
-        for doc in my_data:
-            doc.pop("dtypes", None)
+        with self._sessions.begin() as session:
+            my_data = self._without_dtypes(session.scalars(select(Dataset)))
 
         if verbose:
             print(tabulate(my_data, headers="keys"))
 
         return my_data
 
+    def search_datasets(self, text: str) -> List[dict]:
+        """Searches datasets whose name or description contains a text.
+
+        The search ignores case, accented letters included.
+
+        Args:
+            text: text to look for
+
+        Returns:
+            The matching datasets, each once, as in `list_my_datasets`.
+        """
+        with self._sessions.begin() as session:
+            return self._without_dtypes(
+                session.scalars(
+                    select(Dataset).where(
+                        or_(
+                            Dataset.name.icontains(text, autoescape=True),
+                            Dataset.description.icontains(text, autoescape=True),
+                        )
+                    )
+                )
+            )
+
+    def search_by_tags(self, tags: Union[tuple, list]) -> List[dict]:
+        """Searches for datasets having all the given tags.
+
+        Args:
+            tags: List of tags
+
+        Returns:
+            The list of matching datasets
+        """
+        with self._sessions.begin() as session:
+            datasets = session.scalars(select(Dataset))
+            return [d.to_dict() for d in datasets if set(tags).issubset(d.tags)]
+
+    def search_conflicting_tags(self, tags: Union[tuple, list]) -> List[dict]:
+        """Searches for registered datasets whose tags conflict with the given tags.
+
+        Tags conflict when one set includes the other.
+
+        Args:
+            tags: List of tags
+
+        Returns:
+            The list of conflicting datasets
+        """
+        with self._sessions.begin() as session:
+            return [d.to_dict() for d in self._conflicting_datasets(session, tags)]
+
+    def update_dataset(self, dataset_id: str, changes: dict) -> dict:
+        """Modifies a registered dataset.
+
+        Args:
+            dataset_id: ID of the dataset to modify.
+            changes: fields to replace in the dataset.
+
+        Returns:
+            The updated dataset entry.
+
+        Raises:
+            FedbiomedError:
+            - no dataset with this id
+            - a change targets an unknown field or the dataset id
+            - the new tags conflict with another dataset
+        """
+        with self._sessions.begin() as session:
+            dataset = session.get(Dataset, dataset_id)
+            if dataset is None:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."
+                )
+
+            if changes.get("dataset_id", dataset_id) != dataset_id:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Cannot change the field 'dataset_id'"
+                )
+
+            unknown = set(changes) - set(Dataset.__table__.columns.keys())
+            if unknown:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB632.value}: Invalid data input for Dataset: "
+                    f"unknown fields {sorted(unknown)}"
+                )
+
+            if "tags" in changes:
+                # the dataset to modify can conflict with its previous tags
+                conflicting = [
+                    d
+                    for d in self._conflicting_datasets(session, changes["tags"])
+                    if d.dataset_id != dataset_id
+                ]
+                if conflicting:
+                    msg = (
+                        f"{ErrorNumbers.FB322.value}: One or more registered datasets "
+                        f"are conflicting with your new tags. Conflicting dataset names: "
+                        f"{', '.join([d.name for d in conflicting])}."
+                    )
+                    logger.error(msg)
+                    raise FedbiomedError(msg)
+
+            for field, value in changes.items():
+                setattr(dataset, field, value)
+
+            return dataset.to_dict()
+
+    def list_dlps(self, target_dataset_type: str) -> List[dict]:
+        """Lists the data loading plans for a type of dataset.
+
+        Args:
+            target_dataset_type: a `DatasetTypes` value
+
+        Returns:
+            The data loading plans targeting this type of dataset.
+
+        Raises:
+            FedbiomedError: target_dataset_type is not a `DatasetTypes` value.
+        """
+        if target_dataset_type not in DatasetTypes.list():
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: target_dataset_type should be of the "
+                "values defined in 'fedbiomed.common.constants.DatasetTypes'"
+            )
+
+        with self._sessions.begin() as session:
+            dlps = session.scalars(
+                select(Dlp).where(Dlp.target_dataset_type == target_dataset_type)
+            )
+            return [dlp.to_dict() for dlp in dlps]
+
     def save_data_loading_plan(
         self, data_loading_plan: Optional[DataLoadingPlan]
     ) -> Union[str, None]:
-        """Save a DataLoadingPlan to the database.
+        """Save a DataLoadingPlan and its loading blocks to the database.
+
+        A plan already saved with the same content is reused.
 
         Args:
             data_loading_plan: the DataLoadingPlan to be saved, or None.
 
         Returns:
-            The `dlp_id` if a DLP was saved, otherwise None.
+            The `dlp_id` if a DLP was given, otherwise None.
+
+        Raises:
+            FedbiomedError: the plan name is invalid or used by another plan, or
+                a plan or block with the same id but a different content exists.
         """
         if data_loading_plan is None:
             return None
 
-        dlp_metadata, dlbs_metadata = data_loading_plan.serialize()
-        self.dlp_table.insert(dlp_metadata)
-        for dlb_metadata in dlbs_metadata:
-            self.dlb_table.insert(dlb_metadata)
+        with self._sessions.begin() as session:
+            self._save_data_loading_plan(session, data_loading_plan)
         return data_loading_plan.dlp_id
 
     @staticmethod
@@ -534,3 +673,114 @@ class DatasetManager:
                     "support pop or getitem method in obfuscate_private_information."
                 ) from e
         return database_metadata
+
+    @staticmethod
+    def _find(
+        session: Session, dataset_id: str, scope: str
+    ) -> Optional[Union[Dataset, DynamicDataset]]:
+        """Finds a dataset in the tables of a valid `scope`, registered datasets first."""
+        models = {
+            DatasetScope.ORIGINAL.value: [Dataset],
+            DatasetScope.DYNAMIC.value: [DynamicDataset],
+            DatasetScope.BOTH.value: [Dataset, DynamicDataset],
+        }[scope]
+        for model in models:
+            dataset = session.get(model, dataset_id)
+            if dataset is not None:
+                return dataset
+        return None
+
+    def _get_or_raise(
+        self, session: Session, dataset_id: str
+    ) -> Union[Dataset, DynamicDataset]:
+        """Finds a dataset or a dynamic dataset, raising if neither exists."""
+        dataset = self._find(session, dataset_id, DatasetScope.BOTH.value)
+        if dataset is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."
+            )
+        return dataset
+
+    @staticmethod
+    def _derived_ids(dataset: Union[Dataset, DynamicDataset]) -> Select:
+        """Query of the ids of the dynamic datasets derived from a dataset, at any depth."""
+        link = (
+            DynamicDataset.parent_dynamic_id
+            if isinstance(dataset, DynamicDataset)
+            else DynamicDataset.parent_dataset_id
+        )
+        tree = (
+            select(DynamicDataset.dataset_id)
+            .where(link == dataset.dataset_id)
+            .cte(recursive=True)
+        )
+        tree = tree.union_all(
+            select(DynamicDataset.dataset_id).join(
+                tree, DynamicDataset.parent_dynamic_id == tree.c.dataset_id
+            )
+        )
+        return select(tree.c.dataset_id)
+
+    @staticmethod
+    def _conflicting_datasets(
+        session: Session, tags: Union[tuple, list]
+    ) -> List[Dataset]:
+        """Registered datasets whose tags include the given tags, or are included in them."""
+        wanted = set(tags)
+        return [
+            dataset
+            for dataset in session.scalars(select(Dataset))
+            if wanted.issubset(dataset.tags) or wanted.issuperset(dataset.tags)
+        ]
+
+    @staticmethod
+    def _without_dtypes(datasets: Iterable[Dataset]) -> List[dict]:
+        """Datasets as dicts without their `dtypes`, as shown in dataset lists."""
+        entries = [dataset.to_dict() for dataset in datasets]
+        for entry in entries:
+            entry.pop("dtypes", None)
+        return entries
+
+    @staticmethod
+    def _save_data_loading_plan(
+        session: Session, data_loading_plan: DataLoadingPlan
+    ) -> None:
+        """Saves a plan and its blocks in the caller's transaction.
+
+        Plans and blocks already saved with the same content are reused; one
+        with the same id but a different content is never overwritten, as other
+        datasets may use it.
+        """
+        # Stored form: tuples become lists, as they come back from the database
+        dlp_metadata, dlbs_metadata = json.loads(
+            json.dumps(data_loading_plan.serialize())
+        )
+
+        same_name = session.scalars(
+            select(Dlp.dlp_id).where(
+                Dlp.dlp_name == dlp_metadata["dlp_name"],
+                Dlp.dlp_id != dlp_metadata["dlp_id"],
+            )
+        ).first()
+        if same_name is not None:
+            msg = (
+                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
+                "DLP name needs to be unique."
+            )
+            logger.error(msg)
+            raise FedbiomedError(msg)
+
+        rows = [(Dlp, dlp_metadata["dlp_id"], Dlp.from_dict(dlp_metadata))] + [
+            (Dlb, dlb["dlb_id"], Dlb(dlb_id=dlb["dlb_id"], content=dlb))
+            for dlb in dlbs_metadata
+        ]
+        for model, row_id, row in rows:
+            saved = session.get(model, row_id)
+            if saved is None:
+                session.add(row)
+            elif saved.to_dict() != row.to_dict():
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB316.value}: Cannot save data loading plan: "
+                    f"{model.__tablename__} entry {row_id} already exists with a "
+                    "different content."
+                )

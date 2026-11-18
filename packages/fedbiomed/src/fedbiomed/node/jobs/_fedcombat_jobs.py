@@ -12,11 +12,13 @@ from fedbiomed.common.constants import (
     HARMONIZED_PREFIX,
     NODE_DYNAMIC_DATA_FOLDER,
     UPDATED_PREFIX,
+    ErrorNumbers,
     HarmonizationStep,
 )
 from fedbiomed.common.dataset import TabularDataset
 from fedbiomed.common.dataset_controller import TabularController
 from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.preproc import FedCombatBiasModel, FedCombatBiologicalModel
 from fedbiomed.common.serializer import Serializer
 from fedbiomed.node.dataset_manager import DatasetManager
@@ -395,7 +397,11 @@ class _FedCombatJobs:
         Args:
             dataset_id: the id of the dataset to delete
         """
-        dataset_entry, _ = self._dataset_manager.get_dataset_entry_by_id(dataset_id)
+        dataset_entry = self._dataset_manager.get_dataset(dataset_id, "both")
+        if dataset_entry is None:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."
+            )
         local_path = Path(dataset_entry["path"])
         if local_path.exists():
             local_path.unlink()
@@ -493,8 +499,8 @@ class _FedCombatJobs:
         )
 
         # Retrieve the dataset entry and remove sensitive information before returning it
-        dynamic_dataset_entry, _ = self._dataset_manager.get_dataset_entry_by_id(
-            dynamic_dataset_id
+        dynamic_dataset_entry = self._dataset_manager.get_dataset(
+            dynamic_dataset_id, "dynamic"
         )
         self._dataset_manager.obfuscate_private_information([dynamic_dataset_entry])
         return dynamic_dataset_entry

@@ -1,9 +1,10 @@
 import os
 import re
 
+from flask import request
+
 from fedbiomed.common.dataset_controller import MedicalFolderLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedError
-from flask import request
 
 from ..config import config
 from ..middlewares import common, middleware
@@ -50,11 +51,10 @@ def list_datasets():
     search = req.get("search", None)
 
     if search is not None and search != "":
-        res = dataset_manager._dataset_table.get_all_by_condition(
-            "name", lambda x: search.lower() in x.lower()
-        ) + dataset_manager._dataset_table.get_all_by_condition(
-            "description", lambda x: search.lower() in x.lower()
-        )
+        try:
+            res = dataset_manager.search_datasets(search)
+        except Exception as e:
+            return error(str(e)), 400
     else:
         try:
             res = dataset_manager.list_my_datasets()
@@ -87,10 +87,10 @@ def remove_dataset():
     req = request.json
 
     if req["dataset_id"]:
-        dataset = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
+        dataset = dataset_manager.get_dataset(req["dataset_id"])
 
         if dataset:
-            dataset_manager.dataset_table.delete_by_id(req["dataset_id"])
+            dataset_manager.delete_dataset_by_id(req["dataset_id"], recursive=True)
             return success("Dataset has been removed successfully"), 200
 
         else:
@@ -143,7 +143,7 @@ def add_dataset():
         return error(str(e)), 400
 
     # Get saved dataset document
-    res = dataset_manager.dataset_table.get_by_id(dataset_id)
+    res = dataset_manager.get_dataset(dataset_id)
 
     return response(res), 200
 
@@ -173,14 +173,14 @@ def update_dataset():
     """
     req = request.json
     try:
-        dataset_manager.dataset_table.update_by_id(
+        dataset_manager.update_dataset(
             req["dataset_id"],
             {"tags": req["tags"], "description": req["desc"], "name": req["name"]},
         )
     except Exception as e:
         return error(str(e)), 400
 
-    res = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
+    res = dataset_manager.get_dataset(req["dataset_id"])
 
     return response(res), 200
 
@@ -208,7 +208,7 @@ def get_preview_dataset():
     """
 
     req = request.json
-    dataset = dataset_manager.dataset_table.get_by_id(req["dataset_id"])
+    dataset = dataset_manager.get_dataset(req["dataset_id"])
 
     # Extract data path where the files are saved in the local repository
     rexp = re.match("^" + config["DATA_PATH_SAVE"], dataset["path"])
@@ -261,18 +261,12 @@ def add_default_dataset():
 
         200:
             success : Boolean value indicates that the request is success
-            result  : Default dataset json object
+            result  : Id of the registered default dataset
             endpoint: API endpoint
             message : The message for response
 
     """
     req = request.json
-    dataset = dataset_manager.dataset_table.get_all_by_value("tags", req["tags"])
-
-    if dataset:
-        return error(
-            f"Default dataset has been already deployed with tags: {req['tags']}"
-        ), 400
 
     if "path" in req:
         # Data path that the files will be read
@@ -350,9 +344,7 @@ def list_data_loading_plans():
     target_dataset_type = (
         req["target_dataset_type"] if "target_dataset_type" in req else None
     )
-    dlps = dataset_manager.dlp_table.list_by_target_dataset_type(
-        target_dataset_type=target_dataset_type
-    )
+    dlps = dataset_manager.list_dlps(target_dataset_type=target_dataset_type)
     index = list(range(len(dlps)))
     columns = ["name", "id"]
     data = [[dlp["dlp_name"], dlp["dlp_id"]] for dlp in dlps]

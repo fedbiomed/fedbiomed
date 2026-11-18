@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+
 from fedbiomed.common.certificate_manager import (
     CERT_PURPOSE_CLIENT,
     CERT_PURPOSE_SERVER,
@@ -160,7 +161,7 @@ def node_env(tmp_path):
         tp_security_manager.return_value = model_manager
 
         # mocks
-        dataset_manager.return_value.dataset_table.search_by_tags = MagicMock(
+        dataset_manager.return_value.search_by_tags = MagicMock(
             return_value=database_val
         )
         dataset_manager.return_value.list_my_datasets = MagicMock(
@@ -172,9 +173,7 @@ def node_env(tmp_path):
         dataset_manager.return_value.obfuscate_private_information.side_effect = (
             lambda x: x
         )
-        dataset_manager.return_value.get_dataset_entry_by_id = MagicMock(
-            return_value=(database_id, "dummy_table_name")
-        )
+        dataset_manager.return_value.get_dataset = MagicMock(return_value=database_id)
 
         db = str(tmp_path / "test-db.json")
         # creating Node objects
@@ -503,7 +502,7 @@ def test_node_parser_task_train_no_dataset_found(
     round_init.return_value = None
 
     mock_dataset_manager = MagicMock()
-    mock_dataset_manager.get_dataset_entry_by_id = MagicMock(return_value=(None, None))
+    mock_dataset_manager.get_dataset = MagicMock(return_value=None)
     node_env.node.dataset_manager = mock_dataset_manager
     with patch("fedbiomed.node.node.logger.error") as logger_error:
         node_env.node.parser_task_train(train_request)
