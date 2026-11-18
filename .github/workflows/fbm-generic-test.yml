@@ -6,7 +6,6 @@ description: |
   same inputs.
 
 on:
-  push:
   workflow_call:
     inputs:
       python-versions:
@@ -88,7 +87,7 @@ permissions:
 jobs:
   build-doc:
     name: Documentation (ubuntu-latest, 3.11)
-    if: ${{ github.event_name == 'push' || inputs.run-docs }}
+    if: ${{ inputs.run-docs }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -118,7 +117,7 @@ jobs:
 
   unit-test:
     name: Unit (${{ matrix.os }}, ${{ matrix.python-version }})
-    if: ${{ github.event_name == 'push' || inputs.run-unit }}
+    if: ${{ inputs.run-unit }}
     timeout-minutes: 45
     defaults:
       run:
