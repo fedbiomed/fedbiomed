@@ -210,7 +210,7 @@ def get_default_biprime():
     biprime = os.path.join(
         SHARE_DIR, "envs", "common", "default_biprimes", "biprime0.json"
     )
-    with open(biprime, "+r", encoding="UTF-8") as json_file:
+    with open(biprime, "r", encoding="UTF-8") as json_file:
         biprime = json.load(json_file)
 
     return biprime["biprime"]
