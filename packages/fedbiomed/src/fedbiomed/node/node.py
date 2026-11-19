@@ -811,7 +811,7 @@ class Node:
             send=self._grpc_client.send,
         )
         dataset_id = msg.get_param("dataset_id")
-        data = self.dataset_manager.get_dataset(dataset_id, "both")
+        data = self.dataset_manager.get_dataset(dataset_id, scope="both")
 
         if data is None:
             return self.send_error(

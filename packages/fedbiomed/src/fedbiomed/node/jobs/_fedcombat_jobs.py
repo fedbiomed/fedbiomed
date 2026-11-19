@@ -397,7 +397,7 @@ class _FedCombatJobs:
         Args:
             dataset_id: the id of the dataset to delete
         """
-        dataset_entry = self._dataset_manager.get_dataset(dataset_id, "both")
+        dataset_entry = self._dataset_manager.get_dataset(dataset_id, scope="both")
         if dataset_entry is None:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."

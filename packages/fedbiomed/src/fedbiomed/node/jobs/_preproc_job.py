@@ -137,7 +137,9 @@ class PreprocJob(_BaseJob):
         self._preproc_args = self._preproc_args_raw
 
         # Check that dataset exists in local dataset registry and get its type
-        dataset_entry = self._dataset_manager.get_dataset(self._dataset_id, "both")
+        dataset_entry = self._dataset_manager.get_dataset(
+            self._dataset_id, scope="both"
+        )
         if not isinstance(dataset_entry, dict):
             return self._build_error_msg(
                 f"Dataset with id={self._dataset_id} not found in local database for "

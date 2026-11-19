@@ -7,14 +7,14 @@ Interfaces with the node component database.
 
 import csv
 import json
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Iterable, List, Literal, Optional, Tuple, Union, get_args
 
 import pandas as pd
 from sqlalchemy import Select, delete, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 from tabulate import tabulate  # only used for printing
 
-from fedbiomed.common.constants import DatasetScope, DatasetTypes, ErrorNumbers
+from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import get_controller
 from fedbiomed.common.dataset_controller import download_mnist
@@ -29,6 +29,9 @@ class DatasetManager:
 
     Each public method runs in one transaction of the node's database.
     """
+
+    # Datasets a lookup covers: registered, derived by processing jobs, or both
+    DatasetScope = Literal["original", "dynamic", "both"]
 
     # Tables this manager owns; the only ones it reads or writes
     MODELS = (Dataset, DynamicDataset, Dlp, Dlb)
@@ -351,7 +354,7 @@ class DatasetManager:
         return entry
 
     def get_dataset(
-        self, dataset_id: str, scope: str = DatasetScope.ORIGINAL.value
+        self, dataset_id: str, scope: DatasetScope = "original"
     ) -> Optional[dict]:
         """Gets a dataset entry by its id.
 
@@ -366,14 +369,14 @@ class DatasetManager:
         Raises:
             FedbiomedError: scope is not a `DatasetScope` value.
         """
-        if scope not in DatasetScope.list():
+        if scope not in get_args(self.DatasetScope):
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: scope should be one of the values "
-                "defined in 'fedbiomed.common.constants.DatasetScope'"
+                f"{ErrorNumbers.FB632.value}: scope should be one of "
+                f"{get_args(self.DatasetScope)}"
             )
 
         with self._sessions.begin() as session:
-            dataset = self._find(session, dataset_id, scope)
+            dataset = self._find(session, dataset_id, scope=scope)
             return None if dataset is None else dataset.to_dict()
 
     def delete_dataset_by_id(self, dataset_id: str, recursive: bool = False) -> None:
@@ -609,8 +612,8 @@ class DatasetManager:
         """
         if target_dataset_type not in DatasetTypes.list():
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: target_dataset_type should be of the "
-                "values defined in 'fedbiomed.common.constants.DatasetTypes'"
+                f"{ErrorNumbers.FB632.value}: target_dataset_type should be one of "
+                f"{DatasetTypes.list()}"
             )
 
         with self._sessions.begin() as session:
@@ -679,10 +682,11 @@ class DatasetManager:
         session: Session, dataset_id: str, scope: str
     ) -> Optional[Union[Dataset, DynamicDataset]]:
         """Finds a dataset in the tables of a valid `scope`, registered datasets first."""
+        # Keys are the DatasetScope values
         models = {
-            DatasetScope.ORIGINAL.value: [Dataset],
-            DatasetScope.DYNAMIC.value: [DynamicDataset],
-            DatasetScope.BOTH.value: [Dataset, DynamicDataset],
+            "original": [Dataset],
+            "dynamic": [DynamicDataset],
+            "both": [Dataset, DynamicDataset],
         }[scope]
         for model in models:
             dataset = session.get(model, dataset_id)
@@ -694,7 +698,7 @@ class DatasetManager:
         self, session: Session, dataset_id: str
     ) -> Union[Dataset, DynamicDataset]:
         """Finds a dataset or a dynamic dataset, raising if neither exists."""
-        dataset = self._find(session, dataset_id, DatasetScope.BOTH.value)
+        dataset = self._find(session, dataset_id, scope="both")
         if dataset is None:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."

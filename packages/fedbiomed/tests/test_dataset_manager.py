@@ -1,6 +1,5 @@
 # tests/test_dataset_manager.py
 import pytest
-from sqlalchemy import select
 
 # ---- Import the module under test (adjust the import line if your path differs) ----
 # If your project exposes the module at this path, this works as-is:
@@ -8,6 +7,7 @@ from fedbiomed.common.db import session_factory
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import _dataset_manager as dm_mod
 from fedbiomed.node.db_models import Dataset, Dlb
+from sqlalchemy import select
 
 # ---------------------- Lightweight fakes (no sys.modules patching) ----------------------
 
@@ -303,13 +303,13 @@ def test_get_dataset_by_scope(sessions):
 
     assert dm.get_dataset("raw1")["dataset_id"] == raw_id
     assert dm.get_dataset("dyn1") is None
-    assert dm.get_dataset("dyn1", "dynamic")["dataset_id"] == dyn_id
-    assert dm.get_dataset("raw1", "dynamic") is None
-    assert dm.get_dataset("raw1", "both")["dataset_id"] == raw_id
-    assert dm.get_dataset("dyn1", "both")["dataset_id"] == dyn_id
-    assert dm.get_dataset("does-not-exist", "both") is None
-    with pytest.raises(FedbiomedError, match="FB632.*DatasetScope"):
-        dm.get_dataset("raw1", "everything")
+    assert dm.get_dataset("dyn1", scope="dynamic")["dataset_id"] == dyn_id
+    assert dm.get_dataset("raw1", scope="dynamic") is None
+    assert dm.get_dataset("raw1", scope="both")["dataset_id"] == raw_id
+    assert dm.get_dataset("dyn1", scope="both")["dataset_id"] == dyn_id
+    assert dm.get_dataset("does-not-exist", scope="both") is None
+    with pytest.raises(FedbiomedError, match="FB632.*original"):
+        dm.get_dataset("raw1", scope="everything")
 
 
 def test_add_dynamic_dataset(sessions):
@@ -327,7 +327,7 @@ def test_add_dynamic_dataset(sessions):
     )
 
     # DB entry exists
-    entry = dm.get_dataset(dyn_id, "dynamic")
+    entry = dm.get_dataset(dyn_id, scope="dynamic")
     assert entry is not None
     assert entry["path"] == "/path/to/dynamic"
     assert entry["data_type"] == "csv"
@@ -395,7 +395,7 @@ def test_delete_dynamic_single(sessions):
 
     dm.delete_dataset_by_id(dyn_id)
 
-    assert dm.get_dataset(dyn_id, "dynamic") is None
+    assert dm.get_dataset(dyn_id, scope="dynamic") is None
 
 
 def test_delete_dynamic_dataset_recursive(sessions):
@@ -438,7 +438,7 @@ def test_delete_dynamic_dataset_recursive(sessions):
 
     assert dm.get_dataset(parent) is not None
     for child in (child1, child2, child3, child4):
-        assert dm.get_dataset(child, "dynamic") is None
+        assert dm.get_dataset(child, scope="dynamic") is None
 
 
 def test_delete_dataset_by_id_raises(sessions):
@@ -512,7 +512,7 @@ def test_delete_dataset_with_children_recursive(sessions):
     dm.delete_dataset_by_id(parent, recursive=True)
 
     assert dm.get_dataset(parent) is None
-    assert dm.get_dataset(child, "dynamic") is None
+    assert dm.get_dataset(child, scope="dynamic") is None
 
 
 # ------------------------------------- MINIMUM SAMPLES TESTS -------------------------------------
@@ -656,7 +656,7 @@ def test_add_dynamic_dataset_with_optional_fields(sessions):
     )
 
     assert dyn_id == "explicit-dyn-id"
-    entry = dm.get_dataset(dyn_id, "dynamic")
+    entry = dm.get_dataset(dyn_id, scope="dynamic")
     assert entry["name"] == "my-dyn"
     assert entry["tags"] == ["tag1"]
     assert entry["description"] == "some desc"

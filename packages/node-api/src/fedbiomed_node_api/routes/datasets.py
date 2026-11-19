@@ -40,26 +40,21 @@ def list_datasets():
             success   : Boolean error status (False)
             result  : null
             message : Message about error. Can be validation error or
-                      error from TinyDBt
+                      error from the database
         200:
             success: Boolean value indicates that the request is success
             result: List of dataset objects
             endpoint: API endpoint
             message: The message for response
     """
-    req = request.json
-    search = req.get("search", None)
-
-    if search is not None and search != "":
-        try:
+    search = request.json.get("search")
+    try:
+        if search:
             res = dataset_manager.search_datasets(search)
-        except Exception as e:
-            return error(str(e)), 400
-    else:
-        try:
-            res = dataset_manager.list_my_datasets()
-        except Exception as e:
-            return error(str(e)), 400
+        else:
+            res = dataset_manager.list_my_datasets(verbose=False)
+    except Exception as e:
+        return error(str(e)), 400
 
     return response(res), 200
 

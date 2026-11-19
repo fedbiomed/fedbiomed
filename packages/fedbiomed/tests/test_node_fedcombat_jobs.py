@@ -5,7 +5,6 @@ from pathlib import Path
 import polars as pl
 import pytest
 import torch
-
 from fedbiomed.common.constants import HarmonizationStep
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.jobs import _fedcombat_jobs as module
@@ -334,7 +333,9 @@ def test_delete_temporary_dataset(monkeypatch, fedcombat_jobs):
 
 
 def test_delete_temporary_dataset_not_found(monkeypatch, fedcombat_jobs):
-    monkeypatch.setattr(fedcombat_jobs._dataset_manager, "get_dataset", lambda *_: None)
+    monkeypatch.setattr(
+        fedcombat_jobs._dataset_manager, "get_dataset", lambda *_, **__: None
+    )
 
     with pytest.raises(FedbiomedError, match="FB632.*missing not found"):
         fedcombat_jobs._delete_temporary_dataset("missing")
