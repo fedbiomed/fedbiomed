@@ -2,35 +2,27 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Interfaces with a tinyDB database for converting search results to dict.
+Access to the components' databases: the SQLite `Database` with `DatabaseModel`,
+parent of its tables' models, and the TinyDB tables not moved to it yet.
 """
 
 from __future__ import annotations
 
 import inspect as pyinspect
+import re
 import sys
-import types
+from contextlib import contextmanager
+from enum import Enum
 from functools import cache
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Self,
-    Union,
-    get_args,
-    get_origin,
-    get_type_hints,
-)
+from pathlib import Path
+from typing import Any, Callable, Dict, Iterator, List, Optional, Self, Union
 
-from sqlalchemy import JSON, Engine, create_engine, event, inspect
+from sqlalchemy import Engine, create_engine, event, inspect
 from sqlalchemy.orm import (
     DeclarativeBase,
     MappedAsDataclass,
     ORMExecuteState,
     Session,
-    sessionmaker,
 )
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
@@ -44,9 +36,6 @@ REDACTED = "<redacted>"
 
 # Entry fields whose values must never reach the logs. Case-insensitive.
 SENSITIVE_FIELDS = {"certificate", "key", "secagg_elem", "context"}
-
-# What a model writes to the security log: reads and writes, writes, nothing
-LOG_LEVELS = ("all", "writes", "none")
 
 
 def cast_(func):
@@ -406,37 +395,75 @@ class TinyTableConnector:
         return self.get_by_id(id_value)
 
 
-class Base(MappedAsDataclass, DeclarativeBase, kw_only=True):
-    """Parent of the ORM models.
+class Database:
+    """This process's connections to its component's SQLite file (one per process)."""
 
-    Models are dataclasses: the constructor takes keyword arguments only and
-    refuses unknown or missing fields.
+    def __init__(self, path: str):
+        """Opens the SQLite file at `path`, creating it if needed."""
+        # timeout: seconds to wait for another process holding the write lock
+        self._engine = create_engine(f"sqlite:///{path}", connect_args={"timeout": 30})
+        event.listen(self._engine, "connect", self._on_connect)
+        event.listen(self._engine, "begin", self._on_begin)
 
-    An entry is checked as a whole by `validate`, right before the session
-    writes it, for an insert (`session.add`) as for an update (fields
-    assigned on a loaded entry). Changes are written when the
-    `with factory.begin()` block ends; a JSON value changed in place
-    (`entry.tags.append(...)`) is not seen as a change: assign a new value.
+    def create_tables(self, models: List[type[DeclarativeBase]]) -> None:
+        """Creates the tables of `models` that do not exist yet."""
+        for model in models:
+            # Takes the write lock: processes starting together create it one at a time
+            model.__table__.create(self._engine, checkfirst=True)
 
-    `__log_level__` sets what reaches the security log for the model's table:
-    `"all"` (reads and writes), `"writes"` or `"none"`. Events are written
-    when the transaction ends: `success` after the commit, `failure` after a
-    rollback.
-    """
+    @contextmanager
+    def transaction(self) -> Iterator[Session]:
+        """Session in one transaction: committed at the end, rolled back on error."""
+        with Session(self._engine) as session, session.begin():
+            yield session
 
-    __log_level__ = "all"
+    @staticmethod
+    def _on_connect(dbapi_connection, _connection_record) -> None:
+        """Turns on foreign keys and leaves starting transactions to `_on_begin`."""
+        dbapi_connection.isolation_level = None
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    @staticmethod
+    def _on_begin(connection) -> None:
+        """Takes the write lock at begin, so checks hold against the other processes."""
+        # Waits for another process holding the lock up to the engine's timeout
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+
+
+# One Database per process: a process only passes its component's path
+@cache
+def get_database(db_path: str) -> Database:
+    """The process's database of a component, at `db_path` with the `.sqlite` suffix."""
+    # Next to the component's TinyDB file, which other tables still use
+    return Database(str(Path(db_path).with_suffix(".sqlite")))
+
+
+class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
+    """Parent of the ORM models: row/dict conversion, security log, FB634 errors."""
+
+    # A JSON value changed in place (`tags.append`) is not saved: assign a new value
+
+    class SecurityLog(Enum):
+        """What a model's table writes to the security log."""
+
+        ALL = "all"  # reads and writes
+        WRITES = "writes"
+        NONE = "none"
+
+    __security_log__ = SecurityLog.ALL
+    # Columns whose values never reach the security log
+    __sensitive_fields__: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
-        """Builds a row from an entry, refusing unknown or missing fields.
-
-        A `None` value counts as not given: the field takes its default.
-        """
+        """Builds a row from an entry; `None` counts as not given."""
         try:
             return cls(**{k: v for k, v in data.items() if v is not None})
         except TypeError as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB632.value}: Invalid data input for {cls.__name__}: {e}"
+                f"{ErrorNumbers.FB634.value}: Invalid data input for {cls.__name__}: {e}"
             ) from e
 
     def to_dict(self) -> dict:
@@ -444,237 +471,135 @@ class Base(MappedAsDataclass, DeclarativeBase, kw_only=True):
         columns = (attr.key for attr in inspect(self).mapper.column_attrs)
         return {k: v for k in columns if (v := getattr(self, k)) is not None}
 
-    def validate(self) -> None:
-        """Checks the entry before it is written.
-
-        JSON values must match their column annotation
-        (`Mapped[dict[str, list[str]]]`). Models with more rules override this
-        method and call it first.
-
-        Raises:
-            FedbiomedError: a value does not match its column.
-        """
-        hints = get_type_hints(type(self))
-        for column_attr in inspect(self).mapper.column_attrs:
-            if not isinstance(column_attr.columns[0].type, JSON):
-                continue
-            key = column_attr.key
-            (expected,) = get_args(hints[key])
-            value = getattr(self, key)
-            if not _matches(value, expected):
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: Invalid data input for "
-                    f"{type(self).__name__}.{key}: expected {expected}, got "
-                    f"{printtable_args_for_log({key: value})}"
-                )
-
-
-def _matches(value: Any, expected: Any) -> bool:
-    """Whether a JSON value matches a type annotation (list, dict, union, Any)."""
-    origin = get_origin(expected)
-    if expected is Any:
-        return True
-    if origin in (Union, types.UnionType):
-        return any(_matches(value, option) for option in get_args(expected))
-    if origin is list:
-        (item_type,) = get_args(expected)
-        return isinstance(value, list) and all(_matches(v, item_type) for v in value)
-    if origin is dict:
-        key_type, value_type = get_args(expected)
-        return isinstance(value, dict) and all(
-            _matches(k, key_type) and _matches(v, value_type) for k, v in value.items()
-        )
-    if expected is type(None):
-        return value is None
-    return isinstance(value, expected)
-
-
-def _validate_entries(session: Session, _flush_context, _instances) -> None:
-    """Validates the entries the session is about to insert or update."""
-    for entry in (*session.new, *session.dirty):
-        entry.validate()
-
-
-def _record(session: Session, operation: str, model: type, doc_id, args) -> None:
-    """Keeps a security event until the transaction ends."""
-    session.info.setdefault("security_events", []).append(
-        {
-            "operation": operation,
-            "table": model.__tablename__,
-            "doc_id": doc_id,
-            "db_args": printtable_args_for_log(args),
-        }
-    )
-
-
-def _record_writes(session: Session, _flush_context, _instances) -> None:
-    """Records the entries the session is about to insert, update or remove."""
-    for operation, entries in (
-        ("insert", session.new),
-        ("update", session.dirty),
-        ("remove", session.deleted),
-    ):
-        for entry in entries:
-            if entry.__log_level__ == "none":
-                continue
-            state = inspect(entry)
-            doc_id = state.mapper.primary_key_from_instance(entry)[0]
-            if operation == "insert":
-                args = entry.to_dict()
-            elif operation == "update":
-                if not session.is_modified(entry):
+    @staticmethod
+    def _record_writes(session: Session, _flush_context, _instances) -> None:
+        """Records the entries the session is about to insert, update or remove."""
+        for operation, entries in (
+            ("insert", session.new),
+            ("update", session.dirty),
+            ("remove", session.deleted),
+        ):
+            for entry in entries:
+                if not isinstance(entry, DatabaseModel) or (
+                    entry.__security_log__ == DatabaseModel.SecurityLog.NONE
+                ):
                     continue
-                args = {
-                    attr.key: attr.value
-                    for attr in state.attrs
-                    if attr.history.has_changes()
-                }
+                state = inspect(entry)
+                doc_id = state.mapper.primary_key_from_instance(entry)[0]
+                if operation == "insert":
+                    args = entry.to_dict()
+                elif operation == "update":
+                    if not session.is_modified(entry):
+                        continue
+                    args = {
+                        attr.key: attr.value
+                        for attr in state.attrs
+                        if attr.history.has_changes()
+                    }
+                else:
+                    args = {}
+                DatabaseModel._record(session, operation, type(entry), doc_id, args)
+
+    @staticmethod
+    def _record_statements(state: ORMExecuteState) -> None:
+        """Records ORM statements: reads, and updates or deletes by statement."""
+        # Execution parameters carry the key of `session.get`
+        args = {**state.statement.compile().params, **(state.parameters or {})}
+        for mapper in state.all_mappers:
+            if not issubclass(mapper.class_, DatabaseModel):
+                continue
+            logged = mapper.class_.__security_log__
+            if state.is_select and logged == DatabaseModel.SecurityLog.ALL:
+                operation = "select"
+            elif state.is_update and logged != DatabaseModel.SecurityLog.NONE:
+                operation = "update"
+            elif state.is_delete and logged != DatabaseModel.SecurityLog.NONE:
+                operation = "remove"
             else:
-                args = {}
-            _record(session, operation, type(entry), doc_id, args)
+                continue
+            DatabaseModel._record(state.session, operation, mapper.class_, None, args)
 
-
-def _record_statements(state: ORMExecuteState) -> None:
-    """Records ORM statements: reads, and updates or deletes by statement."""
-    # Execution parameters carry the key of `session.get`
-    args = {**state.statement.compile().params, **(state.parameters or {})}
-    for mapper in state.all_mappers:
-        level = mapper.class_.__log_level__
-        if state.is_select and level == "all":
-            _record(state.session, "select", mapper.class_, None, args)
-        elif state.is_update and level != "none":
-            _record(state.session, "update", mapper.class_, None, args)
-        elif state.is_delete and level != "none":
-            _record(state.session, "remove", mapper.class_, None, args)
-
-
-def _caller_stacklevel() -> int:
-    """Stack level of the code that ran the transaction, for `security_event`.
-
-    Skips the frames of SQLAlchemy, `contextlib` and this module, so the
-    event names the caller's `with` block rather than the commit internals.
-    """
-    frame = pyinspect.currentframe().f_back
-    # 1: the function calling `security_event`
-    level = 1
-    while frame is not None and frame.f_globals["__name__"].startswith(
-        ("sqlalchemy", "contextlib", __name__)
-    ):
-        frame = frame.f_back
-        level += 1
-    return level
-
-
-def _write_events(session: Session, status: str, error: BaseException | None) -> None:
-    """Writes the transaction's security events with its outcome."""
-    events = session.info.pop("security_events", [])
-    if not events:
-        return
-    failure = {}
-    if error is not None:
-        failure = {"error_type": type(error).__name__, "error_message": str(error)}
-    stacklevel = _caller_stacklevel()
-    for recorded in events:
-        logger.security_event(
-            status=status, stacklevel=stacklevel, **recorded, **failure
+    @staticmethod
+    def _record(session: Session, operation: str, model: type, doc_id, args) -> None:
+        """Keeps a security event until the transaction ends."""
+        session.info.setdefault("security_events", []).append(
+            {
+                "operation": operation,
+                "table": model.__tablename__,
+                "doc_id": doc_id,
+                "db_args": DatabaseModel._log_args(model, args),
+            }
         )
 
+    @staticmethod
+    def _log_args(model: type, args: dict) -> str:
+        """Arguments as written to the log: the model's sensitive values redacted."""
+        parts = []
+        for key, value in args.items():
+            # Statement parameters are named after their column: `key_1` for `key`
+            if re.sub(r"_\d+$", "", key) in model.__sensitive_fields__:
+                text = "<redacted>"
+            else:
+                # Keeps the log lines short: 250 characters of each value
+                text = f"{str(value).strip()[:250]}..."
+            parts.append(f"{key}={text}")
+        return "{" + ", ".join(parts) + "}"
 
-def _on_commit(session: Session) -> None:
-    """Writes the transaction's security events as successful."""
-    _write_events(session, "success", None)
+    @staticmethod
+    def _write_success(session: Session) -> None:
+        """Writes the events of a committed transaction."""
+        DatabaseModel._write_events(session, {"status": "success"})
 
+    @staticmethod
+    def _write_failure(session: Session) -> None:
+        """Writes the events of a rolled back transaction, with its error if any."""
+        outcome = {"status": "failure"}
+        error = sys.exc_info()[1]  # the error being handled, which caused the rollback
+        if error is not None:
+            outcome["error_type"] = type(error).__name__
+            outcome["error_message"] = str(error)
+        DatabaseModel._write_events(session, outcome)
 
-def _on_rollback(session: Session) -> None:
-    """Writes the transaction's security events as failed.
+    @staticmethod
+    def _write_events(session: Session, outcome: dict) -> None:
+        """Writes the transaction's recorded events with its outcome."""
+        events = session.info.pop("security_events", [])
+        if not events:
+            return
+        stacklevel = DatabaseModel._caller_stacklevel()
+        for recorded in events:
+            logger.security_event(stacklevel=stacklevel, **recorded, **outcome)
 
-    A rollback caused by an error runs while that error is being handled, so
-    `sys.exc_info` gives it.
-    """
-    _write_events(session, "failure", sys.exc_info()[1])
+    @staticmethod
+    def _caller_stacklevel() -> int:
+        """Stack level of the manager code that ran the transaction, past SQLAlchemy."""
+        frame = pyinspect.currentframe().f_back
+        # 1: the method calling `security_event`
+        level = 1
+        while frame is not None and frame.f_globals["__name__"].startswith(
+            ("sqlalchemy", "contextlib", "fedbiomed.common.db")
+        ):
+            frame = frame.f_back
+            level += 1
+        return level
 
-
-def _on_connect(dbapi_connection, _connection_record) -> None:
-    """Configures each new SQLite connection.
-
-    The driver's own transaction handling is disabled so that `_on_begin`
-    decides how transactions start.
-    """
-    dbapi_connection.isolation_level = None
-    # Replaces SQLite's `lower`, which only folds ASCII letters, so that
-    # case-insensitive searches (`icontains`) also match accented letters
-    dbapi_connection.create_function(
-        "lower", 1, lambda s: s.lower() if s is not None else None, deterministic=True
-    )
-    cursor = dbapi_connection.cursor()
-    # WAL: readers do not block the writer, across processes
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
-
-
-def _on_begin(connection) -> None:
-    """Starts every transaction with the write lock.
-
-    Rules checked before writing (tag conflicts) then hold against other
-    processes using the same file.
-    """
-    connection.exec_driver_sql("BEGIN IMMEDIATE")
-
-
-def _on_error(context) -> None:
-    """Raises a database error as `FedbiomedError`.
-
-    The message keeps SQLite's reason only, as it may reach other components;
-    the failing statement goes to the debug log, without its parameters, as
-    they may hold sensitive values.
-    """
-    logger.debug(
-        f"Database error: {context.original_exception}; statement: {context.statement}"
-    )
-    raise FedbiomedError(
-        f"{ErrorNumbers.FB634.value}: {context.original_exception}"
-    ) from context.original_exception
-
-
-@cache
-def _engine(path: str) -> Engine:
-    """Returns the engine of a database file, one per file and process."""
-    # timeout: seconds to wait for another process holding the write lock
-    engine = create_engine(f"sqlite:///{path}", connect_args={"timeout": 30})
-    event.listen(engine, "connect", _on_connect)
-    event.listen(engine, "begin", _on_begin)
-    event.listen(engine, "handle_error", _on_error)
-    return engine
+    @staticmethod
+    def _raise_database_error(context) -> None:
+        """Raises FB634 naming the failing model; logs the statement without values."""
+        reason = context.original_exception
+        logger.debug(f"Database error: {reason}; statement: {context.statement}")
+        compiled = getattr(context.execution_context, "compiled", None)
+        table = getattr(getattr(compiled, "statement", None), "table", None)
+        where = ""
+        for mapper in DatabaseModel.registry.mappers:
+            if mapper.local_table is table:
+                where = f"{mapper.class_.__name__}: "
+        raise FedbiomedError(f"{ErrorNumbers.FB634.value}: {where}{reason}") from reason
 
 
-def session_factory(path: str, models: List[type[Base]]) -> sessionmaker[Session]:
-    """Returns the session factory of a database file.
-
-    Creates the tables of `models` that do not exist yet. Each
-    `with factory.begin() as session:` block is one transaction, committed at
-    the end or rolled back on error. Objects stay usable after the block.
-
-    Args:
-        path: Path of the SQLite file of the component.
-        models: Models whose tables the caller uses.
-
-    Raises:
-        FedbiomedError: a model's `__log_level__` is not one of `LOG_LEVELS`.
-    """
-    for model in models:
-        if model.__log_level__ not in LOG_LEVELS:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB634.value}: {model.__name__}.__log_level__ is "
-                f"'{model.__log_level__}', expected one of {LOG_LEVELS}"
-            )
-    engine = _engine(path)
-    Base.metadata.create_all(engine, tables=[model.__table__ for model in models])
-    factory = sessionmaker(engine, expire_on_commit=False)
-    # Recorded before validation, so a refused entry is logged as a failure
-    event.listen(factory, "before_flush", _record_writes)
-    event.listen(factory, "before_flush", _validate_entries)
-    event.listen(factory, "do_orm_execute", _record_statements)
-    event.listen(factory, "after_commit", _on_commit)
-    event.listen(factory, "after_rollback", _on_rollback)
-    return factory
+# Every session and engine of the process: only `DatabaseModel` rows are logged
+event.listen(Session, "before_flush", DatabaseModel._record_writes)
+event.listen(Session, "do_orm_execute", DatabaseModel._record_statements)
+event.listen(Session, "after_commit", DatabaseModel._write_success)
+event.listen(Session, "after_rollback", DatabaseModel._write_failure)
+event.listen(Engine, "handle_error", DatabaseModel._raise_database_error)

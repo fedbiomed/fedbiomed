@@ -4,16 +4,15 @@ import threading
 import time
 from typing import Any
 
-import pytest
-from sqlalchemy import JSON, delete, event, func, inspect, select, update
-from sqlalchemy.orm import Mapped, mapped_column
-
 import fedbiomed.common.db as db_mod
-from fedbiomed.common.db import REDACTED, Base, _engine, _matches, session_factory
+import pytest
+from fedbiomed.common.db import DatabaseModel, get_database
 from fedbiomed.common.exceptions import FedbiomedError
+from sqlalchemy import JSON, delete, event, inspect, select, text, update
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-class Item(Base):
+class Item(DatabaseModel):
     __tablename__ = "TestItems"
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
@@ -23,37 +22,42 @@ class Item(Base):
     note: Mapped[str | None] = mapped_column(default=None)
 
 
-class Other(Base):
+class Other(DatabaseModel):
     __tablename__ = "TestOthers"
 
     other_id: Mapped[str] = mapped_column(primary_key=True)
 
 
-class Secret(Base):
+class Secret(DatabaseModel):
     __tablename__ = "TestSecrets"
+    __sensitive_fields__ = ("key",)
 
     secret_id: Mapped[str] = mapped_column(primary_key=True)
-    # "key" is a sensitive field name: its values are redacted in messages
     key: Mapped[dict[str, str]] = mapped_column(JSON)
 
 
-class WriteItem(Base):
+class WriteItem(DatabaseModel):
     __tablename__ = "TestWriteItems"
-    __log_level__ = "writes"
+    __security_log__ = DatabaseModel.SecurityLog.WRITES
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
 
 
-class QuietItem(Base):
+class QuietItem(DatabaseModel):
     __tablename__ = "TestQuietItems"
-    __log_level__ = "none"
+    __security_log__ = DatabaseModel.SecurityLog.NONE
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
 
 
-class TypoItem(Base):
-    __tablename__ = "TestTypoItems"
-    __log_level__ = "write"
+class _OtherBase(DeclarativeBase):
+    pass
+
+
+class OtherBaseItem(_OtherBase):
+    """Model of another library: the security log listens to every session."""
+
+    __tablename__ = "TestOtherBaseItems"
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
 
@@ -64,8 +68,10 @@ def db_path(tmp_path):
 
 
 @pytest.fixture
-def sessions(db_path):
-    return session_factory(db_path, [Item, Secret, WriteItem, QuietItem])
+def database(db_path):
+    database = get_database(db_path)
+    database.create_tables([Item, Secret, WriteItem, QuietItem])
+    return database
 
 
 @pytest.fixture
@@ -99,7 +105,7 @@ def test_from_dict_builds_entry():
     ],
 )
 def test_from_dict_rejects_unknown_and_missing_fields(data, reason):
-    with pytest.raises(FedbiomedError, match=f"FB632.*Item: .*{reason}"):
+    with pytest.raises(FedbiomedError, match=f"FB634.*Item: .*{reason}"):
         Item.from_dict(data)
 
 
@@ -112,121 +118,47 @@ def test_from_dict_treats_none_as_not_given():
         Item.from_dict(_item(name=None))
 
 
-@pytest.mark.parametrize(
-    "value, expected, result",
-    [
-        ({"a": [1, None]}, Any, True),
-        (None, list[str] | None, True),
-        ({"k": [1]}, list[int] | dict[str, list[int]], True),
-        ([1], list[int] | dict[str, list[int]], True),
-        ("x", list[int] | dict[str, list[int]], False),
-        (["a", 1], list[str], False),
-        ({"a": "b"}, dict[str, str], True),
-        ({1: "b"}, dict[str, str], False),
-        ({"a": 1}, dict[str, str], False),
-        ("a", list[str], False),
-    ],
-)
-def test_matches_checks_json_value_against_annotation(value, expected, result):
-    assert _matches(value, expected) is result
-
-
-def test_session_factory_creates_only_the_given_tables(db_path, sessions):
-    tables = inspect(_engine(db_path)).get_table_names()
-    assert "TestItems" in tables
-    assert "TestOthers" not in tables
-
-
-def test_engine_is_shared_by_factories_of_the_same_file(db_path, sessions):
-    other = session_factory(db_path, [Other])
-    assert other.kw["bind"] is sessions.kw["bind"] is _engine(db_path)
-
-
-def test_connection_uses_wal_and_foreign_keys(db_path, sessions):
-    with sessions.begin() as session:
+def test_connection_uses_foreign_keys(db_path, database):
+    with database.transaction() as session:
         connection = session.connection()
-        assert connection.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal"
         assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
 
 
-def test_transaction_starts_with_write_lock(db_path, sessions):
-    statements = []
-    engine = _engine(db_path)
+def test_entry_is_saved(database):
+    with database.transaction() as session:
+        session.add(Item.from_dict(_item()))
 
-    def listener(_conn, _cursor, statement, *_args):
-        statements.append(statement)
-
-    event.listen(engine, "before_cursor_execute", listener)
-    try:
-        with sessions.begin() as session:
-            session.get(Item, "i1")
-    finally:
-        event.remove(engine, "before_cursor_execute", listener)
-    assert statements[0] == "BEGIN IMMEDIATE"
-
-
-def test_entry_is_usable_after_the_transaction(sessions):
-    with sessions.begin() as session:
-        entry = Item.from_dict(_item())
-        session.add(entry)
-    assert entry.to_dict() == _item()
-
-    with sessions.begin() as session:
+    with database.transaction() as session:
         assert session.get(Item, "i1").to_dict() == _item()
 
 
-def test_failed_transaction_writes_nothing(sessions):
-    with pytest.raises(FedbiomedError):
-        with sessions.begin() as session:
-            session.add(Item.from_dict(_item(item_id="i2")))
-            session.add(Item.from_dict(_item(tags=[1])))
+def test_failed_transaction_writes_nothing(database):
+    with database.transaction() as session:
+        session.add(Item.from_dict(_item()))
 
-    with sessions.begin() as session:
+    with pytest.raises(FedbiomedError):
+        with database.transaction() as session:
+            session.add(Item.from_dict(_item(item_id="i2")))
+            session.add(Item.from_dict(_item()))
+
+    with database.transaction() as session:
         assert session.get(Item, "i2") is None
 
 
-def test_insert_is_validated_when_written(sessions):
-    entry = Item.from_dict(_item(tags=[1]))
-    with pytest.raises(FedbiomedError, match=r"FB632.*Item.tags: expected list\[str\]"):
-        with sessions.begin() as session:
-            session.add(entry)
-
-
-def test_update_reuses_insert_validation(sessions):
-    with sessions.begin() as session:
-        session.add(Item.from_dict(_item()))
-
-    with pytest.raises(FedbiomedError, match=r"FB632.*Item.data: expected"):
-        with sessions.begin() as session:
-            session.get(Item, "i1").data = ["not", "a", "dict"]
-
-    with sessions.begin() as session:
-        session.get(Item, "i1").tags = ["b"]
-    with sessions.begin() as session:
-        assert session.get(Item, "i1").tags == ["b"]
-
-
-def test_validation_error_redacts_sensitive_values():
-    entry = Secret(secret_id="s", key={"private": 1})
-    with pytest.raises(FedbiomedError, match="<redacted>") as error:
-        entry.validate()
-    assert "private" not in str(error.value)
-
-
 def test_database_error_keeps_reason_and_logs_statement_without_parameters(
-    sessions, monkeypatch
+    database, monkeypatch
 ):
     debug = []
     monkeypatch.setattr(db_mod.logger, "debug", debug.append)
-    with sessions.begin() as session:
+    with database.transaction() as session:
         session.add(Item.from_dict(_item(name="hidden-value")))
 
     with pytest.raises(FedbiomedError) as error:
-        with sessions.begin() as session:
+        with database.transaction() as session:
             session.add(Item.from_dict(_item(name="other-hidden-value")))
 
     message = str(error.value)
-    assert message.startswith("FB634")
+    assert message.startswith("FB634: Database error: Item: ")
     assert "UNIQUE constraint failed: TestItems.item_id" in message
     assert "INSERT" not in message
     (logged,) = debug
@@ -234,25 +166,16 @@ def test_database_error_keeps_reason_and_logs_statement_without_parameters(
     assert "hidden-value" not in message + logged
 
 
-def test_case_insensitive_search_folds_accented_letters(sessions):
-    with sessions.begin() as session:
-        session.add(Item.from_dict(_item(name="ÉTUDE IRM")))
-
-    with sessions.begin() as session:
-        found = session.scalars(select(Item).where(Item.name.icontains("étude")))
-        assert [item.item_id for item in found] == ["i1"]
-        assert session.scalar(select(func.lower(None))) is None
-
-
-def test_session_factory_refuses_unknown_log_level(db_path):
+def test_database_error_outside_a_table_names_no_model(database):
     with pytest.raises(
-        FedbiomedError, match="FB634.*TypoItem.__log_level__ is 'write'"
+        FedbiomedError, match="^FB634: Database error: no such table: Missing$"
     ):
-        session_factory(db_path, [TypoItem])
+        with database.transaction() as session:
+            session.execute(text("SELECT * FROM Missing"))
 
 
-def test_writes_are_logged_after_commit_with_caller(sessions, events):
-    with sessions.begin() as session:
+def test_writes_are_logged_after_commit_with_caller(database, events):
+    with database.transaction() as session:
         session.add(Item.from_dict(_item()))
         session.flush()
         assert events == []
@@ -270,11 +193,11 @@ def test_writes_are_logged_after_commit_with_caller(sessions, events):
     assert "name=n" in events[0]["db_args"]
     events.clear()
 
-    with sessions.begin() as session:
+    with database.transaction() as session:
         entry = session.get(Item, "i1")
         entry.name = "renamed"
         entry.note = None
-    with sessions.begin() as session:
+    with database.transaction() as session:
         session.delete(session.get(Item, "i1"))
 
     writes = [e for e in events if e["operation"] != "select"]
@@ -286,12 +209,12 @@ def test_writes_are_logged_after_commit_with_caller(sessions, events):
     assert writes[1]["db_args"] == "{}"
 
 
-def test_reads_and_statements_are_logged_with_their_parameters(sessions, events):
-    with sessions.begin() as session:
+def test_reads_and_statements_are_logged_with_their_parameters(database, events):
+    with database.transaction() as session:
         session.add(Item.from_dict(_item()))
     events.clear()
 
-    with sessions.begin() as session:
+    with database.transaction() as session:
         session.get(Item, "i1")
         session.scalars(select(Item).where(Item.name == "n")).all()
         session.execute(update(Item).where(Item.item_id == "i1").values(name="x"))
@@ -305,46 +228,60 @@ def test_reads_and_statements_are_logged_with_their_parameters(sessions, events)
     ]
 
 
-def test_unchanged_entry_is_not_logged_as_update(sessions, events):
-    with sessions.begin() as session:
+def test_unchanged_entry_is_not_logged_as_update(database, events):
+    with database.transaction() as session:
         session.add(Item.from_dict(_item()))
     events.clear()
 
-    with sessions.begin() as session:
+    with database.transaction() as session:
         session.get(Item, "i1").name = "n"
 
     assert [e["operation"] for e in events] == ["select"]
 
 
-def test_failed_transaction_is_logged_with_its_error(sessions, events):
+def test_failed_transaction_is_logged_with_its_error(database, events):
+    with database.transaction() as session:
+        session.add(Item.from_dict(_item()))
+    events.clear()
+
     with pytest.raises(FedbiomedError):
-        with sessions.begin() as session:
-            session.add(Item.from_dict(_item(tags=[1])))
+        with database.transaction() as session:
+            session.add(Item.from_dict(_item()))
 
     (failure,) = events
     assert failure["status"] == "failure"
     assert failure["operation"] == "insert"
     assert failure["error_type"] == "FedbiomedError"
-    assert "Item.tags" in failure["error_message"]
+    assert "UNIQUE constraint failed: TestItems.item_id" in failure["error_message"]
 
 
-def test_rollback_without_error_is_logged_as_failure(sessions, events):
-    session = sessions()
-    session.add(Item.from_dict(_item()))
-    session.flush()
-    session.rollback()
+def test_rollback_without_error_is_logged_as_failure(database, events):
+    with database.transaction() as session:
+        session.add(Item.from_dict(_item()))
+        session.flush()
+        session.rollback()
 
     (failure,) = events
     assert failure["status"] == "failure"
     assert "error_type" not in failure
 
 
-def test_write_events_redact_sensitive_values(sessions, events):
-    with sessions.begin() as session:
-        session.add(Secret(secret_id="s", key={"private": "x"}))
+def test_write_events_redact_sensitive_values(database, events):
+    with database.transaction() as session:
+        session.add(Secret(secret_id="s", key={"private": "s3cret"}))
 
-    assert REDACTED in events[0]["db_args"]
-    assert "private" not in events[0]["db_args"]
+    (inserted,) = events
+    assert "s3cret" not in inserted["db_args"]
+    assert "secret_id=s" in inserted["db_args"]
+
+
+def test_statement_parameters_of_sensitive_columns_are_redacted(database, events):
+    with database.transaction() as session:
+        session.execute(delete(Secret).where(Secret.key == {"private": "s3cret"}))
+
+    (removed,) = events
+    assert "s3cret" not in removed["db_args"]
+    assert "key_1=" in removed["db_args"]
 
 
 @pytest.mark.parametrize(
@@ -354,8 +291,8 @@ def test_write_events_redact_sensitive_values(sessions, events):
         (QuietItem, []),
     ],
 )
-def test_log_level_selects_what_is_logged(sessions, events, model, logged):
-    with sessions.begin() as session:
+def test_security_log_selects_what_is_logged(database, events, model, logged):
+    with database.transaction() as session:
         session.add(model(item_id="i1"))
         session.flush()
         session.scalars(select(model)).all()
@@ -363,7 +300,17 @@ def test_log_level_selects_what_is_logged(sessions, events, model, logged):
     assert [e["operation"] for e in events] == logged
 
 
-def test_writer_waits_for_another_writer_instead_of_failing(db_path, sessions):
+def test_rows_of_other_models_are_not_logged(database, events):
+    database.create_tables([OtherBaseItem])
+    with database.transaction() as session:
+        session.add(OtherBaseItem(item_id="i1"))
+        session.flush()
+        session.scalars(select(OtherBaseItem)).all()
+
+    assert events == []
+
+
+def test_writer_waits_for_another_writer_instead_of_failing(db_path, database):
     locked = threading.Event()
 
     def hold_write_lock():
@@ -377,9 +324,42 @@ def test_writer_waits_for_another_writer_instead_of_failing(db_path, sessions):
     holder = threading.Thread(target=hold_write_lock)
     holder.start()
     locked.wait()
-    with sessions.begin() as session:
+    with database.transaction() as session:
         session.add(Item.from_dict(_item()))
     holder.join()
 
-    with sessions.begin() as session:
+    with database.transaction() as session:
         assert session.get(Item, "i1") is not None
+
+
+def test_get_database_returns_one_instance_per_file(tmp_path):
+    first = get_database(str(tmp_path / "a.json"))
+    assert get_database(str(tmp_path / "a.json")) is first
+    assert get_database(str(tmp_path / "b.json")) is not first
+
+
+def test_get_database_uses_sqlite_file_next_to_tinydb_file(tmp_path):
+    get_database(str(tmp_path / "db_node.json")).create_tables([Item])
+    assert (tmp_path / "db_node.sqlite").exists()
+
+
+def test_create_tables_creates_only_the_given_tables(database):
+    tables = inspect(database._engine).get_table_names()
+    assert "TestItems" in tables
+    assert "TestOthers" not in tables
+
+
+def test_transaction_starts_with_write_lock(database):
+    statements = []
+    engine = database._engine
+
+    def listener(_conn, _cursor, statement, *_args):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", listener)
+    try:
+        with database.transaction() as session:
+            session.get(Item, "i1")
+    finally:
+        event.remove(engine, "before_cursor_execute", listener)
+    assert statements[0] == "BEGIN IMMEDIATE"

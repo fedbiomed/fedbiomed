@@ -1,7 +1,7 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, List, Optional, Type
+from typing import List, Type
 
 from fedbiomed.common.constants import ErrorNumbers
 from fedbiomed.common.db import TinyTableConnector
@@ -59,11 +59,6 @@ class BaseTable(TinyTableConnector):
         """Insert an entry with validation"""
         validated_entry = self._validate_and_convert_to_dict(entry)
         return super().insert(validated_entry)
-
-    def get_validated_entry(self, entry_id: str) -> Optional[Any]:
-        """Get entry by ID and return as validated model instance"""
-        data = self.get_by_id(entry_id)
-        return None if not data else self._dataclass.from_dict(data)
 
     def update_by_id(self, id_value, update):
         """Update an entry by its ID with validation

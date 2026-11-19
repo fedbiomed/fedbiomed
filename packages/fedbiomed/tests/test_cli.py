@@ -8,10 +8,9 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, call, mock_open, patch
 
-import pytest
-
 import fedbiomed
 import fedbiomed.node.cli_utils
+import pytest
 from fedbiomed.common.cli import CommonCLI
 from fedbiomed.common.constants import NODE_DATA_FOLDER
 from fedbiomed.common.exceptions import FedbiomedError
@@ -462,7 +461,6 @@ class TestStartNodeProcess(unittest.TestCase):
 class TestNodeCLI(unittest.TestCase):
     """Tests main NodeCLI"""
 
-    @patch("fedbiomed.node.node.session_factory")
     @patch("fedbiomed.node.node.TrainingPlanSecurityManager")
     @patch("fedbiomed.node.node.DatasetManager")
     @patch("fedbiomed.node.cli.node_component.initiate")
@@ -473,7 +471,6 @@ class TestNodeCLI(unittest.TestCase):
         mock_initiate,
         mock_dataset_manager,
         mock_tp_manager,
-        _mock_sessions,
     ):
         """Tests initialization"""
         input_patch.return_value = "y"
@@ -495,10 +492,9 @@ class TestNodeCLI(unittest.TestCase):
 class TestNodeContext(unittest.TestCase):
     """Tests the local state the node CLI acts on"""
 
-    @patch("fedbiomed.node.node.session_factory")
     @patch("fedbiomed.node.node.TrainingPlanSecurityManager")
     @patch("fedbiomed.node.node.DatasetManager")
-    def setUp(self, mock_dataset, mock_tp, _mock_sessions):
+    def setUp(self, mock_dataset, mock_tp):
         self.config = MagicMock()
         self.mock_dataset = mock_dataset
         self.mock_tp = mock_tp

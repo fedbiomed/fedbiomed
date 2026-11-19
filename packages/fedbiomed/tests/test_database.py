@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 import pytest
-
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db_dataclasses import NodeProcessStateEntry
 from fedbiomed.node.dataset_manager._db_tables import (
@@ -98,7 +97,7 @@ def test_process_state_table_upserts_and_merges_by_node_id(process_state_table):
 
     stored = process_state_table.get_by_id("node-1")
     assert (stored["pid"], stored["state"]) == (222, "stopped")
-    assert len(process_state_table.all()) == 1
+    assert len(process_state_table._table.all()) == 1
     # Merged, not replaced: settings the second write omits are kept
     assert stored["node_args"] == node_args
     assert stored["background"] is True
@@ -142,7 +141,7 @@ def test_connection_state_table_replaces_by_node_id(connection_state_table):
     stored = connection_state_table.get_by_id("node-1")
     assert stored["state"] == "connected"
     assert stored["identity_verified"] is False
-    assert len(connection_state_table.all()) == 1
+    assert len(connection_state_table._table.all()) == 1
     # Replaced, not merged: the previous state's fields are gone
     assert "reason" not in stored
     assert "certificate" not in stored
@@ -180,7 +179,7 @@ def test_history_table_deletes_entries_older_than_cutoff(
 
     history_table.delete_older_than("2026-07-21T10:00:00Z")
 
-    assert [entry["updated_at"] for entry in history_table.all()] == [
+    assert [entry["updated_at"] for entry in history_table._table.all()] == [
         "2026-08-20T10:00:00Z"
     ]
 
