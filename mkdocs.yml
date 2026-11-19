@@ -354,7 +354,9 @@ plugins:
       handlers:
         python:
           paths:
-            - .
+            - packages/fedbiomed/src
+            - packages/node-api/src
+            - packages/node-ui/src          
           inventories:
             - https://requests.readthedocs.io/en/master/objects.inv
             - https://numpy.org/doc/stable/objects.inv

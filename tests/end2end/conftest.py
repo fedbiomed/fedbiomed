@@ -28,6 +28,14 @@ os.environ["FBM_DEBUG"] = (
 )
 
 
+@pytest.fixture(autouse=True)
+def isolated_database(monkeypatch):
+    """Preserve the database isolation previously inherited from tests/conftest.py."""
+    from fedbiomed.common.db import TinyDBConnector
+
+    monkeypatch.setattr(TinyDBConnector, "_instance", None)
+
+
 @pytest.fixture(scope="module")
 def port():
     """Return an available port shared by the researcher and nodes."""

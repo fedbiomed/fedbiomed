@@ -50,9 +50,6 @@ jobs:
       - name: Setup PDM
         uses: pdm-project/setup-pdm@v4
 
-      - name: Install Dependencies
-        run: pdm install --no-default -G docs -G dev
-
       - name: Configure git
         run: |
           git config --global user.name "GitHub Actions Bot"
@@ -96,6 +93,11 @@ jobs:
           git add -A
           git commit -m "Restore deployed state" --allow-empty --no-verify
           git checkout "$HEAD_REF"
+
+      - name: Install Dependencies
+        run: |
+          pdm sync -G docs
+          pdm run mike --version
 
       - name: Build docs with mike
         run: |

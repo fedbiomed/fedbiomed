@@ -104,7 +104,8 @@ jobs:
           cache: true
 
       - name: Install documentation dependencies
-        run: pdm install --no-default -G docs -G dev
+        run: |
+          pdm sync -G docs
 
       - name: Configure Git
         run: |
@@ -124,8 +125,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.os-list) }}
-        python-version: ${{ fromJSON(inputs.python-versions) }}
+        os: ${{ fromJSON(inputs.os-list || '["ubuntu-latest","macos-latest"]') }}
+        python-version: ${{ fromJSON(inputs.python-versions || '["3.11","3.14"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
@@ -136,6 +137,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Prepare frontend assets for tests
+        run: |
+            mkdir -p packages/node-ui/ui/build
+            echo '<html><body>Test GUI</body></html>' > packages/node-ui/ui/build/index.html
+            echo 'window.test = true;' > packages/node-ui/ui/build/main.js
+            
       - name: Verify tox configuration
         run: tox --showconfig -e py${{ matrix.python-version }}-unit
 
@@ -189,8 +196,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.os-list) }}
-        python-version: ${{ fromJSON(inputs.python-versions) }}
+        os: ${{ fromJSON(inputs.os-list || '["ubuntu-latest","macos-latest"]') }}
+        python-version: ${{ fromJSON(inputs.python-versions || '["3.11","3.14"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
@@ -265,8 +272,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.os-list) }}
-        python-version: ${{ fromJSON(inputs.python-versions) }}
+        os: ${{ fromJSON(inputs.os-list || '["ubuntu-latest","macos-latest"]') }}
+        python-version: ${{ fromJSON(inputs.python-versions || '["3.11","3.14"]') }}
         e2e-file: ${{ fromJSON(needs.resolve-e2e-files.outputs.files) }}
     runs-on: ${{ matrix.os }}
     steps:

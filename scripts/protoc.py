@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 
 # TODO: Add this command to setup.py once it is created
@@ -71,8 +72,14 @@ def fix_grpc_imports(grpc_file: str, pb2_module: str) -> None:
 
 
 if __name__ == "__main__":
-    proto_dir = os.path.abspath(
-        os.path.join(__file__, "..", "..", "fedbiomed", "transport", "protocols")
+    proto_dir = str(
+        Path(__file__).resolve().parents[1]
+        / "packages"
+        / "fedbiomed"
+        / "src"
+        / "fedbiomed"
+        / "transport"
+        / "protocols"
     )
     print(f"Refreshing: {proto_dir} files")
 

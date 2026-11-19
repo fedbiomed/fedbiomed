@@ -1,0 +1,1638 @@
+import copy
+import inspect
+import os
+import tempfile
+import unittest
+from typing import Any, Dict, Optional, Tuple
+from unittest.mock import MagicMock, PropertyMock, call, create_autospec, patch
+
+import numpy as np
+import pytest
+import torch
+from fedbiomed.common.constants import (
+    DatasetTypes,
+    SecureAggregationSchemes,
+    TrainingPlans,
+)
+from fedbiomed.common.dataloadingplan import DataLoadingPlan, DataLoadingPlanMixin
+from fedbiomed.common.datamanager import DataManager
+from fedbiomed.common.dataset import Dataset
+from fedbiomed.common.dataset_types import DataReturnFormat
+from fedbiomed.common.exceptions import (
+    FedbiomedError,
+    FedbiomedOptimizerError,
+    FedbiomedRoundError,
+)
+from fedbiomed.common.logger import logger
+from fedbiomed.common.message import TrainReply
+from fedbiomed.common.models import Model, TorchModel
+from fedbiomed.common.optimizers import (
+    AuxVar,
+    BaseOptimizer,
+    EncryptedAuxVar,
+    Optimizer,
+)
+from fedbiomed.common.optimizers.declearn import (
+    RidgeRegularizer,
+    ScaffoldClientModule,
+    YogiModule,
+)
+from fedbiomed.common.optimizers.generic_optimizers import DeclearnOptimizer
+from fedbiomed.common.training_plans import BaseTrainingPlan
+from fedbiomed.node.node_state_manager import NodeStateFileName
+from fedbiomed.node.round import Round
+from fedbiomed.node.secagg._secagg_round import _SecaggSchemeRound
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
+from testsupport import fake_training_plan
+from testsupport.fake_training_plan import DeclearnAuxVarModel, FakeModel
+from testsupport.fake_uuid import FakeUuid
+from testsupport.testing_data_loading_block import (
+    LoadingBlockTypesForTesting,
+    ModifyGetItemDP,
+)
+
+
+# Needed to access length of dataset from Round class
+class FakeLoader:
+    dataset = [1, 2, 3, 4, 5]
+
+
+@pytest.fixture
+def round():
+    fixture = TestRound()
+    fixture.setUp()
+    try:
+        yield fixture
+    finally:
+        fixture.tearDown()
+
+
+class TestRound(unittest.TestCase):
+    # values and attributes for dummy classes
+    URL_MSG = "http://url/where/my/file?is=True"
+
+    @patch(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.__init__"
+    )
+    def setUp(self, tp_security_manager_patch):
+        tp_security_manager_patch.return_value = None
+
+        # instantiate logger (we will see if exceptions are logged)
+        # we are setting the logger level to "ERROR" to output
+        # logs messages
+        history_monitor = MagicMock()
+
+        self.state_manager_patch = patch("fedbiomed.node.round.NodeStateManager")
+        self.ic_from_spec_patch = patch(
+            "fedbiomed.node.round.utils.import_class_from_spec"
+        )
+        self.ic_from_file_patch = patch(
+            "fedbiomed.node.round.utils.import_class_object_from_file"
+        )
+
+        self.ic_from_spec_mock = self.ic_from_spec_patch.start()
+        self.ic_from_file_mock = self.ic_from_file_patch.start()
+        self.state_manager_mock = self.state_manager_patch.start()
+        node_state = {
+            "optimizer_state": None,
+            "testing_dataset": None,
+            "persistent_model_weights": None,
+        }
+        self.state_manager_mock.return_value.get.return_value = node_state
+
+        type(self.state_manager_mock.return_value).state_id = PropertyMock(
+            return_value="test-state-id"
+        )
+
+        class FakeModule:
+            MyTrainingPlan = FakeModel
+            another_training_plan = FakeModel
+
+        self.ic_from_spec_mock.return_value = (FakeModule, FakeModule.MyTrainingPlan)
+        self.ic_from_file_mock.return_value = (FakeModule, FakeModule.MyTrainingPlan())
+
+        logger.setLevel("ERROR")
+
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.db = os.path.join(self.temp_dir.name, "test-db.json")
+        self.root = os.path.join(self.temp_dir.name, "tests")
+        self.tp_security_manager_mock = MagicMock(spec=TrainingPlanSecurityManager)
+        # instantiate Round class
+        self.r1 = Round(
+            root_dir=self.root,
+            db=self.db,
+            node_id="test-id",
+            node_name="test-node",
+            tp_security_manager=self.tp_security_manager_mock,
+            training_plan="TP",
+            training_plan_class="MyTrainingPlan",
+            params={"x": 0},
+            training_kwargs={},
+            model_kwargs={},
+            researcher_id="researcher-id",
+            history_monitor=history_monitor,
+            dataset_entry={"path": "ssss"},
+            experiment_id="experiment_id",
+            training=True,
+            node_args={},
+            aggregator_args={},
+        )
+
+        params = {"path": "my/dataset/path", "dataset_id": "id_1234"}
+        self.r1.dataset_entry = params
+        self.r1.experiment_id = "1234"
+        self.r1.researcher_id = "1234"
+        dummy_monitor = MagicMock()
+        self.r1.history_monitor = dummy_monitor
+
+        self.r2 = Round(
+            root_dir=self.root,
+            db=self.db,
+            node_id="test-id",
+            node_name="test-node",
+            tp_security_manager=self.tp_security_manager_mock,
+            training_plan="TP",
+            training_plan_class="another_training_plan",
+            params={"x": 0},
+            training_kwargs={},
+            model_kwargs={},
+            researcher_id="researcher-id",
+            history_monitor=history_monitor,
+            dataset_entry={"path": "ssss"},
+            experiment_id="experiment_id",
+            training=True,
+            node_args={},
+            aggregator_args={},
+        )
+        self.r2.dataset_entry = params
+        self.r2.history_monitor = dummy_monitor
+
+    def tearDown(self):
+        self.ic_from_file_patch.stop()
+        self.ic_from_spec_patch.stop()
+        self.state_manager_patch.stop()
+
+        self.temp_dir.cleanup()
+
+    @patch("fedbiomed.node.round.Round._split_train_and_test_data")
+    @patch(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
+    )
+    @patch("uuid.uuid4")
+    def test_round_01_run_model_training_normal_case(
+        self,
+        uuid_patch,
+        tp_security_manager_patch,
+        mock_split_test_train_data,
+    ):
+        """tests correct execution and message parameters.
+        Besides  tests the training time.
+        """
+        # Tests details:
+        # - Test 1: normal case scenario where no model_kwargs has been passed during model instantiation
+        # - Test 2: normal case scenario where model_kwargs has been passed when during model instantiation
+
+        FakeModel.SLEEPING_TIME = 1
+
+        # initialisation of patchers
+        uuid_patch.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {"name": "model_name"})
+
+        mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
+
+        # test 1: case where argument `model_kwargs` = None
+        # action!
+        self.r1.initialize_arguments()
+        msg_test1 = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_active=False,
+            force_secagg=False,
+            secagg_insecure_validation=True,
+        )
+
+        # check results
+        self.assertTrue(msg_test1.get_dict().get("success", False))
+        self.assertEqual(
+            msg_test1.get_dict().get("params", False), {"coefs": [1, 2, 3, 4]}
+        )
+
+        # test 2: redo test 1 but with the case where `model_kwargs` != None
+        FakeModel.SLEEPING_TIME = 0
+        self.r2.model_kwargs = {"param1": 1234, "param2": [1, 2, 3, 4], "param3": None}
+        self.r2.initialize_arguments()
+        msg_test2 = self.r2.run_model_training(
+            tp_approval=False,
+            secagg_active=False,
+            force_secagg=False,
+            secagg_insecure_validation=True,
+        )
+
+        # check values in message (output of `run_model_training`)
+        self.assertTrue(msg_test2.get_dict().get("success", False))
+        self.assertEqual(
+            {"coefs": [1, 2, 3, 4]}, msg_test2.get_dict().get("params", False)
+        )
+
+    @patch("importlib.import_module")
+    @patch(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
+    )
+    @patch("uuid.uuid4")
+    def test_round_02_run_model_training_correct_model_calls(
+        self, uuid_patch, tp_security_manager_patch, import_module_patch
+    ):
+        """tests if all methods of `model` have been called after instantiating
+        (in run_model_training)"""
+        # `run_model_training`, when no issues are found
+        # methods tested:
+        #  - model.load
+        #  - model.save
+        #  - model.training_routine
+        #  - model.after_training_params
+
+        FakeModel.SLEEPING_TIME = 0
+        MODEL_PARAMS = {"coef": [1, 2, 3, 4]}
+
+        class FakeModule:
+            MyTrainingPlan = FakeModel
+
+        uuid_patch.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {"name": "model_name"})
+        import_module_patch.return_value = FakeModule
+
+        self.r1.training_kwargs = {}
+        self.r1.dataset_entry = {"path": "my/dataset/path", "dataset_id": "id_1234"}
+
+        # define context managers for each model method
+        # we are mocking every methods of our dummy model FakeModel,
+        # and we will check if there are called when running
+        # `run_model_training`
+        with (
+            patch.object(FakeModel, "_set_round") as mock_set_round,
+            patch.object(FakeModel, "training_routine") as mock_training_routine,
+            patch.object(
+                self.r1, "_split_train_and_test_data"
+            ) as mock_split_train_and_test_data,
+            patch.object(
+                FakeModel, "after_training_params", return_value=MODEL_PARAMS
+            ) as mock_after_training_params,
+        ):
+            mock_split_train_and_test_data.return_value = (FakeLoader, FakeLoader)
+            self.r1.initialize_arguments()
+            msg = self.r1.run_model_training(
+                tp_approval=False,
+                secagg_active=False,
+                force_secagg=False,
+                secagg_insecure_validation=True,
+            )
+            self.assertTrue(msg.get_dict().get("success"))
+
+            # Check set train and test data split function is called
+            # Set dataset is called in set_train_and_test_data
+            # mock_set_dataset.assert_called_once_with(self.r1.dataset_entry.get('path'))
+            mock_split_train_and_test_data.assert_called_once()
+            mock_set_round.assert_called_once_with(self.r1._round)
+
+            # Since set training data return None, training_routine should be called as None
+            mock_training_routine.assert_called_once_with(
+                history_monitor=self.r1.history_monitor, node_args={}
+            )
+
+            # Check that the model weights were saved.
+            mock_after_training_params.assert_called_once()
+
+    def test_round_02b_run_model_training_debug_flag_controls_error_details_logging(
+        self,
+    ):
+        """Tests that `run_model_training` logs details on early failures.
+
+        The code logs an error with exception details and a debug traceback extract.
+        """
+
+        # Force training plan import/instantiation failure at the start of `run_model_training`.
+        original_side_effect = self.ic_from_spec_mock.side_effect
+        self.ic_from_spec_mock.side_effect = Exception("boom")
+
+        try:
+            self.r1.initialize_arguments()
+
+            with (
+                patch("fedbiomed.node.round.logger.error") as logger_error,
+                patch("fedbiomed.node.round.logger.debug") as logger_debug,
+            ):
+                msg = self.r1.run_model_training(
+                    tp_approval=False,
+                    secagg_active=False,
+                    force_secagg=False,
+                    secagg_insecure_validation=True,
+                )
+
+                self.assertFalse(msg.get_dict().get("success", True))
+                self.assertEqual(
+                    msg.get_dict().get("msg"),
+                    "Cannot instantiate training plan object.",
+                )
+
+                logger_error.assert_called_once()
+                log_msg = logger_error.call_args.args[0]
+                self.assertIn("Cannot instantiate training plan object.", log_msg)
+                self.assertIn("Details:", log_msg)
+                self.assertIn("boom", log_msg)
+
+                self.assertTrue(logger_debug.called)
+                debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+                self.assertTrue(
+                    any(
+                        "Training plan instantiation error details" in m
+                        for m in debug_messages
+                    )
+                )
+        finally:
+            self.ic_from_spec_mock.side_effect = original_side_effect
+
+    def test_round_02c_run_model_training_training_routine_exception_logs_only_in_debug(
+        self,
+    ):
+        """Tests the `training_routine` exception path in `run_model_training`.
+
+        When `training_routine` raises, `run_model_training` must return a failure reply with
+        exception details in the message and log error + debug traceback.
+        """
+
+        def _fake_set_loaders():
+            # Ensure we go through the training branch.
+            self.r1.training_plan.training_data_loader = object()
+            self.r1.training_plan.testing_data_loader = None
+
+        with (
+            patch.object(
+                self.r1,
+                "_set_training_testing_data_loaders",
+                side_effect=_fake_set_loaders,
+            ),
+            patch.object(
+                FakeModel, "training_routine", side_effect=Exception("boom-train")
+            ),
+        ):
+            self.r1.initialize_arguments()
+
+            with (
+                patch("fedbiomed.node.round.logger.error") as logger_error,
+                patch("fedbiomed.node.round.logger.debug") as logger_debug,
+            ):
+                msg = self.r1.run_model_training(
+                    tp_approval=False,
+                    secagg_active=False,
+                    force_secagg=False,
+                    secagg_insecure_validation=True,
+                )
+
+                self.assertFalse(msg.get_dict().get("success", True))
+                self.assertIn(
+                    "Cannot train model in round:",
+                    msg.get_dict().get("msg", ""),
+                )
+
+                logger_error.assert_called_once_with(
+                    "Cannot train model in round: Exception('boom-train')"
+                )
+
+                self.assertTrue(logger_debug.called)
+                debug_messages = [call.args[0] for call in logger_debug.call_args_list]
+                self.assertTrue(
+                    any("Training error details" in m for m in debug_messages)
+                )
+
+    @patch("fedbiomed.node.round.Round._split_train_and_test_data")
+    @patch(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
+    )
+    @patch("uuid.uuid4")
+    def test_round_02d_run_model_training_logs_start_context(
+        self, uuid_patch, tp_security_manager_patch, mock_split_test_train_data
+    ):
+        """Tests that successful training emits the structured round start debug log."""
+
+        FakeModel.SLEEPING_TIME = 0
+        uuid_patch.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {"name": "model_name"})
+        mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
+
+        self.r1.initialize_arguments()
+
+        with patch("fedbiomed.node.round.logger.debug") as logger_debug:
+            msg = self.r1.run_model_training(
+                tp_approval=False,
+                secagg_active=False,
+                force_secagg=False,
+                secagg_insecure_validation=True,
+            )
+
+        self.assertTrue(msg.get_dict().get("success", False))
+        self.assertTrue(
+            any(
+                call.args[0]
+                == (
+                    f"Starting round execution: node_id={self.r1._node_id} "
+                    f"experiment={self.r1.experiment_id} round={self.r1._round} "
+                    f"training={self.r1.training} dataset={self.r1.dataset_entry.get('dataset_id')} "
+                    "secagg_active=False force_secagg=False "
+                    "dp_active=False secagg_args_keys=[]"
+                )
+                for call in logger_debug.call_args_list
+            )
+        )
+
+    def test_round_02e_send_round_reply_logs_build_context(self):
+        """Tests `_send_round_reply` emits the new debug logs when building replies."""
+
+        extend_with = {
+            "encrypted": True,
+            "params": {"weights": [1, 2]},
+            "optim_aux_var": {"scaffold": 1},
+        }
+        timing = {"total_time": 1.23}
+
+        with patch("fedbiomed.node.round.logger.debug") as logger_debug:
+            reply = self.r1._send_round_reply(
+                success=True,
+                message="ok",
+                extend_with=extend_with,
+                timing=timing,
+            )
+
+        self.assertTrue(reply.success)
+        self.assertEqual(reply.dataset_id, self.r1.dataset_entry["dataset_id"])
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Building round reply: experiment=%s round=%s success=%s message=%s extend_keys=%s timing_keys=%s encrypted=%s has_params=%s has_aux_var=%s"
+                and call.args[1:]
+                == (
+                    self.r1.experiment_id,
+                    self.r1._round,
+                    True,
+                    True,
+                    sorted(extend_with.keys()),
+                    sorted(timing.keys()),
+                    True,
+                    True,
+                    True,
+                )
+                for call in logger_debug.call_args_list
+            )
+        )
+        self.assertTrue(
+            any(
+                call.args[0]
+                == "Built round reply: experiment=%s round=%s reply_type=%s success=%s encrypted=%s dataset=%s"
+                and call.args[1:]
+                == (
+                    self.r1.experiment_id,
+                    self.r1._round,
+                    reply.__class__.__name__,
+                    True,
+                    True,
+                    self.r1.dataset_entry["dataset_id"],
+                )
+                for call in logger_debug.call_args_list
+            )
+        )
+
+    @patch("fedbiomed.node.round.Round._split_train_and_test_data")
+    @patch(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
+    )
+    @patch("uuid.uuid4")
+    def test_round_03_test_run_model_training_with_real_model(
+        self, uuid_patch, tp_security_manager_patch, mock_split_train_and_test_data
+    ):
+        """tests normal case scenario with a real model file"""
+        FakeModel.SLEEPING_TIME = 0
+
+        # initialisation of patchers
+        uuid_patch.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {"name": "model_name"})
+        mock_split_train_and_test_data.return_value = (True, True)
+
+        # create dummy_model
+        dummy_training_plan_test = "\n".join(
+            [
+                "from testsupport.fake_training_plan import FakeModel",
+                "class MyTrainingPlan(FakeModel):",
+                "    dataset = [1, 2, 3, 4]",
+                "    def set_data_loaders(self, *args, **kwargs):",
+                "        self.testing_data_loader = MyTrainingPlan",
+                "        self.training_data_loader = MyTrainingPlan",
+            ]
+        )
+
+        self.ic_from_spec_patch.stop()
+        self.ic_from_file_patch.stop()
+        self.r1.training_plan_source = dummy_training_plan_test
+        self.r1.training_plan_class = "MyTrainingPlan"
+        # action
+        self.r1.initialize_arguments()
+        msg_test = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_active=False,
+            force_secagg=False,
+            secagg_insecure_validation=True,
+        )
+
+        # checks
+
+        self.assertTrue(msg_test.get_dict().get("success", False))
+
+    @patch("uuid.uuid4")
+    def test_round_05_run_model_training_model_not_approved(
+        self,
+        uuid_patch,
+    ) -> None:
+        """Tests not approved model"""
+        FakeModel.SLEEPING_TIME = 0
+
+        # initialisation of patchers
+        uuid_patch.return_value = FakeUuid()
+        self.tp_security_manager_mock.check_training_plan_status.return_value = (
+            False,
+            {"name": "model_name"},
+        )
+        # action
+        msg_test = self.r1.run_model_training(
+            tp_approval=True,
+            secagg_active=False,
+            force_secagg=False,
+            secagg_insecure_validation=True,
+        )
+
+        self.assertFalse(msg_test.get_param("success"))
+
+    @patch("fedbiomed.node.round.Round._split_train_and_test_data")
+    @patch(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
+    )
+    @patch("uuid.uuid4")
+    def test_round_06_run_model_training_import_error(
+        self, uuid_patch, tp_security_manager_patch, mock_split_train_and_test_data
+    ):
+        """tests case where the import/loading of the model have failed"""
+
+        FakeModel.SLEEPING_TIME = 0
+
+        # initialisation of patchers
+        uuid_patch.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {"name": "model_name"})
+        mock_split_train_and_test_data.return_value = None
+
+        self.ic_from_file_mock.side_effect = Exception
+        msg_test_1 = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_active=False,
+            force_secagg=False,
+            secagg_insecure_validation=True,
+        )
+        self.assertFalse(msg_test_1.success)
+
+        self.ic_from_file_mock.side_effect = None
+        self.ic_from_spec_mock.side_effect = Exception
+        msg_test_1 = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_active=False,
+            force_secagg=False,
+            secagg_insecure_validation=True,
+        )
+        self.assertFalse(msg_test_1.success)
+
+        # test 2: tests raise of Exception during loading parameters
+        # into model instance
+
+        # Here we creating a new class inheriting from the FakeModel,
+        # but overriding `load` through classes inheritance
+        # when `load` is called, an Exception will be raised
+        #
+        class FakeModelRaiseExceptionWhenLoading(FakeModel):
+            def set_model_params(self, *args, **kwargs):
+                """Mimics an exception happening in the `load`
+                method
+
+                Raises:
+                    Exception:
+                """
+                raise Exception("mimicking an error happening during model training")
+
+        # action
+
+        self.ic_from_file_mock.return_value = (
+            fake_training_plan,
+            FakeModelRaiseExceptionWhenLoading(),
+        )
+        msg_test_2 = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_active=False,
+            force_secagg=False,
+            secagg_insecure_validation=True,
+        )
+        self.assertFalse(msg_test_2.success)
+
+        # test 3: tests raise of Exception during model training
+        # into model instance
+
+        class FakeModelRaiseExceptionInTraining(FakeModel):
+            def training_routine(self, **kwargs):
+                """Mimics an exception happening in the `training_routine`
+                method
+
+                Raises:
+                    Exception:
+                """
+                raise Exception("mimicking an error happening during model training")
+
+        self.ic_from_file_mock.return_value = (
+            fake_training_plan,
+            FakeModelRaiseExceptionInTraining(),
+        )
+        msg_test_3 = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_active=False,
+            force_secagg=False,
+            secagg_insecure_validation=True,
+        )
+        self.assertFalse(
+            msg_test_3.success,
+        )
+
+    @patch("inspect.signature")
+    def test_round_09_data_loading_plan(
+        self,
+        patch_inspect_signature,
+    ):
+        """Test that Round correctly handles a DataLoadingPlan during training"""
+
+        class MyDataset(DataLoadingPlanMixin):
+            def __init__(self):
+                super().__init__()
+
+            def __getitem__(self, item):
+                return self.apply_dlb(
+                    "orig-value", LoadingBlockTypesForTesting.MODIFY_GETITEM
+                )
+
+            @staticmethod
+            def get_dataset_type() -> DatasetTypes:
+                return DatasetTypes.TEST
+
+        def load_dataset_side_effect(**kwargs):
+            """
+            Mimic what the real DataManager.load_dataset() would do in this test:
+            Attach the deserialized DLP to the dataset.
+            """
+            dlp = kwargs.get("dlp")
+            if dlp is not None:
+                # MyDataset inherits DataLoadingPlanMixin, which uses self._dlp internally
+                # in apply_dlb(). Setting this is enough for the test.
+                my_dataset._dlp = dlp
+
+        patch_inspect_signature.return_value = inspect.Signature(parameters={})
+
+        my_dataset = MyDataset()
+        data_loader_mock = MagicMock()
+        data_loader_mock.dataset = my_dataset
+
+        data_manager_mock = MagicMock(spec=DataManager)
+        data_manager_mock.split = MagicMock()
+        data_manager_mock.split.return_value = (data_loader_mock, None)
+        data_manager_mock.dataset = my_dataset
+
+        data_manager_mock.load_dataset.side_effect = load_dataset_side_effect
+
+        data_manager_mock.save_state = MagicMock()
+        data_manager_mock.load_state = MagicMock()
+
+        self.r1.training_kwargs = {}
+        self.r1.initialize_arguments()
+        self.r1.training_plan = MagicMock()
+        self.r1.training_plan.training_data.return_value = data_manager_mock
+
+        training_data_loader, _ = self.r1._split_train_and_test_data(test_ratio=0.0)
+        dataset = training_data_loader.dataset
+        self.assertEqual(dataset[0], "orig-value")
+
+        dlp = DataLoadingPlan(
+            {LoadingBlockTypesForTesting.MODIFY_GETITEM: ModifyGetItemDP()}
+        )
+        self.r1._dlp_and_loading_block_metadata = dlp.serialize()
+        self.r1.training_kwargs = {}
+        self.r1.initialize_arguments()
+
+        training_data_loader, _ = self.r1._split_train_and_test_data(test_ratio=0.0)
+        dataset = training_data_loader.dataset
+        self.assertEqual(dataset[0], "modified-value")
+
+    @patch("fedbiomed.node.round.Round._split_train_and_test_data")
+    @patch("uuid.uuid4")
+    @patch("fedbiomed.node.secagg._secagg_round.SecaggServkeyManager.get")
+    @patch("fedbiomed.node.secagg._secagg_round.SecaggDhManager.get")
+    @patch("fedbiomed.common.secagg._secagg_crypter.SecaggLomCrypter.encrypt")
+    def test_round_10_run_model_training_secagg(
+        self,
+        lom_crypter_encrpyt_patch,
+        dhmanager_get,
+        servkey_get,
+        uuid_patch,
+        mock_split_test_train_data,
+    ):
+        """tests correct execution and message parameters."""
+        # Tests details:
+        # - Test 1: normal case scenario where no model_kwargs has been
+        #           passed during model instantiation
+        # - Test 2: normal case scenario where model_kwargs has been
+        #           passed when during model instantiation
+
+        FakeModel.SLEEPING_TIME = 1
+
+        # initialisation of side effect function
+        class M(FakeModel):
+            def after_training_params(self, flatten):
+                return [0.1, 0.2, 0.3, 0.4, 0.5]
+
+        self.ic_from_file_mock.return_value = (fake_training_plan, M())
+        # initialisation of patchers
+        uuid_patch.return_value = FakeUuid()
+        self.tp_security_manager_mock.check_training_plan_status.return_value = (
+            True,
+            {"name": "model_name"},
+        )
+        mock_split_test_train_data.return_value = (FakeLoader, FakeLoader)
+
+        # Secagg configuration
+        servkey_get.return_value = {
+            "context": {"server_key": 123445, "biprime": 123445},
+            "parties": ["r-1", "n-1", "n-2"],
+        }
+
+        self.r1.initialize_arguments()
+        # test for Joye Libert secagg
+        msg_test_jl = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_active=True,
+            force_secagg=True,
+            secagg_insecure_validation=True,
+            secagg_arguments={
+                "secagg_scheme": SecureAggregationSchemes.JOYE_LIBERT.value,
+                "parties": ["r-1", "n-1", "n-2"],
+                "secagg_random": 1.12,
+                "secagg_servkey_id": "1234",
+            },
+        )
+
+        self.assertTrue(msg_test_jl.success)
+
+        lom_crypter_encrpyt_patch.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
+        dhmanager_get.return_value = {
+            "context": {
+                "r-1": b"secret-key-1",
+                "n-1": b"secret-key-2",
+                "n-2": b"secret-key-3",
+            },
+            "parties": ["r-1", "n-1", "n-2"],
+        }
+
+        msg_test_dh = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_active=True,
+            force_secagg=True,
+            secagg_insecure_validation=True,
+            secagg_arguments={
+                "secagg_scheme": SecureAggregationSchemes.LOM.value,
+                "parties": ["r-1", "n-1", "n-2"],
+                "secagg_random": 1.12,
+                "secagg_servkey_id": "1234",
+            },
+        )
+
+        self.assertTrue(msg_test_dh.success)
+
+    @patch("uuid.uuid4")
+    @patch(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status"
+    )
+    def test_round_11_run_model_training_optimizer_aux_var_error(
+        self, tp_security_manager_patch, patch_uuid
+    ):
+        patch_uuid.return_value = FakeUuid()
+        tp_security_manager_patch.return_value = (True, {"name": "my_node_id"})
+
+        # creating Round
+        self.r1.training_kwargs = {"optimizer_args": {"lr": 0.1234}}
+
+        self.r1.researcher_id = "researcher_id_1234"
+        self.r1.experiment_id = "experiment_id_1234"
+
+        # configure optimizer
+        lr = 0.1234
+        optim_node = Optimizer(
+            lr=lr,
+            modules=[ScaffoldClientModule(), YogiModule()],
+            regularizers=[RidgeRegularizer()],
+        )
+
+        dec_node_optim = DeclearnOptimizer(
+            TorchModel(torch.nn.Linear(3, 1)), optim_node
+        )
+
+        DeclearnAuxVarModel.OPTIM = dec_node_optim
+        DeclearnAuxVarModel.TYPE = TrainingPlans.TorchTrainingPlan
+
+        self.ic_from_file_mock.return_value = (
+            fake_training_plan,
+            DeclearnAuxVarModel(),
+        )
+        self.r1.training_plan_class = "DeclearnAuxVarModel"
+        self.r1.dataset_entry = {
+            "dataset_id": "dataset_id_1234",
+            "path": os.path.join("path", "to", "my", "dataset"),
+        }
+        self.r1.aux_vars = {"scaffold": "some-incorrect-data"}
+
+        # action
+        self.r1.initialize_arguments()
+        rnd_reply = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_active=False,
+            force_secagg=False,
+            secagg_insecure_validation=True,
+        )
+        self.assertFalse(rnd_reply.success)
+        self.assertIn(
+            "TrainingPlan Optimizer failed to ingest the provided auxiliary variables",
+            rnd_reply.msg,
+        )
+
+    def test_round_12_process_optim_aux_var(self):
+        """Test that 'process_optim_aux_var' works properly."""
+        # Set up a mock BaseOptimizer with an attached Optimizer.
+        mock_optim = create_autospec(Optimizer, instance=True)
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        mock_b_opt.optimizer = mock_optim
+        mock_b_opt.count_nb_auxvar.return_value = 0
+        # Attach the former to the Round's mock TrainingPlan.
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
+        # Attach fake auxiliary variables (as though pre-downloaded).
+        mock_aux_var = {"module": create_autospec(AuxVar, instance=True)}
+        self.r1.aux_vars = mock_aux_var
+        # Mock functions used for local parameters
+        self.r1.training_plan.get_model_params.return_value = {"w": 1, "w_local": 2}
+        self.r1.training_plan.filter_model_params_by_tags.return_value = {"w_local": 2}
+        mock_aux_var_after_restore = {"module": create_autospec(AuxVar, instance=True)}
+        mock_optim.restore_aux.return_value = mock_aux_var_after_restore
+        # Call the tested method and verify its outputs and effects.
+        msg = self.r1.process_optim_aux_var()
+        self.assertEqual(msg, None)
+        self.r1.training_plan.get_model_params.assert_called_once_with(
+            only_trainable=False, exclude_buffers=False, local_params=None
+        )
+        self.r1.training_plan.filter_model_params_by_tags.assert_called_once_with(
+            {"w": 1, "w_local": 2}, required_tags={"local"}
+        )
+        mock_optim.restore_aux.assert_called_once_with(
+            mock_aux_var, {"w": 1, "w_local": 2}, ["w_local"]
+        )
+        mock_optim.set_aux.assert_called_once_with(mock_aux_var_after_restore)
+
+    def test_round_13_process_optim_aux_var_without_aux_var(self):
+        """Test that 'process_optim_aux_var' exits properly without aux vars."""
+        # Set up a Round with a mock Optimizer attached, but no aux vars.
+        mock_optim = create_autospec(Optimizer, instance=True)
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        mock_b_opt.optimizer = mock_optim
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
+        # Call the tested method, verifying that it exits without effects.
+        msg = self.r1.process_optim_aux_var()
+        self.assertEqual(msg, None)
+        mock_optim.set_aux.assert_not_called()
+
+    def test_round_14_process_optim_aux_var_without_base_optimizer(self):
+        """Test that 'process_optim_aux_var' documents missing BaseOptimizer."""
+        # Set up a Round with fake aux_vars, but no BaseOptimizer.
+        self.r1.aux_vars = {"module": create_autospec(AuxVar, instance=True)}
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = None
+        # Call the tested method, verifying that it returns an error.
+        msg = self.r1.process_optim_aux_var()
+        self.assertTrue("TrainingPlan does not hold a BaseOptimizer" in msg)
+        self.assertIsInstance(msg, str)
+
+    def test_round_15_process_optim_aux_var_without_optimizer(self):
+        """Test that 'process_optim_aux_var' documents missing Optimizer."""
+        # Set up a Round with aux vars, but a non-Optimizer optimizer.
+        self.r1.aux_vars = {"module": create_autospec(AuxVar, instance=True)}
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        mock_b_opt.optimizer = MagicMock()  # not a declearn-based Optimizer
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
+        # Call the tested method, verifying that it returns an error.
+        msg = self.r1.process_optim_aux_var()
+        self.assertTrue("does not manage a compatible Optimizer" in msg)
+        self.assertIsInstance(msg, str)
+
+    def test_round_16_process_optim_aux_var_with_optimizer_error(self):
+        """Test that 'process_optim_aux_var' returns an error when 'restore_aux' or 'set_aux' raise."""
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
+        self.r1.training_plan.get_model_params.return_value = {"w": 1}
+        self.r1.training_plan.filter_model_params_by_tags.return_value = {}
+
+        # Sub-case 1: restore_aux raises.
+        mock_aux_var = {"module": create_autospec(AuxVar, instance=True)}
+        self.r1.aux_vars = mock_aux_var
+        mock_optim = create_autospec(Optimizer, instance=True)
+        restore_error = "fake FedbiomedOptimizerError on 'restore_aux' call"
+        mock_optim.restore_aux.side_effect = FedbiomedOptimizerError(restore_error)
+        mock_b_opt.optimizer = mock_optim
+        msg = self.r1.process_optim_aux_var()
+        self.assertIsInstance(msg, str)
+        self.assertIn(restore_error, msg)
+        mock_optim.restore_aux.assert_called_once()
+        mock_optim.set_aux.assert_not_called()
+
+        # Sub-case 2: set_aux raises.
+        mock_optim2 = create_autospec(Optimizer, instance=True)
+        set_aux_error = "fake FedbiomedOptimizerError on 'set_aux' call"
+        mock_optim2.set_aux.side_effect = FedbiomedOptimizerError(set_aux_error)
+        mock_b_opt.optimizer = mock_optim2
+        msg = self.r1.process_optim_aux_var()
+        self.assertIsInstance(msg, str)
+        self.assertIn(set_aux_error, msg)
+        mock_optim2.set_aux.assert_called_once()
+
+    def test_round_17_collect_optim_aux_var(self):
+        """Test that 'collect_optim_aux_var' works properly with an Optimizer."""
+        # Set up a Round with an attached mock Optimizer.
+        mock_optim = create_autospec(Optimizer, instance=True)
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        # why not using DeclearnOptimizer?
+        mock_b_opt.optimizer = mock_optim
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
+        # Mock the removal of auxiliary variables
+        full_aux_var = {"module": create_autospec(AuxVar, instance=True)}
+        mock_optim.get_aux.return_value = full_aux_var
+        self.r1.training_plan.get_model_params.return_value = {"w": 1, "w_local": 2}
+        self.r1.training_plan.filter_model_params_by_tags.return_value = {"w_local": 2}
+        mock_aux_var_after_filter = {"module": create_autospec(AuxVar, instance=True)}
+        mock_optim.filter_aux.return_value = mock_aux_var_after_filter
+        # Call the tested method and verify its outputs and effects.
+        aux_var = self.r1.collect_optim_aux_var()
+        self.assertEqual(aux_var, mock_aux_var_after_filter)
+        mock_optim.get_aux.assert_called_once()
+        self.r1.training_plan.get_model_params.assert_called_once_with(
+            only_trainable=False, exclude_buffers=False, local_params=None
+        )
+        self.r1.training_plan.filter_model_params_by_tags.assert_called_once_with(
+            {"w": 1, "w_local": 2}, required_tags={"local"}
+        )
+        mock_optim.filter_aux.assert_called_once_with(full_aux_var, ["w_local"])
+
+    def test_round_18_collect_optim_aux_var_without_optimizer(self):
+        """Test that 'collect_optim_aux_var' works properly without an Optimizer."""
+        # Set up a Round with a non-Optimizer optimizer.
+        mock_b_opt = create_autospec(BaseOptimizer, instance=True)
+        mock_b_opt.optimizer = MagicMock()  # non-declearn-based object
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = mock_b_opt
+        # Call the tested method and verify its outputs.
+        aux_var = self.r1.collect_optim_aux_var()
+        self.assertEqual(aux_var, {})
+
+    def test_round_19_collect_optim_aux_var_without_base_optimizer(self):
+        """Test that 'collect_optim_aux_var' fails without a BaseOptimizer."""
+        # Set up a Round without a BaseOptimizer.
+        self.r1.training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        self.r1.training_plan.optimizer.return_value = None
+        # Verify that aux-var collection raises.
+        self.assertRaises(FedbiomedRoundError, self.r1.collect_optim_aux_var)
+
+    @patch("fedbiomed.common.utils.import_class_object_from_file")
+    @patch("fedbiomed.node.round.SecaggRound")
+    def test_round_26_run_model_training_secagg_with_optim_aux_var_no_local_params(
+        self,
+        secagg_round,
+        ic_from_file,
+    ):
+        """Test the training loop with both SecAgg and optimizer AuxVar."""
+        # Set up a mock TrainingPlan with a mock declearn-based Optimizer.
+        training_plan = create_autospec(BaseTrainingPlan, instance=True)
+        fbm_optimizer = create_autospec(Optimizer, instance=True)
+        base_optimizer = create_autospec(BaseOptimizer, instance=True)
+        base_optimizer.optimizer = fbm_optimizer
+        base_optimizer.save_state.return_value = None
+        training_plan.optimizer.return_value = base_optimizer
+        training_plan.optimizer_args.return_value = {}
+        training_plan.get_dp_controller.return_value = None
+        training_plan.filter_model_params_by_tags.return_value = {}
+        # Set deterministic output model parameters and auxiliary variables.
+        training_plan.after_training_params.return_value = [0.1, 0.2, 0.3]
+
+        class StubAuxVar(AuxVar):
+            """'AuxVar' subclass for testing purposes."""
+
+            cryptable: np.ndarray = np.array([0.0, 0.1])
+            cleartext: str = "mock-value"
+
+            def prepare_for_secagg(
+                self,
+            ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+                return {"cryptable": self.cryptable}, {"cleartext": self.cleartext}
+
+        fbm_optimizer.get_aux.return_value = {"module": StubAuxVar()}
+        fbm_optimizer.filter_aux.return_value = {"module": StubAuxVar()}
+        # Patch things to approve the training plan and use it in the round.
+        ic_from_file.return_value = (MagicMock(), training_plan)
+
+        scheme = MagicMock(spec=_SecaggSchemeRound)
+        type(secagg_round.return_value).scheme = scheme
+        scheme.encrypt.return_value = [11, 22, 33, 44, 55]
+
+        # Patch the data splitting method. This is ugly, but unavoidable.
+        self.r1._split_train_and_test_data = MagicMock(
+            return_value=(FakeLoader(), FakeLoader())
+        )
+        training_plan.training_data_loader = FakeLoader()
+        # Run Round model training.
+        self.r1.initialize_arguments()
+        msg_test = self.r1.run_model_training(
+            tp_approval=False,
+            secagg_insecure_validation=True,
+            secagg_active=True,
+            force_secagg=True,
+            secagg_arguments={
+                "secagg_random": 1.12,
+                "secagg_servkey_id": "1234",
+                "secagg_biprime_id": "1234",
+                "parties": ["n1", "n2"],
+                "secagg_scheme": SecureAggregationSchemes.JOYE_LIBERT,
+            },
+        )
+        # Verify that the routine succeeded and model parameters were encrypted.
+        assert isinstance(msg_test, TrainReply)
+        assert msg_test.success, f"Training failed: {msg_test.msg}"
+        assert msg_test.encrypted
+        assert isinstance(msg_test.params, list)
+        assert all(isinstance(x, int) for x in msg_test.params)
+        # Verify that optimizer auxiliary variables were encrypted.
+        assert isinstance(msg_test.optim_aux_var, dict)
+        aux_var = EncryptedAuxVar.from_dict(msg_test.optim_aux_var)
+        assert len(aux_var.encrypted) == 1
+        assert all(isinstance(x, int) for x in aux_var.encrypted[0])
+        assert aux_var.cleartext == [{"cleartext": "mock-value"}]
+        assert aux_var.clear_cls == [("module", StubAuxVar)]
+
+    def test_round_27_split_train_and_test_data_raises_exceptions(self):
+        """Test that _split_train_and_test_data raises correct exceptions"""
+        mock_training_plan = MagicMock()
+
+        def foo_takes_an_argument(x):
+            return x
+
+        mock_training_plan.training_data = foo_takes_an_argument
+        mock_training_plan.type.return_value = "tp type"
+
+        self.r1.training_plan = mock_training_plan
+        with self.assertRaises(FedbiomedRoundError):
+            self.r1._split_train_and_test_data()
+
+    @patch("fedbiomed.node.round.Serializer")
+    @patch("fedbiomed.node.round.Round._get_base_optimizer")
+    def test_round_28_load_round_state(
+        self,
+        get_optim_patch,
+        serializer_patch,
+    ):
+        self.r1.experiment_id = 1234
+        state_id = "state_id_1234"
+        path_state_optimizer = "/path/to/state/optimizer"
+        path_state_weights = "/path/to/state/weights"
+
+        training_plan_mock = MagicMock(
+            spec=BaseTrainingPlan, type=MagicMock(), _model=MagicMock(spec=Model)
+        )
+        self.r1.training_plan = training_plan_mock
+
+        node_state = {
+            "optimizer_state": {
+                "optimizer_type": "optimizer_type",
+                "state_path": path_state_optimizer,
+            },
+            "testing_dataset": None,
+            "persistent_model_weights": {"state_path": path_state_weights},
+        }
+        self.state_manager_mock.return_value.get.return_value = node_state
+        get_optim_patch.return_value = MagicMock(
+            spec=DeclearnOptimizer,
+            __class__="optimizer_type",
+        )
+        serializer_patch.load.side_effect = [{"config": {}, "states": {}}, {"w": 123}]
+        self.r1._load_round_state(state_id)
+
+        # checks
+        # FIXME: in future version, we should check each call to Serializer.load
+        serializer_patch.load.assert_has_calls(
+            [
+                call(path_state_optimizer),
+                call(path_state_weights),
+            ]
+        )
+
+        # check Optimizer.load_state call
+        get_optim_patch.return_value.load_state.assert_called_once_with(
+            {"config": {}, "states": {}}, load_from_state=True
+        )
+
+        # check persistent model weights
+        assert self.r1._persistent_model_weights == {"w": 123}
+
+    @patch("fedbiomed.node.round.logger")
+    @patch("fedbiomed.node.round.Serializer")
+    @patch("fedbiomed.node.round.Round._get_base_optimizer")
+    def test_round_29_load_round_state_failure(
+        self, get_optim_patch, serializer_patch, logger_patch
+    ):
+        self.r1.experiment_id = 1234
+        state_id = "state_id_1234"
+        path_state = "/path/to/state"
+
+        training_plan_mock = MagicMock(
+            spec=BaseTrainingPlan, type=MagicMock(), _model=MagicMock(spec=Model)
+        )
+        self.r1.training_plan = training_plan_mock
+
+        node_state = {
+            "optimizer_state": {
+                "optimizer_type": "optimizer_type",
+                "state_path": path_state,
+            },
+            "testing_dataset": None,
+            "persistent_model_weights": None,
+        }
+        self.state_manager_mock.return_value.get.return_value = node_state
+        get_optim_patch.return_value = MagicMock(
+            spec=DeclearnOptimizer,
+            __class__="optimizer_type",
+        )
+        err_msg = "Error raised for the sake of testing"
+        get_optim_patch.return_value.load_state.side_effect = FedbiomedOptimizerError(
+            err_msg
+        )
+        self.r1._load_round_state(state_id)
+
+        # checks
+        # FIXME: in future version, we should check each call to Serializer.load
+        serializer_patch.load.assert_called_once_with(path_state)
+        logger_patch.warning.assert_called()
+
+        logger_calls = logger_patch.mock_calls
+        if len(logger_calls) < 2:
+            self.skipTest(
+                "Test `load_round_state_failure skipped because logger call has changed - which has minor impact on the code"
+            )
+        self.assertIn(
+            err_msg,
+            logger_calls[1][1][0],
+            f"error message '{err_msg}' not sent through logger",
+        )
+
+    @patch("fedbiomed.node.round.Serializer", autospec=True)
+    @patch("fedbiomed.node.round.Round._get_base_optimizer")
+    def test_round_30_save_round_state(self, get_optim_patch, serializer_patch):
+        training_idx, testing_idx = [1, 2, 3, 4], [5, 6, 7]
+        test_ratio = 0.1
+        self.r1.experiment_id = "1234"
+        self.r1._round = 34
+        self.r1._testing_indexes = {
+            "training_index": training_idx,
+            "testing_index": testing_idx,
+        }
+        self.r1.testing_arguments = {"test_ratio": test_ratio}
+
+        optim_path = "path/to/folder/containing/optim/state/files"
+        weights_path = "path/to/folder/containing/weight/state/files"
+        self.state_manager_mock.return_value.generate_folder_and_create_file_name.side_effect = [
+            optim_path,
+            weights_path,
+        ]
+        get_optim_patch.return_value = MagicMock(
+            spec=DeclearnOptimizer,
+            __class__="optimizer_type",
+        )
+
+        training_plan_mock = MagicMock(
+            spec=BaseTrainingPlan, type=MagicMock(), _model=MagicMock(spec=Model)
+        )
+        training_plan_mock.get_model_params.return_value = {
+            "_module.w_renamed": 1,
+            "w_persistent": 2,
+        }
+        training_plan_mock.filter_model_params_by_tags.return_value = {"w_renamed": 1}
+        mock_dp = MagicMock()
+        mock_dp.rename_params.return_value = (
+            {"w_renamed": 1, "w_persistent": 2},
+            {"w_renamed": "_module.w_renamed"},
+        )
+        training_plan_mock.get_dp_controller.return_value = mock_dp
+        self.r1.training_plan = training_plan_mock
+
+        # adding a function that add additional dictionary entries through reference
+        self.state_manager_mock.return_value.add.side_effect = lambda x, y: y.update(
+            {"version_node_id": "1", "state_id": "state_id_1234"}
+        )
+
+        res = self.r1._save_round_state()
+
+        added_state = {
+            "optimizer_state": {
+                "optimizer_type": "optimizer_type",
+                "state_path": optim_path,
+            },
+            "testing_dataset": {
+                "training_index": training_idx,
+                "testing_index": testing_idx,
+                "test_ratio": test_ratio,
+            },
+            "persistent_model_weights": {"state_path": weights_path},
+        }
+
+        expected_state = copy.deepcopy(added_state)
+        expected_state.update({"version_node_id": "1", "state_id": "state_id_1234"})
+        get_optim_patch.return_value.save_state.assert_called_once()
+        serializer_patch.dump.assert_has_calls(
+            [
+                call(
+                    get_optim_patch.return_value.save_state.return_value,
+                    path=optim_path,
+                ),
+                call({"w_renamed": 1}, path=weights_path),
+            ]
+        )
+        self.state_manager_mock.return_value.generate_folder_and_create_file_name.assert_has_calls(
+            [
+                call("1234", 34, NodeStateFileName.OPTIMIZER),
+                call("1234", 34, NodeStateFileName.MODEL_WEIGHTS),
+            ]
+        )
+        training_plan_mock.get_model_params.assert_called_once_with(
+            only_trainable=False, exclude_buffers=False, local_params=None
+        )
+        training_plan_mock.get_dp_controller.assert_called_once()
+        mock_dp.rename_params.assert_called_once_with(
+            {"_module.w_renamed": 1, "w_persistent": 2}
+        )
+        training_plan_mock.filter_model_params_by_tags.assert_called_once_with(
+            params={"w_renamed": 1, "w_persistent": 2}, required_tags={"persistent"}
+        )
+        self.state_manager_mock.return_value.add.assert_called_once_with(
+            "1234", expected_state
+        )
+        self.assertDictEqual(expected_state, res)
+
+    @patch("fedbiomed.node.round.Round._get_base_optimizer")
+    def test_round_31_save_round_state_failure_saving_optimizer(
+        self,
+        get_optim_patch,
+    ):
+        self.r1.experiment_id = "1234"
+        self.r1._round = 34
+        training_idx, testing_idx = [1, 2, 3, 5, 7, 10], [4, 6, 8, 9, 11, 12]
+        test_ratio = 0.23
+        self.r1._testing_indexes = {
+            "testing_index": testing_idx,
+            "training_index": training_idx,
+        }
+        self.r1.testing_arguments = {"test_ratio": test_ratio}
+        # r = Round(experiment_id=experiment_id, round_number=round_nb)
+        get_optim_patch.return_value = MagicMock(
+            save_state=MagicMock(return_value=None)
+        )
+        training_plan_mock = MagicMock(
+            spec=BaseTrainingPlan, type=MagicMock(), _model=MagicMock(spec=Model)
+        )
+        training_plan_mock.get_model_params.return_value = {"w": 1}
+        training_plan_mock.filter_model_params_by_tags.return_value = {}
+        training_plan_mock.get_dp_controller.return_value = None
+        self.r1.training_plan = training_plan_mock
+
+        self.state_manager_mock.return_value.add.side_effect = lambda x, y: y.update(
+            {"version_node_id": "1", "state_id": "state_id_1234"}
+        )
+        res = self.r1._save_round_state()
+        expected_state = {
+            "optimizer_state": None,
+            "version_node_id": "1",
+            "state_id": "state_id_1234",
+            "testing_dataset": {
+                "training_index": training_idx,
+                "testing_index": testing_idx,
+                "test_ratio": test_ratio,
+            },
+            "persistent_model_weights": None,
+        }
+
+        self.assertDictEqual(res, expected_state)
+
+    @patch("uuid.uuid4", autospec=True)
+    @patch("fedbiomed.node.round.Serializer", autospec=True)
+    def test_round_32_save_and_load_state(self, serializer_patch, uuid_patch):
+        training_idx, testing_idx = [1, 2, 3, 5, 7, 10], [4, 6, 8, 9, 11, 12]
+        optim_mock = MagicMock(spec=BaseOptimizer, __class__="optimizer_type")
+
+        training_plan_mock = MagicMock(
+            spec=BaseTrainingPlan,
+        )
+        training_plan_mock.optimizer.return_value = optim_mock
+        self.state_manager_mock.return_value.get_node_state_base_dir.return_value = (
+            "/path/to/base/dir"
+        )
+        training_plan_mock.data_manager = MagicMock(spec=DataManager)
+        self.r1._testing_indexes = {
+            "testing_index": testing_idx,
+            "training_index": training_idx,
+        }
+        training_plan_mock.get_model_params.return_value = {"w": 1}
+        training_plan_mock.filter_model_params_by_tags.return_value = {}
+        training_plan_mock.get_dp_controller.return_value = None
+
+        uuid_patch.return_value = FakeUuid()
+        experiment_id = _id = FakeUuid.VALUE
+        # state_id = f"node_state_{_id}"
+
+        # first create state
+        self.r1.training_plan = training_plan_mock
+
+        self.r1.initialize_arguments()
+        state = self.r1._save_round_state()
+        print(state)
+        self.r1._load_round_state("test-state-id")
+
+        self.state_manager_mock.return_value.get.assert_called_once_with(
+            str(experiment_id), "test-state-id"
+        )
+        self.state_manager_mock.return_value.add.assert_called_once()
+
+    @patch("fedbiomed.node.round.Round._get_base_optimizer")
+    @patch("uuid.uuid4", autospec=True)
+    @patch("fedbiomed.node.round.Serializer", autospec=True)
+    def test_round_33_test_correct_testing_dataset_reload(
+        self, serializer_patch, uuid_patch, get_optim_patch
+    ):
+        node_state_mg_storage = []
+
+        # side effect functions
+        def save_node_state_mg(exp_id, state):
+            node_state_mg_storage.append(state)
+
+        def get_node_state_mg(exp_id, state_id):
+            return node_state_mg_storage.pop()
+
+        ###
+
+        self.r1.experiment_id = "1234"
+        self.r1._round = 11
+        self.r1.is_test_data_shuffled = False
+
+        get_optim_patch.return_value = MagicMock(
+            spec=DeclearnOptimizer,
+            __class__="optimizer_type",
+        )
+        training_plan_mock = MagicMock(
+            spec=BaseTrainingPlan, type=MagicMock(), _model=MagicMock(spec=Model)
+        )
+        training_plan_mock.get_model_params.return_value = {"w": 1}
+        training_plan_mock.filter_model_params_by_tags.return_value = {}
+        training_plan_mock.get_dp_controller.return_value = None
+
+        # data_manager = MagicMock(spec=DataManager)
+        # data_manager.dataset = [[1, 2, 3],
+        #                         [4, 5, 6],
+        #                         [7, 8, 9],
+        #                         [10, 11, 12]]
+
+        # data_manager._testing_index = PropertyMock(return_value=None)
+        # data_manager._training_index = PropertyMock(return_value=None)
+        # data_manager.
+
+        class TestDataset(Dataset):
+            """Create PyTorch Dataset for test purposes"""
+
+            def __init__(self):
+                self.X_train = torch.Tensor(
+                    [
+                        [0.1000, 0.2000, 0.5000],
+                        [0.3300, 0.2000, 0.4000],
+                        [0.1200, 0.4300, 0.2200],
+                        [0.6000, 0.9900, 0.3200],
+                        [0.3200, 0.4400, 0.1100],
+                    ]
+                )
+                self.Y_train = torch.Tensor([1, 2, 1, 1, 2])
+
+            def __len__(self):
+                return len(self.Y_train)
+
+            def __getitem__(self, idx):
+                return self.X_train[idx], self.Y_train[idx]
+
+            def load(self, root, to_format: DataReturnFormat, **kwargs):
+                pass
+
+        # for pytorch: mimicking the process of saving and re-loading testing
+        # and training datasets
+
+        data_manager = DataManager(dataset=TestDataset())
+        training_plan_mock.training_data = MagicMock(return_value=data_manager)
+        training_plan_mock.type = MagicMock(
+            return_value=TrainingPlans.TorchTrainingPlan
+        )
+        self.state_manager_mock.return_value.add = MagicMock(
+            side_effect=save_node_state_mg
+        )
+        self.state_manager_mock.return_value.get = MagicMock(
+            side_effect=get_node_state_mg
+        )
+        self.r1.training_plan = training_plan_mock
+        self.r1.testing_arguments = {}
+        self.r1.dataset_entry = {
+            "path": "my/dataset/path",
+            "dataset_id": "id_1234",
+            "dataset_parameters": {"root": "my/dataset/path"},
+        }
+        test_ratio = 0.66
+
+        train_loader, test_loader = self.r1._split_train_and_test_data(test_ratio)
+
+        state = self.r1._save_round_state()
+        self.r1._load_round_state("state_id_1234")
+
+        train_loader2, test_loader2 = self.r1._split_train_and_test_data(test_ratio)
+        state = self.r1._save_round_state()
+
+        self.assertDictEqual(
+            state["testing_dataset"], node_state_mg_storage[0]["testing_dataset"]
+        )
+        print(state)
+
+        # for sklearn
+        data_manager = DataManager(dataset=TestDataset())
+        training_plan_mock.training_data = MagicMock(return_value=data_manager)
+        training_plan_mock.type = MagicMock(
+            return_value=TrainingPlans.SkLearnTrainingPlan
+        )
+
+        train_loader, test_loader = self.r1._split_train_and_test_data(test_ratio)
+        state = self.r1._save_round_state()
+        self.r1._load_round_state("state_id_1234")
+
+        train_loader2, test_loader2 = self.r1._split_train_and_test_data(test_ratio)
+        state = self.r1._save_round_state()
+
+        self.assertDictEqual(
+            state["testing_dataset"], node_state_mg_storage[0]["testing_dataset"]
+        )
+
+    def test_round_33_initialize_arguments(self):
+        previous_state_id = "state_id_1234"
+
+        self.r1.initialize_arguments(previous_state_id=previous_state_id)
+
+        self.state_manager_mock.return_value.initialize.assert_called_once_with(
+            previous_state_id=previous_state_id, testing=False
+        )
+
+    def test_round_34_reconstruct_full_params(self):
+        # Scenario:
+        # - a is tagged as "local" and "persistent" (not shared and aggregated with researcher, and saved locally)
+        # - b is tagged as "local" only (not shared and aggregated with researcher, and not saved locally)
+        # - c is tagged as "persistent" only (shared and aggregated with researcher, but not saved locally)
+        # - d is untagged (global)
+
+        initial = {
+            "a": 1,
+            "b": 2,
+            "c": 3,
+            "d": 4,
+        }
+
+        received = {
+            "c": 30,
+            "d": 40,
+        }
+
+        persistent = {"a": 100, "c": 300}
+
+        # Test 1: with already persistent parameters saved
+        result = self.r1._reconstruct_full_params(initial, received, persistent)
+
+        assert (
+            result["a"] == 100
+        )  # local and persistent overrides with stored parameters
+        assert result["b"] == 2  # local-only reset to initial
+        assert result["c"] == 30  # persistent only, unchanged from researcher
+        assert result["d"] == 40  # unchanged from researcher
+
+        # Test 2: with no persistent parameters saved
+        result = self.r1._reconstruct_full_params(initial, received, None)
+
+        assert result["a"] == 1  # local and persistent overrides with initial values
+        assert result["b"] == 2  # local-only reset to initial
+        assert result["c"] == 30  # persistent only, unchanged from researcher
+        assert result["d"] == 40  # unchanged from researcher
+
+
+########################################
+###### ADDING NEW TESTS IN PYTEST ######
+########################################
+
+
+def test_round_run_model_training_model_params_init_error(monkeypatch, round):
+    class DummyTrainingPlan:
+        def post_init(self, model_args=None, training_args=None, aggregator_args=None):
+            return None
+
+        def set_model_params(self, params):
+            raise Exception("boom")
+
+    monkeypatch.setattr("uuid.uuid4", lambda: FakeUuid())
+    monkeypatch.setattr(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status",
+        lambda *args, **kwargs: (True, {"name": "model_name"}),
+    )
+
+    round.ic_from_file_mock.return_value = (object(), DummyTrainingPlan())
+
+    round.r1.initialize_arguments()
+    reply = round.r1.run_model_training(
+        tp_approval=False,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_insecure_validation=True,
+    )
+
+    assert reply.success is False
+
+
+def test_round_run_model_training_data_loader_fedbiomed_error(monkeypatch, round):
+    monkeypatch.setattr("uuid.uuid4", lambda: FakeUuid())
+    monkeypatch.setattr(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status",
+        lambda *args, **kwargs: (True, {"name": "model_name"}),
+    )
+    monkeypatch.setattr(
+        round.r1,
+        "_split_train_and_test_data",
+        lambda *args, **kwargs: (_ for _ in ()).throw(FedbiomedError("bad loader")),
+    )
+
+    round.r1.initialize_arguments()
+    reply = round.r1.run_model_training(
+        tp_approval=False,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_insecure_validation=True,
+    )
+
+    assert reply.success is False
+    assert "Can not create validation/train data" in reply.msg
+    assert "bad loader" in reply.msg
+
+
+def test_round_run_model_training_data_loader_unexpected_error(monkeypatch, round):
+    monkeypatch.setattr("uuid.uuid4", lambda: FakeUuid())
+    monkeypatch.setattr(
+        "fedbiomed.node.training_plan_security_manager.TrainingPlanSecurityManager.check_training_plan_status",
+        lambda *args, **kwargs: (True, {"name": "model_name"}),
+    )
+    monkeypatch.setattr(
+        round.r1,
+        "_split_train_and_test_data",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            Exception("unexpected loader failure")
+        ),
+    )
+
+    round.r1.initialize_arguments()
+    reply = round.r1.run_model_training(
+        tp_approval=False,
+        secagg_active=False,
+        force_secagg=False,
+        secagg_insecure_validation=True,
+    )
+
+    assert reply.success is False
+    assert "Undetermined error while creating data for training/validation" in reply.msg
+    assert "unexpected loader failure" in reply.msg
+
+
+if __name__ == "__main__":  # pragma: no cover
+    unittest.main()
