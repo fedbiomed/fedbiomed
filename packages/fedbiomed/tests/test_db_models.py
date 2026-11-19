@@ -1,10 +1,9 @@
-import pytest
-from sqlalchemy import delete, inspect, select, text
-
 import fedbiomed.common.db as db_mod
-from fedbiomed.common.db import _engine, session_factory
+import pytest
+from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.db_models import Dataset, Dlb, Dlp, DynamicDataset
+from sqlalchemy import delete, inspect, select, text
 
 
 @pytest.fixture
@@ -13,8 +12,10 @@ def db_path(tmp_path):
 
 
 @pytest.fixture
-def sessions(db_path):
-    return session_factory(db_path, [Dataset, DynamicDataset, Dlp, Dlb])
+def database(db_path):
+    database = get_database(db_path)
+    database.create_tables([Dataset, DynamicDataset, Dlp, Dlb])
+    return database
 
 
 def _dataset(**kwargs):
@@ -65,8 +66,8 @@ def _dlb(**kwargs):
     }
 
 
-def _add(sessions, *entries):
-    with sessions.begin() as session:
+def _add(database, *entries):
+    with database.transaction() as session:
         session.add_all(entries)
 
 
@@ -113,9 +114,9 @@ def test_dataset_id_is_generated_unless_given(model, data, prefix):
         (Dlb, "dlb_1", _dlb()),
     ],
 )
-def test_entry_round_trip(sessions, model, entry_id, data):
-    _add(sessions, _parent(), model.from_dict(data))
-    with sessions.begin() as session:
+def test_entry_round_trip(database, model, entry_id, data):
+    _add(database, _parent(), model.from_dict(data))
+    with database.transaction() as session:
         assert session.get(model, entry_id).to_dict() == data
 
 
@@ -131,19 +132,19 @@ def test_entry_round_trip(sessions, model, entry_id, data):
         (Dlp, _dlp(target_dataset_type="tabular"), "Dlp.target_dataset_type"),
     ],
 )
-def test_dataset_type_must_be_a_dataset_types_value(sessions, model, data, field):
+def test_dataset_type_must_be_a_dataset_types_value(database, model, data, field):
     with pytest.raises(FedbiomedError, match=f"FB632.*{field}: 'tabular' is not one"):
-        _add(sessions, model.from_dict(data))
+        _add(database, model.from_dict(data))
 
 
-def test_dynamic_dataset_accepts_unset_data_type(sessions):
-    _add(sessions, _parent(), DynamicDataset.from_dict(_dynamic_dataset()))
+def test_dynamic_dataset_accepts_unset_data_type(database):
+    _add(database, _parent(), DynamicDataset.from_dict(_dynamic_dataset()))
 
 
-def test_custom_dataset_has_no_shape_nor_dtypes(sessions):
+def test_custom_dataset_has_no_shape_nor_dtypes(database):
     data = _dataset(dataset_id="d1", data_type="custom", shape=None, dtypes=None)
-    _add(sessions, Dataset.from_dict(data))
-    with sessions.begin() as session:
+    _add(database, Dataset.from_dict(data))
+    with database.transaction() as session:
         assert "shape" not in session.get(Dataset, "d1").to_dict()
 
 
@@ -157,22 +158,22 @@ def test_custom_dataset_has_no_shape_nor_dtypes(sessions):
         (Dlb, _dlb(content="block"), "Dlb.content"),
     ],
 )
-def test_json_content_must_match_the_column(sessions, model, data, field):
+def test_json_content_must_match_the_column(database, model, data, field):
     with pytest.raises(FedbiomedError, match=f"FB632.*{field}: expected"):
-        _add(sessions, model.from_dict(data))
+        _add(database, model.from_dict(data))
 
 
-def test_dlp_name_needs_four_characters(sessions):
+def test_dlp_name_needs_four_characters(database):
     with pytest.raises(FedbiomedError, match="FB316.*at least 4 characters"):
-        _add(sessions, Dlp.from_dict(_dlp(dlp_name="abc")))
+        _add(database, Dlp.from_dict(_dlp(dlp_name="abc")))
 
 
-def test_dlp_name_is_unique(sessions):
-    _add(sessions, Dlp.from_dict(_dlp()))
+def test_dlp_name_is_unique(database):
+    _add(database, Dlp.from_dict(_dlp()))
     with pytest.raises(
         FedbiomedError, match="FB634.*UNIQUE constraint failed: Dlps.dlp_name"
     ):
-        _add(sessions, Dlp.from_dict(_dlp(dlp_id="dlp_2")))
+        _add(database, Dlp.from_dict(_dlp(dlp_id="dlp_2")))
 
 
 @pytest.mark.parametrize(
@@ -180,43 +181,43 @@ def test_dlp_name_is_unique(sessions):
     [("abc", "csv"), ("plan", "tabular")],
 )
 def test_database_refuses_what_validation_would_refuse(
-    sessions, dlp_name, target_dataset_type
+    database, dlp_name, target_dataset_type
 ):
     # Raw SQL: neither the model validation nor SQLAlchemy's Enum check runs
     statement = text(
         "INSERT INTO Dlps VALUES ('dlp_1', :name, :target, '{}', '{}')"
     ).bindparams(name=dlp_name, target=target_dataset_type)
     with pytest.raises(FedbiomedError, match="FB634.*CHECK constraint failed"):
-        with sessions.begin() as session:
+        with database.transaction() as session:
             session.execute(statement)
 
 
-def test_dataset_and_its_dlp_are_saved_in_one_transaction(sessions):
-    _add(sessions, Dataset.from_dict(_dataset(dlp_id="dlp_1")), Dlp.from_dict(_dlp()))
+def test_dataset_and_its_dlp_are_saved_in_one_transaction(database):
+    _add(database, Dataset.from_dict(_dataset(dlp_id="dlp_1")), Dlp.from_dict(_dlp()))
 
 
-def test_dataset_refuses_unknown_dlp(sessions):
+def test_dataset_refuses_unknown_dlp(database):
     with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
-        _add(sessions, Dataset.from_dict(_dataset(dlp_id="unknown")))
+        _add(database, Dataset.from_dict(_dataset(dlp_id="unknown")))
 
 
-def test_dlp_in_use_cannot_be_deleted(sessions):
-    _add(sessions, Dlp.from_dict(_dlp()), Dataset.from_dict(_dataset(dlp_id="dlp_1")))
+def test_dlp_in_use_cannot_be_deleted(database):
+    _add(database, Dlp.from_dict(_dlp()), Dataset.from_dict(_dataset(dlp_id="dlp_1")))
     with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
-        with sessions.begin() as session:
+        with database.transaction() as session:
             session.execute(delete(Dlp).where(Dlp.dlp_id == "dlp_1"))
 
 
-def test_dlp_not_in_use_can_be_deleted(sessions):
-    _add(sessions, Dlp.from_dict(_dlp()))
-    with sessions.begin() as session:
+def test_dlp_not_in_use_can_be_deleted(database):
+    _add(database, Dlp.from_dict(_dlp()))
+    with database.transaction() as session:
         session.delete(session.get(Dlp, "dlp_1"))
-    with sessions.begin() as session:
+    with database.transaction() as session:
         assert session.get(Dlp, "dlp_1") is None
 
 
-def test_dlp_loaded_from_its_dataset_is_logged_as_read(sessions, monkeypatch):
-    _add(sessions, Dlp.from_dict(_dlp()), Dataset.from_dict(_dataset(dlp_id="dlp_1")))
+def test_dlp_loaded_from_its_dataset_is_logged_as_read(database, monkeypatch):
+    _add(database, Dlp.from_dict(_dlp()), Dataset.from_dict(_dataset(dlp_id="dlp_1")))
     tables = []
     monkeypatch.setattr(
         db_mod.logger,
@@ -224,25 +225,25 @@ def test_dlp_loaded_from_its_dataset_is_logged_as_read(sessions, monkeypatch):
         lambda **fields: tables.append((fields["operation"], fields["table"])),
     )
 
-    with sessions.begin() as session:
+    with database.transaction() as session:
         dataset = session.scalars(select(Dataset)).one()
         assert dataset.dlp.dlp_name == "plan"
 
     assert tables == [("select", "Datasets"), ("select", "Dlps")]
 
 
-def test_dynamic_dataset_parents_are_indexed(db_path, sessions):
-    indexes = inspect(_engine(db_path)).get_indexes("DynamicDatasets")
+def test_dynamic_dataset_parents_are_indexed(database):
+    indexes = inspect(database._engine).get_indexes("DynamicDatasets")
     assert sorted(index["column_names"] for index in indexes) == [
         ["parent_dataset_id"],
         ["parent_dynamic_id"],
     ]
 
 
-def test_parent_and_derived_datasets_are_saved_in_one_transaction(sessions):
+def test_parent_and_derived_datasets_are_saved_in_one_transaction(database):
     # The registered parent is inserted first even when added last; derived
     # datasets are inserted in the order they are added
-    _add(sessions, _child(), _grandchild(), _parent())
+    _add(database, _child(), _grandchild(), _parent())
 
 
 @pytest.mark.parametrize(
@@ -258,20 +259,20 @@ def test_parent_and_derived_datasets_are_saved_in_one_transaction(sessions):
     ],
     ids=["unknown dataset", "unknown dynamic dataset", "two parents", "no parent"],
 )
-def test_dynamic_dataset_needs_exactly_one_existing_parent(sessions, parents, refusal):
-    _add(sessions, _parent(), _child())
+def test_dynamic_dataset_needs_exactly_one_existing_parent(database, parents, refusal):
+    _add(database, _parent(), _child())
 
     with pytest.raises(FedbiomedError, match=f"FB634.*{refusal}"):
-        _add(sessions, DynamicDataset.from_dict(_dynamic_dataset(**parents)))
+        _add(database, DynamicDataset.from_dict(_dynamic_dataset(**parents)))
 
 
 @pytest.mark.parametrize(
     "model, dataset_id",
     [(Dataset, "dataset_1"), (DynamicDataset, "child")],
 )
-def test_dataset_with_derived_datasets_cannot_be_deleted(sessions, model, dataset_id):
-    _add(sessions, _parent(), _child(), _grandchild())
+def test_dataset_with_derived_datasets_cannot_be_deleted(database, model, dataset_id):
+    _add(database, _parent(), _child(), _grandchild())
 
     with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
-        with sessions.begin() as session:
+        with database.transaction() as session:
             session.execute(delete(model).where(model.dataset_id == dataset_id))

@@ -10,14 +10,15 @@ import json
 from typing import Iterable, List, Literal, Optional, Tuple, Union, get_args
 
 import pandas as pd
-from sqlalchemy import Select, delete, or_, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import Select, delete, select
+from sqlalchemy.orm import Session
 from tabulate import tabulate  # only used for printing
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
 from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import get_controller
 from fedbiomed.common.dataset_controller import download_mnist
+from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.node.db_models import Dataset, Dlb, Dlp, DynamicDataset
@@ -36,16 +37,16 @@ class DatasetManager:
     # Tables this manager owns; the only ones it reads or writes
     MODELS = (Dataset, DynamicDataset, Dlp, Dlb)
 
-    def __init__(self, sessions: sessionmaker[Session], min_samples: int = 0):
-        """Initialize with the node's database.
+    def __init__(self, db_path: str, min_samples: int = 0):
+        """Initialize with the node's database, creating the missing `MODELS` tables.
 
         Args:
-            sessions: Session factory of the node's database file, whose
-                tables include `MODELS`.
+            db_path: Path of the node's database file, as in its config.
             min_samples: Minimum number of samples required when adding a dataset.
                 Defaults to 0 (no minimum enforced).
         """
-        self._sessions = sessions
+        self._database = get_database(db_path)
+        self._database.create_tables(self.MODELS)
         self._min_samples = min_samples
 
     def validate_samples(self, n_samples: int) -> None:
@@ -73,7 +74,7 @@ class DatasetManager:
             A tuple of (dlp_metadata, dlbs) where dlp_metadata is the DLP dict
             (or None if not found) and dlbs is a list of associated DLB dicts.
         """
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             dlp = session.get(Dlp, dlp_id)
 
             if dlp is None:
@@ -186,7 +187,7 @@ class DatasetManager:
             data_loading_plan=data_loading_plan,
         )
 
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             if data_loading_plan is not None:
                 self._save_data_loading_plan(session, data_loading_plan)
 
@@ -240,7 +241,7 @@ class DatasetManager:
             - If the parent dataset is not found in the database, or is deleted
               while the dynamic dataset is loading
         """
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             parent = self._get_or_raise(session, parent_dataset_id)
             data_type = parent.data_type
             parent_field = (
@@ -267,7 +268,7 @@ class DatasetManager:
             },
         )
 
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             dataset = DynamicDataset.from_dict(entry)
             session.add(dataset)
 
@@ -375,7 +376,7 @@ class DatasetManager:
                 f"{get_args(self.DatasetScope)}"
             )
 
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             dataset = self._find(session, dataset_id, scope=scope)
             return None if dataset is None else dataset.to_dict()
 
@@ -395,7 +396,7 @@ class DatasetManager:
             - If no dataset is found with the given ID
             - If datasets are derived from it and recursive is not set
         """
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             dataset = self._get_or_raise(session, dataset_id)
             derived = session.scalars(
                 select(DynamicDataset)
@@ -422,27 +423,6 @@ class DatasetManager:
             )
             session.delete(dataset)
 
-    def get_derived_datasets(self, dataset_id: str) -> List[dict]:
-        """Gets the dynamic datasets derived from a dataset, at any depth.
-
-        Args:
-            dataset_id: the id of a dataset or of a dynamic dataset
-
-        Returns:
-            The derived dynamic datasets; empty if there are none.
-
-        Raises:
-            FedbiomedError: no dataset with this id.
-        """
-        with self._sessions.begin() as session:
-            dataset = self._get_or_raise(session, dataset_id)
-            derived = session.scalars(
-                select(DynamicDataset)
-                .where(DynamicDataset.dataset_id.in_(self._derived_ids(dataset)))
-                .order_by(DynamicDataset.dataset_id)
-            )
-            return [d.to_dict() for d in derived]
-
     def remove_dlp_by_id(self, dlp_id: str) -> None:
         """Remove a data loading plan (DLP) and its data loading blocks (DLBs).
 
@@ -454,7 +434,7 @@ class DatasetManager:
         Raises:
             FedbiomedError: datasets use the DLP.
         """
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             dlp = session.get(Dlp, dlp_id)
             if dlp is None:
                 return
@@ -484,7 +464,7 @@ class DatasetManager:
         Returns:
             All datasets in the node's database.
         """
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             my_data = self._without_dtypes(session.scalars(select(Dataset)))
 
         if verbose:
@@ -503,17 +483,12 @@ class DatasetManager:
         Returns:
             The matching datasets, each once, as in `list_my_datasets`.
         """
-        with self._sessions.begin() as session:
-            return self._without_dtypes(
-                session.scalars(
-                    select(Dataset).where(
-                        or_(
-                            Dataset.name.icontains(text, autoescape=True),
-                            Dataset.description.icontains(text, autoescape=True),
-                        )
-                    )
-                )
-            )
+        wanted = text.lower()
+        return [
+            d
+            for d in self.list_my_datasets(verbose=False)
+            if wanted in d["name"].lower() or wanted in d["description"].lower()
+        ]
 
     def search_by_tags(self, tags: Union[tuple, list]) -> List[dict]:
         """Searches for datasets having all the given tags.
@@ -524,7 +499,7 @@ class DatasetManager:
         Returns:
             The list of matching datasets
         """
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             datasets = session.scalars(select(Dataset))
             return [d.to_dict() for d in datasets if set(tags).issubset(d.tags)]
 
@@ -539,7 +514,7 @@ class DatasetManager:
         Returns:
             The list of conflicting datasets
         """
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             return [d.to_dict() for d in self._conflicting_datasets(session, tags)]
 
     def update_dataset(self, dataset_id: str, changes: dict) -> dict:
@@ -558,7 +533,7 @@ class DatasetManager:
             - a change targets an unknown field or the dataset id
             - the new tags conflict with another dataset
         """
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             dataset = session.get(Dataset, dataset_id)
             if dataset is None:
                 raise FedbiomedError(
@@ -616,7 +591,7 @@ class DatasetManager:
                 f"{DatasetTypes.list()}"
             )
 
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             dlps = session.scalars(
                 select(Dlp).where(Dlp.target_dataset_type == target_dataset_type)
             )
@@ -642,7 +617,7 @@ class DatasetManager:
         if data_loading_plan is None:
             return None
 
-        with self._sessions.begin() as session:
+        with self._database.transaction() as session:
             self._save_data_loading_plan(session, data_loading_plan)
         return data_loading_plan.dlp_id
 

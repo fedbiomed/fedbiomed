@@ -11,7 +11,6 @@ import time
 import traceback
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 from fedbiomed import __version__
@@ -23,7 +22,6 @@ from fedbiomed.common.certificate_manager import (
     is_loopback_name,
 )
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
-from fedbiomed.common.db import session_factory
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.message import (
@@ -291,12 +289,8 @@ class NodeContext:
             config: Configuration of the node the commands act on.
         """
         self._config = config
-        sessions = session_factory(
-            str(Path(self.config.getpath("default", "db")).with_suffix(".sqlite")),
-            [*DatasetManager.MODELS],
-        )
         self.dataset_manager = DatasetManager(
-            sessions,
+            self.config.getpath("default", "db"),
             min_samples=self.config.getint("security", "minimum_samples"),
         )
         self.tp_security_manager = TrainingPlanSecurityManager(

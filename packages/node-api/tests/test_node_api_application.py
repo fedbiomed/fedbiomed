@@ -1,16 +1,13 @@
 """Integration checks for the Node API application."""
 
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from flask_jwt_extended import create_access_token
-
 from fedbiomed.common.constants import NODE_DATA_FOLDER
-from fedbiomed.common.db import session_factory
 from fedbiomed.node.config import node_component
 from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed_node_api.application import create_app
+from flask_jwt_extended import create_access_token
 
 
 def make_app(root, monkeypatch, factory=create_app, **kwargs):
@@ -104,10 +101,7 @@ def test_api_lists_datasets_registered_by_core(tmp_path, monkeypatch):
     app = make_app(tmp_path / "node", monkeypatch)
     csv = tmp_path / "node" / "data" / "sample.csv"
     csv.write_text("feature,target\n1,0\n2,1\n3,0\n")
-    sqlite_path = Path(app.config["NODE_DB_PATH"]).with_suffix(".sqlite")
-    manager = DatasetManager(
-        session_factory(str(sqlite_path), [*DatasetManager.MODELS])
-    )
+    manager = DatasetManager(app.config["NODE_DB_PATH"])
     dataset_id = manager.add_database(
         name="Sample",
         data_type="csv",

@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import inspect as pyinspect
 import sys
+import threading
 import types
+from contextlib import contextmanager
 from functools import cache
+from pathlib import Path
 from typing import (
     Any,
-    Callable,
     Dict,
+    Iterator,
     List,
     Optional,
     Self,
@@ -329,14 +332,6 @@ class TinyTableConnector:
         _ = self._table.insert(entry, stacklevel=4)
         return entry[self._id_name]
 
-    def all(self) -> List[dict]:
-        """Get all entries (or empty list if none found).
-
-        Returns:
-            The list of entries as dicts, or empty list if none found.
-        """
-        return self._table.all(stacklevel=4)
-
     def get_all_by_value(self, by: str, value: Any) -> List[dict]:
         """Get all entries by a field value (or empty list if none found).
 
@@ -353,18 +348,6 @@ class TinyTableConnector:
             else self._query[by] == value,
             stacklevel=4,
         )
-
-    def get_all_by_condition(self, by: str, cond: Callable) -> List[dict]:
-        """Search entries by a test condition on a field.
-
-        Args:
-            by: field name to search by.
-            cond: A function that takes the field value and returns a boolean.
-
-        Returns:
-            The list of entries as dicts, or empty list if none found.
-        """
-        return self._table.search(self._query[by].test(cond), stacklevel=4)
 
     def delete_by_id(self, id_value: Union[str, list[str]]) -> List[int]:
         """Delete a document by its ID.
@@ -415,7 +398,7 @@ class Base(MappedAsDataclass, DeclarativeBase, kw_only=True):
     An entry is checked as a whole by `validate`, right before the session
     writes it, for an insert (`session.add`) as for an update (fields
     assigned on a loaded entry). Changes are written when the
-    `with factory.begin()` block ends; a JSON value changed in place
+    `with database.transaction()` block ends; a JSON value changed in place
     (`entry.tags.append(...)`) is not seen as a change: assign a new value.
 
     `__log_level__` sets what reaches the security log for the model's table:
@@ -601,11 +584,6 @@ def _on_connect(dbapi_connection, _connection_record) -> None:
     decides how transactions start.
     """
     dbapi_connection.isolation_level = None
-    # Replaces SQLite's `lower`, which only folds ASCII letters, so that
-    # case-insensitive searches (`icontains`) also match accented letters
-    dbapi_connection.create_function(
-        "lower", 1, lambda s: s.lower() if s is not None else None, deterministic=True
-    )
     cursor = dbapi_connection.cursor()
     # WAL: readers do not block the writer, across processes
     cursor.execute("PRAGMA journal_mode=WAL")
@@ -619,6 +597,7 @@ def _on_begin(connection) -> None:
     Rules checked before writing (tag conflicts) then hold against other
     processes using the same file.
     """
+    # Waits for another process holding the lock up to the engine's timeout
     connection.exec_driver_sql("BEGIN IMMEDIATE")
 
 
@@ -637,9 +616,8 @@ def _on_error(context) -> None:
     ) from context.original_exception
 
 
-@cache
 def _engine(path: str) -> Engine:
-    """Returns the engine of a database file, one per file and process."""
+    """Returns a new engine for a database file."""
     # timeout: seconds to wait for another process holding the write lock
     engine = create_engine(f"sqlite:///{path}", connect_args={"timeout": 30})
     event.listen(engine, "connect", _on_connect)
@@ -648,29 +626,10 @@ def _engine(path: str) -> Engine:
     return engine
 
 
-def session_factory(path: str, models: List[type[Base]]) -> sessionmaker[Session]:
-    """Returns the session factory of a database file.
-
-    Creates the tables of `models` that do not exist yet. Each
-    `with factory.begin() as session:` block is one transaction, committed at
-    the end or rolled back on error. Objects stay usable after the block.
-
-    Args:
-        path: Path of the SQLite file of the component.
-        models: Models whose tables the caller uses.
-
-    Raises:
-        FedbiomedError: a model's `__log_level__` is not one of `LOG_LEVELS`.
-    """
-    for model in models:
-        if model.__log_level__ not in LOG_LEVELS:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB634.value}: {model.__name__}.__log_level__ is "
-                f"'{model.__log_level__}', expected one of {LOG_LEVELS}"
-            )
-    engine = _engine(path)
-    Base.metadata.create_all(engine, tables=[model.__table__ for model in models])
-    factory = sessionmaker(engine, expire_on_commit=False)
+def _sessionmaker(bind: Engine) -> sessionmaker[Session]:
+    """Session factory validating and logging what its sessions read and write."""
+    # Rows stay readable after the commit, e.g. a new dataset's generated id
+    factory = sessionmaker(bind, expire_on_commit=False)
     # Recorded before validation, so a refused entry is logged as a failure
     event.listen(factory, "before_flush", _record_writes)
     event.listen(factory, "before_flush", _validate_entries)
@@ -678,3 +637,82 @@ def session_factory(path: str, models: List[type[Base]]) -> sessionmaker[Session
     event.listen(factory, "after_commit", _on_commit)
     event.listen(factory, "after_rollback", _on_rollback)
     return factory
+
+
+class Database:
+    """The SQLite file of a component, shared by the managers using its tables.
+
+    Each public method of a manager is one `transaction()`, ended before it
+    returns; the manager's private methods receive its session. Transactions
+    do not nest: a method calling another public method while its transaction
+    is open would wait for its own lock.
+
+    Use `get_database` to get the one instance of a component.
+    """
+
+    def __init__(self, path: str):
+        """Opens the database file, created if it does not exist.
+
+        Args:
+            path: Path of the SQLite file.
+        """
+        self._engine = _engine(path)
+        self._sessions = _sessionmaker(self._engine)
+        # Whether a transaction is open, per thread
+        self._local = threading.local()
+
+    def create_tables(self, models: List[type[Base]]) -> None:
+        """Creates the tables of `models` that do not exist yet.
+
+        Raises:
+            FedbiomedError: a model's `__log_level__` is not one of `LOG_LEVELS`.
+        """
+        for model in models:
+            if model.__log_level__ not in LOG_LEVELS:
+                raise FedbiomedError(
+                    f"{ErrorNumbers.FB634.value}: {model.__name__}.__log_level__ is "
+                    f"'{model.__log_level__}', expected one of {LOG_LEVELS}"
+                )
+        # Takes the write lock: processes starting together create tables one at a time
+        Base.metadata.create_all(
+            self._engine, tables=[model.__table__ for model in models]
+        )
+
+    @contextmanager
+    def transaction(self) -> Iterator[Session]:
+        """Session in a transaction holding the file's write lock: keep it short.
+
+        Committed at the end, rolled back on error.
+
+        Raises:
+            FedbiomedError: a transaction is already open in this thread.
+        """
+        # A nested transaction would wait for the lock its own thread holds
+        if getattr(self._local, "open", False):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB634.value}: a transaction is already open on "
+                "this database in this thread"
+            )
+        self._local.open = True
+        try:
+            with self._sessions.begin() as session:
+                yield session
+        finally:
+            self._local.open = False
+
+
+def get_database(db_path: str) -> Database:
+    """Returns the database of a component, created at first use: one per file and process.
+
+    Args:
+        db_path: Path of the component's database file, as in its config.
+    """
+    # Next to the component's TinyDB file, which other tables still use
+    return _database(str(Path(db_path).with_suffix(".sqlite")))
+
+
+# Keyed by the SQLite path: managers of one component share the instance
+@cache
+def _database(path: str) -> Database:
+    """Returns the database of a file, created at first use."""
+    return Database(path)

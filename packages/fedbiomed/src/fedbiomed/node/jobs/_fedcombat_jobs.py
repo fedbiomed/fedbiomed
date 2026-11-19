@@ -500,7 +500,7 @@ class _FedCombatJobs:
 
         # Retrieve the dataset entry and remove sensitive information before returning it
         dynamic_dataset_entry = self._dataset_manager.get_dataset(
-            dynamic_dataset_id, "dynamic"
+            dynamic_dataset_id, scope="dynamic"
         )
         self._dataset_manager.obfuscate_private_information([dynamic_dataset_entry])
         return dynamic_dataset_entry
