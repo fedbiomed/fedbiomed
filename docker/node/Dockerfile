@@ -42,7 +42,7 @@ EXPOSE 8484
 # Install node-specific dependencies system-wide
 RUN pip install --no-cache-dir --no-index \
     --find-links=/tmp/wheels \
-    'fedbiomed[node, gui]' && \
+    fedbiomed-node-api fedbiomed-gui && \
     rm -rf /tmp/wheels /root/.cache/pip
 
 # Default to non-root user
