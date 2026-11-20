@@ -93,7 +93,7 @@ class MyTrainingPlan(FedSGDRegressor):
     @staticmethod
     def encode_sex(df):
         df = df.copy()
-        df['nb:Sex'] = (df['nb:Sex'] == 'snomed:248152002').astype(float)
+        df['nb:Sex'] = df['nb:Sex'].map({'snomed:248152002': 0.0, 'snomed:248153007': 1.0})
         return df
 
     def training_data(self):
