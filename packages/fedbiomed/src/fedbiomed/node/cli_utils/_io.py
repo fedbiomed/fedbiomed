@@ -12,9 +12,9 @@ def validated_data_type_input() -> str:
     """Picks data type to use from user input on command line.
     Returns:
         A string keyword for one of the possible data type
-            ('csv', 'default', 'mednist', 'images', 'medical-folder', 'custom').
+            ('csv', 'default', 'mednist', 'images', 'medical-folder', 'nipoppy', 'custom').
     """
-    _types = ["csv", "default", "mednist", "images", "medical-folder", "custom"]
+    _types = ["csv", "default", "mednist", "images", "medical-folder", "nipoppy", "custom"]
     valid_options = dict(enumerate(_types, 1))
 
     msg = "Please select the data type that you're configuring:\n"
