@@ -64,5 +64,8 @@ class FakeNipoppyReader:
     def get_schema(self):
         return {str(c): str(t) for c, t in self.phenotypes.dtypes.items()}
 
+    def get_sessions(self):
+        return sorted(self.phenotypes.index.get_level_values(SESSION).unique())
+
     def get_installed_pipelines(self):
         return self.installed_pipelines

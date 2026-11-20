@@ -47,9 +47,10 @@ The study must contain at least `manifest.tsv` and `tabular/harmonized.tsv`. Its
 [Nipoppy study specification](https://nipoppy.readthedocs.io/en/latest/explanations/study_spec.html).
 
 !!! warning "Register the dataset again after running a new pipeline"
-    When a dataset is registered, the node database saves a copy of the study's available phenotypes, installed
-    pipelines and shape. Researchers only see this copy when they [list the datasets](#listing-available-data), so
-    they cannot find new pipeline outputs or phenotypes until it is updated.
+    When a dataset is registered, the node database saves a copy of the study's available phenotypes and sessions,
+    installed pipelines and shape. Researchers only see this copy when they
+    [list the datasets](#listing-available-data), so they cannot find new pipeline outputs, phenotypes or sessions
+    until it is updated.
 
     **Every time you run a new pipeline**, or otherwise change the study (e.g. update `tabular/harmonized.tsv`), please
     delete the dataset and register it again with the same path and tags:
@@ -67,7 +68,7 @@ The study must contain at least `manifest.tsv` and `tabular/harmonized.tsv`. Its
 
 ## Listing available data
 
-As a researcher, you can find the phenotypes and pipelines of each dataset by
+As a researcher, you can find the phenotypes, sessions and pipelines of each dataset by
 [listing the datasets](../researcher/listing-datasets-and-selecting-nodes.md) on the nodes:
 
 ```python
@@ -79,12 +80,16 @@ print(datasets[node_id][0]['dataset_parameters'])
 print(datasets[node_id][0]['shape'])
 # > OUTPUT:
 # > {'available_phenotypes': ['nb:Sex', 'nb:Age', 'nb:Diagnosis', ...],
+# >  'available_sessions': ['01', '02'],
 # >  'installed_pipelines': {'bidsification': {},
 # >                          'processing': {'freesurfer': ['7.3.2']},
 # >                          'extraction': {'fs_stats': ['0.2.1']}}}
 # > SHAPE:
 # > [299, 6]
 ```
+
+`available_sessions` lists the session ids that have phenotypic data, sorted alphabetically, which is not
+necessarily chronological order (e.g. `'M12'` comes before `'M6'`).
 
 This list shows the study as it was when the node registered the dataset. Pipelines run on the node since then are
 only listed after the node registers the dataset again, but your training plan can still use them (see
@@ -193,6 +198,8 @@ dataset = NipoppyDataset(session_filters=['01', 'baseline'])
 dataset = NipoppyDataset(session_filters=[('001', '01'), ('002', 'baseline')])
 ```
 
+You can find the session ids of each dataset in `available_sessions` when [listing the datasets](#listing-available-data).
+
 !!! note "Session ids may differ between nodes"
     `training_data` runs on the node, so you can choose the session of each node based on `self.node_id()`.
 
@@ -278,9 +285,9 @@ class MyTrainingPlan(FedSGDRegressor):
         return DataManager(dataset=dataset, shuffle=True)
 ```
 
-The method `get_metadata` returns the `available_phenotypes` and `installed_pipelines` read from the study on disk
-when the node loads the data, at every round. It includes pipelines run after the dataset was registered, even if they
-are not listed yet. It returns an empty dictionary until the data is loaded.
+The method `get_metadata` returns the `available_phenotypes`, `available_sessions` and `installed_pipelines` read
+from the study on disk when the node loads the data, at every round. It includes pipelines run after the dataset was
+registered, even if they are not listed yet. It returns an empty dictionary until the data is loaded.
 
 !!! tip "Select the same derivatives at every round"
     If a node runs a new pipeline version during your experiment, an initializer that picks e.g. the latest version

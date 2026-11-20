@@ -16,6 +16,7 @@ from testsupport.fake_nipoppy_reader import (
 # `dataset_parameters` stored in the node database at registration
 STORED_PARAMETERS = {
     "available_phenotypes": ["age", "sex", "diagnosis"],
+    "available_sessions": ["baseline", "followup"],
     "installed_pipelines": {
         "bidsification": {},
         "processing": {"freesurfer": ["7.3.2"]},
@@ -276,6 +277,7 @@ def test_phenotypes_none_ignores_outdated_stored_values(tmp_path, fake_nipoppy_r
         root=str(tmp_path),
         to_format=DataReturnFormat.SKLEARN,
         available_phenotypes=["age"],
+        available_sessions=["baseline"],
         installed_pipelines={},
     )
 

@@ -52,6 +52,11 @@ class NipoppyReader:
 
         return Study(DatasetLayout(self._path))
 
+    @cached_property
+    def _all_phenotypes(self) -> pd.DataFrame:
+        """All phenotypes of the study, read on first use (for metadata only)."""
+        return self._retriever.get_all_phenotypes()
+
     def read(self,
               phenotypes: Optional[List[str]] = None,
               derivatives: Optional[List[Tuple[str, str, str]]] = None) -> pd.DataFrame:
@@ -75,7 +80,19 @@ class NipoppyReader:
         Returns:
             Dict[str, str]: Mapping of phenotype name to dtype.
         """
-        return {str(col): str(dtype) for col, dtype in self._retriever.get_all_phenotypes().dtypes.items()}
+        return {str(col): str(dtype) for col, dtype in self._all_phenotypes.dtypes.items()}
+
+    def get_sessions(self) -> List[str]:
+        """Gets the session ids that have phenotypic data.
+
+        These are the sessions that can be loaded, i.e. those of the rows of
+        the harmonized phenotypes file that are also in the manifest.
+
+        Returns:
+            Sorted list of unique session ids, without the BIDS prefix `ses-`.
+        """
+        sessions = self._all_phenotypes.index.get_level_values("session_id").unique()
+        return sorted(str(s) for s in sessions)
 
     def get_installed_pipelines(self) -> Dict[str, Dict[str, List[str]]]:
         """Gets the installed pipelines.

@@ -27,8 +27,8 @@ class NipoppyController(Controller):
     !!! Note
         `_controller_kwargs` (stored in the node database as
         `dataset_parameters` at registration) includes the study's
-        `available_phenotypes` and `installed_pipelines`, read from disk, so
-        that researchers can list them. The node passes them back to
+        `available_phenotypes`, `available_sessions` and `installed_pipelines`,
+        read from disk, so that researchers can list them. The node passes them back to
         `NipoppyDataset.load`, which ignores them and calls `read_metadata`
         instead. The stored copy, shown to researchers, becomes out of date if
         the study changes after registration: re-register the dataset to
@@ -111,7 +111,8 @@ class NipoppyController(Controller):
             root: Root directory of the Nipoppy study
 
         Returns:
-            `{"available_phenotypes": [...], "installed_pipelines": {...}}`
+            `{"available_phenotypes": [...], "available_sessions": [...],
+            "installed_pipelines": {...}}`
 
         Raises:
             FedbiomedError: if the study cannot be read
@@ -120,7 +121,7 @@ class NipoppyController(Controller):
 
     @staticmethod
     def _metadata_from_reader(reader: NipoppyReader) -> Dict[str, Any]:
-        """Available phenotypes and installed pipelines of the study on disk.
+        """Available phenotypes, sessions and installed pipelines of the study on disk.
 
         Raises:
             FedbiomedError: if the study cannot be read
@@ -128,6 +129,7 @@ class NipoppyController(Controller):
         try:
             return {
                 "available_phenotypes": list(reader.get_schema().keys()),
+                "available_sessions": reader.get_sessions(),
                 "installed_pipelines": reader.get_installed_pipelines(),
             }
         except FedbiomedError:

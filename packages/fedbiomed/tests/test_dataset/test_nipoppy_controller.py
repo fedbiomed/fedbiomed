@@ -18,6 +18,7 @@ def test_init_controller_kwargs_read_from_disk(tmp_path, fake_nipoppy_reader):
     assert controller._controller_kwargs == {
         "root": str(tmp_path.resolve()),
         "available_phenotypes": ["age", "sex", "diagnosis"],
+        "available_sessions": ["baseline", "followup"],
         "installed_pipelines": FakeNipoppyReader.installed_pipelines,
     }
 
@@ -27,6 +28,7 @@ def test_read_metadata_does_not_read_data(tmp_path, fake_nipoppy_reader):
 
     assert metadata == {
         "available_phenotypes": ["age", "sex", "diagnosis"],
+        "available_sessions": ["baseline", "followup"],
         "installed_pipelines": FakeNipoppyReader.installed_pipelines,
     }
     assert fake_nipoppy_reader[0].read_calls == []
@@ -83,6 +85,7 @@ def test_get_controller_drops_stored_metadata(tmp_path, fake_nipoppy_reader):
         controller_parameters={
             "root": str(tmp_path),
             "available_phenotypes": ["age"],
+            "available_sessions": ["baseline"],
             "installed_pipelines": {"processing": {"freesurfer": ["7.3.2"]}},
         },
     )

@@ -32,8 +32,8 @@ class NipoppyDataset(Dataset):
     Typical lifecycle:
     1. instantiated in the training plan's `training_data`;
     2. `load` is called by the node: it reads the metadata from the study on
-       disk (available phenotypes, installed pipelines), runs the optional
-       derivatives initializer, creates the controller (which reads the data)
+       disk (available phenotypes and sessions, installed pipelines), runs the
+       optional derivatives initializer, creates the controller (which reads the data)
        and validates the transforms on the first sample;
     3. samples are retrieved with `__getitem__`.
     """
@@ -135,6 +135,7 @@ class NipoppyDataset(Dataset):
         to_format: DataReturnFormat,
         dlp: Optional[DataLoadingPlan] = None,
         available_phenotypes: Optional[List[str]] = None,
+        available_sessions: Optional[List[str]] = None,
         installed_pipelines: Optional[InstalledPipelines] = None,
     ) -> None:
         """Finalize initialization of object to be able to recover items
@@ -151,6 +152,7 @@ class NipoppyDataset(Dataset):
                 the values stored in its database at registration, which may
                 be out of date. `get_metadata` returns the values read from
                 the study on disk instead.
+            available_sessions: Ignored, same as `available_phenotypes`.
             installed_pipelines: Ignored, same as `available_phenotypes`.
 
         Raises:
@@ -293,9 +295,9 @@ class NipoppyDataset(Dataset):
     def get_metadata(self) -> Dict[str, Any]:
         """Returns metadata about the dataset.
 
-        Includes available phenotypes and installed pipelines, read from the
-        study on disk by `load` (not the copy stored in the node database at
-        registration). Empty before `load` is called.
+        Includes available phenotypes, available sessions and installed
+        pipelines, read from the study on disk by `load` (not the copy stored
+        in the node database at registration). Empty before `load` is called.
         """
         return self._metadata
 
