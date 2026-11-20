@@ -17,8 +17,8 @@ neuroimaging-clinical data. Please visit the [Nipoppy documentation](https://nip
 
 !!! warning "Limitations"
     - **Tabular data only**: images (e.g. NIfTI files) are not loaded.
-    - **One session per participant**: longitudinal data is not supported. Loading fails if a participant has several
-      sessions after filtering.
+    - **One session per participant** by default: loading fails if a participant has several sessions after
+      filtering. See [Longitudinal data](#longitudinal-data) to turn this check off.
     - **Numeric samples only**: encode categorical columns with a [dataframe transform](#transforms).
     - **Whole derivative files**: all columns of a selected file become input features, unless you remove them with a
       [dataframe transform](#transforms).
@@ -144,6 +144,7 @@ The constructor of `NipoppyDataset` takes the following arguments, all of which 
 | `derivatives` | Derivatives to use as input features, as `(pipeline, version, path)` tuples. |
 | `target` | Column(s) to use as target: phenotypes or columns of the selected derivatives. Defaults to no target. |
 | `session_filters` | Session(s) to keep. See [Selecting sessions](#selecting-sessions). |
+| `one_session_per_participant` | Whether loading fails if a participant has several sessions. Defaults to `True`. See [Longitudinal data](#longitudinal-data). |
 | `drop_na` | Whether to drop rows with missing values. Defaults to `True`. |
 | `drop_na_kwargs` | Arguments for `pandas.DataFrame.dropna`. |
 | `whole_df_level_transform` | Function applied once to the whole dataframe. |
@@ -194,6 +195,20 @@ dataset = NipoppyDataset(session_filters=[('001', '01'), ('002', 'baseline')])
 
 !!! note "Session ids may differ between nodes"
     `training_data` runs on the node, so you can choose the session of each node based on `self.node_id()`.
+
+#### Longitudinal data
+
+By default, loading fails if a participant still has several sessions after `session_filters`. Set
+`one_session_per_participant=False` to load all of them, with one sample per participant and session:
+
+```python
+dataset = NipoppyDataset(session_filters=['01', '02'], one_session_per_participant=False)
+```
+
+!!! warning "Samples are not independent"
+    The sessions of a participant are separate samples, split at random between the training and testing sets. The
+    same participant can therefore appear in both, and counts such as the number of samples count sessions, not
+    participants.
 
 ### Missing values
 

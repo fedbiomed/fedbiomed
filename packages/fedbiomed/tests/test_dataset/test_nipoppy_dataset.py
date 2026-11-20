@@ -107,6 +107,16 @@ def test_load_multiple_sessions_per_participant_raises(tmp_path, fake_nipoppy_re
         node_load(ds, tmp_path)
 
 
+def test_load_multiple_sessions_per_participant_allowed(tmp_path, fake_nipoppy_reader):
+    # sub-01 has a baseline and a followup session
+    ds = make_dataset(session_filters=None, one_session_per_participant=False)
+
+    node_load(ds, tmp_path)
+
+    participant_ids = ds._controller.index.get_level_values(ds.COL_PARTICIPANT_ID)
+    assert participant_ids.has_duplicates
+
+
 def test_load_with_dlp_raises(tmp_path, fake_nipoppy_reader):
     with pytest.raises(FedbiomedError, match="not supported"):
         node_load(make_dataset(), tmp_path, dlp=DataLoadingPlan())

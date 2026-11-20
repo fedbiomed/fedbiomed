@@ -56,6 +56,7 @@ class NipoppyDataset(Dataset):
         derivatives: Optional[Derivatives] = None,
         target: Optional[Union[str, List[str]]] = None,
         session_filters: Optional[SessionFilters] = None,
+        one_session_per_participant: bool = True,
         drop_na: bool = True,
         drop_na_kwargs: Optional[Dict[str, Any]] = None,
         sample_level_transform: Optional[Callable] = None,
@@ -78,6 +79,12 @@ class NipoppyDataset(Dataset):
                 have no target.
             session_filters: Sessions to keep. Either a session id, a list of
                 session ids, or a list of `(participant_id, session_id)` tuples.
+            one_session_per_participant: Whether `load` checks that each
+                participant has a single session after filtering. Set to
+                `False` to load longitudinal data, with one sample per
+                `(participant_id, session_id)` pair. Samples of the same
+                participant are then not independent: e.g. they can end up
+                in both the training and the testing sets.
             drop_na: Whether to drop rows with missing values
             drop_na_kwargs: Keyword arguments forwarded to `pd.DataFrame.dropna`.
                 Ignored if `drop_na` is `False`.
@@ -102,6 +109,7 @@ class NipoppyDataset(Dataset):
         self.derivatives = derivatives
         self.target = [target] if isinstance(target, str) else target
         self.session_filters = session_filters
+        self.one_session_per_participant = one_session_per_participant
 
         self._transform = self._validate_transform(sample_level_transform)
         self._target_transform = self._validate_transform(sample_level_target_transform)
@@ -149,7 +157,8 @@ class NipoppyDataset(Dataset):
             FedbiomedError: if the study metadata cannot be read, the derivatives
                 initializer fails, the controller cannot be created, a target
                 column is missing or ambiguous, a participant has several
-                sessions, or the transforms fail on the first sample
+                sessions (unless `one_session_per_participant` is `False`), or
+                the transforms fail on the first sample
         """
         self.to_format = to_format
         self._metadata = self._controller_cls.read_metadata(root)
@@ -173,7 +182,8 @@ class NipoppyDataset(Dataset):
             dlp=dlp,
         )
         self._validate_target_columns()
-        self._validate_one_session_per_participant()
+        if self.one_session_per_participant:
+            self._validate_one_session_per_participant()
 
         # Recover sample and validate consistency of transforms
         data, target = self._split_sample(self._controller.get_sample(0))
@@ -270,7 +280,8 @@ class NipoppyDataset(Dataset):
         if participant_ids.has_duplicates:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Some participants have more than one "
-                "session. Use `session_filters` to keep a single session per participant."
+                "session. Use `session_filters` to keep a single session per participant, "
+                "or set `one_session_per_participant=False` to load all of them."
             )
 
     def _split_sample(self, sample: pd.Series) -> Tuple[pd.Series, Optional[pd.Series]]:
