@@ -182,6 +182,7 @@ def add_database(
             "images",
             "medical-folder",
             "custom",
+            "nipoppy",
         ):
             data_type = "default"
 
