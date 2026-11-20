@@ -189,7 +189,7 @@ class NipoppyController(Controller):
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: `session_filters` must be a session "
                     "id, a list of session ids, or a list of "
-                    "(participant_id, session_id) pairs."
+                    "(participant_id, session_id) pairs. Instead got: {self._session_filters}"
                 )
         if self._drop_na:
             df = df.dropna(**self._drop_na_kwargs)
