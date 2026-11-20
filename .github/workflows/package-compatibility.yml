@@ -8,6 +8,10 @@ description: |
 
 on:
   workflow_call:
+    inputs:
+      quick:
+        type: boolean
+        default: false
   workflow_dispatch:
   schedule:
     # Monday at 03:00 UTC.
@@ -42,26 +46,34 @@ jobs:
         run: pdm install --no-default
 
       - name: Build wheel and source distribution
-        run: pdm build
+        run: |
+          mkdir -p dist
+          pdm build -p packages/fedbiomed -d "$PWD/dist"
+          pdm build -p packages/node-api -d "$PWD/dist" --no-clean
+          pdm build -p packages/node-ui -d "$PWD/dist" --no-clean
 
       - name: Validate distributions
         shell: bash
         run: |
           python -m pip install twine
+          set -euo pipefail
           python -m twine check dist/*
 
           shopt -s nullglob
           wheels=(dist/*.whl)
           source_distributions=(dist/*.tar.gz)
 
-          fail() { echo "$1" >&2; exit 1; }
+          test "${#wheels[@]}" -eq 3
+          test "${#source_distributions[@]}" -eq 3
 
-          [[ ${#wheels[@]} -eq 1 ]] ||
-            fail "Expected exactly one wheel, found ${#wheels[@]}."
-          [[ ${#source_distributions[@]} -eq 1 ]] ||
-            fail "Expected exactly one source distribution, found ${#source_distributions[@]}."
-          [[ "${wheels[0]}" == *-py3-none-any.whl ]] ||
-            fail "Expected a py3-none-any wheel, found ${wheels[0]}."
+          for package in fedbiomed fedbiomed_node_api fedbiomed_gui; do
+            wheel=(dist/"${package}"-*.whl)
+            source_dist=(dist/"${package}"-*.tar.gz)
+
+            test "${#wheel[@]}" -eq 1
+            test "${#source_dist[@]}" -eq 1
+            [[ "${wheel[0]}" == *-py3-none-any.whl ]]
+          done
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -109,9 +121,11 @@ jobs:
 
       - name: Install exact wheel in a clean environment
         run: |
+          shopt -s nullglob
           wheel_files=("$GITHUB_WORKSPACE"/dist/*.whl)
-          if [[ ${#wheel_files[@]} -ne 1 || ! -f "${wheel_files[0]}" ]]; then
-            echo "Expected exactly one wheel in the downloaded artifact." >&2
+
+          if [[ ${#wheel_files[@]} -ne 3 ]]; then
+            echo "Expected exactly three wheels, found ${#wheel_files[@]}" >&2
             exit 1
           fi
 
@@ -124,7 +138,9 @@ jobs:
           "$VENV_PYTHON" -c 'import sys; print("Venv Python:", sys.executable, sys.version)'
           "$VENV_PYTHON" -m pip install --upgrade pip
           "$VENV_PYTHON" -m pip install \
-            "${wheel_files[0]}[node,gui,researcher]"
+            "$GITHUB_WORKSPACE"/dist/fedbiomed-*.whl \
+            "$GITHUB_WORKSPACE"/dist/fedbiomed_node_api-*.whl \
+            "$GITHUB_WORKSPACE"/dist/fedbiomed_gui-*.whl
 
       - name: Verify installed wheel
         working-directory: ${{ runner.temp }}
@@ -140,6 +156,7 @@ jobs:
           from pathlib import Path
 
           import fedbiomed
+          import fedbiomed_node_api
           import fedbiomed_gui
           from fedbiomed.common.utils import SHARE_DIR
 
@@ -187,6 +204,32 @@ jobs:
           print(f"Requires-Python: {requires_python}")
           print(f"Shared data: {share_dir}")
           print(f"React entry point: {react_index}")
+
+          from importlib.metadata import distribution
+          from pathlib import Path
+
+          expected_scripts = {
+              "fedbiomed": "fedbiomed",
+              "fedbiomed-node-api": "fedbiomed-node-api",
+              "fedbiomed-gui": "fedbiomed-ui",
+          }
+
+          for name, script in expected_scripts.items():
+              dist = distribution(name)
+              versions = [
+                  distribution(name).version
+                  for name in expected_scripts
+              ]
+              assert len({v.split(".")[0] for v in versions}) == 1
+              assert any(
+                  ep.group == "console_scripts" and ep.name == script
+                  for ep in dist.entry_points
+              )
+
+          gui_root = Path(fedbiomed_gui.__file__).resolve().parent
+          assert (gui_root / "ui" / "build" / "index.html").is_file()
+
+          print("All distributions installed successfully")
           PY
 
       - name: Record failed installation dependencies

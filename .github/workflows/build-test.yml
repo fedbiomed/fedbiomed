@@ -39,3 +39,11 @@ jobs:
       run-docs: true
       run-unit: true
       run-mnist: true
+  package-compatibility:
+    name: Package compatibility
+    if: ${{
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.base.ref == 'master' &&
+          github.event.pull_request.draft == false
+        }}
+    uses: ./.github/workflows/package-compatibility.yml
