@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 
@@ -162,6 +163,69 @@ def test_no_target(tmp_path, fake_nipoppy_reader):
     data, target = ds[0]
     np.testing.assert_array_equal(data, [70.0, 0.0])
     assert target is None
+
+
+def test_derivative_target(tmp_path, fake_nipoppy_reader):
+    ds = make_dataset(derivatives=[DERIVATIVE], target=DERIVATIVE_COLUMN)
+    node_load(ds, tmp_path)
+
+    # The derivative target is not requested as a phenotype
+    assert fake_nipoppy_reader[0].read_calls[-1] == {
+        "phenotypes": ["age", "sex"],
+        "derivatives": [DERIVATIVE],
+    }
+    data, target = ds[0]
+    np.testing.assert_array_equal(data, [70.0, 0.0])
+    np.testing.assert_array_equal(target, [2.5])
+
+
+def test_phenotype_and_derivative_targets(tmp_path, fake_nipoppy_reader):
+    ds = make_dataset(
+        derivatives=[DERIVATIVE], target=["diagnosis", DERIVATIVE_COLUMN]
+    )
+    node_load(ds, tmp_path)
+
+    assert fake_nipoppy_reader[0].read_calls[-1]["phenotypes"] == [
+        "age",
+        "sex",
+        "diagnosis",
+    ]
+    data, target = ds[0]
+    np.testing.assert_array_equal(data, [70.0, 0.0])
+    np.testing.assert_array_equal(target, [1.0, 2.5])
+
+
+def test_derivative_target_without_its_derivative_raises(
+    tmp_path, fake_nipoppy_reader
+):
+    ds = make_dataset(derivatives=None, target=DERIVATIVE_COLUMN)
+
+    with pytest.raises(FedbiomedError, match="not found"):
+        node_load(ds, tmp_path)
+
+
+def test_target_removed_by_whole_df_transform_raises(tmp_path, fake_nipoppy_reader):
+    ds = make_dataset(
+        whole_df_level_transform=lambda df: df.drop(columns=["diagnosis"])
+    )
+
+    with pytest.raises(FedbiomedError, match="not found"):
+        node_load(ds, tmp_path)
+
+
+def test_duplicated_target_column_raises(tmp_path, fake_nipoppy_reader):
+    # e.g. the same column in two derivative files
+    def duplicate_derivative(df):
+        return pd.concat([df, df[[DERIVATIVE_COLUMN]]], axis="columns")
+
+    ds = make_dataset(
+        derivatives=[DERIVATIVE],
+        target=DERIVATIVE_COLUMN,
+        whole_df_level_transform=duplicate_derivative,
+    )
+
+    with pytest.raises(FedbiomedError, match="more than once"):
+        node_load(ds, tmp_path)
 
 
 def test_phenotypes_none_uses_available_phenotypes(tmp_path, fake_nipoppy_reader):

@@ -104,6 +104,14 @@ def test_index(tmp_path, fake_nipoppy_reader):
     assert controller.index.tolist() == [("sub-01", "followup")]
 
 
+def test_columns(tmp_path, fake_nipoppy_reader):
+    controller = NipoppyController(
+        root=tmp_path, phenotypes=["age"], derivatives=[DERIVATIVE]
+    )
+
+    assert controller.columns.tolist() == ["age", DERIVATIVE_COLUMN]
+
+
 @pytest.mark.parametrize(
     "session_filters, expected",
     [

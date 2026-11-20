@@ -178,6 +178,11 @@ class NipoppyController(Controller):
         """`(participant_id, session_id)` index of the loaded data."""
         return self._data.index
 
+    @property
+    def columns(self) -> pd.Index:
+        """Columns of the loaded data (phenotypes and derivative columns)."""
+        return self._data.columns
+
     def get_sample(self, index: int) -> pd.Series:  # type: ignore[override]
         """Retrieves a data sample without applying transforms
 

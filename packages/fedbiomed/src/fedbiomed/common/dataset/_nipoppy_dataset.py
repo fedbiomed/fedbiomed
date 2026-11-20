@@ -26,7 +26,8 @@ class NipoppyDataset(Dataset):
     """Dataset for tabular data (phenotypes and derivatives) from a Nipoppy study.
 
     Each sample is one row of the study, i.e. one `(participant_id, session_id)`
-    pair. Input features are all selected columns except `target`.
+    pair. Input features are all selected columns except `target`. Target
+    columns can be phenotypes or columns of the selected derivatives.
 
     Typical lifecycle:
     1. instantiated in the training plan's `training_data`;
@@ -70,7 +71,10 @@ class NipoppyDataset(Dataset):
             derivatives: Derivatives to use as input features, as
                 `(pipeline, version, path)` tuples. Can also be set later by a
                 `derivatives_initializer`.
-            target: Phenotype(s) to use as target. If `None`, samples have no target.
+            target: Column(s) to use as target. Each column is either a
+                phenotype (read even if not in `phenotypes`) or a column of
+                one of the selected `derivatives` files. If `None`, samples
+                have no target.
             session_filters: Sessions to keep. Either a session id, a list of
                 session ids, or a list of `(participant_id, session_id)` tuples.
             drop_na: Whether to drop rows with missing values
@@ -140,8 +144,9 @@ class NipoppyDataset(Dataset):
 
         Raises:
             FedbiomedError: if the derivatives initializer fails, the controller
-                cannot be created, a participant has several sessions, or the
-                transforms fail on the first sample
+                cannot be created, a target column is missing or ambiguous, a
+                participant has several sessions, or the transforms fail on
+                the first sample
         """
         self.to_format = to_format
         self._metadata = {
@@ -159,7 +164,7 @@ class NipoppyDataset(Dataset):
 
         self._init_controller(
             root=root,
-            phenotypes=self._columns_to_read(),
+            phenotypes=self._phenotype_columns_to_read(),
             derivatives=self.derivatives,
             session_filters=self.session_filters,
             drop_na=self._drop_na,
@@ -167,6 +172,7 @@ class NipoppyDataset(Dataset):
             whole_df_transform=self._whole_df_level_transform,
             dlp=dlp,
         )
+        self._validate_target_columns()
         self._validate_one_session_per_participant()
 
         # Recover sample and validate consistency of transforms
@@ -203,28 +209,66 @@ class NipoppyDataset(Dataset):
         sample = self.apply_transforms({"data": data, "target": target})
         return sample["data"], sample["target"]
 
-    def _columns_to_read(self) -> List[str]:
-        """Phenotype columns to read: input phenotypes followed by target columns.
+    def _phenotype_columns_to_read(self) -> List[str]:
+        """Phenotype columns to read: input phenotypes followed by phenotype targets.
 
         If `phenotypes` is `None`, all phenotypes in
         `get_metadata()["available_phenotypes"]` are used.
+
+        Target columns that are not available phenotypes are not requested
+        here: they are expected among the columns of the selected derivatives,
+        which are read in full. If available phenotypes were not passed to
+        `load`, all targets are assumed to be phenotypes.
 
         Raises:
             FedbiomedError: if `phenotypes` is `None` and no available phenotypes
                 were passed to `load`
         """
+        available_phenotypes = self._metadata.get("available_phenotypes")
         if self.phenotypes is not None:
             phenotypes = self.phenotypes
         else:
-            phenotypes = self._metadata.get("available_phenotypes")
+            phenotypes = available_phenotypes
             if phenotypes is None:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: `phenotypes` is None and no "
                     "`available_phenotypes` were passed to `load`. Specify "
                     "`phenotypes` explicitly."
                 )
-        target = self.target or []
-        return list(phenotypes) + [t for t in target if t not in phenotypes]
+        target_phenotypes = [
+            t
+            for t in self.target or []
+            if t not in phenotypes
+            and (available_phenotypes is None or t in available_phenotypes)
+        ]
+        return list(phenotypes) + target_phenotypes
+
+    def _validate_target_columns(self) -> None:
+        """Checks that each target column is present exactly once in the loaded data.
+
+        Raises:
+            FedbiomedError: if a target column is missing, e.g. a derivative
+                column whose file is not in `derivatives`, or appears several
+                times, e.g. both as a phenotype and as a derivative column
+        """
+        if self.target is None:
+            return
+        columns = self._controller.columns
+        missing = [t for t in self.target if t not in columns]
+        if missing:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Target column(s) {missing} not found. "
+                "A target must be an available phenotype or a column of one of "
+                "the selected `derivatives` (and must not be removed by "
+                "`whole_df_level_transform`)."
+            )
+        duplicated = [t for t in self.target if (columns == t).sum() > 1]
+        if duplicated:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Target column(s) {duplicated} appear "
+                "more than once in the data, e.g. both as a phenotype and as a "
+                "derivative column, or in several derivatives files."
+            )
 
     def _validate_one_session_per_participant(self) -> None:
         """Checks that each sample is a distinct participant.

@@ -20,7 +20,6 @@ neuroimaging-clinical data. Please visit the [Nipoppy documentation](https://nip
     - **One session per participant**: longitudinal data is not supported. Loading fails if a participant has several
       sessions after filtering.
     - **Numeric samples only**: encode categorical columns with a [dataframe transform](#transforms).
-    - **Targets must be phenotypes**: a derivative column cannot be used as target.
     - **Whole derivative files**: all columns of a selected file become input features, unless you remove them with a
       [dataframe transform](#transforms).
     - **Not supported**: [Data Loading Plans](medical-folder-dataset.md#data-loading-plans-dlp),
@@ -120,7 +119,7 @@ The constructor of `NipoppyDataset` takes the following arguments, all of which 
 |---|---|
 | `phenotypes` | Phenotype(s) to use as input features. Defaults to all available phenotypes. |
 | `derivatives` | Derivatives to use as input features, as `(pipeline, version, path)` tuples. |
-| `target` | Phenotype(s) to use as target. Defaults to no target. |
+| `target` | Column(s) to use as target: phenotypes or columns of the selected derivatives. Defaults to no target. |
 | `session_filters` | Session(s) to keep. See [Selecting sessions](#selecting-sessions). |
 | `drop_na` | Whether to drop rows with missing values. Defaults to `True`. |
 | `drop_na_kwargs` | Arguments for `pandas.DataFrame.dropna`. |
@@ -138,7 +137,17 @@ The input features are all selected columns except those in `target`.
 dataset = NipoppyDataset(phenotypes=['nb:Sex'], derivatives=derivatives, target='nb:Age')
 # Input features: derivatives only
 dataset = NipoppyDataset(phenotypes=[], derivatives=derivatives, target='nb:Age')
+# Target: derivative columns; input features: the phenotypes and the other derivative columns
+dataset = NipoppyDataset(
+    phenotypes=['nb:Sex', 'nb:Age'],
+    derivatives=derivatives,
+    target=['lh_MeanThickness_thickness', 'rh_MeanThickness_thickness'],
+)
 ```
+
+A target can be a phenotype, even if it is not listed in `phenotypes`, or a column of one of the selected derivative
+files. Loading fails if a target column is not found, or if it appears more than once (e.g. in several derivative
+files).
 
 !!! warning "Specify `phenotypes` explicitly"
     With `phenotypes=None`, all phenotypes registered on a node are used, including any non-numeric ones. Their list
