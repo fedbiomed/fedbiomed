@@ -6,6 +6,7 @@ import polars as pl
 import pytest
 import torch
 from fedbiomed.common.constants import HarmonizationStep
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.jobs import _fedcombat_jobs as module
 from fedbiomed.node.jobs._fedcombat_jobs import _FedCombatJobs
 
@@ -22,17 +23,14 @@ class DummyDatasetManager:
         self.last_add_kwargs = kwargs
         return "dyn_ds_1"
 
-    def get_dataset_entry_by_id(self, dataset_id):
-        return (
-            {
-                "dataset_id": dataset_id,
-                "path": self.last_add_kwargs.get("path", ""),
-                "name": "dynamic",
-                "description": "dynamic-desc",
-                "private": "secret",
-            },
-            None,
-        )
+    def get_dataset(self, dataset_id, scope):
+        return {
+            "dataset_id": dataset_id,
+            "path": self.last_add_kwargs.get("path", ""),
+            "name": "dynamic",
+            "description": "dynamic-desc",
+            "private": "secret",
+        }
 
     def obfuscate_private_information(self, entries):
         for entry in entries:
@@ -332,6 +330,17 @@ def test_delete_temporary_dataset(monkeypatch, fedcombat_jobs):
 
     assert fedcombat_jobs._dataset_manager.deleted == ["to_delete"]
     assert DummyPath.unlinked_names == ["to_delete.csv"]
+
+
+def test_delete_temporary_dataset_not_found(monkeypatch, fedcombat_jobs):
+    monkeypatch.setattr(
+        fedcombat_jobs._dataset_manager, "get_dataset", lambda *_, **__: None
+    )
+
+    with pytest.raises(FedbiomedError, match="FB632.*missing not found"):
+        fedcombat_jobs._delete_temporary_dataset("missing")
+
+    assert fedcombat_jobs._dataset_manager.deleted == []
 
 
 @pytest.mark.parametrize("is_harmonization", [True, False])

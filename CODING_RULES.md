@@ -202,6 +202,13 @@ Arguments checking means verifying functions' argument types and values.
 
 - argument checking should be done as near as possible to the acquisition of the data
 
+### database transactions
+
+The node, the CLI and the GUI share one SQLite file, and a transaction locks the whole file.
+
+- keep transactions short: no slow work (dataset loading, training, network calls, waiting for user input) inside a `with self._database.transaction()` block
+- do slow work before or between transactions
+
 ## Docstrings writing rules
 
 - use [google style docstrings](https://github.com/google/styleguide/blob/gh-pages/pyguide.md#38-comments-and-docstrings)

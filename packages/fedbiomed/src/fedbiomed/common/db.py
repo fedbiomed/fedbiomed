@@ -7,11 +7,19 @@ Interfaces with a tinyDB database for converting search results to dict.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Union
+import threading
+from contextlib import contextmanager
+from functools import cache
+from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional, Union
 
+from sqlalchemy import create_engine, event, inspect
+from sqlalchemy.orm import ORMExecuteState, Session, sessionmaker
 from tinydb import Query, TinyDB
 from tinydb.table import Document, Table
 
+from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.db_models import DatabaseModel
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
 
@@ -302,14 +310,6 @@ class TinyTableConnector:
         _ = self._table.insert(entry, stacklevel=4)
         return entry[self._id_name]
 
-    def all(self) -> List[dict]:
-        """Get all entries (or empty list if none found).
-
-        Returns:
-            The list of entries as dicts, or empty list if none found.
-        """
-        return self._table.all(stacklevel=4)
-
     def get_all_by_value(self, by: str, value: Any) -> List[dict]:
         """Get all entries by a field value (or empty list if none found).
 
@@ -326,18 +326,6 @@ class TinyTableConnector:
             else self._query[by] == value,
             stacklevel=4,
         )
-
-    def get_all_by_condition(self, by: str, cond: Callable) -> List[dict]:
-        """Search entries by a test condition on a field.
-
-        Args:
-            by: field name to search by.
-            cond: A function that takes the field value and returns a boolean.
-
-        Returns:
-            The list of entries as dicts, or empty list if none found.
-        """
-        return self._table.search(self._query[by].test(cond), stacklevel=4)
 
     def delete_by_id(self, id_value: Union[str, list[str]]) -> List[int]:
         """Delete a document by its ID.
@@ -377,3 +365,172 @@ class TinyTableConnector:
             update, self._query[self._id_name] == id_value, stacklevel=4
         )
         return self.get_by_id(id_value)
+
+
+class Database:
+    """The SQLite file of a component, shared by its managers (`get_database`)."""
+
+    def __init__(self, path: str):
+        """Opens the database file, created if it does not exist.
+
+        Args:
+            path: Path of the SQLite file.
+        """
+        # timeout: seconds to wait for another process holding the write lock
+        self._engine = create_engine(f"sqlite:///{path}", connect_args={"timeout": 30})
+        event.listen(self._engine, "connect", self._on_connect)
+        event.listen(self._engine, "begin", self._on_begin)
+        event.listen(self._engine, "handle_error", self._on_error)
+
+        # Rows stay readable after the commit, e.g. a new dataset's generated id
+        self._sessions = sessionmaker(self._engine, expire_on_commit=False)
+        event.listen(self._sessions, "before_flush", self._record_writes)
+        event.listen(self._sessions, "do_orm_execute", self._record_statements)
+        # Whether a transaction is open, per thread
+        self._local = threading.local()
+
+    def create_tables(self, models: List[type[DatabaseModel]]) -> None:
+        """Creates the tables of `models` that do not exist yet."""
+        # Takes the write lock: processes starting together create tables one at a time
+        DatabaseModel.metadata.create_all(
+            self._engine, tables=[model.__table__ for model in models]
+        )
+
+    @contextmanager
+    def transaction(self) -> Iterator[Session]:
+        """Session in a transaction holding the file's write lock: keep it short.
+
+        Committed at the end, rolled back on error: callers do not commit or
+        roll back.
+
+        Raises:
+            FedbiomedError: a transaction is already open in this thread.
+        """
+        # A nested transaction would wait for the lock its own thread holds
+        if getattr(self._local, "open", False):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB634.value}: a transaction is already open on "
+                "this database in this thread"
+            )
+        self._local.open = True
+        try:
+            with self._sessions.begin() as session:
+                yield session
+        except BaseException as error:
+            self._write_events(session, "failure", error)
+            raise
+        else:
+            self._write_events(session, "success", None)
+        finally:
+            self._local.open = False
+
+    @staticmethod
+    def _on_connect(dbapi_connection, _connection_record) -> None:
+        """Turns on foreign keys and leaves starting transactions to `_on_begin`."""
+        dbapi_connection.isolation_level = None
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    @staticmethod
+    def _on_begin(connection) -> None:
+        """Starts every transaction with the write lock.
+
+        Rules checked across rows before writing then hold against other
+        processes using the same file.
+        """
+        # Waits for another process holding the lock up to the engine's timeout
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+
+    @staticmethod
+    def _on_error(context) -> None:
+        """Raises a database error as `FedbiomedError`.
+
+        The message keeps SQLite's reason only, as it may reach other components;
+        the failing statement goes to the debug log, without its parameters, as
+        they may hold sensitive values.
+        """
+        logger.debug(
+            f"Database error: {context.original_exception}; "
+            f"statement: {context.statement}"
+        )
+        raise FedbiomedError(
+            f"{ErrorNumbers.FB634.value}: {context.original_exception}"
+        ) from context.original_exception
+
+    @staticmethod
+    def _record(session: Session, operation: str, model: type, doc_id, args) -> None:
+        """Keeps a security event until the transaction ends."""
+        session.info.setdefault("security_events", []).append(
+            {
+                "operation": operation,
+                "table": model.__tablename__,
+                "doc_id": doc_id,
+                "db_args": printtable_args_for_log(args),
+            }
+        )
+
+    @staticmethod
+    def _record_writes(session: Session, _flush_context, _instances) -> None:
+        """Records the entries the session is about to insert, update or remove."""
+        for operation, entries in (
+            ("insert", session.new),
+            ("update", session.dirty),
+            ("remove", session.deleted),
+        ):
+            for entry in entries:
+                if entry.__security_log__ == DatabaseModel.SecurityLog.NONE:
+                    continue
+                state = inspect(entry)
+                doc_id = state.mapper.primary_key_from_instance(entry)[0]
+                if operation == "insert":
+                    args = entry.to_dict()
+                elif operation == "update":
+                    if not session.is_modified(entry):
+                        continue
+                    args = {
+                        attr.key: attr.value
+                        for attr in state.attrs
+                        if attr.history.has_changes()
+                    }
+                else:
+                    args = {}
+                Database._record(session, operation, type(entry), doc_id, args)
+
+    @staticmethod
+    def _record_statements(state: ORMExecuteState) -> None:
+        """Records ORM statements: reads, and updates or deletes by statement."""
+        # Execution parameters carry the key of `session.get`
+        args = {**state.statement.compile().params, **(state.parameters or {})}
+        for mapper in state.all_mappers:
+            logged = mapper.class_.__security_log__
+            if state.is_select and logged == DatabaseModel.SecurityLog.ALL:
+                Database._record(state.session, "select", mapper.class_, None, args)
+            elif state.is_update and logged != DatabaseModel.SecurityLog.NONE:
+                Database._record(state.session, "update", mapper.class_, None, args)
+            elif state.is_delete and logged != DatabaseModel.SecurityLog.NONE:
+                Database._record(state.session, "remove", mapper.class_, None, args)
+
+    @staticmethod
+    def _write_events(
+        session: Session, status: str, error: BaseException | None
+    ) -> None:
+        """Writes the transaction's security events with its outcome."""
+        failure = {}
+        if error is not None:
+            failure = {"error_type": type(error).__name__, "error_message": str(error)}
+        for recorded in session.info.pop("security_events", []):
+            # Frames to the caller: this method, `transaction`, contextlib's `__exit__`
+            logger.security_event(status=status, stacklevel=4, **recorded, **failure)
+
+
+# Keyed by the config path: managers of one component share the instance
+@cache
+def get_database(db_path: str) -> Database:
+    """Returns the database of a component, created at first use: one per file and process.
+
+    Args:
+        db_path: Path of the component's database file, as in its config.
+    """
+    # Next to the component's TinyDB file, which other tables still use
+    return Database(str(Path(db_path).with_suffix(".sqlite")))

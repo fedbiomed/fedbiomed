@@ -141,8 +141,8 @@ class FAJob(_BaseJob):
                 unsupported, the DLP cannot be deserialised, or initialisation fails.
         """
         # recover dataset entry
-        dataset_entry, _ = self._dataset_manager.get_dataset_entry_by_id(
-            self._dataset_id
+        dataset_entry = self._dataset_manager.get_dataset(
+            self._dataset_id, scope="both"
         )
         if dataset_entry is None:
             raise _InternalJobError(

@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 from fedbiomed.common.constants import NODE_DATA_FOLDER
 from fedbiomed.node.config import node_component
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed_node_api.application import create_app
 from flask_jwt_extended import create_access_token
 
@@ -97,8 +98,6 @@ def test_import_does_not_initialize_node(tmp_path):
 
 
 def test_api_lists_datasets_registered_by_core(tmp_path, monkeypatch):
-    from fedbiomed.node.dataset_manager import DatasetManager
-
     app = make_app(tmp_path / "node", monkeypatch)
     csv = tmp_path / "node" / "data" / "sample.csv"
     csv.write_text("feature,target\n1,0\n2,1\n3,0\n")

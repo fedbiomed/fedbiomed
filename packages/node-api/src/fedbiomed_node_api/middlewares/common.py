@@ -12,7 +12,7 @@ def check_tags_already_registered():
     req = request.json
     tags = req["tags"]
 
-    conflicting = dataset_manager.dataset_table.search_conflicting_tags(tags)
+    conflicting = dataset_manager.search_conflicting_tags(tags)
     if len(conflicting) > 0:
         return error(
             "one or more datasets are already registered with conflicting tags: "

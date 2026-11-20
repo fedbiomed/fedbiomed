@@ -6,7 +6,7 @@ import signal
 import sys
 import tempfile
 import unittest
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, call, mock_open, patch
 
 import fedbiomed
 import fedbiomed.node.cli_utils
@@ -466,7 +466,11 @@ class TestNodeCLI(unittest.TestCase):
     @patch("fedbiomed.node.cli.node_component.initiate")
     @patch("builtins.input")
     def test_01_node_cli_init(
-        self, input_patch, mock_initiate, mock_dataset_manager, mock_tp_manager
+        self,
+        input_patch,
+        mock_initiate,
+        mock_dataset_manager,
+        mock_tp_manager,
     ):
         """Tests initialization"""
         input_patch.return_value = "y"
@@ -1128,6 +1132,31 @@ def test_node_control_status_lists_history_only_when_asked(mocker, capsys):
     assert "Recent connection state changes" in out
     assert "handshake_complete" in out
     assert "node_starting" in out
+
+
+def test_delete_database_removes_mnist_with_its_derived_datasets():
+    """Deleting from the CLI also deletes the datasets derived from it."""
+    manager = MagicMock()
+    manager.list_my_datasets.return_value = [
+        {"name": "Other", "dataset_id": "d1"},
+        {"name": "MNIST", "dataset_id": "d2"},
+    ]
+
+    fedbiomed.node.cli_utils.delete_database(manager, interactive=False)
+
+    manager.delete_dataset_by_id.assert_called_once_with("d2", recursive=True)
+
+
+def test_delete_all_database_removes_derived_datasets():
+    manager = MagicMock()
+    manager.list_my_datasets.return_value = [{"dataset_id": "d1"}, {"dataset_id": "d2"}]
+
+    fedbiomed.node.cli_utils.delete_all_database(manager)
+
+    assert manager.delete_dataset_by_id.call_args_list == [
+        call("d1", recursive=True),
+        call("d2", recursive=True),
+    ]
 
 
 if __name__ == "__main__":
