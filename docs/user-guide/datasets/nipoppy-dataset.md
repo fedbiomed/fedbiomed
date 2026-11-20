@@ -76,21 +76,25 @@ from fedbiomed.researcher.requests import Requests
 
 datasets = Requests(config).list()
 print(datasets[node_id][0]['dataset_parameters'])
+print(datasets[node_id][0]['shape'])
 # > OUTPUT:
 # > {'available_phenotypes': ['nb:Sex', 'nb:Age', 'nb:Diagnosis', ...],
 # >  'installed_pipelines': {'bidsification': {},
 # >                          'processing': {'freesurfer': ['7.3.2']},
 # >                          'extraction': {'fs_stats': ['0.2.1']}}}
+# > SHAPE:
+# > [299, 6]
 ```
 
 This list shows the study as it was when the node registered the dataset. Pipelines run on the node since then are
 only listed after the node registers the dataset again, but your training plan can still use them (see
 [Selecting derivatives on each node](#selecting-derivatives-on-each-node)).
 
-!!! note "The listed `shape` is an upper bound"
-    The `shape` of a dataset counts all participant-session rows and all phenotypes, including rows with missing
-    values. The number of samples available to your training plan depends on your selection: session filters and
-    `drop_na` remove rows.
+!!! note "The listed `shape` is an approximation"
+    The `shape` of a dataset counts all rows and all phenotypes, including rows with missing values. 
+    The first dimension is an **upper bound** on the number of participants in a training round.
+    The second dimension is the number of **phenotype** columns, but does not include derivatives.
+
 
 ## Using the dataset in a training plan
 
