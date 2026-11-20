@@ -191,13 +191,11 @@ class NipoppyController(Controller):
                     "id, a list of session ids, or a list of "
                     "(participant_id, session_id) pairs. Instead got: {self._session_filters}"
                 )
-        if self._drop_na:
-            df = df.dropna(**self._drop_na_kwargs)
         if self._whole_df_transform is not None:
             if df.empty:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: No data left after applying session "
-                    "filters and `dropna`. Please check your session filters and the dataset."
+                    "filters. Please check your session filters."
                 )
             try:
                 df = self._whole_df_transform(df)
@@ -206,6 +204,8 @@ class NipoppyController(Controller):
                     f"{ErrorNumbers.FB632.value}: Failed to apply "
                     f"`whole_df_level_transform`. {e}"
                 ) from e
+        if self._drop_na:
+            df = df.dropna(**self._drop_na_kwargs)
         return df
 
     @property
