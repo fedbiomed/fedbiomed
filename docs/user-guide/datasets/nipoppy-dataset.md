@@ -148,7 +148,7 @@ The constructor of `NipoppyDataset` takes the following arguments, all of which 
 | `drop_na_kwargs` | Arguments for `pandas.DataFrame.dropna`. |
 | `whole_df_level_transform` | Function applied once to the whole dataframe. |
 | `sample_level_transform` | Function applied to the input features of each sample. |
-| `sample_level_target_transform` | Function applied to the target of each sample. |
+| `sample_level_target_transform` | Function applied to the target of each sample. See [Transforms](#transforms). |
 | `derivatives_initializer` | Function selecting derivatives on the node. See [Selecting derivatives on each node](#selecting-derivatives-on-each-node). |
 
 ### Selecting phenotypes and derivatives
@@ -218,9 +218,15 @@ The data goes through the following steps on the node:
 Use the dataframe transform for operations that need non-numeric values or several samples, such as encoding
 categorical columns. Sample-level transforms must return the same type they receive.
 
+Sample-level transforms receive a 1-D array or tensor without column names, so columns are indexed by position. The
+target has one element per column of `target`, in the same order, including when there is a single target column
+(shape `(1,)`).
+
 ```python
 # PyTorch: nb:Age is an integer column, and the loss needs a float target
 dataset = NipoppyDataset(target='nb:Age', sample_level_target_transform=lambda x: x.float())
+# Several target columns: y[0] is nb:Age, y[1] is nb:Sex
+dataset = NipoppyDataset(target=['nb:Age', 'nb:Sex'], sample_level_target_transform=lambda y: y[0:1])
 ```
 
 !!! warning "Dataframe transforms"

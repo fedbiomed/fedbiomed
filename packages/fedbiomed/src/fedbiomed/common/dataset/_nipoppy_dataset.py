@@ -84,7 +84,10 @@ class NipoppyDataset(Dataset):
             sample_level_transform: Transform applied to the input features of
                 each sample, after conversion to the training plan's format
             sample_level_target_transform: Transform applied to the target of
-                each sample, after conversion to the training plan's format
+                each sample, after conversion to the training plan's format.
+                It receives a 1-D array or tensor with one element per column
+                of `target`, in the same order (shape `(1,)` for a single
+                target). Columns are indexed by position, not by name.
             whole_df_level_transform: Transform applied once to the whole
                 dataframe, after session filters and `dropna`
             derivatives_initializer: Callable run by `load` once `get_metadata`
