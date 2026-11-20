@@ -6,17 +6,106 @@ description: |
 on:
   push:
     tags:
-      - "*"
+      - "fedbiomed/v*"
+      - "node-api/v*"
+      - "node-ui/v*"
+      - "stack/v*"
 
 permissions:
   contents: read
 
 jobs:
+  release-info:
+    runs-on: ubuntu-latest
+    outputs:
+      target: ${{ steps.parse.outputs.target }}
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse and validate release tag and version
+        id: parse
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          # Validate tag format and extract target and version
+          tag = os.environ["TAG"]
+          match = re.fullmatch(
+              r"(fedbiomed|node-api|node-ui|stack)/v(\d+\.\d+\.\d+)",
+              tag,
+          )
+          if not match:
+              raise SystemExit(f"Invalid release tag: {tag}")
+
+          target, expected_version = match.groups()
+
+          # Read versions from package metadata.
+          with open("packages/node-api/pyproject.toml", "rb") as f:
+              api_version = tomllib.load(f)["project"]["version"]
+
+          with open("packages/node-ui/pyproject.toml", "rb") as f:
+              ui_version = tomllib.load(f)["project"]["version"]
+
+          core_init = Path(
+              "packages/fedbiomed/src/fedbiomed/__init__.py"
+          ).read_text()
+
+          core_match = re.search(
+              r'^__version__\s*=\s*["\']v?(\d+\.\d+\.\d+)["\']',
+              core_init,
+              re.MULTILINE,
+          )
+          if not core_match:
+              raise SystemExit("Cannot determine core version")
+
+          versions = {
+              "fedbiomed": core_match.group(1),
+              "node-api": api_version,
+              "node-ui": ui_version,
+          }
+
+          # Validate that all versions have the same major version
+          majors = {version.split(".")[0] for version in versions.values()}
+          if len(majors) != 1:
+              raise SystemExit(f"Major version mismatch: {versions}")
+
+          selected = (
+              versions.values()
+              if target == "stack"
+              else [versions[target]]
+          )
+
+          # Validate that the selected version matches the expected version from the tag
+          for actual in selected:
+              if actual != expected_version:
+                  raise SystemExit(
+                      f"Tag {tag} expects {expected_version}, "
+                      f"but package version is {actual}"
+                  )
+
+          print(f"Validated release: {tag}")
+          PY
+
+          TARGET="${TAG%%/*}"
+          VERSION="${TAG#*/v}"
+
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
   package-compatibility:
+    needs: release-info
     name: Build and test release package
     uses: ./.github/workflows/package-compatibility.yml
     permissions:
-      contents: read
+      contents: read          
 
   publish:
     name: upload release to PyPI

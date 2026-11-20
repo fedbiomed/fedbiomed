@@ -6,7 +6,7 @@ requires-python = ">=3.11,<3.15"
 readme = "README.md"
 license = {text = "Apache 2.0"}
 
-dependencies = ["fedbiomed-node-api==6.5.0"]
+dependencies = ["fedbiomed-node-api==6.5.0,<7"]
 
 [project.scripts]
 fedbiomed-ui = "fedbiomed_gui.cli:main"
