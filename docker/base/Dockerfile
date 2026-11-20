@@ -5,7 +5,7 @@ FROM --platform=$BUILDPLATFORM node:24-bookworm AS node-build
 WORKDIR /build
 
 # Copy package files for better caching
-COPY fedbiomed_gui/ui/package.json fedbiomed_gui/ui/yarn.lock* ./
+COPY packages/node-ui/ui/package.json packages/node-ui/ui/yarn.lock ./
 
 # Install dependencies
 RUN yarn install --frozen-lockfile && \
@@ -13,8 +13,8 @@ RUN yarn install --frozen-lockfile && \
 
 # Copy UI source only. Copying the whole ui/ directory would overlay the host
 # node_modules (built for the host OS/arch) on top of the install above.
-COPY fedbiomed_gui/ui/src ./src
-COPY fedbiomed_gui/ui/public ./public
+COPY packages/node-ui/ui/src ./src
+COPY packages/node-ui/ui/public ./public
 RUN yarn build
 
 # Stage 2: Build Python package without hatch hook
@@ -32,24 +32,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy all required files for pip install
-COPY pyproject.toml README.md ./
-COPY fedbiomed ./fedbiomed
+COPY README.md ./README.md
+COPY packages/fedbiomed ./packages/fedbiomed
 COPY envs/common ./envs/common
 COPY notebooks ./notebooks
 COPY docs/tutorials ./docs/tutorials
 COPY scripts ./scripts
-COPY hatch_build.py ./hatch_build.py
 
 # Copy fedbiomed_gui and fedbiomed_node_api structure (needed for pyproject.toml packages)
-COPY fedbiomed_gui ./fedbiomed_gui
-COPY fedbiomed_node_api ./fedbiomed_node_api
+COPY packages/node-api ./packages/node-api
+COPY packages/node-ui ./packages/node-ui
 
 # Copy pre-built frontend from node-build stage
-COPY --from=node-build /build/build ./fedbiomed_gui/ui/build
+COPY --from=node-build /build/build ./packages/node-ui/ui/build
 
 # Install build tools and build wheel
-RUN sed -i '/hatch\.build\.hooks/,/^$/d' pyproject.toml && pip install --no-cache-dir wheel setuptools && \
-    pip wheel --no-cache-dir --wheel-dir /wheels '.[researcher, node, gui]'
+ENV FBM_SKIP_FRONTEND_BUILD=1
+
+RUN pip wheel --no-cache-dir \
+    --wheel-dir /wheels \
+    --find-links=/wheels \
+    './packages/fedbiomed[researcher]' \
+    ./packages/node-api \
+    ./packages/node-ui
 
 # Stage 3: Final runtime image
 FROM python:${PYTHON_VERSION}-slim-bookworm

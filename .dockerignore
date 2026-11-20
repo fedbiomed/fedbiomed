@@ -6,10 +6,10 @@
 # Sources needed by docker/base/Dockerfile
 !pyproject.toml
 !README.md
-!hatch_build.py
-!fedbiomed/
-!fedbiomed_gui/
-!fedbiomed_node_api/
+!packages/
+!packages/fedbiomed/
+!packages/node-api/
+!packages/node-ui/
 !envs/common/
 !notebooks/
 !docs/tutorials/
@@ -24,4 +24,4 @@
 **/node_modules/
 **/__pycache__/
 **/*.py[cod]
-fedbiomed_gui/ui/build/
+packages/node-ui/ui/build/
