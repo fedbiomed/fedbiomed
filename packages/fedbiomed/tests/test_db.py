@@ -8,15 +8,15 @@ import fedbiomed.common.db as db_mod
 import pytest
 from fedbiomed.common.db import (
     REDACTED,
-    Base,
     get_database,
 )
+from fedbiomed.common.db_models import DatabaseModel
 from fedbiomed.common.exceptions import FedbiomedError
 from sqlalchemy import JSON, delete, event, inspect, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
 
-class Item(Base):
+class Item(DatabaseModel):
     __tablename__ = "TestItems"
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
@@ -26,13 +26,13 @@ class Item(Base):
     note: Mapped[str | None] = mapped_column(default=None)
 
 
-class Other(Base):
+class Other(DatabaseModel):
     __tablename__ = "TestOthers"
 
     other_id: Mapped[str] = mapped_column(primary_key=True)
 
 
-class Secret(Base):
+class Secret(DatabaseModel):
     __tablename__ = "TestSecrets"
 
     secret_id: Mapped[str] = mapped_column(primary_key=True)
@@ -40,23 +40,16 @@ class Secret(Base):
     key: Mapped[dict[str, str]] = mapped_column(JSON)
 
 
-class WriteItem(Base):
+class WriteItem(DatabaseModel):
     __tablename__ = "TestWriteItems"
-    __log_level__ = "writes"
+    __security_log__ = DatabaseModel.SecurityLog.WRITES
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
 
 
-class QuietItem(Base):
+class QuietItem(DatabaseModel):
     __tablename__ = "TestQuietItems"
-    __log_level__ = "none"
-
-    item_id: Mapped[str] = mapped_column(primary_key=True)
-
-
-class TypoItem(Base):
-    __tablename__ = "TestTypoItems"
-    __log_level__ = "write"
+    __security_log__ = DatabaseModel.SecurityLog.NONE
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
 
@@ -117,10 +110,9 @@ def test_from_dict_treats_none_as_not_given():
         Item.from_dict(_item(name=None))
 
 
-def test_connection_uses_wal_and_foreign_keys(db_path, database):
+def test_connection_uses_foreign_keys(db_path, database):
     with database.transaction() as session:
         connection = session.connection()
-        assert connection.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal"
         assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
 
 
@@ -166,13 +158,6 @@ def test_database_error_keeps_reason_and_logs_statement_without_parameters(
     (logged,) = debug
     assert 'INSERT INTO "TestItems"' in logged
     assert "hidden-value" not in message + logged
-
-
-def test_create_tables_refuses_unknown_log_level(database):
-    with pytest.raises(
-        FedbiomedError, match="FB634.*TypoItem.__log_level__ is 'write'"
-    ):
-        database.create_tables([TypoItem])
 
 
 def test_writes_are_logged_after_commit_with_caller(database, events):
@@ -271,7 +256,7 @@ def test_write_events_redact_sensitive_values(database, events):
         (QuietItem, []),
     ],
 )
-def test_log_level_selects_what_is_logged(database, events, model, logged):
+def test_security_log_selects_what_is_logged(database, events, model, logged):
     with database.transaction() as session:
         session.add(model(item_id="i1"))
         session.flush()

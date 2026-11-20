@@ -12,7 +12,7 @@ from sqlalchemy import JSON, CheckConstraint, Enum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
-from fedbiomed.common.db import Base
+from fedbiomed.common.db_models import DatabaseModel
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -23,19 +23,7 @@ def _dataset_type() -> Enum:
     )
 
 
-def _check_tags(entry: Base, key: str, tags: list[str] | None) -> list[str] | None:
-    """Refuses tags that are not a list of strings: searches compare them as sets."""
-    if tags is not None and not (
-        isinstance(tags, list) and all(isinstance(tag, str) for tag in tags)
-    ):
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB632.value}: Invalid data input for "
-            f"{type(entry).__name__}.{key}: expected a list of strings, got {tags!r}"
-        )
-    return tags
-
-
-class Dataset(Base):
+class Dataset(DatabaseModel):
     """Dataset registered on the node."""
 
     __tablename__ = "Datasets"
@@ -60,11 +48,17 @@ class Dataset(Base):
     dlp: Mapped["Dlp | None"] = relationship(init=False, repr=False)
 
     @validates("tags")
-    def _validate_tags(self, key: str, tags: list[str]) -> list[str]:
-        return _check_tags(self, key, tags)
+    def _validate_tags(self, _key: str, tags: list[str]) -> list[str]:
+        # Searches and tag conflicts compare tags as sets of strings
+        if not (isinstance(tags, list) and all(isinstance(tag, str) for tag in tags)):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Invalid data input for Dataset.tags: "
+                f"expected a list of strings, got {tags!r}"
+            )
+        return tags
 
 
-class DynamicDataset(Base):
+class DynamicDataset(DatabaseModel):
     """Dataset produced by a processing job from a parent dataset.
 
     The parent is a `Dataset` (`parent_dataset_id`) or another
@@ -103,12 +97,8 @@ class DynamicDataset(Base):
         JSON, default=None
     )
 
-    @validates("tags")
-    def _validate_tags(self, key: str, tags: list[str] | None) -> list[str] | None:
-        return _check_tags(self, key, tags)
 
-
-class Dlp(Base):
+class Dlp(DatabaseModel):
     """Data loading plan: the loading blocks applied to a type of dataset."""
 
     __tablename__ = "Dlps"
@@ -130,7 +120,7 @@ class Dlp(Base):
         return dlp_name
 
 
-class Dlb(Base):
+class Dlb(DatabaseModel):
     """Data loading block, referenced by `Dlp.loading_blocks`.
 
     Each block type serializes its own fields, so the block is stored as its

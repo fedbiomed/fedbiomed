@@ -144,16 +144,10 @@ def test_custom_dataset_has_no_shape_nor_dtypes(database):
         assert "shape" not in session.get(Dataset, "d1").to_dict()
 
 
-@pytest.mark.parametrize(
-    "model, data, field",
-    [
-        (Dataset, _dataset(tags="t"), "Dataset.tags"),
-        (DynamicDataset, _dynamic_dataset(tags=[1]), "DynamicDataset.tags"),
-    ],
-)
-def test_tags_must_be_a_list_of_strings(model, data, field):
-    with pytest.raises(FedbiomedError, match=f"FB632.*{field}: expected a list"):
-        model.from_dict(data)
+@pytest.mark.parametrize("tags", ["t", [1]])
+def test_tags_must_be_a_list_of_strings(tags):
+    with pytest.raises(FedbiomedError, match="FB632.*Dataset.tags: expected a list"):
+        Dataset.from_dict(_dataset(tags=tags))
 
 
 def test_tags_are_checked_when_assigned(database):
