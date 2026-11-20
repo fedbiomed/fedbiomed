@@ -9,7 +9,6 @@ import pytest
 from fedbiomed.common.db import (
     REDACTED,
     Base,
-    _matches,
     get_database,
 )
 from fedbiomed.common.exceptions import FedbiomedError
@@ -118,25 +117,6 @@ def test_from_dict_treats_none_as_not_given():
         Item.from_dict(_item(name=None))
 
 
-@pytest.mark.parametrize(
-    "value, expected, result",
-    [
-        ({"a": [1, None]}, Any, True),
-        (None, list[str] | None, True),
-        ({"k": [1]}, list[int] | dict[str, list[int]], True),
-        ([1], list[int] | dict[str, list[int]], True),
-        ("x", list[int] | dict[str, list[int]], False),
-        (["a", 1], list[str], False),
-        ({"a": "b"}, dict[str, str], True),
-        ({1: "b"}, dict[str, str], False),
-        ({"a": 1}, dict[str, str], False),
-        ("a", list[str], False),
-    ],
-)
-def test_matches_checks_json_value_against_annotation(value, expected, result):
-    assert _matches(value, expected) is result
-
-
 def test_connection_uses_wal_and_foreign_keys(db_path, database):
     with database.transaction() as session:
         connection = session.connection()
@@ -155,41 +135,16 @@ def test_entry_is_usable_after_the_transaction(database):
 
 
 def test_failed_transaction_writes_nothing(database):
-    with pytest.raises(FedbiomedError):
-        with database.transaction() as session:
-            session.add(Item.from_dict(_item(item_id="i2")))
-            session.add(Item.from_dict(_item(tags=[1])))
-
-    with database.transaction() as session:
-        assert session.get(Item, "i2") is None
-
-
-def test_insert_is_validated_when_written(database):
-    entry = Item.from_dict(_item(tags=[1]))
-    with pytest.raises(FedbiomedError, match=r"FB632.*Item.tags: expected list\[str\]"):
-        with database.transaction() as session:
-            session.add(entry)
-
-
-def test_update_reuses_insert_validation(database):
     with database.transaction() as session:
         session.add(Item.from_dict(_item()))
 
-    with pytest.raises(FedbiomedError, match=r"FB632.*Item.data: expected"):
+    with pytest.raises(FedbiomedError):
         with database.transaction() as session:
-            session.get(Item, "i1").data = ["not", "a", "dict"]
+            session.add(Item.from_dict(_item(item_id="i2")))
+            session.add(Item.from_dict(_item()))
 
     with database.transaction() as session:
-        session.get(Item, "i1").tags = ["b"]
-    with database.transaction() as session:
-        assert session.get(Item, "i1").tags == ["b"]
-
-
-def test_validation_error_redacts_sensitive_values():
-    entry = Secret(secret_id="s", key={"private": 1})
-    with pytest.raises(FedbiomedError, match="<redacted>") as error:
-        entry.validate()
-    assert "private" not in str(error.value)
+        assert session.get(Item, "i2") is None
 
 
 def test_database_error_keeps_reason_and_logs_statement_without_parameters(
@@ -286,26 +241,19 @@ def test_unchanged_entry_is_not_logged_as_update(database, events):
 
 
 def test_failed_transaction_is_logged_with_its_error(database, events):
+    with database.transaction() as session:
+        session.add(Item.from_dict(_item()))
+    events.clear()
+
     with pytest.raises(FedbiomedError):
         with database.transaction() as session:
-            session.add(Item.from_dict(_item(tags=[1])))
+            session.add(Item.from_dict(_item()))
 
     (failure,) = events
     assert failure["status"] == "failure"
     assert failure["operation"] == "insert"
     assert failure["error_type"] == "FedbiomedError"
-    assert "Item.tags" in failure["error_message"]
-
-
-def test_rollback_without_error_is_logged_as_failure(database, events):
-    with database.transaction() as session:
-        session.add(Item.from_dict(_item()))
-        session.flush()
-        session.rollback()
-
-    (failure,) = events
-    assert failure["status"] == "failure"
-    assert "error_type" not in failure
+    assert "UNIQUE constraint failed: TestItems.item_id" in failure["error_message"]
 
 
 def test_write_events_redact_sensitive_values(database, events):

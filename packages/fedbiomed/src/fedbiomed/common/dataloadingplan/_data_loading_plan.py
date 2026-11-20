@@ -314,6 +314,7 @@ class DataLoadingBlock(ABC):
     """
 
     def __init__(self):
+        # One plan per block; to share blocks, change the node's DLB storage with it
         self.__serialization_id = "serialized_dlb_" + str(uuid.uuid4())
         self._serialization_validator = SerializationValidation()
         self._serialization_validator.update_validation_scheme(

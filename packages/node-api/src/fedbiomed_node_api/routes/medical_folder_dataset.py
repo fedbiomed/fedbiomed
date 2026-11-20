@@ -1,10 +1,9 @@
 import os
 import re
 
-from flask import g, request
-
 from fedbiomed.common.dataset_controller import MedicalFolderController
 from fedbiomed.common.exceptions import FedbiomedError
+from flask import g, request
 
 from ..cache import cached
 from ..config import config
@@ -121,8 +120,6 @@ def add_data_loading_plan():
         dlp_id = dataset_manager.save_data_loading_plan(g.dlp)
     except FedbiomedError as e:
         return error(f"Cannot save data loading plan for customizations: {e}"), 400
-    if dlp_id is None:
-        return error("Cannot save data loading plan for customizations: no DLP id"), 400
 
     return response(data=dlp_id), 200
 

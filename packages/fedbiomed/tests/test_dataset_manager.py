@@ -167,10 +167,11 @@ def test_add_database_does_not_deploy_other_types(monkeypatch, db_path):
     assert fetched == []
 
 
-def test_add_database_saves_new_dlp_and_reuses_existing_one(db_path):
+def test_add_database_refers_to_saved_dlp(db_path):
     dm = dm_mod.DatasetManager(db_path)
 
     dlp_keep = MinimalDLP(dlp_id="keep-me", loading_blocks={"a": "A", "b": "B"})
+    dm.save_data_loading_plan(dlp_keep)
     did1 = dm.add_database(
         name="N",
         data_type="csv",
@@ -185,7 +186,7 @@ def test_add_database_saves_new_dlp_and_reuses_existing_one(db_path):
     assert ds1["shape"] == {"csv": [3, 4]}
     assert dm.get_dlp_by_id("keep-me")[0] is not None
 
-    # A new dataset using the same plan on purpose reuses it
+    # A new dataset using the same plan on purpose refers to it
     did2 = dm.add_database(
         name="M",
         data_type="csv",
@@ -198,6 +199,21 @@ def test_add_database_saves_new_dlp_and_reuses_existing_one(db_path):
     ds2 = dm.get_dataset(did2)
     assert ds2["dlp_id"] == "keep-me"
     assert len(dm.get_dlp_by_id("keep-me")[1]) == 2
+
+
+def test_add_database_refuses_unsaved_dlp(db_path):
+    dm = dm_mod.DatasetManager(db_path)
+
+    with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
+        dm.add_database(
+            name="N",
+            data_type="csv",
+            tags=["t"],
+            description="d",
+            path="/root",
+            data_loading_plan=MinimalDLP(dlp_id="unsaved"),
+        )
+    assert dm.list_my_datasets(verbose=False) == []
 
 
 def test_remove_dlp_by_id_existing_and_missing(db_path):
@@ -233,11 +249,6 @@ def test_list_my_datasets_not_verbose(capsys, db_path):
     assert isinstance(out, list) and out
     assert "dtypes" not in out[0]
     assert capsys.readouterr().out == ""  # nothing printed
-
-
-def test_save_data_loading_plan_none_returns_none(db_path):
-    dm = dm_mod.DatasetManager(db_path)
-    assert dm.save_data_loading_plan(None) is None
 
 
 def test_obfuscate_private_information_hides_sensitive_fields():
@@ -579,6 +590,7 @@ def test_build_dataset_entry_strips_dlp_from_dataset_parameters(db_path):
     """The 'dlp' controller kwarg must not appear in the stored dataset_parameters."""
     dm = dm_mod.DatasetManager(db_path)
     dlp = MinimalDLP(dlp_id="dlp-x")
+    dm.save_data_loading_plan(dlp)
     did = dm.add_database(
         name="N",
         data_type="csv",
@@ -664,21 +676,21 @@ def test_add_database_refuses_conflicting_tags_and_saves_nothing(db_path):
             tags=["a"],
             description="d",
             path="/root",
-            data_loading_plan=MinimalDLP(dlp_id="unused"),
         )
 
-    assert dm.get_dlp_by_id("unused") == (None, [])
 
-
-def test_add_database_refuses_dlp_with_same_id_and_other_content(db_path):
+def test_save_data_loading_plan_refuses_saved_block(db_path):
     dm = dm_mod.DatasetManager(db_path)
-    dm.save_data_loading_plan(MinimalDLP(dlp_id="P", loading_blocks={"a": "A"}))
+    dm.save_data_loading_plan(MinimalDLP(dlp_id="P1", loading_blocks={"a": "A"}))
 
-    with pytest.raises(FedbiomedError, match="FB316.*Dlps entry P already exists"):
-        dm.save_data_loading_plan(MinimalDLP(dlp_id="P", loading_blocks={"a": "Z"}))
+    with pytest.raises(
+        FedbiomedError, match="FB634.*UNIQUE constraint failed: Dlbs.dlb_id"
+    ):
+        dm.save_data_loading_plan(MinimalDLP(dlp_id="P2", loading_blocks={"a": "A"}))
+    assert dm.get_dlp_by_id("P2") == (None, [])
 
 
-def test_add_database_refuses_dlp_name_used_by_another_plan(db_path):
+def test_save_data_loading_plan_refuses_name_used_by_another_plan(db_path):
     dm = dm_mod.DatasetManager(db_path)
     dm.save_data_loading_plan(MinimalDLP(dlp_id="P1", dlp_name="same name"))
 
@@ -688,6 +700,7 @@ def test_add_database_refuses_dlp_name_used_by_another_plan(db_path):
 
 def test_remove_dlp_by_id_refuses_plan_in_use(db_path):
     dm = dm_mod.DatasetManager(db_path)
+    dm.save_data_loading_plan(MinimalDLP(dlp_id="P"))
     dm.add_database(
         name="User",
         data_type="csv",
@@ -745,7 +758,7 @@ def test_update_dataset_returns_updated_entry(db_path):
         ("d1", {"dataset_id": "other"}, "FB632.*Cannot change the field"),
         ("d1", {"colour": "red"}, r"FB632.*unknown fields \['colour'\]"),
         ("d1", {"tags": ["b", "c"]}, "FB322.*Conflicting dataset names: Second"),
-        ("d1", {"data_type": "tabular"}, "FB632.*Dataset.data_type"),
+        ("d1", {"data_type": "tabular"}, "FB634.*CHECK constraint failed"),
     ],
 )
 def test_update_dataset_refuses_invalid_changes(db_path, dataset_id, changes, match):

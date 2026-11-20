@@ -3,7 +3,7 @@ import pytest
 from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.db_models import Dataset, Dlb, Dlp, DynamicDataset
-from sqlalchemy import delete, inspect, select, text
+from sqlalchemy import delete, inspect, select
 
 
 @pytest.fixture
@@ -121,20 +121,16 @@ def test_entry_round_trip(database, model, entry_id, data):
 
 
 @pytest.mark.parametrize(
-    "model, data, field",
+    "model, data",
     [
-        (Dataset, _dataset(data_type="tabular"), "Dataset.data_type"),
-        (
-            DynamicDataset,
-            _dynamic_dataset(data_type="tabular"),
-            "DynamicDataset.data_type",
-        ),
-        (Dlp, _dlp(target_dataset_type="tabular"), "Dlp.target_dataset_type"),
+        (Dataset, _dataset(data_type="tabular")),
+        (DynamicDataset, _dynamic_dataset(data_type="tabular")),
+        (Dlp, _dlp(target_dataset_type="tabular")),
     ],
 )
-def test_dataset_type_must_be_a_dataset_types_value(database, model, data, field):
-    with pytest.raises(FedbiomedError, match=f"FB632.*{field}: 'tabular' is not one"):
-        _add(database, model.from_dict(data))
+def test_dataset_type_must_be_a_dataset_types_value(database, model, data):
+    with pytest.raises(FedbiomedError, match="FB634.*CHECK constraint failed"):
+        _add(database, _parent(), model.from_dict(data))
 
 
 def test_dynamic_dataset_accepts_unset_data_type(database):
@@ -152,15 +148,19 @@ def test_custom_dataset_has_no_shape_nor_dtypes(database):
     "model, data, field",
     [
         (Dataset, _dataset(tags="t"), "Dataset.tags"),
-        (Dataset, _dataset(shape=[10, 2]), "Dataset.shape"),
-        (DynamicDataset, _dynamic_dataset(dtypes={"c": 1}), "DynamicDataset.dtypes"),
-        (Dlp, _dlp(key_paths={"key": "a"}), "Dlp.key_paths"),
-        (Dlb, _dlb(content="block"), "Dlb.content"),
+        (DynamicDataset, _dynamic_dataset(tags=[1]), "DynamicDataset.tags"),
     ],
 )
-def test_json_content_must_match_the_column(database, model, data, field):
-    with pytest.raises(FedbiomedError, match=f"FB632.*{field}: expected"):
-        _add(database, model.from_dict(data))
+def test_tags_must_be_a_list_of_strings(model, data, field):
+    with pytest.raises(FedbiomedError, match=f"FB632.*{field}: expected a list"):
+        model.from_dict(data)
+
+
+def test_tags_are_checked_when_assigned(database):
+    _add(database, _parent())
+    with pytest.raises(FedbiomedError, match="FB632.*Dataset.tags: expected a list"):
+        with database.transaction() as session:
+            session.get(Dataset, "dataset_1").tags = 5
 
 
 def test_dlp_name_needs_four_characters(database):
@@ -174,22 +174,6 @@ def test_dlp_name_is_unique(database):
         FedbiomedError, match="FB634.*UNIQUE constraint failed: Dlps.dlp_name"
     ):
         _add(database, Dlp.from_dict(_dlp(dlp_id="dlp_2")))
-
-
-@pytest.mark.parametrize(
-    "dlp_name, target_dataset_type",
-    [("abc", "csv"), ("plan", "tabular")],
-)
-def test_database_refuses_what_validation_would_refuse(
-    database, dlp_name, target_dataset_type
-):
-    # Raw SQL: neither the model validation nor SQLAlchemy's Enum check runs
-    statement = text(
-        "INSERT INTO Dlps VALUES ('dlp_1', :name, :target, '{}', '{}')"
-    ).bindparams(name=dlp_name, target=target_dataset_type)
-    with pytest.raises(FedbiomedError, match="FB634.*CHECK constraint failed"):
-        with database.transaction() as session:
-            session.execute(statement)
 
 
 def test_dataset_and_its_dlp_are_saved_in_one_transaction(database):
