@@ -7,7 +7,11 @@ from fedbiomed.common.dataloadingplan import DataLoadingPlan
 from fedbiomed.common.dataset import NipoppyDataset
 from fedbiomed.common.dataset_types import DataReturnFormat
 from fedbiomed.common.exceptions import FedbiomedError, FedbiomedValueError
-from testsupport.fake_nipoppy_reader import DERIVATIVE, DERIVATIVE_COLUMN
+from testsupport.fake_nipoppy_reader import (
+    DERIVATIVE,
+    DERIVATIVE_COLUMN,
+    FakeNipoppyReader,
+)
 
 # `dataset_parameters` stored in the node database at registration
 STORED_PARAMETERS = {
@@ -89,8 +93,10 @@ def test_load_forwards_parameters_to_controller(tmp_path, mocker, fake_nipoppy_r
 def test_load_reads_data_once(tmp_path, fake_nipoppy_reader):
     node_load(make_dataset(), tmp_path)
 
-    assert len(fake_nipoppy_reader) == 1
-    assert len(fake_nipoppy_reader[0].read_calls) == 1
+    # One reader for the metadata, one for the data
+    assert len(fake_nipoppy_reader) == 2
+    assert fake_nipoppy_reader[0].read_calls == []
+    assert len(fake_nipoppy_reader[-1].read_calls) == 1
 
 
 def test_load_multiple_sessions_per_participant_raises(tmp_path, fake_nipoppy_reader):
@@ -110,7 +116,7 @@ def test_load_reads_target_once(tmp_path, fake_nipoppy_reader):
     ds = make_dataset(phenotypes=["age", "diagnosis"], target="diagnosis")
     node_load(ds, tmp_path)
 
-    assert fake_nipoppy_reader[0].read_calls[-1]["phenotypes"] == ["age", "diagnosis"]
+    assert fake_nipoppy_reader[-1].read_calls[-1]["phenotypes"] == ["age", "diagnosis"]
     data, target = ds[0]
     np.testing.assert_array_equal(data, [70.0])
     np.testing.assert_array_equal(target, [1.0])
@@ -120,7 +126,7 @@ def test_load_with_derivatives(tmp_path, fake_nipoppy_reader):
     ds = make_dataset(derivatives=[DERIVATIVE])
     node_load(ds, tmp_path)
 
-    assert fake_nipoppy_reader[0].read_calls[-1] == {
+    assert fake_nipoppy_reader[-1].read_calls[-1] == {
         "phenotypes": ["age", "sex", "diagnosis"],
         "derivatives": [DERIVATIVE],
     }
@@ -170,7 +176,7 @@ def test_derivative_target(tmp_path, fake_nipoppy_reader):
     node_load(ds, tmp_path)
 
     # The derivative target is not requested as a phenotype
-    assert fake_nipoppy_reader[0].read_calls[-1] == {
+    assert fake_nipoppy_reader[-1].read_calls[-1] == {
         "phenotypes": ["age", "sex"],
         "derivatives": [DERIVATIVE],
     }
@@ -185,7 +191,7 @@ def test_phenotype_and_derivative_targets(tmp_path, fake_nipoppy_reader):
     )
     node_load(ds, tmp_path)
 
-    assert fake_nipoppy_reader[0].read_calls[-1]["phenotypes"] == [
+    assert fake_nipoppy_reader[-1].read_calls[-1]["phenotypes"] == [
         "age",
         "sex",
         "diagnosis",
@@ -232,7 +238,7 @@ def test_phenotypes_none_uses_available_phenotypes(tmp_path, fake_nipoppy_reader
     ds = make_dataset(phenotypes=None)
     node_load(ds, tmp_path)
 
-    assert fake_nipoppy_reader[0].read_calls[-1]["phenotypes"] == [
+    assert fake_nipoppy_reader[-1].read_calls[-1]["phenotypes"] == [
         "age",
         "sex",
         "diagnosis",
@@ -242,13 +248,32 @@ def test_phenotypes_none_uses_available_phenotypes(tmp_path, fake_nipoppy_reader
     np.testing.assert_array_equal(target, [1.0])
 
 
-def test_phenotypes_none_without_available_phenotypes_raises(
-    tmp_path, fake_nipoppy_reader
-):
+def test_phenotypes_none_without_stored_values(tmp_path, fake_nipoppy_reader):
+    # e.g. local use: phenotypes come from the study on disk
     ds = make_dataset(phenotypes=None)
+    ds.load(root=str(tmp_path), to_format=DataReturnFormat.SKLEARN)
 
-    with pytest.raises(FedbiomedError, match="Specify `phenotypes`"):
-        ds.load(root=str(tmp_path), to_format=DataReturnFormat.SKLEARN)
+    assert fake_nipoppy_reader[-1].read_calls[-1]["phenotypes"] == [
+        "age",
+        "sex",
+        "diagnosis",
+    ]
+
+
+def test_phenotypes_none_ignores_outdated_stored_values(tmp_path, fake_nipoppy_reader):
+    ds = make_dataset(phenotypes=None)
+    ds.load(
+        root=str(tmp_path),
+        to_format=DataReturnFormat.SKLEARN,
+        available_phenotypes=["age"],
+        installed_pipelines={},
+    )
+
+    assert fake_nipoppy_reader[-1].read_calls[-1]["phenotypes"] == [
+        "age",
+        "sex",
+        "diagnosis",
+    ]
 
 
 # ---------- metadata ----------
@@ -258,21 +283,44 @@ def test_get_metadata_before_load_is_empty():
     assert make_dataset().get_metadata() == {}
 
 
-def test_get_metadata_returns_passed_values(tmp_path, fake_nipoppy_reader):
+def test_get_metadata_reads_study_on_disk(tmp_path, fake_nipoppy_reader):
     ds = make_dataset()
     node_load(ds, tmp_path)
 
     assert ds.get_metadata() == STORED_PARAMETERS
 
 
-def test_get_metadata_none_when_not_passed(tmp_path, fake_nipoppy_reader):
+def test_get_metadata_without_stored_values(tmp_path, fake_nipoppy_reader):
     ds = make_dataset()
     ds.load(root=str(tmp_path), to_format=DataReturnFormat.SKLEARN)
 
-    assert ds.get_metadata() == {
-        "available_phenotypes": None,
-        "installed_pipelines": None,
+    assert ds.get_metadata() == STORED_PARAMETERS
+
+
+def test_get_metadata_ignores_outdated_stored_values(
+    tmp_path, mocker, fake_nipoppy_reader
+):
+    # A pipeline was installed after registration: the node still passes the
+    # values stored at registration, but the study on disk has the new one
+    on_disk = {
+        **FakeNipoppyReader.installed_pipelines,
+        "processing": {"freesurfer": ["7.3.2", "8.0.0"]},
     }
+    mocker.patch.object(FakeNipoppyReader, "installed_pipelines", on_disk)
+    ds = make_dataset()
+    node_load(ds, tmp_path)
+
+    assert ds.get_metadata()["installed_pipelines"] == on_disk
+    assert STORED_PARAMETERS["installed_pipelines"] != on_disk
+
+
+def test_load_raises_if_metadata_cannot_be_read(tmp_path, mocker, fake_nipoppy_reader):
+    mocker.patch.object(
+        FakeNipoppyReader, "get_schema", side_effect=OSError("cannot read")
+    )
+
+    with pytest.raises(FedbiomedError, match="Failed to read the study metadata"):
+        node_load(make_dataset(), tmp_path)
 
 
 # ---------- derivatives initializer ----------
@@ -296,7 +344,7 @@ def test_derivatives_initializer_sets_derivatives_before_reading(
     node_load(ds, tmp_path)
 
     assert ds.derivatives == [DERIVATIVE]
-    assert fake_nipoppy_reader[0].read_calls == [
+    assert fake_nipoppy_reader[-1].read_calls == [
         {"phenotypes": ["age", "sex", "diagnosis"], "derivatives": [DERIVATIVE]}
     ]
     data, _ = ds[0]
@@ -311,7 +359,9 @@ def test_derivatives_initializer_error_is_wrapped(tmp_path, fake_nipoppy_reader)
 
     with pytest.raises(FedbiomedError, match="derivatives initializer"):
         node_load(ds, tmp_path)
-    assert fake_nipoppy_reader == []  # the controller was never created
+    # Only the metadata was read: the controller was never created
+    assert len(fake_nipoppy_reader) == 1
+    assert fake_nipoppy_reader[0].read_calls == []
 
 
 def test_derivatives_initializer_not_callable_raises():

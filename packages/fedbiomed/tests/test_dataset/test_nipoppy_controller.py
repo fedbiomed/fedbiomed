@@ -22,6 +22,28 @@ def test_init_controller_kwargs_read_from_disk(tmp_path, fake_nipoppy_reader):
     }
 
 
+def test_read_metadata_does_not_read_data(tmp_path, fake_nipoppy_reader):
+    metadata = NipoppyController.read_metadata(tmp_path)
+
+    assert metadata == {
+        "available_phenotypes": ["age", "sex", "diagnosis"],
+        "installed_pipelines": FakeNipoppyReader.installed_pipelines,
+    }
+    assert fake_nipoppy_reader[0].read_calls == []
+
+
+def test_read_metadata_wraps_reader_errors(tmp_path, mocker, fake_nipoppy_reader):
+    mocker.patch.object(
+        FakeNipoppyReader,
+        "get_installed_pipelines",
+        side_effect=FileNotFoundError("no config"),
+    )
+
+    with pytest.raises(FedbiomedError, match="Failed to read the study metadata") as e:
+        NipoppyController.read_metadata(tmp_path)
+    assert isinstance(e.value.__cause__, FileNotFoundError)
+
+
 def test_init_raises_on_dlp(tmp_path, fake_nipoppy_reader):
     with pytest.raises(FedbiomedError, match="not supported"):
         NipoppyController(root=tmp_path, dlp=DataLoadingPlan())

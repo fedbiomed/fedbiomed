@@ -27,10 +27,12 @@ class NipoppyController(Controller):
     !!! Note
         `_controller_kwargs` (stored in the node database as
         `dataset_parameters` at registration) includes the study's
-        `available_phenotypes` and `installed_pipelines`, read from disk. The
-        node passes them back to `NipoppyDataset.load`, which exposes them
-        through `get_metadata`. They may become out of sync if the study
-        changes after registration: re-register the dataset to refresh them.
+        `available_phenotypes` and `installed_pipelines`, read from disk, so
+        that researchers can list them. The node passes them back to
+        `NipoppyDataset.load`, which ignores them and calls `read_metadata`
+        instead. The stored copy, shown to researchers, becomes out of date if
+        the study changes after registration: re-register the dataset to
+        refresh it.
     """
 
     _reader: NipoppyReader
@@ -86,11 +88,10 @@ class NipoppyController(Controller):
         self._reader = NipoppyReader(self.root)
 
         # Read from disk: stored in the node database as `dataset_parameters`
-        # (minus `root`) at registration
+        # (minus `root`) at registration, for researchers to list
         self._controller_kwargs = {
             "root": str(self.root),
-            "available_phenotypes": list(self._reader.get_schema().keys()),
-            "installed_pipelines": self._reader.get_installed_pipelines(),
+            **self._metadata_from_reader(self._reader),
         }
 
         if isinstance(session_filters, str):
@@ -101,6 +102,40 @@ class NipoppyController(Controller):
         self._whole_df_transform = whole_df_transform
 
         self._data = self._load_data(phenotypes=phenotypes, derivatives=derivatives)
+
+    @classmethod
+    def read_metadata(cls, root: Union[str, Path]) -> Dict[str, Any]:
+        """Reads the study's metadata from disk, without reading any data.
+
+        Args:
+            root: Root directory of the Nipoppy study
+
+        Returns:
+            `{"available_phenotypes": [...], "installed_pipelines": {...}}`
+
+        Raises:
+            FedbiomedError: if the study cannot be read
+        """
+        return cls._metadata_from_reader(NipoppyReader(root))
+
+    @staticmethod
+    def _metadata_from_reader(reader: NipoppyReader) -> Dict[str, Any]:
+        """Available phenotypes and installed pipelines of the study on disk.
+
+        Raises:
+            FedbiomedError: if the study cannot be read
+        """
+        try:
+            return {
+                "available_phenotypes": list(reader.get_schema().keys()),
+                "installed_pipelines": reader.get_installed_pipelines(),
+            }
+        except FedbiomedError:
+            raise
+        except Exception as e:
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Failed to read the study metadata. {e}"
+            ) from e
 
     def _load_data(
         self,

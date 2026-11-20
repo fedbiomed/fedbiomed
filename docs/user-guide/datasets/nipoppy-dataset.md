@@ -46,9 +46,24 @@ fedbiomed node dataset add
 The study must contain at least `manifest.tsv` and `tabular/harmonized.tsv`. Its layout is described in the
 [Nipoppy study specification](https://nipoppy.readthedocs.io/en/latest/explanations/study_spec.html).
 
-!!! note "Metadata is stored at registration"
-    The available phenotypes and installed pipelines are saved in the node database when the dataset is registered.
-    If the study changes afterwards, please register the dataset again to update them.
+!!! warning "Register the dataset again after running a new pipeline"
+    When a dataset is registered, the node database saves a copy of the study's available phenotypes, installed
+    pipelines and shape. Researchers only see this copy when they [list the datasets](#listing-available-data), so
+    they cannot find new pipeline outputs or phenotypes until it is updated.
+
+    **Every time you run a new pipeline**, or otherwise change the study (e.g. update `tabular/harmonized.tsv`), please
+    delete the dataset and register it again with the same path and tags:
+
+    ```shell
+    fedbiomed node dataset delete   # select the Nipoppy dataset
+    fedbiomed node dataset add      # select "nipoppy", same path and tags as before
+    ```
+
+    Researchers select datasets by tags, so their experiments keep working with the new registration.
+
+    Training does not use this copy: the node reads the metadata from the study on disk every time it loads the data.
+    A change to the study can therefore affect experiments that are already running. If possible, avoid running
+    pipelines while an experiment is using the dataset.
 
 ## Listing available data
 
@@ -67,6 +82,10 @@ print(datasets[node_id][0]['dataset_parameters'])
 # >                          'processing': {'freesurfer': ['7.3.2']},
 # >                          'extraction': {'fs_stats': ['0.2.1']}}}
 ```
+
+This list shows the study as it was when the node registered the dataset. Pipelines run on the node since then are
+only listed after the node registers the dataset again, but your training plan can still use them (see
+[Selecting derivatives on each node](#selecting-derivatives-on-each-node)).
 
 !!! note "The listed `shape` is an upper bound"
     The `shape` of a dataset counts all participant-session rows and all phenotypes, including rows with missing
@@ -150,8 +169,8 @@ files. Loading fails if a target column is not found, or if it appears more than
 files).
 
 !!! warning "Specify `phenotypes` explicitly"
-    With `phenotypes=None`, all phenotypes registered on a node are used, including any non-numeric ones. Their list
-    and order may differ between nodes.
+    With `phenotypes=None`, all phenotypes of the study on each node are used, including any non-numeric ones. Their
+    list and order may differ between nodes, and may change if a node updates its study during your experiment.
 
 The `path` of a derivative is relative to `derivatives/<pipeline>/<version>/` in the study. It may include wildcards,
 but it must match exactly one file.
@@ -234,13 +253,18 @@ class MyTrainingPlan(FedSGDRegressor):
         return DataManager(dataset=dataset, shuffle=True)
 ```
 
-The method `get_metadata` returns the `available_phenotypes` and `installed_pipelines` stored at registration.
-It returns an empty dictionary until the data is loaded.
+The method `get_metadata` returns the `available_phenotypes` and `installed_pipelines` read from the study on disk
+when the node loads the data, at every round. It includes pipelines run after the dataset was registered, even if they
+are not listed yet. It returns an empty dictionary until the data is loaded.
+
+!!! tip "Select the same derivatives at every round"
+    If a node runs a new pipeline version during your experiment, an initializer that picks e.g. the latest version
+    would switch to different input features between rounds. Prefer selecting a specific version when one is available.
 
 ### Loading the data
 
-The node calls `load` for you with the study path and the stored metadata, so training plans should not call it. If you
-call `load` yourself, for example to test locally, please note that the metadata is `None` unless you provide it:
+The node calls `load` for you with the study path, so training plans should not call it. You can call `load` yourself,
+for example to test locally:
 
 ```python
 from fedbiomed.common.dataset_types import DataReturnFormat

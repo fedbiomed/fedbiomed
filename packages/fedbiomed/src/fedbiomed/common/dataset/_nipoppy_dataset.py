@@ -31,7 +31,8 @@ class NipoppyDataset(Dataset):
 
     Typical lifecycle:
     1. instantiated in the training plan's `training_data`;
-    2. `load` is called by the node: it stores the metadata, runs the optional
+    2. `load` is called by the node: it reads the metadata from the study on
+       disk (available phenotypes, installed pipelines), runs the optional
        derivatives initializer, creates the controller (which reads the data)
        and validates the transforms on the first sample;
     3. samples are retrieved with `__getitem__`.
@@ -127,32 +128,28 @@ class NipoppyDataset(Dataset):
     ) -> None:
         """Finalize initialization of object to be able to recover items
 
-        Stores the metadata, runs the derivatives initializer (if any), creates
-        the controller (which reads the selected data) and validates the
-        transforms on the first sample.
+        Reads the metadata from the study on disk, runs the derivatives
+        initializer (if any), creates the controller (which reads the selected
+        data) and validates the transforms on the first sample.
 
         Args:
             root: Root directory of the Nipoppy study
             to_format: Format of the data returned by `__getitem__`
             dlp: Data loading plan. Not supported for Nipoppy datasets; must be `None`.
-            available_phenotypes: Phenotypes stored in the node database at
-                registration, passed back by the node. Returned as-is by
-                `get_metadata` (`None` if not given): there is no fallback to
-                the study on disk.
-            installed_pipelines: Pipelines stored in the node database at
-                registration. Same behavior as `available_phenotypes`.
+            available_phenotypes: Ignored. Accepted because the node passes back
+                the values stored in its database at registration, which may
+                be out of date. `get_metadata` returns the values read from
+                the study on disk instead.
+            installed_pipelines: Ignored, same as `available_phenotypes`.
 
         Raises:
-            FedbiomedError: if the derivatives initializer fails, the controller
-                cannot be created, a target column is missing or ambiguous, a
-                participant has several sessions, or the transforms fail on
-                the first sample
+            FedbiomedError: if the study metadata cannot be read, the derivatives
+                initializer fails, the controller cannot be created, a target
+                column is missing or ambiguous, a participant has several
+                sessions, or the transforms fail on the first sample
         """
         self.to_format = to_format
-        self._metadata = {
-            "available_phenotypes": available_phenotypes,
-            "installed_pipelines": installed_pipelines,
-        }
+        self._metadata = self._controller_cls.read_metadata(root)
 
         if self._derivatives_initializer is not None:
             try:
@@ -217,29 +214,16 @@ class NipoppyDataset(Dataset):
 
         Target columns that are not available phenotypes are not requested
         here: they are expected among the columns of the selected derivatives,
-        which are read in full. If available phenotypes were not passed to
-        `load`, all targets are assumed to be phenotypes.
-
-        Raises:
-            FedbiomedError: if `phenotypes` is `None` and no available phenotypes
-                were passed to `load`
+        which are read in full.
         """
-        available_phenotypes = self._metadata.get("available_phenotypes")
-        if self.phenotypes is not None:
-            phenotypes = self.phenotypes
-        else:
-            phenotypes = available_phenotypes
-            if phenotypes is None:
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB632.value}: `phenotypes` is None and no "
-                    "`available_phenotypes` were passed to `load`. Specify "
-                    "`phenotypes` explicitly."
-                )
+        available_phenotypes = self._metadata["available_phenotypes"]
+        phenotypes = (
+            self.phenotypes if self.phenotypes is not None else available_phenotypes
+        )
         target_phenotypes = [
             t
             for t in self.target or []
-            if t not in phenotypes
-            and (available_phenotypes is None or t in available_phenotypes)
+            if t not in phenotypes and t in available_phenotypes
         ]
         return list(phenotypes) + target_phenotypes
 
@@ -295,9 +279,9 @@ class NipoppyDataset(Dataset):
     def get_metadata(self) -> Dict[str, Any]:
         """Returns metadata about the dataset.
 
-        Includes available phenotypes and installed pipelines, as stored in the
-        node database at registration and passed by the node to `load`. A value
-        is `None` if it was not passed. Empty before `load` is called.
+        Includes available phenotypes and installed pipelines, read from the
+        study on disk by `load` (not the copy stored in the node database at
+        registration). Empty before `load` is called.
         """
         return self._metadata
 
