@@ -1,9 +1,8 @@
 """Check GUI assets and the composed Node API."""
 
-from flask_jwt_extended import create_access_token
-
 from fedbiomed.common.constants import NODE_DATA_FOLDER
 from fedbiomed.node.config import node_component
+from flask_jwt_extended import create_access_token
 
 
 def make_app(root, monkeypatch, factory, **kwargs):
@@ -14,7 +13,12 @@ def make_app(root, monkeypatch, factory, **kwargs):
 
 def token(app):
     with app.app_context():
-        return {"Authorization": "Bearer " + create_access_token(identity="test")}
+        table = app.extensions["node_api_services"]["user_database"].table("Users")
+        user = table.all()[0]
+        table.update({"must_change_password": False}, doc_ids=[user.doc_id])
+        return {
+            "Authorization": "Bearer " + create_access_token(identity=user["user_id"])
+        }
 
 
 def test_gui_serves_assets_and_api(tmp_path, monkeypatch):

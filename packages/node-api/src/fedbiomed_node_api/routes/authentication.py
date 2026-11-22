@@ -16,6 +16,7 @@ from ..db import user_requests_table, user_table
 from ..helpers.auth_helpers import (
     check_password_hash,
     get_user_by_email,
+    password_change_required,
     set_password_hash,
 )
 from ..middlewares import middleware
@@ -51,7 +52,13 @@ def update_password():
 
     """
     req = request.json
-    email, password, old_password = req["email"], req["password"], req["old_password"]
+    email, password, old_password = (
+        req["email"],
+        req["password"],
+        req.get("old_password"),
+    )
+    if not isinstance(old_password, str) or not old_password:
+        return error("Old password is required"), 400
     decoded_json = get_jwt()
 
     if decoded_json["email"] != email:
@@ -68,8 +75,13 @@ def update_password():
         if not check_password_hash(old_password, res["password_hash"]):
             # check that old password provided is correct
             return error("Incorrect old password"), 400
+        if check_password_hash(password, res["password_hash"]):
+            return error("Choose a password different from your current password"), 400
         user_table.update(
-            {"password_hash": set_password_hash(password)},
+            {
+                "password_hash": set_password_hash(password),
+                "must_change_password": False,
+            },
             query.user_email == decoded_json["email"],
         )
         res = user_table.get(query.user_email == email)
@@ -151,8 +163,9 @@ def register():
 
 @api.route("/token/auth", methods=["GET"])
 def auto_auth():
-    user_info = get_jwt()
-
+    user_info = dict(get_jwt())
+    user = user_table.get(query.user_id == user_info["sub"])
+    user_info["must_change_password"] = password_change_required(user)
     return response(user_info), 200
 
 
@@ -201,6 +214,7 @@ def login():
             "role": user["user_role"],
             "name": user.get("user_name", "No-name"),
             "surname": user.get("user_surname", "No-name"),
+            "must_change_password": password_change_required(user),
         }
         access_token = create_access_token(
             identity=user["user_id"], fresh=True, additional_claims=additional_claims
@@ -211,7 +225,14 @@ def login():
 
         # Update last login
         user_table.update(
-            {"last_login": datetime.now().isoformat()}, query.user_id == user["user_id"]
+            {
+                "last_login": datetime.now().isoformat(),
+                # Persist legacy first-login status before recording this login.
+                "must_change_password": user.get(
+                    "must_change_password", not bool(user.get("last_login"))
+                ),
+            },
+            query.user_id == user["user_id"],
         )
 
         resp = response(
@@ -236,10 +257,14 @@ def refresh_expiring_jwts():
     (https://flask-jwt-extended.readthedocs.io/en/stable/refreshing_tokens/).
     """
     jwt = get_jwt()
+    user = user_table.get(query.user_id == jwt["sub"])
+    if not user:
+        return error("Invalid user"), 401
     additional_claims = {
         "email": jwt["email"],
         "name": jwt["name"],
         "surname": jwt["surname"],
+        "must_change_password": password_change_required(user),
         "role": jwt["role"],
     }
     access_token = create_access_token(

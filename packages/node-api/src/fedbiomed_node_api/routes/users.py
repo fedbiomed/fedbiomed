@@ -102,6 +102,7 @@ def create_user():
                 "user_surname": surname,
                 "user_email": email,
                 "password_hash": set_password_hash(password),
+                "must_change_password": True,
                 "user_role": UserRoleType.USER,
                 "creation_date": datetime.now().isoformat(),
                 "user_id": user_id,
@@ -218,7 +219,8 @@ def reset_user_password():
 
     try:
         res = user_table.update(
-            {"password_hash": password_hash}, query.user_id == user_id
+            {"password_hash": password_hash, "must_change_password": True},
+            query.user_id == user_id,
         )
     except Exception as e:
         return error(str(e)), 400
@@ -349,6 +351,7 @@ def approve_user_request():
                 "user_surname": user_request["user_surname"],
                 "user_email": user_request["user_email"],
                 "password_hash": user_request["password_hash"],
+                "must_change_password": True,
                 "user_role": user_request["user_role"],
                 "creation_date": datetime.utcnow().ctime(),
                 "user_id": user_id,
