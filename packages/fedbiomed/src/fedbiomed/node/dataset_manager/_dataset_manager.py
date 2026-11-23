@@ -6,7 +6,6 @@ Interfaces with the node component database.
 """
 
 import csv
-import json
 from typing import Iterable, List, Literal, Optional, Tuple, Union, get_args
 
 import pandas as pd
@@ -144,8 +143,8 @@ class DatasetManager:
     ) -> str:
         """Register a dataset in the database.
 
-        The dataset and its data loading plan are saved together: either both
-        are saved or neither is. A data loading plan already saved is reused.
+        The data loading plan, if any, must already be saved
+        (`save_data_loading_plan`).
 
         Args:
             name: Name of the dataset
@@ -164,8 +163,7 @@ class DatasetManager:
         Raises:
             FedbiomedError:
             - If there are conflicting tags with existing datasets
-            - If the data loading plan name is invalid or not unique, or a plan
-              with the same id but a different content is already saved
+            - If the data loading plan is not saved
             - If the data_type is not supported
             - If MNIST is deployed and its files can neither be found nor fetched
         """
@@ -188,9 +186,6 @@ class DatasetManager:
         )
 
         with self._database.transaction() as session:
-            if data_loading_plan is not None:
-                self._save_data_loading_plan(session, data_loading_plan)
-
             conflicting = self._conflicting_datasets(session, entry["tags"])
             if conflicting:
                 msg = (
@@ -203,8 +198,7 @@ class DatasetManager:
 
             dataset = Dataset.from_dict(entry)
             session.add(dataset)
-
-        return dataset.dataset_id
+            return dataset.dataset_id
 
     def add_dynamic_dataset(
         self,
@@ -271,8 +265,7 @@ class DatasetManager:
         with self._database.transaction() as session:
             dataset = DynamicDataset.from_dict(entry)
             session.add(dataset)
-
-        return dataset.dataset_id
+            return dataset.dataset_id
 
     def _build_dataset_entry(
         self,
@@ -597,28 +590,37 @@ class DatasetManager:
             )
             return [dlp.to_dict() for dlp in dlps]
 
-    def save_data_loading_plan(
-        self, data_loading_plan: Optional[DataLoadingPlan]
-    ) -> Union[str, None]:
-        """Save a DataLoadingPlan and its loading blocks to the database.
-
-        A plan already saved with the same content is reused.
+    def save_data_loading_plan(self, data_loading_plan: DataLoadingPlan) -> str:
+        """Save a new DataLoadingPlan and its loading blocks to the database.
 
         Args:
-            data_loading_plan: the DataLoadingPlan to be saved, or None.
+            data_loading_plan: the DataLoadingPlan to be saved.
 
         Returns:
-            The `dlp_id` if a DLP was given, otherwise None.
+            The `dlp_id` of the plan.
 
         Raises:
             FedbiomedError: the plan name is invalid or used by another plan, or
-                a plan or block with the same id but a different content exists.
+                the plan or one of its blocks is already saved.
         """
-        if data_loading_plan is None:
-            return None
+        dlp_metadata, dlbs_metadata = data_loading_plan.serialize()
 
         with self._database.transaction() as session:
-            self._save_data_loading_plan(session, data_loading_plan)
+            same_name = session.scalars(
+                select(Dlp.dlp_id).where(Dlp.dlp_name == dlp_metadata["dlp_name"])
+            ).first()
+            if same_name is not None:
+                msg = (
+                    f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
+                    "DLP name needs to be unique."
+                )
+                logger.error(msg)
+                raise FedbiomedError(msg)
+
+            session.add(Dlp.from_dict(dlp_metadata))
+            session.add_all(
+                Dlb(dlb_id=dlb["dlb_id"], content=dlb) for dlb in dlbs_metadata
+            )
         return data_loading_plan.dlp_id
 
     @staticmethod
@@ -719,47 +721,3 @@ class DatasetManager:
         for entry in entries:
             entry.pop("dtypes", None)
         return entries
-
-    @staticmethod
-    def _save_data_loading_plan(
-        session: Session, data_loading_plan: DataLoadingPlan
-    ) -> None:
-        """Saves a plan and its blocks in the caller's transaction.
-
-        Plans and blocks already saved with the same content are reused; one
-        with the same id but a different content is never overwritten, as other
-        datasets may use it.
-        """
-        # Stored form: tuples become lists, as they come back from the database
-        dlp_metadata, dlbs_metadata = json.loads(
-            json.dumps(data_loading_plan.serialize())
-        )
-
-        same_name = session.scalars(
-            select(Dlp.dlp_id).where(
-                Dlp.dlp_name == dlp_metadata["dlp_name"],
-                Dlp.dlp_id != dlp_metadata["dlp_id"],
-            )
-        ).first()
-        if same_name is not None:
-            msg = (
-                f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
-                "DLP name needs to be unique."
-            )
-            logger.error(msg)
-            raise FedbiomedError(msg)
-
-        rows = [(Dlp, dlp_metadata["dlp_id"], Dlp.from_dict(dlp_metadata))] + [
-            (Dlb, dlb["dlb_id"], Dlb(dlb_id=dlb["dlb_id"], content=dlb))
-            for dlb in dlbs_metadata
-        ]
-        for model, row_id, row in rows:
-            saved = session.get(model, row_id)
-            if saved is None:
-                session.add(row)
-            elif saved.to_dict() != row.to_dict():
-                raise FedbiomedError(
-                    f"{ErrorNumbers.FB316.value}: Cannot save data loading plan: "
-                    f"{model.__tablename__} entry {row_id} already exists with a "
-                    "different content."
-                )

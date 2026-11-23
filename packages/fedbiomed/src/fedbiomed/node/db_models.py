@@ -9,35 +9,21 @@ import uuid
 from typing import Any
 
 from sqlalchemy import JSON, CheckConstraint, Enum, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
-from fedbiomed.common.db import Base
+from fedbiomed.common.db import DatabaseModel
 from fedbiomed.common.exceptions import FedbiomedError
 
 
 def _dataset_type() -> Enum:
     """Column type holding a `DatasetTypes` value, checked by SQLite."""
     return Enum(
-        *[t.value for t in DatasetTypes],
-        native_enum=False,
-        create_constraint=True,
-        validate_strings=True,
+        *[t.value for t in DatasetTypes], native_enum=False, create_constraint=True
     )
 
 
-def _check_dataset_type(entry: Base, key: str) -> None:
-    """Refuses a field value that is not a `DatasetTypes` value."""
-    value = getattr(entry, key)
-    if value is not None and value not in [t.value for t in DatasetTypes]:
-        raise FedbiomedError(
-            f"{ErrorNumbers.FB632.value}: Invalid data input for "
-            f"{type(entry).__name__}.{key}: '{value}' is not one of the values "
-            "defined in 'fedbiomed.common.constants.DatasetTypes'"
-        )
-
-
-class Dataset(Base):
+class Dataset(DatabaseModel):
     """Dataset registered on the node."""
 
     __tablename__ = "Datasets"
@@ -61,12 +47,18 @@ class Dataset(Base):
     # Let the session insert the plan before a dataset using it
     dlp: Mapped["Dlp | None"] = relationship(init=False, repr=False)
 
-    def validate(self) -> None:
-        super().validate()
-        _check_dataset_type(self, "data_type")
+    @validates("tags")
+    def _validate_tags(self, _key: str, tags: list[str]) -> list[str]:
+        # Searches and tag conflicts compare tags as sets of strings
+        if not (isinstance(tags, list) and all(isinstance(tag, str) for tag in tags)):
+            raise FedbiomedError(
+                f"{ErrorNumbers.FB632.value}: Invalid data input for Dataset.tags: "
+                f"expected a list of strings, got {tags!r}"
+            )
+        return tags
 
 
-class DynamicDataset(Base):
+class DynamicDataset(DatabaseModel):
     """Dataset produced by a processing job from a parent dataset.
 
     The parent is a `Dataset` (`parent_dataset_id`) or another
@@ -105,16 +97,11 @@ class DynamicDataset(Base):
         JSON, default=None
     )
 
-    def validate(self) -> None:
-        super().validate()
-        _check_dataset_type(self, "data_type")
 
-
-class Dlp(Base):
+class Dlp(DatabaseModel):
     """Data loading plan: the loading blocks applied to a type of dataset."""
 
     __tablename__ = "Dlps"
-    __table_args__ = (CheckConstraint("length(dlp_name) >= 4"),)
 
     dlp_id: Mapped[str] = mapped_column(primary_key=True)
     dlp_name: Mapped[str] = mapped_column(unique=True)
@@ -122,17 +109,18 @@ class Dlp(Base):
     loading_blocks: Mapped[dict[str, str]] = mapped_column(JSON)
     key_paths: Mapped[dict[str, list[str]]] = mapped_column(JSON)
 
-    def validate(self) -> None:
-        super().validate()
-        if len(self.dlp_name) < 4:
+    @validates("dlp_name")
+    def _validate_dlp_name(self, _key: str, dlp_name: str) -> str:
+        # Typed by GUI users, so refused with a readable message
+        if len(dlp_name) < 4:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB316.value}: Cannot save data loading plan, "
                 "DLP name needs to have at least 4 characters."
             )
-        _check_dataset_type(self, "target_dataset_type")
+        return dlp_name
 
 
-class Dlb(Base):
+class Dlb(DatabaseModel):
     """Data loading block, referenced by `Dlp.loading_blocks`.
 
     Each block type serializes its own fields, so the block is stored as its
