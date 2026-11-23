@@ -314,7 +314,12 @@ _CONNECTION = {"state": "connected", "host": "h", "port": "50051"}
         ),
         (
             NodeState,
-            {"state_id": "s", "experiment_id": "e", "version_node_id": "1"},
+            {
+                "state_id": "s",
+                "experiment_id": "e",
+                "version_node_id": "1",
+                "state": {"optimizer_state": None, "testing_dataset": [1, 2]},
+            },
         ),
         (NodeProcessState, {"node_id": "n1", **_PROCESS, "started_at": _NOW}),
         (NodeConnectionState, {"node_id": "n1", **_CONNECTION, "updated_at": _NOW}),

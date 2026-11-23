@@ -3,10 +3,7 @@
 
 import os
 import uuid
-from typing import Any, Dict, Optional, Union
-
-from tinydb import Query, TinyDB
-from tinydb.table import Table
+from typing import Dict, Optional
 
 from fedbiomed.common.constants import (
     NODE_STATE_PREFIX,
@@ -15,12 +12,11 @@ from fedbiomed.common.constants import (
     __node_state_version__,
     _BaseEnum,
 )
-from fedbiomed.common.db import DBTable
+from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import raise_for_version_compatibility
-
-NODE_STATE_TABLE_NAME = "Node_states"
+from fedbiomed.node.db_models import NodeState
 
 
 class NodeStateFileName(_BaseEnum):
@@ -39,14 +35,11 @@ class NodeStateManager:
     """Node state saving facility: Handles saving and loading Node states from previous `Rounds`,
     given a `state_id`. `NodeStateManager` ensures that states are not reset from one `Round` to another.
 
-    Interfaces with database use to save and load Node State entries.
-
-    Database Table that handles Node states is built with the following entries:
-        - state_id
-        - experiment_id
-        - version_node_id: state id version, that checks if states can be used regarding FedBioMed versions.
-        - state_entries: content of each entry that cmposes a Node State
+    Each public method using the database runs in one of its transactions.
     """
+
+    # Tables this manager owns; the only ones it reads or writes
+    MODELS = (NodeState,)
 
     def __init__(self, dir: str, node_id: str, db_path: str):
         """Constructor of the class.
@@ -54,30 +47,16 @@ class NodeStateManager:
         Args:
             dir: Root directory of the component
             node_id: Unique ID of the node
-            db_path: path to the node state database
-
-        Raises:
-            FedbiomedNodeStateManagerError: failed to access the database
-
+            db_path: Path of the node's database file, as in its config.
         """
-        # NOTA: constructor has been designed wrt other object handling DataBase
         self._dir = dir
         self._node_id = node_id
-        self._query: Query = Query()
         # node state base directory, where all node state related files are saved
         self._node_state_base_dir: Optional[str] = None
         self._state_id: Optional[str] = None
         self._previous_state_id: Optional[str] = None
-        try:
-            self._connection = TinyDB(db_path)
-            self._connection.table_class = DBTable
-            self._db: Table = self._connection.table(
-                name=NODE_STATE_TABLE_NAME, cache_size=0
-            )
-        except Exception as e:
-            raise FedbiomedNodeStateManagerError(
-                f"{ErrorNumbers.FB323.value}: Error found when loading database"
-            ) from e
+        self._database = get_database(db_path)
+        self._database.create_tables(self.MODELS)
 
     @property
     def state_id(self) -> Optional[str]:
@@ -113,17 +92,22 @@ class NodeStateManager:
         logger.debug(
             f"Loading node state: experiment_id={experiment_id} state_id={state_id}"
         )
-        state = self._load_state(experiment_id, state_id)
+        with self._database.transaction() as session:
+            saved = session.get(NodeState, state_id)
+            if saved is None or saved.experiment_id != experiment_id:
+                raise FedbiomedNodeStateManagerError(
+                    f"{ErrorNumbers.FB323.value}: no entries matching"
+                    f" experiment_id {experiment_id} and "
+                    f"state_id {state_id} found in the DataBase"
+                )
+            state = {
+                **saved.state,
+                "state_id": saved.state_id,
+                "experiment_id": saved.experiment_id,
+                "version_node_id": saved.version_node_id,
+            }
 
-        if state is None:
-            raise FedbiomedNodeStateManagerError(
-                f"{ErrorNumbers.FB323.value}: no entries matching"
-                f" experiment_id {experiment_id} and "
-                f"state_id {state_id} found in the DataBase"
-            )
-
-        # from this point, state should be a dictionary
-        self._check_version(state.get("version_node_id"))
+        self._check_version(state["version_node_id"])
         return state
 
     def add(self, experiment_id: str, state: Dict[str, Dict[str, str]]) -> str:
@@ -144,73 +128,18 @@ class NodeStateManager:
             raise FedbiomedNodeStateManagerError(
                 f"{ErrorNumbers.FB323.value}: Node state manager is not initialized"
             )
-        header = {
-            "version_node_id": str(__node_state_version__),
-            "state_id": self._state_id,
-            "experiment_id": experiment_id,
-        }
 
-        state.update(header)
-        self._save_state(self._state_id, state)
+        with self._database.transaction() as session:
+            session.merge(
+                NodeState(
+                    state_id=self._state_id,
+                    experiment_id=experiment_id,
+                    version_node_id=str(__node_state_version__),
+                    state=state,
+                )
+            )
+        logger.debug(f"Node state saved to database: state_id={self._state_id}")
         return self._state_id
-
-    def remove(self, experiment_id: Optional[str], state_id: Optional[str]):
-        raise NotImplementedError
-
-    def list_states(self, experiment_id: str):
-        raise NotImplementedError
-
-    def _load_state(self, experiment_id: str, state_id: str) -> Union[Dict, None]:
-        """Loads Node state from DataBase. Directly interfaces with database request.
-
-        Args:
-            experiment_id: experiment_id from which to retrieve state
-            state_id: state_id from which to retrieve state
-
-        Raises:
-            FedbiomedNodeStateManager: raised if request fails
-
-        Returns:
-            result of the request
-        """
-        try:
-            res = self._db.get(
-                (self._query.experiment_id == experiment_id)
-                & (self._query.state_id == state_id)
-            )
-        except Exception as e:
-            raise FedbiomedNodeStateManagerError(
-                f"{ErrorNumbers.FB323.value}: Failing to load node state in DataBase"
-            ) from e
-        if res is None:
-            logger.debug(
-                f"Node state not found in database: experiment_id={experiment_id} state_id={state_id}"
-            )
-        else:
-            logger.debug(
-                f"Node state found in database: experiment_id={experiment_id} state_id={state_id}"
-            )
-        return res
-
-    def _save_state(self, state_id: str, state_entry: Dict[str, Any]) -> None:
-        """Saves Node state in Database. Interfaces with Database request. Issues a
-        `upsert` request in Database.
-
-        Args:
-            state_id: state_id
-            state_entry: dictionary that maps entries with contents in the database
-
-        Raises:
-            FedbiomedNodeStateManagerError: raised if request fails
-        """
-        # TODO: should we make sure `state_id` does not already exist in database ?`
-        try:
-            self._db.upsert(state_entry, self._query.state_id == state_id)
-        except Exception as e:
-            raise FedbiomedNodeStateManagerError(
-                f"{ErrorNumbers.FB323.value}: failing to save node state into DataBase"
-            ) from e
-        logger.debug(f"Node state saved to database: state_id={state_id}")
 
     def initialize(
         self, previous_state_id: Optional[str] = None, testing: Optional[bool] = False

@@ -180,11 +180,8 @@ class NodeState(DatabaseModel):
     state_id: Mapped[str] = mapped_column(primary_key=True)
     experiment_id: Mapped[str] = mapped_column(index=True)
     version_node_id: Mapped[str]
-    optimizer_state: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
-    testing_dataset: Mapped[Any] = mapped_column(JSON, nullable=True, default=None)
-    persistent_model_weights: Mapped[dict[str, Any] | None] = mapped_column(
-        JSON, default=None
-    )
+    # Content set by each job (round, preprocessing), read back as it was saved
+    state: Mapped[dict[str, Any]] = mapped_column(JSON)
 
 
 class _NodeProcessFields(MappedAsDataclass, kw_only=True):
