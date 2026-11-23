@@ -8,7 +8,7 @@ from fedbiomed.common.exceptions import (
     FedbiomedNodeStateManagerError,
     FedbiomedVersionError,
 )
-from fedbiomed.node.db_models import NodeState
+from fedbiomed.node.db_models import NodeStateEntry
 from fedbiomed.node.node_state_manager import NodeStateFileName, NodeStateManager
 
 _FAKE_DECLEARN_OPTIMIZER_STATE = {
@@ -67,7 +67,7 @@ def test_node_state_manager_get(nsm):
 def test_node_state_manager_get_refuses_incompatible_version(nsm, db_path):
     with get_database(db_path).transaction() as session:
         session.add(
-            NodeState(
+            NodeStateEntry(
                 state_id="s1",
                 experiment_id="experiment_id",
                 version_node_id="99.0",

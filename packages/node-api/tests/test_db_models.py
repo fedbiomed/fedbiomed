@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 from fedbiomed.common.db import get_database
-from fedbiomed_node_api.db_models import User, UserRequest
+from fedbiomed_node_api.db_models import UserEntry, UserRequestEntry
 from sqlalchemy import select
 
 _USER = {
@@ -18,8 +18,8 @@ _USER = {
 @pytest.mark.parametrize(
     "model, data",
     [
-        (User, {"user_id": "u", **_USER}),
-        (UserRequest, {"request_id": "r", "request_status": "NEW", **_USER}),
+        (UserEntry, {"user_id": "u", **_USER}),
+        (UserRequestEntry, {"request_id": "r", "request_status": "NEW", **_USER}),
     ],
 )
 def test_gui_tables_round_trip(tmp_path, model, data):

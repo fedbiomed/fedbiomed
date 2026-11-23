@@ -477,7 +477,8 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
             return cls(**{k: v for k, v in data.items() if v is not None})
         except TypeError as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB634.value}: Invalid data input for {cls.__name__}: {e}"
+                f"{ErrorNumbers.FB634.value}: Invalid data input for "
+                f"{cls.__tablename__}: {e}"
             ) from e
 
     def to_dict(self) -> dict:
@@ -599,15 +600,12 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
 
     @staticmethod
     def _raise_database_error(context) -> None:
-        """Raises FB634 naming the failing model; logs the statement without values."""
+        """Raises FB634 naming the failing table; logs the statement without values."""
         reason = context.original_exception
         logger.debug(f"Database error: {reason}; statement: {context.statement}")
         compiled = getattr(context.execution_context, "compiled", None)
         table = getattr(getattr(compiled, "statement", None), "table", None)
-        where = ""
-        for mapper in DatabaseModel.registry.mappers:
-            if mapper.local_table is table:
-                where = f"{mapper.class_.__name__}: "
+        where = f"{table.name}: " if table is not None else ""
         raise FedbiomedError(f"{ErrorNumbers.FB634.value}: {where}{reason}") from reason
 
 

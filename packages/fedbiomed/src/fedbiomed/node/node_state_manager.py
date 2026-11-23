@@ -16,7 +16,7 @@ from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedNodeStateManagerError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import raise_for_version_compatibility
-from fedbiomed.node.db_models import NodeState
+from fedbiomed.node.db_models import NodeStateEntry
 
 
 class NodeStateFileName(_BaseEnum):
@@ -39,7 +39,7 @@ class NodeStateManager:
     """
 
     # Tables this manager owns; the only ones it reads or writes
-    MODELS = (NodeState,)
+    MODELS = (NodeStateEntry,)
 
     def __init__(self, dir: str, node_id: str, db_path: str):
         """Constructor of the class.
@@ -93,7 +93,7 @@ class NodeStateManager:
             f"Loading node state: experiment_id={experiment_id} state_id={state_id}"
         )
         with self._database.transaction() as session:
-            saved = session.get(NodeState, state_id)
+            saved = session.get(NodeStateEntry, state_id)
             if saved is None or saved.experiment_id != experiment_id:
                 raise FedbiomedNodeStateManagerError(
                     f"{ErrorNumbers.FB323.value}: no entries matching"
@@ -131,7 +131,7 @@ class NodeStateManager:
 
         with self._database.transaction() as session:
             session.merge(
-                NodeState(
+                NodeStateEntry(
                     state_id=self._state_id,
                     experiment_id=experiment_id,
                     version_node_id=str(__node_state_version__),

@@ -105,7 +105,7 @@ def test_from_dict_builds_entry():
     ],
 )
 def test_from_dict_rejects_unknown_and_missing_fields(data, reason):
-    with pytest.raises(FedbiomedError, match=f"FB634.*Item: .*{reason}"):
+    with pytest.raises(FedbiomedError, match=f"FB634.*TestItems: .*{reason}"):
         Item.from_dict(data)
 
 
@@ -158,7 +158,7 @@ def test_database_error_keeps_reason_and_logs_statement_without_parameters(
             session.add(Item.from_dict(_item(name="other-hidden-value")))
 
     message = str(error.value)
-    assert message.startswith("FB634: Database error: Item: ")
+    assert message.startswith("FB634: Database error: TestItems: ")
     assert "UNIQUE constraint failed: TestItems.item_id" in message
     assert "INSERT" not in message
     (logged,) = debug

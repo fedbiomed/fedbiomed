@@ -5,10 +5,10 @@ from datetime import datetime, timedelta, timezone
 import psutil
 import pytest
 from fedbiomed.node.db_models import (
-    NodeConnectionState,
-    NodeConnectionStateHistory,
-    NodeProcessState,
-    NodeProcessStateHistory,
+    NodeConnectionStateEntry,
+    NodeConnectionStateHistoryEntry,
+    NodeProcessStateEntry,
+    NodeProcessStateHistoryEntry,
 )
 from fedbiomed.node.node_pm import (
     DEFAULT_NODE_ARGS,
@@ -86,7 +86,7 @@ def test_node_pm_init_creates_missing_tables(mocker, tmp_path):
     manager = NodeProcessManager(_config(mocker, tmp_path))
 
     assert {"NodeProcessStates", "NodeProcessStateHistory"} <= set(_tables(manager))
-    assert _stored(manager, NodeProcessState) == []
+    assert _stored(manager, NodeProcessStateEntry) == []
 
 
 @pytest.mark.parametrize("background", [True, False])
@@ -301,7 +301,7 @@ def test_node_pm_restart_inherits_and_overrides_saved_settings(
     manager = _manager
     _store(
         manager,
-        NodeProcessState,
+        NodeProcessStateEntry,
         **_process_state(
             node_args={
                 "gpu": True,
@@ -353,7 +353,7 @@ def test_node_pm_restart_uses_cli_defaults_without_saved_state(mocker, _manager)
 def test_node_pm_set_process_state(mocker, _manager):
     manager = _manager
     manager._node_id = "node_id1"
-    _store(manager, NodeProcessState, **_process_state(node_id="node_id1"))
+    _store(manager, NodeProcessStateEntry, **_process_state(node_id="node_id1"))
 
     mocker.patch("fedbiomed.node.node_pm._utc_now", return_value=NOW)
     mocker.patch.object(
@@ -369,8 +369,8 @@ def test_node_pm_set_process_state(mocker, _manager):
         background=True,
     )
 
-    (state_entry,) = _stored(manager, NodeProcessState)
-    (history_entry,) = _stored(manager, NodeProcessStateHistory)
+    (state_entry,) = _stored(manager, NodeProcessStateEntry)
+    (history_entry,) = _stored(manager, NodeProcessStateHistoryEntry)
 
     assert state_entry["node_id"] == "node_id1"
     assert state_entry["pid"] == 1234
@@ -387,7 +387,7 @@ def test_node_pm_set_process_state_preserves_execution_settings(mocker, _manager
     manager._node_id = "node_id1"
     _store(
         manager,
-        NodeProcessState,
+        NodeProcessStateEntry,
         **_process_state(
             node_id="node_id1",
             state=NodeState.RUNNING.value,
@@ -409,7 +409,7 @@ def test_node_pm_set_process_state_preserves_execution_settings(mocker, _manager
         action="stop",
     )
 
-    (state_entry,) = _stored(manager, NodeProcessState)
+    (state_entry,) = _stored(manager, NodeProcessStateEntry)
     assert state_entry["node_args"] == {
         "gpu": True,
         "gpu_num": 3,
@@ -425,7 +425,7 @@ def test_node_pm_set_process_state_merges_partial_node_args(mocker, _manager):
     manager._node_id = "node_id1"
     _store(
         manager,
-        NodeProcessState,
+        NodeProcessStateEntry,
         **_process_state(
             node_id="node_id1",
             state=NodeState.RUNNING.value,
@@ -448,7 +448,7 @@ def test_node_pm_set_process_state_merges_partial_node_args(mocker, _manager):
         node_args={"gpu_num": 4, "debug": False},
     )
 
-    (state_entry,) = _stored(manager, NodeProcessState)
+    (state_entry,) = _stored(manager, NodeProcessStateEntry)
     assert state_entry["node_args"] == {
         "gpu": True,
         "gpu_num": 4,
@@ -463,7 +463,7 @@ def test_node_pm_set_process_state_resets_started_at_after_stop(mocker, _manager
     manager._node_id = "node_id1"
     _store(
         manager,
-        NodeProcessState,
+        NodeProcessStateEntry,
         **_process_state(
             node_id="node_id1",
             state=NodeState.STOPPED.value,
@@ -485,7 +485,7 @@ def test_node_pm_set_process_state_resets_started_at_after_stop(mocker, _manager
         reason="start_requested",
     )
 
-    (state_entry,) = _stored(manager, NodeProcessState)
+    (state_entry,) = _stored(manager, NodeProcessStateEntry)
 
     assert state_entry["started_at"] == NOW
     assert "stopped_at" not in state_entry
@@ -500,7 +500,7 @@ def test_node_pm_set_process_state_resets_started_at_for_forced_start(
     manager._node_id = "node_id1"
     _store(
         manager,
-        NodeProcessState,
+        NodeProcessStateEntry,
         **_process_state(
             node_id="node_id1",
             state=NodeState.RUNNING.value,
@@ -522,7 +522,7 @@ def test_node_pm_set_process_state_resets_started_at_for_forced_start(
         reason="start_requested",
     )
 
-    (state_entry,) = _stored(manager, NodeProcessState)
+    (state_entry,) = _stored(manager, NodeProcessStateEntry)
     assert state_entry["pid"] == 5678
     assert state_entry["state"] == NodeState.RUNNING.value
     assert state_entry["started_at"] == NOW
@@ -616,7 +616,7 @@ def test_node_pm_get_status(
     if stored_state is not None:
         _store(
             manager,
-            NodeProcessState,
+            NodeProcessStateEntry,
             **_process_state(pid=12345, state=stored_state.value),
         )
 
@@ -632,7 +632,7 @@ def test_node_pm_process_state_returns_stored_entry(mocker, _manager):
 
     _store(
         manager,
-        NodeProcessState,
+        NodeProcessStateEntry,
         **_process_state(
             pid=12345,
             state=NodeState.RUNNING.value,
@@ -682,7 +682,7 @@ def test_node_pm_set_process_state_needs_node_id(mocker, tmp_path):
 
     manager._set_process_state(pid=1, state=NodeState.RUNNING, action="start")
 
-    assert _stored(manager, NodeProcessState) == []
+    assert _stored(manager, NodeProcessStateEntry) == []
 
 
 def test_node_pm_set_process_state_survives_db_failure(mocker, _manager):
@@ -700,7 +700,7 @@ def test_node_pm_set_process_state_survives_db_failure(mocker, _manager):
     "state, expected_pid", [(NodeState.RUNNING, 1234), (NodeState.STOPPED, None)]
 )
 def test_node_pm_get_pid_only_of_a_running_process(_manager, state, expected_pid):
-    _store(_manager, NodeProcessState, **_process_state(state=state.value))
+    _store(_manager, NodeProcessStateEntry, **_process_state(state=state.value))
 
     assert _manager._get_pid() == expected_pid
 
@@ -711,7 +711,7 @@ def test_node_pm_cleanup_process_state_history_removes_entries_past_retention(
     for age_in_days in (31, 10):
         _store(
             _manager,
-            NodeProcessStateHistory,
+            NodeProcessStateHistoryEntry,
             **_process_state(
                 node_id="node-retention",
                 state="running",
@@ -723,7 +723,7 @@ def test_node_pm_cleanup_process_state_history_removes_entries_past_retention(
     with _manager._database.transaction() as session:
         NodeProcessManager._cleanup_process_state_history(session)
 
-    remaining = _stored(_manager, NodeProcessStateHistory)
+    remaining = _stored(_manager, NodeProcessStateHistoryEntry)
     assert [entry["action"] for entry in remaining] == ["start-10"]
 
 
@@ -769,7 +769,7 @@ def test_node_connection_set_state_prunes_history_past_retention(
     for age_in_days in (31, 10):
         _store(
             _connection_manager,
-            NodeConnectionStateHistory,
+            NodeConnectionStateHistoryEntry,
             node_id="node-1",
             state="connected",
             host="localhost",
@@ -780,7 +780,7 @@ def test_node_connection_set_state_prunes_history_past_retention(
 
     _connection_manager.set_state(**_connection_state(operation="node_starting"))
 
-    remaining = _stored(_connection_manager, NodeConnectionStateHistory)
+    remaining = _stored(_connection_manager, NodeConnectionStateHistoryEntry)
     assert [entry["operation"] for entry in remaining] == [
         "retained-10",
         "node_starting",
@@ -801,13 +801,13 @@ def test_node_connection_set_state_records_state_and_history(
         )
     )
 
-    (entry,) = _stored(manager, NodeConnectionState)
+    (entry,) = _stored(manager, NodeConnectionStateEntry)
     assert entry["state"] == "connected"
     assert entry["researcher_id"] == "researcher-1"
     assert entry["identity_verified"] is True
     assert entry["certificate"] == {"subject": "CN=researcher-1"}
     assert entry["started_at"] == entry["updated_at"]
-    assert _stored(manager, NodeConnectionStateHistory) == [entry]
+    assert _stored(manager, NodeConnectionStateHistoryEntry) == [entry]
 
 
 def _repeated_state(updated_at):
@@ -844,14 +844,14 @@ def test_node_connection_set_state_refreshes_stale_repeated_state(
 ):
     manager = _connection_manager
     updated_at = _ago(minutes=30)
-    _store(manager, NodeConnectionState, **_repeated_state(updated_at))
+    _store(manager, NodeConnectionStateEntry, **_repeated_state(updated_at))
 
     _repeat_state(manager)
 
-    (entry,) = _stored(manager, NodeConnectionState)
+    (entry,) = _stored(manager, NodeConnectionStateEntry)
     assert entry["updated_at"] > updated_at
     assert entry == {**_repeated_state(updated_at), "updated_at": entry["updated_at"]}
-    assert _stored(manager, NodeConnectionStateHistory) == []
+    assert _stored(manager, NodeConnectionStateHistoryEntry) == []
 
 
 def test_node_connection_set_state_honours_the_refresh_interval(
@@ -860,7 +860,7 @@ def test_node_connection_set_state_honours_the_refresh_interval(
     """An unreachable researcher asks for a rarer refresh than the default."""
     manager = _connection_manager
     recent = _ago(minutes=10)
-    _store(manager, NodeConnectionState, **_repeated_state(recent))
+    _store(manager, NodeConnectionStateEntry, **_repeated_state(recent))
 
     manager.set_state(
         **_connection_state(
@@ -870,10 +870,10 @@ def test_node_connection_set_state_honours_the_refresh_interval(
         ),
         refresh_interval=timedelta(minutes=30),
     )
-    assert _stored(manager, NodeConnectionState)[0]["updated_at"] == recent
+    assert _stored(manager, NodeConnectionStateEntry)[0]["updated_at"] == recent
 
     stale = _ago(minutes=31)
-    _store(manager, NodeConnectionState, **_repeated_state(stale))
+    _store(manager, NodeConnectionStateEntry, **_repeated_state(stale))
     manager.set_state(
         **_connection_state(
             state=ClientStatus.DISCONNECTED,
@@ -882,7 +882,7 @@ def test_node_connection_set_state_honours_the_refresh_interval(
         ),
         refresh_interval=timedelta(minutes=30),
     )
-    assert _stored(manager, NodeConnectionState)[0]["updated_at"] > stale
+    assert _stored(manager, NodeConnectionStateEntry)[0]["updated_at"] > stale
 
 
 def test_node_connection_set_state_leaves_recent_repeated_state_alone(
@@ -890,12 +890,14 @@ def test_node_connection_set_state_leaves_recent_repeated_state_alone(
 ):
     """An unreachable researcher repeats every 2s, and each write locks the file."""
     manager = _connection_manager
-    _store(manager, NodeConnectionState, **_repeated_state(_ago(seconds=30)))
+    _store(manager, NodeConnectionStateEntry, **_repeated_state(_ago(seconds=30)))
 
     _repeat_state(manager)
 
-    assert _stored(manager, NodeConnectionState) == [_repeated_state(_ago(seconds=30))]
-    assert _stored(manager, NodeConnectionStateHistory) == []
+    assert _stored(manager, NodeConnectionStateEntry) == [
+        _repeated_state(_ago(seconds=30))
+    ]
+    assert _stored(manager, NodeConnectionStateHistoryEntry) == []
 
 
 def test_node_connection_set_state_carries_last_error_forward(
@@ -904,7 +906,7 @@ def test_node_connection_set_state_carries_last_error_forward(
     manager = _connection_manager
     _store(
         manager,
-        NodeConnectionState,
+        NodeConnectionStateEntry,
         node_id="node-1",
         state="failed",
         host="localhost",
@@ -916,7 +918,7 @@ def test_node_connection_set_state_carries_last_error_forward(
 
     manager.set_state(**_connection_state(operation="researcher_channel_established"))
 
-    (entry,) = _stored(manager, NodeConnectionState)
+    (entry,) = _stored(manager, NodeConnectionStateEntry)
     assert entry["last_error"] == "handshake failed"
     assert entry["last_error_at"] == NOW
     assert "reason" not in entry
@@ -935,7 +937,7 @@ def test_node_connection_set_state_records_failure_as_last_error(
         )
     )
 
-    (entry,) = _stored(manager, NodeConnectionState)
+    (entry,) = _stored(manager, NodeConnectionStateEntry)
     assert entry["state"] == "failed"
     assert entry["last_error"] == "identity rejected"
     assert entry["last_error_at"] == entry["updated_at"]
@@ -960,7 +962,7 @@ def test_node_connection_get_connection_state(mocker, _connection_manager):
 
     _store(
         manager,
-        NodeConnectionState,
+        NodeConnectionStateEntry,
         node_id="node-1",
         state="connected",
         host="localhost",
@@ -987,7 +989,7 @@ def test_node_connection_channel_report_reaches_the_manager(_connection_manager)
         identity_verified=False,
     )
 
-    (entry,) = _stored(_connection_manager, NodeConnectionState)
+    (entry,) = _stored(_connection_manager, NodeConnectionStateEntry)
     assert entry["state"] == "failed"
     assert entry["operation"] == "mtls_identity_rejected"
     assert entry["researcher_id"] == "researcher-1"
@@ -1002,7 +1004,7 @@ def test_node_connection_get_connection_history_newest_first(
     for state in ("failed", "disconnected", "connected"):
         _store(
             manager,
-            NodeConnectionStateHistory,
+            NodeConnectionStateHistoryEntry,
             node_id="node-1",
             state=state,
             host="localhost",
@@ -1019,6 +1021,6 @@ def test_node_connection_without_node_id_records_nothing(mocker, tmp_path):
 
     manager.set_state(**_connection_state())
 
-    assert _stored(manager, NodeConnectionState) == []
+    assert _stored(manager, NodeConnectionStateEntry) == []
     assert manager.get_connection_state() is None
     assert manager.get_connection_history() == []

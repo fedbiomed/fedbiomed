@@ -23,7 +23,7 @@ from fedbiomed.common.constants import (
     ErrorNumbers,
 )
 from fedbiomed.common.db import get_database
-from fedbiomed.common.db_models import Certificate
+from fedbiomed.common.db_models import CertificateEntry
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import read_file
@@ -517,7 +517,7 @@ class CertificateManager:
     """
 
     # Tables this manager owns; the only ones it reads or writes
-    MODELS = (Certificate,)
+    MODELS = (CertificateEntry,)
 
     def __init__(self, db_path: str, component_type: str):
         """Opens a component's certificate database.
@@ -538,13 +538,13 @@ class CertificateManager:
     def get(self, component_id: str) -> Union[dict, None]:
         """Gets the certificate registered for a component, or None."""
         with self._database.transaction() as session:
-            certificate = session.get(Certificate, component_id)
+            certificate = session.get(CertificateEntry, component_id)
             return None if certificate is None else certificate.to_dict()
 
     def delete(self, component_id) -> None:
         """Deletes the certificate registered for a component, if any."""
         with self._database.transaction() as session:
-            registered = session.get(Certificate, component_id)
+            registered = session.get(CertificateEntry, component_id)
             if registered is None:
                 return
             # Read before removing: revoking trust is auditable only while the
@@ -569,7 +569,9 @@ class CertificateManager:
             List of certificate objects registered in DB
         """
         with self._database.transaction() as session:
-            certificates = [c.to_dict() for c in session.scalars(select(Certificate))]
+            certificates = [
+                c.to_dict() for c in session.scalars(select(CertificateEntry))
+            ]
 
         if verbose:
             to_print = []
@@ -727,7 +729,9 @@ class CertificateManager:
         # hold against the CLI and GUI registering at the same time
         with self._database.transaction() as session:
             others = session.scalars(
-                select(Certificate).where(Certificate.component_id != component_id)
+                select(CertificateEntry).where(
+                    CertificateEntry.component_id != component_id
+                )
             ).all()
 
             # A node communicates with a single researcher, so it holds one certificate
@@ -758,14 +762,14 @@ class CertificateManager:
                     f"certificate of its own for `{component_id}`."
                 )
 
-            replaced = session.get(Certificate, component_id) is not None
+            replaced = session.get(CertificateEntry, component_id) is not None
             if replaced and not upsert:
                 raise FedbiomedCertificateError(
                     f"{ErrorNumbers.FB619.value}: Component {component_id} already "
                     "registered. Please use `upsert=True` or '--upsert' option through CLI"
                 )
             session.merge(
-                Certificate(component_id=component_id, certificate=certificate)
+                CertificateEntry(component_id=component_id, certificate=certificate)
             )
 
         # Every path granting trust goes through here; `replaced` marks a pin overwritten

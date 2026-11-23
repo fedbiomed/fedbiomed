@@ -17,7 +17,7 @@ from fedbiomed.common.constants import (
     __messaging_protocol_version__,
 )
 from fedbiomed.common.db import get_database
-from fedbiomed.common.db_models import Certificate
+from fedbiomed.common.db_models import CertificateEntry
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.message import (
     ErrorMessage,
@@ -835,7 +835,7 @@ def diagnostics_env(tmp_path):
         if hand_written:
             with get_database(config.getpath("default", "db")).transaction() as session:
                 session.merge(
-                    Certificate(component_id=component_id, certificate=certificate)
+                    CertificateEntry(component_id=component_id, certificate=certificate)
                 )
         else:
             manager.register(

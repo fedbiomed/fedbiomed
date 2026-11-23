@@ -1,7 +1,7 @@
 import pytest
 from fedbiomed.common.constants import SecaggElementTypes, __secagg_element_version__
 from fedbiomed.common.db import get_database
-from fedbiomed.common.db_models import SecaggElement
+from fedbiomed.common.db_models import SecaggElementEntry
 from fedbiomed.common.exceptions import (
     FedbiomedError,
     FedbiomedSecaggError,
@@ -79,7 +79,7 @@ def test_secagg_manager_refuses_incompatible_version(db_path):
     manager = SecaggServkeyManager(db_path)
     with get_database(db_path).transaction() as session:
         session.add(
-            SecaggElement(
+            SecaggElementEntry(
                 secagg_id="s1",
                 secagg_version="99.0",
                 secagg_elem=SecaggElementTypes.SERVER_KEY.value,

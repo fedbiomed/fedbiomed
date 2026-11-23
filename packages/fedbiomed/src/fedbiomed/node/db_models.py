@@ -30,7 +30,7 @@ def _dataset_type() -> Enum:
     )
 
 
-class Dataset(DatabaseModel):
+class DatasetEntry(DatabaseModel):
     """Dataset registered on the node."""
 
     __tablename__ = "Datasets"
@@ -52,7 +52,7 @@ class Dataset(DatabaseModel):
     # A data loading plan used by a dataset cannot be deleted
     dlp_id: Mapped[str | None] = mapped_column(ForeignKey("Dlps.dlp_id"), default=None)
     # Let the session insert the plan before a dataset using it
-    dlp: Mapped["Dlp | None"] = relationship(init=False, repr=False)
+    dlp: Mapped["DlpEntry | None"] = relationship(init=False, repr=False)
 
     @validates("tags")
     def _validate_tags(self, _key: str, tags: list[str]) -> list[str]:
@@ -65,11 +65,11 @@ class Dataset(DatabaseModel):
         return tags
 
 
-class DynamicDataset(DatabaseModel):
+class DynamicDatasetEntry(DatabaseModel):
     """Dataset produced by a processing job from a parent dataset.
 
-    The parent is a `Dataset` (`parent_dataset_id`) or another
-    `DynamicDataset` (`parent_dynamic_id`): exactly one is set. A dataset with
+    The parent is a `DatasetEntry` (`parent_dataset_id`) or another
+    `DynamicDatasetEntry` (`parent_dynamic_id`): exactly one is set. A dataset with
     derived datasets cannot be deleted before them.
     """
 
@@ -93,7 +93,7 @@ class DynamicDataset(DatabaseModel):
     )
     # Let the session insert the parent dataset before the datasets derived
     # from it
-    parent_dataset: Mapped["Dataset | None"] = relationship(init=False, repr=False)
+    parent_dataset: Mapped["DatasetEntry | None"] = relationship(init=False, repr=False)
     shape: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
     dtypes: Mapped[dict[str, str] | None] = mapped_column(JSON, default=None)
     name: Mapped[str | None] = mapped_column(default=None)
@@ -105,7 +105,7 @@ class DynamicDataset(DatabaseModel):
     )
 
 
-class Dlp(DatabaseModel):
+class DlpEntry(DatabaseModel):
     """Data loading plan: the loading blocks applied to a type of dataset."""
 
     __tablename__ = "Dlps"
@@ -127,8 +127,8 @@ class Dlp(DatabaseModel):
         return dlp_name
 
 
-class Dlb(DatabaseModel):
-    """Data loading block, referenced by `Dlp.loading_blocks`.
+class DlbEntry(DatabaseModel):
+    """Data loading block, referenced by `DlpEntry.loading_blocks`.
 
     Each block type serializes its own fields, so the block is stored as its
     serialized form (`DataLoadingBlock.serialize`).
@@ -140,7 +140,7 @@ class Dlb(DatabaseModel):
     content: Mapped[dict[str, Any]] = mapped_column(JSON)
 
 
-class Channel(DatabaseModel):
+class ChannelEntry(DatabaseModel):
     """Node-to-node channel: the local key used with a distant node."""
 
     __tablename__ = "Channels"
@@ -151,7 +151,7 @@ class Channel(DatabaseModel):
     local_key: Mapped[str]  # base64 private key
 
 
-class TrainingPlan(DatabaseModel):
+class TrainingPlanEntry(DatabaseModel):
     """Training plan known to the node, with its approval status."""
 
     __tablename__ = "TrainingPlans"
@@ -172,7 +172,7 @@ class TrainingPlan(DatabaseModel):
     notes: Mapped[str | None] = mapped_column(default=None)
 
 
-class NodeState(DatabaseModel):
+class NodeStateEntry(DatabaseModel):
     """State the node keeps between the rounds of an experiment."""
 
     __tablename__ = "NodeStates"
@@ -201,7 +201,7 @@ class _NodeProcessFields(MappedAsDataclass, kw_only=True):
     background: Mapped[bool | None] = mapped_column(default=None)
 
 
-class NodeProcessState(_NodeProcessFields, DatabaseModel):
+class NodeProcessStateEntry(_NodeProcessFields, DatabaseModel):
     """Current state of the managed node process."""
 
     __tablename__ = "NodeProcessStates"
@@ -209,7 +209,7 @@ class NodeProcessState(_NodeProcessFields, DatabaseModel):
     node_id: Mapped[str] = mapped_column(primary_key=True)
 
 
-class NodeProcessStateHistory(_NodeProcessFields, DatabaseModel):
+class NodeProcessStateHistoryEntry(_NodeProcessFields, DatabaseModel):
     """Past states of the managed node process, several per node."""
 
     __tablename__ = "NodeProcessStateHistory"
@@ -237,7 +237,7 @@ class _NodeConnectionFields(MappedAsDataclass, kw_only=True):
     last_error_at: Mapped[datetime | None] = mapped_column(UtcDateTime, default=None)
 
 
-class NodeConnectionState(_NodeConnectionFields, DatabaseModel):
+class NodeConnectionStateEntry(_NodeConnectionFields, DatabaseModel):
     """State of the node's channel to the researcher, as the node last observed it."""
 
     __tablename__ = "NodeConnectionStates"
@@ -245,7 +245,7 @@ class NodeConnectionState(_NodeConnectionFields, DatabaseModel):
     node_id: Mapped[str] = mapped_column(primary_key=True)
 
 
-class NodeConnectionStateHistory(_NodeConnectionFields, DatabaseModel):
+class NodeConnectionStateHistoryEntry(_NodeConnectionFields, DatabaseModel):
     """Past states of the node's channel to the researcher, several per node."""
 
     __tablename__ = "NodeConnectionStateHistory"

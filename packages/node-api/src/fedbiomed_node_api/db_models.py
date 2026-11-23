@@ -24,7 +24,7 @@ class _UserFields(MappedAsDataclass, kw_only=True):
     creation_date: Mapped[datetime] = mapped_column(UtcDateTime)
 
 
-class User(_UserFields, DatabaseModel):
+class UserEntry(_UserFields, DatabaseModel):
     """Registered GUI user."""
 
     __tablename__ = "Users"
@@ -33,7 +33,7 @@ class User(_UserFields, DatabaseModel):
     user_email: Mapped[str] = mapped_column(unique=True)
 
 
-class UserRequest(_UserFields, DatabaseModel):
+class UserRequestEntry(_UserFields, DatabaseModel):
     """Account request, waiting for an administrator's decision."""
 
     __tablename__ = "UserRequests"

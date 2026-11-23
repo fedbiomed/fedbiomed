@@ -2,7 +2,7 @@ import pytest
 from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedVersionError
 from fedbiomed.node.channel_manager import ChannelManager
-from fedbiomed.node.db_models import Channel
+from fedbiomed.node.db_models import ChannelEntry
 
 
 @pytest.fixture
@@ -28,7 +28,9 @@ def test_channel_manager_refuses_incompatible_version(db_path):
     cm = ChannelManager(db_path)
     with get_database(db_path).transaction() as session:
         session.add(
-            Channel(distant_node_id="node1", n2n_channel_version="99.0", local_key="")
+            ChannelEntry(
+                distant_node_id="node1", n2n_channel_version="99.0", local_key=""
+            )
         )
 
     with pytest.raises(FedbiomedVersionError):

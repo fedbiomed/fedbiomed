@@ -25,10 +25,10 @@ from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import DEFAULT_APPLICATION_LOG_FILE, logger
 from fedbiomed.node.config import NodeConfig
 from fedbiomed.node.db_models import (
-    NodeConnectionState,
-    NodeConnectionStateHistory,
-    NodeProcessState,
-    NodeProcessStateHistory,
+    NodeConnectionStateEntry,
+    NodeConnectionStateHistoryEntry,
+    NodeProcessStateEntry,
+    NodeProcessStateHistoryEntry,
 )
 from fedbiomed.node.node import Node
 from fedbiomed.transport.client import ClientStatus
@@ -197,7 +197,7 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
 class NodeProcessManager:
     """Manages a single node subprocess. This node subprocess is the one where whose config is passed during initialization."""
 
-    MODELS = (NodeProcessState, NodeProcessStateHistory)
+    MODELS = (NodeProcessStateEntry, NodeProcessStateHistoryEntry)
 
     def __init__(self, config: NodeConfig) -> None:
         """Initialize the NodeProcessManager with the given configuration.
@@ -218,7 +218,7 @@ class NodeProcessManager:
     def _saved_state(self) -> Optional[Dict[str, Any]]:
         """The stored process state of this node, or None when none was recorded yet."""
         with self._database.transaction() as session:
-            saved = session.get(NodeProcessState, self._node_id)
+            saved = session.get(NodeProcessStateEntry, self._node_id)
             return saved.to_dict() if saved else None
 
     @staticmethod
@@ -231,8 +231,8 @@ class NodeProcessManager:
         """
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         session.execute(
-            delete(NodeProcessStateHistory).where(
-                NodeProcessStateHistory.updated_at < cutoff
+            delete(NodeProcessStateHistoryEntry).where(
+                NodeProcessStateHistoryEntry.updated_at < cutoff
             )
         )
 
@@ -293,7 +293,7 @@ class NodeProcessManager:
         try:
             with self._database.transaction() as session:
                 now = _utc_now()
-                saved = session.get(NodeProcessState, self._node_id)
+                saved = session.get(NodeProcessStateEntry, self._node_id)
                 existing = saved.to_dict() if saved else {}
                 effective_node_args = existing.get("node_args")
                 if node_args is not None:
@@ -345,11 +345,13 @@ class NodeProcessManager:
                         fields["stopped_at"] = now
 
                 if saved is None:
-                    session.add(NodeProcessState(node_id=self._node_id, **fields))
+                    session.add(NodeProcessStateEntry(node_id=self._node_id, **fields))
                 else:
                     for field, value in fields.items():
                         setattr(saved, field, value)
-                session.add(NodeProcessStateHistory(node_id=self._node_id, **fields))
+                session.add(
+                    NodeProcessStateHistoryEntry(node_id=self._node_id, **fields)
+                )
                 self._cleanup_process_state_history(session)
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
@@ -651,7 +653,7 @@ class NodeConnectionStateManager:
     process - typically the GUI - reads the last known state without parsing logs.
     """
 
-    MODELS = (NodeConnectionState, NodeConnectionStateHistory)
+    MODELS = (NodeConnectionStateEntry, NodeConnectionStateHistoryEntry)
 
     def __init__(self, config: NodeConfig) -> None:
         """Initialize the NodeConnectionStateManager with the given configuration.
@@ -678,8 +680,8 @@ class NodeConnectionStateManager:
         """
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         session.execute(
-            delete(NodeConnectionStateHistory).where(
-                NodeConnectionStateHistory.updated_at < cutoff
+            delete(NodeConnectionStateHistoryEntry).where(
+                NodeConnectionStateHistoryEntry.updated_at < cutoff
             )
         )
 
@@ -726,7 +728,7 @@ class NodeConnectionStateManager:
         try:
             with self._database.transaction() as session:
                 now = _utc_now()
-                saved = session.get(NodeConnectionState, self._node_id)
+                saved = session.get(NodeConnectionStateEntry, self._node_id)
                 existing = saved.to_dict() if saved else {}
 
                 if (
@@ -762,11 +764,15 @@ class NodeConnectionStateManager:
                 }
 
                 if saved is None:
-                    session.add(NodeConnectionState(node_id=self._node_id, **fields))
+                    session.add(
+                        NodeConnectionStateEntry(node_id=self._node_id, **fields)
+                    )
                 else:
                     for field, value in fields.items():
                         setattr(saved, field, value)
-                session.add(NodeConnectionStateHistory(node_id=self._node_id, **fields))
+                session.add(
+                    NodeConnectionStateHistoryEntry(node_id=self._node_id, **fields)
+                )
                 self._cleanup_connection_state_history(session)
         except Exception as e:
             logger.warning(f"Could not persist node connection state: {e}")
@@ -777,7 +783,7 @@ class NodeConnectionStateManager:
             return None
 
         with self._database.transaction() as session:
-            saved = session.get(NodeConnectionState, self._node_id)
+            saved = session.get(NodeConnectionStateEntry, self._node_id)
             return saved.to_dict() if saved else None
 
     def get_connection_history(self, limit: int = 20) -> List[Dict[str, Any]]:
@@ -791,9 +797,9 @@ class NodeConnectionStateManager:
 
         with self._database.transaction() as session:
             entries = session.scalars(
-                select(NodeConnectionStateHistory)
-                .where(NodeConnectionStateHistory.node_id == self._node_id)
-                .order_by(NodeConnectionStateHistory.id.desc())
+                select(NodeConnectionStateHistoryEntry)
+                .where(NodeConnectionStateHistoryEntry.node_id == self._node_id)
+                .order_by(NodeConnectionStateHistoryEntry.id.desc())
                 .limit(limit)
             )
             return [entry.to_dict() for entry in entries]

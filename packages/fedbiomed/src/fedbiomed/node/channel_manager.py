@@ -12,7 +12,7 @@ from fedbiomed.common.constants import ErrorNumbers, __n2n_channel_element_versi
 from fedbiomed.common.db import get_database
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import raise_for_version_compatibility
-from fedbiomed.node.db_models import Channel
+from fedbiomed.node.db_models import ChannelEntry
 
 
 class ChannelManager:
@@ -22,7 +22,7 @@ class ChannelManager:
     """
 
     # Tables this manager owns; the only ones it reads or writes
-    MODELS = (Channel,)
+    MODELS = (ChannelEntry,)
 
     def __init__(self, db_path: str):
         """Initialize with the component's database, creating the missing `MODELS` tables.
@@ -40,7 +40,7 @@ class ChannelManager:
             List of `distant_node_id` of all known channels
         """
         with self._database.transaction() as session:
-            channels = list(session.scalars(select(Channel.distant_node_id)))
+            channels = list(session.scalars(select(ChannelEntry.distant_node_id)))
 
         logger.debug(f"Listed node-to-node channels: count={len(channels)}")
         return channels
@@ -59,7 +59,7 @@ class ChannelManager:
             FedbiomedVersionError: the channel was saved by an incompatible version
         """
         with self._database.transaction() as session:
-            channel = session.get(Channel, distant_node_id)
+            channel = session.get(ChannelEntry, distant_node_id)
             element = None if channel is None else channel.to_dict()
 
         logger.debug(
@@ -84,7 +84,7 @@ class ChannelManager:
             distant_node_id: unique id used to save a given channel component
             local_key: private key of local endpoint for this channel
         """
-        channel = Channel(
+        channel = ChannelEntry(
             distant_node_id=distant_node_id,
             n2n_channel_version=str(__n2n_channel_element_version__),
             local_key=str(base64.b64encode(local_key), "utf-8"),

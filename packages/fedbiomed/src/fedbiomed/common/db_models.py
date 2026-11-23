@@ -13,7 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from fedbiomed.common.db import DatabaseModel
 
 
-class Certificate(DatabaseModel):
+class CertificateEntry(DatabaseModel):
     """Certificate of a component this one trusts."""
 
     __tablename__ = "Certificates"
@@ -23,7 +23,7 @@ class Certificate(DatabaseModel):
     certificate: Mapped[str]  # PEM
 
 
-class SecaggElement(DatabaseModel):
+class SecaggElementEntry(DatabaseModel):
     """Secure aggregation context element of an experiment."""
 
     __tablename__ = "SecaggElements"

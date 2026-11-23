@@ -12,7 +12,7 @@ from fedbiomed.common.constants import (
     __secagg_element_version__,
 )
 from fedbiomed.common.db import get_database
-from fedbiomed.common.db_models import SecaggElement
+from fedbiomed.common.db_models import SecaggElementEntry
 from fedbiomed.common.exceptions import FedbiomedSecaggError
 from fedbiomed.common.utils import raise_for_version_compatibility
 
@@ -24,7 +24,7 @@ class BaseSecaggManager:
     """
 
     # Tables this manager owns; the only ones it reads or writes
-    MODELS = (SecaggElement,)
+    MODELS = (SecaggElementEntry,)
     # Type of the elements this manager keeps
     _ELEMENT: SecaggElementTypes
 
@@ -51,7 +51,7 @@ class BaseSecaggManager:
             FedbiomedSecaggError: the element belongs to another experiment or type
         """
         with self._database.transaction() as session:
-            element = session.get(SecaggElement, secagg_id)
+            element = session.get(SecaggElementEntry, secagg_id)
             element = None if element is None else element.to_dict()
 
         if element is not None:
@@ -75,7 +75,7 @@ class BaseSecaggManager:
         """
         with self._database.transaction() as session:
             session.add(
-                SecaggElement(
+                SecaggElementEntry(
                     secagg_id=secagg_id,
                     secagg_version=str(__secagg_element_version__),
                     secagg_elem=self._ELEMENT.value,
@@ -99,7 +99,7 @@ class BaseSecaggManager:
             FedbiomedSecaggError: the element belongs to another experiment or type
         """
         with self._database.transaction() as session:
-            element = session.get(SecaggElement, secagg_id)
+            element = session.get(SecaggElementEntry, secagg_id)
             if element is None:
                 return False
             self._check(element.to_dict(), experiment_id, "removing")

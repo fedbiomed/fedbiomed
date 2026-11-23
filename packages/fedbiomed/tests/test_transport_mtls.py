@@ -41,7 +41,7 @@ from fedbiomed.common.certificate_manager import (
 )
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
 from fedbiomed.common.db import get_database
-from fedbiomed.common.db_models import Certificate
+from fedbiomed.common.db_models import CertificateEntry
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchReply, SearchRequest
 from fedbiomed.common.serializer import Serializer
@@ -297,7 +297,7 @@ def test_component_id_refuses_a_certificate_registered_under_two_parties(
     with get_database(str(db_path)).transaction() as session:
         for component_id in (OTHER_NODE_ID, NODE_ID):
             session.add(
-                Certificate(
+                CertificateEntry(
                     component_id=component_id,
                     certificate=certs["node_cert"].decode("utf-8"),
                 )

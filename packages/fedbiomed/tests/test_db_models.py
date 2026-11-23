@@ -3,20 +3,20 @@ from datetime import datetime, timezone
 import fedbiomed.common.db as db_mod
 import pytest
 from fedbiomed.common.db import get_database
-from fedbiomed.common.db_models import Certificate, SecaggElement
+from fedbiomed.common.db_models import CertificateEntry, SecaggElementEntry
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.db_models import (
-    Channel,
-    Dataset,
-    Dlb,
-    Dlp,
-    DynamicDataset,
-    NodeConnectionState,
-    NodeConnectionStateHistory,
-    NodeProcessState,
-    NodeProcessStateHistory,
-    NodeState,
-    TrainingPlan,
+    ChannelEntry,
+    DatasetEntry,
+    DlbEntry,
+    DlpEntry,
+    DynamicDatasetEntry,
+    NodeConnectionStateEntry,
+    NodeConnectionStateHistoryEntry,
+    NodeProcessStateEntry,
+    NodeProcessStateHistoryEntry,
+    NodeStateEntry,
+    TrainingPlanEntry,
 )
 from sqlalchemy import delete, inspect, select
 
@@ -29,7 +29,7 @@ def db_path(tmp_path):
 @pytest.fixture
 def database(db_path):
     database = get_database(db_path)
-    database.create_tables([Dataset, DynamicDataset, Dlp, Dlb])
+    database.create_tables([DatasetEntry, DynamicDatasetEntry, DlpEntry, DlbEntry])
     return database
 
 
@@ -88,16 +88,16 @@ def _add(database, *entries):
 
 def _parent():
     """The registered dataset `_dynamic_dataset` derives from."""
-    return Dataset.from_dict(_dataset(dataset_id="dataset_1"))
+    return DatasetEntry.from_dict(_dataset(dataset_id="dataset_1"))
 
 
 def _child():
-    return DynamicDataset.from_dict(_dynamic_dataset(dataset_id="child"))
+    return DynamicDatasetEntry.from_dict(_dynamic_dataset(dataset_id="child"))
 
 
 def _grandchild():
     """Derived from `_child`, a dynamic dataset."""
-    return DynamicDataset.from_dict(
+    return DynamicDatasetEntry.from_dict(
         _dynamic_dataset(
             dataset_id="grandchild", parent_dataset_id=None, parent_dynamic_id="child"
         )
@@ -107,8 +107,8 @@ def _grandchild():
 @pytest.mark.parametrize(
     "model, data, prefix",
     [
-        (Dataset, _dataset(), "dataset_"),
-        (DynamicDataset, _dynamic_dataset(), "dynamic_dataset_"),
+        (DatasetEntry, _dataset(), "dataset_"),
+        (DynamicDatasetEntry, _dynamic_dataset(), "dynamic_dataset_"),
     ],
 )
 def test_dataset_id_is_generated_unless_given(model, data, prefix):
@@ -120,13 +120,13 @@ def test_dataset_id_is_generated_unless_given(model, data, prefix):
     "model, entry_id, data",
     [
         (
-            Dataset,
+            DatasetEntry,
             "d1",
             _dataset(dataset_id="d1", shape={"m": [1]}, dataset_parameters={"a": [1]}),
         ),
-        (DynamicDataset, "d1", _dynamic_dataset(dataset_id="d1")),
-        (Dlp, "dlp_1", _dlp()),
-        (Dlb, "dlb_1", _dlb()),
+        (DynamicDatasetEntry, "d1", _dynamic_dataset(dataset_id="d1")),
+        (DlpEntry, "dlp_1", _dlp()),
+        (DlbEntry, "dlb_1", _dlb()),
     ],
 )
 def test_entry_round_trip(database, model, entry_id, data):
@@ -138,9 +138,9 @@ def test_entry_round_trip(database, model, entry_id, data):
 @pytest.mark.parametrize(
     "model, data",
     [
-        (Dataset, _dataset(data_type="tabular")),
-        (DynamicDataset, _dynamic_dataset(data_type="tabular")),
-        (Dlp, _dlp(target_dataset_type="tabular")),
+        (DatasetEntry, _dataset(data_type="tabular")),
+        (DynamicDatasetEntry, _dynamic_dataset(data_type="tabular")),
+        (DlpEntry, _dlp(target_dataset_type="tabular")),
     ],
 )
 def test_dataset_type_must_be_a_dataset_types_value(database, model, data):
@@ -149,68 +149,80 @@ def test_dataset_type_must_be_a_dataset_types_value(database, model, data):
 
 
 def test_dynamic_dataset_accepts_unset_data_type(database):
-    _add(database, _parent(), DynamicDataset.from_dict(_dynamic_dataset()))
+    _add(database, _parent(), DynamicDatasetEntry.from_dict(_dynamic_dataset()))
 
 
 def test_custom_dataset_has_no_shape_nor_dtypes(database):
     data = _dataset(dataset_id="d1", data_type="custom", shape=None, dtypes=None)
-    _add(database, Dataset.from_dict(data))
+    _add(database, DatasetEntry.from_dict(data))
     with database.transaction() as session:
-        assert "shape" not in session.get(Dataset, "d1").to_dict()
+        assert "shape" not in session.get(DatasetEntry, "d1").to_dict()
 
 
 @pytest.mark.parametrize("tags", ["t", [1]])
 def test_tags_must_be_a_list_of_strings(tags):
     with pytest.raises(FedbiomedError, match="FB632.*Dataset.tags: expected a list"):
-        Dataset.from_dict(_dataset(tags=tags))
+        DatasetEntry.from_dict(_dataset(tags=tags))
 
 
 def test_tags_are_checked_when_assigned(database):
     _add(database, _parent())
     with pytest.raises(FedbiomedError, match="FB632.*Dataset.tags: expected a list"):
         with database.transaction() as session:
-            session.get(Dataset, "dataset_1").tags = 5
+            session.get(DatasetEntry, "dataset_1").tags = 5
 
 
 def test_dlp_name_needs_four_characters(database):
     with pytest.raises(FedbiomedError, match="FB316.*at least 4 characters"):
-        _add(database, Dlp.from_dict(_dlp(dlp_name="abc")))
+        _add(database, DlpEntry.from_dict(_dlp(dlp_name="abc")))
 
 
 def test_dlp_name_is_unique(database):
-    _add(database, Dlp.from_dict(_dlp()))
+    _add(database, DlpEntry.from_dict(_dlp()))
     with pytest.raises(
         FedbiomedError, match="FB634.*UNIQUE constraint failed: Dlps.dlp_name"
     ):
-        _add(database, Dlp.from_dict(_dlp(dlp_id="dlp_2")))
+        _add(database, DlpEntry.from_dict(_dlp(dlp_id="dlp_2")))
 
 
 def test_dataset_and_its_dlp_are_saved_in_one_transaction(database):
-    _add(database, Dataset.from_dict(_dataset(dlp_id="dlp_1")), Dlp.from_dict(_dlp()))
+    _add(
+        database,
+        DatasetEntry.from_dict(_dataset(dlp_id="dlp_1")),
+        DlpEntry.from_dict(_dlp()),
+    )
 
 
 def test_dataset_refuses_unknown_dlp(database):
     with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
-        _add(database, Dataset.from_dict(_dataset(dlp_id="unknown")))
+        _add(database, DatasetEntry.from_dict(_dataset(dlp_id="unknown")))
 
 
 def test_dlp_in_use_cannot_be_deleted(database):
-    _add(database, Dlp.from_dict(_dlp()), Dataset.from_dict(_dataset(dlp_id="dlp_1")))
+    _add(
+        database,
+        DlpEntry.from_dict(_dlp()),
+        DatasetEntry.from_dict(_dataset(dlp_id="dlp_1")),
+    )
     with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
         with database.transaction() as session:
-            session.execute(delete(Dlp).where(Dlp.dlp_id == "dlp_1"))
+            session.execute(delete(DlpEntry).where(DlpEntry.dlp_id == "dlp_1"))
 
 
 def test_dlp_not_in_use_can_be_deleted(database):
-    _add(database, Dlp.from_dict(_dlp()))
+    _add(database, DlpEntry.from_dict(_dlp()))
     with database.transaction() as session:
-        session.delete(session.get(Dlp, "dlp_1"))
+        session.delete(session.get(DlpEntry, "dlp_1"))
     with database.transaction() as session:
-        assert session.get(Dlp, "dlp_1") is None
+        assert session.get(DlpEntry, "dlp_1") is None
 
 
 def test_dlp_loaded_from_its_dataset_is_logged_as_read(database, monkeypatch):
-    _add(database, Dlp.from_dict(_dlp()), Dataset.from_dict(_dataset(dlp_id="dlp_1")))
+    _add(
+        database,
+        DlpEntry.from_dict(_dlp()),
+        DatasetEntry.from_dict(_dataset(dlp_id="dlp_1")),
+    )
     tables = []
     monkeypatch.setattr(
         db_mod.logger,
@@ -219,7 +231,7 @@ def test_dlp_loaded_from_its_dataset_is_logged_as_read(database, monkeypatch):
     )
 
     with database.transaction() as session:
-        dataset = session.scalars(select(Dataset)).one()
+        dataset = session.scalars(select(DatasetEntry)).one()
         assert dataset.dlp.dlp_name == "plan"
 
     assert tables == [("select", "Datasets"), ("select", "Dlps")]
@@ -256,12 +268,12 @@ def test_dynamic_dataset_needs_exactly_one_existing_parent(database, parents, re
     _add(database, _parent(), _child())
 
     with pytest.raises(FedbiomedError, match=f"FB634.*{refusal}"):
-        _add(database, DynamicDataset.from_dict(_dynamic_dataset(**parents)))
+        _add(database, DynamicDatasetEntry.from_dict(_dynamic_dataset(**parents)))
 
 
 @pytest.mark.parametrize(
     "model, dataset_id",
-    [(Dataset, "dataset_1"), (DynamicDataset, "child")],
+    [(DatasetEntry, "dataset_1"), (DynamicDatasetEntry, "child")],
 )
 def test_dataset_with_derived_datasets_cannot_be_deleted(database, model, dataset_id):
     _add(database, _parent(), _child(), _grandchild())
@@ -281,9 +293,9 @@ _CONNECTION = {"state": "connected", "host": "h", "port": "50051"}
 @pytest.mark.parametrize(
     "model, data",
     [
-        (Certificate, {"component_id": "c", "certificate": "PEM"}),
+        (CertificateEntry, {"component_id": "c", "certificate": "PEM"}),
         (
-            SecaggElement,
+            SecaggElementEntry,
             {
                 "secagg_id": "s",
                 "secagg_version": "1",
@@ -294,11 +306,11 @@ _CONNECTION = {"state": "connected", "host": "h", "port": "50051"}
             },
         ),
         (
-            Channel,
+            ChannelEntry,
             {"distant_node_id": "n2", "n2n_channel_version": "1", "local_key": "k"},
         ),
         (
-            TrainingPlan,
+            TrainingPlanEntry,
             {
                 "training_plan_id": "tp",
                 "name": "plan",
@@ -313,7 +325,7 @@ _CONNECTION = {"state": "connected", "host": "h", "port": "50051"}
             },
         ),
         (
-            NodeState,
+            NodeStateEntry,
             {
                 "state_id": "s",
                 "experiment_id": "e",
@@ -321,8 +333,11 @@ _CONNECTION = {"state": "connected", "host": "h", "port": "50051"}
                 "state": {"optimizer_state": None, "testing_dataset": [1, 2]},
             },
         ),
-        (NodeProcessState, {"node_id": "n1", **_PROCESS, "started_at": _NOW}),
-        (NodeConnectionState, {"node_id": "n1", **_CONNECTION, "updated_at": _NOW}),
+        (NodeProcessStateEntry, {"node_id": "n1", **_PROCESS, "started_at": _NOW}),
+        (
+            NodeConnectionStateEntry,
+            {"node_id": "n1", **_CONNECTION, "updated_at": _NOW},
+        ),
     ],
 )
 def test_tables_round_trip(db_path, model, data):
@@ -337,7 +352,10 @@ def test_tables_round_trip(db_path, model, data):
 
 @pytest.mark.parametrize(
     "model, fields",
-    [(NodeProcessStateHistory, _PROCESS), (NodeConnectionStateHistory, _CONNECTION)],
+    [
+        (NodeProcessStateHistoryEntry, _PROCESS),
+        (NodeConnectionStateHistoryEntry, _CONNECTION),
+    ],
 )
 def test_history_keeps_several_entries_per_node(db_path, model, fields):
     database = get_database(db_path)
