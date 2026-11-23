@@ -34,7 +34,7 @@ from .node_management import node_process_manager
 
 
 def _certificate_manager() -> CertificateManager:
-    """Open the node's certificate registry. The caller closes it."""
+    """Open the node's certificate registry."""
     return CertificateManager(
         db_path=config.node_config.getpath("default", "db"),
         component_type=config.node_config.COMPONENT_TYPE,
@@ -70,18 +70,14 @@ def _registered_certificates() -> List[Dict[str, Any]]:
 
     A registered certificate is public, so its text is returned for display too.
     """
-    certificate_manager = _certificate_manager()
-    try:
-        return [
-            {
-                "component_id": document["component_id"],
-                "certificate": document["certificate"],
-                **_certificate_summary(document["certificate"]),
-            }
-            for document in certificate_manager.list()
-        ]
-    finally:
-        certificate_manager.close()
+    return [
+        {
+            "component_id": document["component_id"],
+            "certificate": document["certificate"],
+            **_certificate_summary(document["certificate"]),
+        }
+        for document in _certificate_manager().list()
+    ]
 
 
 def _own_certificate() -> Dict[str, Any]:
@@ -144,16 +140,12 @@ def _status() -> Dict[str, Any]:
 
 def _register(certificate: str, component_id: Optional[str]) -> str:
     """Register a certificate, returning the component it was registered for."""
-    certificate_manager = _certificate_manager()
     # The GUI is handed the certificate itself, so it registers it directly;
     # `register_certificate` is the wrapper for a caller holding a file.
-    try:
-        return certificate_manager.register(
-            certificate=certificate,
-            component_id=component_id,
-        )
-    finally:
-        certificate_manager.close()
+    return _certificate_manager().register(
+        certificate=certificate,
+        component_id=component_id,
+    )
 
 
 @api.route("/certificates/status", methods=["GET"])
@@ -239,8 +231,6 @@ def delete_certificate(component_id: str):
         certificate_manager.delete(component_id=component_id)
     except FedbiomedError as exp:
         return error(f"Could not delete the certificate: {exp}"), 400
-    finally:
-        certificate_manager.close()
 
     return response(
         {"component_id": component_id, "requires_restart": _restart_required()},

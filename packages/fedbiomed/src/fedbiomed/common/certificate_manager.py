@@ -1,7 +1,6 @@
 # This file is originally part of Fed-BioMed
 # SPDX-License-Identifier: Apache-2.0
 
-import copy
 import ipaddress
 import os
 import shutil
@@ -14,9 +13,8 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+from sqlalchemy import select
 from tabulate import tabulate
-from tinydb import Query, TinyDB
-from tinydb.table import Document, Table
 
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import (
@@ -24,7 +22,8 @@ from fedbiomed.common.constants import (
     ComponentType,
     ErrorNumbers,
 )
-from fedbiomed.common.db import DBTable
+from fedbiomed.common.db import get_database
+from fedbiomed.common.db_models import Certificate
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.logger import logger
 from fedbiomed.common.utils import read_file
@@ -384,6 +383,9 @@ class TrustedCertificateBundle:
             db_path: Path of the certificate database.
         """
         self._db_path = db_path
+        self._certificate_manager = CertificateManager(
+            db_path=db_path, component_type=ComponentType.RESEARCHER.name
+        )
         self._lock = threading.Lock()
         self._bundle: bytes = b""
         self._component_ids: Dict[bytes, str] = {}
@@ -418,24 +420,12 @@ class TrustedCertificateBundle:
             return self._component_ids.get(fingerprint)
 
     def _refresh(self) -> None:
-        """Re-reads the database. The caller holds the lock.
-
-        The database is written non-atomically by other processes registering
-        certificates, so a read may land on a partially written file. What was
-        last read is kept in that case and the read retried on the next call.
-        """
+        """Re-reads the database, keeping the last read if it fails; hold the lock."""
         try:
-            certificate_manager = CertificateManager(
-                db_path=self._db_path,
-                component_type=ComponentType.RESEARCHER.name,
+            documents = self._certificate_manager.list()
+            expiring = self._certificate_manager.expiring_certificates(
+                CERTIFICATE_EXPIRY_WARNING_DAYS
             )
-            try:
-                documents = certificate_manager.list()
-                expiring = certificate_manager.expiring_certificates(
-                    CERTIFICATE_EXPIRY_WARNING_DAYS
-                )
-            finally:
-                certificate_manager.close()
 
             registrations: Dict[bytes, List[str]] = {}
             for doc in documents:
@@ -523,16 +513,17 @@ class CertificateManager:
     that component's. Its type is therefore held here rather than passed at each
     call, so that no caller registers under another component's rules.
 
-    Attrs:
-        _db: TinyDB database to store certificates
-        _component_type: Type of the component the manager belongs to
+    Each public method runs in one transaction of the component's database.
     """
+
+    # Tables this manager owns; the only ones it reads or writes
+    MODELS = (Certificate,)
 
     def __init__(self, db_path: str, component_type: str):
         """Opens a component's certificate database.
 
         Args:
-            db_path: The name of the DB file to connect through TinyDB
+            db_path: Path of the component's database file, as in its config.
             component_type: Type of the component the manager belongs to, `NODE`
                 or `RESEARCHER`.
 
@@ -541,124 +532,34 @@ class CertificateManager:
                 `RESEARCHER`.
         """
         self._component_type: str = _validated_component_type(component_type)
-        self._query: Query = Query()
+        self._database = get_database(db_path)
+        self._database.create_tables(self.MODELS)
 
-        db = TinyDB(db_path)
-        db.table_class = DBTable
-        self._tinydb: Optional[TinyDB] = db
-        self._db: Optional[Table] = db.table("Certificates")
+    def get(self, component_id: str) -> Union[dict, None]:
+        """Gets the certificate registered for a component, or None."""
+        with self._database.transaction() as session:
+            certificate = session.get(Certificate, component_id)
+            return None if certificate is None else certificate.to_dict()
 
-    @property
-    def _table(self) -> Table:
-        if self._db is None:
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: The certificate database is closed."
-            )
-        return self._db
+    def delete(self, component_id) -> None:
+        """Deletes the certificate registered for a component, if any."""
+        with self._database.transaction() as session:
+            registered = session.get(Certificate, component_id)
+            if registered is None:
+                return
+            # Read before removing: revoking trust is auditable only while the
+            # entry being removed can still be described
+            certificate = registered.certificate
+            session.delete(registered)
 
-    def close(self) -> None:
-        """Closes the underlying TinyDB handle and releases the open file."""
-        if self._tinydb is not None:
-            self._tinydb.close()
-            self._tinydb = None
-            self._db = None
-
-    def _insert(
-        self,
-        certificate: str,
-        component_id: str,
-        upsert: bool = False,
-    ) -> Union[int, list[int]]:
-        """Writes a certificate into the table, granting it trust.
-
-        The only writer: private so that every registration goes through `register`,
-        which holds the rules a stored certificate must satisfy.
-
-        Args:
-            certificate: Public-key for the FL parties
-            component_id: ID of the component
-            upsert: Update document with new data if it is existing
-
-        Returns:
-            Document ID of inserted certificate
-
-        Raises:
-            FedbiomedCertificateError: component is already registered
-        """
-        certificate_ = self.get(component_id=component_id)
-        if not certificate_:
-            result = self._table.insert(
-                {
-                    "certificate": certificate,
-                    "component_id": component_id,
-                }
-            )
-        elif upsert:
-            result = self._table.upsert(
-                {
-                    "certificate": certificate,
-                    "component_id": component_id,
-                },
-                self._query.component_id == component_id,
-            )
-        else:
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: Component {component_id} already "
-                "registered. Please use `upsert=True` or '--upsert' option through CLI"
-            )
-
-        # Audited here rather than at the callers, so every path that grants trust
-        # is recorded. `replaced` marks an existing pin being overwritten.
         logger.security_event(
-            operation="certificate_registered",
+            operation="certificate_deleted",
             status="success",
             component_id=component_id,
-            replaced=bool(certificate_),
             **certificate_audit_fields(certificate),
         )
 
-        return result
-
-    def get(self, component_id: str) -> Union[dict, None]:
-        """Gets certificate/public key  of given component
-
-        Args:
-            component_id: ID of the component which certificate will be retrieved
-                from DB
-
-        Returns:
-            Certificate, dict like TinyDB document
-        """
-
-        v = self._table.get(self._query.component_id == component_id)
-        return v
-
-    def delete(self, component_id) -> List[int]:
-        """Deletes given component from table
-
-        Args:
-            component_id: Component id
-
-        Returns:
-            The document IDs of deleted certificates
-        """
-
-        # Read before removing: revoking trust is auditable only while the entry
-        # being removed can still be described.
-        document = self.get(component_id=component_id) or {}
-        removed = self._table.remove(self._query.component_id == component_id)
-
-        if removed:
-            logger.security_event(
-                operation="certificate_deleted",
-                status="success",
-                component_id=component_id,
-                **certificate_audit_fields(document.get("certificate", "")),
-            )
-
-        return removed
-
-    def list(self, verbose: bool = False) -> List[Document]:
+    def list(self, verbose: bool = False) -> List[dict]:
         """Lists registered certificates.
 
         Args:
@@ -667,14 +568,19 @@ class CertificateManager:
         Returns:
             List of certificate objects registered in DB
         """
-        certificates = self._table.all()
+        with self._database.transaction() as session:
+            certificates = [c.to_dict() for c in session.scalars(select(Certificate))]
 
         if verbose:
-            to_print = copy.deepcopy(certificates)
-            for doc in to_print:
-                expiry = certificate_expiry(doc.pop("certificate"))
-                doc["expires"] = expiry.strftime("%Y-%m-%d") if expiry else "unknown"
-
+            to_print = []
+            for doc in certificates:
+                expiry = certificate_expiry(doc["certificate"])
+                to_print.append(
+                    {
+                        "component_id": doc["component_id"],
+                        "expires": expiry.strftime("%Y-%m-%d") if expiry else "unknown",
+                    }
+                )
             print(tabulate(to_print, headers="keys"))
 
         return certificates
@@ -684,7 +590,7 @@ class CertificateManager:
         expired)."""
         threshold = datetime.now(timezone.utc) + timedelta(days=within_days)
         expiring = []
-        for doc in self._table.all():
+        for doc in self.list():
             expiry = certificate_expiry(doc["certificate"])
             if expiry is not None and expiry <= threshold:
                 expiring.append((doc["component_id"], expiry))
@@ -817,40 +723,58 @@ class CertificateManager:
                 "it at."
             )
 
-        others = [d for d in self.list() if d["component_id"] != component_id]
+        # Rules on the other certificates and the write in one transaction, so they
+        # hold against the CLI and GUI registering at the same time
+        with self._database.transaction() as session:
+            others = session.scalars(
+                select(Certificate).where(Certificate.component_id != component_id)
+            ).all()
 
-        # A node communicates with a single researcher, so it holds one certificate
-        if registering_on_node and others:
-            registered = ", ".join(f"`{d['component_id']}`" for d in others)
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: This node already has a certificate "
-                f"registered for {registered}, and the one given belongs to another "
-                f"component, `{component_id}`. A node connects to a single researcher, "
-                "so it holds only that researcher's certificate: to register this one "
-                f"instead, delete the certificate registered for {registered} first. "
-                "Replacing a registered certificate only applies to the same component."
+            # A node communicates with a single researcher, so it holds one certificate
+            if registering_on_node and others:
+                registered = ", ".join(f"`{d.component_id}`" for d in others)
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: This node already has a certificate "
+                    f"registered for {registered}, and the one given belongs to another "
+                    f"component, `{component_id}`. A node connects to a single researcher, "
+                    "so it holds only that researcher's certificate: to register this one "
+                    f"instead, delete the certificate registered for {registered} first. "
+                    "Replacing a registered certificate only applies to the same component."
+                )
+
+            # A researcher registers one certificate per node, so the same one
+            # under two component ids would identify neither.
+            duplicates = [
+                d.component_id
+                for d in others
+                if certificate_fingerprint(d.certificate) == fingerprint
+            ]
+            if duplicates:
+                registered = ", ".join(f"`{d}`" for d in duplicates)
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: This certificate is already "
+                    f"registered under {registered}, and a certificate identifies a "
+                    f"single component. Delete that registration, or register a "
+                    f"certificate of its own for `{component_id}`."
+                )
+
+            replaced = session.get(Certificate, component_id) is not None
+            if replaced and not upsert:
+                raise FedbiomedCertificateError(
+                    f"{ErrorNumbers.FB619.value}: Component {component_id} already "
+                    "registered. Please use `upsert=True` or '--upsert' option through CLI"
+                )
+            session.merge(
+                Certificate(component_id=component_id, certificate=certificate)
             )
 
-        # A researcher registers one certificate per node, so the same one
-        # under two component ids would identify neither.
-        duplicates = [
-            d["component_id"]
-            for d in others
-            if certificate_fingerprint(d["certificate"]) == fingerprint
-        ]
-        if duplicates:
-            registered = ", ".join(f"`{d}`" for d in duplicates)
-            raise FedbiomedCertificateError(
-                f"{ErrorNumbers.FB619.value}: This certificate is already "
-                f"registered under {registered}, and a certificate identifies a "
-                f"single component. Delete that registration, or register a "
-                f"certificate of its own for `{component_id}`."
-            )
-
-        self._insert(
-            certificate=certificate,
+        # Every path granting trust goes through here; `replaced` marks a pin overwritten
+        logger.security_event(
+            operation="certificate_registered",
+            status="success",
             component_id=component_id,
-            upsert=upsert,
+            replaced=replaced,
+            **certificate_audit_fields(certificate),
         )
 
         # Reported here because a node hears about the researcher certificate it pins

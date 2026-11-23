@@ -157,7 +157,7 @@ def issued_certificate():
 
 
 # -----------------------------------------------------------------------------
-# CertificateManager over a real TinyDB
+# CertificateManager over a real database
 # -----------------------------------------------------------------------------
 
 
@@ -168,21 +168,15 @@ def test_certificate_manager_initialization(tmp_path, third_party_certificate):
     cm = CertificateManager(
         db_path=db_path, component_type=ComponentType.RESEARCHER.name
     )
-    try:
-        cm.register(
-            certificate=certificate,
-            component_id=_NODE_A,
-        )
-    finally:
-        cm.close()
+    cm.register(
+        certificate=certificate,
+        component_id=_NODE_A,
+    )
 
     reopened = CertificateManager(
         db_path=db_path, component_type=ComponentType.RESEARCHER.name
     )
-    try:
-        assert reopened.get(component_id=_NODE_A)["certificate"] == certificate
-    finally:
-        reopened.close()
+    assert reopened.get(component_id=_NODE_A)["certificate"] == certificate
 
 
 @pytest.mark.parametrize("component_type", ["", "node", "GUI", "RESEARCHER "])
@@ -212,15 +206,11 @@ def test_manager_holds_the_rules_of_the_component_it_was_opened_for(
         str(tmp_path / "researcher.json"), ComponentType.RESEARCHER.name
     )
     node_cm = CertificateManager(str(tmp_path / "node.json"), ComponentType.NODE.name)
-    try:
-        # Stating no host, the certificate is one only a researcher registers
-        researcher_cm.register(certificate=certificate, component_id=_NODE_A)
+    # Stating no host, the certificate is one only a researcher registers
+    researcher_cm.register(certificate=certificate, component_id=_NODE_A)
 
-        with pytest.raises(FedbiomedCertificateError, match="states no host"):
-            node_cm.register(certificate=certificate, component_id=_NODE_A)
-    finally:
-        researcher_cm.close()
-        node_cm.close()
+    with pytest.raises(FedbiomedCertificateError, match="states no host"):
+        node_cm.register(certificate=certificate, component_id=_NODE_A)
 
 
 def test_certificate_manager_get(cert_db, third_party_certificate):
@@ -328,16 +318,6 @@ def test_register_certificate_returns_the_recovered_component_id(cert_db):
     )
 
     assert registered == _RESEARCHER_A
-
-
-def test_operations_on_a_closed_manager_raise(tmp_path):
-    """Using a manager whose handle was released is a clear error, not an
-    AttributeError."""
-    cm = CertificateManager(str(tmp_path / "certs.json"), ComponentType.RESEARCHER.name)
-    cm.close()
-
-    with pytest.raises(FedbiomedCertificateError, match="closed"):
-        cm.get(_NODE_A)
 
 
 def _generate_in(certificate_folder):
@@ -852,11 +832,9 @@ def cert_db(tmp_path):
     )
     node_cm = CertificateManager(str(tmp_path / "node.json"), ComponentType.NODE.name)
 
-    yield SimpleNamespace(
+    return SimpleNamespace(
         researcher_cm=researcher_cm, node_cm=node_cm, tmp=str(tmp_path)
     )
-    researcher_cm.close()
-    node_cm.close()
 
 
 @pytest.mark.parametrize(
@@ -1272,14 +1250,13 @@ def bundle_env(tmp_path, issued_certificate):
         )
         return pem
 
-    yield SimpleNamespace(
+    return SimpleNamespace(
         cm=cm,
         db_path=db_path,
         register=register,
         # A real (~5 year) certificate, so expiry parsing has something to read.
         real_certificate=issued_certificate,
     )
-    cm.close()
 
 
 def test_bundle_picks_up_hot_added_certificate(bundle_env):
@@ -1295,26 +1272,6 @@ def test_bundle_picks_up_hot_added_certificate(bundle_env):
     assert pem_a.encode() in second
     assert pem_b.encode() in second
     assert second.count(b"BEGIN CERTIFICATE") == 2
-
-
-def test_bundle_kept_while_database_is_partially_written(bundle_env):
-    pem_a = bundle_env.register(_NODE_A)
-    provider = TrustedCertificateBundle(bundle_env.db_path)
-    assert pem_a.encode() in provider()
-
-    # TinyDB writes in place, so a read concurrent with another process
-    # registering a certificate can observe a truncated file.
-    with open(bundle_env.db_path) as file:
-        content = file.read()
-    with open(bundle_env.db_path, "w") as file:
-        file.write(content[: len(content) // 2])
-
-    assert pem_a.encode() in provider()
-
-    with open(bundle_env.db_path, "w") as file:
-        file.write(content)
-    pem_b = bundle_env.register(_NODE_B)
-    assert pem_b.encode() in provider()
 
 
 @pytest.fixture
@@ -1400,7 +1357,7 @@ def test_unreadable_certificate_store_is_registered_as_event(bundle_expiry_env):
 
 def test_absent_certificate_store_reads_as_empty(bundle_expiry_env):
     """A database that was never created reads as an empty bundle, not an error:
-    TinyDB creates it on read, so there is nothing to 'keep'."""
+    it is created on first use, so there is nothing to 'keep'."""
     env = bundle_expiry_env
     provider = TrustedCertificateBundle(f"{env.db_path}.missing")
 

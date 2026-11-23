@@ -733,7 +733,6 @@ def mtls_requests_env():
             register_node_certificate=register_node_certificate,
         )
 
-        certificate_manager.close()
         if Requests in Requests._objects:
             del Requests._objects[Requests]
 

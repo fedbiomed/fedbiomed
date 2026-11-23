@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
-
 from fedbiomed.common.certificate_manager import (
     CERT_PURPOSE_CLIENT,
     CERT_PURPOSE_SERVER,
@@ -17,6 +16,8 @@ from fedbiomed.common.constants import (
     Stats,
     __messaging_protocol_version__,
 )
+from fedbiomed.common.db import get_database
+from fedbiomed.common.db_models import Certificate
 from fedbiomed.common.exceptions import FedbiomedCertificateError, FedbiomedError
 from fedbiomed.common.message import (
     ErrorMessage,
@@ -831,17 +832,15 @@ def diagnostics_env(tmp_path):
             db_path=config.getpath("default", "db"),
             component_type=config.COMPONENT_TYPE,
         )
-        try:
-            if hand_written:
-                manager._insert(
-                    certificate=certificate, component_id=component_id, upsert=True
+        if hand_written:
+            with get_database(config.getpath("default", "db")).transaction() as session:
+                session.merge(
+                    Certificate(component_id=component_id, certificate=certificate)
                 )
-            else:
-                manager.register(
-                    certificate=certificate, component_id=component_id, upsert=True
-                )
-        finally:
-            manager.close()
+        else:
+            manager.register(
+                certificate=certificate, component_id=component_id, upsert=True
+            )
 
     return SimpleNamespace(
         config=config,

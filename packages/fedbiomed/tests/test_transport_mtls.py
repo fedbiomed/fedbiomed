@@ -40,6 +40,8 @@ from fedbiomed.common.certificate_manager import (
     certificate_subject_field,
 )
 from fedbiomed.common.constants import ComponentType, ErrorNumbers
+from fedbiomed.common.db import get_database
+from fedbiomed.common.db_models import Certificate
 from fedbiomed.common.exceptions import FedbiomedCommunicationError
 from fedbiomed.common.message import SearchReply, SearchRequest
 from fedbiomed.common.serializer import Serializer
@@ -257,14 +259,11 @@ def _registry(path, entries):
     manager = CertificateManager(
         db_path=str(path), component_type=ComponentType.RESEARCHER.name
     )
-    try:
-        for component_id, certificate in entries:
-            manager.register(
-                certificate=certificate.decode("utf-8"),
-                component_id=component_id,
-            )
-    finally:
-        manager.close()
+    for component_id, certificate in entries:
+        manager.register(
+            certificate=certificate.decode("utf-8"),
+            component_id=component_id,
+        )
     return TrustedCertificateBundle(str(path))
 
 
@@ -294,18 +293,15 @@ def test_component_id_refuses_a_certificate_registered_under_two_parties(
     is the only way to reach the state.
     """
     db_path = tmp_path / "ambiguous.json"
-    manager = CertificateManager(
-        db_path=str(db_path), component_type=ComponentType.RESEARCHER.name
-    )
-    try:
-        for component_id in (OTHER_NODE_ID, NODE_ID):
-            manager._insert(
-                certificate=certs["node_cert"].decode("utf-8"),
-                component_id=component_id,
-            )
-    finally:
-        manager.close()
     ambiguous = TrustedCertificateBundle(str(db_path))
+    with get_database(str(db_path)).transaction() as session:
+        for component_id in (OTHER_NODE_ID, NODE_ID):
+            session.add(
+                Certificate(
+                    component_id=component_id,
+                    certificate=certs["node_cert"].decode("utf-8"),
+                )
+            )
 
     with patch("fedbiomed.common.certificate_manager.logger.security_event") as event:
         assert ambiguous.component_id(certs["node_cert"]) is None
@@ -324,12 +320,9 @@ def test_component_id_picks_up_a_registration_without_restart(
     manager = CertificateManager(
         db_path=registry._db_path, component_type=ComponentType.RESEARCHER.name
     )
-    try:
-        manager.register(
-            certificate=certs["other_node_cert"].decode("utf-8"),
-        )
-    finally:
-        manager.close()
+    manager.register(
+        certificate=certs["other_node_cert"].decode("utf-8"),
+    )
 
     assert registry.component_id(certs["other_node_cert"]) == OTHER_NODE_ID
 
@@ -396,23 +389,6 @@ async def test_no_registry_verifies_nobody(certs):
 
     assert await _verify_peer_identity(context, NODE_ID, None) is None
     context.abort.assert_not_awaited()
-
-
-def test_component_id_keeps_last_read_when_registry_becomes_unreadable(certs, registry):
-    """A partially written registry does not drop identities already resolved.
-
-    TinyDB rewrites the file non-atomically, so a read landing mid-write is
-    transient; refusing on it would reject healthy nodes at random.
-    """
-    assert registry.component_id(certs["node_cert"]) == NODE_ID
-
-    with open(registry._db_path, "w", encoding="utf-8") as f:
-        f.write("{ partially writ")
-
-    with patch("fedbiomed.common.certificate_manager.logger.security_event") as event:
-        assert registry.component_id(certs["node_cert"]) == NODE_ID
-
-    assert len(_events(event, "certificate_store_unreadable")) == 1
 
 
 # ---------------------------------------------------------------------------

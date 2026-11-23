@@ -112,13 +112,10 @@ def certificate_diagnostics(config: NodeConfig) -> List[CertificateDiagnostic]:
         db_path=config.getpath("default", "db"),
         component_type=config.COMPONENT_TYPE,
     )
-    try:
-        registered = certificate_manager.list()
-        expiring = certificate_manager.expiring_certificates(
-            CERTIFICATE_EXPIRY_WARNING_DAYS
-        )
-    finally:
-        certificate_manager.close()
+    registered = certificate_manager.list()
+    expiring = certificate_manager.expiring_certificates(
+        CERTIFICATE_EXPIRY_WARNING_DAYS
+    )
 
     diagnostics = []
     researcher_host = config.get("researcher", "ip")
@@ -480,14 +477,10 @@ class Node:
             The researcher's public server certificate, pinned under mutual
             authentication.
         """
-        certificate_manager = CertificateManager(
+        certificates = CertificateManager(
             db_path=self.config.getpath("default", "db"),
             component_type=self.config.COMPONENT_TYPE,
-        )
-        try:
-            certificates = certificate_manager.list()
-        finally:
-            certificate_manager.close()
+        ).list()
 
         return certificates[0]["certificate"].encode("utf-8")
 

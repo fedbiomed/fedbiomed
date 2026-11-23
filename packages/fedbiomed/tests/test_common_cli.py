@@ -45,10 +45,7 @@ def opened_certificate_manager():
     rules its registrations are held to, so they are what the tests assert.
     """
     opened = MagicMock(return_value=None)
-    with (
-        patch("fedbiomed.common.cli.CertificateManager.__init__", opened),
-        patch("fedbiomed.common.cli.CertificateManager.close"),
-    ):
+    with patch("fedbiomed.common.cli.CertificateManager.__init__", opened):
         yield opened
 
 

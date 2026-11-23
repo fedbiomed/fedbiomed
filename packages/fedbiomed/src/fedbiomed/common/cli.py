@@ -13,7 +13,6 @@ import os
 import sys
 import tempfile
 from abc import ABC, abstractmethod
-from contextlib import closing
 from typing import Dict, List
 
 from fedbiomed.common.certificate_manager import (
@@ -483,64 +482,64 @@ class CommonCLI:
             print(f"{NC}{BOLD}# Trust store of {component_dirs[id_]} ({id_}){NC}")
             # Opened as the component it belongs to, so each registration below is
             # held to the rules of the one receiving it
-            with closing(
-                CertificateManager(db_path=db_path, component_type=component_types[id_])
-            ) as certificate_manager:
-                # Rebuilt from the components found under the path: whoever is no
-                # longer there stops being trusted, which keeping the registrations
-                # would hide.
-                if args.prune:
-                    for registered in certificate_manager.list():
-                        stale = registered["component_id"]
-                        certificate_manager.delete(component_id=stale)
-                        print(
-                            f"Certificate of {component_dirs.get(stale, stale)} has "
-                            "been deleted."
-                        )
-
-                for certificate in certificates:
-                    # A component does not register its own kind, which is expected
-                    # rather than an error
-                    if certificate["component_type"] == component_types[id_]:
-                        continue
-
-                    # Falls back to the id: a missing label must not fail a correct
-                    # registration
-                    owner = component_dirs.get(
-                        certificate["component_id"], certificate["component_id"]
+            certificate_manager = CertificateManager(
+                db_path=db_path, component_type=component_types[id_]
+            )
+            # Rebuilt from the components found under the path: whoever is no
+            # longer there stops being trusted, which keeping the registrations
+            # would hide.
+            if args.prune:
+                for registered in certificate_manager.list():
+                    stale = registered["component_id"]
+                    certificate_manager.delete(component_id=stale)
+                    print(
+                        f"Certificate of {component_dirs.get(stale, stale)} has "
+                        "been deleted."
                     )
 
-                    # Nothing survives a prune, so this is what a run without one
-                    # keeps: a registration that no longer matches the served
-                    # certificate breaks the handshake, so it is called out rather
-                    # than kept quietly.
-                    registered = certificate_manager.get(certificate["component_id"])
-                    if registered:
-                        if registered["certificate"] == certificate["certificate"]:
-                            print(f"Certificate of {owner} is already registered.")
-                        else:
-                            print(
-                                f"{YLW}Certificate of {owner} is registered but "
-                                f"differs from the one it serves.{NC}"
-                            )
-                            outdated.append(f"{owner} on {component_dirs[id_]}")
-                        continue
+            for certificate in certificates:
+                # A component does not register its own kind, which is expected
+                # rather than an error
+                if certificate["component_type"] == component_types[id_]:
+                    continue
 
-                    # Registered through the entry point `certificate register`
-                    # uses, so this setup cannot write a state that command would
-                    # refuse.
-                    try:
-                        certificate_manager.register(
-                            certificate=certificate["certificate"],
-                            component_id=certificate["component_id"],
-                        )
-                    except FedbiomedError as e:
-                        CommonCLI.error(
-                            "Can not register certificate for "
-                            f"{certificate['component_id']}: {e}"
-                        )
+                # Falls back to the id: a missing label must not fail a correct
+                # registration
+                owner = component_dirs.get(
+                    certificate["component_id"], certificate["component_id"]
+                )
 
-                    print(f"Certificate of {owner} has been registered.")
+                # Nothing survives a prune, so this is what a run without one
+                # keeps: a registration that no longer matches the served
+                # certificate breaks the handshake, so it is called out rather
+                # than kept quietly.
+                registered = certificate_manager.get(certificate["component_id"])
+                if registered:
+                    if registered["certificate"] == certificate["certificate"]:
+                        print(f"Certificate of {owner} is already registered.")
+                    else:
+                        print(
+                            f"{YLW}Certificate of {owner} is registered but "
+                            f"differs from the one it serves.{NC}"
+                        )
+                        outdated.append(f"{owner} on {component_dirs[id_]}")
+                    continue
+
+                # Registered through the entry point `certificate register`
+                # uses, so this setup cannot write a state that command would
+                # refuse.
+                try:
+                    certificate_manager.register(
+                        certificate=certificate["certificate"],
+                        component_id=certificate["component_id"],
+                    )
+                except FedbiomedError as e:
+                    CommonCLI.error(
+                        "Can not register certificate for "
+                        f"{certificate['component_id']}: {e}"
+                    )
+
+                print(f"Certificate of {owner} has been registered.")
 
         if outdated:
             CommonCLI.error(
@@ -720,7 +719,7 @@ class CommonCLI:
         )
 
     def _open_certificate_manager(self) -> CertificateManager:
-        """Opens this component's certificate manager, which the caller closes."""
+        """Opens this component's certificate manager."""
         return CertificateManager(
             db_path=self.config.getpath("default", "db"),
             component_type=self.config.COMPONENT_TYPE,
@@ -732,16 +731,15 @@ class CommonCLI:
         Args:
             args: Parser arguments
         """
-        with closing(self._open_certificate_manager()) as certificate_manager:
-            try:
-                component_id = certificate_manager.register_certificate(
-                    certificate_path=args.public_key,
-                    component_id=args.component_id,
-                    upsert=args.upsert,
-                )
-            except FedbiomedError as exp:
-                print(exp)
-                sys.exit(1)
+        try:
+            component_id = self._open_certificate_manager().register_certificate(
+                certificate_path=args.public_key,
+                component_id=args.component_id,
+                upsert=args.upsert,
+            )
+        except FedbiomedError as exp:
+            print(exp)
+            sys.exit(1)
 
         print(f"{GRN}Success!{NC}")
         print(
@@ -753,29 +751,28 @@ class CommonCLI:
         """Lists saved certificates"""
         print(f"{GRN}Listing registered certificates...{NC}")
 
-        with closing(self._open_certificate_manager()) as certificate_manager:
-            certificate_manager.list(verbose=True)
+        self._open_certificate_manager().list(verbose=True)
 
     def _delete_certificate(self, args: argparse.Namespace):
         """Removes a registered certificate chosen from a prompt."""
-        with closing(self._open_certificate_manager()) as certificate_manager:
-            certificates = certificate_manager.list(verbose=False)
+        certificate_manager = self._open_certificate_manager()
+        certificates = certificate_manager.list(verbose=False)
 
-            if not certificates:
-                print("No certificate is registered.")
-                return
+        if not certificates:
+            print("No certificate is registered.")
+            return
 
-            msg = "Select the certificate to delete:\n"
-            msg += "\n".join(
-                f"{i}) {d['component_id']}" for i, d in enumerate(certificates, 1)
-            )
-            msg += "\nSelect: "
-            answer = input(msg)
-            if not answer.isdigit() or not 1 <= int(answer) <= len(certificates):
-                CommonCLI.error(f"Invalid option `{answer}`.")
-            component_id = certificates[int(answer) - 1]["component_id"]
+        msg = "Select the certificate to delete:\n"
+        msg += "\n".join(
+            f"{i}) {d['component_id']}" for i, d in enumerate(certificates, 1)
+        )
+        msg += "\nSelect: "
+        answer = input(msg)
+        if not answer.isdigit() or not 1 <= int(answer) <= len(certificates):
+            CommonCLI.error(f"Invalid option `{answer}`.")
+        component_id = certificates[int(answer) - 1]["component_id"]
 
-            certificate_manager.delete(component_id=component_id)
+        certificate_manager.delete(component_id=component_id)
 
         CommonCLI.success(
             f"Certificate for '{component_id}' has been successfully removed"
