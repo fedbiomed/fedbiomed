@@ -140,6 +140,17 @@ class Dlb(DatabaseModel):
     content: Mapped[dict[str, Any]] = mapped_column(JSON)
 
 
+class Channel(DatabaseModel):
+    """Node-to-node channel: the local key used with a distant node."""
+
+    __tablename__ = "Channels"
+    __sensitive_fields__ = ("local_key",)
+
+    distant_node_id: Mapped[str] = mapped_column(primary_key=True)
+    n2n_channel_version: Mapped[str]
+    local_key: Mapped[str]  # base64 private key
+
+
 class TrainingPlan(DatabaseModel):
     """Training plan known to the node, with its approval status."""
 

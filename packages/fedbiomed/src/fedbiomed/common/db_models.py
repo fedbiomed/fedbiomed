@@ -36,14 +36,3 @@ class SecaggElement(DatabaseModel):
     parties: Mapped[list[str]] = mapped_column(JSON)
     # Server key part, or Diffie-Hellman keys per node
     context: Mapped[dict[str, Any]] = mapped_column(JSON)
-
-
-class Channel(DatabaseModel):
-    """Node-to-node channel: the local key used with a distant node."""
-
-    __tablename__ = "Channels"
-    __sensitive_fields__ = ("local_key",)
-
-    distant_node_id: Mapped[str] = mapped_column(primary_key=True)
-    n2n_channel_version: Mapped[str]
-    local_key: Mapped[str]  # base64 private key

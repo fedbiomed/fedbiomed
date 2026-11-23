@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 import fedbiomed.common.db as db_mod
 import pytest
 from fedbiomed.common.db import get_database
-from fedbiomed.common.db_models import Certificate, Channel, SecaggElement
+from fedbiomed.common.db_models import Certificate, SecaggElement
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.db_models import (
+    Channel,
     Dataset,
     Dlb,
     Dlp,
