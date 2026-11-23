@@ -356,30 +356,6 @@ def _conflict_response(data: Dict[str, Any], message: str):
     return jsonify({"success": False, "result": data, "message": message})
 
 
-def _parse_process_timestamp(value: Optional[str]) -> Optional[datetime]:
-    """Parse a process-state timestamp as a timezone-aware UTC datetime.
-
-    Args:
-        value: Timestamp stored in the node process-state table.
-
-    Returns:
-        Parsed UTC datetime, or `None` when the timestamp is missing or invalid.
-    """
-
-    if not value:
-        return None
-
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-
-    return parsed.astimezone(timezone.utc)
-
-
 def _config_modification_status(
     process_state: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, bool | Optional[str]]:
@@ -401,14 +377,14 @@ def _config_modification_status(
     """
 
     try:
-        state = process_state or node_process_manager.get_process_state().to_dict()
+        state = process_state or node_process_manager.get_process_state()
         if str(state.get("state", "")).lower() != "running":
             return {
                 "config_modified_after_startup": False,
                 "config_startup_check_message": None,
             }
 
-        started_at = _parse_process_timestamp(state.get("started_at"))
+        started_at = state.get("started_at")
         if started_at is None:
             return {
                 "config_modified_after_startup": False,
@@ -953,7 +929,7 @@ def node_status():
 def node_process_state():
     """Return current persisted node process state."""
     try:
-        process_state = node_process_manager.get_process_state().to_dict()
+        process_state = node_process_manager.get_process_state()
         process_state.update(_config_modification_status(process_state))
         return response(process_state), 200
 

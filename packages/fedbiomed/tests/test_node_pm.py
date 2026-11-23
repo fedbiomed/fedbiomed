@@ -4,7 +4,12 @@ from datetime import datetime, timedelta, timezone
 
 import psutil
 import pytest
-from fedbiomed.node.dataset_manager._db_tables import NodeProcessStateHistoryTable
+from fedbiomed.node.db_models import (
+    NodeConnectionState,
+    NodeConnectionStateHistory,
+    NodeProcessState,
+    NodeProcessStateHistory,
+)
 from fedbiomed.node.node_pm import (
     DEFAULT_NODE_ARGS,
     NodeConnectionStateManager,
@@ -16,16 +21,16 @@ from fedbiomed.transport.client import (
     ClientStatus,
     ResearcherCredentials,
 )
+from sqlalchemy import inspect, select
 
-
-def _iso(moment: datetime) -> str:
-    """Timestamp in the format the managers store."""
-    return moment.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+# Recent, so the 30-day history retention keeps what tests write
+NOW = datetime.now(timezone.utc).replace(microsecond=0)
 
 
 def _config(mocker, root, node_id="node-1", node_name="Node 1", db_name="node_db.json"):
     config = mocker.MagicMock()
     config.root = str(root)
+    config.getpath.return_value = str(root / db_name)
 
     def _get(section, key):
         values = {
@@ -40,49 +45,48 @@ def _config(mocker, root, node_id="node-1", node_name="Node 1", db_name="node_db
     return config
 
 
+def _store(manager, model, **fields):
+    """Saves a row, replacing the one with the same key."""
+    with manager._database.transaction() as session:
+        session.merge(model(**fields))
+
+
+def _stored(manager, model):
+    """The rows of a table, without the history's generated `id`."""
+    with manager._database.transaction() as session:
+        rows = [row.to_dict() for row in session.scalars(select(model))]
+    for row in rows:
+        row.pop("id", None)
+    return rows
+
+
+def _tables(manager):
+    return inspect(manager._database._engine).get_table_names()
+
+
 @pytest.fixture
 def _manager(mocker, tmp_path):
-    """Create a manager with safe mocked DB tables.
+    """Create a manager on a database in `tmp_path`."""
+    return NodeProcessManager(_config(mocker, tmp_path))
 
-    Do not patch _cleanup_process_state_history here: some tests need the real
-    implementation.
-    """
-    state_table = mocker.MagicMock()
-    history_table = mocker.MagicMock()
 
-    state_table.get_by_id.return_value = None
+def _process_state(**kwargs):
+    return {
+        "node_id": "node-1",
+        "node_name": "Node 1",
+        "pid": 1234,
+        "state": NodeState.STOPPED.value,
+        "action": "stop",
+        **kwargs,
+    }
 
-    mocker.patch.object(
-        NodeProcessManager,
-        "_get_state_table",
-        return_value=state_table,
-    )
-    mocker.patch.object(
-        NodeProcessManager,
-        "_get_history_table",
-        return_value=history_table,
-    )
 
+def test_node_pm_init_creates_missing_tables(mocker, tmp_path):
+    """The first manager built on a database creates its empty tables."""
     manager = NodeProcessManager(_config(mocker, tmp_path))
 
-    # Test-only handles so tests can configure/assert the shared table mocks.
-    # Direct access to manager._state_table and manager._history_table does not exist
-    # in the current implementation.
-    manager._state_table = state_table
-    manager._history_table = history_table
-
-    return manager
-
-
-def test_node_pm_init_writes_nothing(mocker, tmp_path):
-    """Constructing a manager opens no table: a reader leaves the database alone."""
-    state_table = mocker.patch("fedbiomed.node.node_pm.NodeProcessStateTable")
-    history_table = mocker.patch("fedbiomed.node.node_pm.NodeProcessStateHistoryTable")
-
-    NodeProcessManager(_config(mocker, tmp_path))
-
-    state_table.assert_not_called()
-    history_table.assert_not_called()
+    assert {"NodeProcessStates", "NodeProcessStateHistory"} <= set(_tables(manager))
+    assert _stored(manager, NodeProcessState) == []
 
 
 @pytest.mark.parametrize("background", [True, False])
@@ -295,15 +299,19 @@ def test_node_pm_restart_inherits_and_overrides_saved_settings(
     expected_background,
 ):
     manager = _manager
-    manager._state_table.get_by_id.return_value = {
-        "node_args": {
-            "gpu": True,
-            "gpu_num": 2,
-            "gpu_only": True,
-            "debug": True,
-        },
-        "background": True,
-    }
+    _store(
+        manager,
+        NodeProcessState,
+        **_process_state(
+            node_args={
+                "gpu": True,
+                "gpu_num": 2,
+                "gpu_only": True,
+                "debug": True,
+            },
+            background=True,
+        ),
+    )
 
     manager.stop = mocker.MagicMock()
     manager.start = mocker.MagicMock()
@@ -329,7 +337,6 @@ def test_node_pm_restart_inherits_and_overrides_saved_settings(
 
 def test_node_pm_restart_uses_cli_defaults_without_saved_state(mocker, _manager):
     manager = _manager
-    manager._state_table.get_by_id.return_value = None
     manager.stop = mocker.MagicMock()
     manager.start = mocker.MagicMock()
 
@@ -346,16 +353,9 @@ def test_node_pm_restart_uses_cli_defaults_without_saved_state(mocker, _manager)
 def test_node_pm_set_process_state(mocker, _manager):
     manager = _manager
     manager._node_id = "node_id1"
+    _store(manager, NodeProcessState, **_process_state(node_id="node_id1"))
 
-    state_table = manager._state_table
-    history_table = manager._history_table
-
-    state_table.get_by_id.return_value = {
-        "started_at": None,
-        "stopped_at": None,
-    }
-
-    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value="utc-now")
+    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value=NOW)
     mocker.patch.object(
         NodeProcessManager, "_build_actor", return_value={"source": "local"}
     )
@@ -369,18 +369,13 @@ def test_node_pm_set_process_state(mocker, _manager):
         background=True,
     )
 
-    state_table.update_or_insert_by_id.assert_called_once()
-    assert state_table.update_or_insert_by_id.call_args.args[0] == "node_id1"
-
-    history_table.insert.assert_called_once()
-
-    state_entry = state_table.update_or_insert_by_id.call_args.args[1]
-    history_entry = history_table.insert.call_args.args[0]
+    (state_entry,) = _stored(manager, NodeProcessState)
+    (history_entry,) = _stored(manager, NodeProcessStateHistory)
 
     assert state_entry["node_id"] == "node_id1"
     assert state_entry["pid"] == 1234
     assert NodeState(state_entry["state"]) == NodeState.RUNNING
-    assert state_entry["started_at"] == "utc-now"
+    assert state_entry["started_at"] == NOW
     assert state_entry["actor"] == {"source": "local"}
     assert state_entry["node_args"] == {"gpu": True, "gpu_num": 2}
     assert state_entry["background"] is True
@@ -390,26 +385,31 @@ def test_node_pm_set_process_state(mocker, _manager):
 def test_node_pm_set_process_state_preserves_execution_settings(mocker, _manager):
     manager = _manager
     manager._node_id = "node_id1"
-    manager._state_table.get_by_id.return_value = {
-        "state": NodeState.RUNNING.value,
-        "started_at": "start-time",
-        "node_args": {
-            "gpu": True,
-            "gpu_num": 3,
-            "gpu_only": False,
-            "debug": True,
-        },
-        "background": True,
-    }
+    _store(
+        manager,
+        NodeProcessState,
+        **_process_state(
+            node_id="node_id1",
+            state=NodeState.RUNNING.value,
+            started_at=NOW - timedelta(days=1),
+            node_args={
+                "gpu": True,
+                "gpu_num": 3,
+                "gpu_only": False,
+                "debug": True,
+            },
+            background=True,
+        ),
+    )
 
-    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value="stop-time")
+    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value=NOW)
     manager._set_process_state(
         pid=1234,
         state=NodeState.STOPPED,
         action="stop",
     )
 
-    state_entry = manager._state_table.update_or_insert_by_id.call_args.args[1]
+    (state_entry,) = _stored(manager, NodeProcessState)
     assert state_entry["node_args"] == {
         "gpu": True,
         "gpu_num": 3,
@@ -417,25 +417,30 @@ def test_node_pm_set_process_state_preserves_execution_settings(mocker, _manager
         "debug": True,
     }
     assert state_entry["background"] is True
-    assert state_entry["stopped_at"] == "stop-time"
+    assert state_entry["stopped_at"] == NOW
 
 
 def test_node_pm_set_process_state_merges_partial_node_args(mocker, _manager):
     manager = _manager
     manager._node_id = "node_id1"
-    manager._state_table.get_by_id.return_value = {
-        "state": NodeState.RUNNING.value,
-        "started_at": "start-time",
-        "node_args": {
-            "gpu": True,
-            "gpu_num": 3,
-            "gpu_only": False,
-            "debug": True,
-        },
-        "background": True,
-    }
+    _store(
+        manager,
+        NodeProcessState,
+        **_process_state(
+            node_id="node_id1",
+            state=NodeState.RUNNING.value,
+            started_at=NOW - timedelta(days=1),
+            node_args={
+                "gpu": True,
+                "gpu_num": 3,
+                "gpu_only": False,
+                "debug": True,
+            },
+            background=True,
+        ),
+    )
 
-    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value="update-time")
+    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value=NOW)
     manager._set_process_state(
         pid=1234,
         state=NodeState.RUNNING,
@@ -443,7 +448,7 @@ def test_node_pm_set_process_state_merges_partial_node_args(mocker, _manager):
         node_args={"gpu_num": 4, "debug": False},
     )
 
-    state_entry = manager._state_table.update_or_insert_by_id.call_args.args[1]
+    (state_entry,) = _stored(manager, NodeProcessState)
     assert state_entry["node_args"] == {
         "gpu": True,
         "gpu_num": 4,
@@ -456,15 +461,19 @@ def test_node_pm_set_process_state_merges_partial_node_args(mocker, _manager):
 def test_node_pm_set_process_state_resets_started_at_after_stop(mocker, _manager):
     manager = _manager
     manager._node_id = "node_id1"
+    _store(
+        manager,
+        NodeProcessState,
+        **_process_state(
+            node_id="node_id1",
+            state=NodeState.STOPPED.value,
+            started_at=NOW - timedelta(days=2),
+            stopped_at=NOW - timedelta(days=1),
+            exit_code=0,
+        ),
+    )
 
-    state_table = manager._state_table
-    state_table.get_by_id.return_value = {
-        "state": NodeState.STOPPED.value,
-        "started_at": "previous-start",
-        "stopped_at": "previous-stop",
-    }
-
-    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value="new-start")
+    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value=NOW)
     mocker.patch.object(
         NodeProcessManager, "_build_actor", return_value={"source": "local"}
     )
@@ -476,10 +485,11 @@ def test_node_pm_set_process_state_resets_started_at_after_stop(mocker, _manager
         reason="start_requested",
     )
 
-    state_entry = state_table.update_or_insert_by_id.call_args.args[1]
+    (state_entry,) = _stored(manager, NodeProcessState)
 
-    assert state_entry["started_at"] == "new-start"
+    assert state_entry["started_at"] == NOW
     assert "stopped_at" not in state_entry
+    assert "exit_code" not in state_entry
 
 
 def test_node_pm_set_process_state_resets_started_at_for_forced_start(
@@ -488,15 +498,18 @@ def test_node_pm_set_process_state_resets_started_at_for_forced_start(
 ):
     manager = _manager
     manager._node_id = "node_id1"
+    _store(
+        manager,
+        NodeProcessState,
+        **_process_state(
+            node_id="node_id1",
+            state=NodeState.RUNNING.value,
+            pid=1234,
+            started_at=NOW - timedelta(days=1),
+        ),
+    )
 
-    state_table = manager._state_table
-    state_table.get_by_id.return_value = {
-        "state": NodeState.RUNNING.value,
-        "pid": 1234,
-        "started_at": "previous-start",
-    }
-
-    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value="forced-start")
+    mocker.patch("fedbiomed.node.node_pm._utc_now", return_value=NOW)
     mocker.patch.object(
         NodeProcessManager, "_build_actor", return_value={"source": "cli"}
     )
@@ -509,10 +522,10 @@ def test_node_pm_set_process_state_resets_started_at_for_forced_start(
         reason="start_requested",
     )
 
-    state_entry = state_table.update_or_insert_by_id.call_args.args[1]
+    (state_entry,) = _stored(manager, NodeProcessState)
     assert state_entry["pid"] == 5678
     assert state_entry["state"] == NodeState.RUNNING.value
-    assert state_entry["started_at"] == "forced-start"
+    assert state_entry["started_at"] == NOW
 
 
 def test_node_pm_start_process_already_started(mocker, _manager):
@@ -598,105 +611,119 @@ def test_node_pm_get_status(
     mocker, _manager, stored_state, _is_process_active, expected_status
 ):
     manager = _manager
-    state_table = manager._state_table
     manager._is_process_active = mocker.MagicMock(return_value=_is_process_active)
 
-    if stored_state is None:
-        state_table.get_by_id.return_value = None
-    else:
-        state_table.get_by_id.return_value = {
-            "pid": 12345,
-            "state": stored_state,
-        }
+    if stored_state is not None:
+        _store(
+            manager,
+            NodeProcessState,
+            **_process_state(pid=12345, state=stored_state.value),
+        )
 
     status = manager.get_status()
 
     assert status == expected_status
-    state_table.get_by_id.assert_called_with("node-1")
 
 
 def test_node_pm_process_state_returns_stored_entry(mocker, _manager):
     manager = _manager
 
     manager.get_status = mocker.MagicMock(return_value=NodeState.RUNNING)
-    manager._get_pid = mocker.MagicMock(return_value=12345)
 
-    state_table = manager._state_table
-
-    stored = {
-        "pid": 12345,
-        "state": NodeState.RUNNING,
-        "node_id": "node-1",
-        "node_name": "Node 1",
-        "action": "start",
-        "reason": "start_requested",
-        "actor": {"source": "gui"},
-        "updated_at": "utc-now",
-        "started_at": "utc-now",
-        "stopped_at": None,
-        "exit_code": None,
-    }
-
-    state_table.get_by_id.return_value = stored
+    _store(
+        manager,
+        NodeProcessState,
+        **_process_state(
+            pid=12345,
+            state=NodeState.RUNNING.value,
+            action="start",
+            reason="start_requested",
+            actor={"source": "gui"},
+            updated_at=NOW,
+            started_at=NOW,
+        ),
+    )
 
     state = manager.get_process_state()
 
-    manager._get_pid.assert_called_once()
     manager.get_status.assert_called_once()
-    state_table.get_by_id.assert_called_with("node-1")
 
-    assert state.pid == 12345
-    assert state.state == NodeState.RUNNING
-    assert state.node_id == "node-1"
-    assert state.node_name == "Node 1"
-    assert state.actor == {"source": "gui"}
-    assert state.node_args is None
-    assert state.background is None
+    assert state["pid"] == 12345
+    assert state["state"] == NodeState.RUNNING.value
+    assert state["node_id"] == "node-1"
+    assert state["node_name"] == "Node 1"
+    assert state["actor"] == {"source": "gui"}
+    assert state.get("node_args") is None
+    assert state.get("background") is None
 
 
 def test_node_pm_process_state_returns_unknown_without_stored_entry(mocker, _manager):
     manager = _manager
     manager.get_status = mocker.MagicMock(return_value=NodeState.UNKNOWN)
-    manager._get_pid = mocker.MagicMock(return_value=None)
-    manager._state_table.get_by_id.return_value = None
 
     state = manager.get_process_state()
 
-    assert state.pid is None
-    assert state.state == NodeState.UNKNOWN.value
-    assert state.node_id == "node-1"
-    assert state.node_name == "Node 1"
-    assert state.action is None
+    assert state.get("pid") is None
+    assert state["state"] == NodeState.UNKNOWN.value
+    assert state["node_id"] == "node-1"
+    assert state["node_name"] == "Node 1"
+    assert state.get("action") is None
+
+
+def test_node_pm_process_state_requires_node_id(mocker, tmp_path):
+    manager = NodeProcessManager(_config(mocker, tmp_path, node_id=None))
+
+    with pytest.raises(Exception, match="FB327"):
+        manager.get_process_state()
+
+
+def test_node_pm_set_process_state_needs_node_id(mocker, tmp_path):
+    manager = NodeProcessManager(_config(mocker, tmp_path, node_id=None))
+
+    manager._set_process_state(pid=1, state=NodeState.RUNNING, action="start")
+
+    assert _stored(manager, NodeProcessState) == []
+
+
+def test_node_pm_set_process_state_survives_db_failure(mocker, _manager):
+    mocker.patch.object(
+        _manager._database, "transaction", side_effect=RuntimeError("db is gone")
+    )
+    warning = mocker.patch("fedbiomed.node.node_pm.logger.warning")
+
+    _manager._set_process_state(pid=1, state=NodeState.RUNNING, action="start")
+
+    warning.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "state, expected_pid", [(NodeState.RUNNING, 1234), (NodeState.STOPPED, None)]
+)
+def test_node_pm_get_pid_only_of_a_running_process(_manager, state, expected_pid):
+    _store(_manager, NodeProcessState, **_process_state(state=state.value))
+
+    assert _manager._get_pid() == expected_pid
 
 
 def test_node_pm_cleanup_process_state_history_removes_entries_past_retention(
-    mocker, tmp_path
+    mocker, _manager
 ):
-    """Run against a real table: a mocked one hid that this cleanup did nothing."""
-    history_table = NodeProcessStateHistoryTable(str(tmp_path / "db.json"))
-    entry = {
-        "node_id": "node-retention",
-        "node_name": "N",
-        "pid": 1,
-        "state": "running",
-    }
     for age_in_days in (31, 10):
-        history_table.insert(
-            {
-                **entry,
-                "action": f"start-{age_in_days}",
-                "updated_at": _iso(
-                    datetime.now(timezone.utc) - timedelta(days=age_in_days)
-                ),
-            }
+        _store(
+            _manager,
+            NodeProcessStateHistory,
+            **_process_state(
+                node_id="node-retention",
+                state="running",
+                action=f"start-{age_in_days}",
+                updated_at=datetime.now(timezone.utc) - timedelta(days=age_in_days),
+            ),
         )
 
-    mocker.patch.object(
-        NodeProcessManager, "_get_history_table", return_value=history_table
-    )
-    NodeProcessManager(_config(mocker, tmp_path))._cleanup_process_state_history()
+    with _manager._database.transaction() as session:
+        NodeProcessManager._cleanup_process_state_history(session)
 
-    remaining = history_table.get_all_by_value("node_id", "node-retention")
+    remaining = _stored(_manager, NodeProcessStateHistory)
     assert [entry["action"] for entry in remaining] == ["start-10"]
 
 
@@ -709,54 +736,10 @@ def test_node_pm_set_process_state_prunes_history(mocker, _manager):
     cleanup.assert_called_once()
 
 
-def test_node_pm_get_table_reinitializes_state_and_history_tables(mocker, tmp_path):
-    state_table_constructor = mocker.patch(
-        "fedbiomed.node.node_pm.NodeProcessStateTable"
-    )
-    history_table_constructor = mocker.patch(
-        "fedbiomed.node.node_pm.NodeProcessStateHistoryTable"
-    )
-
-    mocker.patch.object(NodeProcessManager, "_cleanup_process_state_history")
-
-    manager = NodeProcessManager(_config(mocker, tmp_path))
-
-    manager._get_state_table()
-    manager._get_state_table()
-    manager._get_history_table()
-    manager._get_history_table()
-
-    assert state_table_constructor.call_count == 2
-    assert history_table_constructor.call_count == 2
-
-
 @pytest.fixture
 def _connection_manager(mocker, tmp_path):
-    """Create a connection state manager with mocked DB tables."""
-    state_table = mocker.MagicMock()
-    history_table = mocker.MagicMock()
-
-    state_table.get_by_id.return_value = None
-    history_table.get_all_by_value.return_value = []
-
-    mocker.patch.object(
-        NodeConnectionStateManager,
-        "_get_state_table",
-        return_value=state_table,
-    )
-    mocker.patch.object(
-        NodeConnectionStateManager,
-        "_get_history_table",
-        return_value=history_table,
-    )
-
-    manager = NodeConnectionStateManager(_config(mocker, tmp_path))
-
-    # Test-only handles on the shared table mocks.
-    manager._state_table = state_table
-    manager._history_table = history_table
-
-    return manager
+    """Create a connection state manager on a database in `tmp_path`."""
+    return NodeConnectionStateManager(_config(mocker, tmp_path))
 
 
 def _connection_state(**kwargs):
@@ -769,29 +752,39 @@ def _connection_state(**kwargs):
     }
 
 
-def test_node_connection_init_writes_nothing(mocker, tmp_path):
-    """The GUI builds one of these to read: constructing it opens no table."""
-    state_table = mocker.patch("fedbiomed.node.node_pm.NodeConnectionStateTable")
-    history_table = mocker.patch(
-        "fedbiomed.node.node_pm.NodeConnectionStateHistoryTable"
+def test_node_connection_init_creates_missing_tables(mocker, tmp_path):
+    """The GUI builds one of these to read: the first one creates its empty tables."""
+    manager = NodeConnectionStateManager(_config(mocker, tmp_path))
+
+    assert {"NodeConnectionStates", "NodeConnectionStateHistory"} <= set(
+        _tables(manager)
     )
-
-    NodeConnectionStateManager(_config(mocker, tmp_path))
-
-    state_table.assert_not_called()
-    history_table.assert_not_called()
+    assert manager.get_connection_state() is None
 
 
 def test_node_connection_set_state_prunes_history_past_retention(
     mocker, _connection_manager
 ):
     """History is pruned as it grows: a node process may run for months."""
+    for age_in_days in (31, 10):
+        _store(
+            _connection_manager,
+            NodeConnectionStateHistory,
+            node_id="node-1",
+            state="connected",
+            host="localhost",
+            port="50051",
+            operation=f"retained-{age_in_days}",
+            updated_at=datetime.now(timezone.utc) - timedelta(days=age_in_days),
+        )
+
     _connection_manager.set_state(**_connection_state(operation="node_starting"))
 
-    cutoff = _connection_manager._history_table.delete_older_than.call_args.args[0]
-    assert datetime.fromisoformat(cutoff.replace("Z", "+00:00")) < datetime.now(
-        timezone.utc
-    ) - timedelta(days=29)
+    remaining = _stored(_connection_manager, NodeConnectionStateHistory)
+    assert [entry["operation"] for entry in remaining] == [
+        "retained-10",
+        "node_starting",
+    ]
 
 
 def test_node_connection_set_state_records_state_and_history(
@@ -808,17 +801,17 @@ def test_node_connection_set_state_records_state_and_history(
         )
     )
 
-    entry = manager._state_table.replace_by_id.call_args.args[1]
+    (entry,) = _stored(manager, NodeConnectionState)
     assert entry["state"] == "connected"
     assert entry["researcher_id"] == "researcher-1"
     assert entry["identity_verified"] is True
     assert entry["certificate"] == {"subject": "CN=researcher-1"}
     assert entry["started_at"] == entry["updated_at"]
-    manager._history_table.insert.assert_called_once_with(entry)
+    assert _stored(manager, NodeConnectionStateHistory) == [entry]
 
 
 def _repeated_state(updated_at):
-    """A stored row that `_repeated_call` reports again, stamped at `updated_at`."""
+    """A stored row that `_repeat_state` reports again, stamped at `updated_at`."""
     return {
         "node_id": "node-1",
         "state": "disconnected",
@@ -826,7 +819,7 @@ def _repeated_state(updated_at):
         "port": "50051",
         "operation": "researcher_unavailable",
         "reason": "not available",
-        "started_at": "2026-08-01T10:00:00Z",
+        "started_at": NOW,
         "updated_at": updated_at,
     }
 
@@ -841,21 +834,24 @@ def _repeat_state(manager):
     )
 
 
+def _ago(**delta):
+    """A past instant, to the second as the managers store it."""
+    return datetime.now(timezone.utc).replace(microsecond=0) - timedelta(**delta)
+
+
 def test_node_connection_set_state_refreshes_stale_repeated_state(
     mocker, _connection_manager
 ):
     manager = _connection_manager
-    manager._state_table.get_by_id.return_value = _repeated_state(
-        _iso(datetime.now(timezone.utc) - timedelta(minutes=30))
-    )
+    updated_at = _ago(minutes=30)
+    _store(manager, NodeConnectionState, **_repeated_state(updated_at))
 
     _repeat_state(manager)
 
-    manager._state_table.replace_by_id.assert_not_called()
-    manager._history_table.insert.assert_not_called()
-    node_id, update = manager._state_table.update_by_id.call_args.args
-    assert node_id == "node-1"
-    assert list(update) == ["updated_at"]
+    (entry,) = _stored(manager, NodeConnectionState)
+    assert entry["updated_at"] > updated_at
+    assert entry == {**_repeated_state(updated_at), "updated_at": entry["updated_at"]}
+    assert _stored(manager, NodeConnectionStateHistory) == []
 
 
 def test_node_connection_set_state_honours_the_refresh_interval(
@@ -863,9 +859,8 @@ def test_node_connection_set_state_honours_the_refresh_interval(
 ):
     """An unreachable researcher asks for a rarer refresh than the default."""
     manager = _connection_manager
-    manager._state_table.get_by_id.return_value = _repeated_state(
-        _iso(datetime.now(timezone.utc) - timedelta(minutes=10))
-    )
+    recent = _ago(minutes=10)
+    _store(manager, NodeConnectionState, **_repeated_state(recent))
 
     manager.set_state(
         **_connection_state(
@@ -875,11 +870,10 @@ def test_node_connection_set_state_honours_the_refresh_interval(
         ),
         refresh_interval=timedelta(minutes=30),
     )
-    manager._state_table.update_by_id.assert_not_called()
+    assert _stored(manager, NodeConnectionState)[0]["updated_at"] == recent
 
-    manager._state_table.get_by_id.return_value = _repeated_state(
-        _iso(datetime.now(timezone.utc) - timedelta(minutes=31))
-    )
+    stale = _ago(minutes=31)
+    _store(manager, NodeConnectionState, **_repeated_state(stale))
     manager.set_state(
         **_connection_state(
             state=ClientStatus.DISCONNECTED,
@@ -888,43 +882,43 @@ def test_node_connection_set_state_honours_the_refresh_interval(
         ),
         refresh_interval=timedelta(minutes=30),
     )
-    manager._state_table.update_by_id.assert_called_once()
+    assert _stored(manager, NodeConnectionState)[0]["updated_at"] > stale
 
 
 def test_node_connection_set_state_leaves_recent_repeated_state_alone(
     mocker, _connection_manager
 ):
-    """An unreachable researcher repeats every 2s, and each write rewrites the file."""
+    """An unreachable researcher repeats every 2s, and each write locks the file."""
     manager = _connection_manager
-    manager._state_table.get_by_id.return_value = _repeated_state(
-        _iso(datetime.now(timezone.utc) - timedelta(seconds=30))
-    )
+    _store(manager, NodeConnectionState, **_repeated_state(_ago(seconds=30)))
 
     _repeat_state(manager)
 
-    manager._state_table.update_by_id.assert_not_called()
-    manager._state_table.replace_by_id.assert_not_called()
-    manager._history_table.insert.assert_not_called()
+    assert _stored(manager, NodeConnectionState) == [_repeated_state(_ago(seconds=30))]
+    assert _stored(manager, NodeConnectionStateHistory) == []
 
 
 def test_node_connection_set_state_carries_last_error_forward(
     mocker, _connection_manager
 ):
     manager = _connection_manager
-    manager._state_table.get_by_id.return_value = {
-        "node_id": "node-1",
-        "state": "failed",
-        "host": "localhost",
-        "port": "50051",
-        "last_error": "handshake failed",
-        "last_error_at": "2026-08-01T10:00:00Z",
-    }
+    _store(
+        manager,
+        NodeConnectionState,
+        node_id="node-1",
+        state="failed",
+        host="localhost",
+        port="50051",
+        reason="handshake failed",
+        last_error="handshake failed",
+        last_error_at=NOW,
+    )
 
     manager.set_state(**_connection_state(operation="researcher_channel_established"))
 
-    entry = manager._state_table.replace_by_id.call_args.args[1]
+    (entry,) = _stored(manager, NodeConnectionState)
     assert entry["last_error"] == "handshake failed"
-    assert entry["last_error_at"] == "2026-08-01T10:00:00Z"
+    assert entry["last_error_at"] == NOW
     assert "reason" not in entry
 
 
@@ -941,7 +935,7 @@ def test_node_connection_set_state_records_failure_as_last_error(
         )
     )
 
-    entry = manager._state_table.replace_by_id.call_args.args[1]
+    (entry,) = _stored(manager, NodeConnectionState)
     assert entry["state"] == "failed"
     assert entry["last_error"] == "identity rejected"
     assert entry["last_error_at"] == entry["updated_at"]
@@ -949,7 +943,9 @@ def test_node_connection_set_state_records_failure_as_last_error(
 
 def test_node_connection_set_state_survives_db_failure(mocker, _connection_manager):
     manager = _connection_manager
-    manager._state_table.get_by_id.side_effect = RuntimeError("db is gone")
+    mocker.patch.object(
+        manager._database, "transaction", side_effect=RuntimeError("db is gone")
+    )
     warning = mocker.patch("fedbiomed.node.node_pm.logger.warning")
 
     manager.set_state(**_connection_state())
@@ -962,14 +958,16 @@ def test_node_connection_get_connection_state(mocker, _connection_manager):
 
     assert manager.get_connection_state() is None
 
-    manager._state_table.get_by_id.return_value = {
-        "node_id": "node-1",
-        "state": "connected",
-        "host": "localhost",
-        "port": "50051",
-    }
+    _store(
+        manager,
+        NodeConnectionState,
+        node_id="node-1",
+        state="connected",
+        host="localhost",
+        port="50051",
+    )
 
-    assert manager.get_connection_state().state == "connected"
+    assert manager.get_connection_state()["state"] == "connected"
 
 
 def test_node_connection_channel_report_reaches_the_manager(_connection_manager):
@@ -989,7 +987,7 @@ def test_node_connection_channel_report_reaches_the_manager(_connection_manager)
         identity_verified=False,
     )
 
-    entry = _connection_manager._state_table.replace_by_id.call_args.args[1]
+    (entry,) = _stored(_connection_manager, NodeConnectionState)
     assert entry["state"] == "failed"
     assert entry["operation"] == "mtls_identity_rejected"
     assert entry["researcher_id"] == "researcher-1"
@@ -1001,16 +999,26 @@ def test_node_connection_get_connection_history_newest_first(
     mocker, _connection_manager
 ):
     manager = _connection_manager
-    manager._history_table.get_all_by_value.return_value = [
-        {
-            "node_id": "node-1",
-            "state": state,
-            "host": "localhost",
-            "port": "50051",
-        }
-        for state in ("failed", "disconnected", "connected")
-    ]
+    for state in ("failed", "disconnected", "connected"):
+        _store(
+            manager,
+            NodeConnectionStateHistory,
+            node_id="node-1",
+            state=state,
+            host="localhost",
+            port="50051",
+        )
 
     history = manager.get_connection_history(limit=2)
 
-    assert [entry.state for entry in history] == ["connected", "disconnected"]
+    assert [entry["state"] for entry in history] == ["connected", "disconnected"]
+
+
+def test_node_connection_without_node_id_records_nothing(mocker, tmp_path):
+    manager = NodeConnectionStateManager(_config(mocker, tmp_path, node_id=None))
+
+    manager.set_state(**_connection_state())
+
+    assert _stored(manager, NodeConnectionState) == []
+    assert manager.get_connection_state() is None
+    assert manager.get_connection_history() == []

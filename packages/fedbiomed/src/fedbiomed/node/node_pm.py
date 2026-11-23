@@ -16,21 +16,19 @@ from types import FrameType
 from typing import Any, Dict, List, Optional, Union
 
 import psutil
+from sqlalchemy import delete, select
+from sqlalchemy.orm import Session
 
 from fedbiomed.common.constants import ErrorNumbers
+from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import DEFAULT_APPLICATION_LOG_FILE, logger
 from fedbiomed.node.config import NodeConfig
-from fedbiomed.node.dataset_manager._db_dataclasses import (
-    NodeConnectionStateEntry,
-    NodeConnectionStateHistoryEntry,
-    NodeProcessStateEntry,
-)
-from fedbiomed.node.dataset_manager._db_tables import (
-    NodeConnectionStateHistoryTable,
-    NodeConnectionStateTable,
-    NodeProcessStateHistoryTable,
-    NodeProcessStateTable,
+from fedbiomed.node.db_models import (
+    NodeConnectionState,
+    NodeConnectionStateHistory,
+    NodeProcessState,
+    NodeProcessStateHistory,
 )
 from fedbiomed.node.node import Node
 from fedbiomed.transport.client import ClientStatus
@@ -50,14 +48,9 @@ class NodeState(enum.Enum):
     UNKNOWN = "unknown"  # used only in route layer as a fallback
 
 
-def _utc_isoformat(moment: datetime) -> str:
-    """Return the given UTC time as an ISO-8601 string."""
-    return moment.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def _utc_now() -> str:
-    """Return the current UTC time as an ISO-8601 string."""
-    return _utc_isoformat(datetime.now(timezone.utc))
+def _utc_now() -> datetime:
+    """Return the current UTC time, to the second."""
+    return datetime.now(timezone.utc).replace(microsecond=0)
 
 
 def _node_signal_trigger_term() -> None:
@@ -204,6 +197,8 @@ def _start_node_process(config_path: str, node_args: Union[str, dict]) -> None:
 class NodeProcessManager:
     """Manages a single node subprocess. This node subprocess is the one where whose config is passed during initialization."""
 
+    MODELS = (NodeProcessState, NodeProcessStateHistory)
+
     def __init__(self, config: NodeConfig) -> None:
         """Initialize the NodeProcessManager with the given configuration.
 
@@ -213,31 +208,33 @@ class NodeProcessManager:
         self._config = config
         self._node_id: str | None = config.get("default", "id")
         self._node_name: str | None = config.get("default", "name")
+        self._database = get_database(config.getpath("default", "db"))
+        self._database.create_tables(self.MODELS)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _get_state_table(self) -> NodeProcessStateTable:
-        """Get the state table instance."""
-        return NodeProcessStateTable(self._config.getpath("default", "db"))
+    def _saved_state(self) -> Optional[Dict[str, Any]]:
+        """The stored process state of this node, or None when none was recorded yet."""
+        with self._database.transaction() as session:
+            saved = session.get(NodeProcessState, self._node_id)
+            return saved.to_dict() if saved else None
 
-    def _get_history_table(self) -> NodeProcessStateHistoryTable:
-        """Get the history table instance."""
-        return NodeProcessStateHistoryTable(self._config.getpath("default", "db"))
-
-    def _cleanup_process_state_history(self, days: int = 30) -> None:
+    @staticmethod
+    def _cleanup_process_state_history(session: Session, days: int = 30) -> None:
         """Remove process-state history entries older than the given number of days.
 
         Args:
+            session: Session of the transaction in progress.
             days: Number of days to retain. Defaults to 30.
         """
-        cutoff = _utc_isoformat(datetime.now(timezone.utc) - timedelta(days=days))
-
-        try:
-            self._get_history_table().delete_older_than(cutoff)
-        except Exception as e:
-            logger.warning(f"Could not clean up old node process history entries: {e}")
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        session.execute(
+            delete(NodeProcessStateHistory).where(
+                NodeProcessStateHistory.updated_at < cutoff
+            )
+        )
 
     @staticmethod
     def _build_actor(actor: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -290,76 +287,76 @@ class NodeProcessManager:
             node_args: Effective arguments used to start the node process.
             background: Whether the node process runs in the background.
         """
-        if (
-            not self._get_state_table()
-            or not self._get_history_table()
-            or not self._node_id
-            or not self._node_name
-        ):
+        if not self._node_id or not self._node_name:
             return
 
         try:
-            now = _utc_now()
-            existing = self._get_state_table().get_by_id(self._node_id) or {}
-            effective_node_args = existing.get("node_args")
-            if node_args is not None:
-                effective_node_args = (
-                    dict(effective_node_args)
-                    if isinstance(effective_node_args, dict)
-                    else {}
-                )
-                effective_node_args.update(node_args)
-
-            entry = NodeProcessStateEntry(
-                pid=pid,
-                state=state.value,
-                node_id=self._node_id,
-                node_name=self._node_name,
-                action=action,
-                reason=reason,
-                actor=self._build_actor(actor),
-                updated_at=now,
-                started_at=existing.get("started_at"),
-                stopped_at=existing.get("stopped_at"),
-                exit_code=exit_code,
-                node_args=effective_node_args,
-                background=(
-                    background if background is not None else existing.get("background")
-                ),
-            )
-
-            match state:
-                case NodeState.RUNNING:
-                    existing_state = existing.get("state")
-                    is_existing_process_active = existing_state in {
-                        NodeState.RUNNING.value,
-                        NodeState.STOPPING.value,
-                    }
-                    entry.started_at = (
-                        existing.get("started_at")
-                        if (
-                            action != "start"
-                            and is_existing_process_active
-                            and existing.get("started_at")
-                        )
-                        else now
+            with self._database.transaction() as session:
+                now = _utc_now()
+                saved = session.get(NodeProcessState, self._node_id)
+                existing = saved.to_dict() if saved else {}
+                effective_node_args = existing.get("node_args")
+                if node_args is not None:
+                    effective_node_args = (
+                        dict(effective_node_args)
+                        if isinstance(effective_node_args, dict)
+                        else {}
                     )
-                    entry.stopped_at = None
-                    entry.exit_code = None
-                case NodeState.STOPPED:
-                    entry.stopped_at = now
+                    effective_node_args.update(node_args)
 
-            self._get_state_table().update_or_insert_by_id(
-                self._node_id, entry.to_dict()
-            )
-            self._get_history_table().insert(entry.to_dict())
-            self._cleanup_process_state_history()
+                fields = {
+                    "pid": pid,
+                    "state": state.value,
+                    "node_name": self._node_name,
+                    "action": action,
+                    "reason": reason,
+                    "actor": self._build_actor(actor),
+                    "updated_at": now,
+                    "started_at": existing.get("started_at"),
+                    "stopped_at": existing.get("stopped_at"),
+                    "exit_code": exit_code,
+                    "node_args": effective_node_args,
+                    "background": (
+                        background
+                        if background is not None
+                        else existing.get("background")
+                    ),
+                }
+
+                match state:
+                    case NodeState.RUNNING:
+                        existing_state = existing.get("state")
+                        is_existing_process_active = existing_state in {
+                            NodeState.RUNNING.value,
+                            NodeState.STOPPING.value,
+                        }
+                        fields["started_at"] = (
+                            existing.get("started_at")
+                            if (
+                                action != "start"
+                                and is_existing_process_active
+                                and existing.get("started_at")
+                            )
+                            else now
+                        )
+                        fields["stopped_at"] = None
+                        fields["exit_code"] = None
+                    case NodeState.STOPPED:
+                        fields["stopped_at"] = now
+
+                if saved is None:
+                    session.add(NodeProcessState(node_id=self._node_id, **fields))
+                else:
+                    for field, value in fields.items():
+                        setattr(saved, field, value)
+                session.add(NodeProcessStateHistory(node_id=self._node_id, **fields))
+                self._cleanup_process_state_history(session)
         except Exception as e:
             logger.warning(f"Could not persist node process state: {e}")
 
     def _get_pid(self) -> Optional[int]:
         """Get the PID of the currently running node process, if any."""
-        state = self._get_state_table().get_by_id(self._node_id)
+        state = self._saved_state()
         if state and state.get("state") == NodeState.RUNNING.value:
             return state.get("pid")
         return None
@@ -555,8 +552,8 @@ class NodeProcessManager:
         effective_node_args = dict(DEFAULT_NODE_ARGS)
         effective_background = False
 
-        if self._get_state_table() and self._node_id:
-            stored_state = self._get_state_table().get_by_id(self._node_id) or {}
+        if self._node_id:
+            stored_state = self._saved_state() or {}
             stored_node_args = stored_state.get("node_args")
             if isinstance(stored_node_args, dict):
                 effective_node_args.update(stored_node_args)
@@ -594,7 +591,7 @@ class NodeProcessManager:
 
     def get_status(self) -> NodeState:
         """Get the current status of the node subprocess."""
-        state = self._get_state_table().get_by_id(self._node_id)
+        state = self._saved_state()
         if state is None:
             return NodeState.UNKNOWN
 
@@ -625,44 +622,26 @@ class NodeProcessManager:
                 exit_code=None,
             )
 
-        final_state = self._get_state_table().get_by_id(self._node_id)
+        final_state = self._saved_state()
         final_db_status = NodeState(final_state.get("state", NodeState.UNKNOWN))
         return final_db_status
 
-    def get_process_state(self) -> NodeProcessStateEntry:
+    def get_process_state(self) -> Dict[str, Any]:
         """Get the current persisted node process state.
 
         Returns:
             Dictionary containing the latest persisted process-state metadata,
             with `state` resolved through `get_status`.
         """
-        state_entry = NodeProcessStateEntry(
-            pid=self._get_pid(),
-            state=self.get_status().value,
-            node_id=self._node_id,
-            node_name=self._node_name,
-            action=None,
-            reason=None,
-            actor=None,
-            updated_at=None,
-            started_at=None,
-            stopped_at=None,
-            exit_code=None,
-            node_args=None,
-            background=None,
-        )
+        if not self._node_id:
+            raise FedbiomedError(f"{ErrorNumbers.FB327.value}: node_id is missing.")
 
-        if not self._get_state_table() or not self._node_id:
-            raise FedbiomedError(
-                f"{ErrorNumbers.FB327.value}: Node process state table is not initialized or node_id is missing."
-            )
-
-        stored_state = self._get_state_table().get_by_id(self._node_id)
-        if not stored_state:
-            return state_entry
-
-        state_entry = state_entry.from_dict(dict(stored_state))
-        return state_entry
+        status = self.get_status()
+        return self._saved_state() or {
+            "node_id": self._node_id,
+            "node_name": self._node_name,
+            "state": status.value,
+        }
 
 
 class NodeConnectionStateManager:
@@ -670,8 +649,9 @@ class NodeConnectionStateManager:
 
     The node process writes here as its connection state changes, so that another
     process - typically the GUI - reads the last known state without parsing logs.
-    Constructing one writes nothing, so a reader leaves the database untouched.
     """
+
+    MODELS = (NodeConnectionState, NodeConnectionStateHistory)
 
     def __init__(self, config: NodeConfig) -> None:
         """Initialize the NodeConnectionStateManager with the given configuration.
@@ -681,33 +661,27 @@ class NodeConnectionStateManager:
         """
         self._config = config
         self._node_id: str | None = config.get("default", "id")
+        self._database = get_database(config.getpath("default", "db"))
+        self._database.create_tables(self.MODELS)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _get_state_table(self) -> NodeConnectionStateTable:
-        """Get the state table instance."""
-        return NodeConnectionStateTable(self._config.getpath("default", "db"))
-
-    def _get_history_table(self) -> NodeConnectionStateHistoryTable:
-        """Get the history table instance."""
-        return NodeConnectionStateHistoryTable(self._config.getpath("default", "db"))
-
-    def _cleanup_connection_state_history(self, days: int = 30) -> None:
+    @staticmethod
+    def _cleanup_connection_state_history(session: Session, days: int = 30) -> None:
         """Remove connection-state history entries older than the given number of days.
 
         Args:
+            session: Session of the transaction in progress.
             days: Number of days to retain. Defaults to 30.
         """
-        cutoff = _utc_isoformat(datetime.now(timezone.utc) - timedelta(days=days))
-
-        try:
-            self._get_history_table().delete_older_than(cutoff)
-        except Exception as e:
-            logger.warning(
-                f"Could not clean up old node connection history entries: {e}"
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        session.execute(
+            delete(NodeConnectionStateHistory).where(
+                NodeConnectionStateHistory.updated_at < cutoff
             )
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -731,7 +705,7 @@ class NodeConnectionStateManager:
 
         A state repeating itself appends no history and refreshes `updated_at` at
         most every `refresh_interval`: an unreachable researcher is retried every couple
-        of seconds, and every write rewrites the whole database file.
+        of seconds, and every write locks the database file.
 
         Args:
             state: Status of the channel, as the transport reports it.
@@ -750,65 +724,63 @@ class NodeConnectionStateManager:
             return
 
         try:
-            now = _utc_now()
-            existing = self._get_state_table().get_by_id(self._node_id) or {}
+            with self._database.transaction() as session:
+                now = _utc_now()
+                saved = session.get(NodeConnectionState, self._node_id)
+                existing = saved.to_dict() if saved else {}
 
-            if (
-                existing.get("state") == state.name.lower()
-                and existing.get("operation") == operation
-                and existing.get("reason") == reason
-            ):
-                # Same instant format throughout, so the strings compare as the
-                # instants do. A refresh interval keeps "last observed" meaningful
-                # while a researcher down for a day costs a few writes an hour, not
-                # one every retry.
-                stale_before = _utc_isoformat(
-                    datetime.now(timezone.utc) - refresh_interval
-                )
-                if existing.get("updated_at", "") < stale_before:
-                    self._get_state_table().update_by_id(
-                        self._node_id, {"updated_at": now}
-                    )
-                return
+                if (
+                    existing.get("state") == state.name.lower()
+                    and existing.get("operation") == operation
+                    and existing.get("reason") == reason
+                ):
+                    # A refresh interval keeps "last observed" meaningful while a
+                    # researcher down for a day costs a few writes an hour, not one
+                    # every retry.
+                    updated_at = existing.get("updated_at")
+                    if updated_at is None or updated_at < now - refresh_interval:
+                        saved.updated_at = now
+                    return
 
-            failed = state is ClientStatus.FAILED
-            entry = NodeConnectionStateEntry(
-                node_id=self._node_id,
-                state=state.name.lower(),
-                host=host,
-                port=port,
-                researcher_id=researcher_id,
-                mtls=mtls,
-                identity_verified=identity_verified,
-                operation=operation,
-                reason=reason,
-                certificate=certificate,
-                started_at=now,
-                updated_at=now,
-                last_error=reason if failed else existing.get("last_error"),
-                last_error_at=now if failed else existing.get("last_error_at"),
-            )
+                failed = state is ClientStatus.FAILED
+                # Every field is set, so that what the previous state carried and
+                # the new one does not - a failure reason, a peer certificate - is reset.
+                fields = {
+                    "state": state.name.lower(),
+                    "host": host,
+                    "port": port,
+                    "researcher_id": researcher_id,
+                    "mtls": mtls,
+                    "identity_verified": identity_verified,
+                    "operation": operation,
+                    "reason": reason,
+                    "certificate": certificate,
+                    "started_at": now,
+                    "updated_at": now,
+                    "last_error": reason if failed else existing.get("last_error"),
+                    "last_error_at": now if failed else existing.get("last_error_at"),
+                }
 
-            self._get_state_table().replace_by_id(self._node_id, entry.to_dict())
-            self._get_history_table().insert(entry.to_dict())
-            self._cleanup_connection_state_history()
+                if saved is None:
+                    session.add(NodeConnectionState(node_id=self._node_id, **fields))
+                else:
+                    for field, value in fields.items():
+                        setattr(saved, field, value)
+                session.add(NodeConnectionStateHistory(node_id=self._node_id, **fields))
+                self._cleanup_connection_state_history(session)
         except Exception as e:
             logger.warning(f"Could not persist node connection state: {e}")
 
-    def get_connection_state(self) -> Optional[NodeConnectionStateEntry]:
+    def get_connection_state(self) -> Optional[Dict[str, Any]]:
         """Get the last known connection state, or None when none was recorded yet."""
         if not self._node_id:
             return None
 
-        stored_state = self._get_state_table().get_by_id(self._node_id)
-        if not stored_state:
-            return None
+        with self._database.transaction() as session:
+            saved = session.get(NodeConnectionState, self._node_id)
+            return saved.to_dict() if saved else None
 
-        return NodeConnectionStateEntry.from_dict(dict(stored_state))
-
-    def get_connection_history(
-        self, limit: int = 20
-    ) -> List[NodeConnectionStateHistoryEntry]:
+    def get_connection_history(self, limit: int = 20) -> List[Dict[str, Any]]:
         """Get the latest connection state changes, newest first.
 
         Args:
@@ -817,13 +789,14 @@ class NodeConnectionStateManager:
         if not self._node_id:
             return []
 
-        entries = self._get_history_table().get_all_by_value("node_id", self._node_id)
-
-        # Appended as they happen, so the tail holds the latest ones.
-        return [
-            NodeConnectionStateHistoryEntry.from_dict(dict(entry))
-            for entry in reversed(entries[-limit:])
-        ]
+        with self._database.transaction() as session:
+            entries = session.scalars(
+                select(NodeConnectionStateHistory)
+                .where(NodeConnectionStateHistory.node_id == self._node_id)
+                .order_by(NodeConnectionStateHistory.id.desc())
+                .limit(limit)
+            )
+            return [entry.to_dict() for entry in entries]
 
 
 if __name__ == "__main__":

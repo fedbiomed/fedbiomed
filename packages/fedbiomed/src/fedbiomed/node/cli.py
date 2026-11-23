@@ -352,14 +352,14 @@ def _connection_rows(entry) -> List[List[str]]:
         Rows of `[field name, value]`.
     """
     return [
-        ["State", entry.state],
-        ["Host", entry.host],
-        ["Port", entry.port],
-        ["Identity verified", _yes_no(entry.identity_verified)],
-        ["Mutual authentication (mTLS)", _yes_no(entry.mtls, "On", "Off")],
-        ["Reason", entry.reason or "-"],
-        ["Connected since", entry.started_at or "-"],
-        ["Last update", entry.updated_at or "-"],
+        ["State", entry["state"]],
+        ["Host", entry["host"]],
+        ["Port", entry["port"]],
+        ["Identity verified", _yes_no(entry.get("identity_verified"))],
+        ["Mutual authentication (mTLS)", _yes_no(entry.get("mtls"), "On", "Off")],
+        ["Reason", entry.get("reason") or "-"],
+        ["Connected since", entry.get("started_at") or "-"],
+        ["Last update", entry.get("updated_at") or "-"],
     ]
 
 
@@ -633,9 +633,9 @@ class NodeControl(CLIArgumentParser):
         print("\nRecent connection state changes, newest first:")
         for entry in history:
             print(
-                f"  {entry.updated_at or '-'}  {entry.state}"
-                + (f"  {entry.operation}" if entry.operation else "")
-                + (f"  {entry.reason}" if entry.reason else "")
+                f"  {entry.get('updated_at') or '-'}  {entry['state']}"
+                + (f"  {entry['operation']}" if entry.get("operation") else "")
+                + (f"  {entry['reason']}" if entry.get("reason") else "")
             )
 
 

@@ -363,8 +363,8 @@ def connection_state():
 
     return response(
         {
-            "state": current.to_dict() if current else None,
-            "history": [entry.to_dict() for entry in history],
+            "state": current,
+            "history": history,
             "node_state": node_state,
             # The node writes nothing while stopped, so its last state is only
             # what was true when it stopped.
