@@ -2,7 +2,7 @@
 import pytest
 from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.dataset_manager import _dataset_manager as dm_mod
+from fedbiomed.node import dataset_manager as dm_mod
 from fedbiomed.node.db_models import DatasetEntry, DlbEntry
 from sqlalchemy import select
 
