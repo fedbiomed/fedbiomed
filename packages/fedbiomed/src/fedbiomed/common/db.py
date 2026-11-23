@@ -12,12 +12,13 @@ import inspect as pyinspect
 import re
 import sys
 from contextlib import contextmanager
+from datetime import timezone
 from enum import Enum
 from functools import cache
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, Self, Union
 
-from sqlalchemy import Engine, create_engine, event, inspect
+from sqlalchemy import DateTime, Engine, TypeDecorator, create_engine, event, inspect
 from sqlalchemy.orm import (
     DeclarativeBase,
     MappedAsDataclass,
@@ -438,6 +439,19 @@ def get_database(db_path: str) -> Database:
     """The process's database of a component, at `db_path` with the `.sqlite` suffix."""
     # Next to the component's TinyDB file, which other tables still use
     return Database(str(Path(db_path).with_suffix(".sqlite")))
+
+
+class UtcDateTime(TypeDecorator):
+    """Timezone-aware datetime column, stored in UTC: SQLite keeps no timezone."""
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        return value and value.astimezone(timezone.utc).replace(tzinfo=None)
+
+    def process_result_value(self, value, dialect):
+        return value and value.replace(tzinfo=timezone.utc)
 
 
 class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):

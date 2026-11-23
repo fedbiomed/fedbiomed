@@ -1,8 +1,22 @@
+from datetime import datetime, timezone
+
 import fedbiomed.common.db as db_mod
 import pytest
 from fedbiomed.common.db import get_database
+from fedbiomed.common.db_models import Certificate, Channel, SecaggElement
 from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.db_models import Dataset, Dlb, Dlp, DynamicDataset
+from fedbiomed.node.db_models import (
+    Dataset,
+    Dlb,
+    Dlp,
+    DynamicDataset,
+    NodeConnectionState,
+    NodeConnectionStateHistory,
+    NodeProcessState,
+    NodeProcessStateHistory,
+    NodeState,
+    TrainingPlan,
+)
 from sqlalchemy import delete, inspect, select
 
 
@@ -254,3 +268,75 @@ def test_dataset_with_derived_datasets_cannot_be_deleted(database, model, datase
     with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
         with database.transaction() as session:
             session.execute(delete(model).where(model.dataset_id == dataset_id))
+
+
+# ------------------------------- tables not yet used by a manager -------------------------------
+
+_NOW = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+_PROCESS = {"node_name": "n", "state": "running", "action": "start", "pid": 1}
+_CONNECTION = {"state": "connected", "host": "h", "port": "50051"}
+
+
+@pytest.mark.parametrize(
+    "model, data",
+    [
+        (Certificate, {"component_id": "c", "certificate": "PEM"}),
+        (
+            SecaggElement,
+            {
+                "secagg_id": "s",
+                "secagg_version": "1",
+                "secagg_elem": 0,
+                "experiment_id": "e",
+                "parties": ["r", "n1"],
+                "context": {"server_key": 1},
+            },
+        ),
+        (
+            Channel,
+            {"distant_node_id": "n2", "n2n_channel_version": "1", "local_key": "k"},
+        ),
+        (
+            TrainingPlan,
+            {
+                "training_plan_id": "tp",
+                "name": "plan",
+                "hash": "h",
+                "algorithm": "SHA256",
+                "training_plan": "code",
+                "training_plan_type": "registered",
+                "training_plan_status": "Approved",
+                "date_created": _NOW,
+                "date_modified": _NOW,
+                "date_registered": _NOW,
+            },
+        ),
+        (
+            NodeState,
+            {"state_id": "s", "experiment_id": "e", "version_node_id": "1"},
+        ),
+        (NodeProcessState, {"node_id": "n1", **_PROCESS, "started_at": _NOW}),
+        (NodeConnectionState, {"node_id": "n1", **_CONNECTION, "updated_at": _NOW}),
+    ],
+)
+def test_tables_round_trip(db_path, model, data):
+    database = get_database(db_path)
+    database.create_tables([model])
+    _add(database, model.from_dict(data))
+
+    with database.transaction() as session:
+        (saved,) = session.scalars(select(model)).all()
+        assert saved.to_dict() == data
+
+
+@pytest.mark.parametrize(
+    "model, fields",
+    [(NodeProcessStateHistory, _PROCESS), (NodeConnectionStateHistory, _CONNECTION)],
+)
+def test_history_keeps_several_entries_per_node(db_path, model, fields):
+    database = get_database(db_path)
+    database.create_tables([model])
+    _add(database, model(node_id="n1", **fields), model(node_id="n1", **fields))
+
+    with database.transaction() as session:
+        assert len(session.scalars(select(model)).all()) == 2
