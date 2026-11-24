@@ -20,7 +20,12 @@ from fedbiomed.common.dataset_controller import download_mnist
 from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.common.logger import logger
-from fedbiomed.node.db_models import Dataset, Dlb, Dlp, DynamicDataset
+from fedbiomed.node.db_entries import (
+    DatasetEntry,
+    DlbEntry,
+    DlpEntry,
+    DynamicDatasetEntry,
+)
 
 
 class DatasetManager:
@@ -34,7 +39,7 @@ class DatasetManager:
     DatasetScope = Literal["original", "dynamic", "both"]
 
     # Tables this manager owns; the only ones it reads or writes
-    MODELS = (Dataset, DynamicDataset, Dlp, Dlb)
+    MODELS = (DatasetEntry, DynamicDatasetEntry, DlpEntry, DlbEntry)
 
     def __init__(self, db_path: str, min_samples: int = 0):
         """Initialize with the node's database, creating the missing `MODELS` tables.
@@ -74,7 +79,7 @@ class DatasetManager:
             (or None if not found) and dlbs is a list of associated DLB dicts.
         """
         with self._database.transaction() as session:
-            dlp = session.get(Dlp, dlp_id)
+            dlp = session.get(DlpEntry, dlp_id)
 
             if dlp is None:
                 logger.debug(
@@ -94,7 +99,7 @@ class DatasetManager:
                 dlp_id,
                 dlb_ids,
             )
-            dlbs = session.scalars(select(Dlb).where(Dlb.dlb_id.in_(dlb_ids)))
+            dlbs = session.scalars(select(DlbEntry).where(DlbEntry.dlb_id.in_(dlb_ids)))
             return dlp.to_dict(), [dlb.content for dlb in dlbs]
 
     def read_csv(
@@ -196,7 +201,7 @@ class DatasetManager:
                 logger.error(msg)
                 raise FedbiomedError(msg)
 
-            dataset = Dataset.from_dict(entry)
+            dataset = DatasetEntry.from_dict(entry)
             session.add(dataset)
             return dataset.dataset_id
 
@@ -240,7 +245,7 @@ class DatasetManager:
             data_type = parent.data_type
             parent_field = (
                 "parent_dynamic_id"
-                if isinstance(parent, DynamicDataset)
+                if isinstance(parent, DynamicDatasetEntry)
                 else "parent_dataset_id"
             )
 
@@ -263,7 +268,7 @@ class DatasetManager:
         )
 
         with self._database.transaction() as session:
-            dataset = DynamicDataset.from_dict(entry)
+            dataset = DynamicDatasetEntry.from_dict(entry)
             session.add(dataset)
             return dataset.dataset_id
 
@@ -392,9 +397,9 @@ class DatasetManager:
         with self._database.transaction() as session:
             dataset = self._get_or_raise(session, dataset_id)
             derived = session.scalars(
-                select(DynamicDataset)
-                .where(DynamicDataset.dataset_id.in_(self._derived_ids(dataset)))
-                .order_by(DynamicDataset.dataset_id)
+                select(DynamicDatasetEntry)
+                .where(DynamicDatasetEntry.dataset_id.in_(self._derived_ids(dataset)))
+                .order_by(DynamicDatasetEntry.dataset_id)
             ).all()
 
             if derived and not recursive:
@@ -410,8 +415,8 @@ class DatasetManager:
             # One statement, so the derived datasets' links are checked once
             # they are all gone
             session.execute(
-                delete(DynamicDataset).where(
-                    DynamicDataset.dataset_id.in_(self._derived_ids(dataset))
+                delete(DynamicDatasetEntry).where(
+                    DynamicDatasetEntry.dataset_id.in_(self._derived_ids(dataset))
                 )
             )
             session.delete(dataset)
@@ -428,12 +433,12 @@ class DatasetManager:
             FedbiomedError: datasets use the DLP.
         """
         with self._database.transaction() as session:
-            dlp = session.get(Dlp, dlp_id)
+            dlp = session.get(DlpEntry, dlp_id)
             if dlp is None:
                 return
 
             users = session.scalars(
-                select(Dataset.name).where(Dataset.dlp_id == dlp_id)
+                select(DatasetEntry.name).where(DatasetEntry.dlp_id == dlp_id)
             ).all()
             if users:
                 msg = (
@@ -444,7 +449,9 @@ class DatasetManager:
                 raise FedbiomedError(msg)
 
             session.execute(
-                delete(Dlb).where(Dlb.dlb_id.in_(list(dlp.loading_blocks.values())))
+                delete(DlbEntry).where(
+                    DlbEntry.dlb_id.in_(list(dlp.loading_blocks.values()))
+                )
             )
             session.delete(dlp)
 
@@ -458,7 +465,7 @@ class DatasetManager:
             All datasets in the node's database.
         """
         with self._database.transaction() as session:
-            my_data = self._without_dtypes(session.scalars(select(Dataset)))
+            my_data = self._without_dtypes(session.scalars(select(DatasetEntry)))
 
         if verbose:
             print(tabulate(my_data, headers="keys"))
@@ -493,7 +500,7 @@ class DatasetManager:
             The list of matching datasets
         """
         with self._database.transaction() as session:
-            datasets = session.scalars(select(Dataset))
+            datasets = session.scalars(select(DatasetEntry))
             return [d.to_dict() for d in datasets if set(tags).issubset(d.tags)]
 
     def search_conflicting_tags(self, tags: Union[tuple, list]) -> List[dict]:
@@ -527,7 +534,7 @@ class DatasetManager:
             - the new tags conflict with another dataset
         """
         with self._database.transaction() as session:
-            dataset = session.get(Dataset, dataset_id)
+            dataset = session.get(DatasetEntry, dataset_id)
             if dataset is None:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."
@@ -538,7 +545,7 @@ class DatasetManager:
                     f"{ErrorNumbers.FB632.value}: Cannot change the field 'dataset_id'"
                 )
 
-            unknown = set(changes) - set(Dataset.__table__.columns.keys())
+            unknown = set(changes) - set(DatasetEntry.__table__.columns.keys())
             if unknown:
                 raise FedbiomedError(
                     f"{ErrorNumbers.FB632.value}: Invalid data input for Dataset: "
@@ -586,7 +593,9 @@ class DatasetManager:
 
         with self._database.transaction() as session:
             dlps = session.scalars(
-                select(Dlp).where(Dlp.target_dataset_type == target_dataset_type)
+                select(DlpEntry).where(
+                    DlpEntry.target_dataset_type == target_dataset_type
+                )
             )
             return [dlp.to_dict() for dlp in dlps]
 
@@ -607,7 +616,9 @@ class DatasetManager:
 
         with self._database.transaction() as session:
             same_name = session.scalars(
-                select(Dlp.dlp_id).where(Dlp.dlp_name == dlp_metadata["dlp_name"])
+                select(DlpEntry.dlp_id).where(
+                    DlpEntry.dlp_name == dlp_metadata["dlp_name"]
+                )
             ).first()
             if same_name is not None:
                 msg = (
@@ -617,9 +628,9 @@ class DatasetManager:
                 logger.error(msg)
                 raise FedbiomedError(msg)
 
-            session.add(Dlp.from_dict(dlp_metadata))
+            session.add(DlpEntry.from_dict(dlp_metadata))
             session.add_all(
-                Dlb(dlb_id=dlb["dlb_id"], content=dlb) for dlb in dlbs_metadata
+                DlbEntry(dlb_id=dlb["dlb_id"], content=dlb) for dlb in dlbs_metadata
             )
         return data_loading_plan.dlp_id
 
@@ -657,13 +668,13 @@ class DatasetManager:
     @staticmethod
     def _find(
         session: Session, dataset_id: str, scope: str
-    ) -> Optional[Union[Dataset, DynamicDataset]]:
+    ) -> Optional[Union[DatasetEntry, DynamicDatasetEntry]]:
         """Finds a dataset in the tables of a valid `scope`, registered datasets first."""
         # Keys are the DatasetScope values
         models = {
-            "original": [Dataset],
-            "dynamic": [DynamicDataset],
-            "both": [Dataset, DynamicDataset],
+            "original": [DatasetEntry],
+            "dynamic": [DynamicDatasetEntry],
+            "both": [DatasetEntry, DynamicDatasetEntry],
         }[scope]
         for model in models:
             dataset = session.get(model, dataset_id)
@@ -673,7 +684,7 @@ class DatasetManager:
 
     def _get_or_raise(
         self, session: Session, dataset_id: str
-    ) -> Union[Dataset, DynamicDataset]:
+    ) -> Union[DatasetEntry, DynamicDatasetEntry]:
         """Finds a dataset or a dynamic dataset, raising if neither exists."""
         dataset = self._find(session, dataset_id, scope="both")
         if dataset is None:
@@ -683,21 +694,21 @@ class DatasetManager:
         return dataset
 
     @staticmethod
-    def _derived_ids(dataset: Union[Dataset, DynamicDataset]) -> Select:
+    def _derived_ids(dataset: Union[DatasetEntry, DynamicDatasetEntry]) -> Select:
         """Query of the ids of the dynamic datasets derived from a dataset, at any depth."""
         link = (
-            DynamicDataset.parent_dynamic_id
-            if isinstance(dataset, DynamicDataset)
-            else DynamicDataset.parent_dataset_id
+            DynamicDatasetEntry.parent_dynamic_id
+            if isinstance(dataset, DynamicDatasetEntry)
+            else DynamicDatasetEntry.parent_dataset_id
         )
         tree = (
-            select(DynamicDataset.dataset_id)
+            select(DynamicDatasetEntry.dataset_id)
             .where(link == dataset.dataset_id)
             .cte(recursive=True)
         )
         tree = tree.union_all(
-            select(DynamicDataset.dataset_id).join(
-                tree, DynamicDataset.parent_dynamic_id == tree.c.dataset_id
+            select(DynamicDatasetEntry.dataset_id).join(
+                tree, DynamicDatasetEntry.parent_dynamic_id == tree.c.dataset_id
             )
         )
         return select(tree.c.dataset_id)
@@ -705,17 +716,17 @@ class DatasetManager:
     @staticmethod
     def _conflicting_datasets(
         session: Session, tags: Union[tuple, list]
-    ) -> List[Dataset]:
+    ) -> List[DatasetEntry]:
         """Registered datasets whose tags include the given tags, or are included in them."""
         wanted = set(tags)
         return [
             dataset
-            for dataset in session.scalars(select(Dataset))
+            for dataset in session.scalars(select(DatasetEntry))
             if wanted.issubset(dataset.tags) or wanted.issuperset(dataset.tags)
         ]
 
     @staticmethod
-    def _without_dtypes(datasets: Iterable[Dataset]) -> List[dict]:
+    def _without_dtypes(datasets: Iterable[DatasetEntry]) -> List[dict]:
         """Datasets as dicts without their `dtypes`, as shown in dataset lists."""
         entries = [dataset.to_dict() for dataset in datasets]
         for entry in entries:

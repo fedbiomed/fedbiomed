@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Access to the components' databases: the SQLite `Database` with `DatabaseModel`,
-parent of its tables' models, and the TinyDB tables not moved to it yet.
+Access to the components' databases: the SQLite `Database` with `DatabaseEntry`,
+parent of its tables' ORM models (`*Entry` classes), and the TinyDB tables not
+moved to it yet.
 """
 
 from __future__ import annotations
@@ -440,8 +441,11 @@ def get_database(db_path: str) -> Database:
     return Database(str(Path(db_path).with_suffix(".sqlite")))
 
 
-class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
-    """Parent of the ORM models: row/dict conversion, security log, FB634 errors."""
+class DatabaseEntry(MappedAsDataclass, DeclarativeBase, kw_only=True):
+    """Parent of the ORM models (`*Entry` classes).
+
+    Provides row/dict conversion, security log and FB634 errors.
+    """
 
     # A JSON value changed in place (`tags.append`) is not saved: assign a new value
 
@@ -463,7 +467,8 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
             return cls(**{k: v for k, v in data.items() if v is not None})
         except TypeError as e:
             raise FedbiomedError(
-                f"{ErrorNumbers.FB634.value}: Invalid data input for {cls.__name__}: {e}"
+                f"{ErrorNumbers.FB634.value}: Invalid data input for "
+                f"{cls.__tablename__}: {e}"
             ) from e
 
     def to_dict(self) -> dict:
@@ -480,8 +485,8 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
             ("remove", session.deleted),
         ):
             for entry in entries:
-                if not isinstance(entry, DatabaseModel) or (
-                    entry.__security_log__ == DatabaseModel.SecurityLog.NONE
+                if not isinstance(entry, DatabaseEntry) or (
+                    entry.__security_log__ == DatabaseEntry.SecurityLog.NONE
                 ):
                     continue
                 state = inspect(entry)
@@ -498,7 +503,7 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
                     }
                 else:
                     args = {}
-                DatabaseModel._record(session, operation, type(entry), doc_id, args)
+                DatabaseEntry._record(session, operation, type(entry), doc_id, args)
 
     @staticmethod
     def _record_statements(state: ORMExecuteState) -> None:
@@ -506,18 +511,18 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
         # Execution parameters carry the key of `session.get`
         args = {**state.statement.compile().params, **(state.parameters or {})}
         for mapper in state.all_mappers:
-            if not issubclass(mapper.class_, DatabaseModel):
+            if not issubclass(mapper.class_, DatabaseEntry):
                 continue
             logged = mapper.class_.__security_log__
-            if state.is_select and logged == DatabaseModel.SecurityLog.ALL:
+            if state.is_select and logged == DatabaseEntry.SecurityLog.ALL:
                 operation = "select"
-            elif state.is_update and logged != DatabaseModel.SecurityLog.NONE:
+            elif state.is_update and logged != DatabaseEntry.SecurityLog.NONE:
                 operation = "update"
-            elif state.is_delete and logged != DatabaseModel.SecurityLog.NONE:
+            elif state.is_delete and logged != DatabaseEntry.SecurityLog.NONE:
                 operation = "remove"
             else:
                 continue
-            DatabaseModel._record(state.session, operation, mapper.class_, None, args)
+            DatabaseEntry._record(state.session, operation, mapper.class_, None, args)
 
     @staticmethod
     def _record(session: Session, operation: str, model: type, doc_id, args) -> None:
@@ -527,7 +532,7 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
                 "operation": operation,
                 "table": model.__tablename__,
                 "doc_id": doc_id,
-                "db_args": DatabaseModel._log_args(model, args),
+                "db_args": DatabaseEntry._log_args(model, args),
             }
         )
 
@@ -548,7 +553,7 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
     @staticmethod
     def _write_success(session: Session) -> None:
         """Writes the events of a committed transaction."""
-        DatabaseModel._write_events(session, {"status": "success"})
+        DatabaseEntry._write_events(session, {"status": "success"})
 
     @staticmethod
     def _write_failure(session: Session) -> None:
@@ -558,7 +563,7 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
         if error is not None:
             outcome["error_type"] = type(error).__name__
             outcome["error_message"] = str(error)
-        DatabaseModel._write_events(session, outcome)
+        DatabaseEntry._write_events(session, outcome)
 
     @staticmethod
     def _write_events(session: Session, outcome: dict) -> None:
@@ -566,7 +571,7 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
         events = session.info.pop("security_events", [])
         if not events:
             return
-        stacklevel = DatabaseModel._caller_stacklevel()
+        stacklevel = DatabaseEntry._caller_stacklevel()
         for recorded in events:
             logger.security_event(stacklevel=stacklevel, **recorded, **outcome)
 
@@ -585,21 +590,18 @@ class DatabaseModel(MappedAsDataclass, DeclarativeBase, kw_only=True):
 
     @staticmethod
     def _raise_database_error(context) -> None:
-        """Raises FB634 naming the failing model; logs the statement without values."""
+        """Raises FB634 naming the failing table; logs the statement without values."""
         reason = context.original_exception
         logger.debug(f"Database error: {reason}; statement: {context.statement}")
         compiled = getattr(context.execution_context, "compiled", None)
         table = getattr(getattr(compiled, "statement", None), "table", None)
-        where = ""
-        for mapper in DatabaseModel.registry.mappers:
-            if mapper.local_table is table:
-                where = f"{mapper.class_.__name__}: "
+        where = f"{table.name}: " if table is not None else ""
         raise FedbiomedError(f"{ErrorNumbers.FB634.value}: {where}{reason}") from reason
 
 
-# Every session and engine of the process: only `DatabaseModel` rows are logged
-event.listen(Session, "before_flush", DatabaseModel._record_writes)
-event.listen(Session, "do_orm_execute", DatabaseModel._record_statements)
-event.listen(Session, "after_commit", DatabaseModel._write_success)
-event.listen(Session, "after_rollback", DatabaseModel._write_failure)
-event.listen(Engine, "handle_error", DatabaseModel._raise_database_error)
+# Every session and engine of the process: only `DatabaseEntry` rows are logged
+event.listen(Session, "before_flush", DatabaseEntry._record_writes)
+event.listen(Session, "do_orm_execute", DatabaseEntry._record_statements)
+event.listen(Session, "after_commit", DatabaseEntry._write_success)
+event.listen(Session, "after_rollback", DatabaseEntry._write_failure)
+event.listen(Engine, "handle_error", DatabaseEntry._raise_database_error)

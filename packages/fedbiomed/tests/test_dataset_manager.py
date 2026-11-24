@@ -3,7 +3,7 @@ import pytest
 from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager import _dataset_manager as dm_mod
-from fedbiomed.node.db_models import Dataset, Dlb
+from fedbiomed.node.db_entries import DatasetEntry, DlbEntry
 from sqlalchemy import select
 
 # ---------------------- Lightweight fakes (no sys.modules patching) ----------------------
@@ -60,7 +60,7 @@ def _add_dataset(db_path, dataset_id, **fields):
     """Registers a dataset directly in the database, without loading it."""
     with get_database(db_path).transaction() as session:
         session.add(
-            Dataset.from_dict(
+            DatasetEntry.from_dict(
                 {
                     "dataset_id": dataset_id,
                     "name": dataset_id,
@@ -225,7 +225,7 @@ def test_remove_dlp_by_id_existing_and_missing(db_path):
     dm.remove_dlp_by_id("X")
     assert dm.get_dlp_by_id("X") == (None, [])
     with get_database(db_path).transaction() as session:
-        assert session.scalars(select(Dlb)).all() == []
+        assert session.scalars(select(DlbEntry)).all() == []
 
     # Removing a non-existent DLP should be a no-op (no exception)
     dm.remove_dlp_by_id("does-not-exist")

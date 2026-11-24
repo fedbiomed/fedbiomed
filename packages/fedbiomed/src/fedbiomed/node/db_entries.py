@@ -3,6 +3,8 @@
 
 """
 ORM models of the node database tables.
+
+Each `*Entry` class maps a table; an instance is one row of it.
 """
 
 import uuid
@@ -12,7 +14,7 @@ from sqlalchemy import JSON, CheckConstraint, Enum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from fedbiomed.common.constants import DatasetTypes, ErrorNumbers
-from fedbiomed.common.db import DatabaseModel
+from fedbiomed.common.db import DatabaseEntry
 from fedbiomed.common.exceptions import FedbiomedError
 
 
@@ -23,7 +25,7 @@ def _dataset_type() -> Enum:
     )
 
 
-class Dataset(DatabaseModel):
+class DatasetEntry(DatabaseEntry):
     """Dataset registered on the node."""
 
     __tablename__ = "Datasets"
@@ -45,7 +47,7 @@ class Dataset(DatabaseModel):
     # A data loading plan used by a dataset cannot be deleted
     dlp_id: Mapped[str | None] = mapped_column(ForeignKey("Dlps.dlp_id"), default=None)
     # Let the session insert the plan before a dataset using it
-    dlp: Mapped["Dlp | None"] = relationship(init=False, repr=False)
+    dlp: Mapped["DlpEntry | None"] = relationship(init=False, repr=False)
 
     @validates("tags")
     def _validate_tags(self, _key: str, tags: list[str]) -> list[str]:
@@ -58,11 +60,11 @@ class Dataset(DatabaseModel):
         return tags
 
 
-class DynamicDataset(DatabaseModel):
+class DynamicDatasetEntry(DatabaseEntry):
     """Dataset produced by a processing job from a parent dataset.
 
-    The parent is a `Dataset` (`parent_dataset_id`) or another
-    `DynamicDataset` (`parent_dynamic_id`): exactly one is set. A dataset with
+    The parent is a `DatasetEntry` (`parent_dataset_id`) or another
+    `DynamicDatasetEntry` (`parent_dynamic_id`): exactly one is set. A dataset with
     derived datasets cannot be deleted before them.
     """
 
@@ -86,7 +88,7 @@ class DynamicDataset(DatabaseModel):
     )
     # Let the session insert the parent dataset before the datasets derived
     # from it
-    parent_dataset: Mapped["Dataset | None"] = relationship(init=False, repr=False)
+    parent_dataset: Mapped["DatasetEntry | None"] = relationship(init=False, repr=False)
     shape: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=None)
     dtypes: Mapped[dict[str, str] | None] = mapped_column(JSON, default=None)
     name: Mapped[str | None] = mapped_column(default=None)
@@ -98,7 +100,7 @@ class DynamicDataset(DatabaseModel):
     )
 
 
-class Dlp(DatabaseModel):
+class DlpEntry(DatabaseEntry):
     """Data loading plan: the loading blocks applied to a type of dataset."""
 
     __tablename__ = "Dlps"
@@ -120,8 +122,8 @@ class Dlp(DatabaseModel):
         return dlp_name
 
 
-class Dlb(DatabaseModel):
-    """Data loading block, referenced by `Dlp.loading_blocks`.
+class DlbEntry(DatabaseEntry):
+    """Data loading block, referenced by `DlpEntry.loading_blocks`.
 
     Each block type serializes its own fields, so the block is stored as its
     serialized form (`DataLoadingBlock.serialize`).

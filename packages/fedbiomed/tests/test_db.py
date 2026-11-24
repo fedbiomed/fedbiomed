@@ -6,13 +6,13 @@ from typing import Any
 
 import fedbiomed.common.db as db_mod
 import pytest
-from fedbiomed.common.db import DatabaseModel, get_database
+from fedbiomed.common.db import DatabaseEntry, get_database
 from fedbiomed.common.exceptions import FedbiomedError
 from sqlalchemy import JSON, delete, event, inspect, select, text, update
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-class Item(DatabaseModel):
+class Item(DatabaseEntry):
     __tablename__ = "TestItems"
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
@@ -22,13 +22,13 @@ class Item(DatabaseModel):
     note: Mapped[str | None] = mapped_column(default=None)
 
 
-class Other(DatabaseModel):
+class Other(DatabaseEntry):
     __tablename__ = "TestOthers"
 
     other_id: Mapped[str] = mapped_column(primary_key=True)
 
 
-class Secret(DatabaseModel):
+class Secret(DatabaseEntry):
     __tablename__ = "TestSecrets"
     __sensitive_fields__ = ("key",)
 
@@ -36,16 +36,16 @@ class Secret(DatabaseModel):
     key: Mapped[dict[str, str]] = mapped_column(JSON)
 
 
-class WriteItem(DatabaseModel):
+class WriteItem(DatabaseEntry):
     __tablename__ = "TestWriteItems"
-    __security_log__ = DatabaseModel.SecurityLog.WRITES
+    __security_log__ = DatabaseEntry.SecurityLog.WRITES
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
 
 
-class QuietItem(DatabaseModel):
+class QuietItem(DatabaseEntry):
     __tablename__ = "TestQuietItems"
-    __security_log__ = DatabaseModel.SecurityLog.NONE
+    __security_log__ = DatabaseEntry.SecurityLog.NONE
 
     item_id: Mapped[str] = mapped_column(primary_key=True)
 
@@ -105,7 +105,7 @@ def test_from_dict_builds_entry():
     ],
 )
 def test_from_dict_rejects_unknown_and_missing_fields(data, reason):
-    with pytest.raises(FedbiomedError, match=f"FB634.*Item: .*{reason}"):
+    with pytest.raises(FedbiomedError, match=f"FB634.*TestItems: .*{reason}"):
         Item.from_dict(data)
 
 
@@ -158,7 +158,7 @@ def test_database_error_keeps_reason_and_logs_statement_without_parameters(
             session.add(Item.from_dict(_item(name="other-hidden-value")))
 
     message = str(error.value)
-    assert message.startswith("FB634: Database error: Item: ")
+    assert message.startswith("FB634: Database error: TestItems: ")
     assert "UNIQUE constraint failed: TestItems.item_id" in message
     assert "INSERT" not in message
     (logged,) = debug
