@@ -12,7 +12,7 @@ import fedbiomed
 import fedbiomed.node.cli_utils
 import pytest
 from fedbiomed.common.cli import CommonCLI
-from fedbiomed.common.constants import NODE_DATA_FOLDER
+from fedbiomed.common.constants import NODE_DATA_FOLDER, NodeState
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.cli import (
     DatasetArgumentParser,
@@ -33,7 +33,6 @@ from fedbiomed.node.node import (
 )
 from fedbiomed.node.node_pm import (
     NodeConnectionStateManager,
-    NodeState,
     _node_signal_trigger_term,
     _start_node_process,
 )

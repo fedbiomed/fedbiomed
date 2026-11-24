@@ -679,6 +679,20 @@ def test_add_database_refuses_conflicting_tags_and_saves_nothing(db_path):
         )
 
 
+def test_add_database_checks_tags_before_conflicts(db_path):
+    dm = dm_mod.DatasetManager(db_path)
+    _add_dataset(db_path, "raw1", name="First", tags=["a", "b"])
+
+    with pytest.raises(FedbiomedError, match="FB632.*Dataset.tags: expected a list"):
+        dm.add_database(
+            name="N",
+            data_type="csv",
+            tags="a",
+            description="d",
+            path="/root",
+        )
+
+
 def test_save_data_loading_plan_refuses_saved_block(db_path):
     dm = dm_mod.DatasetManager(db_path)
     dm.save_data_loading_plan(MinimalDLP(dlp_id="P1", loading_blocks={"a": "A"}))
@@ -758,6 +772,7 @@ def test_update_dataset_returns_updated_entry(db_path):
         ("d1", {"dataset_id": "other"}, "FB632.*Cannot change the field"),
         ("d1", {"colour": "red"}, r"FB632.*unknown fields \['colour'\]"),
         ("d1", {"tags": ["b", "c"]}, "FB322.*Conflicting dataset names: Second"),
+        ("d1", {"tags": "b"}, "FB632.*Dataset.tags: expected a list"),
         ("d1", {"data_type": "tabular"}, "FB634.*CHECK constraint failed"),
     ],
 )

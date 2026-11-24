@@ -221,11 +221,20 @@ def test_reads_and_statements_are_logged_with_their_parameters(database, events)
         session.execute(delete(Item).where(Item.item_id == "other"))
 
     assert [(e["operation"], e["db_args"]) for e in events] == [
-        ("select", "{pk_1=i1...}"),
-        ("select", "{name_1=n...}"),
-        ("update", "{name=x..., item_id_1=i1...}"),
-        ("remove", "{item_id_1=other...}"),
+        ("select", "{pk_1=i1}"),
+        ("select", "{name_1=n}"),
+        ("update", "{name=x, item_id_1=i1}"),
+        ("remove", "{item_id_1=other}"),
     ]
+
+
+def test_long_values_are_cut_in_the_log(database, events):
+    max_length = DatabaseEntry.LOGGED_VALUE_MAX_LENGTH
+    with database.transaction() as session:
+        session.add(Item.from_dict(_item(name="x" * (max_length + 1))))
+
+    (insert,) = events
+    assert f"name={'x' * max_length}..." in insert["db_args"]
 
 
 def test_unchanged_entry_is_not_logged_as_update(database, events):
@@ -338,7 +347,7 @@ def test_get_database_returns_one_instance_per_file(tmp_path):
     assert get_database(str(tmp_path / "b.json")) is not first
 
 
-def test_get_database_uses_sqlite_file_next_to_tinydb_file(tmp_path):
+def test_get_database_uses_sqlite_file_next_to_db_path(tmp_path):
     get_database(str(tmp_path / "db_node.json")).create_tables([Item])
     assert (tmp_path / "db_node.sqlite").exists()
 

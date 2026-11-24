@@ -1,10 +1,9 @@
 import os
 import re
 
-from flask import request
-
 from fedbiomed.common.dataset_controller import MedicalFolderLoadingBlockTypes
 from fedbiomed.common.exceptions import FedbiomedError
+from flask import request
 
 from ..config import config
 from ..middlewares import common, middleware
@@ -168,14 +167,12 @@ def update_dataset():
     """
     req = request.json
     try:
-        dataset_manager.update_dataset(
+        res = dataset_manager.update_dataset(
             req["dataset_id"],
             {"tags": req["tags"], "description": req["desc"], "name": req["name"]},
         )
     except Exception as e:
         return error(str(e)), 400
-
-    res = dataset_manager.get_dataset(req["dataset_id"])
 
     return response(res), 200
 

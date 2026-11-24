@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from fedbiomed.common.constants import (
     DatasetTypes,
     ErrorNumbers,

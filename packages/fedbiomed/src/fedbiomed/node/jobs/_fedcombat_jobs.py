@@ -402,11 +402,11 @@ class _FedCombatJobs:
             raise FedbiomedError(
                 f"{ErrorNumbers.FB632.value}: Dataset with id {dataset_id} not found."
             )
+        self._dataset_manager.delete_dataset_by_id(dataset_id)
+
         local_path = Path(dataset_entry["path"])
         if local_path.exists():
             local_path.unlink()
-
-        self._dataset_manager.delete_dataset_by_id(dataset_id)
 
     def _save_updated_dataset_values(
         self,

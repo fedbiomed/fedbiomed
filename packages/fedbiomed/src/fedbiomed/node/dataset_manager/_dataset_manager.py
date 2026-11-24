@@ -189,9 +189,10 @@ class DatasetManager:
             description=description,
             data_loading_plan=data_loading_plan,
         )
+        dataset = DatasetEntry.from_dict(entry)
 
         with self._database.transaction() as session:
-            conflicting = self._conflicting_datasets(session, entry["tags"])
+            conflicting = self._conflicting_datasets(session, dataset.tags)
             if conflicting:
                 msg = (
                     f"{ErrorNumbers.FB322.value}: One or more registered datasets present "
@@ -201,7 +202,6 @@ class DatasetManager:
                 logger.error(msg)
                 raise FedbiomedError(msg)
 
-            dataset = DatasetEntry.from_dict(entry)
             session.add(dataset)
             return dataset.dataset_id
 
@@ -465,7 +465,11 @@ class DatasetManager:
             All datasets in the node's database.
         """
         with self._database.transaction() as session:
-            my_data = self._without_dtypes(session.scalars(select(DatasetEntry)))
+            my_data = [d.to_dict() for d in session.scalars(select(DatasetEntry))]
+
+        # Do not display dtypes
+        for entry in my_data:
+            entry.pop("dtypes", None)
 
         if verbose:
             print(tabulate(my_data, headers="keys"))
@@ -552,11 +556,14 @@ class DatasetManager:
                     f"unknown fields {sorted(unknown)}"
                 )
 
+            for field, value in changes.items():
+                setattr(dataset, field, value)
+
             if "tags" in changes:
                 # the dataset to modify can conflict with its previous tags
                 conflicting = [
                     d
-                    for d in self._conflicting_datasets(session, changes["tags"])
+                    for d in self._conflicting_datasets(session, dataset.tags)
                     if d.dataset_id != dataset_id
                 ]
                 if conflicting:
@@ -567,9 +574,6 @@ class DatasetManager:
                     )
                     logger.error(msg)
                     raise FedbiomedError(msg)
-
-            for field, value in changes.items():
-                setattr(dataset, field, value)
 
             return dataset.to_dict()
 
@@ -724,11 +728,3 @@ class DatasetManager:
             for dataset in session.scalars(select(DatasetEntry))
             if wanted.issubset(dataset.tags) or wanted.issuperset(dataset.tags)
         ]
-
-    @staticmethod
-    def _without_dtypes(datasets: Iterable[DatasetEntry]) -> List[dict]:
-        """Datasets as dicts without their `dtypes`, as shown in dataset lists."""
-        entries = [dataset.to_dict() for dataset in datasets]
-        for entry in entries:
-            entry.pop("dtypes", None)
-        return entries

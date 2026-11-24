@@ -23,7 +23,10 @@ def init_services(app, config):
     users.add_default_admin_user(config.configuration.pop("DEFAULT_ADMIN_CREDENTIAL"))
     app.extensions["node_api_services"] = {
         "user_database": users,
-        "dataset_manager": DatasetManager(config["NODE_DB_PATH"]),
+        "dataset_manager": DatasetManager(
+            config["NODE_DB_PATH"],
+            min_samples=config.node_config.getint("security", "minimum_samples"),
+        ),
         "node_process_manager": NodeProcessManager(config.node_config),
         "training_plan_manager": TrainingPlanSecurityManager(
             db=config["NODE_DB_PATH"],

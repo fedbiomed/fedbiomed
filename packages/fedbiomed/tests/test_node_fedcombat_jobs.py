@@ -343,6 +343,24 @@ def test_delete_temporary_dataset_not_found(monkeypatch, fedcombat_jobs):
     assert fedcombat_jobs._dataset_manager.deleted == []
 
 
+def test_delete_temporary_dataset_keeps_file_when_entry_is_kept(
+    monkeypatch, fedcombat_jobs, tmp_path
+):
+    temporary = tmp_path / "to_delete.csv"
+    temporary.write_text("a\n1\n")
+    fedcombat_jobs._dataset_manager.last_add_kwargs["path"] = str(temporary)
+
+    def refuse(_dataset_id):
+        raise FedbiomedError("has derived datasets")
+
+    monkeypatch.setattr(fedcombat_jobs._dataset_manager, "delete_dataset_by_id", refuse)
+
+    with pytest.raises(FedbiomedError, match="has derived datasets"):
+        fedcombat_jobs._delete_temporary_dataset("to_delete")
+
+    assert temporary.exists()
+
+
 @pytest.mark.parametrize("is_harmonization", [True, False])
 @pytest.mark.parametrize("with_covariates", [True, False])
 def test_save_updated_dataset_values(

@@ -6,7 +6,6 @@ from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
-
 from fedbiomed.common.certificate_manager import (
     CERT_PURPOSE_CLIENT,
     CERT_PURPOSE_SERVER,

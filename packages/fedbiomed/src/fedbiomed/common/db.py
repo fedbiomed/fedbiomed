@@ -3,8 +3,7 @@
 
 """
 Access to the components' databases: the SQLite `Database` with `DatabaseEntry`,
-parent of its tables' ORM models (`*Entry` classes), and the TinyDB tables not
-moved to it yet.
+parent of its tables' ORM models (`*Entry` classes).
 """
 
 from __future__ import annotations
@@ -437,7 +436,6 @@ class Database:
 @cache
 def get_database(db_path: str) -> Database:
     """The process's database of a component, at `db_path` with the `.sqlite` suffix."""
-    # Next to the component's TinyDB file, which other tables still use
     return Database(str(Path(db_path).with_suffix(".sqlite")))
 
 
@@ -459,6 +457,8 @@ class DatabaseEntry(MappedAsDataclass, DeclarativeBase, kw_only=True):
     __security_log__ = SecurityLog.ALL
     # Columns whose values never reach the security log
     __sensitive_fields__: tuple[str, ...] = ()
+    # Keeps the log lines short: characters logged of each value
+    LOGGED_VALUE_MAX_LENGTH = 250
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
@@ -527,28 +527,27 @@ class DatabaseEntry(MappedAsDataclass, DeclarativeBase, kw_only=True):
     @staticmethod
     def _record(session: Session, operation: str, model: type, doc_id, args) -> None:
         """Keeps a security event until the transaction ends."""
-        session.info.setdefault("security_events", []).append(
-            {
-                "operation": operation,
-                "table": model.__tablename__,
-                "doc_id": doc_id,
-                "db_args": DatabaseEntry._log_args(model, args),
-            }
-        )
-
-    @staticmethod
-    def _log_args(model: type, args: dict) -> str:
-        """Arguments as written to the log: the model's sensitive values redacted."""
+        # Arguments as written to the log: the model's sensitive values redacted
         parts = []
         for key, value in args.items():
             # Statement parameters are named after their column: `key_1` for `key`
             if re.sub(r"_\d+$", "", key) in model.__sensitive_fields__:
                 text = "<redacted>"
             else:
-                # Keeps the log lines short: 250 characters of each value
-                text = f"{str(value).strip()[:250]}..."
+                text = str(value).strip()
+                max_length = DatabaseEntry.LOGGED_VALUE_MAX_LENGTH
+                if len(text) > max_length:
+                    text = f"{text[:max_length]}..."
             parts.append(f"{key}={text}")
-        return "{" + ", ".join(parts) + "}"
+
+        session.info.setdefault("security_events", []).append(
+            {
+                "operation": operation,
+                "table": model.__tablename__,
+                "doc_id": doc_id,
+                "db_args": "{" + ", ".join(parts) + "}",
+            }
+        )
 
     @staticmethod
     def _write_success(session: Session) -> None:
@@ -571,22 +570,19 @@ class DatabaseEntry(MappedAsDataclass, DeclarativeBase, kw_only=True):
         events = session.info.pop("security_events", [])
         if not events:
             return
-        stacklevel = DatabaseEntry._caller_stacklevel()
-        for recorded in events:
-            logger.security_event(stacklevel=stacklevel, **recorded, **outcome)
 
-    @staticmethod
-    def _caller_stacklevel() -> int:
-        """Stack level of the manager code that ran the transaction, past SQLAlchemy."""
-        frame = pyinspect.currentframe().f_back
-        # 1: the method calling `security_event`
-        level = 1
+        # Stack level of the manager code that ran the transaction, past SQLAlchemy
+        frame = pyinspect.currentframe()
+        # 1: this method, which calls `security_event`
+        stacklevel = 1
         while frame is not None and frame.f_globals["__name__"].startswith(
             ("sqlalchemy", "contextlib", "fedbiomed.common.db")
         ):
             frame = frame.f_back
-            level += 1
-        return level
+            stacklevel += 1
+
+        for recorded in events:
+            logger.security_event(stacklevel=stacklevel, **recorded, **outcome)
 
     @staticmethod
     def _raise_database_error(context) -> None:
@@ -599,7 +595,7 @@ class DatabaseEntry(MappedAsDataclass, DeclarativeBase, kw_only=True):
         raise FedbiomedError(f"{ErrorNumbers.FB634.value}: {where}{reason}") from reason
 
 
-# Every session and engine of the process: only `DatabaseEntry` rows are logged
+# Every session and engine of the process, which has no other SQLAlchemy database
 event.listen(Session, "before_flush", DatabaseEntry._record_writes)
 event.listen(Session, "do_orm_execute", DatabaseEntry._record_statements)
 event.listen(Session, "after_commit", DatabaseEntry._write_success)

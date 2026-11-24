@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from fedbiomed.common.constants import ErrorNumbers, PreprocType
 from fedbiomed.common.message import ErrorMessage, PreprocReply, PreprocRequest
 from fedbiomed.node.jobs import _preproc_job
@@ -173,7 +172,7 @@ def test_run_dataset_entry_not_dict(
 ):
     """Test run of PreprocJob when dataset entry returned by DatasetManager is not a dict."""
 
-    # make dataset_table return a non-dict value
+    # make get_dataset return a non-dict value
     mocked_dataset_manager.get_dataset.return_value = "this_is_not_a_dict"
 
     job = PreprocJob(**preproc_job_args)
