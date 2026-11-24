@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fedbiomed.common.constants import ErrorNumbers, PreprocType
@@ -28,16 +28,15 @@ def preproc_request(request_args):
 
 
 @pytest.fixture
-def mocked_dataset_manager():
+def mocked_dataset_manager(mocker):
     """Fixture for mocked DatasetManager with common setup."""
-    with patch("fedbiomed.node.jobs._base_job.DatasetManager") as mock_dm_cls:
-        mock_dm = mock_dm_cls.return_value
-        mock_dm.get_dataset.return_value = {
-            "data_type": "csv",
-            "path": "/path/to/data",
-            "dataset_parameters": {},
-        }
-        yield mock_dm
+    mock_dm = mocker.patch("fedbiomed.node.jobs._base_job.DatasetManager").return_value
+    mock_dm.get_dataset.return_value = {
+        "data_type": "csv",
+        "path": "/path/to/data",
+        "dataset_parameters": {},
+    }
+    return mock_dm
 
 
 @pytest.fixture

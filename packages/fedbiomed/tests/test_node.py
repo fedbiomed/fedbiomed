@@ -3,7 +3,7 @@ import os
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import ANY, MagicMock
 
 import pytest
 from fedbiomed.common.certificate_manager import (
@@ -36,6 +36,7 @@ from fedbiomed.node.node import (
     CertificateDiagnostic,
     DiagnosticSeverity,
     Node,
+    NodeContext,
     certificate_diagnostics,
 )
 from fedbiomed.node.round import Round
@@ -133,74 +134,66 @@ database_id = {
 
 
 @pytest.fixture
-def node_env(tmp_path):
+def node_env(mocker, tmp_path):
     """Node instance with transport, queue and manager dependencies patched."""
-    with (
-        patch(
-            "fedbiomed.transport.controller.GrpcController.__init__",
-            autospec=True,
-            return_value=None,
-        ),
-        patch(
-            "fedbiomed.transport.controller.GrpcController.send", autospec=True
-        ) as grpc_send,
-        patch(
-            "fedbiomed.common.tasks_queue.TasksQueue.__init__",
-            autospec=True,
-            return_value=None,
-        ),
-        patch("fedbiomed.node.node.EventWaitExchange", autospec=True),
-        patch("fedbiomed.node.node.NodeToNodeRouter", autospec=True),
-        patch("fedbiomed.node.node.DatasetManager", autospec=True) as dataset_manager,
-        patch(
-            "fedbiomed.node.node.TrainingPlanSecurityManager", autospec=True
-        ) as tp_security_manager,
-    ):
-        model_manager = MagicMock()
-        tp_security_manager.return_value = model_manager
+    mocker.patch(
+        "fedbiomed.transport.controller.GrpcController.__init__",
+        autospec=True,
+        return_value=None,
+    )
+    grpc_send = mocker.patch(
+        "fedbiomed.transport.controller.GrpcController.send", autospec=True
+    )
+    mocker.patch(
+        "fedbiomed.common.tasks_queue.TasksQueue.__init__",
+        autospec=True,
+        return_value=None,
+    )
+    mocker.patch("fedbiomed.node.node.EventWaitExchange", autospec=True)
+    mocker.patch("fedbiomed.node.node.NodeToNodeRouter", autospec=True)
+    dataset_manager = mocker.patch("fedbiomed.node.node.DatasetManager", autospec=True)
+    model_manager = MagicMock()
+    mocker.patch(
+        "fedbiomed.node.node.TrainingPlanSecurityManager",
+        autospec=True,
+        return_value=model_manager,
+    )
 
-        # mocks
-        dataset_manager.return_value.search_by_tags = MagicMock(
-            return_value=database_val
-        )
-        dataset_manager.return_value.list_my_datasets = MagicMock(
-            return_value=database_list
-        )
-        dataset_manager.return_value.reply_training_plan_status_request = MagicMock(
-            return_value=None
-        )
-        dataset_manager.return_value.obfuscate_private_information.side_effect = (
-            lambda x: x
-        )
-        dataset_manager.return_value.get_dataset = MagicMock(return_value=database_id)
+    datasets = dataset_manager.return_value
+    datasets.search_by_tags = MagicMock(return_value=database_val)
+    datasets.list_my_datasets = MagicMock(return_value=database_list)
+    datasets.obfuscate_private_information.side_effect = lambda x: x
+    datasets.get_dataset = MagicMock(return_value=database_id)
 
-        db = str(tmp_path / "test-db.json")
-        # creating Node objects
-        node_config = NodeConfig(str(tmp_path))
-        cfg = configparser.ConfigParser()
-        cfg["default"] = {"id": "test-id", "name": "test-name", "db": db}
-        cfg["researcher"] = {"ip": "test", "port": "5151"}
-        cfg["security"] = {
-            "hashing_algorithm": "SHA256",
-            "training_plan_approval": "True",
-            "allow_preproc": "True",
-            "allow_federated_analytics": "True",
-            "minimum_samples": "0",
-            "secure_aggregation": "False",
-            "force_secure_aggregation": "False",
-        }
-        node_config._cfg = cfg
+    node_config = NodeConfig(str(tmp_path))
+    cfg = configparser.ConfigParser()
+    cfg["default"] = {
+        "id": "test-id",
+        "name": "test-name",
+        "db": str(tmp_path / "test-db.json"),
+    }
+    cfg["researcher"] = {"ip": "test", "port": "5151"}
+    cfg["security"] = {
+        "hashing_algorithm": "SHA256",
+        "training_plan_approval": "True",
+        "allow_preproc": "True",
+        "allow_federated_analytics": "True",
+        "minimum_samples": "0",
+        "secure_aggregation": "False",
+        "force_secure_aggregation": "False",
+    }
+    node_config._cfg = cfg
 
-        yield SimpleNamespace(
-            node=Node(node_config),
-            node_config=node_config,
-            grpc_send=grpc_send,
-            model_manager=model_manager,
-        )
+    return SimpleNamespace(
+        node=Node(node_config),
+        node_config=node_config,
+        grpc_send=grpc_send,
+        model_manager=model_manager,
+    )
 
 
 @pytest.fixture
-def mtls_node_env(node_env, tmp_path):
+def mtls_node_env(mocker, node_env, tmp_path):
     """node_env with mutual authentication enabled and a real node keypair.
 
     The keypair is generated rather than mocked because the node checks its own
@@ -212,17 +205,17 @@ def mtls_node_env(node_env, tmp_path):
         component_id="test-id",
         purpose=CERT_PURPOSE_CLIENT,
     )
-    with patch("fedbiomed.node.node.CertificateManager") as certificate_manager:
-        node_env.node.config._cfg["authentication"] = {"mutual_authentication": "True"}
-        node_env.node.config._cfg["certificate"] = {
-            "private_key": key_file,
-            "public_key": pem_file,
-        }
-        # `certificate_diagnostics` and the credentials build share the manager.
-        certificate_manager.return_value.expiring_certificates.return_value = []
-        node_env.certificate_manager = certificate_manager
-        node_env.researcher_certificate = _researcher_certificate(tmp_path, "test")
-        yield node_env
+    certificate_manager = mocker.patch("fedbiomed.node.node.CertificateManager")
+    node_env.node.config._cfg["authentication"] = {"mutual_authentication": "True"}
+    node_env.node.config._cfg["certificate"] = {
+        "private_key": key_file,
+        "public_key": pem_file,
+    }
+    # `certificate_diagnostics` and the credentials build share the manager.
+    certificate_manager.return_value.expiring_certificates.return_value = []
+    node_env.certificate_manager = certificate_manager
+    node_env.researcher_certificate = _researcher_certificate(tmp_path, "test")
+    return node_env
 
 
 def _researcher_certificate(tmp_path, host):
@@ -306,7 +299,7 @@ def test_node_researcher_credentials_mtls_missing_node_cert(mtls_node_env):
     assert "private key is missing" in str(exc_info.value)
 
 
-def test_node_researcher_credentials_mtls_unreadable_node_cert(mtls_node_env):
+def test_node_researcher_credentials_mtls_unreadable_node_cert(mocker, mtls_node_env):
     """An unreadable node certificate surfaces as FedbiomedCertificateError."""
     mtls_node_env.certificate_manager.return_value.list.return_value = [
         {
@@ -314,37 +307,37 @@ def test_node_researcher_credentials_mtls_unreadable_node_cert(mtls_node_env):
             "certificate": mtls_node_env.researcher_certificate,
         }
     ]
-    with patch(
+    mocker.patch(
         "fedbiomed.node.node.read_file", side_effect=FedbiomedError("cannot read file")
-    ):
-        with pytest.raises(FedbiomedCertificateError):
-            mtls_node_env.node._researcher_credentials()
+    )
+
+    with pytest.raises(FedbiomedCertificateError):
+        mtls_node_env.node._researcher_credentials()
 
 
-def test_node_forwards_connection_state_recorder(node_env):
+def test_node_forwards_connection_state_recorder(mocker, node_env):
     """The node hands the connection-state recorder to the transport."""
     on_connection_state = MagicMock()
+    grpc_init = mocker.patch(
+        "fedbiomed.transport.controller.GrpcController.__init__", return_value=None
+    )
 
-    with patch(
-        "fedbiomed.transport.controller.GrpcController.__init__",
-        return_value=None,
-    ) as grpc_init:
-        Node(node_env.node_config, on_connection_state=on_connection_state)
+    Node(node_env.node_config, on_connection_state=on_connection_state)
 
     assert grpc_init.call_args.kwargs["on_connection_state"] is on_connection_state
 
 
-def test_node_records_certificate_refusal_to_start(node_env):
+def test_node_records_certificate_refusal_to_start(mocker, node_env):
     """A certificate error stopping the node is recorded as its connection state."""
     on_connection_state = MagicMock()
-
-    with patch.object(
+    mocker.patch.object(
         Node,
         "_researcher_credentials",
         side_effect=FedbiomedCertificateError("FB619: no researcher certificate"),
-    ):
-        with pytest.raises(FedbiomedCertificateError):
-            Node(node_env.node_config, on_connection_state=on_connection_state)
+    )
+
+    with pytest.raises(FedbiomedCertificateError):
+        Node(node_env.node_config, on_connection_state=on_connection_state)
 
     reported = on_connection_state.call_args.kwargs
     assert reported["state"] is ClientStatus.FAILED
@@ -355,7 +348,11 @@ def test_node_records_certificate_refusal_to_start(node_env):
     assert "FB619" in reported["reason"]
 
 
-@patch("fedbiomed.common.tasks_queue.TasksQueue.add")
+@pytest.fixture
+def task_queue_add(mocker):
+    return mocker.patch("fedbiomed.common.tasks_queue.TasksQueue.add")
+
+
 def test_node_add_task_normal_case_scenario(task_queue_add, node_env):
     """Tests add_task method (in the normal case scenario)"""
 
@@ -364,7 +361,6 @@ def test_node_add_task_normal_case_scenario(task_queue_add, node_env):
 
 
 @pytest.mark.parametrize("request_", [train_request, secagg_request])
-@patch("fedbiomed.common.tasks_queue.TasksQueue.add")
 def test_node_on_message_normal_case_scenario_train_secagg_reply(
     task_queue_add, node_env, request_
 ):
@@ -386,14 +382,13 @@ def test_node_on_message_normal_case_scenario_ping(node_env):
     node_env.grpc_send.assert_called_once()
 
 
-@patch("fedbiomed.common.tasks_queue.TasksQueue.add")
-def test_node_on_message_train_logs_request_lifecycle(task_queue_add, node_env):
+def test_node_on_message_train_logs_request_lifecycle(mocker, task_queue_add, node_env):
     """Tests that train requests emit the new structured debug logs."""
     # Own id: expecting it via the same getattr would compare None to None.
     request = replace(train_request, request_id="request-1")
+    logger_debug = mocker.patch("fedbiomed.node.node.logger.debug")
 
-    with patch("fedbiomed.node.node.logger.debug") as logger_debug:
-        node_env.node.on_message(request.to_dict())
+    node_env.node.on_message(request.to_dict())
 
     task_queue_add.assert_called_once()
 
@@ -419,10 +414,9 @@ def test_node_on_message_train_logs_request_lifecycle(task_queue_add, node_env):
     )
 
 
-@patch("fedbiomed.node.node.SecaggManager")
-def test_node_on_message_normal_case_scenario_secagg_delete(skm, node_env):
+def test_node_on_message_normal_case_scenario_secagg_delete(mocker, node_env):
     """Tests `on_message` method (normal case scenario), with secagg-delete command"""
-
+    skm = mocker.patch("fedbiomed.node.node.SecaggManager")
     skm.return_value.return_value.remove.return_value = True
     node_env.node.on_message(secagg_delete_request.to_dict())
     node_env.grpc_send.assert_called_once()
@@ -474,63 +468,57 @@ def test_node_on_message_fail_msg_not_deserializable(node_env):
     assert isinstance(error, ErrorMessage)
 
 
-@patch("fedbiomed.node.node.Round", autospec=True)
-@patch("fedbiomed.node.history_monitor.HistoryMonitor.__init__", spec=True)
-def test_node_parser_task_train_create_round(
-    history_monitor_patch, round_patch, node_env
-):
+@pytest.fixture
+def round_class(mocker):
+    """The `Round` class the node builds, mocked, with no history monitor set up."""
+    mocker.patch(
+        "fedbiomed.node.history_monitor.HistoryMonitor.__init__",
+        spec=True,
+        return_value=None,
+    )
+    round_class = mocker.patch("fedbiomed.node.node.Round", autospec=True)
+    round_class.return_value.initialize_arguments.return_value = None
+    return round_class
+
+
+def test_node_parser_task_train_create_round(round_class, node_env):
     """Tests if rounds are created accordingly - running normal case scenario
     (in `parser_task_train` method)"""
-
-    history_monitor_patch.return_value = None
-    round_patch.return_value.initialize_arguments.return_value = None
-
     round_ = node_env.node.parser_task_train(train_request)
+
     assert isinstance(round_, Round)
-    round_patch.assert_called_once()
+    round_class.assert_called_once()
 
 
-@patch("fedbiomed.node.history_monitor.HistoryMonitor.__init__")
-@patch("fedbiomed.node.round.Round.__init__")
-def test_node_parser_task_train_no_dataset_found(
-    round_init, history_monitor_patch, node_env
-):
+def test_node_parser_task_train_no_dataset_found(mocker, node_env):
     """Tests parser_task_train method, case where no dataset has been found"""
-    # defining patchers
-    history_monitor_patch.return_value = None
-    round_init.return_value = None
+    mocker.patch(
+        "fedbiomed.node.history_monitor.HistoryMonitor.__init__", return_value=None
+    )
+    mocker.patch("fedbiomed.node.round.Round.__init__", return_value=None)
+    node_env.node.dataset_manager = MagicMock()
+    node_env.node.dataset_manager.get_dataset.return_value = None
+    logger_error = mocker.patch("fedbiomed.node.node.logger.error")
 
-    mock_dataset_manager = MagicMock()
-    mock_dataset_manager.get_dataset = MagicMock(return_value=None)
-    node_env.node.dataset_manager = mock_dataset_manager
-    with patch("fedbiomed.node.node.logger.error") as logger_error:
-        node_env.node.parser_task_train(train_request)
+    node_env.node.parser_task_train(train_request)
 
-        assert logger_error.call_count >= 1
-        messages = [call.args[0] for call in logger_error.call_args_list]
-        assert any(ErrorNumbers.FB313.value in m for m in messages)
-
+    messages = [call.args[0] for call in logger_error.call_args_list]
+    assert any(ErrorNumbers.FB313.value in m for m in messages)
     error = node_env.grpc_send.call_args.args[1]
     assert isinstance(error, ErrorMessage)
 
 
-@patch("fedbiomed.node.node.Round", autospec=True)
-@patch("fedbiomed.node.history_monitor.HistoryMonitor.__init__", spec=True)
 def test_node_parser_task_train_initialize_arguments_failure_returns_none_and_sends_error(
-    history_monitor_patch, round_patch, node_env
+    mocker, round_class, node_env
 ):
     """If Round.initialize_arguments raises, parser_task_train must send an error and return None."""
-
-    history_monitor_patch.return_value = None
-    round_patch.return_value.initialize_arguments.side_effect = Exception(
+    round_class.return_value.initialize_arguments.side_effect = Exception(
         "init-args-boom"
     )
+    logger_error = mocker.patch("fedbiomed.node.node.logger.error")
+    logger_debug = mocker.patch("fedbiomed.node.node.logger.debug")
 
-    with (
-        patch("fedbiomed.node.node.logger.error") as logger_error,
-        patch("fedbiomed.node.node.logger.debug") as logger_debug,
-    ):
-        round_ = node_env.node.parser_task_train(train_request)
+    round_ = node_env.node.parser_task_train(train_request)
 
     assert round_ is None
     assert logger_error.called
@@ -554,10 +542,8 @@ def test_node_parser_task_train_initialize_arguments_failure_returns_none_and_se
         (None, 0),
     ],
 )
-@patch("fedbiomed.node.node.Round", autospec=True)
-@patch("fedbiomed.node.history_monitor.HistoryMonitor.__init__", spec=True)
 def test_node_parser_task_train_maps_request_to_round_arguments(
-    history_monitor_patch, round_patch, node_env, secagg_arguments, round_
+    round_class, node_env, secagg_arguments, round_
 ):
     """A train request is mapped field by field onto the Round constructor,
     with and without secagg arguments."""
@@ -579,12 +565,10 @@ def test_node_parser_task_train_maps_request_to_round_arguments(
         "aggregator_args": {},
         "optim_aux_var": None,
     }
-    history_monitor_patch.return_value = None
-    round_patch.return_value.initialize_arguments.return_value = None
 
     node_env.node.parser_task_train(TrainRequest(**request_dict))
 
-    round_patch.assert_called_once_with(
+    round_class.assert_called_once_with(
         root_dir=node_env.node_config.root,
         db=node_env.node_config.get("default", "db"),
         node_id=node_env.node_config.get("default", "id"),
@@ -608,24 +592,29 @@ def test_node_parser_task_train_maps_request_to_round_arguments(
     )
 
 
-@patch("fedbiomed.common.tasks_queue.TasksQueue.get")
-def test_node_task_manager_exception_raised_task_queue(tasks_queue_get, node_env):
+@pytest.fixture
+def task_queue(mocker):
+    """The node's task queue, mocked."""
+    return SimpleNamespace(
+        get=mocker.patch("fedbiomed.common.tasks_queue.TasksQueue.get"),
+        task_done=mocker.patch("fedbiomed.common.tasks_queue.TasksQueue.task_done"),
+    )
+
+
+def test_node_task_manager_exception_raised_task_queue(task_queue, node_env):
     """Simulates an Exception (SystemError) triggered by `tasks_queue.get`"""
-    tasks_queue_get.side_effect = SystemError("mimicking an exception")
+    task_queue.get.side_effect = SystemError("mimicking an exception")
 
     with pytest.raises(SystemError):
         node_env.node.task_manager()
 
 
-@patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
-@patch("fedbiomed.node.node.Node._task_secagg")
-@patch("fedbiomed.common.tasks_queue.TasksQueue.get")
 def test_node_task_manager_secagg_exception_raised_task_done(
-    tasks_queue_get, task_secagg, tasks_queue_task_done, node_env
+    mocker, task_queue, node_env
 ):
     """Tests if an Exception (SystemExit) is triggered when calling
     `TasksQueue.task_done` method for secagg message"""
-    tasks_queue_get.return_value = {
+    task_queue.get.return_value = {
         "protocol_version": "99.99",
         "researcher_id": "my_test_researcher",
         "secagg_id": "my_test_secagg",
@@ -633,8 +622,8 @@ def test_node_task_manager_secagg_exception_raised_task_done(
         "experiment_id": "my_experiment",
         "parties": [],
     }
-    task_secagg.return_value = None
-    tasks_queue_task_done.side_effect = SystemExit(
+    mocker.patch("fedbiomed.node.node.Node._task_secagg", return_value=None)
+    task_queue.task_done.side_effect = SystemExit(
         "Mimicking an exception happening in `TasksQueue.task_done` method"
     )
 
@@ -645,25 +634,25 @@ def test_node_task_manager_secagg_exception_raised_task_done(
     assert node_env.grpc_send.call_count == 0
 
 
-@patch("fedbiomed.transport.controller.GrpcController.start")
-def test_node_start_messaging_normal_case_scenario(msg_start, node_env):
+def test_node_start_messaging_normal_case_scenario(mocker, node_env):
     """Tests `start_messaging` method (normal_case_scenario)"""
+    msg_start = mocker.patch("fedbiomed.transport.controller.GrpcController.start")
+
     node_env.node.start_messaging(True)
+
     msg_start.assert_called_once_with(True)
 
 
-def test_node_send_error_logs_debug_context(node_env):
+def test_node_send_error_logs_debug_context(mocker, node_env):
     """Tests `send_error` emits the new debug traces before and after dispatch."""
 
     errnum = ErrorNumbers.FB100
     extra_msg = "this is a test_send_error"
     researcher_id = "researcher_id_1224"
+    logger_debug = mocker.patch("fedbiomed.node.node.logger.debug")
+    logger_error = mocker.patch("fedbiomed.node.node.logger.error")
 
-    with (
-        patch("fedbiomed.node.node.logger.debug") as logger_debug,
-        patch("fedbiomed.node.node.logger.error") as logger_error,
-    ):
-        node_env.node.send_error(errnum, extra_msg, researcher_id)
+    node_env.node.send_error(errnum, extra_msg, researcher_id)
 
     node_env.grpc_send.assert_called_once()
     logger_error.assert_called_once()
@@ -694,9 +683,9 @@ def test_node_send_error_logs_debug_context(node_env):
     )
 
 
-@patch("fedbiomed.node.node.SecaggSetup")
-def test_node_task_secagg(secagg_setup, node_env):
+def test_node_task_secagg(mocker, node_env):
     """A successful setup sends the reply back, tagged with the request id."""
+    secagg_setup = mocker.patch("fedbiomed.node.node.SecaggSetup")
     setup = MagicMock()
     secagg_setup.return_value.return_value = setup
     reply = setup.setup.return_value
@@ -707,8 +696,8 @@ def test_node_task_secagg(secagg_setup, node_env):
     assert reply.request_id == secagg_request.request_id
 
 
-@patch("fedbiomed.node.node.SecaggSetup")
-def test_node_task_secagg_setup_failure_replies_with_an_error(secagg_setup, node_env):
+def test_node_task_secagg_setup_failure_replies_with_an_error(mocker, node_env):
+    secagg_setup = mocker.patch("fedbiomed.node.node.SecaggSetup")
     secagg_setup.return_value.return_value.setup.side_effect = Exception
 
     node_env.node._task_secagg(secagg_request)
@@ -717,7 +706,7 @@ def test_node_task_secagg_setup_failure_replies_with_an_error(secagg_setup, node
     assert isinstance(error, ErrorMessage)
 
 
-def test_node_task_secagg_delete(node_env):
+def test_node_task_secagg_delete(mocker, node_env):
     """Tests `_task_secagg_delete` failure replies"""
 
     request = SecaggDeleteRequest(
@@ -736,57 +725,39 @@ def test_node_task_secagg_delete(node_env):
     node_env.grpc_send.reset_mock()
 
     # Remove reports failure
-    with patch("fedbiomed.node.node.SecaggManager") as skm:
-        skm.return_value.return_value.remove.return_value = False
-        node_env.node._task_secagg_delete(request)
-        error = node_env.grpc_send.call_args.args[1]
-        assert isinstance(error, ErrorMessage)
+    skm = mocker.patch("fedbiomed.node.node.SecaggManager")
+    skm.return_value.return_value.remove.return_value = False
+    node_env.node._task_secagg_delete(request)
+    error = node_env.grpc_send.call_args.args[1]
+    assert isinstance(error, ErrorMessage)
 
 
-def test_node_on_message_fa_request(node_env):
+def test_node_on_message_fa_request(mocker, node_env):
     """Tests `on_message` method with FARequest"""
-    with patch.object(node_env.node, "add_task") as mock_add_task:
-        node_env.node.on_message(fa_request.to_dict())
-        mock_add_task.assert_called_once()
-        args, _ = mock_add_task.call_args
-        assert isinstance(args[0], FARequest)
+    mock_add_task = mocker.patch.object(node_env.node, "add_task")
+
+    node_env.node.on_message(fa_request.to_dict())
+
+    mock_add_task.assert_called_once()
+    assert isinstance(mock_add_task.call_args.args[0], FARequest)
 
 
-@patch("fedbiomed.common.tasks_queue.TasksQueue.get")
-@patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
-@patch("fedbiomed.node.node.FAJob")
-def test_node_task_manager_fa_request(mock_fa_job, mock_task_done, mock_get, node_env):
-    """Tests `task_manager` with FARequest"""
-    mock_get.side_effect = [fa_request, SystemExit]
-
-    # Mock FAJob run method
-    mock_job_instance = mock_fa_job.return_value
-    mock_job_instance.run.return_value = MagicMock()
-
-    with pytest.raises(SystemExit):
-        node_env.node.task_manager()
-
-    mock_job_instance.run.assert_called_once()
-    node_env.grpc_send.assert_called_once()
-
-
-@patch("fedbiomed.common.tasks_queue.TasksQueue.get")
-@patch("fedbiomed.common.tasks_queue.TasksQueue.task_done")
-@patch("fedbiomed.node.node.PreprocJob")
-def test_node_task_manager_preproc_request(
-    mock_preproc_job, mock_task_done, mock_get, node_env
+@pytest.mark.parametrize(
+    "request_, job",
+    [(fa_request, "FAJob"), (preproc_request, "PreprocJob")],
+    ids=["federated_analytics", "preprocessing"],
+)
+def test_node_task_manager_runs_the_job_and_replies(
+    mocker, task_queue, node_env, request_, job
 ):
-    """Tests `task_manager` with PreprocRequest"""
-    mock_get.side_effect = [preproc_request, SystemExit]
-
-    # Mock PreprocJob run method
-    mock_job_instance = mock_preproc_job.return_value
-    mock_job_instance.run.return_value = MagicMock()
+    """Tests `task_manager` runs the request's job and sends its reply"""
+    task_queue.get.side_effect = [request_, SystemExit]
+    job_instance = mocker.patch(f"fedbiomed.node.node.{job}").return_value
 
     with pytest.raises(SystemExit):
         node_env.node.task_manager()
 
-    mock_job_instance.run.assert_called_once()
+    job_instance.run.assert_called_once()
     node_env.grpc_send.assert_called_once()
 
 
@@ -1000,7 +971,7 @@ def test_diagnostics_leave_the_node_certificate_alone_without_mutual_authenticat
     ],
 )
 def test_diagnostics_report_a_registered_certificate_by_its_expiry(
-    diagnostics_env, days, severity, wording
+    mocker, diagnostics_env, days, severity, wording
 ):
     """An expired certificate is refused at the handshake; a near one is a warning.
 
@@ -1010,12 +981,13 @@ def test_diagnostics_report_a_registered_certificate_by_its_expiry(
     diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
     expiry = datetime.now(timezone.utc) + timedelta(days=days)
 
-    with patch.object(
+    mocker.patch.object(
         CertificateManager,
         "expiring_certificates",
         return_value=[("researcher-id", expiry)],
-    ):
-        diagnostics = certificate_diagnostics(diagnostics_env.config)
+    )
+
+    diagnostics = certificate_diagnostics(diagnostics_env.config)
 
     assert severity in _severities(diagnostics)
     assert any(wording in d.message for d in diagnostics)
@@ -1029,7 +1001,7 @@ def test_diagnostics_report_a_registered_certificate_by_its_expiry(
     ],
 )
 def test_diagnostics_report_the_node_certificate_by_its_expiry(
-    diagnostics_env, days, severity, wording
+    mocker, diagnostics_env, days, severity, wording
 ):
     """The researcher refuses an expired node, so the node's own expiry stops it too.
 
@@ -1039,8 +1011,9 @@ def test_diagnostics_report_the_node_certificate_by_its_expiry(
     diagnostics_env.register(diagnostics_env.researcher_certificate, "researcher-id")
     expiry = datetime.now(timezone.utc) + timedelta(days=days)
 
-    with patch("fedbiomed.node.node.certificate_expiry", return_value=expiry):
-        diagnostics = certificate_diagnostics(diagnostics_env.config)
+    mocker.patch("fedbiomed.node.node.certificate_expiry", return_value=expiry)
+
+    diagnostics = certificate_diagnostics(diagnostics_env.config)
 
     assert severity in _severities(diagnostics)
     assert any(wording in d.message for d in diagnostics)
@@ -1054,3 +1027,20 @@ def test_certificate_diagnostic_serializes_for_the_surfaces_that_send_it():
         "severity": "warning",
         "message": "something to fix",
     }
+
+
+def test_node_context_builds_its_managers_from_the_config(mocker):
+    datasets = mocker.patch("fedbiomed.node.node.DatasetManager")
+    plans = mocker.patch("fedbiomed.node.node.TrainingPlanSecurityManager")
+    config = MagicMock()
+
+    context = NodeContext(config)
+
+    assert context.config is config
+    datasets.assert_called_once_with(
+        config.getpath.return_value, min_samples=config.getint.return_value
+    )
+    config.getint.assert_called_once_with("security", "minimum_samples")
+    assert context.dataset_manager is datasets.return_value
+    plans.assert_called_once()
+    assert context.tp_security_manager is plans.return_value

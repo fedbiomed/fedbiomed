@@ -5,8 +5,9 @@ from pathlib import Path
 import polars as pl
 import pytest
 import torch
-from fedbiomed.common.constants import HarmonizationStep
+from fedbiomed.common.constants import NODE_DYNAMIC_DATA_FOLDER, HarmonizationStep
 from fedbiomed.common.exceptions import FedbiomedError
+from fedbiomed.node.dataset_manager import DatasetManager
 from fedbiomed.node.jobs import _fedcombat_jobs as module
 from fedbiomed.node.jobs._fedcombat_jobs import _FedCombatJobs
 
@@ -418,3 +419,44 @@ def test_save_and_read_state_values(monkeypatch, fedcombat_jobs):
     assert len(fedcombat_jobs._node_state_manager.add_calls) == 1
     loaded = fedcombat_jobs._read_state_values()
     assert torch.equal(loaded["x"], values["x"])
+
+
+@pytest.mark.parametrize("is_harmonization", [True, False])
+def test_step_output_is_derived_from_its_source_and_removed_with_its_file(
+    tmp_path, is_harmonization
+):
+    """With a real registry, as a node runs the steps."""
+    source = tmp_path / "source.csv"
+    source.write_text("cov1,phen1\n0.0,1.0\n1.0,2.0\n")
+    (tmp_path / NODE_DYNAMIC_DATA_FOLDER).mkdir(parents=True)
+    datasets = DatasetManager(str(tmp_path / "node.json"), min_samples=0)
+    source_id = datasets.add_database(
+        name="source", data_type="csv", tags=["t"], description="d", path=str(source)
+    )
+    jobs = _FedCombatJobs(
+        root_dir=str(tmp_path),
+        experiment_id="exp1",
+        preproc_id="pre1",
+        researcher_id="res1",
+        node_state_manager=DummyNodeStateManager(tmp_path / "state"),  # type: ignore[arg-type]
+        dataset_manager=datasets,
+        dataset_entry=datasets.get_dataset(source_id),
+    )
+
+    output = jobs._save_updated_dataset_values(
+        phenotypes_name=["phen1"],
+        phenotypes_data=torch.tensor([[10.0], [20.0]]),
+        is_harmonization=is_harmonization,
+    )
+
+    derived = datasets.get_dataset(output["dataset_id"], scope="dynamic")
+    assert derived["parent_dataset_id"] == source_id
+    assert pl.read_csv(derived["path"])["phen1"].to_list() == [10.0, 20.0]
+    # The researcher receives no node path
+    assert "path" not in output
+
+    jobs._delete_temporary_dataset(output["dataset_id"])
+
+    assert datasets.get_dataset(output["dataset_id"], scope="dynamic") is None
+    assert not Path(derived["path"]).exists()
+    assert datasets.get_dataset(source_id) is not None

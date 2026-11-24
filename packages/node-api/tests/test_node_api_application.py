@@ -139,6 +139,28 @@ def test_add_dataset_returns_saved_dataset(tmp_path, monkeypatch):
     assert response.json["result"]["tags"] == ["sample"]
 
 
+def test_add_dataset_refuses_fewer_samples_than_the_node_minimum(tmp_path, monkeypatch):
+    """The GUI applies the minimum of the node's configuration, as the CLI does."""
+    monkeypatch.setenv("FBM_SECURITY_MINIMUM_SAMPLES", "3")
+    app = make_app(tmp_path / "node", monkeypatch)
+    (tmp_path / "node" / "data" / "sample.csv").write_text("id,age\na,1\nb,2\n")
+
+    response = app.test_client().post(
+        "/api/datasets/add",
+        json={
+            "name": "sample",
+            "type": "csv",
+            "tags": ["sample"],
+            "desc": "API integration test",
+            "path": ["sample.csv"],
+        },
+        headers=token(app),
+    )
+
+    assert response.status_code == 400
+    assert "below the node's minimum required (3)" in response.json["message"]
+
+
 @pytest.mark.parametrize("missing", [None, "name", "tags", "desc"])
 def test_default_dataset_missing_fields_return_json(tmp_path, monkeypatch, missing):
     app = make_app(tmp_path / "node", monkeypatch)
