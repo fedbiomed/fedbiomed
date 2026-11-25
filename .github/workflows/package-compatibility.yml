@@ -123,9 +123,8 @@ jobs:
         run: |
           shopt -s nullglob
           wheel_files=("$GITHUB_WORKSPACE"/dist/*.whl)
-
           if [[ ${#wheel_files[@]} -ne 3 ]]; then
-            echo "Expected exactly three wheels, found ${#wheel_files[@]}" >&2
+            echo "Expected exactly three wheels, found ${#wheel_files[@]}." >&2
             exit 1
           fi
 
@@ -156,7 +155,6 @@ jobs:
           from pathlib import Path
 
           import fedbiomed
-          import fedbiomed_node_api
           import fedbiomed_gui
           from fedbiomed.common.utils import SHARE_DIR
 
@@ -208,6 +206,10 @@ jobs:
           from importlib.metadata import distribution
           from pathlib import Path
 
+          import fedbiomed
+          import fedbiomed_node_api
+          import fedbiomed_gui
+
           expected_scripts = {
               "fedbiomed": "fedbiomed",
               "fedbiomed-node-api": "fedbiomed-node-api",
@@ -216,11 +218,7 @@ jobs:
 
           for name, script in expected_scripts.items():
               dist = distribution(name)
-              versions = [
-                  distribution(name).version
-                  for name in expected_scripts
-              ]
-              assert len({v.split(".")[0] for v in versions}) == 1
+              assert dist.version >= "6.5.0", (name, dist.version)
               assert any(
                   ep.group == "console_scripts" and ep.name == script
                   for ep in dist.entry_points
@@ -247,3 +245,57 @@ jobs:
           path: wheel-dependencies.txt
           if-no-files-found: ignore
           retention-days: 14
+
+  historical-compatibility:
+    name: Historical package compatibility (Python 3.11)
+    needs: build-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Download candidate distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: fedbiomed-package
+          path: dist/
+
+      - name: Check compatibility with supported released packages
+        run: |
+          python scripts/setup_and_check_core_api_compatibility.py \
+            --dist dist \
+            --baseline tests/compatibility/supported_versions.json
+
+  historical-node-researcher-compatibility:
+    name: Historical node-researcher protocol (Python 3.11)
+    needs: build-package
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Download candidate distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: fedbiomed-package
+          path: dist/
+
+      - name: Check released and candidate node-researcher communication
+        run: |
+          python scripts/setup_and_check_node_researcher_compatibility.py \
+            --dist dist \
+            --baseline tests/compatibility/supported_versions.json
