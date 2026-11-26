@@ -1,1056 +1,336 @@
-import argparse
-import io
 import json
 import os
-import signal
-import sys
-import tempfile
-import unittest
-from unittest.mock import MagicMock, mock_open, patch
+from functools import partial
+from types import SimpleNamespace
+from unittest.mock import MagicMock, call
 
 import fedbiomed
-import fedbiomed.node.cli_utils
 import pytest
 from fedbiomed.common.cli import CommonCLI
-from fedbiomed.common.constants import NODE_DATA_FOLDER
-from fedbiomed.common.exceptions import FedbiomedError
-from fedbiomed.node.cli import (
-    DatasetArgumentParser,
-    NodeCLI,
-    NodeControl,
-    TrainingPlanArgumentParser,
-    intro,
+from fedbiomed.common.constants import NODE_DATA_FOLDER, TrainingPlanStatus
+from fedbiomed.common.dataloadingplan import DataLoadingPlan
+from fedbiomed.common.exceptions import (
+    FedbiomedDatasetError,
+    FedbiomedDatasetManagerError,
+    FedbiomedError,
+)
+from fedbiomed.node.cli import NodeCLI, intro
+from fedbiomed.node.cli_utils._database import (
+    add_database,
+    delete_all_database,
+    delete_database,
 )
 from fedbiomed.node.cli_utils._medical_folder_dataset import (
     add_medical_folder_dataset_from_cli,
     get_map_modalities2folders_from_cli,
 )
+from fedbiomed.node.cli_utils._training_plan_management import (
+    delete_training_plan,
+    update_training_plan,
+)
 from fedbiomed.node.dataset_manager._db_dataclasses import NodeConnectionStateEntry
-from fedbiomed.node.node import (
-    CertificateDiagnostic,
-    DiagnosticSeverity,
-    NodeContext,
-)
-from fedbiomed.node.node_pm import (
-    NodeConnectionStateManager,
-    NodeState,
-    _node_signal_trigger_term,
-    _start_node_process,
-)
+from fedbiomed.node.node import CertificateDiagnostic, DiagnosticSeverity
+from fedbiomed.node.node_pm import NodeState
+
+NODE_ROOT = os.path.abspath("/fake/fbm-node")
+NODE_DATA_PATH = os.path.join(NODE_ROOT, NODE_DATA_FOLDER)
+# Node arguments `start` passes when no option is given
+START_DEFAULTS = {"gpu": False, "gpu_num": 1, "gpu_only": False, "debug": False}
+CLI_ACTOR = {"source": "cli"}
+# Paths the mocked medical folder prompts return; nothing is read from them
+MEDICAL_DATA_PATH = "/fake/medical_data"
+DEMOGRAPHICS_PATH = "/fake/demographics.csv"
+# Valid dataset values given to the CLI's `add_database`
+CLI_DATASET = {
+    "name": "data",
+    "tags": "tag1",
+    "description": "desc",
+    "data_type": "csv",
+}
+
 
 # ============================================================================
-# SHARED FIXTURES AND HELPERS
+# NODE CLI COMMANDS
 # ============================================================================
 
 
 @pytest.fixture
-def temp_medical_data():
-    """Fixture to provide fake test data paths."""
-    return "/fake/tmp", "/fake/medical_data", "/fake/demographics.csv"
-
-
-@pytest.fixture
-def mock_stdio():
-    """Fixture to capture stdout/stderr."""
-    old_stdout = sys.stdout
-    old_stderr = sys.stderr
-    sys.stdout = io.StringIO()
-    sys.stderr = io.StringIO()
-
-    yield
-
-    sys.stdout = old_stdout
-    sys.stderr = old_stderr
-
-
-@pytest.fixture
-def mock_medical_folder_controller():
-    """Fixture for common MedicalFolderController mock setup."""
-    mock_controller = MagicMock()
-    mock_controller.df_dir = {"modality": MagicMock()}
-    mock_controller.df_dir["modality"].unique.return_value = ["T1", "T2", "label"]
-    mock_controller.demographics_column_names.return_value = [
-        "subject_id",
-        "age",
-        "gender",
-    ]
-    return mock_controller
-
-
-class MockInputHelper:
-    """Helper class to manage mock inputs for get_map_modalities2folders_from_cli tests."""
-
-    inputs = []
-
-    @staticmethod
-    def mock_input(x):
-        return MockInputHelper.inputs.pop(0)
-
-
-# ============================================================================
-# UNITTEST TESTCASES (Legacy - Consider converting to pytest)
-# ============================================================================
-
-
-class TestTrainingPlanArgumentParser(unittest.TestCase):
-    """Test case for node cli dataset argument parse"""
-
-    def setUp(self):
-        self.parser = argparse.ArgumentParser()
-        self.subparsers = self.parser.add_subparsers()
-        self.tp_arg_pars = TrainingPlanArgumentParser(self.subparsers)
-        self.tp_arg_pars._context = MagicMock()
-
-    def test_01_training_plan_argument_parser_initialize(self):
-        """Tests training plan parser initialization"""
-        self.tp_arg_pars.initialize()
-        self.assertTrue("training-plan" in self.subparsers.choices)
-
-        tp_choices = (
-            self.subparsers.choices["training-plan"]
-            ._subparsers._group_actions[0]
-            .choices
-        )
-
-        self.assertTrue("approve" in tp_choices)  # noqa
-        self.assertTrue("list" in tp_choices)  # noqa
-        self.assertTrue("delete" in tp_choices)  # noqa
-        self.assertTrue("reject" in tp_choices)  # noqa
-        self.assertTrue("view" in tp_choices)  # noqa
-        self.assertTrue("update" in tp_choices)  # noqa
-
-    def test_02_training_plan_argument_parser_execute(self):
-        """Tests training plan argument parser actions"""
-
-        self.tp_arg_pars.initialize()
-
-        args = self.parser.parse_args(["training-plan", "delete"])
-        self.tp_arg_pars.delete(args)
-        self.tp_arg_pars.list()
-        self.tp_arg_pars.update()
-
-        with patch.object(fedbiomed.node.cli, "view_training_plan") as m:
-            self.tp_arg_pars.view()
-            m.assert_called_once()
-
-        with patch.object(fedbiomed.node.cli, "register_training_plan") as m:
-            self.tp_arg_pars.register()
-            m.assert_called_once()
-
-        with patch.object(fedbiomed.node.cli, "reject_training_plan") as m:
-            args = self.parser.parse_args(["training-plan", "reject"])
-            self.tp_arg_pars.reject(args)
-            m.assert_called_once()
-
-    def test_03_training_plan_argument_parser_approve(self):
-        """Tests training plan approve action calls approve_training_plan."""
-        self.tp_arg_pars.initialize()
-        with patch.object(fedbiomed.node.cli, "approve_training_plan") as m:
-            args = self.parser.parse_args(["training-plan", "approve"])
-            self.tp_arg_pars.approve(args)
-            m.assert_called_once()
-
-
-class TestDatasetArgumentParser(unittest.TestCase):
-    """Test case for node cli dataset argument parse"""
-
-    def setUp(self):
-        self.parser = argparse.ArgumentParser()
-        self.subparsers = self.parser.add_subparsers()
-        self.dataset_arg_pars = DatasetArgumentParser(self.subparsers)
-        self.context = MagicMock()
-        self.dataset_arg_pars._context = self.context
-
-    def test_01_dataset_argument_parser_initialize(self):
-        """Test initialization"""
-
-        self.dataset_arg_pars.initialize()
-        self.assertTrue("dataset" in self.subparsers.choices)
-        dataset_choices = (
-            self.subparsers.choices["dataset"]._subparsers._group_actions[0].choices
-        )
-
-        self.assertTrue("add" in dataset_choices)  # noqa
-        self.assertTrue("list" in dataset_choices)  # noqa
-        self.assertTrue("delete" in dataset_choices)  # noqa
-
-        self.assertTrue("--mnist" in dataset_choices["add"]._option_string_actions)
-        self.assertTrue("--file" in dataset_choices["add"]._option_string_actions)
-
-        self.assertTrue("--all" in dataset_choices["delete"]._option_string_actions)
-        self.assertTrue("--mnist" in dataset_choices["delete"]._option_string_actions)
-
-    def test_02_dataset_argument_parser_add(self):
-        self.dataset_arg_pars.initialize()
-        args = self.parser.parse_args(["dataset", "add"])
-
-        with patch.object(fedbiomed.node.cli, "add_database") as m:
-            self.dataset_arg_pars.add(args)
-            m.assert_called_once()
-            m.reset_mock()
-
-            args = self.parser.parse_args(["dataset", "add", "--mnist", "test"])
-            self.dataset_arg_pars.add(args)
-            m.assert_called_once_with(
-                self.context.dataset_manager, interactive=False, path="test"
-            )
-            m.reset_mock()
-
-    def test_03_dataset_argument_parser_delete(self):
-        self.dataset_arg_pars.initialize()
-
-        with patch.object(fedbiomed.node.cli, "delete_database") as m:
-            args = self.parser.parse_args(["dataset", "delete"])
-            self.dataset_arg_pars.delete(args)
-            m.assert_called_once_with(self.context.dataset_manager)
-
-        with patch.object(fedbiomed.node.cli, "delete_all_database") as m:
-            args = self.parser.parse_args(["dataset", "delete", "--all"])
-            self.dataset_arg_pars.delete(args)
-            m.assert_called_once_with(self.context.dataset_manager)
-            m.reset_mock()
-
-        with patch.object(fedbiomed.node.cli, "delete_database") as m:
-            args = self.parser.parse_args(["dataset", "delete", "--mnist"])
-            self.dataset_arg_pars.delete(args)
-            m.assert_called_once_with(self.context.dataset_manager, interactive=False)
-
-    def test_04_dataset_argument_parser_list(self):
-        self.dataset_arg_pars.initialize()
-        args = self.parser.parse_args(["dataset", "list"])
-        self.dataset_arg_pars.list(args)
-
-        self.context.dataset_manager.list_my_datasets.assert_called_once_with(
-            verbose=True
-        )
-
-    def test_05_dataset_argument_parser_add_file(self):
-        """Tests add() dispatches to _add_dataset_from_file when --file is given."""
-        self.dataset_arg_pars.initialize()
-        with patch.object(self.dataset_arg_pars, "_add_dataset_from_file") as m:
-            args = self.parser.parse_args(
-                ["dataset", "add", "--file", "/path/to/dataset.json"]
-            )
-            self.dataset_arg_pars.add(args)
-            m.assert_called_once_with(path="/path/to/dataset.json")
-
-    def test_06_dataset_argument_parser_add_mnist_default_path(self):
-        """Tests add() uses node data folder when --mnist is given without a value."""
-        self.dataset_arg_pars.initialize()
-        self.context.config.root = "/test/root"
-        with patch.object(fedbiomed.node.cli, "add_database") as m:
-            args = self.parser.parse_args(["dataset", "add", "--mnist"])
-            self.dataset_arg_pars.add(args)
-            expected_path = os.path.join("/test/root", NODE_DATA_FOLDER)
-            m.assert_called_once_with(
-                self.context.dataset_manager, interactive=False, path=expected_path
-            )
-
-    def test_07_add_dataset_from_file_absolute_path(self):
-        """Tests _add_dataset_from_file preserves absolute paths."""
-        self.dataset_arg_pars.initialize()
-        dataset_json = {
-            "path": "/absolute/data/path",
-            "data_type": "csv",
-            "description": "Test dataset",
-            "tags": "#test",
-            "name": "TestData",
-        }
-        json_path = "/fake/dataset.json"
-        with patch("builtins.open", mock_open(read_data=json.dumps(dataset_json))):
-            with patch.object(fedbiomed.node.cli, "add_database") as m:
-                self.dataset_arg_pars._add_dataset_from_file(path=json_path)
-                m.assert_called_once_with(
-                    self.context.dataset_manager,
-                    interactive=False,
-                    path="/absolute/data/path",
-                    data_type="csv",
-                    description="Test dataset",
-                    tags="#test",
-                    name="TestData",
-                    dataset_parameters=None,
-                )
-
-    def test_08_add_dataset_from_file_relative_path(self):
-        """Tests _add_dataset_from_file prepends config.root for relative paths."""
-        self.dataset_arg_pars.initialize()
-        self.context.config.root = "/test/root"
-        dataset_json = {
-            "path": "relative/data",
-            "data_type": "csv",
-            "description": "Test",
-            "tags": "#test",
-            "name": "RelData",
-        }
-        json_path = "/fake/dataset.json"
-        with patch("builtins.open", mock_open(read_data=json.dumps(dataset_json))):
-            with patch.object(fedbiomed.node.cli, "add_database") as m:
-                self.dataset_arg_pars._add_dataset_from_file(path=json_path)
-                call_kwargs = m.call_args[1]
-                self.assertIn("/test/root", call_kwargs["path"])
-                self.assertIn("relative", call_kwargs["path"])
-
-    def test_09_add_dataset_from_file_env_var_path(self):
-        """Tests _add_dataset_from_file expands environment variable in path."""
-        self.dataset_arg_pars.initialize()
-        dataset_json = {
-            "path": "$FBM_TEST_DATA/data",
-            "data_type": "csv",
-            "description": "Test",
-            "tags": "#test",
-            "name": "EnvData",
-        }
-        json_path = "/fake/dataset.json"
-        with patch("builtins.open", mock_open(read_data=json.dumps(dataset_json))):
-            with patch.dict(os.environ, {"FBM_TEST_DATA": "/env/path"}):
-                with patch.object(fedbiomed.node.cli, "add_database") as m:
-                    self.dataset_arg_pars._add_dataset_from_file(path=json_path)
-                    call_kwargs = m.call_args[1]
-                    self.assertIn("/env/path", call_kwargs["path"])
-
-    def test_10_add_dataset_from_file_invalid_json(self):
-        """Tests _add_dataset_from_file exits when the file is not valid JSON."""
-        self.dataset_arg_pars.initialize()
-        json_path = "/fake/dataset.json"
-        with patch("builtins.open", mock_open(read_data="not valid json {{{")):
-            with self.assertRaises(SystemExit):
-                self.dataset_arg_pars._add_dataset_from_file(path=json_path)
-
-
-def _node_config_in(tmp_dir, mock_node_config):
-    """Points the patched node configuration at a database in `tmp_dir`.
-
-    Starting a node records its state, so the configuration has to name a real
-    file: a MagicMock resolves to a file descriptor - stdout - which TinyDB then
-    writes to and closes, taking the test session down with it.
-    """
-    config = mock_node_config.return_value
-    config.get.return_value = "test-node"
-    config.getbool.return_value = False
-    config.getpath.return_value = os.path.join(tmp_dir, "node_db.json")
-
-    return config
-
-
-class TestNodeControl(unittest.TestCase):
-    """Test case for node control parser"""
-
-    def setUp(self):
-        self.parser = argparse.ArgumentParser()
-        self.subparsers = self.parser.add_subparsers()
-        self.control = NodeControl(self.subparsers)
-        self.context = MagicMock()
-        self.control._context = self.context
-        self.tmp_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp_dir.cleanup)
-
-    def test_01_node_control_initialize(self):
-        """Tests initialize"""
-
-        self.control.initialize()
-        self.assertTrue("start" in self.subparsers.choices)
-        self.assertTrue(
-            "--gpu-only" in self.subparsers.choices["start"]._option_string_actions
-        )  # noqa
-        self.assertTrue(
-            "--gpu-num" in self.subparsers.choices["start"]._option_string_actions
-        )  # noqa
-        self.assertTrue(
-            "--gpu" in self.subparsers.choices["start"]._option_string_actions
-        )  # noqa
-
-    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
-    @patch("fedbiomed.node.node_pm.Node", autospec=True)
-    def test_03_node_control__start(self, mock_node, mock_node_config):
-        """Tests node start"""
-        config = _node_config_in(self.tmp_dir.name, mock_node_config)
-        mock_node.return_value.config.get.return_value = "test-node"
-        mock_node.return_value.config.getbool.return_value = False
-        mock_node.return_value.tp_security_manager = MagicMock()
-
-        args = {"gpu": False}
-        _start_node_process("config.ini", args)
-        mock_node.return_value.task_manager.assert_called_once()
-        # A run in progress is recorded before the node is built, so the state of
-        # the previous one is not read as the current one
-        state = NodeConnectionStateManager(config).get_connection_state()
-        self.assertEqual(state.operation, "node_starting")
-
-        with patch("fedbiomed.node.node_pm.logger") as logger:
-            mock_node.return_value.task_manager.side_effect = FedbiomedError
-            _start_node_process("config.ini", args)
-            logger.critical.assert_called_once()
-            logger.critical.reset_mock()
-
-            mock_node.return_value.task_manager.side_effect = Exception
-            _start_node_process("config.ini", args)
-            logger.critical.assert_called_once()
-
-    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
-    @patch("fedbiomed.node.node_pm.Node", autospec=True)
-    def test_04_node_control__start_reports_failure_to_build_node(
-        self, mock_node, mock_node_config
-    ):
-        """Tests that a node that cannot be built is reported, not raised"""
-        _node_config_in(self.tmp_dir.name, mock_node_config)
-        mock_node.side_effect = FedbiomedError(
-            "FB619: no researcher certificate is registered"
-        )
-
-        with patch("fedbiomed.node.node_pm.logger") as logger:
-            _start_node_process("config.ini", {"gpu": False})
-
-            logger.critical.assert_called_once()
-            self.assertIn("FB619", logger.critical.call_args[0][0])
-
-    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
-    @patch("fedbiomed.node.node_pm.Node", autospec=True)
-    def test_05_node_control__start_unexpected_failure_to_build_node(
-        self, mock_node, mock_node_config
-    ):
-        """Tests reporting an unexpected error when there is no node to report with"""
-        _node_config_in(self.tmp_dir.name, mock_node_config)
-        mock_node.side_effect = Exception("unexpected")
-
-        with patch("fedbiomed.node.node_pm.logger") as logger:
-            _start_node_process("config.ini", {"gpu": False})
-
-            logger.critical.assert_called_once()
-
-
-class TestStartNodeProcess(unittest.TestCase):
-    """Tests for the _start_node_process function."""
-
-    def setUp(self):
-        self.tmp_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp_dir.cleanup)
-
-    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
-    @patch("fedbiomed.node.node_pm.Node")
-    def test_01_start_node_training_plan_approval_with_default_plans(
-        self, mock_node, mock_node_config
-    ):
-        """Tests tp_security_manager methods are called when approval + default plans are enabled."""
-        _node_config_in(self.tmp_dir.name, mock_node_config)
-        mock_node.return_value.config.getbool.return_value = True
-
-        _start_node_process("config.ini", {"gpu": False})
-
-        mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
-        mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_called_once()
-
-    @patch("fedbiomed.node.node_pm.NodeConfig", autospec=True)
-    @patch("fedbiomed.node.node_pm.Node")
-    def test_02_start_node_training_plan_approval_no_default_plans(
-        self, mock_node, mock_node_config
-    ):
-        """Tests register_update_default_training_plans is NOT called when allow_default_training_plans is False."""
-        _node_config_in(self.tmp_dir.name, mock_node_config)
-
-        def _getbool(section, key):
-            return key == "training_plan_approval"
-
-        mock_node.return_value.config.getbool.side_effect = _getbool
-
-        _start_node_process("config.ini", {"gpu": False})
-
-        mock_node.return_value.tp_security_manager.check_hashes_for_registered_training_plans.assert_called_once()
-        mock_node.return_value.tp_security_manager.register_update_default_training_plans.assert_not_called()
-
-
-class TestNodeCLI(unittest.TestCase):
-    """Tests main NodeCLI"""
-
-    @patch("fedbiomed.node.node.TrainingPlanSecurityManager")
-    @patch("fedbiomed.node.node.DatasetManager")
-    @patch("fedbiomed.node.cli.node_component.initiate")
-    @patch("builtins.input")
-    def test_01_node_cli_init(
-        self, input_patch, mock_initiate, mock_dataset_manager, mock_tp_manager
-    ):
-        """Tests initialization"""
-        input_patch.return_value = "y"
-        mock_config = MagicMock()
-        mock_config.get.return_value = "test-node-id"
-        mock_initiate.return_value = mock_config
-        mock_dataset_manager.return_value.list_my_datasets.return_value = []
-
-        self.node_cli = NodeCLI()
-        self.node_cli.parse_args(["--path", "/fake/fbm-node", "dataset", "list"])
-
-        mock_initiate.assert_called_once_with(root=os.path.abspath("/fake/fbm-node"))
-        mock_dataset_manager.assert_called_once()
-        mock_dataset_manager.return_value.list_my_datasets.assert_called_once_with(
-            verbose=True
-        )
-
-
-class TestNodeContext(unittest.TestCase):
-    """Tests the local state the node CLI acts on"""
-
-    @patch("fedbiomed.node.node.TrainingPlanSecurityManager")
-    @patch("fedbiomed.node.node.DatasetManager")
-    def setUp(self, mock_dataset, mock_tp):
-        self.config = MagicMock()
-        self.mock_dataset = mock_dataset
-        self.mock_tp = mock_tp
-        self.context = NodeContext(self.config)
-
-    def test_01_exposes_config(self):
-        """Tests that the context exposes the component configuration"""
-        self.assertIs(self.context.config, self.config)
-
-    def test_02_builds_both_managers_at_construction(self):
-        """Tests that both managers are built when the context is created"""
-        self.mock_dataset.assert_called_once()
-        self.mock_tp.assert_called_once()
-        self.assertIs(self.context.dataset_manager, self.mock_dataset.return_value)
-        self.assertIs(self.context.tp_security_manager, self.mock_tp.return_value)
-
-
-# ============================================================================
-# PYTEST TESTS FOR MEDICAL FOLDER DATASET CLI UTILITIES
-# ============================================================================
-
-
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
-@patch("builtins.input")
-def test_add_medical_folder_dataset_no_demographics(
-    mock_input,
-    mock_controller_class,
-    mock_validated_path,
-    temp_medical_data,
-    mock_medical_folder_controller,
-):
-    """Test adding medical folder dataset without demographics file."""
-    temp_dir, test_path, csv_path = temp_medical_data
-
-    # Setup mocks
-    mock_validated_path.return_value = test_path
-    mock_input.return_value = "n"  # No demographics file
-    mock_controller_class.return_value = mock_medical_folder_controller
-
-    # Call function
-    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        dataset_parameters=None, dlp=None
-    )
-
-    # Assertions
-    assert result_path == test_path
-    assert result_params == {}
-    assert result_dlp is None
-
-    # Verify mocks were called correctly
-    mock_validated_path.assert_called_once_with(type="dir", initialdir=None)
-    mock_controller_class.assert_called_once_with(test_path)
-    mock_input.assert_called_once_with(
-        "\nWould you like to select a demographics csv file? [y/N]\n"
+def node_cli(mocker, monkeypatch):
+    """Runs node CLI commands on a node at `NODE_ROOT` whose managers are mocked."""
+    initiate = mocker.patch("fedbiomed.node.cli.node_component.initiate")
+    config = initiate.return_value
+    config.root = NODE_ROOT
+    config.get.return_value = "test-node-id"
+    # Restored after the test: opening a node sets them
+    monkeypatch.delenv("FBM_NODE_COMPONENT_ROOT", raising=False)
+    monkeypatch.delenv("FEDBIOMED_ACTIVE_NODE_ID", raising=False)
+    datasets = mocker.patch("fedbiomed.node.node.DatasetManager").return_value
+    plans = mocker.patch("fedbiomed.node.node.TrainingPlanSecurityManager").return_value
+    # Confirms using `NODE_ROOT`, which does not exist
+    mocker.patch("builtins.input", return_value="y")
+
+    def run(*argv):
+        NodeCLI().parse_args(["--path", NODE_ROOT, *argv])
+
+    return SimpleNamespace(
+        run=run, initiate=initiate, config=config, datasets=datasets, plans=plans
     )
 
 
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
-@patch("builtins.input")
-def test_add_medical_folder_dataset_demographics(
-    mock_input,
-    mock_controller_class,
-    mock_validated_path,
-    temp_medical_data,
-    mock_medical_folder_controller,
-):
-    """Test adding medical folder dataset with demographics file"""
-    temp_dir, test_path, csv_path = temp_medical_data
+def test_node_cli_opens_the_node_at_the_given_path(node_cli):
+    node_cli.run("dataset", "list")
 
-    # Setup mocks
-    mock_validated_path.side_effect = [test_path, csv_path]
-    mock_input.side_effect = ["y", "1"]  # Yes to demographics, index column 1
-    mock_controller_class.return_value = mock_medical_folder_controller
-
-    # Call function
-    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        dataset_parameters={"existing_param": "value"}, dlp=None
-    )
-
-    # Assertions
-    assert result_path == test_path
-    assert result_params == {
-        "existing_param": "value",
-        "tabular_file": csv_path,
-        "index_col": 1,
-    }
-    assert result_dlp is None
-
-    # Verify mocks were called correctly
-    assert mock_validated_path.call_count == 2
-    mock_medical_folder_controller.demographics_column_names.assert_called_once_with(
-        csv_path
-    )
+    node_cli.initiate.assert_called_once_with(root=NODE_ROOT)
 
 
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
-@patch("builtins.input")
-@patch("warnings.warn")
-def test_add_medical_folder_dataset_invalid_index_then_valid(
-    mock_warn, mock_input, mock_controller_class, mock_validated_path, temp_medical_data
-):
-    """Test handling invalid index input followed by valid input."""
-    temp_dir, test_path, csv_path = temp_medical_data
-
-    # Setup mocks
-    mock_validated_path.side_effect = [test_path, csv_path]
-    mock_input.side_effect = [
-        "y",
-        "invalid",
-        "2",
-    ]  # Yes, invalid input, then valid index
-
-    mock_controller = MagicMock()
-    mock_controller.df_dir = {"modality": MagicMock()}
-    mock_controller.df_dir["modality"].unique.return_value = ["T1"]
-    mock_controller.demographics_column_names.return_value = ["id", "age", "status"]
-    mock_controller_class.return_value = mock_controller
-
-    # Call function
-    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        dataset_parameters=None, dlp=None
-    )
-
-    # Assertions
-    assert result_params["index_col"] == 2
-    mock_warn.assert_called_once_with(
-        "Please input a numeric value (integer)", stacklevel=1
-    )
-
-
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
-@patch("builtins.input")
-def test_add_medical_folder_dataset_with_existing_dlp(
-    mock_input, mock_controller_class, mock_validated_path, temp_medical_data
-):
-    """Test function with existing DataLoadingPlan."""
-    from fedbiomed.common.dataloadingplan import DataLoadingPlan
-
-    temp_dir, test_path, csv_path = temp_medical_data
-
-    # Setup mocks
-    mock_validated_path.return_value = test_path
-    mock_input.return_value = "n"  # No demographics
-
-    mock_controller = MagicMock()
-    mock_controller.df_dir = {"modality": MagicMock()}
-    mock_controller.df_dir["modality"].unique.return_value = ["T1"]
-    mock_controller_class.return_value = mock_controller
-
-    # Create existing DLP
-    existing_dlp = DataLoadingPlan()
-
-    # Call function
-    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        dataset_parameters=None, dlp=existing_dlp
-    )
-
-    # Assertions
-    assert result_dlp == existing_dlp
-
-
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.validated_path_input")
-@patch("fedbiomed.node.cli_utils._medical_folder_dataset.MedicalFolderController")
-@patch("builtins.input")
-def test_add_medical_folder_dataset_preserves_existing_parameters(
-    mock_input, mock_controller_class, mock_validated_path, temp_medical_data
-):
-    """Test that existing dataset parameters are preserved."""
-    temp_dir, test_path, csv_path = temp_medical_data
-
-    # Setup mocks
-    mock_validated_path.return_value = test_path
-    mock_input.return_value = "n"  # No demographics
-
-    mock_controller = MagicMock()
-    mock_controller.df_dir = {"modality": MagicMock()}
-    mock_controller.df_dir["modality"].unique.return_value = ["T1", "T2"]
-    mock_controller_class.return_value = mock_controller
-
-    existing_params = {"custom_param": "value", "another_param": 123}
-
-    # Call function
-    result_path, result_params, result_dlp = add_medical_folder_dataset_from_cli(
-        dataset_parameters=existing_params, dlp=None
-    )
-
-    # Assertions
-    assert result_params["custom_param"] == "value"
-    assert result_params["another_param"] == 123
-    assert len(result_params) == 2  # No additional params added
-
-
-# Test scenarios for modality mapping with parametrization
 @pytest.mark.parametrize(
-    "scenario,inputs,expected_map,expect_warnings",
+    "argv, action, expected",
     [
-        ("basic_mapping", ["1"], {"T1": ["Should map to T1"]}, False),
+        (["delete", "--id", "tp-1"], "delete_training_plan", {"id": "tp-1"}),
+        (["approve", "--id", "tp-1"], "approve_training_plan", {"id": "tp-1"}),
         (
-            "wrong_inputs_then_correct",
-            ["wrong", "5", "1"],
-            {"T1": ["Should map to T1"]},
-            True,
+            ["reject", "--id", "tp-1", "--notes", "unsafe"],
+            "reject_training_plan",
+            {"id": "tp-1", "notes": "unsafe"},
         ),
         (
-            "add_new_modality",
-            ["1", "0", "Tnew", "y", "4"],
-            {"T1": ["Should map to T1"], "Tnew": ["Should map to Tnew"]},
+            ["reject", "--id", "tp-1"],
+            "reject_training_plan",
+            {"id": "tp-1", "notes": "No notes provided."},
+        ),
+        (["register"], "register_training_plan", {}),
+        (["view"], "view_training_plan", {}),
+        (["update"], "update_training_plan", {}),
+    ],
+    ids=[
+        "delete",
+        "approve",
+        "reject",
+        "reject_default_notes",
+        "register",
+        "view",
+        "update",
+    ],
+)
+def test_training_plan_command_runs_its_action(
+    node_cli, mocker, argv, action, expected
+):
+    run_action = mocker.patch.object(fedbiomed.node.cli, action)
+
+    node_cli.run("training-plan", *argv)
+
+    run_action.assert_called_once_with(node_cli.plans, **expected)
+
+
+def test_training_plan_list_shows_the_plans(node_cli):
+    node_cli.run("training-plan", "list")
+
+    node_cli.plans.list_training_plans.assert_called_once_with(verbose=True)
+
+
+@pytest.mark.parametrize(
+    "argv, action, expected",
+    [
+        (["add"], "add_database", {"initialdir": NODE_DATA_PATH}),
+        (
+            ["add", "--mnist", "/mnist"],
+            "add_database",
+            {"interactive": False, "path": "/mnist"},
+        ),
+        (
+            ["add", "--mnist"],
+            "add_database",
+            {"interactive": False, "path": NODE_DATA_PATH},
+        ),
+        (["delete"], "delete_database", {}),
+        (["delete", "--mnist"], "delete_database", {"interactive": False}),
+        (["delete", "--all"], "delete_all_database", {}),
+    ],
+    ids=[
+        "add",
+        "add_mnist",
+        "add_mnist_in_node_data",
+        "delete",
+        "delete_mnist",
+        "delete_all",
+    ],
+)
+def test_dataset_command_runs_its_action(node_cli, mocker, argv, action, expected):
+    run_action = mocker.patch.object(fedbiomed.node.cli, action)
+
+    node_cli.run("dataset", *argv)
+
+    run_action.assert_called_once_with(node_cli.datasets, **expected)
+
+
+@pytest.mark.parametrize("datasets, empty", [([], True), ([{"name": "d"}], False)])
+def test_dataset_list_says_when_nothing_is_set_up(node_cli, capsys, datasets, empty):
+    node_cli.datasets.list_my_datasets.return_value = datasets
+
+    node_cli.run("dataset", "list")
+
+    node_cli.datasets.list_my_datasets.assert_called_once_with(verbose=True)
+    assert ("No data has been set up." in capsys.readouterr().out) is empty
+
+
+@pytest.fixture
+def dataset_file(tmp_path):
+    """Writes a dataset description file and returns its path."""
+
+    def write(content):
+        path = tmp_path / "dataset.json"
+        path.write_text(content)
+        return str(path)
+
+    return write
+
+
+@pytest.mark.parametrize(
+    "path, expected_path",
+    [
+        ("/absolute/data", "/absolute/data"),
+        ("relative/data", os.path.join(NODE_ROOT, "relative", "data")),
+        ("$FBM_TEST_DATA/data", os.path.join("/env/path", "data")),
+    ],
+    ids=["absolute", "relative_to_node_root", "environment_variable"],
+)
+def test_dataset_add_from_file_resolves_the_dataset_path(
+    node_cli, mocker, monkeypatch, dataset_file, path, expected_path
+):
+    monkeypatch.setenv("FBM_TEST_DATA", "/env/path")
+    add_database = mocker.patch.object(fedbiomed.node.cli, "add_database")
+    description = {
+        "path": path,
+        "data_type": "csv",
+        "description": "d",
+        "tags": "#t",
+        "name": "n",
+    }
+
+    node_cli.run("dataset", "add", "--file", dataset_file(json.dumps(description)))
+
+    add_database.assert_called_once_with(
+        node_cli.datasets,
+        interactive=False,
+        path=expected_path,
+        data_type="csv",
+        description="d",
+        tags="#t",
+        name="n",
+        dataset_parameters=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "content", ["not valid json {{{", None], ids=["invalid", "missing"]
+)
+def test_dataset_add_from_file_exits_on_an_unreadable_file(
+    node_cli, dataset_file, tmp_path, content
+):
+    path = str(tmp_path / "missing.json") if content is None else dataset_file(content)
+
+    with pytest.raises(SystemExit):
+        node_cli.run("dataset", "add", "--file", path)
+
+
+@pytest.fixture
+def node_process_manager(mocker):
+    """The `NodeProcessManager` the node CLI builds, mocked."""
+    mocker.patch("fedbiomed.node.cli.intro")
+    return mocker.patch("fedbiomed.node.cli.NodeProcessManager")
+
+
+@pytest.mark.parametrize(
+    "options, node_args, background, force",
+    [
+        ([], {}, False, False),
+        (["--force"], {}, False, True),
+        (
+            ["--gpu", "--gpu-num", "2", "--debug"],
+            {"gpu": True, "gpu_num": 2, "debug": True},
+            False,
             False,
         ),
+        (["--gpu-only"], {"gpu": True, "gpu_only": True}, False, False),
         (
-            "complex_scenario",
-            ["1", "0", "Tmistake", "n", "Tnew", "", "4", "5", "1", "2"],
-            {
-                "T1": ["Should map to T1", "Should also map to T1"],
-                "Tnew": ["Should map to Tnew"],
-                "T2": ["Should map to T2"],
-            },
+            ["--gpu", "--gpu-num", "2", "--gpu-only", "--debug", "--background"],
+            {"gpu": True, "gpu_num": 2, "gpu_only": True, "debug": True},
             True,
+            False,
         ),
     ],
+    ids=["defaults", "force", "gpu_and_debug", "gpu_only_implies_gpu", "background"],
 )
-@patch(
-    "fedbiomed.node.cli_utils._medical_folder_dataset.input",
-    new=MockInputHelper.mock_input,
-)
-def test_get_map_modalities2folders_from_cli_scenarios(
-    mock_stdio, scenario, inputs, expected_map, expect_warnings
+def test_start_runs_the_node_with_the_given_options(
+    node_cli, node_process_manager, options, node_args, background, force
 ):
-    """Test various scenarios for modality to folder mapping."""
-    if expect_warnings:
-        pytest.mark.filterwarnings("ignore::UserWarning")
+    node_cli.run("start", *options)
 
-    # Set up test data based on scenario
-    if scenario == "basic_mapping" or scenario == "wrong_inputs_then_correct":
-        modality_folder_names = ["Should map to T1"]
-    elif scenario == "add_new_modality":
-        modality_folder_names = ["Should map to T1", "Should map to Tnew"]
-    else:  # complex_scenario
-        modality_folder_names = [
-            "Should map to T1",
-            "Should map to Tnew",
-            "Should also map to T1",
-            "Should map to T2",
-        ]
-
-    MockInputHelper.inputs = inputs.copy()
-
-    if expect_warnings:
-        with pytest.warns(UserWarning):
-            dlb = get_map_modalities2folders_from_cli(modality_folder_names)
-    else:
-        dlb = get_map_modalities2folders_from_cli(modality_folder_names)
-
-    assert dlb.map == expected_map
-
-
-# ============================================================================
-# END --- PYTEST TESTS FOR MEDICAL FOLDER DATASET CLI UTILITIES
-# ============================================================================
-
-
-def test_intro():
-    """Tests intro() prints the active node ID from the environment."""
-    os.environ["FEDBIOMED_ACTIVE_NODE_ID"] = "test-node-id"
-    with patch("builtins.print") as mock_print:
-        intro()
-    printed = " ".join(
-        str(arg) for call in mock_print.call_args_list for arg in call.args
+    node_process_manager.assert_called_once_with(node_cli.config)
+    manager = node_process_manager.return_value
+    manager.start.assert_called_once_with(
+        node_args={**START_DEFAULTS, **node_args},
+        background=background,
+        actor=CLI_ACTOR,
+        force=force,
     )
-    assert "test-node-id" in printed
+    manager.stop.assert_not_called()
 
 
-def test_node_signal_trigger_term():
-    """Tests _node_signal_trigger_term sends SIGTERM to the current process."""
-    with patch("os.kill") as mock_kill:
-        _node_signal_trigger_term()
-    mock_kill.assert_called_once_with(os.getpid(), signal.SIGTERM)
+def test_start_stops_the_node_on_ctrl_c(node_cli, node_process_manager):
+    manager = node_process_manager.return_value
+    manager.start.side_effect = KeyboardInterrupt
+
+    with pytest.raises(SystemExit) as exit_:
+        node_cli.run("start")
+
+    assert exit_.value.code == 0
+    manager.stop.assert_called_once_with(actor=CLI_ACTOR, reason="keyboard_interrupt")
 
 
-@pytest.mark.parametrize(
-    "argv, expected_node_args",
-    [
-        (
-            ["start"],
-            {
-                "gpu": False,
-                "gpu_num": 1,
-                "gpu_only": False,
-                "debug": False,
-            },
-        ),
-        (
-            ["start", "--force"],
-            {
-                "gpu": False,
-                "gpu_num": 1,
-                "gpu_only": False,
-                "debug": False,
-            },
-        ),
-        (
-            ["start", "--gpu", "--gpu-num", "2", "--debug"],
-            {
-                "gpu": True,
-                "gpu_num": 2,
-                "gpu_only": False,
-                "debug": True,
-            },
-        ),
-        (
-            ["start", "--gpu-only"],
-            {
-                "gpu": True,
-                "gpu_num": 1,
-                "gpu_only": True,
-                "debug": False,
-            },
-        ),
-        (
-            [
-                "start",
-                "--gpu",
-                "--gpu-num",
-                "2",
-                "--gpu-only",
-                "--debug",
-                "--background",
-            ],
-            {
-                "gpu": True,
-                "gpu_num": 2,
-                "gpu_only": True,
-                "debug": True,
-            },
-        ),
-    ],
-)
-def test_node_control_start_builds_node_args_and_waits(
-    mocker,
-    argv,
-    expected_node_args,
-):
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers()
+def test_stop_stops_the_node(node_cli, node_process_manager):
+    node_cli.run("stop")
 
-    control = NodeControl(subparsers)
-    control.initialize()
-
-    context = MagicMock()
-    control._context = context
-
-    mock_intro = mocker.patch("fedbiomed.node.cli.intro")
-
-    mock_node_process_manager_cls = mocker.patch(
-        "fedbiomed.node.cli.NodeProcessManager"
-    )
-    mock_node_process_manager = mock_node_process_manager_cls.return_value
-
-    args = parser.parse_args(argv)
-
-    control.start(args)
-
-    mock_intro.assert_called_once_with()
-    mock_node_process_manager_cls.assert_called_once_with(context.config)
-
-    mock_node_process_manager.start.assert_called_once_with(
-        node_args=expected_node_args,
-        background=args.background,
-        actor={"source": "cli"},
-        force=args.force,
-    )
-
-    mock_node_process_manager.stop.assert_not_called()
-
-
-def test_node_control_start_keyboard_interrupt_stops_node(mocker):
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers()
-
-    control = NodeControl(subparsers)
-    control.initialize()
-
-    context = MagicMock()
-    control._context = context
-
-    mock_intro = mocker.patch("fedbiomed.node.cli.intro")
-
-    mock_node_process_manager_cls = mocker.patch(
-        "fedbiomed.node.cli.NodeProcessManager"
-    )
-    mock_node_process_manager = mock_node_process_manager_cls.return_value
-    mock_node_process_manager.start.side_effect = KeyboardInterrupt
-
-    args = parser.parse_args(["start"])
-
-    with pytest.raises(SystemExit) as exc:
-        control.start(args)
-
-    assert exc.value.code == 0
-
-    mock_intro.assert_called_once_with()
-    mock_node_process_manager_cls.assert_called_once_with(context.config)
-
-    mock_node_process_manager.start.assert_called_once_with(
-        node_args={
-            "gpu": False,
-            "gpu_num": 1,
-            "gpu_only": False,
-            "debug": False,
-        },
-        background=False,
-        actor={"source": "cli"},
-        force=False,
-    )
-
-    mock_node_process_manager.stop.assert_called_once_with(
-        actor={"source": "cli"},
-        reason="keyboard_interrupt",
+    node_process_manager.return_value.stop.assert_called_once_with(
+        actor=CLI_ACTOR, reason="cli_stop_command"
     )
 
 
 @pytest.mark.parametrize(
-    "argv, expected_node_args, expected_background",
+    "options, node_args, background",
     [
-        (["restart"], {}, None),
+        ([], {}, None),
         (
-            ["restart", "--gpu", "--gpu-num", "2", "--debug", "--background"],
+            ["--gpu", "--gpu-num", "2", "--debug", "--background"],
             {"gpu": True, "gpu_num": 2, "debug": True},
             True,
         ),
-        (
-            ["restart", "--gpu-only"],
-            {"gpu": True, "gpu_only": True},
-            None,
-        ),
+        (["--gpu-only"], {"gpu": True, "gpu_only": True}, None),
     ],
+    ids=["no_override", "gpu_debug_background", "gpu_only_implies_gpu"],
 )
-def test_node_control_restart_passes_only_supplied_overrides(
-    mocker,
-    argv,
-    expected_node_args,
-    expected_background,
+def test_restart_passes_only_the_given_options(
+    node_cli, node_process_manager, options, node_args, background
 ):
-    parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers()
+    node_cli.run("restart", *options)
 
-    control = NodeControl(subparsers)
-    control.initialize()
-
-    context = MagicMock()
-    control._context = context
-
-    mock_node_process_manager_cls = mocker.patch(
-        "fedbiomed.node.cli.NodeProcessManager"
-    )
-    mock_node_process_manager = mock_node_process_manager_cls.return_value
-
-    control.restart(parser.parse_args(argv))
-
-    mock_node_process_manager.restart.assert_called_once_with(
-        node_args=expected_node_args,
-        background=expected_background,
-        actor={"source": "cli"},
+    node_process_manager.return_value.restart.assert_called_once_with(
+        node_args=node_args,
+        background=background,
+        actor=CLI_ACTOR,
         reason="cli_restart_command",
     )
 
 
-def _checking_cli(mocker, diagnostics):
-    """A `NodeCLI` whose certificate diagnostics are the ones given."""
-    mocker.patch("fedbiomed.node.cli.node_component.initiate")
-    cli = NodeCLI()
-    cli.config = MagicMock()
-    cli.config.getbool.return_value = True
-    cli.config.get.side_effect = lambda section, key: {
-        ("researcher", "ip"): "10.0.0.9",
-        ("researcher", "port"): "50051",
-    }[(section, key)]
-    mocker.patch("fedbiomed.node.cli.certificate_diagnostics", return_value=diagnostics)
-    return cli
-
-
-def test_node_cli_certificate_check_is_node_only(mocker):
-    """A researcher's readiness is a different question, so it has no `check`."""
-    mocker.patch("fedbiomed.node.cli.node_component.initiate")
-    node_choices = NodeCLI()._certificate_sub_parsers.choices
-
-    assert "check" in node_choices
-    assert node_choices["check"]._defaults["func"].__func__.__name__ == (
-        "_check_certificate"
-    )
-
-    common = CommonCLI()
-    common.initialize_certificate_parser()
-    assert "check" not in common._certificate_sub_parsers.choices
-    # The commands both components share are still there.
-    assert "register" in common._certificate_sub_parsers.choices
-
-
-def test_node_cli_certificate_check_exits_on_a_problem(mocker, capsys):
-    """A non-zero exit says the node would not start, for a deployment script."""
-    cli = _checking_cli(
-        mocker,
-        [
-            CertificateDiagnostic(DiagnosticSeverity.PROBLEM, "nothing registered"),
-            CertificateDiagnostic(DiagnosticSeverity.WARNING, "expires soon"),
-        ],
-    )
-
-    with pytest.raises(SystemExit) as exc:
-        cli._check_certificate(argparse.Namespace())
-
-    assert exc.value.code == 1
-    out = capsys.readouterr().out
-    assert "1 problem(s) stop this node from starting" in out
-    assert "nothing registered" in out
-    assert "expires soon" in out
-
-
-def test_node_cli_certificate_check_succeeds_on_warnings(mocker, capsys):
-    """Warnings are reported but do not fail the command."""
-    cli = _checking_cli(
-        mocker, [CertificateDiagnostic(DiagnosticSeverity.WARNING, "host not in SAN")]
-    )
-
-    cli._check_certificate(argparse.Namespace())
-
-    out = capsys.readouterr().out
-    assert "1 warning(s)" in out
-    assert "host not in SAN" in out
-    assert "problem(s)" not in out
-
-
-def test_node_cli_certificate_check_reports_a_clean_node(mocker, capsys):
-    """Nothing to report is itself the answer."""
-    cli = _checking_cli(mocker, [])
-
-    cli._check_certificate(argparse.Namespace())
-
-    assert "No certificate problem found" in capsys.readouterr().out
-
-
-def _status_control(mocker, connection_state, history=()):
-    """A `NodeControl` whose process and connection state are the ones given."""
-    parser = argparse.ArgumentParser()
-    control = NodeControl(parser.add_subparsers())
-    control.initialize()
-    control._context = MagicMock()
-
-    mocker.patch(
-        "fedbiomed.node.cli.NodeProcessManager"
-    ).return_value.get_status.return_value = NodeState.STOPPED
-    manager = mocker.patch("fedbiomed.node.cli.NodeConnectionStateManager")
-    manager.return_value.get_connection_state.return_value = connection_state
-    manager.return_value.get_connection_history.return_value = list(history)
-
-    return control, parser
+@pytest.fixture
+def node_status(mocker, node_process_manager):
+    """Process and connection state `status` reports: stopped, never connected."""
+    process = node_process_manager.return_value
+    process.get_status.return_value = NodeState.STOPPED
+    connections = mocker.patch("fedbiomed.node.cli.NodeConnectionStateManager")
+    connections.return_value.get_connection_state.return_value = None
+    connections.return_value.get_connection_history.return_value = []
+    return SimpleNamespace(process=process, connections=connections.return_value)
 
 
 def _connection_entry(**overrides):
@@ -1065,11 +345,10 @@ def _connection_entry(**overrides):
     return NodeConnectionStateEntry(**{**fields, **overrides})
 
 
-def test_node_control_status_reports_the_recorded_connection(mocker, capsys):
-    """The connection the node last observed is reported beside its process state."""
-    control, parser = _status_control(mocker, _connection_entry())
+def test_status_reports_the_recorded_connection(node_cli, node_status, capsys):
+    node_status.connections.get_connection_state.return_value = _connection_entry()
 
-    control.status(parser.parse_args(["status"]))
+    node_cli.run("status")
 
     out = capsys.readouterr().out
     assert "Node process" in out and "stopped" in out
@@ -1078,57 +357,532 @@ def test_node_control_status_reports_the_recorded_connection(mocker, capsys):
     assert "Identity verified" in out and "Unknown" in out
     for field in ("State", "Host", "Port", "Reason", "Connected since", "Last update"):
         assert field in out
-    # Nothing is written while the node is stopped, so say the state is not current.
+    # Nothing is written while the node is stopped, so say the state is not current
     assert "not running" in out
 
 
-@pytest.mark.parametrize(
-    "state, code", [(NodeState.RUNNING, "\033[32m"), (NodeState.STOPPED, "\033[31m")]
-)
-def test_node_control_status_colors_the_process_state_on_a_terminal(
-    mocker, capsys, monkeypatch, state, code
-):
-    """Running is green and stopped is red, but only on a terminal."""
-    control, parser = _status_control(mocker, None)
-    fedbiomed_pm = mocker.patch("fedbiomed.node.cli.NodeProcessManager")
-    fedbiomed_pm.return_value.get_status.return_value = state
-    monkeypatch.delenv("NO_COLOR", raising=False)
-
-    mocker.patch("fedbiomed.node.cli.sys.stdout.isatty", return_value=True)
-    control.status(parser.parse_args(["status"]))
-    assert f"{code}{state.value}\033[0m" in capsys.readouterr().out
-
-    mocker.patch("fedbiomed.node.cli.sys.stdout.isatty", return_value=False)
-    control.status(parser.parse_args(["status"]))
-    assert "\033[" not in capsys.readouterr().out
-
-
-def test_node_control_status_without_a_recorded_connection(mocker, capsys):
-    """A node that never connected says so rather than reporting an empty state."""
-    control, parser = _status_control(mocker, None)
-
-    control.status(parser.parse_args(["status"]))
+def test_status_without_a_recorded_connection(node_cli, node_status, capsys):
+    node_cli.run("status")
 
     assert "none recorded yet" in capsys.readouterr().out
 
 
-def test_node_control_status_lists_history_only_when_asked(mocker, capsys):
-    """The transitions are noise on a routine status check, so `--history` asks."""
-    history = [
+@pytest.mark.parametrize(
+    "state, color", [(NodeState.RUNNING, "\033[32m"), (NodeState.STOPPED, "\033[31m")]
+)
+@pytest.mark.parametrize("terminal", [True, False], ids=["terminal", "not_terminal"])
+def test_status_colors_the_process_state_only_on_a_terminal(
+    node_cli, node_status, mocker, monkeypatch, capsys, state, color, terminal
+):
+    node_status.process.get_status.return_value = state
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    mocker.patch("fedbiomed.node.cli.sys.stdout.isatty", return_value=terminal)
+
+    node_cli.run("status")
+
+    out = capsys.readouterr().out
+    assert (f"{color}{state.value}\033[0m" in out) is terminal
+    assert state.value in out
+
+
+@pytest.mark.parametrize("history, listed", [([], False), (["--history"], True)])
+def test_status_lists_the_connection_history_only_when_asked(
+    node_cli, node_status, capsys, history, listed
+):
+    entries = [
         _connection_entry(operation="handshake_complete"),
         _connection_entry(state="disconnected", operation="node_starting"),
     ]
-    control, parser = _status_control(mocker, history[0], history)
+    node_status.connections.get_connection_state.return_value = entries[0]
+    node_status.connections.get_connection_history.return_value = entries
 
-    control.status(parser.parse_args(["status"]))
-    assert "Recent connection state changes" not in capsys.readouterr().out
+    node_cli.run("status", *history)
 
-    control.status(parser.parse_args(["status", "--history"]))
     out = capsys.readouterr().out
-    assert "Recent connection state changes" in out
-    assert "handshake_complete" in out
-    assert "node_starting" in out
+    assert ("Recent connection state changes" in out) is listed
+    assert ("node_starting" in out) is listed
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_certificate_check_is_node_only(mocker):
+    """A researcher's readiness is a different question, so it has no `check`."""
+    mocker.patch("fedbiomed.node.cli.node_component.initiate")
+    assert "check" in NodeCLI()._certificate_sub_parsers.choices
+
+    common = CommonCLI()
+    common.initialize_certificate_parser()
+    assert "check" not in common._certificate_sub_parsers.choices
+    # The commands both components share are still there
+    assert "register" in common._certificate_sub_parsers.choices
+
+
+@pytest.mark.parametrize(
+    "diagnostics, exit_code, expected",
+    [
+        (
+            [
+                CertificateDiagnostic(DiagnosticSeverity.PROBLEM, "nothing registered"),
+                CertificateDiagnostic(DiagnosticSeverity.WARNING, "expires soon"),
+            ],
+            1,
+            [
+                "1 problem(s) stop this node from starting",
+                "nothing registered",
+                "expires soon",
+            ],
+        ),
+        (
+            [CertificateDiagnostic(DiagnosticSeverity.WARNING, "host not in SAN")],
+            None,
+            ["1 warning(s)", "host not in SAN"],
+        ),
+        ([], None, ["No certificate problem found"]),
+    ],
+    ids=["problem_fails", "warning_passes", "clean"],
+)
+def test_certificate_check_reports_and_fails_only_on_problems(
+    node_cli, mocker, capsys, diagnostics, exit_code, expected
+):
+    """A non-zero exit says the node would not start, for a deployment script."""
+    node_cli.config.getbool.return_value = True
+    mocker.patch("fedbiomed.node.cli.certificate_diagnostics", return_value=diagnostics)
+
+    if exit_code is None:
+        node_cli.run("certificate", "check")
+    else:
+        with pytest.raises(SystemExit) as exit_:
+            node_cli.run("certificate", "check")
+        assert exit_.value.code == exit_code
+
+    out = capsys.readouterr().out
+    for text in expected:
+        assert text in out
+    if exit_code is None:
+        assert "problem(s)" not in out
+
+
+def test_intro_shows_the_active_node(monkeypatch, capsys):
+    monkeypatch.setenv("FEDBIOMED_ACTIVE_NODE_ID", "test-node-id")
+
+    intro()
+
+    assert "test-node-id" in capsys.readouterr().out
+
+
+# ============================================================================
+# CLI UTILITIES
+# ============================================================================
+
+
+@pytest.fixture
+def medical_folder_cli(mocker):
+    """Mocked user input, path prompt and MedicalFolderController class."""
+    module = "fedbiomed.node.cli_utils._medical_folder_dataset"
+    controller = MagicMock()
+    controller.df_dir = {"modality": MagicMock()}
+    controller.df_dir["modality"].unique.return_value = ["T1", "T2", "label"]
+    controller.demographics_column_names.return_value = ["subject_id", "age", "gender"]
+    return SimpleNamespace(
+        input=mocker.patch("builtins.input"),
+        path=mocker.patch(f"{module}.validated_path_input"),
+        controller_class=mocker.patch(
+            f"{module}.MedicalFolderController", return_value=controller
+        ),
+        controller=controller,
+    )
+
+
+@pytest.mark.parametrize(
+    "dataset_parameters, dlp",
+    [(None, None), ({"custom_param": "value"}, None), (None, DataLoadingPlan())],
+    ids=["nothing_given", "parameters_given", "plan_given"],
+)
+def test_add_medical_folder_dataset_without_demographics_keeps_what_is_given(
+    medical_folder_cli, dataset_parameters, dlp
+):
+    medical_folder_cli.path.return_value = MEDICAL_DATA_PATH
+    medical_folder_cli.input.return_value = "n"
+
+    path, parameters, result_dlp = add_medical_folder_dataset_from_cli(
+        dataset_parameters=dataset_parameters, dlp=dlp
+    )
+
+    assert path == MEDICAL_DATA_PATH
+    assert parameters == (dataset_parameters or {})
+    assert result_dlp is dlp
+    medical_folder_cli.path.assert_called_once_with(type="dir", initialdir=None)
+    medical_folder_cli.controller_class.assert_called_once_with(MEDICAL_DATA_PATH)
+    medical_folder_cli.input.assert_called_once_with(
+        "\nWould you like to select a demographics csv file? [y/N]\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "answers, index_col, warned",
+    [(["y", "1"], 1, False), (["y", "invalid", "2"], 2, True)],
+    ids=["numeric_index", "asks_again_after_non_numeric_index"],
+)
+def test_add_medical_folder_dataset_with_demographics_asks_the_subject_column(
+    medical_folder_cli, recwarn, answers, index_col, warned
+):
+    medical_folder_cli.path.side_effect = [MEDICAL_DATA_PATH, DEMOGRAPHICS_PATH]
+    medical_folder_cli.input.side_effect = answers
+
+    _, parameters, _ = add_medical_folder_dataset_from_cli(
+        dataset_parameters={"existing_param": "value"}, dlp=None
+    )
+
+    assert parameters == {
+        "existing_param": "value",
+        "tabular_file": DEMOGRAPHICS_PATH,
+        "index_col": index_col,
+    }
+    medical_folder_cli.controller.demographics_column_names.assert_called_once_with(
+        DEMOGRAPHICS_PATH
+    )
+    assert any("numeric value" in str(w.message) for w in recwarn) is warned
+
+
+@pytest.mark.parametrize(
+    "folders, answers, expected_map, warned",
+    [
+        (["Should map to T1"], ["1"], {"T1": ["Should map to T1"]}, False),
+        (["Should map to T1"], ["wrong", "5", "1"], {"T1": ["Should map to T1"]}, True),
+        (
+            ["Should map to T1", "Should map to Tnew"],
+            ["1", "0", "Tnew", "y", "4"],
+            {"T1": ["Should map to T1"], "Tnew": ["Should map to Tnew"]},
+            False,
+        ),
+        (
+            [
+                "Should map to T1",
+                "Should map to Tnew",
+                "Should also map to T1",
+                "Should map to T2",
+            ],
+            ["1", "0", "Tmistake", "n", "Tnew", "", "4", "5", "1", "2"],
+            {
+                "T1": ["Should map to T1", "Should also map to T1"],
+                "Tnew": ["Should map to Tnew"],
+                "T2": ["Should map to T2"],
+            },
+            True,
+        ),
+    ],
+    ids=["one_folder", "wrong_inputs_then_correct", "new_modality", "several_folders"],
+)
+def test_get_map_modalities2folders_from_cli_maps_each_folder(
+    monkeypatch, recwarn, folders, answers, expected_map, warned
+):
+    answers = iter(answers)
+    monkeypatch.setattr(
+        "fedbiomed.node.cli_utils._medical_folder_dataset.input",
+        lambda _prompt: next(answers),
+        raising=False,
+    )
+
+    dlb = get_map_modalities2folders_from_cli(folders)
+
+    assert dlb.map == expected_map
+    assert any(issubclass(w.category, UserWarning) for w in recwarn) is warned
+
+
+@pytest.mark.parametrize(
+    "action, warning",
+    [
+        (update_training_plan, "No registered training plans has been found to update"),
+        (delete_training_plan, "No training plans to delete"),
+    ],
+    ids=["update", "delete"],
+)
+def test_training_plan_action_warns_when_no_plan_applies(mocker, action, warning):
+    """Default training plans are files: they can be neither updated nor deleted."""
+    logger = mocker.patch("fedbiomed.node.cli_utils._training_plan_management.logger")
+    manager = MagicMock()
+    manager.list_training_plans.return_value = [
+        {"training_plan_type": TrainingPlanStatus.DEFAULT.value}
+    ]
+
+    action(manager)
+
+    logger.warning.assert_called_once_with(warning)
+    manager.delete_training_plan.assert_not_called()
+
+
+@pytest.fixture
+def cli_database(mocker, monkeypatch, tmp_path):
+    """CLI dataset utilities on a mocked manager, with their prompts mocked.
+
+    Path prompts answer `root`, an existing folder; `answers(...)` scripts what
+    the user types; `added(*fields)` is what was registered for these fields.
+    """
+    module = "fedbiomed.node.cli_utils._database"
+    manager = MagicMock()
+    root = str(tmp_path)
+
+    def answers(*replies):
+        replies = iter(replies)
+        monkeypatch.setattr("builtins.input", lambda _prompt="": next(replies))
+
+    return SimpleNamespace(
+        manager=manager,
+        added=lambda *fields: {
+            field: manager.add_database.call_args.kwargs[field] for field in fields
+        },
+        root=root,
+        answers=answers,
+        logger=mocker.patch(f"{module}.logger"),
+        data_type=mocker.patch(f"{module}.validated_data_type_input"),
+        path=mocker.patch(f"{module}.validated_path_input", return_value=root),
+        prompt_path=mocker.patch(f"{module}._prompt_path_cli", return_value=root),
+        medical_folder=mocker.patch(f"{module}.add_medical_folder_dataset_from_cli"),
+        messagebox=mocker.patch(f"{module}.messagebox"),
+    )
+
+
+@pytest.mark.parametrize(
+    "given, registered",
+    [
+        (
+            {**CLI_DATASET, "tags": "tag1,tag2", "data_type": "CSV"},
+            {
+                "name": "data",
+                "tags": ["tag1", "tag2"],
+                "description": "desc",
+                "data_type": "csv",
+            },
+        ),
+        (
+            {**CLI_DATASET, "tags": ["tag1", "tag2"]},
+            {
+                "name": "data",
+                "tags": ["tag1", "tag2"],
+                "description": "desc",
+                "data_type": "csv",
+            },
+        ),
+        (
+            {**CLI_DATASET, "data_type": "unknown"},
+            {
+                "name": "data",
+                "tags": ["tag1"],
+                "description": "desc",
+                "data_type": "default",
+            },
+        ),
+        (
+            {},
+            {
+                "name": "MNIST",
+                "tags": ["#MNIST", "#dataset"],
+                "description": "MNIST database",
+                "data_type": "default",
+            },
+        ),
+    ],
+    ids=[
+        "type_lowercased",
+        "tags_as_a_list",
+        "unknown_type_is_mnist",
+        "only_a_path_is_mnist",
+    ],
+)
+def test_add_database_registers_the_given_dataset(cli_database, given, registered):
+    add_database(
+        cli_database.manager, interactive=False, path=cli_database.root, **given
+    )
+
+    cli_database.manager.add_database.assert_called_once_with(
+        **registered,
+        path=cli_database.root,
+        dataset_parameters=None,
+        data_loading_plan=None,
+    )
+    cli_database.manager.list_my_datasets.assert_called_once_with(verbose=True)
+
+
+@pytest.mark.parametrize(
+    "given, refusal",
+    [
+        ({**CLI_DATASET, "name": "ab"}, "at least 3 characters"),
+        ({**CLI_DATASET, "description": "ab"}, "at least 3 characters"),
+        ({**CLI_DATASET, "tags": "tag1,ab"}, "at least 3 characters"),
+        ({**CLI_DATASET, "tags": ""}, "tags are not empty"),
+        ({"path": None}, "path is not set"),
+    ],
+    ids=["short_name", "short_description", "short_tag", "no_tags", "no_path"],
+)
+def test_add_database_refuses_incomplete_parameters(cli_database, given, refusal):
+    with pytest.raises(FedbiomedDatasetManagerError, match=refusal):
+        add_database(
+            cli_database.manager,
+            interactive=False,
+            **{"path": cli_database.root, **given},
+        )
+
+    cli_database.manager.add_database.assert_not_called()
+
+
+def test_add_database_asks_again_for_a_path_that_does_not_exist(cli_database):
+    missing = os.path.join(cli_database.root, "missing")
+
+    add_database(cli_database.manager, interactive=False, path=missing, **CLI_DATASET)
+
+    cli_database.prompt_path.assert_called_once_with("csv")
+    assert cli_database.added("path") == {"path": cli_database.root}
+
+
+@pytest.mark.parametrize(
+    "answers, tags",
+    [
+        ([""], ["#MEDNIST", "#dataset"]),
+        (["maybe", "y"], ["#MEDNIST", "#dataset"]),
+        (["n", "ab", "tag1, tag2"], ["tag1", "tag2"]),
+    ],
+    ids=["default_tags", "asks_again_on_an_unclear_answer", "own_tags"],
+)
+def test_add_database_lets_the_user_confirm_predefined_tags(
+    cli_database, answers, tags
+):
+    cli_database.data_type.return_value = "mednist"
+    cli_database.answers(*answers)
+
+    add_database(cli_database.manager)
+
+    assert cli_database.added("name", "data_type", "tags") == {
+        "name": "MEDNIST",
+        "data_type": "mednist",
+        "tags": tags,
+    }
+
+
+def test_add_database_asks_until_name_tags_and_description_are_long_enough(
+    cli_database,
+):
+    cli_database.data_type.return_value = "csv"
+    cli_database.answers("ab", "data", "ab", "tag1, tag2", "ab", "desc")
+
+    add_database(cli_database.manager)
+
+    assert cli_database.added("name", "tags", "description", "path") == {
+        "name": "data",
+        "tags": ["tag1", "tag2"],
+        "description": "desc",
+        "path": cli_database.root,
+    }
+    cli_database.path.assert_called_once_with("csv", initialdir=None)
+
+
+def test_add_database_asks_a_custom_dataset_path_until_it_exists(cli_database):
+    cli_database.data_type.return_value = "custom"
+    missing = os.path.join(cli_database.root, "missing")
+    cli_database.answers("data", "tag1", "desc", missing, cli_database.root)
+
+    add_database(cli_database.manager)
+
+    assert cli_database.added("path") == {"path": os.path.realpath(cli_database.root)}
+
+
+def test_add_database_names_the_medical_folder_loading_plan(cli_database):
+    plan = DataLoadingPlan()
+    cli_database.data_type.return_value = "medical-folder"
+    cli_database.medical_folder.return_value = (
+        cli_database.root,
+        {"index_col": 0},
+        plan,
+    )
+    # "abc" is refused: plan names have at least 4 characters
+    cli_database.answers("data", "tag1", "desc", "abc", "plan")
+
+    add_database(cli_database.manager)
+
+    assert plan.desc == "plan"
+    assert cli_database.added("dataset_parameters", "data_loading_plan") == {
+        "dataset_parameters": {"index_col": 0},
+        "data_loading_plan": plan,
+    }
+
+
+@pytest.mark.parametrize(
+    "interactive, error, shown",
+    [
+        (True, FedbiomedDatasetManagerError("refused"), "refused"),
+        (False, FedbiomedDatasetManagerError("refused"), "refused"),
+        (False, FedbiomedDatasetError("unreadable"), "Demographic file"),
+        (False, FedbiomedError("FB322: conflicting tags"), "FB322"),
+    ],
+    ids=[
+        "refused_in_a_window",
+        "refused_in_the_log",
+        "unreadable_with_a_hint",
+        "manager_refusal_in_the_log",
+    ],
+)
+def test_add_database_exits_when_the_dataset_cannot_be_added(
+    cli_database, interactive, error, shown
+):
+    cli_database.data_type.return_value = "default"
+    cli_database.answers("")
+    cli_database.manager.add_database.side_effect = error
+
+    with pytest.raises(SystemExit):
+        add_database(
+            cli_database.manager, interactive=interactive, path=cli_database.root
+        )
+
+    report = (
+        cli_database.messagebox.showwarning
+        if interactive
+        else cli_database.logger.error
+    )
+    assert shown in str(report.call_args)
+
+
+@pytest.mark.parametrize(
+    "datasets, delete, warning",
+    [
+        ([], delete_database, "No dataset to delete"),
+        ([], partial(delete_database, interactive=False), "No dataset to delete"),
+        ([], delete_all_database, "No dataset to delete"),
+        (
+            [{"name": "Other", "dataset_id": "d1"}],
+            partial(delete_database, interactive=False),
+            "No matching dataset to delete",
+        ),
+    ],
+    ids=["interactive_none", "mnist_none", "all_none", "mnist_not_registered"],
+)
+def test_delete_with_nothing_to_delete_only_warns(
+    cli_database, datasets, delete, warning
+):
+    cli_database.manager.list_my_datasets.return_value = datasets
+
+    delete(cli_database.manager)
+
+    cli_database.manager.delete_dataset_by_id.assert_not_called()
+    cli_database.logger.warning.assert_called_once_with(warning)
+
+
+@pytest.mark.parametrize(
+    "delete, answers, deleted",
+    [
+        (delete_database, ["x", "9", "2"], ["d2"]),
+        (partial(delete_database, interactive=False), [], ["d2"]),
+        (delete_all_database, [], ["d1", "d2"]),
+    ],
+    ids=["chosen_after_invalid_answers", "mnist", "all"],
+)
+def test_delete_removes_datasets_with_their_derived_ones(
+    cli_database, delete, answers, deleted
+):
+    cli_database.manager.list_my_datasets.return_value = [
+        {"name": "Other", "dataset_id": "d1"},
+        {"name": "MNIST", "dataset_id": "d2"},
+    ]
+    cli_database.answers(*answers)
+
+    delete(cli_database.manager)
+
+    assert cli_database.manager.delete_dataset_by_id.call_args_list == [
+        call(dataset_id, recursive=True) for dataset_id in deleted
+    ]

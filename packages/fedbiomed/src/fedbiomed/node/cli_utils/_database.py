@@ -8,6 +8,7 @@ from typing import List, Optional, Union
 from fedbiomed.common.exceptions import (
     FedbiomedDatasetError,
     FedbiomedDatasetManagerError,
+    FedbiomedError,
 )
 from fedbiomed.common.logger import logger
 from fedbiomed.node.cli_utils._io import (
@@ -159,13 +160,13 @@ def add_database(
             data_loading_plan.desc = desc
 
     else:
-        tags = str(tags).split(",")
+        # Comma-separated on the command line, a list in a `--file` description
+        tags = tags.split(",") if isinstance(tags, str) else list(tags)
         name = str(name)
         description = str(description)
 
         if (
-            tags == ""
-            or not all(len(tag) >= 3 for tag in tags)
+            not all(len(tag) >= 3 for tag in tags)
             or len(name) < 3
             or len(description) < 3
         ):
@@ -204,17 +205,18 @@ def add_database(
             dataset_parameters=dataset_parameters,
             data_loading_plan=data_loading_plan,
         )
-    except (AssertionError, FedbiomedDatasetManagerError) as e:
-        if interactive and messagebox is not None:
-            messagebox.showwarning(title="Warning", message=str(e))
-        else:
-            logger.error(str(e))
-        exit(1)
     except FedbiomedDatasetError as err:
         logger.error(
             f"{err} ... Aborting"
             "\nHint: are you sure you have selected the correct index in Demographic file?"
         )
+        exit(1)
+    # Includes the manager's refusals: conflicting tags, too few samples
+    except (AssertionError, FedbiomedError) as e:
+        if interactive and messagebox is not None:
+            messagebox.showwarning(title="Warning", message=str(e))
+        else:
+            logger.error(str(e))
         exit(1)
 
     print("\nGreat! Take a look at your data:")
@@ -263,7 +265,7 @@ def delete_database(dataset_manager: DatasetManager, interactive: bool = True) -
             if not d_id:
                 logger.warning("No matching dataset to delete")
                 return
-            dataset_manager.dataset_table.delete_by_id(d_id)
+            dataset_manager.delete_dataset_by_id(d_id, recursive=True)
             logger.info("Dataset removed. Here your available datasets")
             dataset_manager.list_my_datasets()
             return
@@ -287,5 +289,5 @@ def delete_all_database(dataset_manager: DatasetManager) -> None:
 
     for ds in my_data:
         d_id = ds["dataset_id"]
-        dataset_manager.dataset_table.delete_by_id(d_id)
+        dataset_manager.delete_dataset_by_id(d_id, recursive=True)
         logger.info("Dataset removed for dataset_id:" + str(d_id))

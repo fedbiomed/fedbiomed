@@ -1,15 +1,21 @@
 import json
+import os
+import signal
 import sys
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import psutil
 import pytest
+from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.dataset_manager._db_tables import NodeProcessStateHistoryTable
 from fedbiomed.node.node_pm import (
     DEFAULT_NODE_ARGS,
     NodeConnectionStateManager,
     NodeProcessManager,
     NodeState,
+    _node_signal_trigger_term,
+    _start_node_process,
 )
 from fedbiomed.transport.client import (
     Channels,
@@ -1014,3 +1020,105 @@ def test_node_connection_get_connection_history_newest_first(
     history = manager.get_connection_history(limit=2)
 
     assert [entry.state for entry in history] == ["connected", "disconnected"]
+
+
+@pytest.fixture
+def node_process(mocker, tmp_path):
+    """Mocked `Node` class, on a configuration whose state file is in `tmp_path`.
+
+    Starting a node records its state, so the configuration has to name a real
+    file: a MagicMock resolves to a file descriptor - stdout - which the state
+    table then writes to and closes, taking the test session down with it.
+    """
+    config = mocker.patch(
+        "fedbiomed.node.node_pm.NodeConfig", autospec=True
+    ).return_value
+    config.get.return_value = "test-node"
+    config.getbool.return_value = False
+    config.getpath.return_value = str(tmp_path / "node_db.json")
+    # Keeps pytest's own Ctrl+C handling
+    mocker.patch("fedbiomed.node.node_pm.signal.signal")
+    node_class = mocker.patch("fedbiomed.node.node_pm.Node")
+    node_class.return_value.config.getbool.return_value = False
+    node_class.return_value._debug = False
+    logger = mocker.patch("fedbiomed.node.node_pm.logger")
+    return SimpleNamespace(
+        config=config,
+        node_class=node_class,
+        node=node_class.return_value,
+        logger=logger,
+    )
+
+
+def test_start_node_process_records_the_start_then_runs_the_node(node_process):
+    _start_node_process("config.ini", {"gpu": False})
+
+    node_process.node.task_manager.assert_called_once()
+    # Recorded before the node is built, so the previous run's state is not
+    # read as the current one
+    state = NodeConnectionStateManager(node_process.config).get_connection_state()
+    assert state.operation == "node_starting"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        FedbiomedError("FB619: no researcher certificate is registered"),
+        Exception("oops"),
+    ],
+    ids=["fedbiomed_error", "unexpected_error"],
+)
+@pytest.mark.parametrize("step", ["build", "run"])
+def test_start_node_process_reports_failures_without_raising(node_process, step, error):
+    if step == "build":
+        node_process.node_class.side_effect = error
+    else:
+        node_process.node.task_manager.side_effect = error
+
+    _start_node_process("config.ini", {"gpu": False})
+
+    node_process.logger.critical.assert_called_once_with(f"Node stopped. {error}")
+
+
+@pytest.mark.parametrize("debug, level", [(True, "DEBUG"), (False, "INFO")])
+def test_start_node_process_logs_at_the_node_debug_level(node_process, debug, level):
+    node_process.node._debug = debug
+
+    _start_node_process("config.ini", {"gpu": False})
+
+    node_process.logger.setLevel.assert_called_once_with(level)
+
+
+@pytest.mark.parametrize(
+    "approval, default_plans, checks, registers_defaults",
+    [
+        (True, True, True, True),
+        (True, False, True, False),
+        (False, True, False, False),
+    ],
+    ids=["approval_with_default_plans", "approval_only", "no_approval"],
+)
+def test_start_node_process_checks_training_plans_only_under_approval(
+    node_process, approval, default_plans, checks, registers_defaults
+):
+    settings = {
+        "training_plan_approval": approval,
+        "allow_default_training_plans": default_plans,
+    }
+    node_process.node.config.getbool.side_effect = lambda _section, key: settings[key]
+
+    _start_node_process("config.ini", {"gpu": False})
+
+    plans = node_process.node.tp_security_manager
+    assert plans.check_hashes_for_registered_training_plans.called is checks
+    assert plans.register_update_default_training_plans.called is registers_defaults
+    # Running without approval is a security risk the operator is warned about
+    assert node_process.logger.warning.called is not approval
+
+
+def test_node_signal_trigger_term_stops_the_current_process(mocker):
+    kill = mocker.patch("os.kill")
+
+    _node_signal_trigger_term()
+
+    kill.assert_called_once_with(os.getpid(), signal.SIGTERM)

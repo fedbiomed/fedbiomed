@@ -53,6 +53,7 @@ def add_medical_folder_dataset_from_cli(
         "\n".join([m for m in modality_folder_names]),
     )
     # TODO: add CLI support for DLP, temporarily disactivated (not working yet)
+    # When enabled, save the plan (`save_data_loading_plan`) before `add_database`
     #
     # if interactive:
     #    choice = input('\nWould you like to associate the detected modalities with other modality names? [y/N]\n')

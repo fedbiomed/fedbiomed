@@ -1,5 +1,11 @@
 """Node services owned by an API application, resolved within its context."""
 
+from pathlib import Path
+
+from cachelib import FileSystemCache
+from fedbiomed.node.dataset_manager import DatasetManager
+from fedbiomed.node.node_pm import NodeProcessManager
+from fedbiomed.node.training_plan_security_manager import TrainingPlanSecurityManager
 from flask import current_app
 from werkzeug.local import LocalProxy
 
@@ -10,22 +16,17 @@ def service_proxy(name):
 
 
 def init_services(app, config):
-    from pathlib import Path
-
-    from cachelib import FileSystemCache
-    from fedbiomed.node.dataset_manager import DatasetManager
-    from fedbiomed.node.node_pm import NodeProcessManager
-    from fedbiomed.node.training_plan_security_manager import (
-        TrainingPlanSecurityManager,
-    )
-
+    # `.db` imports `service_proxy` from this module
     from .db import UserDatabase
 
     users = UserDatabase(config["GUI_DB_PATH"])
     users.add_default_admin_user(config.configuration.pop("DEFAULT_ADMIN_CREDENTIAL"))
     app.extensions["node_api_services"] = {
         "user_database": users,
-        "dataset_manager": DatasetManager(config["NODE_DB_PATH"]),
+        "dataset_manager": DatasetManager(
+            config["NODE_DB_PATH"],
+            min_samples=config.node_config.getint("security", "minimum_samples"),
+        ),
         "node_process_manager": NodeProcessManager(config.node_config),
         "training_plan_manager": TrainingPlanSecurityManager(
             db=config["NODE_DB_PATH"],

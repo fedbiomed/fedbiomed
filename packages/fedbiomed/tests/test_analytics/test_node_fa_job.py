@@ -1,10 +1,11 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from fedbiomed.common.constants import (
     DatasetTypes,
     ErrorNumbers,
     SAParameters,
+    SecureAggregationSchemes,
     Stats,
 )
 from fedbiomed.common.dataset_types import DataReturnFormat
@@ -55,14 +56,11 @@ def fa_job(fa_job_args):
 def mock_dm():
     """Minimal mocked DatasetManager with a valid dataset entry and no validate_samples side-effect."""
     dm = MagicMock()
-    dm.get_dataset_entry_by_id.return_value = (
-        {
-            "data_type": "csv",
-            "path": "/path/to/data",
-            "dataset_parameters": {},
-        },
-        "dummy_table_name",
-    )
+    dm.get_dataset.return_value = {
+        "data_type": "csv",
+        "path": "/path/to/data",
+        "dataset_parameters": {},
+    }
     return dm
 
 
@@ -119,6 +117,15 @@ def test_build_error_msg_default_errnum(fa_job):
 # ----------------------------- _build_args_for_dataset --------------
 
 
+@pytest.fixture
+def dataset_type(mocker):
+    """Makes the dataset entry read as the given type."""
+    return lambda dtype: mocker.patch(
+        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
+        return_value=dtype,
+    )
+
+
 @pytest.mark.parametrize(
     "dtype_enum,entry_extra,expected",
     [
@@ -137,13 +144,13 @@ def test_build_error_msg_default_errnum(fa_job):
         (DatasetTypes.MEDNIST, {}, {}),
     ],
 )
-def test_build_args_for_dataset(fa_job, dtype_enum, entry_extra, expected):
+def test_build_args_for_dataset(
+    fa_job, dataset_type, dtype_enum, entry_extra, expected
+):
+    dataset_type(dtype_enum)
+
     entry = {"data_type": dtype_enum.value, **entry_extra}
-    with patch(
-        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
-        return_value=dtype_enum,
-    ):
-        assert fa_job._build_args_for_dataset(entry) == expected
+    assert fa_job._build_args_for_dataset(entry) == expected
 
 
 @pytest.mark.parametrize(
@@ -169,48 +176,49 @@ def test_build_args_for_dataset(fa_job, dtype_enum, entry_extra, expected):
     ],
 )
 def test_build_args_for_dataset_tabular_numerical_filter(
-    fa_job, dtypes, expected_columns
+    fa_job, dataset_type, dtypes, expected_columns
 ):
     """Only columns with numerical polars dtypes are included in input_columns."""
+    dataset_type(DatasetTypes.TABULAR)
+
     entry = {"data_type": DatasetTypes.TABULAR.value, "dtypes": dtypes}
-    with patch(
-        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
-        return_value=DatasetTypes.TABULAR,
-    ):
-        result = fa_job._build_args_for_dataset(entry)
-    assert result["input_columns"] == expected_columns
+    assert fa_job._build_args_for_dataset(entry)["input_columns"] == expected_columns
 
 
-def test_build_args_for_dataset_custom_raises(fa_job):
-    entry = {"data_type": "custom"}
-    with patch(
-        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
-        return_value=DatasetTypes.CUSTOM,
-    ):
-        with pytest.raises(_InternalJobError, match="not implemented"):
-            fa_job._build_args_for_dataset(entry)
+@pytest.mark.parametrize(
+    "dtype_enum, data_type, refusal",
+    [
+        (DatasetTypes.CUSTOM, "custom", "not implemented"),
+        (None, "unknown", "unsupported dataset type"),
+    ],
+    ids=["custom", "unknown"],
+)
+def test_build_args_for_dataset_refuses_type(
+    fa_job, dataset_type, dtype_enum, data_type, refusal
+):
+    dataset_type(dtype_enum)
 
-
-def test_build_args_for_dataset_unknown_type_raises(fa_job):
-    entry = {"data_type": "unknown"}
-    with patch(
-        "fedbiomed.node.jobs._fa_job.DatasetTypes.get_type_by_value",
-        return_value=None,
-    ):
-        with pytest.raises(_InternalJobError, match="unsupported dataset type"):
-            fa_job._build_args_for_dataset(entry)
+    with pytest.raises(_InternalJobError, match=refusal):
+        fa_job._build_args_for_dataset({"data_type": data_type})
 
 
 # ----------------------------- _build_dataset -----------------------
 
 
-@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
-def test_build_dataset_success(mock_registry, fa_job, mock_dm, mock_dataset_cls):
-    """Happy path: correct dataset returned and load called."""
-    instance, cls = mock_dataset_cls
+@pytest.fixture
+def registry(mocker, fa_job, mock_dm, mock_dataset_cls):
+    """`fa_job` on `mock_dm`, with every data type built by `mock_dataset_cls`."""
+    _, cls = mock_dataset_cls
     fa_job._dataset_manager = mock_dm
-    mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, cls)
+    registry = mocker.patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
+    registry.__contains__.return_value = True
+    registry.__getitem__.return_value = (None, cls)
+    return registry
+
+
+def test_build_dataset_success(fa_job, registry, mock_dataset_cls):
+    """Happy path: correct dataset returned and load called."""
+    instance, _ = mock_dataset_cls
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
@@ -221,75 +229,52 @@ def test_build_dataset_success(mock_registry, fa_job, mock_dm, mock_dataset_cls)
     assert call_args.kwargs["to_format"] == DataReturnFormat.SKLEARN
 
 
-@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
 def test_build_dataset_forwards_dataset_parameters(
-    mock_registry, fa_job, mock_dataset_cls
+    fa_job, registry, mock_dm, mock_dataset_cls
 ):
     """dataset_parameters from the DB entry are merged into controller kwargs."""
-    instance, cls = mock_dataset_cls
-    dm = MagicMock()
-    dm.get_dataset_entry_by_id.return_value = (
-        {
-            "data_type": "csv",
-            "path": "/data",
-            "dataset_parameters": {"tabular_file": "labels.csv"},
-        },
-        "dummy_table_name",
-    )
-    fa_job._dataset_manager = dm
-    mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, cls)
+    instance, _ = mock_dataset_cls
+    mock_dm.get_dataset.return_value = {
+        "data_type": "csv",
+        "path": "/data",
+        "dataset_parameters": {"tabular_file": "labels.csv"},
+    }
 
     fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
-    call_kwargs = instance.load.call_args.kwargs
-    assert call_kwargs.get("tabular_file") == "labels.csv"
+    assert instance.load.call_args.kwargs.get("tabular_file") == "labels.csv"
 
 
 def test_build_dataset_not_found(fa_job, mock_dm):
     """_build_dataset raises when dataset_id is absent from the DB."""
-    mock_dm.get_dataset_entry_by_id.return_value = (None, "dummy_table_name")
+    mock_dm.get_dataset.return_value = None
     fa_job._dataset_manager = mock_dm
 
     with pytest.raises(_InternalJobError, match="Cannot find requested dataset"):
         fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
 
-@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS", {})
-def test_build_dataset_unsupported_type(fa_job, mock_dm):
+def test_build_dataset_unsupported_type(mocker, fa_job, mock_dm):
     """_build_dataset raises when data_type is not in REGISTRY_CONTROLLERS."""
-    mock_dm.get_dataset_entry_by_id.return_value = (
-        {"data_type": "unknown_type"},
-        "dummy_table_name",
-    )
+    mocker.patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS", {})
+    mock_dm.get_dataset.return_value = {"data_type": "unknown_type"}
     fa_job._dataset_manager = mock_dm
 
     with pytest.raises(_InternalJobError, match="not supported"):
         fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
 
-@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
-@patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan")
-def test_build_dataset_with_dlp(
-    mock_dlp_cls, mock_registry, fa_job, mock_dm, mock_dataset_cls
-):
+def test_build_dataset_with_dlp(mocker, fa_job, registry, mock_dm, mock_dataset_cls):
     """DLP is deserialised and passed as 'dlp' in controller kwargs."""
-    instance, cls = mock_dataset_cls
-    mock_dm.get_dataset_entry_by_id.return_value = (
-        {
-            "data_type": "csv",
-            "path": "/path",
-            "dlp_id": "dlp_1",
-        },
-        "dummy_table_name",
-    )
+    instance, _ = mock_dataset_cls
+    mock_dm.get_dataset.return_value = {
+        "data_type": "csv",
+        "path": "/path",
+        "dlp_id": "dlp_1",
+    }
     mock_dm.get_dlp_by_id.return_value = ["dlp_content"]
-    fa_job._dataset_manager = mock_dm
-
-    mock_dlp = mock_dlp_cls.return_value
+    mock_dlp = mocker.patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan").return_value
     mock_dlp.deserialize.return_value = mock_dlp
-    mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, cls)
 
     dataset = fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
@@ -297,35 +282,23 @@ def test_build_dataset_with_dlp(
     assert instance.load.call_args.kwargs["dlp"] == mock_dlp
 
 
-@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
-@patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan")
-def test_build_dataset_dlp_deserialisation_error(
-    mock_dlp_cls, mock_registry, fa_job, mock_dm
-):
+def test_build_dataset_dlp_deserialisation_error(mocker, fa_job, registry, mock_dm):
     """Failed DLP deserialisation is wrapped as _InternalJobError."""
-    mock_dm.get_dataset_entry_by_id.return_value = (
-        {
-            "data_type": "csv",
-            "dlp_id": "dlp_1",
-        },
-        "dummy_table_name",
-    )
+    mock_dm.get_dataset.return_value = {"data_type": "csv", "dlp_id": "dlp_1"}
     mock_dm.get_dlp_by_id.return_value = ["dlp_content"]
-    fa_job._dataset_manager = mock_dm
-    mock_dlp_cls.return_value.deserialize.side_effect = FedbiomedError("DLP Error")
-    mock_registry.__contains__.return_value = True
+    dlp_class = mocker.patch("fedbiomed.node.jobs._fa_job.DataLoadingPlan")
+    dlp_class.return_value.deserialize.side_effect = FedbiomedError("DLP Error")
 
     with pytest.raises(_InternalJobError, match="Cannot recover dlp"):
         fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
 
-@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
-def test_build_dataset_initialization_error(mock_registry, fa_job, mock_dm):
+def test_build_dataset_initialization_error(fa_job, registry):
     """FedbiomedError during dataset construction is wrapped as _InternalJobError."""
-    fa_job._dataset_manager = mock_dm
-    broken_cls = MagicMock(side_effect=FedbiomedError("Init Error"))
-    mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, broken_cls)
+    registry.__getitem__.return_value = (
+        None,
+        MagicMock(side_effect=FedbiomedError("Init Error")),
+    )
 
     with pytest.raises(
         _InternalJobError, match="Cannot initialize dataset.*Init Error"
@@ -333,16 +306,9 @@ def test_build_dataset_initialization_error(mock_registry, fa_job, mock_dm):
         fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
 
-@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
-def test_build_dataset_below_minimum_samples_raises(
-    mock_registry, fa_job, mock_dm, mock_dataset_cls
-):
+def test_build_dataset_below_minimum_samples_raises(fa_job, registry, mock_dm):
     """validate_samples failure is wrapped as _InternalJobError."""
-    _, cls = mock_dataset_cls
     mock_dm.validate_samples.side_effect = FedbiomedError("below minimum")
-    fa_job._dataset_manager = mock_dm
-    mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, cls)
 
     with pytest.raises(
         _InternalJobError, match="does not meet minimum sample requirement"
@@ -350,16 +316,8 @@ def test_build_dataset_below_minimum_samples_raises(
         fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
 
-@patch("fedbiomed.node.jobs._fa_job.REGISTRY_CONTROLLERS")
-def test_build_dataset_validate_samples_called(
-    mock_registry, fa_job, mock_dm, mock_dataset_cls
-):
+def test_build_dataset_validate_samples_called(fa_job, registry, mock_dm):
     """validate_samples is always called after the dataset is built."""
-    _, cls = mock_dataset_cls
-    fa_job._dataset_manager = mock_dm
-    mock_registry.__contains__.return_value = True
-    mock_registry.__getitem__.return_value = (None, cls)
-
     fa_job._build_dataset(DataReturnFormat.SKLEARN)
 
     mock_dm.validate_samples.assert_called_once()
@@ -368,12 +326,16 @@ def test_build_dataset_validate_samples_called(
 # ----------------------------- run() --------------------------------
 
 
-def test_run_success(fa_job):
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": 1.5}
+@pytest.fixture
+def dataset(mocker):
+    """The dataset the job builds, mocked: tests set what `compute_stats` returns."""
+    return mocker.patch.object(FAJob, "_build_dataset").return_value
 
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = fa_job.run()
+
+def test_run_success(fa_job, dataset):
+    dataset.compute_stats.return_value = {"col1": 1.5}
+
+    reply = fa_job.run()
 
     assert isinstance(reply, FAReply)
     assert reply.output == {"col1": 1.5}
@@ -392,7 +354,7 @@ def test_run_fa_not_allowed(fa_job_args):
     assert "not allowed" in reply.extra_msg
 
 
-def test_run_only_stats_args_succeeds(fa_job_args, request_args):
+def test_run_only_stats_args_succeeds(fa_job_args, request_args, dataset):
     """stats=None is valid when stats_args carries the nested schema-key structure."""
     req = FARequest(
         **{
@@ -403,11 +365,9 @@ def test_run_only_stats_args_succeeds(fa_job_args, request_args):
         }
     )
     job = FAJob(**{**fa_job_args, "request": req})
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"price": 1.0}
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
-    assert isinstance(reply, FAReply)
+    dataset.compute_stats.return_value = {"price": 1.0}
+
+    assert isinstance(job.run(), FAReply)
 
 
 def test_run_invalid_stats_values(fa_job_args, request_args):
@@ -418,61 +378,62 @@ def test_run_invalid_stats_values(fa_job_args, request_args):
     assert "unsupported values" in reply.extra_msg
 
 
-def test_run_build_dataset_fails(fa_job):
-    with patch.object(
-        FAJob, "_build_dataset", side_effect=_InternalJobError("Dataset error")
-    ):
-        reply = fa_job.run()
+@pytest.mark.parametrize(
+    "built, refusal",
+    [
+        ({"side_effect": _InternalJobError("Dataset error")}, "Dataset error"),
+        (
+            # no attributes at all
+            {"return_value": MagicMock(spec=[])},
+            "does not support analytics method 'compute_stats'",
+        ),
+        (
+            {
+                "return_value": MagicMock(
+                    **{"compute_stats.side_effect": Exception("Computation failed")}
+                )
+            },
+            "Computation failed",
+        ),
+    ],
+    ids=["build_fails", "no_compute_stats", "compute_stats_raises"],
+)
+def test_run_replies_with_an_error_when_the_dataset_fails(
+    mocker, fa_job, built, refusal
+):
+    mocker.patch.object(FAJob, "_build_dataset", **built)
+
+    reply = fa_job.run()
+
     assert isinstance(reply, ErrorMessage)
-    assert "Dataset error" in reply.extra_msg
+    assert refusal in reply.extra_msg
 
 
-def test_run_missing_compute_stats(fa_job):
-    mock_dataset = MagicMock(spec=[])  # no attributes at all
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = fa_job.run()
-    assert isinstance(reply, ErrorMessage)
-    assert "does not support analytics method 'compute_stats'" in reply.extra_msg
-
-
-def test_run_compute_stats_raises(fa_job):
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.side_effect = Exception("Computation failed")
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = fa_job.run()
-    assert isinstance(reply, ErrorMessage)
-    assert "Computation failed" in reply.extra_msg
-
-
-def test_run_passes_correct_kwargs_to_compute_stats(fa_job):
+def test_run_passes_correct_kwargs_to_compute_stats(fa_job, dataset):
     """stats, stats_args, and dataset_schema are forwarded unchanged."""
     fa_job._stats_args = {"price": {Stats.MEAN.value: {"some_arg": "val"}}}
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"res": 1}
+    dataset.compute_stats.return_value = {"res": 1}
 
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        fa_job.run()
+    fa_job.run()
 
-    kwargs = mock_dataset.compute_stats.call_args[1]
+    kwargs = dataset.compute_stats.call_args[1]
     assert kwargs["stats"] == [Stats.MEAN.value]
     assert kwargs["stats_args"]["price"][Stats.MEAN.value]["some_arg"] == "val"
     assert kwargs["dataset_schema"] == ["col1", "col2"]
 
 
-def test_run_multiple_stats(fa_job_args, request_args):
+def test_run_multiple_stats(fa_job_args, request_args, dataset):
     stats_list = [Stats.MEAN.value, Stats.SUM.value]
     req = FARequest(**{**request_args, "stats": stats_list})
     job = FAJob(**{**fa_job_args, "request": req})
-    mock_dataset = MagicMock()
     # A [mean, sum] request yields the count+sum primitives (mean -> count+sum).
-    mock_dataset.compute_stats.return_value = {"col1": {"count": 6, "sum": 6}}
+    dataset.compute_stats.return_value = {"col1": {"count": 6, "sum": 6}}
 
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
+    reply = job.run()
 
     assert isinstance(reply, FAReply)
     assert reply.stats == stats_list
-    assert mock_dataset.compute_stats.call_args[1]["stats"] == stats_list
+    assert dataset.compute_stats.call_args[1]["stats"] == stats_list
 
 
 # ----------------------------- run() — secagg paths -----------------
@@ -481,8 +442,6 @@ def test_run_multiple_stats(fa_job_args, request_args):
 @pytest.fixture
 def secagg_args():
     """Minimal secagg_arguments dict for a JLS FA round."""
-    from fedbiomed.common.constants import SecureAggregationSchemes
-
     return {
         "secagg_scheme": SecureAggregationSchemes.JOYE_LIBERT,
         "secagg_servkey_id": "serv-id",
@@ -490,6 +449,15 @@ def secagg_args():
         "parties": ["researcher-1", "node-1", "node-2"],
         "fa_round": 2,
     }
+
+
+@pytest.fixture
+def secagg(mocker):
+    """The secure aggregation round the job opens, mocked: in use, encrypting to [1]."""
+    secagg_round = mocker.patch("fedbiomed.node.jobs._fa_job.SecaggRound").return_value
+    secagg_round.use_secagg = True
+    secagg_round.scheme.encrypt.return_value = [1]
+    return secagg_round
 
 
 def _make_fa_job(
@@ -512,197 +480,145 @@ def _make_fa_job(
     )
 
 
-def test_run_secagg_force_without_args_returns_error(fa_job_args, fa_request):
-    """force_secagg=True + no secagg_arguments → ErrorMessage (node policy violated)."""
+@pytest.mark.parametrize(
+    "secagg_active, force_secagg, with_arguments",
+    [(True, True, False), (False, False, True)],
+    ids=["forced_without_arguments", "arguments_while_not_active"],
+)
+def test_run_refuses_secagg_against_the_node_policy(
+    fa_job_args,
+    fa_request,
+    secagg_args,
+    dataset,
+    secagg_active,
+    force_secagg,
+    with_arguments,
+):
     job = _make_fa_job(
         fa_job_args,
         fa_request,
-        secagg_active=True,
-        force_secagg=True,
-        secagg_arguments=None,
+        secagg_active=secagg_active,
+        force_secagg=force_secagg,
+        secagg_arguments=secagg_args if with_arguments else None,
     )
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": 1.0}
+    dataset.compute_stats.return_value = {"col1": 1.0}
 
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
+    reply = job.run()
 
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
 
 
-@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
-def test_run_secagg_request_with_clipping_range_ignored(
-    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+@pytest.mark.parametrize(
+    "fa_round, request_clipping_range",
+    [(2, 3), (7, None)],
+    ids=["request_clipping_range_ignored", "round_from_arguments"],
+)
+def test_run_encrypts_with_the_round_and_the_node_clipping_range(
+    fa_job_args,
+    fa_request,
+    secagg_args,
+    dataset,
+    secagg,
+    fa_round,
+    request_clipping_range,
 ):
-    """A request carrying secagg_clipping_range is not rejected; the node ignores it and uses FA_CLIPPING_RANGE."""
-    mock_secagg = MagicMock()
-    mock_secagg.use_secagg = True
-    mock_secagg.scheme.encrypt.return_value = [1]
-    mock_secagg_cls.return_value = mock_secagg
-
-    secagg_args["secagg_clipping_range"] = 3
+    """A request's secagg_clipping_range is not rejected but ignored for FA_CLIPPING_RANGE."""
+    secagg_args["fa_round"] = fa_round
+    if request_clipping_range is not None:
+        secagg_args["secagg_clipping_range"] = request_clipping_range
     job = _make_fa_job(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"x": 1.0}  # within FA_CLIPPING_RANGE
+    dataset.compute_stats.return_value = {"x": 1.0}  # within FA_CLIPPING_RANGE
 
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
+    reply = job.run()
 
     assert not isinstance(reply, ErrorMessage)
-    # The request value (3) is ignored in favour of the fixed node-side constant.
-    call_args = mock_secagg.scheme.encrypt.call_args
+    call_args = secagg.scheme.encrypt.call_args
+    assert call_args.kwargs["current_round"] == fa_round
     assert call_args.kwargs["clipping_range"] == SAParameters.FA_CLIPPING_RANGE
 
 
-def test_run_secagg_not_active_returns_error(fa_job_args, fa_request, secagg_args):
-    """secagg_arguments provided + secagg_active=False → ErrorMessage."""
-    job = _make_fa_job(
-        fa_job_args,
-        fa_request,
-        secagg_active=False,
-        force_secagg=False,
-        secagg_arguments=secagg_args,
-    )
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"col1": 1.0}
-
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
-
-    assert isinstance(reply, ErrorMessage)
-    assert reply.errnum == ErrorNumbers.FB325.value
-
-
-@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
 def test_run_encrypted_path_returns_fa_reply(
-    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+    fa_job_args, fa_request, secagg_args, dataset, secagg
 ):
     """When use_secagg is True, run() returns encrypted FAReply."""
-    mock_secagg = MagicMock()
-    mock_secagg.use_secagg = True
-    mock_secagg.scheme.encrypt.return_value = [100, 200, 300]
-    mock_secagg_cls.return_value = mock_secagg
-
+    secagg.scheme.encrypt.return_value = [100, 200, 300]
     job = _make_fa_job(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"a": 1.0, "b": 2.0, "c": 3.0}
+    dataset.compute_stats.return_value = {"a": 1.0, "b": 2.0, "c": 3.0}
 
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
+    reply = job.run()
 
     assert isinstance(reply, FAReply)
     assert reply.encrypted is True
     assert reply.params_encrypted == [100, 200, 300]
     assert reply.output is None
     assert reply.output_schema is not None
-    assert mock_secagg.scheme.encrypt.call_count == 1
+    assert secagg.scheme.encrypt.call_count == 1
 
 
-@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
 def test_run_encrypted_path_rejects_out_of_clipping_range(
-    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+    fa_job_args, fa_request, secagg_args, dataset, secagg
 ):
     """A statistic beyond the clipping range yields an ErrorMessage, not encryption."""
-    mock_secagg = MagicMock()
-    mock_secagg.use_secagg = True
-    mock_secagg_cls.return_value = mock_secagg
-
     # a statistic above the fixed node-side clipping range is rejected
     over = SAParameters.FA_CLIPPING_RANGE + 1
     job = _make_fa_job(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {
+    dataset.compute_stats.return_value = {
         "age": {"sum": 1.0, "count": 2},
         "income": {"sum": over, "count": 2},  # exceeds FA_CLIPPING_RANGE; 'age' is fine
     }
 
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
+    reply = job.run()
 
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
-    mock_secagg.scheme.encrypt.assert_not_called()
+    secagg.scheme.encrypt.assert_not_called()
     # The message names the offending column/stat to help the user...
     assert "income.sum" in reply.extra_msg
     # ...but never echoes the offending value (would leak an unencrypted statistic).
     assert str(over) not in reply.extra_msg
 
 
-@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
 def test_run_encrypted_path_rejects_out_of_clipping_range_unnamed(
-    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+    fa_job_args, fa_request, secagg_args, dataset, secagg
 ):
     """A bare-scalar leaf has no key-path: the error still fires, without a name."""
-    mock_secagg = MagicMock()
-    mock_secagg.use_secagg = True
-    mock_secagg_cls.return_value = mock_secagg
-
     job = _make_fa_job(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
-    mock_dataset = MagicMock()
     # scalar → empty key-path; exceeds the fixed FA_CLIPPING_RANGE constant
-    mock_dataset.compute_stats.return_value = float(SAParameters.FA_CLIPPING_RANGE + 1)
+    dataset.compute_stats.return_value = float(SAParameters.FA_CLIPPING_RANGE + 1)
 
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
+    reply = job.run()
 
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value
-    mock_secagg.scheme.encrypt.assert_not_called()
+    secagg.scheme.encrypt.assert_not_called()
     # No name available → no "Offending statistic(s)" clause, just the generic error.
     assert "Offending statistic(s)" not in reply.extra_msg
     assert "exceed the secure aggregation clipping range" in reply.extra_msg
 
 
-@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
-def test_run_encrypted_path_uses_fa_round_from_args(
-    mock_secagg_cls, fa_job_args, fa_request, secagg_args
-):
-    """encrypt() is called with the fa_round from secagg_arguments."""
-    mock_secagg = MagicMock()
-    mock_secagg.use_secagg = True
-    mock_secagg.scheme.encrypt.return_value = [1]
-    mock_secagg_cls.return_value = mock_secagg
-
-    secagg_args["fa_round"] = 7
-    job = _make_fa_job(
-        fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
-    )
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"x": 1.0}  # within FA_CLIPPING_RANGE
-
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        job.run()
-
-    call_args = mock_secagg.scheme.encrypt.call_args
-    assert call_args.kwargs["current_round"] == 7
-    # FA clipping range is the fixed node-side constant, not the request value
-    assert call_args.kwargs["clipping_range"] == SAParameters.FA_CLIPPING_RANGE
-
-
-@patch("fedbiomed.node.jobs._fa_job.SecaggRound")
 def test_run_secagg_round_error_returns_error_message(
-    mock_secagg_cls, fa_job_args, fa_request, secagg_args
+    mocker, fa_job_args, fa_request, secagg_args, dataset
 ):
     """FedbiomedSecureAggregationError from SecaggRound → ErrorMessage."""
-    mock_secagg_cls.side_effect = FedbiomedSecureAggregationError("context missing")
-
+    mocker.patch(
+        "fedbiomed.node.jobs._fa_job.SecaggRound",
+        side_effect=FedbiomedSecureAggregationError("context missing"),
+    )
     job = _make_fa_job(
         fa_job_args, fa_request, secagg_active=True, secagg_arguments=secagg_args
     )
-    mock_dataset = MagicMock()
-    mock_dataset.compute_stats.return_value = {"a": 1.0}
+    dataset.compute_stats.return_value = {"a": 1.0}
 
-    with patch.object(FAJob, "_build_dataset", return_value=mock_dataset):
-        reply = job.run()
+    reply = job.run()
 
     assert isinstance(reply, ErrorMessage)
     assert reply.errnum == ErrorNumbers.FB325.value

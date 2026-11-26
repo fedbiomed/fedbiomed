@@ -290,7 +290,7 @@ class NodeContext:
         """
         self._config = config
         self.dataset_manager = DatasetManager(
-            path=self.config.getpath("default", "db"),
+            self.config.getpath("default", "db"),
             min_samples=self.config.getint("security", "minimum_samples"),
         )
         self.tp_security_manager = TrainingPlanSecurityManager(
@@ -609,9 +609,7 @@ class Node:
                     case OverlayMessage.__name__:
                         self._n2n_router.submit(message)
                     case SearchRequest.__name__:
-                        databases = self.dataset_manager.dataset_table.search_by_tags(
-                            message.tags
-                        )
+                        databases = self.dataset_manager.search_by_tags(message.tags)
                         if len(databases) != 0:
                             databases = (
                                 self.dataset_manager.obfuscate_private_information(
@@ -807,7 +805,7 @@ class Node:
             send=self._grpc_client.send,
         )
         dataset_id = msg.get_param("dataset_id")
-        data, _ = self.dataset_manager.get_dataset_entry_by_id(dataset_id)
+        data = self.dataset_manager.get_dataset(dataset_id, scope="both")
 
         if data is None:
             return self.send_error(
