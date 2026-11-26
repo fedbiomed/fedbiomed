@@ -1,5 +1,6 @@
 from ._datasets import (
     generate_controlled_analytics_dataset,
+    generate_fedcombat_dataset,
     generate_sklearn_classification_dataset,
 )
 from ._execution import kill_registered_subprocesses
@@ -11,6 +12,8 @@ from ._helpers import (
     create_federation,
     create_researcher,
     get_data_folder,
+    researcher_requests,
+    run_node_cli,
     stop_researcher_server,
     training_plan_operation,
 )
@@ -23,9 +26,12 @@ __all__ = [
     "create_federation",
     "create_researcher",
     "generate_controlled_analytics_dataset",
+    "generate_fedcombat_dataset",
     "generate_sklearn_classification_dataset",
     "get_data_folder",
     "kill_registered_subprocesses",
+    "researcher_requests",
+    "run_node_cli",
     "stop_researcher_server",
     "training_plan_operation",
 ]
