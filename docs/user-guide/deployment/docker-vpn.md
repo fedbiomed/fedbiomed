@@ -88,7 +88,7 @@ services:
     restart: unless-stopped
 
   researcher:                          # Fed-BioMed researcher, on the sidecar network
-    # FBM_TAG: a published version (e.g. 6.4.1) is pulled from Docker Hub;
+    # FBM_TAG: a published version (e.g. 6.5.1) is pulled from Docker Hub;
     # "latest" (default) is not published, so it must be built locally first
     image: fedbiomed/researcher:${FBM_TAG:-latest}
     network_mode: "service:wg-client"
@@ -136,7 +136,7 @@ services:
     restart: unless-stopped
 
   node:                                # Fed-BioMed node, on the sidecar network
-    # FBM_TAG: a published version (e.g. 6.4.1) is pulled from Docker Hub;
+    # FBM_TAG: a published version (e.g. 6.5.1) is pulled from Docker Hub;
     # "latest" (default) is not published, so it must be built locally first
     image: fedbiomed/node:${FBM_TAG:-latest}
     network_mode: "service:wg-client"
@@ -156,9 +156,23 @@ Start each site with the Fed-BioMed version to run, the same on the researcher a
 FBM_TAG=<version-tag> docker compose up -d
 ```
 
-`<version-tag>` is a version published on Docker Hub, such as `6.4.1`. Without `FBM_TAG`, the `latest` tag is used: it is not published on Docker Hub, so the image must first be [built from source](../../developer/docker-images.md) on that host. To avoid repeating the tag, write `FBM_TAG=<version-tag>` in a `.env` file next to the `docker-compose.yml`; `docker compose` reads it automatically.
+`<version-tag>` is a version published on Docker Hub, such as `6.5.1`. Without `FBM_TAG`, the `latest` tag is used: it is not published on Docker Hub, so the image must first be [built from source](../../developer/docker-images.md) on that host. To avoid repeating the tag, write `FBM_TAG=<version-tag>` in a `.env` file next to the `docker-compose.yml`; `docker compose` reads it automatically.
 
 If the `wg-client` container is recreated, recreate the Fed-BioMed container too, as it loses its network otherwise.
+
+!!! warning "Node GUI and the VPN interface"
+    The node shares the network of `wg-client`, which includes the WireGuard interface. Publishing the GUI port on `127.0.0.1` only restricts the port on the node host: it does not prevent connections that arrive on the WireGuard interface, addressed to the node's VPN IP.
+
+    - **Fed-BioMed 6.5.0:** the node image starts the GUI on all interfaces, so VPN peers allowed by the VPN firewall, and the VPN server itself, can reach the node GUI at the node's VPN IP. Upgrade to 6.5.1 or later.
+    - **Fed-BioMed 6.5.1 and later:** the GUI listens only on the Docker-network address of `wg-client`, which is the one the published port is forwarded to, and not on the WireGuard interface. Do not set `FBM_GUI_HOST=0.0.0.0` in this setup. See [GUI listening address](./docker.md#gui-listening-address).
+    - In all versions, change the default GUI administrator password (`admin@fedbiomed.gui` / `admin`) on first use. See [Default Admin Configuration](../nodes/node-gui.md#default-admin-configuration).
+
+    As an additional protection, connections to the GUI port can be dropped on the WireGuard interface of `wg-client`, by adding these lines to the `[Interface]` section of `wireguard/wg_confs/wg0.conf`:
+
+    ```ini
+    PostUp = iptables -I INPUT -i %i -p tcp --dport 8484 -j DROP
+    PreDown = iptables -D INPUT -i %i -p tcp --dport 8484 -j DROP
+    ```
 
 ## Mutual authentication
 
@@ -199,5 +213,5 @@ If a node is missing, check its connection state with `fedbiomed node status`, a
 
 ## Tips
 
-- **Keep the web interfaces private.** Publish the wg-easy admin UI, Jupyter and the node GUI on `127.0.0.1` only, reach them through an SSH tunnel, and never expose ports `51821`, `8888` or `8484` publicly.
+- **Keep the web interfaces private.** Publish the wg-easy admin UI, Jupyter and the node GUI on `127.0.0.1` only, reach them through an SSH tunnel, and never expose ports `51821`, `8888` or `8484` publicly. Publishing on `127.0.0.1` does not cover the VPN interface: a service that listens on all interfaces of the sidecar network is also reachable by VPN peers. The node GUI does not listen on the VPN interface since 6.5.1, see [Node GUI and the VPN interface](#node-site).
 - **Pin the version of each third-party image.** Use an exact tag, as in the examples above, and update it deliberately after checking the release notes.
