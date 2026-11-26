@@ -673,18 +673,21 @@ class ServerControl(CLIArgumentParser):
     def add_start_arguments(self, parser: argparse.ArgumentParser) -> None:
         """Add package-specific arguments to the start command."""
 
-    def forward(self, args: argparse.Namespace, extra_args):
+    def forward(self, args: argparse.Namespace):
         """Forward parsed arguments to the installed server package."""
         try:
             package = importlib.import_module(self.module)
         except ModuleNotFoundError as exc:
             if exc.name not in {self.module, self.module.partition(".")[0]}:
                 raise
-            raise FedbiomedError(
+            CommonCLI.error(
                 f"The {self.command} package is not installed. "
                 f"Install it with `pip install fedbiomed[{self.extra}]`."
-            ) from exc
-        return package.start_server(args)
+            )
+        try:
+            package.start_server(args)
+        except FedbiomedError as exc:
+            CommonCLI.error(str(exc))
 
 
 class APIControl(ServerControl):

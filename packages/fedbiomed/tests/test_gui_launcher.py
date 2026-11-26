@@ -47,18 +47,42 @@ class TestServerControls(unittest.TestCase):
             package = MagicMock()
             import_module.return_value = package
             args = argparse.Namespace(path="node")
-            control_class(self.subparsers).forward(args, [])
+            control_class(self.subparsers).forward(args)
             import_module.assert_called_with(module)
             package.start_server.assert_called_once_with(args)
             import_module.reset_mock()
 
     @patch("fedbiomed.node.cli.importlib.import_module")
     def test_missing_optional_package_has_install_hint(self, import_module):
-        error = ModuleNotFoundError("No module named 'fedbiomed_node_api'")
-        error.name = "fedbiomed_node_api"
-        import_module.side_effect = error
-        with self.assertRaisesRegex(FedbiomedError, r"fedbiomed\[node-api\]"):
-            APIControl(self.subparsers).forward(argparse.Namespace(path="node"), [])
+        missing = ModuleNotFoundError("No module named 'fedbiomed_node_api'")
+        missing.name = "fedbiomed_node_api"
+        import_module.side_effect = missing
+        with (
+            self.assertLogs("fedbiomed", "CRITICAL") as logs,
+            self.assertRaises(SystemExit),
+        ):
+            APIControl(self.subparsers).forward(argparse.Namespace(path="node"))
+        self.assertIn("fedbiomed[node-api]", logs.output[0])
+
+    @patch("fedbiomed.node.cli.importlib.import_module")
+    def test_server_errors_are_reported_without_traceback(self, import_module):
+        import_module.return_value.start_server.side_effect = FedbiomedError(
+            "not built"
+        )
+        with (
+            self.assertLogs("fedbiomed", "CRITICAL") as logs,
+            self.assertRaises(SystemExit),
+        ):
+            GUIControl(self.subparsers).forward(argparse.Namespace(path="node"))
+        self.assertIn("not built", logs.output[0])
+
+    @patch("fedbiomed.node.cli.importlib.import_module")
+    def test_other_missing_modules_are_not_hidden(self, import_module):
+        missing = ModuleNotFoundError("No module named 'flask'")
+        missing.name = "flask"
+        import_module.side_effect = missing
+        with self.assertRaises(ModuleNotFoundError):
+            APIControl(self.subparsers).forward(argparse.Namespace(path="node"))
 
 
 if __name__ == "__main__":
