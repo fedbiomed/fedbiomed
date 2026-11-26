@@ -267,6 +267,9 @@ docker run -it  \
     fedbiomed/node:latest
 ```
 
+!!! warning "Node GUI with `--network host`"
+    With `--network host` the container uses the network interfaces of the host. Set `-e FBM_GUI_HOST=127.0.0.1` so that the Node GUI is only reachable from the host itself. See [Node GUI](#node-gui).
+
 For testing purposes, it's fine to use the default configuration. However, for deployment, you may want to review the available configuration options to ensure the Node is properly set up. Component configuration can be managed using environment variables. All environment variables listed in the [Node configuration guide](../nodes/configuring-nodes.md) can be passed to the container using Docker’s `--env` option. 
 
 It is recommended to update the configuration directly in the file located at `<absolute-path-to-mounted-fbm-node>/etc/config.ini`. This approach provides a more stable and persistent setup. Please see the section [Configuration](#configuration) for more details.
@@ -450,17 +453,51 @@ For more details on GPU usage within experiments, see the [Using GPU](../nodes/u
 
 The Node GUI is bundled directly into the `fedbiomed/node` image — no separate image is required. When the node container starts, the GUI server is launched automatically alongside the node process and is accessible on port **8484**.
 
-To expose the GUI to your host machine, forward port `8484` when starting the container:
+To expose the GUI to your host machine, forward port `8484` when starting the container. Publishing it on `127.0.0.1` keeps it reachable from the host only:
 
 ```bash
 docker run -it \
     --name my-node \
     -v <path-to-host-fbm-node>:/fbm-node \
-    -p 8484:8484 \
+    -p 127.0.0.1:8484:8484 \
     fedbiomed/node:latest
 ```
 
 Once running, open your browser and navigate to `http://localhost:8484`.
+
+!!! warning "Change the default administrator password"
+    On first start, the GUI creates a default administrator account, `admin@fedbiomed.gui` with the password `admin`. A GUI administrator can approve training plans on behalf of the node. Change this password before the GUI is reachable by anyone else. See [Default Admin Configuration](../nodes/node-gui.md#default-admin-configuration).
+
+#### GUI listening address
+
+The GUI does not listen on all the network interfaces of the container. By default, it listens only on the container's own IP address in its Docker network: the address that Docker maps to the container hostname. Ports published with `-p` (or `ports:` in Docker Compose) are forwarded to this address, so the GUI is reachable from the host as shown above. Other interfaces that the container may have, such as a VPN interface when the node shares the network of a VPN client container, do not serve the GUI. The address in use is printed in the container logs: `[INFO] Node GUI listening on <address>:8484`.
+
+The listening address can be changed with the `FBM_GUI_HOST` environment variable:
+
+| `FBM_GUI_HOST` | GUI listens on | Reachable from the host through `-p` |
+| --- | --- | --- |
+| not set (default) | the container's IP address in its Docker network | yes |
+| `<ip-address>` | the given address of the container | if it is the address of the network the port is published on |
+| `127.0.0.1` | the container loopback only | no (only from inside the container, or with `--network host`) |
+| `0.0.0.0` | all interfaces, including VPN interfaces | yes (**not recommended**) |
+
+```bash
+docker run -it \
+    --name my-node \
+    -v <path-to-host-fbm-node>:/fbm-node \
+    -p 127.0.0.1:8484:8484 \
+    -e FBM_GUI_HOST=<ip-address> \
+    fedbiomed/node:latest
+```
+
+Set `FBM_GUI_HOST` explicitly in these cases:
+
+- **Container attached to several networks:** `/etc/hosts` maps the hostname to one address only. Give the container a fixed address on the network its GUI port is published on (for example `ipv4_address` in Docker Compose), and set `FBM_GUI_HOST` to it.
+- **`--network host`:** set `FBM_GUI_HOST=127.0.0.1`.
+- If the container address cannot be resolved (for example with `--network none`), the GUI falls back to `127.0.0.1` and a warning is printed in the container logs.
+
+!!! warning "Do not use `FBM_GUI_HOST=0.0.0.0` on shared networks"
+    With `0.0.0.0` the GUI listens on every interface of the container network, including a VPN interface. Any party that can reach the node on that network, such as other VPN peers or the VPN server, can then reach the GUI. Publishing the port on `127.0.0.1` on the host does not prevent this.
 
 If you are running multiple node containers, map each container's port `8484` to a different host port:
 
@@ -481,7 +518,7 @@ docker run -it --name node2 \
 ```
 
 !!! note "GUI starts with the node"
-    The GUI server is managed by supervisord inside the container and starts automatically with the node. There is no separate start command needed.
+    The GUI server is managed by supervisord inside the container and starts automatically with the node. There is no separate start command needed. Its listening address is set when the container starts: recreate the container to change `FBM_GUI_HOST`.
 
 ---
 

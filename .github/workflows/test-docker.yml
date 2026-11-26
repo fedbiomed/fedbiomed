@@ -2,41 +2,91 @@
 name: Fed-BioMed Docker Compatibility Tests
 run-name: Fed-BioMed Docker Compatibility Tests
 description: |
-  Builds the published docker images on every supported interpreter.
+  Tests of the docker images.
+  - build-smoke: builds the images on every supported interpreter (schedule, manual).
+  - image-tests: builds the base, node and researcher images and runs every
+    end-to-end test module in docker/tests (pull requests touching the images,
+    schedule, manual). New test modules there run without changing this file,
+    see docker/tests/README.md.
+
+  Manual run on any branch, with the runners to use as a JSON list (`os`):
+    GitHub UI: Actions > Fed-BioMed Docker Compatibility Tests > Run workflow,
+      choose the branch in "Use workflow from", then `suite`, `os` and
+      optionally `pytest-args`.
+    CLI:
+      gh workflow run test-docker.yml --ref <branch> \
+        -f suite=image-tests -f os='["ubuntu-latest"]'
+      gh workflow run test-docker.yml --ref <branch> \
+        -f suite=all -f os='["ubuntu-24.04","ubuntu-24.04-arm"]'
+      gh workflow run test-docker.yml --ref <branch> \
+        -f suite=image-tests -f pytest-args='-k gui'
+  Runners must provide Docker: GitHub-hosted macOS runners do not.
 
 on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - develop
+      - master
+    paths:
+      - "docker/**"
+      - "fedbiomed/node/cli.py"
+      - "fedbiomed_node_api/**"
+      - ".github/workflows/test-docker.yml"
   schedule:
     # Monday to Friday at 20:00 UTC.
     - cron: "0 20 * * 1-5"
   workflow_dispatch:
+    inputs:
+      suite:
+        description: "Docker tests to run"
+        type: choice
+        options:
+          - all
+          - image-tests
+          - build-smoke
+        default: all
+      os:
+        description: >-
+          JSON list of runner labels providing Docker, e.g. ["ubuntu-latest"]
+          or ["ubuntu-24.04","ubuntu-24.04-arm"]. GitHub-hosted macOS runners
+          have no Docker.
+        type: string
+        default: '["ubuntu-latest"]'
+      pytest-args:
+        description: >-
+          Extra pytest arguments for image-tests, e.g. "-k gui" or
+          "docker/tests/test_node_gui_access.py" to run a subset.
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   hosted-build-smoke:
-    name: Build smoke (ubuntu-latest, ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    name: Build smoke (${{ matrix.os }}, ${{ matrix.python-version }})
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.suite != 'image-tests')
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - python-version: "3.11"
-            python-tag: "311"
-          - python-version: "3.12"
-            python-tag: "312"
-          - python-version: "3.13"
-            python-tag: "313"
-          - python-version: "3.14"
-            python-tag: "314"
+        os: ${{ fromJSON(inputs.os || '["ubuntu-latest"]') }}
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
-      IMAGE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-py${{ matrix.python-tag }}
+      IMAGE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -75,3 +125,79 @@ jobs:
           docker image rm --force "fedbiomed/researcher:$IMAGE_TAG" \
             "fedbiomed/node:$IMAGE_TAG" "fedbiomed/base:$IMAGE_TAG" || true
 
+  image-tests:
+    name: Docker image tests (${{ matrix.os }})
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'pull_request' && !github.event.pull_request.draft) ||
+      (github.event_name == 'workflow_dispatch' && inputs.suite != 'build-smoke')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.os || '["ubuntu-latest"]') }}
+    env:
+      IMAGE_TAG: ci-e2e-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
+    steps:
+      - name: Check Docker
+        run: |
+          docker info --format 'Docker {{.ServerVersion}} on {{.OSType}}/{{.Architecture}}' || {
+            echo "::error::No Docker daemon on runner '${{ matrix.os }}'. Pick a runner that provides Docker."
+            exit 1
+          }
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build base image
+        run: |
+          docker build --tag "fedbiomed/base:$IMAGE_TAG" --file docker/base/Dockerfile .
+
+      - name: Build node and researcher images
+        run: |
+          for image in node researcher; do
+            docker build --build-arg "FBM_IMAGE_VERSION=$IMAGE_TAG" \
+              --tag "fedbiomed/$image:$IMAGE_TAG" --file "docker/$image/Dockerfile" .
+          done
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: python -m pip install pytest
+
+      - name: Run docker image tests
+        env:
+          FBM_BASE_IMAGE: fedbiomed/base:${{ env.IMAGE_TAG }}
+          FBM_NODE_IMAGE: fedbiomed/node:${{ env.IMAGE_TAG }}
+          FBM_RESEARCHER_IMAGE: fedbiomed/researcher:${{ env.IMAGE_TAG }}
+          # Passed through the environment, never expanded into the script.
+          PYTEST_ARGS: ${{ inputs.pytest-args }}
+        run: |
+          # PYTEST_ARGS is split into words on purpose (e.g. "-k gui").
+          # shellcheck disable=SC2086
+          python -m pytest -v -p no:cacheprovider \
+            -W ignore::pytest.PytestConfigWarning \
+            docker/tests $PYTEST_ARGS
+
+      - name: Show test containers
+        if: failure()
+        run: |
+          docker ps -a --filter label=fbm-docker-test=1
+          for c in $(docker ps -aq --filter label=fbm-docker-test=1); do
+            echo "::group::docker logs $c"
+            docker logs "$c" 2>&1 || true
+            echo "::endgroup::"
+          done
+
+      - name: Remove test resources and images
+        if: always()
+        run: |
+          docker ps -aq --filter label=fbm-docker-test=1 | xargs -r docker rm -f -v
+          docker network ls -q --filter label=fbm-docker-test=1 | xargs -r docker network rm
+          docker volume ls -q --filter label=fbm-docker-test=1 | xargs -r docker volume rm -f
+          docker image rm --force "fedbiomed/researcher:$IMAGE_TAG" \
+            "fedbiomed/node:$IMAGE_TAG" "fedbiomed/base:$IMAGE_TAG" || true
