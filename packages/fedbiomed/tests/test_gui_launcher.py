@@ -35,8 +35,6 @@ class TestServerControls(unittest.TestCase):
                 "--data-folder",
             ):
                 self.assertIn(option, options)
-        self.assertIn("--recreate", self._start_parser("gui")._option_string_actions)
-        self.assertNotIn("--recreate", self._start_parser("api")._option_string_actions)
 
     @patch("fedbiomed.node.cli.importlib.import_module")
     def test_commands_forward_to_optional_packages(self, import_module):

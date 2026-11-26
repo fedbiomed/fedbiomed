@@ -8,7 +8,6 @@ license = {text = "Apache 2.0"}
 
 dependencies = [
     "fedbiomed-node-api==6.5.1",
-    "hatchling",
 ]
 
 [project.scripts]
