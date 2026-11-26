@@ -1,5 +1,9 @@
 # Fed-BioMed changelog
 
+## 2026-11-26 version 6.5.1
+
+- Security fix (GHSA-86g6-36qm-vx82): the Node GUI in the `fedbiomed/node` Docker image no longer listens on all network interfaces. It listens on the container's own Docker-network address by default, so it stays reachable through published ports but not through other interfaces such as a VPN interface. The address can be changed with the `FBM_GUI_HOST` environment variable. See [Node GUI](./docs/user-guide/deployment/docker.md#node-gui).
+
 ## 2026-11-06 version 6.5.0
 
 - Introduce Mutual Authentication. The Node and Researcher now have to verify each other’s certificates in order to start communication.

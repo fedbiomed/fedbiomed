@@ -45,8 +45,33 @@ fi
 # Render supervisord config with actual user
 echo "Container user: ${FEDBIOMED_USER}"
 
+# Node GUI bind address (GHSA-86g6-36qm-vx82).
+# Never bind to all interfaces by default: when the container shares a VPN
+# client's network (e.g. `network_mode: service:wg-client`) that would expose
+# the GUI on the VPN interface too. By default, bind to the container's own
+# Docker-network IP (the IP Docker maps to the container hostname in
+# /etc/hosts), which `docker run -p` / compose `ports:` forward to.
+# FBM_GUI_HOST overrides it, e.g. 127.0.0.1 (container only) or 0.0.0.0.
+if [ -z "${FBM_GUI_HOST}" ]; then
+  FBM_GUI_HOST="$(getent ahostsv4 "$(hostname)" | awk 'NR==1{print $1}')"
+  case "${FBM_GUI_HOST}" in
+    ""|127.*)
+      echo "[WARNING] Could not resolve the container IP; Node GUI bound to 127.0.0.1" \
+           "(not reachable through published ports). Set FBM_GUI_HOST to change it."
+      FBM_GUI_HOST=127.0.0.1
+      ;;
+  esac
+fi
+export FBM_GUI_HOST
+echo "[INFO] Node GUI listening on ${FBM_GUI_HOST}:8484"
+if [ "${FBM_GUI_HOST}" = "0.0.0.0" ]; then
+  echo "[WARNING] Node GUI exposed on all interfaces (including VPN interfaces)." \
+       "Make sure it is not reachable by untrusted parties."
+fi
+
 echo "Creating supervisord conf for management node process"
-envsubst < /etc/supervisor/supervisord.conf.template > /etc/supervisor/supervisord.conf
+envsubst '${FEDBIOMED_USER} ${FBM_GUI_HOST}' \
+  < /etc/supervisor/supervisord.conf.template > /etc/supervisor/supervisord.conf
 
 # Overwrite node options file if re-launching container
 #   eg FBM_NODE_START_OPTIONS="--gpu-only" can be used for starting node forcing GPU usage
