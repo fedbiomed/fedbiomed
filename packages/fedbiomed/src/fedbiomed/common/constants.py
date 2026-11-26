@@ -441,7 +441,6 @@ class ErrorNumbers(_BaseEnum):
     FB628 = "FB628: Communication error"
     FB629 = "FB629: Diffie-Hellman KA error"
     FB630 = "FB630: Additive Secret Sharing error"
-    FB631 = "FB631: Node to node channels database error"
     FB632 = "FB632: Data handling error"
     FB633 = "FB633: Federated Analytics error"
     FB634 = "FB634: Database error"

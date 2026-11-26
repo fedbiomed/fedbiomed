@@ -13,7 +13,6 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 
-from fedbiomed.common.channel_manager import ChannelManager
 from fedbiomed.common.constants import (
     REQUEST_PREFIX,
     TIMEOUT_NODE_TO_NODE_REQUEST,
@@ -30,6 +29,7 @@ from fedbiomed.common.message import (
 )
 from fedbiomed.common.secagg import DHKey, DHKeyAgreement
 from fedbiomed.common.serializer import Serializer
+from fedbiomed.node.channel_manager import ChannelManager
 from fedbiomed.transport.controller import GrpcController
 
 _CHANNEL_SETUP_MESSAGES = (ChannelSetupRequest, ChannelSetupReply)
