@@ -133,3 +133,14 @@ class DlbEntry(DatabaseEntry):
 
     dlb_id: Mapped[str] = mapped_column(primary_key=True)
     content: Mapped[dict[str, Any]] = mapped_column(JSON)
+
+
+class ChannelEntry(DatabaseEntry):
+    """Key of the local end of a channel to another node."""
+
+    __tablename__ = "ChannelManager"
+    __sensitive_fields__ = ("local_key",)
+
+    distant_node_id: Mapped[str] = mapped_column(primary_key=True)
+    local_key: Mapped[bytes]
+    n2n_channel_version: Mapped[str]

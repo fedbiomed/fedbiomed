@@ -3,6 +3,7 @@ import pytest
 from fedbiomed.common.db import get_database
 from fedbiomed.common.exceptions import FedbiomedError
 from fedbiomed.node.db_entries import (
+    ChannelEntry,
     DatasetEntry,
     DlbEntry,
     DlpEntry,
@@ -19,7 +20,9 @@ def db_path(tmp_path):
 @pytest.fixture
 def database(db_path):
     database = get_database(db_path)
-    database.create_tables([DatasetEntry, DynamicDatasetEntry, DlpEntry, DlbEntry])
+    database.create_tables(
+        [DatasetEntry, DynamicDatasetEntry, DlpEntry, DlbEntry, ChannelEntry]
+    )
     return database
 
 
@@ -71,6 +74,15 @@ def _dlb(**kwargs):
     }
 
 
+def _channel(**kwargs):
+    return {
+        "distant_node_id": "node_2",
+        "local_key": b"\x00private key",
+        "n2n_channel_version": "1.0",
+        **kwargs,
+    }
+
+
 def _add(database, *entries):
     with database.transaction() as session:
         session.add_all(entries)
@@ -117,6 +129,7 @@ def test_dataset_id_is_generated_unless_given(model, data, prefix):
         (DynamicDatasetEntry, "d1", _dynamic_dataset(dataset_id="d1")),
         (DlpEntry, "dlp_1", _dlp()),
         (DlbEntry, "dlb_1", _dlb()),
+        (ChannelEntry, "node_2", _channel()),
     ],
 )
 def test_entry_round_trip(database, model, entry_id, data):
@@ -271,3 +284,15 @@ def test_dataset_with_derived_datasets_cannot_be_deleted(database, model, datase
     with pytest.raises(FedbiomedError, match="FB634.*FOREIGN KEY constraint failed"):
         with database.transaction() as session:
             session.execute(delete(model).where(model.dataset_id == dataset_id))
+
+
+def test_channel_local_key_is_not_logged(database, monkeypatch):
+    events = []
+    monkeypatch.setattr(
+        db_mod.logger, "security_event", lambda **fields: events.append(fields)
+    )
+
+    _add(database, ChannelEntry.from_dict(_channel()))
+
+    assert "local_key=<redacted>" in events[0]["db_args"]
+    assert "private key" not in events[0]["db_args"]
