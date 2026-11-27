@@ -31,7 +31,7 @@ jobs:
           import tomllib
           from pathlib import Path
 
-          # Validate tag format and extract target and version
+          # Validate the unified release tag.
           tag = os.environ["TAG"]
           match = re.fullmatch(
               r"v(\d+\.\d+\.\d+)",
@@ -84,7 +84,6 @@ jobs:
     name: Build all distributions
     needs: release-info
     runs-on: ubuntu-latest
-    environment: production
     permissions:
       contents: read
     steps:
@@ -126,10 +125,20 @@ jobs:
         with:
           name: fedbiomed-release-distributions
           path: dist/
+      - name: Select Core distributions
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(dist/fedbiomed-*.whl)
+          sdists=(dist/fedbiomed-*.tar.gz)
+          test "${#wheels[@]}" -eq 1
+          test "${#sdists[@]}" -eq 1
+          mkdir -p publish-dist
+          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: dist/
-          skip-existing: true
+          packages-dir: publish-dist/
 
   publish-api:
     name: Publish Node API
@@ -142,15 +151,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: fedbiomed-release-distributions
-          path: downloaded/
+          path: dist/
       - name: Select API distributions
+        shell: bash
         run: |
-          mkdir publish-dist
-          cp downloaded/fedbiomed_node_api-* publish-dist/
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(dist/fedbiomed_node_api-*.whl)
+          sdists=(dist/fedbiomed_node_api-*.tar.gz)
+          test "${#wheels[@]}" -eq 1
+          test "${#sdists[@]}" -eq 1
+          mkdir -p publish-dist
+          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: publish-dist/
-          skip-existing: true
 
   publish-ui:
     name: Publish Node UI
@@ -163,16 +178,21 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: fedbiomed-release-distributions
-          path: downloaded/
+          path: dist/
       - name: Select UI distributions
+        shell: bash
         run: |
           set -euo pipefail
-          mkdir publish-dist
-          cp downloaded/fedbiomed_gui-* publish-dist/
+          shopt -s nullglob
+          wheels=(dist/fedbiomed_gui-*.whl)
+          sdists=(dist/fedbiomed_gui-*.tar.gz)
+          test "${#wheels[@]}" -eq 1
+          test "${#sdists[@]}" -eq 1
+          mkdir -p publish-dist
+          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: publish-dist/
-          skip-existing: true
 
   release:
     name: Create GitHub Release
