@@ -291,6 +291,7 @@ class DatasetTypes(_BaseEnum):
     MEDNIST = "mednist"
     MEDICAL_FOLDER = "medical-folder"
     CUSTOM = "custom"
+    NIPOPPY = "nipoppy"
     NONE = "none"
 
     @staticmethod

@@ -66,6 +66,12 @@ $ fedbiomed node --path my-node dataset list
 
 It will return the datasets saved into the node created in the directory `./my-node`.
 
+!!! note "Updating a dataset"
+    When a dataset is registered, the node saves a description of it (e.g. its shape and columns), and researchers see
+    this description when they list datasets. If your data changes after registration, delete the dataset with
+    `fedbiomed node --path my-node dataset delete` and add it again with the same tags. For Nipoppy studies, this
+    includes every time you run a new pipeline: see [Nipoppy Dataset](../datasets/nipoppy-dataset.md#deploying-the-dataset).
+
 ## How to Add Another Dataset to the Same Node
 
 Nodes can store multiple datasets. You can follow the previous steps as many times as needed to add other datasets.

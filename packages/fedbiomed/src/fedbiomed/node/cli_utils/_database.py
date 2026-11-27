@@ -139,7 +139,7 @@ def add_database(
                         dataset_parameters, data_loading_plan, initialdir=initialdir
                     )
                 )
-            elif data_type == "custom":
+            elif data_type in ("nipoppy", "custom"):
                 while True:
                     abs_path = Path(input("Path to the dataset: ")).resolve()
                     if abs_path.exists():
@@ -183,6 +183,7 @@ def add_database(
             "images",
             "medical-folder",
             "custom",
+            "nipoppy",
         ):
             data_type = "default"
 
