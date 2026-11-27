@@ -1,61 +1,230 @@
 ---
 name: Deploy Fed-BioMed Package
-description: |
-  Publishes a tagged release to PyPI and opens the GitHub release. Both depend on
-  package-compatibility.yml, so a failing package check blocks publication.
+# Tests all three packages before publishing them in dependency order.
 on:
   push:
     tags:
-      - "*"
+      - "v*"
 
 permissions:
   contents: read
 
-jobs:
-  package-compatibility:
-    name: Build and test release package
-    uses: ./.github/workflows/package-compatibility.yml
-    permissions:
-      contents: read
+concurrency:
+  group: pypi-release-${{ github.ref }}
+  cancel-in-progress: false
 
-  publish:
-    name: upload release to PyPI
+jobs:
+  release-info:
     runs-on: ubuntu-latest
-    environment: production
-    needs: package-compatibility
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse and validate release tag and version
+        id: parse
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          # Validate the unified release tag.
+          tag = os.environ["TAG"]
+          match = re.fullmatch(
+              r"v(\d+\.\d+\.\d+)",
+              tag,
+          )
+          if not match:
+              raise SystemExit(f"Invalid release tag: {tag}")
+
+          expected_version = match.group(1)
+
+          with open("packages/fedbiomed/pyproject.toml", "rb") as f:
+              core = tomllib.load(f)["project"]
+
+          with open("packages/node-api/pyproject.toml", "rb") as f:
+              api = tomllib.load(f)["project"]
+
+          with open("packages/node-ui/pyproject.toml", "rb") as f:
+              ui = tomllib.load(f)["project"]
+
+          core_init = Path(
+              "packages/fedbiomed/src/fedbiomed/__init__.py"
+          ).read_text()
+
+          core_match = re.search(
+              r'^__version__\s*=\s*["\']v?(\d+\.\d+\.\d+)["\']',
+              core_init,
+              re.MULTILINE,
+          )
+          if not core_match:
+              raise SystemExit("Cannot determine core version")
+
+          versions = {
+              "fedbiomed": core_match.group(1),
+              "node-api": api["version"],
+              "node-ui": ui["version"],
+          }
+
+          for actual in versions.values():
+              if actual != expected_version:
+                  raise SystemExit(
+                      f"Tag {tag} expects unified version {expected_version}, "
+                      f"but package version is {actual}"
+                  )
+
+          internal = {"fedbiomed", "fedbiomed-node-api", "fedbiomed-gui"}
+          extras = core["optional-dependencies"]
+          for context, requirements, expected in (
+              ("Core", core["dependencies"], set()),
+              ("Core[node-api]", extras.get("node-api", []), {"fedbiomed-node-api"}),
+              ("Core[gui]", extras.get("gui", []), {"fedbiomed-gui"}),
+              ("API", api["dependencies"], {"fedbiomed"}),
+              ("GUI", ui["dependencies"], {"fedbiomed-node-api"}),
+              *(
+                  (f"Core[{extra}]", requirements, set())
+                  for extra, requirements in extras.items()
+                  if extra not in {"node-api", "gui"}
+              ),
+          ):
+              pins = []
+              for requirement in requirements:
+                  match = re.match(r"\s*([a-zA-Z0-9_.-]+)", requirement)
+                  if match and re.sub(r"[-_.]+", "-", match[1].lower()) in internal:
+                      pins.append(re.sub(r"\s+", "", requirement))
+              expected_pins = sorted(f"{name}=={expected_version}" for name in expected)
+              if sorted(pins) != expected_pins:
+                  raise SystemExit(f"{context}: expected {expected_pins}, found {pins}")
+
+          print(f"Validated release: {tag}")
+          PY
+
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  package-compatibility:
+    name: Build and test release distributions
+    needs: release-info
+    uses: ./.github/workflows/package-compatibility.yml
+
+  publish-core:
+    name: Publish Core
+    needs: [release-info, package-compatibility]
+    runs-on: ubuntu-latest
+    environment: testpypi
     permissions:
       id-token: write
+    env:
+      RELEASE_VERSION: ${{ needs.release-info.outputs.version }}
     steps:
-      - name: Download built files
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: fedbiomed-package
-          path: ./dist/
+          artifact-ids: ${{ needs.package-compatibility.outputs.artifact-id || 'missing-artifact-id' }}
+          path: dist/
+          merge-multiple: true
+      - name: Select Core distributions
+        shell: bash
+        run: |
+          mkdir publish-dist
+          cp "dist/fedbiomed-${RELEASE_VERSION}-py3-none-any.whl" \
+             "dist/fedbiomed-${RELEASE_VERSION}.tar.gz" publish-dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: publish-dist/
+          skip-existing: true
+          repository-url: https://test.pypi.org/legacy/
 
-      - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        # Uncomment for testing
-        # with:
-        #   repository-url: https://test.pypi.org/legacy/
+  publish-api:
+    name: Publish Node API
+    needs: [release-info, package-compatibility, publish-core]
+    runs-on: ubuntu-latest
+    environment: testpypi-api
+    permissions:
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ needs.release-info.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.package-compatibility.outputs.artifact-id || 'missing-artifact-id' }}
+          path: dist/
+          merge-multiple: true
+      - name: Select API distributions
+        shell: bash
+        run: |
+          mkdir publish-dist
+          cp "dist/fedbiomed_node_api-${RELEASE_VERSION}-py3-none-any.whl" \
+             "dist/fedbiomed_node_api-${RELEASE_VERSION}.tar.gz" publish-dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: publish-dist/
+          skip-existing: true
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-ui:
+    name: Publish Node UI
+    needs: [release-info, package-compatibility, publish-api]
+    runs-on: ubuntu-latest
+    environment: testpypi-gui
+    permissions:
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ needs.release-info.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.package-compatibility.outputs.artifact-id || 'missing-artifact-id' }}
+          path: dist/
+          merge-multiple: true
+      - name: Select UI distributions
+        shell: bash
+        run: |
+          mkdir publish-dist
+          cp "dist/fedbiomed_gui-${RELEASE_VERSION}-py3-none-any.whl" \
+             "dist/fedbiomed_gui-${RELEASE_VERSION}.tar.gz" publish-dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: publish-dist/
+          skip-existing: true
+          repository-url: https://test.pypi.org/legacy/
 
   release:
-    name: Release pushed tag
+    name: Create GitHub Release
+    needs: [release-info, publish-core, publish-api, publish-ui]
     runs-on: ubuntu-latest
-    needs: package-compatibility
+    if: ${{ false }}
+      # >-
+      # ${{
+      #   always() &&
+      #   needs.release-info.result == 'success' &&
+      #   needs.publish-core.result == 'success' &&
+      #   needs.publish-api.result == 'success' &&
+      #   needs.publish-ui.result == 'success'
+      # }}
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Extract latest changes
-        run: ./scripts/changelog
-
-      - name: Download built files
-        uses: actions/download-artifact@v4
-        with:
-          name: fedbiomed-package
-
-      - name: Make Github Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Fed-BioMed Release ${{ github.ref_name }}
-          body_path: ./latest_version_changes.txt
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+
+  documentation:
+    name: Deploy release documentation
+    needs: [release-info, release]
+    if: needs.release.result == 'success'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-and-deploy-documentation.yml
+    with:
+      version: ${{ needs.release-info.outputs.version }}
+      alias: latest
+    secrets: inherit

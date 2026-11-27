@@ -1,3 +1,10 @@
+## Resuming a partial PyPI release
+
+If a publish job fails, use **Re-run failed jobs** on the original release run.
+This reuses the successful compatibility job's artifact ID. PyPI skips
+distribution files that already exist and uploads the remaining files. Resume
+while the original artifact is still available, since re-running all jobs
+builds a new artifact.
 
 ## Self-Hosted Runner conf
 
@@ -32,6 +39,6 @@ initialisation it appends to `~/.bash_profile` must survive between jobs.
 
 ### Setup Python: action/setup-python self-hosted runner configuration
 
-Default github action for installing python version has some problems on self-hosted runners. Please visit https://github.com/actions/setup-python/blob/2f078955e4d0f34cc7a8b0108b2eb7bbe154438e/docs/advanced-usage.md#using-setup-python-with-a-self-hosted-runner to find our more about how to conifgure self hosted runner for setup python.
+Default github action for installing python version has some problems on self-hosted runners. Please visit https://github.com/actions/setup-python/blob/2f078955e4d0f34cc7a8b0108b2eb7bbe154438e/docs/advanced-usage.md#using-setup-python-with-a-self-hosted-runner to find our more about how to configure self hosted runner for setup python.
 
 Important information: Env variables created in this document has to be add in `actions-runner/.env` file.
