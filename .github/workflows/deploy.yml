@@ -1,7 +1,6 @@
 ---
 name: Deploy Fed-BioMed Package
-description: |
-  Publishes all three packages in dependency order, then opens the GitHub release.
+# Tests all three packages before publishing them in dependency order.
 on:
   push:
     tags:
@@ -9,6 +8,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: pypi-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release-info:
@@ -42,12 +45,14 @@ jobs:
 
           expected_version = match.group(1)
 
-          # Read versions from package metadata.
+          with open("packages/fedbiomed/pyproject.toml", "rb") as f:
+              core = tomllib.load(f)["project"]
+
           with open("packages/node-api/pyproject.toml", "rb") as f:
-              api_version = tomllib.load(f)["project"]["version"]
+              api = tomllib.load(f)["project"]
 
           with open("packages/node-ui/pyproject.toml", "rb") as f:
-              ui_version = tomllib.load(f)["project"]["version"]
+              ui = tomllib.load(f)["project"]
 
           core_init = Path(
               "packages/fedbiomed/src/fedbiomed/__init__.py"
@@ -63,8 +68,8 @@ jobs:
 
           versions = {
               "fedbiomed": core_match.group(1),
-              "node-api": api_version,
-              "node-ui": ui_version,
+              "node-api": api["version"],
+              "node-ui": ui["version"],
           }
 
           for actual in versions.values():
@@ -74,125 +79,117 @@ jobs:
                       f"but package version is {actual}"
                   )
 
+          internal = {"fedbiomed", "fedbiomed-node-api", "fedbiomed-gui"}
+          extras = core["optional-dependencies"]
+          for context, requirements, expected in (
+              ("Core", core["dependencies"], set()),
+              ("Core[node-api]", extras.get("node-api", []), {"fedbiomed-node-api"}),
+              ("Core[gui]", extras.get("gui", []), {"fedbiomed-gui"}),
+              ("API", api["dependencies"], {"fedbiomed"}),
+              ("GUI", ui["dependencies"], {"fedbiomed-node-api"}),
+              *(
+                  (f"Core[{extra}]", requirements, set())
+                  for extra, requirements in extras.items()
+                  if extra not in {"node-api", "gui"}
+              ),
+          ):
+              pins = []
+              for requirement in requirements:
+                  match = re.match(r"\s*([a-zA-Z0-9_.-]+)", requirement)
+                  if match and re.sub(r"[-_.]+", "-", match[1].lower()) in internal:
+                      pins.append(re.sub(r"\s+", "", requirement))
+              expected_pins = sorted(f"{name}=={expected_version}" for name in expected)
+              if sorted(pins) != expected_pins:
+                  raise SystemExit(f"{context}: expected {expected_pins}, found {pins}")
+
           print(f"Validated release: {tag}")
           PY
 
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-  build-packages:
-    name: Build all distributions
+  package-compatibility:
+    name: Build and test release distributions
     needs: release-info
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade build twine
-          npm install --global yarn@1.22.22
-      - name: Build packages
-        run: |
-          mkdir -p dist
-          python -m build --wheel --sdist packages/fedbiomed --outdir dist
-          python -m build --wheel --sdist packages/node-api --outdir dist
-          python -m build --wheel --sdist packages/node-ui --outdir dist
-          python -m twine check dist/*
-          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 3
-          test "$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l)" -eq 3
-      - uses: actions/upload-artifact@v4
-        with:
-          name: fedbiomed-release-distributions
-          path: dist/
-          if-no-files-found: error
+    uses: ./.github/workflows/package-compatibility.yml
 
   publish-core:
     name: Publish Core
-    needs: build-packages
+    needs: [release-info, package-compatibility]
     runs-on: ubuntu-latest
     environment: production
     permissions:
       id-token: write
+    env:
+      RELEASE_VERSION: ${{ needs.release-info.outputs.version }}
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: fedbiomed-release-distributions
+          artifact-ids: ${{ needs.package-compatibility.outputs.artifact-id || 'missing-artifact-id' }}
           path: dist/
+          merge-multiple: true
       - name: Select Core distributions
         shell: bash
         run: |
-          set -euo pipefail
-          shopt -s nullglob
-          wheels=(dist/fedbiomed-*.whl)
-          sdists=(dist/fedbiomed-*.tar.gz)
-          test "${#wheels[@]}" -eq 1
-          test "${#sdists[@]}" -eq 1
-          mkdir -p publish-dist
-          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
+          mkdir publish-dist
+          cp "dist/fedbiomed-${RELEASE_VERSION}-py3-none-any.whl" \
+             "dist/fedbiomed-${RELEASE_VERSION}.tar.gz" publish-dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: publish-dist/
+          skip-existing: true
 
   publish-api:
     name: Publish Node API
-    needs: publish-core
+    needs: [release-info, package-compatibility, publish-core]
     runs-on: ubuntu-latest
     environment: production
     permissions:
       id-token: write
+    env:
+      RELEASE_VERSION: ${{ needs.release-info.outputs.version }}
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: fedbiomed-release-distributions
+          artifact-ids: ${{ needs.package-compatibility.outputs.artifact-id || 'missing-artifact-id' }}
           path: dist/
+          merge-multiple: true
       - name: Select API distributions
         shell: bash
         run: |
-          set -euo pipefail
-          shopt -s nullglob
-          wheels=(dist/fedbiomed_node_api-*.whl)
-          sdists=(dist/fedbiomed_node_api-*.tar.gz)
-          test "${#wheels[@]}" -eq 1
-          test "${#sdists[@]}" -eq 1
-          mkdir -p publish-dist
-          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
+          mkdir publish-dist
+          cp "dist/fedbiomed_node_api-${RELEASE_VERSION}-py3-none-any.whl" \
+             "dist/fedbiomed_node_api-${RELEASE_VERSION}.tar.gz" publish-dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: publish-dist/
+          skip-existing: true
 
   publish-ui:
     name: Publish Node UI
-    needs: publish-api
+    needs: [release-info, package-compatibility, publish-api]
     runs-on: ubuntu-latest
     environment: production
     permissions:
       id-token: write
+    env:
+      RELEASE_VERSION: ${{ needs.release-info.outputs.version }}
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: fedbiomed-release-distributions
+          artifact-ids: ${{ needs.package-compatibility.outputs.artifact-id || 'missing-artifact-id' }}
           path: dist/
+          merge-multiple: true
       - name: Select UI distributions
         shell: bash
         run: |
-          set -euo pipefail
-          shopt -s nullglob
-          wheels=(dist/fedbiomed_gui-*.whl)
-          sdists=(dist/fedbiomed_gui-*.tar.gz)
-          test "${#wheels[@]}" -eq 1
-          test "${#sdists[@]}" -eq 1
-          mkdir -p publish-dist
-          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
+          mkdir publish-dist
+          cp "dist/fedbiomed_gui-${RELEASE_VERSION}-py3-none-any.whl" \
+             "dist/fedbiomed_gui-${RELEASE_VERSION}.tar.gz" publish-dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: publish-dist/
+          skip-existing: true
 
   release:
     name: Create GitHub Release
