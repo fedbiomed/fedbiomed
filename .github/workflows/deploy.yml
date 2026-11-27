@@ -1,15 +1,11 @@
 ---
 name: Deploy Fed-BioMed Package
 description: |
-  Publishes a tagged release to PyPI and opens the GitHub release. Both depend on
-  package-compatibility.yml, so a failing package check blocks publication.
+  Publishes all three packages in dependency order, then opens the GitHub release.
 on:
   push:
     tags:
-      - "fedbiomed/v*"
-      - "node-api/v*"
-      - "node-ui/v*"
-      - "stack/v*"
+      - "v*"
 
 permissions:
   contents: read
@@ -18,7 +14,6 @@ jobs:
   release-info:
     runs-on: ubuntu-latest
     outputs:
-      target: ${{ steps.parse.outputs.target }}
       version: ${{ steps.parse.outputs.version }}
     steps:
       - uses: actions/checkout@v4
@@ -39,13 +34,13 @@ jobs:
           # Validate tag format and extract target and version
           tag = os.environ["TAG"]
           match = re.fullmatch(
-              r"(fedbiomed|node-api|node-ui|stack)/v(\d+\.\d+\.\d+)",
+              r"v(\d+\.\d+\.\d+)",
               tag,
           )
           if not match:
               raise SystemExit(f"Invalid release tag: {tag}")
 
-          target, expected_version = match.groups()
+          expected_version = match.group(1)
 
           # Read versions from package metadata.
           with open("packages/node-api/pyproject.toml", "rb") as f:
@@ -72,241 +67,139 @@ jobs:
               "node-ui": ui_version,
           }
 
-          # Validate that all versions have the same major version
-          majors = {version.split(".")[0] for version in versions.values()}
-          if len(majors) != 1:
-              raise SystemExit(f"Major version mismatch: {versions}")
-
-          selected = (
-              versions.values()
-              if target == "stack"
-              else [versions[target]]
-          )
-
-          # Validate that the selected version matches the expected version from the tag
-          for actual in selected:
+          for actual in versions.values():
               if actual != expected_version:
                   raise SystemExit(
-                      f"Tag {tag} expects {expected_version}, "
+                      f"Tag {tag} expects unified version {expected_version}, "
                       f"but package version is {actual}"
                   )
 
           print(f"Validated release: {tag}")
           PY
 
-          TARGET="${TAG%%/*}"
-          VERSION="${TAG#*/v}"
-
-          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-  package-compatibility:
+  build-packages:
+    name: Build all distributions
     needs: release-info
-    name: Build and test release package
-    uses: ./.github/workflows/package-compatibility.yml
-    permissions:
-      contents: read          
-
-  # Independent release: publish ONLY the selected distribution.
-  publish-single:
-    name: Publish selected package
-    needs: [release-info, package-compatibility]
-    if: needs.release-info.outputs.target != 'stack'
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
-      id-token: write
-
     steps:
-      - name: Download tested distributions
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          name: fedbiomed-package
-          path: dist/
-
-      - name: Select distribution
-        shell: bash
-        env:
-          TARGET: ${{ needs.release-info.outputs.target }}
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install build tools
         run: |
-          set -euo pipefail
-          shopt -s nullglob
-
-          case "$TARGET" in
-            fedbiomed) PREFIX="fedbiomed" ;;
-            node-api)  PREFIX="fedbiomed_node_api" ;;
-            node-ui)   PREFIX="fedbiomed_gui" ;;
-            *) echo "Invalid target: $TARGET" >&2; exit 1 ;;
-          esac
-
-          wheels=(dist/"${PREFIX}"-*.whl)
-          sdists=(dist/"${PREFIX}"-*.tar.gz)
-
-          test "${#wheels[@]}" -eq 1
-          test "${#sdists[@]}" -eq 1
-
-          mkdir -p publish-dist
-          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
-
-          ls -lh publish-dist/
-
-      - name: Publish selected distribution
-        uses: pypa/gh-action-pypi-publish@release/v1
+          python -m pip install --upgrade build twine
+          npm install --global yarn@1.22.22
+      - name: Build packages
+        run: |
+          mkdir -p dist
+          python -m build --wheel --sdist packages/fedbiomed --outdir dist
+          python -m build --wheel --sdist packages/node-api --outdir dist
+          python -m build --wheel --sdist packages/node-ui --outdir dist
+          python -m twine check dist/*
+          test "$(find dist -maxdepth 1 -name '*.whl' | wc -l)" -eq 3
+          test "$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l)" -eq 3
+      - uses: actions/upload-artifact@v4
         with:
-          packages-dir: publish-dist/
+          name: fedbiomed-release-distributions
+          path: dist/
+          if-no-files-found: error
 
-  # Coordinated MAJOR release: Core -> API -> GUI.
-  publish-stack-core:
-    name: Publish stack - Core
-    needs: [release-info, package-compatibility]
-    if: needs.release-info.outputs.target == 'stack'
+  publish-core:
+    name: Publish Core
+    needs: build-packages
     runs-on: ubuntu-latest
     environment: production
     permissions:
-      contents: read
       id-token: write
-
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: fedbiomed-package
+          name: fedbiomed-release-distributions
           path: dist/
-
-      - name: Select Core distributions
-        shell: bash
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          wheels=(dist/fedbiomed-*.whl)
-          sdists=(dist/fedbiomed-*.tar.gz)
-          test "${#wheels[@]}" -eq 1
-          test "${#sdists[@]}" -eq 1
-          mkdir -p publish-dist
-          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
-
-      - name: Publish Core
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: publish-dist/
+          packages-dir: dist/
+          skip-existing: true
 
-  publish-stack-api:
-    name: Publish stack - Node API
-    needs: [release-info, publish-stack-core]
-    if: needs.release-info.outputs.target == 'stack'
+  publish-api:
+    name: Publish Node API
+    needs: publish-core
     runs-on: ubuntu-latest
     environment: production
     permissions:
-      contents: read
       id-token: write
-
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: fedbiomed-package
-          path: dist/
-
+          name: fedbiomed-release-distributions
+          path: downloaded/
       - name: Select API distributions
-        shell: bash
         run: |
-          set -euo pipefail
-          shopt -s nullglob
-          wheels=(dist/fedbiomed_node_api-*.whl)
-          sdists=(dist/fedbiomed_node_api-*.tar.gz)
-          test "${#wheels[@]}" -eq 1
-          test "${#sdists[@]}" -eq 1
-          mkdir -p publish-dist
-          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
-
-      - name: Publish Node API
-        uses: pypa/gh-action-pypi-publish@release/v1
+          mkdir publish-dist
+          cp downloaded/fedbiomed_node_api-* publish-dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: publish-dist/
+          skip-existing: true
 
-  publish-stack-gui:
-    name: Publish stack - GUI
-    needs: [release-info, publish-stack-api]
-    if: needs.release-info.outputs.target == 'stack'
+  publish-ui:
+    name: Publish Node UI
+    needs: publish-api
     runs-on: ubuntu-latest
     environment: production
     permissions:
-      contents: read
       id-token: write
-
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: fedbiomed-package
-          path: dist/
-
-      - name: Select GUI distributions
-        shell: bash
+          name: fedbiomed-release-distributions
+          path: downloaded/
+      - name: Select UI distributions
         run: |
           set -euo pipefail
-          shopt -s nullglob
-          wheels=(dist/fedbiomed_gui-*.whl)
-          sdists=(dist/fedbiomed_gui-*.tar.gz)
-          test "${#wheels[@]}" -eq 1
-          test "${#sdists[@]}" -eq 1
-          mkdir -p publish-dist
-          cp "${wheels[0]}" "${sdists[0]}" publish-dist/
-
-      - name: Publish GUI
-        uses: pypa/gh-action-pypi-publish@release/v1
+          mkdir publish-dist
+          cp downloaded/fedbiomed_gui-* publish-dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: publish-dist/
+          skip-existing: true
 
-  # Create release only after the relevant PyPI publication succeeds.
   release:
     name: Create GitHub Release
+    needs: [release-info, publish-core, publish-api, publish-ui]
     runs-on: ubuntu-latest
-    needs:
-      - release-info
-      - package-compatibility
-      - publish-single
-      - publish-stack-gui
-
     if: >-
       ${{
         always() &&
         needs.release-info.result == 'success' &&
-        needs.package-compatibility.result == 'success' &&
-        (
-          (
-            needs.release-info.outputs.target != 'stack' &&
-            needs.publish-single.result == 'success'
-          ) ||
-          (
-            needs.release-info.outputs.target == 'stack' &&
-            needs.publish-stack-gui.result == 'success'
-          )
-        )
+        needs.publish-core.result == 'success' &&
+        needs.publish-api.result == 'success' &&
+        needs.publish-ui.result == 'success'
       }}
-
     permissions:
       contents: write
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
           generate_release_notes: true
 
-  # Documentation is deployed only after a successful Core/stack release.
   documentation:
     name: Deploy release documentation
     needs: [release-info, release]
-    if: >-
-      ${{
-        needs.release.result == 'success' &&
-        (
-          needs.release-info.outputs.target == 'fedbiomed' ||
-          needs.release-info.outputs.target == 'stack'
-        )
-      }}
+    if: needs.release.result == 'success'
     permissions:
       contents: read
     uses: ./.github/workflows/build-and-deploy-documentation.yml

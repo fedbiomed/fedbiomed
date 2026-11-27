@@ -90,12 +90,10 @@ jobs:
 
           git fetch --tags
 
-          if git rev-parse "refs/tags/fedbiomed/v${VERSION}" >/dev/null 2>&1; then
-            git checkout "fedbiomed/v${VERSION}"
-          elif git rev-parse "refs/tags/stack/v${VERSION}" >/dev/null 2>&1; then
-            git checkout "stack/v${VERSION}"
+          if git rev-parse "refs/tags/v${VERSION}" >/dev/null 2>&1; then
+            git checkout "v${VERSION}"
           else
-            echo "No matching core or stack release tag for $VERSION" >&2
+            echo "No matching unified release tag for $VERSION" >&2
             exit 1
           fi
 
