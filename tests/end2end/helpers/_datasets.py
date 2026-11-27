@@ -43,6 +43,44 @@ def generate_controlled_analytics_dataset():
     return p1, p2
 
 
+def generate_fedcombat_dataset():
+    """One CSV per site, following the ComBat model, as in the FedComBat tutorial.
+
+    Phenotypes `CDRSB.bl` and `RAVLT.forgetting.bl` depend on covariates `SEX`,
+    `AGE` and `PTEDUCAT`, plus a site effect: site 2 is shifted by +5 and -5,
+    and its noise is twice as large.
+
+    Returns:
+        Tuple (path_site1, path_site2).
+    """
+    path = get_data_folder("fedcombat-e2e")
+    paths = (os.path.join(path, "site1.csv"), os.path.join(path, "site2.csv"))
+
+    if all(os.path.isfile(p) for p in paths):
+        return paths
+
+    rng = np.random.default_rng(123)
+    intercept = rng.normal(size=2)
+    biological_effect = rng.normal(scale=0.5, size=(3, 2))
+    for out_path, shift, noise_scale in zip(
+        paths, ([0, 0], [5, -5]), (1, 2), strict=True
+    ):
+        covariates = rng.normal(size=(300, 3))
+        noise = rng.normal(scale=0.3, size=(300, 2))
+        phenotypes = (
+            intercept + covariates @ biological_effect + shift + noise_scale * noise
+        )
+        np.savetxt(
+            out_path,
+            np.column_stack([covariates, phenotypes]),
+            delimiter=",",
+            header="SEX,AGE,PTEDUCAT,CDRSB.bl,RAVLT.forgetting.bl",
+            comments="",
+        )
+
+    return paths
+
+
 def generate_sklearn_classification_dataset():
     """Generate testing data"""
 

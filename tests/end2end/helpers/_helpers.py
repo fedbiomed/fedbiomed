@@ -9,14 +9,15 @@ import multiprocessing
 import os
 import shutil
 import subprocess
-import tempfile
 import threading
+import time
 import uuid
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple
 
 if TYPE_CHECKING:
     from fedbiomed.researcher.federated_workflows import Experiment
+    from fedbiomed.researcher.requests import Requests
 
 from fedbiomed.common.config import Config
 from fedbiomed.common.constants import ComponentType
@@ -57,19 +58,60 @@ class PytestThread(threading.Thread):
             raise self.exception
 
 
-def add_dataset_to_node(config: Config, dataset: dict) -> bool:
-    """Adds given dataset using given configuration of the node"""
+def run_node_cli(
+    config: Config, *args: str, stdin: str | None = None
+) -> subprocess.CompletedProcess:
+    """Runs `fedbiomed node` on the node of `config`, output and errors together.
 
-    tempdir_ = tempfile.TemporaryDirectory()
-    d_file = os.path.join(tempdir_.name, "dataset.json")
-    with open(d_file, "w", encoding="UTF-8") as file:
+    Unlike `fedbiomed_run`, a failing command does not end the session, so tests
+    can check what the CLI refuses.
+    """
+    command = ["fedbiomed", "node", "--path", config.root, *args]
+    print(f"Executing command: {' '.join(command)}")
+    result = subprocess.run(
+        command,
+        input=stdin,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=600,
+    )
+    print(result.stdout)
+    return result
+
+
+def add_dataset_to_node(
+    config: Config, dataset: dict, check: bool = True
+) -> subprocess.CompletedProcess:
+    """Registers a dataset on the node with `dataset add --file`.
+
+    With `check`, a refused dataset fails the test with the CLI output.
+    """
+    # In the node folder, removed with the node
+    description = os.path.join(config.root, f"dataset_{uuid.uuid4()}.json")
+    with open(description, "w", encoding="UTF-8") as file:
         json.dump(dataset, file)
 
-    command = ["node", "--path", config.root, "dataset", "add", "--file", d_file]
-    _ = fedbiomed_run(command, wait=True, on_failure=default_on_failure)
-    tempdir_.cleanup()
+    result = run_node_cli(config, "dataset", "add", "--file", description)
+    if check:
+        assert result.returncode == 0, f"Dataset not added:\n{result.stdout}"
+    return result
 
-    return True
+
+def researcher_requests(node_ids: List[str], timeout: float = 60) -> "Requests":
+    """The researcher's `Requests`, once every given node answers it."""
+    # Imported here, as in `create_researcher`: the config module initiates the
+    # researcher on import
+    from fedbiomed.researcher.config import config
+    from fedbiomed.researcher.requests import Requests
+
+    requests = Requests(config=config)
+    deadline = time.monotonic() + timeout
+    while missing := set(node_ids) - set(requests.list()):
+        if time.monotonic() > deadline:
+            raise End2EndError(f"Nodes not answering after {timeout}s: {missing}")
+        time.sleep(2)
+    return requests
 
 
 def default_on_failure(process: subprocess.Popen):
