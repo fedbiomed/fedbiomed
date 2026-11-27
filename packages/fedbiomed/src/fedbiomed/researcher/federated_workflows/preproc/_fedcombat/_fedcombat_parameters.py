@@ -267,7 +267,7 @@ class _FedCombatParameters:
 
         s_bar_2 = torch.clamp(s_bar_2, min=1e-8)  # avoid near-zero values
 
-        lambda_bar_i = (v_bar + 2 * s_bar_2) / s_bar_2
+        lambda_bar_i = (v_bar**2 + 2 * s_bar_2) / s_bar_2
         theta_bar_i = (v_bar**3 + v_bar * s_bar_2) / s_bar_2
 
         return {
