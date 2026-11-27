@@ -270,3 +270,32 @@ def test_population_std_from_sample_variance_full_branch_coverage():
     assert math.isnan(result["n_le_zero"])
     assert result["n_eq_one"] == 0.0
     assert math.isclose(result["n_gt_one"], math.sqrt(4.0 * 4.0 / 5.0), rel_tol=1e-12)
+
+
+def test_compute_residual_parameters_inverse_gamma_moments(fedcombat_params):
+    """Verify lambda_bar_i and theta_bar_i match the Inverse-Gamma method-of-moments equations."""
+    gamma_hat_ig = torch.tensor([[0.0, 1.0], [2.0, 3.0]], dtype=torch.float64)
+    delta_hat_ig = torch.tensor([[1.0, 4.0], [3.0, 6.0]], dtype=torch.float64)
+
+    result, node_result = fedcombat_params._compute_residual_parameters(
+        gamma_hat_ig=gamma_hat_ig,
+        delta_hat_ig=delta_hat_ig,
+        standardize_result=True,
+    )
+
+    assert node_result == {}
+
+    v_bar = delta_hat_ig.mean(0)  # [2.0, 5.0]
+    s_bar_2 = delta_hat_ig.var(0)  # [2.0, 2.0]
+    expected_lambda = (v_bar**2 + 2 * s_bar_2) / s_bar_2
+    expected_theta = (v_bar**3 + v_bar * s_bar_2) / s_bar_2
+
+    lam = result["lambda_bar_i"]
+    theta = result["theta_bar_i"]
+    assert torch.allclose(lam, expected_lambda)
+    assert torch.allclose(theta, expected_theta)
+
+    # Inverse-Gamma(lambda, theta) mean is theta / (lambda - 1) == v_bar
+    # and variance is theta**2 / ((lambda - 1)**2 * (lambda - 2)) == s_bar_2.
+    assert torch.allclose(theta / (lam - 1), v_bar)
+    assert torch.allclose(theta**2 / ((lam - 1) ** 2 * (lam - 2)), s_bar_2)
