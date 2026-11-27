@@ -451,12 +451,9 @@ class OverlayChannel:
             Inner message retrieved from overlay payload
 
         Raises:
-            FedbiomedNodeToNodeError: bad message type
-            FedbiomedNodeToNodeError: malformed channel setup payload
-            FedbiomedNodeToNodeError: cannot decrypt application payload
-            FedbiomedNodeToNodeError: bad inner payload format
-            FedbiomedNodeToNodeError: cannot verify payload integrity
-            FedbiomedNodeToNodeError: sender/dest node ID don't match in overlay and inner message
+            FedbiomedNodeToNodeError: bad message type, malformed or undecryptable
+                payload, failed signature check, or node IDs differing between the
+                overlay and the inner message
         """
         # robustify from developer error (try to encapsulate a bad message type)
         if not isinstance(overlay_msg, OverlayMessage):
@@ -465,8 +462,9 @@ class OverlayChannel:
             )
 
         logger.debug(
-            f"Formatting incoming overlay message: node_id={self._node_id} src_node_id={overlay_msg.node_id} "
-            f"dest_node_id={overlay_msg.dest_node_id} setup={overlay_msg.setup} payload_bytes={len(overlay_msg.overlay)}"
+            f"Formatting incoming overlay message: node_id={self._node_id} "
+            f"src_node_id={overlay_msg.node_id} dest_node_id={overlay_msg.dest_node_id} "
+            f"setup={overlay_msg.setup} payload_bytes={len(overlay_msg.overlay)}"
         )
 
         if overlay_msg.setup:
@@ -475,69 +473,49 @@ class OverlayChannel:
                     f"{ErrorNumbers.FB324.value}: plaintext channel setup message "
                     "must not contain encryption parameters"
                 )
+            # TypeError: not a dict; KeyError: missing field; ValueError: no message type
             try:
-                setup_payload = Serializer.loads(overlay_msg.overlay)
-            except (TypeError, ValueError) as e:
+                inner_msg = Message.from_dict(Serializer.loads(overlay_msg.overlay))
+            except (TypeError, ValueError, KeyError) as e:
                 raise FedbiomedNodeToNodeError(
                     f"{ErrorNumbers.FB324.value}: malformed plaintext channel setup "
-                    f"payload: {e}"
+                    f"payload: {e!r}"
                 ) from e
-            if not isinstance(setup_payload, dict):
-                raise FedbiomedNodeToNodeError(
-                    f"{ErrorNumbers.FB324.value}: plaintext channel setup payload "
-                    "is not a dictionary"
-                )
-            try:
-                inner_msg = Message.from_dict(setup_payload)
-            except KeyError as e:
-                raise FedbiomedNodeToNodeError(
-                    f"{ErrorNumbers.FB324.value}: malformed plaintext channel setup "
-                    f"payload: missing field {e}"
-                ) from e
-
             if not isinstance(inner_msg, _CHANNEL_SETUP_MESSAGES):
                 raise FedbiomedNodeToNodeError(
                     f"{ErrorNumbers.FB324.value}: invalid channel setup message "
                     f"type {inner_msg.__name__}"
                 )
         else:
-            (
-                _,
-                distant_node_public_key,
-                derived_key,
-            ) = await self._setup_or_use_channel_keys(
-                overlay_msg.node_id,
-                overlay_msg.researcher_id,
-                overlay_msg.salt,
+            _, distant_key, derived_key = await self._setup_or_use_channel_keys(
+                overlay_msg.node_id, overlay_msg.researcher_id, overlay_msg.salt
             )
 
-            # decrypt outer payload
+            # decrypt outer payload; a wrong key yields bytes that do not deserialize
             try:
                 decryptor = Cipher(
                     algorithms.ChaCha20(derived_key, overlay_msg.nonce),
                     mode=None,
                     backend=default_backend(),
                 ).decryptor()
-                decrypted_serial = (
+                decrypted = Serializer.loads(
                     decryptor.update(overlay_msg.overlay) + decryptor.finalize()
                 )
-            except ValueError as e:
+            except (TypeError, ValueError) as e:
                 raise FedbiomedNodeToNodeError(
-                    f"{ErrorNumbers.FB324.value}: cannot decrypt payload: {e}"
+                    f"{ErrorNumbers.FB324.value}: cannot decrypt payload: {e!r}"
                 ) from e
 
-            decrypted = Serializer.loads(decrypted_serial)
-            if not isinstance(decrypted, dict) or not set(
-                ("message", "signature")
-            ) <= set(decrypted):
+            payload_keys = {"message", "signature"}
+            if not isinstance(decrypted, dict) or not payload_keys <= decrypted.keys():
                 raise FedbiomedNodeToNodeError(
                     f"{ErrorNumbers.FB324.value}: bad inner payload format "
-                    f"in received message"
+                    "in received message"
                 )
 
             # verify inner payload
             try:
-                distant_node_public_key.public_key.verify(
+                distant_key.public_key.verify(
                     decrypted["signature"],
                     Serializer.dumps(decrypted["message"]),
                     ec.ECDSA(hashes.SHA256()),
@@ -549,23 +527,26 @@ class OverlayChannel:
 
             inner_msg = Message.from_dict(decrypted["message"])
 
-        # Node ID mismatch reveals either (1) malicious peer forging message (2) application internal error
+        # Node ID mismatch: a peer forging the message, or an internal error
         if inner_msg.node_id != overlay_msg.node_id:
             raise FedbiomedNodeToNodeError(
-                f"{ErrorNumbers.FB324.value}: Source node ID mismatch for overlay message "
-                f"inner_node_id={inner_msg.node_id} overlay_node_id={overlay_msg.node_id}"
+                f"{ErrorNumbers.FB324.value}: Source node ID mismatch for overlay "
+                f"message inner_node_id={inner_msg.node_id} "
+                f"overlay_node_id={overlay_msg.node_id}"
             )
         if inner_msg.dest_node_id != overlay_msg.dest_node_id:
             raise FedbiomedNodeToNodeError(
-                f"{ErrorNumbers.FB324.value}: Destination node ID mismatch for overlay message "
-                f"inner_node_id={inner_msg.dest_node_id} overlay_node_id={overlay_msg.dest_node_id}"
+                f"{ErrorNumbers.FB324.value}: Destination node ID mismatch for overlay "
+                f"message inner_node_id={inner_msg.dest_node_id} "
+                f"overlay_node_id={overlay_msg.dest_node_id}"
             )
 
         logger.debug(
-            f"Validated incoming overlay message: node_id={self._node_id} src_node_id={overlay_msg.node_id} "
-            f"type={inner_msg.__name__} request_id={getattr(inner_msg, 'request_id', None)} setup={overlay_msg.setup}"
+            f"Validated incoming overlay message: node_id={self._node_id} "
+            f"src_node_id={overlay_msg.node_id} type={inner_msg.__name__} "
+            f"request_id={getattr(inner_msg, 'request_id', None)} "
+            f"setup={overlay_msg.setup}"
         )
-
         return inner_msg
 
     async def send_node_setup(

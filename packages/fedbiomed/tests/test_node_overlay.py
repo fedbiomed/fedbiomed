@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -215,7 +216,7 @@ class TestNodeRequestsOverlayChannel(
         self.db = os.path.join(self.temp_dir.name, "test.json")
 
         self.overlay_channel = OverlayChannel(
-            self.db, "test-node-id", self.grpc_controller_mock
+            node_id="test-node-id", db=self.db, grpc_client=self.grpc_controller_mock
         )
         self.private_key = DHKey()
         self.public_key = DHKey(public_key_pem=self.private_key.export_public_key())
@@ -548,6 +549,92 @@ class TestNodeRequestsOverlayChannel(
 
         with self.assertRaises(FedbiomedNodeToNodeError):
             await self.overlay_channel.format_incoming_overlay(overlay_message)
+
+
+@pytest.fixture
+def overlay_channel(mocker, tmp_path):
+    mocker.patch("fedbiomed.node.requests._overlay.ChannelManager", autospec=True)
+    return OverlayChannel(
+        node_id="node-2",
+        db=str(tmp_path / "node.db"),
+        grpc_client=MagicMock(spec=GrpcController),
+    )
+
+
+def _overlay_message(overlay: bytes, setup: bool, nonce: bytes = b"") -> OverlayMessage:
+    return OverlayMessage(
+        researcher_id="researcher",
+        node_id="node-1",
+        dest_node_id="node-2",
+        overlay=overlay,
+        setup=setup,
+        salt=b"salt" if not setup else b"",
+        nonce=nonce,
+    )
+
+
+def _setup_request_without_protocol_version() -> dict:
+    payload = ChannelSetupRequest(
+        node_id="node-1", dest_node_id="node-2", request_id="request-1"
+    ).to_dict()
+    del payload["protocol_version"]
+    return payload
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload, error",
+    [
+        ([1, 2], "not a mapping"),
+        (_setup_request_without_protocol_version(), "KeyError.*protocol_version"),
+        ({"node_id": "node-1"}, "does not include valid '__type_message__'"),
+        (
+            KeyRequest(
+                node_id="node-1",
+                dest_node_id="node-2",
+                request_id="request-1",
+                secagg_id="secagg-1",
+            ).to_dict(),
+            "invalid channel setup message type KeyRequest",
+        ),
+    ],
+    ids=["not-a-dict", "missing-field", "no-message-type", "not-a-setup-message"],
+)
+async def test_plaintext_setup_rejects_invalid_payload(overlay_channel, payload, error):
+    message = _overlay_message(Serializer.dumps(payload), setup=True)
+
+    with pytest.raises(FedbiomedNodeToNodeError, match=error):
+        await overlay_channel.format_incoming_overlay(message)
+
+
+def _encrypt(payload: bytes, key: bytes, nonce: bytes) -> bytes:
+    encryptor = Cipher(
+        algorithms.ChaCha20(key, nonce), mode=None, backend=default_backend()
+    ).encryptor()
+    return encryptor.update(payload) + encryptor.finalize()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "overlay, nonce",
+    [
+        # ChaCha20 needs a 16-byte nonce
+        (b"payload", b"short"),
+        # 0xc1 is never used in MsgPack
+        (_encrypt(b"\xc1", b"k" * 32, b"n" * 16), b"n" * 16),
+    ],
+    ids=["bad-nonce", "not-msgpack"],
+)
+async def test_encrypted_overlay_rejects_undecryptable_payload(
+    overlay_channel, overlay, nonce
+):
+    overlay_channel._setup_or_use_channel_keys = AsyncMock(
+        return_value=(None, None, b"k" * 32)
+    )
+    message = _overlay_message(overlay, setup=False, nonce=nonce)
+
+    with pytest.raises(FedbiomedNodeToNodeError, match="cannot decrypt payload"):
+        await overlay_channel.format_incoming_overlay(message)
 
 
 if __name__ == "__main__":  # pragma: no cover
