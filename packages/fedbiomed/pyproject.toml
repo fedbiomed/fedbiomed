@@ -131,8 +131,8 @@ researcher = [
 	"ipython",
 ]
 
-node-api = ["fedbiomed-node-api==6.5.0"]
-gui = ["fedbiomed-gui==6.5.0"]
+node-api = ["fedbiomed-node-api==6.5.1"]
+gui = ["fedbiomed-gui==6.5.1"]
 
 [tool.hatch.metadata]
 allow-direct-references = true

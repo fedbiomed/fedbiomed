@@ -1,7 +1,7 @@
 [supervisord]
 nodaemon=true
-logfile=/home/$FEDBIOMED_USER/log/supervisord.log
-pidfile=/home/$FEDBIOMED_USER/supervisor.pid
+logfile=/home/${FEDBIOMED_USER}/log/supervisord.log
+pidfile=/home/${FEDBIOMED_USER}/supervisor.pid
 
 [unix_http_server]
 file=/tmp/supervisor.sock
@@ -14,12 +14,12 @@ serverurl=unix:///tmp/supervisor.sock
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 [program:fedbiomed-api]
-command=/usr/local/bin/fedbiomed node -p /fbm-node gui start --host 0.0.0.0
+command=/usr/local/bin/fedbiomed node -p /fbm-node gui start --host ${FBM_GUI_HOST} --port 8484
 user=${FEDBIOMED_USER}
 autostart=true
 autorestart=unexpected
 stopasgroup=true
 killasgroup=true
 startretries=3
-stdout_logfile=/home/$FEDBIOMED_USER/log/fedbiomed-node-api.log
-stderr_logfile=/home/$FEDBIOMED_USER/log/fedbiomed-node-api.err
+stdout_logfile=/home/${FEDBIOMED_USER}/log/fedbiomed-node-api.log
+stderr_logfile=/home/${FEDBIOMED_USER}/log/fedbiomed-node-api.err

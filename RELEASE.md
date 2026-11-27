@@ -9,6 +9,36 @@ Release principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/
 back into `develop` (never the release or hotfix branch). This keeps `master` an ancestor of
 `develop`, so a release branch created from `develop` is never behind `master`.
 
+## Version files
+
+Every release and every hotfix updates **all** of these files to the new version
+(`X.Y.Z` below, without the `v` prefix unless shown). The packages pin each other
+to the exact version, so a single outdated file makes the build fail
+(`ResolutionImpossible` when installing the packages, e.g. in the Docker base image).
+
+| File | Field |
+| --- | --- |
+| `packages/fedbiomed/src/fedbiomed/__init__.py` | `__version__ = "vX.Y.Z"` |
+| `packages/fedbiomed/pyproject.toml` | optional dependencies `fedbiomed-node-api==X.Y.Z` and `fedbiomed-gui==X.Y.Z` |
+| `packages/node-api/pyproject.toml` | `version = "X.Y.Z"` and dependency `fedbiomed==X.Y.Z` |
+| `packages/node-api/src/fedbiomed_node_api/__init__.py` | `__version__ = "vX.Y.Z"` |
+| `packages/node-ui/pyproject.toml` | `version = "X.Y.Z"` and dependency `fedbiomed-node-api==X.Y.Z` |
+| `packages/node-ui/src/fedbiomed_gui/__init__.py` | `__version__ = "vX.Y.Z"` |
+| `CITATION.cff` | `version: vX.Y.Z` |
+
+If a package is added to `packages/`, add its version and pins to this table.
+`packages/node-ui/ui/package.json` has its own frontend version and is not part of it.
+
+On a branch created from an older `master` that predates `packages/`, only
+`fedbiomed/__init__.py` and `CITATION.cff` exist: update those.
+
+Check that no file was missed, with `OLD` the previous version:
+```bash
+export OLD=6.5.0
+grep -rnF --include=pyproject.toml --include=__init__.py --include=CITATION.cff \
+  "$OLD" packages CITATION.cff && echo "ERROR: $OLD still present" || echo "OK"
+```
+
 ## pre-release
 
 - it is recommended to use a fresh clone of the repository to avoid any side effect
@@ -41,8 +71,8 @@ git checkout -b release/$RELEASE_TAG
 
 - in the `release/$RELEASE_TAG` branch, do the release time updates:
   * `CHANGELOG.md`
-  * `fedbiomed/__init__.py` : change `__version__`
-  * `CITATION.cff` : change `version`
+  * every file of [Version files](#version-files): set the new version, then run
+    the check command of that section
 
 - in the `release` branch, commit the release time updates
 ```bash
@@ -115,7 +145,9 @@ git merge --no-ff origin/master -m "Merge master ($RELEASE_TAG) into develop"
 ```
 - if merge conflicts occur, solve them and commit
   * `CHANGELOG.md`: keep the release entry and any newer `develop` entries
-  * `fedbiomed/__init__.py`, `CITATION.cff`: keep the version from `master`
+  * [Version files](#version-files): keep the version from `master`
+- check that every [version file](#version-files) has the version of `master`,
+  with the check command of that section; fix and commit any file left behind
 - push the temporary branch
 ```bash
 git push origin merge/master-to-develop-$RELEASE_TAG
@@ -189,8 +221,8 @@ Hotfix principle: follow the [gitflow](https://www.atlassian.com/git/tutorials/c
 
 - in the `hotfix/$HOTFIX_NAME` branch, do the hotfix time updates:
   * `CHANGELOG.md`
-  * `fedbiomed/__init__.py` : change `__version__`
-  * `CITATION.cff` : change `version`
+  * every file of [Version files](#version-files) that exists on `master`: set
+    the new version, then run the check command of that section
 
 - in the `hotfix` branch, commit the hotfix time updates
 
@@ -270,7 +302,17 @@ A direct PR from `master` to `develop` can't be merged because of the
 
 - if merge conflicts occur, solve them and commit
   * `CHANGELOG.md`: keep both the hotfix entry and the `develop` entries
-  * `fedbiomed/__init__.py`, `CITATION.cff`: keep the version from `master`
+  * [Version files](#version-files): keep the version from `master`
+- set **every** [version file](#version-files) to the hotfix version, then run
+  the check command of that section, and commit. The merge alone is not enough
+  when `develop` has version files that `master` does not have (for example the
+  `packages/node-api` and `packages/node-ui` versions and pins): they keep the
+  old version without any conflict, and the packages can no longer be installed
+  together.
+
+  ```bash
+  git commit -am "Align package versions to $HOTFIX_TAG"
+  ```
 - push the temporary branch
 
   ```bash
@@ -301,7 +343,7 @@ git fetch origin
 git checkout release/$RELEASE_TAG
 git pull
 git merge --no-ff origin/master -m "Merge master ($HOTFIX_TAG) into release/$RELEASE_TAG"
-# conflicts in fedbiomed/__init__.py, CITATION.cff: keep the release version
+# conflicts in version files (see "Version files"): keep the release version
 # conflicts in CHANGELOG.md: keep both entries
 git push origin release/$RELEASE_TAG
 ```
