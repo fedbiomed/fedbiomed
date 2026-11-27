@@ -667,11 +667,7 @@ class ServerControl(CLIArgumentParser):
             "start", help="Launch the server (defaults on localhost:8484)"
         )
         add_server_start_arguments(start)
-        self.add_start_arguments(start)
         start.set_defaults(func=self.forward)
-
-    def add_start_arguments(self, parser: argparse.ArgumentParser) -> None:
-        """Add package-specific arguments to the start command."""
 
     def forward(self, args: argparse.Namespace):
         """Forward parsed arguments to the installed server package."""
@@ -700,16 +696,6 @@ class GUIControl(ServerControl):
     command = "gui"
     module = "fedbiomed_gui.cli"
     extra = "gui"
-
-    def add_start_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--recreate",
-            "-rc",
-            action="store_true",
-            required=False,
-            help="Rebuilds the user interface from its sources (`yarn install`, "
-            "`yarn build`) before starting the GUI",
-        )
 
 
 class NodeCLI(CommonCLI):

@@ -5,7 +5,7 @@
 groups = ["default", "dev", "docs", "test"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.1"
-content_hash = "sha256:806f7bcfc0999d879e60b35283bf05ec80132b49014628f460ae8ed02442c7e9"
+content_hash = "sha256:a3da616b159a206d61fddb942b99ed1e72deb523334610e08dd397a2a0d41709"
 
 [[metadata.targets]]
 requires_python = ">=3.11,<3.15"
@@ -794,7 +794,7 @@ files = [
 
 [[package]]
 name = "fedbiomed"
-version = "6.5.0"
+version = "6.5.1"
 requires_python = "<3.15,>=3.11"
 editable = true
 path = "./packages/fedbiomed"
@@ -833,20 +833,19 @@ dependencies = [
 
 [[package]]
 name = "fedbiomed-gui"
-version = "6.5.0"
+version = "6.5.1"
 requires_python = ">=3.11,<3.15"
 editable = true
 path = "./packages/node-ui"
 summary = "Fed-BioMed Node GUI launcher and frontend"
 groups = ["default"]
 dependencies = [
-    "fedbiomed-node-api==6.5.0",
-    "hatchling",
+    "fedbiomed-node-api==6.5.1",
 ]
 
 [[package]]
 name = "fedbiomed-node-api"
-version = "6.5.0"
+version = "6.5.1"
 requires_python = ">=3.11,<3.15"
 editable = true
 path = "./packages/node-api"
@@ -855,7 +854,7 @@ groups = ["default"]
 dependencies = [
     "Flask-JWT-Extended<4.5.0,>=4.4.4",
     "cachelib<0.11.0,>=0.10.2",
-    "fedbiomed==6.5.0",
+    "fedbiomed==6.5.1",
     "flask<24.0,>=2.3.1",
     "gunicorn~=23.0.0",
     "jsonschema~=4.18.0",
@@ -1133,25 +1132,6 @@ dependencies = [
 files = [
     {file = "gunicorn-23.0.0-py3-none-any.whl", hash = "sha256:ec400d38950de4dfd418cff8328b2c8faed0edb0d517d3394e457c317908ca4d"},
     {file = "gunicorn-23.0.0.tar.gz", hash = "sha256:f014447a0101dc57e294f6c18ca6b40227a4c90e9bdb586042628030cba004ec"},
-]
-
-[[package]]
-name = "hatchling"
-version = "1.33.0"
-requires_python = ">=3.10"
-summary = "Modern, extensible Python build backend"
-groups = ["default"]
-dependencies = [
-    "packaging>=24.2",
-    "pathspec>=0.10.1",
-    "pluggy>=1.0.0",
-    "tomli>=1.2.2; python_version < \"3.11\"",
-    "tomlkit>=0.11.1",
-    "trove-classifiers",
-]
-files = [
-    {file = "hatchling-1.33.0-py3-none-any.whl", hash = "sha256:415290b84f464d2884303fca8974d38e7b85579069fab02a15db0828fbb1446d"},
-    {file = "hatchling-1.33.0.tar.gz", hash = "sha256:4c422bd4d554fcff5de5b73e9596f85e41e9f97f7e553d8f7595ecb31a627bef"},
 ]
 
 [[package]]
@@ -2597,7 +2577,7 @@ name = "pathspec"
 version = "1.1.1"
 requires_python = ">=3.9"
 summary = "Utility library for gitignore style pattern matching of file paths."
-groups = ["default", "docs"]
+groups = ["docs"]
 files = [
     {file = "pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"},
     {file = "pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a"},
@@ -2714,7 +2694,7 @@ name = "pluggy"
 version = "1.7.0"
 requires_python = ">=3.10"
 summary = "plugin and hook calling mechanisms for python"
-groups = ["default", "test"]
+groups = ["test"]
 files = [
     {file = "pluggy-1.7.0-py3-none-any.whl", hash = "sha256:7dd7b0d8832ba3cb632c306926ded123429211b83641b35dc5c41ad2d34f9bec"},
     {file = "pluggy-1.7.0.tar.gz", hash = "sha256:d1eaa46ebb595891b860ab086b4d09c8588af65ebd4361b8e8f4bb8920b90ba8"},
@@ -3668,17 +3648,6 @@ files = [
 ]
 
 [[package]]
-name = "tomlkit"
-version = "0.15.3"
-requires_python = ">=3.9"
-summary = "Style preserving TOML library"
-groups = ["default"]
-files = [
-    {file = "tomlkit-0.15.3-py3-none-any.whl", hash = "sha256:a83ce6de3b648e68dd9b50aabadad749ba823eb58b1d026f3c0a283c4767a9c1"},
-    {file = "tomlkit-0.15.3.tar.gz", hash = "sha256:b3c3020ec1a4bd469d12e31fb4da938e7f6ba758cdbec3fd9047db63120eaf81"},
-]
-
-[[package]]
 name = "torch"
 version = "2.10.0"
 requires_python = ">=3.10"
@@ -3870,16 +3839,6 @@ files = [
     {file = "triton-3.6.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a17a5d5985f0ac494ed8a8e54568f092f7057ef60e1b0fa09d3fd1512064e803"},
     {file = "triton-3.6.0-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0b3a97e8ed304dfa9bd23bb41ca04cdf6b2e617d5e782a8653d616037a5d537d"},
     {file = "triton-3.6.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:46bd1c1af4b6704e554cad2eeb3b0a6513a980d470ccfa63189737340c7746a7"},
-]
-
-[[package]]
-name = "trove-classifiers"
-version = "2026.9.21.13"
-summary = "Canonical source for classifiers on PyPI (pypi.org)."
-groups = ["default"]
-files = [
-    {file = "trove_classifiers-2026.9.21.13-py3-none-any.whl", hash = "sha256:8b1ff4f9c191b1040b71c37f1e445ab99732911e3cd91de52838453a854d7a17"},
-    {file = "trove_classifiers-2026.9.21.13.tar.gz", hash = "sha256:0a9ebc8d4e2f3e8a22848c5258033035bec17a3012ac3fea16dbaa764489eb71"},
 ]
 
 [[package]]

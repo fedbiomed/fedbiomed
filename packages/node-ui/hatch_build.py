@@ -12,8 +12,8 @@ logger.setLevel(logging.DEBUG)
 logging.basicConfig(level=logging.DEBUG)
 
 
-def build_frontend(ui_dir: Path, force: bool = False) -> Path:
-    """Build frontend assets when missing or explicitly requested."""
+def build_frontend(ui_dir: Path) -> Path:
+    """Build frontend assets unless skipped and already built."""
     build_dir = ui_dir / "build"
     index_file = build_dir / "index.html"
     skip_build = os.environ.get("FBM_SKIP_FRONTEND_BUILD", "").lower() in {
@@ -22,8 +22,8 @@ def build_frontend(ui_dir: Path, force: bool = False) -> Path:
         "yes",
     }
 
-    if force or not index_file.is_file() or not skip_build:
-        if skip_build and not force:
+    if not index_file.is_file() or not skip_build:
+        if skip_build:
             logger.warning(
                 "Frontend build was skipped by configuration, "
                 "but assets are missing. Building frontend anyway."
@@ -34,8 +34,7 @@ def build_frontend(ui_dir: Path, force: bool = False) -> Path:
         yarn = shutil.which("yarn")
         if yarn is None:
             raise RuntimeError(
-                "Yarn is required: frontend assets are missing "
-                "or a frontend rebuild was requested."
+                "Yarn is required to build the GUI frontend; install NodeJS and yarn."
             )
 
         for attempt in range(3):

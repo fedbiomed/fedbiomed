@@ -181,10 +181,11 @@ in ``${FEDBIOMED_DIR}/packages/node-ui/ui/src`` it will get dynamically updated 
 Since Flask is already started in debug mode, you can do your development/update/changes for server side (Flask) in `${FEDBIOMED_DIR}/packages/node-ui/src/fedbiomed_gui/server`. React part (ui) on development mode will call API endpoint from `localhost:8484`, this is why first you should start Flask server first.
 
 After development/debugging is done, rebuild the React app to see the changes on the ``localhost:8484`` URL, which serves
-the built UI files. `--recreate` rebuilds it before starting the server:
+the built UI files, then restart the server:
 
 ```shell
-fedbiomed node gui start --recreate
+cd ${FEDBIOMED_DIR}/packages/node-ui/ui
+yarn install && yarn build
 ```
 
 ## Building the distributions
