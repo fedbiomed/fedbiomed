@@ -117,7 +117,7 @@ jobs:
     name: Publish Core
     needs: [release-info, package-compatibility]
     runs-on: ubuntu-latest
-    environment: production
+    environment: testpypi
     permissions:
       id-token: write
     env:
@@ -138,12 +138,13 @@ jobs:
         with:
           packages-dir: publish-dist/
           skip-existing: true
+          repository-url: https://test.pypi.org/legacy/
 
   publish-api:
     name: Publish Node API
     needs: [release-info, package-compatibility, publish-core]
     runs-on: ubuntu-latest
-    environment: production
+    environment: testpypi-api
     permissions:
       id-token: write
     env:
@@ -164,12 +165,13 @@ jobs:
         with:
           packages-dir: publish-dist/
           skip-existing: true
+          repository-url: https://test.pypi.org/legacy/
 
   publish-ui:
     name: Publish Node UI
     needs: [release-info, package-compatibility, publish-api]
     runs-on: ubuntu-latest
-    environment: production
+    environment: testpypi-gui
     permissions:
       id-token: write
     env:
@@ -190,19 +192,21 @@ jobs:
         with:
           packages-dir: publish-dist/
           skip-existing: true
+          repository-url: https://test.pypi.org/legacy/
 
   release:
     name: Create GitHub Release
     needs: [release-info, publish-core, publish-api, publish-ui]
     runs-on: ubuntu-latest
-    if: >-
-      ${{
-        always() &&
-        needs.release-info.result == 'success' &&
-        needs.publish-core.result == 'success' &&
-        needs.publish-api.result == 'success' &&
-        needs.publish-ui.result == 'success'
-      }}
+    if: ${{ false }}
+      # >-
+      # ${{
+      #   always() &&
+      #   needs.release-info.result == 'success' &&
+      #   needs.publish-core.result == 'success' &&
+      #   needs.publish-api.result == 'success' &&
+      #   needs.publish-ui.result == 'success'
+      # }}
     permissions:
       contents: write
     steps:
